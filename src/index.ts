@@ -13,6 +13,7 @@ interface NoteFeature {
 }
 
 interface NoteComment {
+	date: string
 	user?: string
 	action: 'opened' | 'closed' | 'reopened' | 'commented' | 'hidden'
 	text: string
@@ -122,6 +123,7 @@ function writeNotesTable($container: HTMLElement, notes: NoteFeature[]): void {
 		const $row=$table.insertRow()
 		$row.append(
 			makeHeaderCell('id'),
+			makeHeaderCell('date'),
 			makeHeaderCell('user'),
 			makeHeaderCell(''),
 			makeHeaderCell('comment')
@@ -140,6 +142,24 @@ function writeNotesTable($container: HTMLElement, notes: NoteFeature[]): void {
 					$a.textContent=`${note.properties.id}`
 					$cell.append($a)
 				}
+			}{
+				const $cell=$row.insertCell()
+				// "2022-02-09 22:46:20 UTC"
+				const match=comment.date.match(/^(\d\d\d\d-\d\d-\d\d)\s+(\d\d:\d\d:\d\d)/)
+				if (match) {
+					const [,date,time]=match
+					const $dateTime=document.createElement('time')
+					$dateTime.textContent=date
+					$dateTime.dateTime=`${date} ${time}Z`
+					$dateTime.title=comment.date
+					$cell.append($dateTime)
+				} else {
+					const $unknownDateTime=document.createElement('span')
+					$unknownDateTime.textContent=`?`
+					$unknownDateTime.title=comment.date
+					$cell.append($unknownDateTime)
+				}
+			}{
 			}{
 				const $cell=$row.insertCell()
 				$cell.classList.add('note-user')
