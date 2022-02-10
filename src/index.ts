@@ -14,6 +14,7 @@ interface NoteFeature {
 
 interface NoteComment {
 	user?: string
+	action: 'opened' | 'closed' | 'reopened' | 'commented' | 'hidden'
 	text: string
 }
 
@@ -122,6 +123,7 @@ function writeNotesTable($container: HTMLElement, notes: NoteFeature[]): void {
 		$row.append(
 			makeHeaderCell('id'),
 			makeHeaderCell('user'),
+			makeHeaderCell(''),
 			makeHeaderCell('comment')
 		)
 	}
@@ -143,6 +145,22 @@ function writeNotesTable($container: HTMLElement, notes: NoteFeature[]): void {
 				$cell.classList.add('note-user')
 				if (comment.user!=null) {
 					$cell.append(makeUserLink(comment.user))
+				}
+			}{
+				const $cell=$row.insertCell()
+				$cell.classList.add('note-action')
+				const $icon=document.createElement('span')
+				$icon.title=comment.action
+				$icon.classList.add('icon',getActionClass(comment))
+				$cell.append($icon)
+				function getActionClass(comment: NoteComment): string {
+					if (comment.action=='opened' || comment.action=='reopened') {
+						return 'open'
+					} else if (comment.action=='closed' || comment.action=='hidden') {
+						return 'close'
+					} else {
+						return 'other'
+					}
 				}
 			}{
 				const $cell=$row.insertCell()

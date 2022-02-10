@@ -8,6 +8,22 @@ td.note-user:empty::before {
 	content: "anonymous";
 	color: gray;
 }
+td.note-action .icon {
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	background: url("icon.svg");
+}
+td.note-action .icon.open {
+	background: url("icon-open.svg");
+}
+td.note-action .icon.close {
+	background: url("icon-close.svg");
+}
 td.note-comment {
 	white-space: pre-wrap;
+}
+td.note-comment:empty::before {
+	content: "no comment";
+	color: gray;
 }
