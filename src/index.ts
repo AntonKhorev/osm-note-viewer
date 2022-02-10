@@ -13,11 +13,14 @@ interface NoteFeatureCollection {
 
 function main(): void {
 	const $fetchNotesButton=document.getElementById('fetch-notes')
-	if (!$fetchNotesButton) return
+	if (!($fetchNotesButton instanceof HTMLButtonElement)) return
 	const $notesContainer=document.getElementById('notes-container')
-	if (!$notesContainer) return
+	if (!($notesContainer instanceof HTMLElement)) return
+	const $usernameInput=document.getElementById('username')
+	if (!($usernameInput instanceof HTMLInputElement)) return
 	$fetchNotesButton.addEventListener('click',async()=>{
-		const url=`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=20&display_name=Anton%20Khorev`
+		const username=$usernameInput.value
+		const url=`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=20&display_name=${encodeURIComponent(username)}`
 		const response=await fetch(url)
 		const data=await response.json()
 		if (!isNoteFeatureCollection(data)) return
