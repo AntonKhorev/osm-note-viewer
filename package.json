@@ -9,6 +9,10 @@
   "author": "Anton Khorev",
   "license": "MIT",
   "devDependencies": {
-    "fs-extra": "^10.0.0"
+    "@rollup/plugin-typescript": "^8.3.0",
+    "fs-extra": "^10.0.0",
+    "rollup": "^2.67.1",
+    "tslib": "^2.3.1",
+    "typescript": "^4.5.5"
   }
 }
