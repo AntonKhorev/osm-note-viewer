@@ -28,11 +28,17 @@ function main(): void {
 		writeLoading($notesContainer,username)
 		const url=`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=20&display_name=${encodeURIComponent(username)}`
 		const response=await fetch(url)
-		const data=await response.json()
-		if (!isNoteFeatureCollection(data)) return
-		$notesContainer.innerHTML=``
-		writeExtras($notesContainer,username)
-		writeNotesTable($notesContainer,data.features)
+		if (!response.ok) {
+			const responseText=await response.text()
+			$notesContainer.innerHTML=``
+			writeError($notesContainer,username,responseText)
+		} else {
+			const data=await response.json()
+			if (!isNoteFeatureCollection(data)) return
+			$notesContainer.innerHTML=``
+			writeExtras($notesContainer,username)
+			writeNotesTable($notesContainer,data.features)
+		}
 		$submitButton.disabled=false
 	})
 }
@@ -48,6 +54,17 @@ function writeLoading($container: HTMLElement, username: string): void {
 	$userLink.textContent=username
 	$message.append(`Loading notes of user `,$userLink,` ...`)
 	$container.append($message)
+}
+
+function writeError($container: HTMLElement, username: string, responseText: string): void {
+	const $message=document.createElement('div')
+	const $userLink=document.createElement('a')
+	$userLink.href=`https://www.openstreetmap.org/user/${encodeURIComponent(username)}`
+	$userLink.textContent=username
+	$message.append(`Got the following error while trying to load notes of user `,$userLink,` :`)
+	const $response=document.createElement('pre')
+	$response.textContent=responseText
+	$container.append($message,$response)
 }
 
 function writeExtras($container: HTMLElement, username: string): void {
