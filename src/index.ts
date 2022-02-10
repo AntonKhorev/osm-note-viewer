@@ -13,6 +13,7 @@ interface NoteFeature {
 }
 
 interface NoteComment {
+	user?: string
 	text: string
 }
 
@@ -70,10 +71,7 @@ function writeMessage($container: HTMLElement, ...items: Array<string|[string]>)
 	for (const item of items) {
 		if (Array.isArray(item)) {
 			const [username]=item
-			const $userLink=document.createElement('a')
-			$userLink.href=`https://www.openstreetmap.org/user/${encodeURIComponent(username)}`
-			$userLink.textContent=username
-			$message.append($userLink)
+			$message.append(makeUserLink(username))
 		} else {
 			$message.append(item)
 		}
@@ -90,15 +88,29 @@ function writeErrorMessage($container: HTMLElement, username: string, responseKi
 
 function writeExtras($container: HTMLElement, username: string): void {
 	const $details=document.createElement('details')
-	const $summary=document.createElement('summary')
-	$summary.textContent=`Extra links`
-	const $userLink=document.createElement('a')
-	$userLink.href=`https://www.openstreetmap.org/user/${encodeURIComponent(username)}`
-	$userLink.textContent=`this user`
-	const $jsonLink=document.createElement('a')
-	$jsonLink.href=`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=10000&display_name=${encodeURIComponent(username)}`
-	$jsonLink.textContent=`json`
-	$details.append($summary,`Fetch up to 10000 notes of `,$userLink,` (may be slow): `,$jsonLink)
+	{
+		const $summary=document.createElement('summary')
+		$summary.textContent=`Extra links`
+		$details.append($summary)
+	}{
+		const $userLinks=document.createElement('div')
+		$userLinks.append(
+			`Fetch up to 10000 notes of `,
+			makeLink(`this user`,`https://www.openstreetmap.org/user/${encodeURIComponent(username)}`),
+			` (may be slow): `,
+			makeLink(`json`,`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=10000&display_name=${encodeURIComponent(username)}`)
+		)
+		$details.append($userLinks)
+	}{
+		const $docLinks=document.createElement('div')
+		$docLinks.append(
+			`Notes documentation: `,
+			makeLink(`wiki`,`https://wiki.openstreetmap.org/wiki/Notes`),
+			` `,
+			makeLink(`api`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API`)
+		)
+		$details.append($docLinks)
+	}
 	$container.append($details)
 }
 
@@ -109,21 +121,34 @@ function writeNotesTable($container: HTMLElement, notes: NoteFeature[]): void {
 		const $row=$table.insertRow()
 		$row.append(
 			makeHeaderCell('id'),
+			makeHeaderCell('user'),
 			makeHeaderCell('comment')
 		)
 	}
 	for (const note of notes) {
-		const $row=$table.insertRow()
-		const $idCell=$row.insertCell()
-		const $a=document.createElement('a')
-		$a.href=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.properties.id)
-		$a.textContent=`${note.properties.id}`
-		$idCell.append($a)
-		const $commentCell=$row.insertCell()
-		$commentCell.classList.add('note-comment')
-		if (note.properties.comments.length>0) {
-			const firstCommentText=note.properties.comments[0].text
-			$commentCell.textContent=firstCommentText
+		let firstCommentRow=true
+		for (const comment of note.properties.comments) {
+			const $row=$table.insertRow()
+			{
+				const $cell=$row.insertCell()
+				if (firstCommentRow) {
+					firstCommentRow=false
+					const $a=document.createElement('a')
+					$a.href=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.properties.id)
+					$a.textContent=`${note.properties.id}`
+					$cell.append($a)
+				}
+			}{
+				const $cell=$row.insertCell()
+				$cell.classList.add('note-user')
+				if (comment.user!=null) {
+					$cell.append(makeUserLink(comment.user))
+				}
+			}{
+				const $cell=$row.insertCell()
+				$cell.classList.add('note-comment')
+				$cell.textContent=comment.text
+			}
 		}
 	}
 	function makeHeaderCell(text: string): HTMLTableCellElement {
@@ -131,4 +156,15 @@ function writeNotesTable($container: HTMLElement, notes: NoteFeature[]): void {
 		$cell.textContent=text
 		return $cell
 	}
+}
+
+function makeUserLink(username: string): HTMLAnchorElement {
+	return makeLink(username,`https://www.openstreetmap.org/user/${encodeURIComponent(username)}`)
+}
+
+function makeLink(text: string, href: string): HTMLAnchorElement {
+	const $link=document.createElement('a')
+	$link.href=href
+	$link.textContent=text
+	return $link
 }

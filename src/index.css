@@ -1,6 +1,13 @@
 td {
 	vertical-align: top;
 }
+td.note-user {
+	white-space: nowrap;
+}
+td.note-user:empty::before {
+	content: "anonymous";
+	color: gray;
+}
 td.note-comment {
 	white-space: pre-wrap;
 }
