@@ -25,6 +25,8 @@ function main(): void {
 		const response=await fetch(url)
 		const data=await response.json()
 		if (!isNoteFeatureCollection(data)) return
+		$notesContainer.innerHTML=``
+		writeExtras($notesContainer,username)
 		writeNotesTable($notesContainer,data.features)
 	})
 }
@@ -33,8 +35,18 @@ function isNoteFeatureCollection(data: any): data is NoteFeatureCollection {
 	return data.type=="FeatureCollection"
 }
 
+function writeExtras($container: HTMLElement, username: string): void {
+	const $details=document.createElement('details')
+	const $summary=document.createElement('summary')
+	$summary.textContent=`Extra links`
+	const $jsonLink=document.createElement('a')
+	$jsonLink.href=`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=10000&display_name=${encodeURIComponent(username)}`
+	$jsonLink.textContent=`json`
+	$details.append($summary,`Fetch up to 10000 notes of this user (may be slow): `,$jsonLink)
+	$container.append($details)
+}
+
 function writeNotesTable($container: HTMLElement, notes: NoteFeature[]): void {
-	$container.innerHTML=``
 	const $table=document.createElement('table')
 	$container.append($table)
 	for (const note of notes) {
