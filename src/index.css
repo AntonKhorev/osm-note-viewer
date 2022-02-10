@@ -1,0 +1,6 @@
+td {
+	vertical-align: top;
+}
+td.note-comment {
+	white-space: pre-wrap;
+}

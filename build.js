@@ -5,6 +5,7 @@ import typescript from '@rollup/plugin-typescript'
 // copy files
 await fs.remove('dist')
 await fs.copy('src/index.html','dist/index.html')
+await fs.copy('src/index.css','dist/index.css')
 
 // compile and bundle scripts
 const bundle=await rollup({

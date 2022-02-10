@@ -1,14 +1,19 @@
 main()
 
-interface NoteFeature {
-	properties: {
-		id: number
-	}
-}
-
 interface NoteFeatureCollection {
 	type: "FeatureCollection"
 	features: NoteFeature[]
+}
+
+interface NoteFeature {
+	properties: {
+		id: number
+		comments: NoteComment[]
+	}
+}
+
+interface NoteComment {
+	text: string
 }
 
 function main(): void {
@@ -100,12 +105,30 @@ function writeExtras($container: HTMLElement, username: string): void {
 function writeNotesTable($container: HTMLElement, notes: NoteFeature[]): void {
 	const $table=document.createElement('table')
 	$container.append($table)
+	{
+		const $row=$table.insertRow()
+		$row.append(
+			makeHeaderCell('id'),
+			makeHeaderCell('comment')
+		)
+	}
 	for (const note of notes) {
 		const $row=$table.insertRow()
-		const $cell=$row.insertCell()
+		const $idCell=$row.insertCell()
 		const $a=document.createElement('a')
 		$a.href=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.properties.id)
 		$a.textContent=`${note.properties.id}`
-		$cell.append($a)
+		$idCell.append($a)
+		const $commentCell=$row.insertCell()
+		$commentCell.classList.add('note-comment')
+		if (note.properties.comments.length>0) {
+			const firstCommentText=note.properties.comments[0].text
+			$commentCell.textContent=firstCommentText
+		}
+	}
+	function makeHeaderCell(text: string): HTMLTableCellElement {
+		const $cell=document.createElement('th')
+		$cell.textContent=text
+		return $cell
 	}
 }
