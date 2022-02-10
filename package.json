@@ -1,0 +1,14 @@
+{
+  "name": "osm-note-viewer",
+  "version": "0.0.0",
+  "description": "View OSM notes of an user",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Anton Khorev",
+  "license": "MIT",
+  "devDependencies": {
+    "fs-extra": "^10.0.0"
+  }
+}
