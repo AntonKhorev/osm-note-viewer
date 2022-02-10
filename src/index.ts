@@ -25,27 +25,31 @@ function main(): void {
 		$submitButton.disabled=true
 		const username=$usernameInput.value
 		$notesContainer.innerHTML=``
-		writeLoading($notesContainer,username)
+		writeMessage($notesContainer,`Loading notes of user `,[username],` ...`)
 		const url=`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=20&display_name=${encodeURIComponent(username)}`
 		try {
 			const response=await fetch(url)
 			if (!response.ok) {
 				const responseText=await response.text()
 				$notesContainer.innerHTML=``
-				writeError($notesContainer,username,`received the following error response`,responseText)
+				writeErrorMessage($notesContainer,username,`received the following error response`,responseText)
 			} else {
 				const data=await response.json()
 				if (!isNoteFeatureCollection(data)) return
 				$notesContainer.innerHTML=``
 				writeExtras($notesContainer,username)
-				writeNotesTable($notesContainer,data.features)
+				if (data.features.length>0) {
+					writeNotesTable($notesContainer,data.features)
+				} else {
+					writeMessage($notesContainer,`User `,[username],` has no notes`)
+				}
 			}
 		} catch (ex) {
 			$notesContainer.innerHTML=``
 			if (ex instanceof TypeError) {
-				writeError($notesContainer,username,`failed with the following error before receiving a response`,ex.message)
+				writeErrorMessage($notesContainer,username,`failed with the following error before receiving a response`,ex.message)
 			} else {
-				writeError($notesContainer,username,`failed for unknown reason`,`${ex}`)
+				writeErrorMessage($notesContainer,username,`failed for unknown reason`,`${ex}`)
 			}
 		}
 		$submitButton.disabled=false
@@ -56,24 +60,27 @@ function isNoteFeatureCollection(data: any): data is NoteFeatureCollection {
 	return data.type=="FeatureCollection"
 }
 
-function writeLoading($container: HTMLElement, username: string): void {
+function writeMessage($container: HTMLElement, ...items: Array<string|[string]>): void {
 	const $message=document.createElement('div')
-	const $userLink=document.createElement('a')
-	$userLink.href=`https://www.openstreetmap.org/user/${encodeURIComponent(username)}`
-	$userLink.textContent=username
-	$message.append(`Loading notes of user `,$userLink,` ...`)
+	for (const item of items) {
+		if (Array.isArray(item)) {
+			const [username]=item
+			const $userLink=document.createElement('a')
+			$userLink.href=`https://www.openstreetmap.org/user/${encodeURIComponent(username)}`
+			$userLink.textContent=username
+			$message.append($userLink)
+		} else {
+			$message.append(item)
+		}
+	}
 	$container.append($message)
 }
 
-function writeError($container: HTMLElement, username: string, responseKindText: string, errorText: string): void {
-	const $message=document.createElement('div')
-	const $userLink=document.createElement('a')
-	$userLink.href=`https://www.openstreetmap.org/user/${encodeURIComponent(username)}`
-	$userLink.textContent=username
-	$message.append(`Loading notes of user `,$userLink,` ${responseKindText}:`)
+function writeErrorMessage($container: HTMLElement, username: string, responseKindText: string, errorText: string): void {
+	writeMessage($container,`Loading notes of user `,[username],` ${responseKindText}:`)
 	const $error=document.createElement('pre')
 	$error.textContent=errorText
-	$container.append($message,$error)
+	$container.append($error)
 }
 
 function writeExtras($container: HTMLElement, username: string): void {
