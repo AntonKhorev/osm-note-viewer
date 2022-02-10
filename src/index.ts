@@ -18,9 +18,14 @@ function main(): void {
 	if (!($notesContainer instanceof HTMLElement)) return
 	const $usernameInput=document.getElementById('username')
 	if (!($usernameInput instanceof HTMLInputElement)) return
+	const $submitButton=document.getElementById('fetch-submit')
+	if (!($submitButton instanceof HTMLButtonElement)) return
 	$fetchNotesForm.addEventListener('submit',async(ev)=>{
 		ev.preventDefault()
+		$submitButton.disabled=true
 		const username=$usernameInput.value
+		$notesContainer.innerHTML=``
+		writeLoading($notesContainer,username)
 		const url=`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=20&display_name=${encodeURIComponent(username)}`
 		const response=await fetch(url)
 		const data=await response.json()
@@ -28,11 +33,21 @@ function main(): void {
 		$notesContainer.innerHTML=``
 		writeExtras($notesContainer,username)
 		writeNotesTable($notesContainer,data.features)
+		$submitButton.disabled=false
 	})
 }
 
 function isNoteFeatureCollection(data: any): data is NoteFeatureCollection {
 	return data.type=="FeatureCollection"
+}
+
+function writeLoading($container: HTMLElement, username: string): void {
+	const $message=document.createElement('div')
+	const $userLink=document.createElement('a')
+	$userLink.href=`https://www.openstreetmap.org/user/${encodeURIComponent(username)}`
+	$userLink.textContent=username
+	$message.append(`Loading notes of user `,$userLink,` ...`)
+	$container.append($message)
 }
 
 function writeExtras($container: HTMLElement, username: string): void {
