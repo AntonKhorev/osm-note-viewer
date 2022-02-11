@@ -131,8 +131,11 @@ function writeExtras($container: HTMLElement, username: string): void {
 		$links.append(
 			`Notes documentation: `,
 			makeLink(`wiki`,`https://wiki.openstreetmap.org/wiki/Notes`),
-			` `,
-			makeLink(`api`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API`)
+			`, `,
+			makeLink(`api`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API`),
+			`, `,
+			makeLink(`GeoJSON`,`https://wiki.openstreetmap.org/wiki/GeoJSON`),
+			` (output format used for notes/search.json api calls)`
 		)
 		$details.append($links)
 	}{
