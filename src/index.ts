@@ -55,16 +55,13 @@ function main(): void {
 				const data=await response.json()
 				if (!isNoteFeatureCollection(data)) return
 				$notesContainer.innerHTML=``
+				mapNoteLayer.clearLayers()
 				writeExtras($notesContainer,username)
 				if (data.features.length>0) {
-					writeNotesTable($notesContainer,data.features)
+					writeNotesTableAndMap($notesContainer,mapNoteLayer,data.features)
+					map.fitBounds(mapNoteLayer.getBounds())
 				} else {
 					writeMessage($notesContainer,`User `,[username],` has no notes`)
-				}
-				mapNoteLayer.clearLayers()
-				if (data.features.length>0) {
-					addNotesToMapLayer(mapNoteLayer,data)
-					map.fitBounds(mapNoteLayer.getBounds())
 				}
 			}
 		} catch (ex) {
@@ -160,7 +157,7 @@ function writeExtras($container: HTMLElement, username: string): void {
 	$container.append($details)
 }
 
-function writeNotesTable($container: HTMLElement, notes: NoteFeature[]): void {
+function writeNotesTableAndMap($container: HTMLElement, layer: L.FeatureGroup, notes: NoteFeature[]): void {
 	const $table=document.createElement('table')
 	$container.append($table)
 	{
@@ -174,17 +171,30 @@ function writeNotesTable($container: HTMLElement, notes: NoteFeature[]): void {
 		)
 	}
 	for (const note of notes) {
+		const marker=L.marker([note.geometry.coordinates[1],note.geometry.coordinates[0]],{
+			alt: `note`,
+			opacity: 0.5
+		}).addTo(layer)
+		let $row=$table.insertRow()
+		{
+			const $cell=$row.insertCell()
+			$cell.dataset.layerId=String(layer.getLayerId(marker))
+			const nComments=note.properties.comments.length
+			if (nComments>1) $cell.rowSpan=nComments
+			const $a=document.createElement('a')
+			$a.href=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.properties.id)
+			$a.textContent=`${note.properties.id}`
+			$cell.append($a)
+			$cell.addEventListener('mouseover',noteCellMouseoverListener)
+			$cell.addEventListener('mouseout' ,noteCellMouseoutListener)
+		}
 		let firstCommentRow=true
 		for (const comment of note.properties.comments) {
-			const $row=$table.insertRow()
 			{
-				const $cell=$row.insertCell()
 				if (firstCommentRow) {
 					firstCommentRow=false
-					const $a=document.createElement('a')
-					$a.href=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.properties.id)
-					$a.textContent=`${note.properties.id}`
-					$cell.append($a)
+				} else {
+					$row=$table.insertRow()
 				}
 			}{
 				const $cell=$row.insertCell()
@@ -238,6 +248,18 @@ function writeNotesTable($container: HTMLElement, notes: NoteFeature[]): void {
 		$cell.textContent=text
 		return $cell
 	}
+	function noteCellMouseoverListener(this: HTMLTableCellElement): void {
+		const layerId=Number(this.dataset.layerId)
+		const marker=layer.getLayer(layerId)
+		if (!(marker instanceof L.Marker)) return
+		marker.setOpacity(1)
+	}
+	function noteCellMouseoutListener(this: HTMLTableCellElement): void {
+		const layerId=Number(this.dataset.layerId)
+		const marker=layer.getLayer(layerId)
+		if (!(marker instanceof L.Marker)) return
+		marker.setOpacity(0.5)
+	}
 }
 
 function installMap($container: HTMLElement): L.Map {
@@ -245,10 +267,6 @@ function installMap($container: HTMLElement): L.Map {
 		'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
 		{attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>"}
 	)).fitWorld()
-}
-
-function addNotesToMapLayer(layer: L.FeatureGroup<any>, noteCollection: NoteFeatureCollection): void {
-	L.geoJSON(noteCollection).addTo(layer)
 }
 
 function makeUserLink(username: string): HTMLAnchorElement {
