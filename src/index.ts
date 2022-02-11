@@ -25,7 +25,6 @@ interface NoteComment {
 }
 
 function main(): void {
-	installFlipPanesHandler()
 	const $fetchNotesForm=document.getElementById('fetch-notes')
 	if (!($fetchNotesForm instanceof HTMLFormElement)) return
 	const $notesContainer=document.getElementById('notes-container')
@@ -38,6 +37,7 @@ function main(): void {
 	if (!($submitButton instanceof HTMLButtonElement)) return
 	const map=installMap($mapContainer)
 	const mapNoteLayer=L.featureGroup().addTo(map)
+	installFlipPanesHandler(map)
 	$fetchNotesForm.addEventListener('submit',async(ev)=>{
 		ev.preventDefault()
 		$submitButton.disabled=true
@@ -76,11 +76,12 @@ function main(): void {
 	})
 }
 
-function installFlipPanesHandler() {
+function installFlipPanesHandler(map: L.Map) {
 	const $button=document.getElementById('flip-panes')
 	if (!($button instanceof HTMLButtonElement)) return
 	$button.addEventListener('click',()=>{
 		document.body.classList.toggle('flipped')
+		map.invalidateSize()
 	})
 }
 
