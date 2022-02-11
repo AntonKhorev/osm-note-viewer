@@ -8,6 +8,9 @@ interface NoteFeatureCollection {
 }
 
 interface NoteFeature {
+	geometry: {
+		coordinates: [lon: number, lat: number]
+	}
 	properties: {
 		id: number
 		comments: NoteComment[]
@@ -34,6 +37,7 @@ function main(): void {
 	const $submitButton=document.getElementById('fetch-submit')
 	if (!($submitButton instanceof HTMLButtonElement)) return
 	const map=installMap($mapContainer)
+	const mapNoteLayer=L.featureGroup().addTo(map)
 	$fetchNotesForm.addEventListener('submit',async(ev)=>{
 		ev.preventDefault()
 		$submitButton.disabled=true
@@ -56,6 +60,11 @@ function main(): void {
 					writeNotesTable($notesContainer,data.features)
 				} else {
 					writeMessage($notesContainer,`User `,[username],` has no notes`)
+				}
+				mapNoteLayer.clearLayers()
+				if (data.features.length>0) {
+					addNotesToMapLayer(mapNoteLayer,data)
+					map.fitBounds(mapNoteLayer.getBounds())
 				}
 			}
 		} catch (ex) {
@@ -233,6 +242,10 @@ function installMap($container: HTMLElement): L.Map {
 		'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
 		{attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>"}
 	)).fitWorld()
+}
+
+function addNotesToMapLayer(layer: L.FeatureGroup<any>, noteCollection: NoteFeatureCollection): void {
+	L.geoJSON(noteCollection).addTo(layer)
 }
 
 function makeUserLink(username: string): HTMLAnchorElement {
