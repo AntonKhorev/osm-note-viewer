@@ -1,29 +1,49 @@
-td {
+#text-pane {
+	position: fixed;
+	height: 50%;
+	width: 100%;
+	top: 0;
+	left: 0;
+	overflow-y: scroll;
+}
+#map-container {
+	position: fixed;
+	height: 50%;
+	width: 100%;
+	bottom: 0;
+	right: 0;
+}
+body.flipped #map-container,
+body.flipped #text-pane {
+	height: 100%;
+	width: 50%;
+}
+#notes-container td {
 	vertical-align: top;
 }
-td.note-user {
+#notes-container td.note-user {
 	white-space: nowrap;
 }
-td.note-user:empty::before {
+#notes-container td.note-user:empty::before {
 	content: "anonymous";
 	color: gray;
 }
-td.note-action .icon {
+#notes-container td.note-action .icon {
 	display: inline-block;
 	width: 16px;
 	height: 16px;
 	background: url("icon.svg");
 }
-td.note-action .icon.open {
+#notes-container td.note-action .icon.open {
 	background: url("icon-open.svg");
 }
-td.note-action .icon.close {
+#notes-container td.note-action .icon.close {
 	background: url("icon-close.svg");
 }
-td.note-comment {
+#notes-container td.note-comment {
 	white-space: pre-wrap;
 }
-td.note-comment:empty::before {
+#notes-container td.note-comment:empty::before {
 	content: "no comment";
 	color: gray;
 }

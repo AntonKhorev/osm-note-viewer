@@ -3,13 +3,20 @@
 <head>
 <meta charset=utf-8>
 <link rel=stylesheet href=index.css>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
 </head>
 <body>
+<div id=text-pane>
+<div><button id=flip-panes>Flip panes</button></div>
 <form id=fetch-notes>
 <div><label>OSM username: <input type=text id=username></label></div>
 <div><button type=submit id=fetch-submit>Fetch notes</button></div>
 </form>
 <div id=notes-container></div>
+</div>
+<div id=map-container>
+</div>
 <script src=index.js></script>
 </body>
 </html>

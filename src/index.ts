@@ -1,3 +1,5 @@
+/// <reference path="../node_modules/@types/leaflet/index.d.ts" />
+
 main()
 
 interface NoteFeatureCollection {
@@ -20,14 +22,18 @@ interface NoteComment {
 }
 
 function main(): void {
+	installFlipPanesHandler()
 	const $fetchNotesForm=document.getElementById('fetch-notes')
 	if (!($fetchNotesForm instanceof HTMLFormElement)) return
 	const $notesContainer=document.getElementById('notes-container')
 	if (!($notesContainer instanceof HTMLElement)) return
+	const $mapContainer=document.getElementById('map-container')
+	if (!($mapContainer instanceof HTMLElement)) return
 	const $usernameInput=document.getElementById('username')
 	if (!($usernameInput instanceof HTMLInputElement)) return
 	const $submitButton=document.getElementById('fetch-submit')
 	if (!($submitButton instanceof HTMLButtonElement)) return
+	const map=installMap($mapContainer)
 	$fetchNotesForm.addEventListener('submit',async(ev)=>{
 		ev.preventDefault()
 		$submitButton.disabled=true
@@ -61,6 +67,14 @@ function main(): void {
 			}
 		}
 		$submitButton.disabled=false
+	})
+}
+
+function installFlipPanesHandler() {
+	const $button=document.getElementById('flip-panes')
+	if (!($button instanceof HTMLButtonElement)) return
+	$button.addEventListener('click',()=>{
+		document.body.classList.toggle('flipped')
 	})
 }
 
@@ -212,6 +226,13 @@ function writeNotesTable($container: HTMLElement, notes: NoteFeature[]): void {
 		$cell.textContent=text
 		return $cell
 	}
+}
+
+function installMap($container: HTMLElement): L.Map {
+	return L.map($container).addLayer(L.tileLayer(
+		'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+		{attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>"}
+	)).fitWorld()
 }
 
 function makeUserLink(username: string): HTMLAnchorElement {
