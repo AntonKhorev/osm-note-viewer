@@ -25,26 +25,64 @@ interface NoteComment {
 }
 
 function main(): void {
-	const $fetchNotesForm=document.getElementById('fetch-notes')
-	if (!($fetchNotesForm instanceof HTMLFormElement)) return
+	const $controlsContainer=document.getElementById('controls-container')
+	if (!($controlsContainer instanceof HTMLElement)) return
 	const $notesContainer=document.getElementById('notes-container')
 	if (!($notesContainer instanceof HTMLElement)) return
 	const $mapContainer=document.getElementById('map-container')
 	if (!($mapContainer instanceof HTMLElement)) return
-	const $usernameInput=document.getElementById('username')
-	if (!($usernameInput instanceof HTMLInputElement)) return
-	const $submitButton=document.getElementById('fetch-submit')
-	if (!($submitButton instanceof HTMLButtonElement)) return
 	const map=installMap($mapContainer)
 	const mapNoteLayer=L.featureGroup().addTo(map)
-	installFlipPanesHandler(map)
-	$fetchNotesForm.addEventListener('submit',async(ev)=>{
+	writeFlipPanesButton($controlsContainer,map)
+	writeFetchForm($controlsContainer,$notesContainer,map,mapNoteLayer)
+}
+
+function writeFlipPanesButton($container: HTMLElement, map: L.Map): void {
+	const $div=document.createElement('div')
+	const $button=document.createElement('button')
+	$button.textContent=`Flip panes`
+	$button.addEventListener('click',()=>{
+		document.body.classList.toggle('flipped')
+		map.invalidateSize()
+	})
+	$div.append($button)
+	$container.append($div)
+}
+
+function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, map: L.Map, mapNoteLayer: L.FeatureGroup): void {
+	const $form=document.createElement('form')
+	const $userInput=document.createElement('input')
+	const $fetchButton=document.createElement('button')
+	const $fetchAllButton=document.createElement('button')
+	{
+		$userInput.type='text'
+		$userInput.name='user'
+		const $div=document.createElement('div')
+		const $label=document.createElement('label')
+		$label.append(`OSM username: `,$userInput)
+		$div.append($label)
+		$form.append($div)
+	}{
+		$fetchButton.textContent=`Fetch notes`
+		$fetchButton.type='submit'
+		$fetchAllButton.textContent=`Fetch all notes`
+		$fetchAllButton.type='submit'
+		const $div=document.createElement('div')
+		$div.append($fetchButton,` `,$fetchAllButton)
+		$form.append($div)
+	}
+	$form.addEventListener('submit',async(ev)=>{
 		ev.preventDefault()
-		$submitButton.disabled=true
-		const username=$usernameInput.value
+		let limit=20
+		if (ev.submitter===$fetchAllButton) {
+			limit=10000
+		}
+		$fetchButton.disabled=true
+		$fetchAllButton.disabled=true
+		const username=$userInput.value
 		$notesContainer.innerHTML=``
 		writeMessage($notesContainer,`Loading notes of user `,[username],` ...`)
-		const url=`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=20&display_name=${encodeURIComponent(username)}`
+		const url=`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=${encodeURIComponent(limit)}&display_name=${encodeURIComponent(username)}`
 		try {
 			const response=await fetch(url)
 			if (!response.ok) {
@@ -72,17 +110,10 @@ function main(): void {
 				writeErrorMessage($notesContainer,username,`failed for unknown reason`,`${ex}`)
 			}
 		}
-		$submitButton.disabled=false
+		$fetchAllButton.disabled=false
+		$fetchButton.disabled=false
 	})
-}
-
-function installFlipPanesHandler(map: L.Map) {
-	const $button=document.getElementById('flip-panes')
-	if (!($button instanceof HTMLButtonElement)) return
-	$button.addEventListener('click',()=>{
-		document.body.classList.toggle('flipped')
-		map.invalidateSize()
-	})
+	$container.append($form)
 }
 
 function isNoteFeatureCollection(data: any): data is NoteFeatureCollection {
