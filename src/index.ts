@@ -242,7 +242,7 @@ function writeNotesTable($container: HTMLElement, notes: NoteFeature[]): void {
 
 function installMap($container: HTMLElement): L.Map {
 	return L.map($container).addLayer(L.tileLayer(
-		'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+		'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
 		{attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>"}
 	)).fitWorld()
 }
