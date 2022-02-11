@@ -95,23 +95,41 @@ function writeExtras($container: HTMLElement, username: string): void {
 		$summary.textContent=`Extra links`
 		$details.append($summary)
 	}{
-		const $userLinks=document.createElement('div')
-		$userLinks.append(
+		const $links=document.createElement('div')
+		$links.append(
 			`Fetch up to 10000 notes of `,
 			makeLink(`this user`,`https://www.openstreetmap.org/user/${encodeURIComponent(username)}`),
 			` (may be slow): `,
 			makeLink(`json`,`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=10000&display_name=${encodeURIComponent(username)}`)
 		)
-		$details.append($userLinks)
+		$details.append($links)
 	}{
-		const $docLinks=document.createElement('div')
-		$docLinks.append(
+		const $links=document.createElement('div')
+		$links.append(
 			`Notes documentation: `,
 			makeLink(`wiki`,`https://wiki.openstreetmap.org/wiki/Notes`),
 			` `,
 			makeLink(`api`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API`)
 		)
-		$details.append($docLinks)
+		$details.append($links)
+	}{
+		const $links=document.createElement('div')
+		$links.append(
+			`Notes implementation code: `,
+			makeLink(`notes api controller`,`https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`),
+			` (db search query is build there), `,
+			makeLink(`notes controller`,`https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/notes_controller.rb`),
+			` (paginated user notes query is build there), `,
+			makeLink(`note model`,`https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note.rb`),
+			`, `,
+			makeLink(`note comment model`,`https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note_comment.rb`),
+			` in `,
+			makeLink(`Rails Port`,`https://wiki.openstreetmap.org/wiki/The_Rails_Port`),
+			` (not implemented in `,
+			makeLink(`CGIMap`,`https://wiki.openstreetmap.org/wiki/Cgimap`),
+			`)`
+		)
+		$details.append($links)
 	}
 	$container.append($details)
 }
