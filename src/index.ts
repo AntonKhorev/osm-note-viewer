@@ -193,7 +193,8 @@ function writeNotesTableAndMap($container: HTMLElement, layer: L.FeatureGroup, n
 	const $table=document.createElement('table')
 	$container.append($table)
 	{
-		const $row=$table.insertRow()
+		const $header=$table.createTHead()
+		const $row=$header.insertRow()
 		$row.append(
 			makeHeaderCell('id'),
 			makeHeaderCell('date'),
@@ -207,18 +208,19 @@ function writeNotesTableAndMap($container: HTMLElement, layer: L.FeatureGroup, n
 			alt: `note`,
 			opacity: 0.5
 		}).addTo(layer)
-		let $row=$table.insertRow()
+		const $rowGroup=$table.createTBody()
+		$rowGroup.dataset.layerId=String(layer.getLayerId(marker))
+		$rowGroup.addEventListener('mouseover',noteRowsMouseoverListener)
+		$rowGroup.addEventListener('mouseout' ,noteRowsMouseoutListener)
+		let $row=$rowGroup.insertRow()
 		{
 			const $cell=$row.insertCell()
-			$cell.dataset.layerId=String(layer.getLayerId(marker))
 			const nComments=note.properties.comments.length
 			if (nComments>1) $cell.rowSpan=nComments
 			const $a=document.createElement('a')
 			$a.href=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.properties.id)
 			$a.textContent=`${note.properties.id}`
 			$cell.append($a)
-			$cell.addEventListener('mouseover',noteCellMouseoverListener)
-			$cell.addEventListener('mouseout' ,noteCellMouseoutListener)
 		}
 		let firstCommentRow=true
 		for (const comment of note.properties.comments) {
@@ -226,7 +228,7 @@ function writeNotesTableAndMap($container: HTMLElement, layer: L.FeatureGroup, n
 				if (firstCommentRow) {
 					firstCommentRow=false
 				} else {
-					$row=$table.insertRow()
+					$row=$rowGroup.insertRow()
 				}
 			}{
 				const $cell=$row.insertCell()
@@ -280,13 +282,13 @@ function writeNotesTableAndMap($container: HTMLElement, layer: L.FeatureGroup, n
 		$cell.textContent=text
 		return $cell
 	}
-	function noteCellMouseoverListener(this: HTMLTableCellElement): void {
+	function noteRowsMouseoverListener(this: HTMLElement): void {
 		const layerId=Number(this.dataset.layerId)
 		const marker=layer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
 		marker.setOpacity(1)
 	}
-	function noteCellMouseoutListener(this: HTMLTableCellElement): void {
+	function noteRowsMouseoutListener(this: HTMLElement): void {
 		const layerId=Number(this.dataset.layerId)
 		const marker=layer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return

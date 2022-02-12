@@ -18,8 +18,15 @@ body.flipped #text-pane {
 	height: 100%;
 	width: 50%;
 }
+#notes-container table {
+	border-collapse: collapse;
+}
 #notes-container td {
 	vertical-align: top;
+}
+#notes-container td,
+#notes-container th {
+	padding: 2px;
 }
 #notes-container td.note-user {
 	white-space: nowrap;
@@ -33,6 +40,7 @@ body.flipped #text-pane {
 	width: 16px;
 	height: 16px;
 	background: url("icon.svg");
+	vertical-align: text-top;
 }
 #notes-container td.note-action .icon.open {
 	background: url("icon-open.svg");
@@ -46,4 +54,10 @@ body.flipped #text-pane {
 #notes-container td.note-comment:empty::before {
 	content: "no comment";
 	color: gray;
+}
+#notes-container tbody:hover {
+	background: #DEF;
+}
+#notes-container table td:last-child {
+	width: 100%;
 }
