@@ -10,6 +10,10 @@ interface NoteFeatureCollection {
 	features: NoteFeature[]
 }
 
+function isNoteFeatureCollection(data: any): data is NoteFeatureCollection {
+	return data.type=="FeatureCollection"
+}
+
 /**
  * single note as received from the server
  */
@@ -58,6 +62,7 @@ function main(): void {
 	const mapNoteLayer=L.featureGroup().addTo(map)
 	writeFlipPanesButton($controlsContainer,map)
 	writeFetchForm($controlsContainer,$notesContainer,map,mapNoteLayer)
+	writeStoredQueryResults($notesContainer,map,mapNoteLayer)
 }
 
 function writeFlipPanesButton($container: HTMLElement, map: L.Map): void {
@@ -134,13 +139,7 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 				saveToNoteStorage(requestBeganAt,requestEndedAt,notes)
 				$notesContainer.innerHTML=``
 				mapNoteLayer.clearLayers()
-				writeExtras($notesContainer,username)
-				if (notes.length>0) {
-					writeNotesTableAndMap($notesContainer,map,mapNoteLayer,notes)
-					map.fitBounds(mapNoteLayer.getBounds())
-				} else {
-					writeMessage($notesContainer,`User `,[username],` has no notes`)
-				}
+				writeQueryResults($notesContainer,map,mapNoteLayer,username,notes)
 			}
 		} catch (ex) {
 			$notesContainer.innerHTML=``
@@ -156,8 +155,29 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 	$container.append($form)
 }
 
-function isNoteFeatureCollection(data: any): data is NoteFeatureCollection {
-	return data.type=="FeatureCollection"
+function writeStoredQueryResults($notesContainer: HTMLElement, map: L.Map, mapNoteLayer: L.FeatureGroup): void {
+	const username=localStorage.getItem('user')
+	if (username==null) return
+	const requestBeganAt=localStorage.getItem('request-began-at')
+	if (requestBeganAt==null) return
+	const requestEndedAt=localStorage.getItem('request-ended-at')
+	if (requestEndedAt==null) return
+	const notesString=localStorage.getItem('notes')
+	if (notesString==null) return
+	try {
+		const notes=JSON.parse(notesString)
+		writeQueryResults($notesContainer,map,mapNoteLayer,username,notes)
+	} catch {}
+}
+
+function writeQueryResults($notesContainer: HTMLElement, map: L.Map, mapNoteLayer: L.FeatureGroup, username: string, notes: Note[]): void {
+	writeExtras($notesContainer,username)
+	if (notes.length>0) {
+		writeNotesTableAndMap($notesContainer,map,mapNoteLayer,notes)
+		map.fitBounds(mapNoteLayer.getBounds())
+	} else {
+		writeMessage($notesContainer,`User `,[username],` has no notes`)
+	}
 }
 
 function transformFeatureCollectionToNotes(data: NoteFeatureCollection): Note[] {
@@ -321,14 +341,13 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 				}
 			}{
 				const $cell=$row.insertCell()
-				// "2022-02-09 22:46:20 UTC"
 				const match=comment.date.match(/^(\d\d\d\d-\d\d-\d\d)\s+(\d\d:\d\d:\d\d)/)
 				if (match) {
 					const [,date,time]=match
 					const $dateTime=document.createElement('time')
 					$dateTime.textContent=date
 					$dateTime.dateTime=`${date} ${time}Z`
-					$dateTime.title=comment.date
+					$dateTime.title=`${comment.date} UTC`
 					$cell.append($dateTime)
 				} else {
 					const $unknownDateTime=document.createElement('span')
