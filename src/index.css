@@ -30,6 +30,12 @@ body.flipped #text-pane {
 }
 #notes-container td.note-user {
 	white-space: nowrap;
+	max-width: 20vw;
+	text-overflow: ellipsis;
+	overflow: hidden;
+}
+body.flipped #notes-container td.note-user {
+	max-width: 10vw;
 }
 #notes-container td.note-user:empty::before {
 	content: "anonymous";
