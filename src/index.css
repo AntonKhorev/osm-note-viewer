@@ -28,7 +28,7 @@ body.flipped #text-pane {
 #notes-container tbody.closed {
 	box-shadow: -2px 0px 0px 0px green, 2px 0px 0px 0px green;
 }
-#notes-container tbody:hover {
+#notes-container tbody.active {
 	background: #DEF;
 }
 #notes-container td {

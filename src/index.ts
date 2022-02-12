@@ -1,7 +1,5 @@
 /// <reference path="../node_modules/@types/leaflet/index.d.ts" />
 
-main()
-
 /**
  * notes as received from the server
  */
@@ -48,6 +46,19 @@ interface Note {
 	status: 'open' | 'closed' | 'hidden'
 	comments: NoteComment[]
 }
+
+class NoteMarker extends L.Marker {
+	noteId: number
+	constructor(note: Note) {
+		super(note.coordinates,{
+			alt: `note`,
+			opacity: 0.5
+		})
+		this.noteId=note.id
+	}
+}
+
+main()
 
 function main(): void {
 	const flipped=!!localStorage.getItem('flipped')
@@ -306,11 +317,9 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 		)
 	}
 	for (const note of notes) {
-		const marker=L.marker(note.coordinates,{
-			alt: `note`,
-			opacity: 0.5
-		}).addTo(layer)
+		const marker=new NoteMarker(note).on('click',markerClickListener).addTo(layer)
 		const $rowGroup=$table.createTBody()
+		$rowGroup.id=`note-${note.id}`
 		$rowGroup.classList.add(getStatusClass(note.status))
 		$rowGroup.dataset.layerId=String(layer.getLayerId(marker))
 		$rowGroup.addEventListener('mouseover',noteMouseoverListener)
@@ -383,20 +392,41 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 		$cell.textContent=text
 		return $cell
 	}
-	function noteMouseoverListener(this: HTMLElement): void {
-		const layerId=Number(this.dataset.layerId)
-		const marker=layer.getLayer(layerId)
-		if (!(marker instanceof L.Marker)) return
-		marker.setOpacity(1)
-		marker.setZIndexOffset(1000)
+	function deactivateAllNotes(): void {
+		for (const $noteRows of $table.querySelectorAll<HTMLElement>('tbody.active')) {
+			deactivateNote($noteRows)
+		}
 	}
-	function noteMouseoutListener(this: HTMLElement): void {
+	function deactivateNote($noteRows: HTMLElement): void {
 		currentLayerId=undefined
-		const layerId=Number(this.dataset.layerId)
+		$noteRows.classList.remove('active')
+		const layerId=Number($noteRows.dataset.layerId)
 		const marker=layer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
 		marker.setZIndexOffset(0)
 		marker.setOpacity(0.5)
+	}
+	function activateNote($noteRows: HTMLElement): void {
+		const layerId=Number($noteRows.dataset.layerId)
+		const marker=layer.getLayer(layerId)
+		if (!(marker instanceof L.Marker)) return
+		marker.setOpacity(1)
+		marker.setZIndexOffset(1000)
+		$noteRows.classList.add('active')
+	}
+	function markerClickListener(this: NoteMarker): void {
+		deactivateAllNotes()
+		const $noteRows=document.getElementById(`note-`+this.noteId)
+		if (!$noteRows) return
+		$noteRows.scrollIntoView()
+		activateNote($noteRows)
+	}
+	function noteMouseoverListener(this: HTMLElement): void {
+		deactivateAllNotes()
+		activateNote(this)
+	}
+	function noteMouseoutListener(this: HTMLElement): void {
+		deactivateNote(this)
 	}
 	function noteClickListener(this: HTMLElement): void {
 		const layerId=Number(this.dataset.layerId)
