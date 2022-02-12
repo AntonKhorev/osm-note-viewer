@@ -303,11 +303,13 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 		const marker=layer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
 		marker.setOpacity(1)
+		marker.setZIndexOffset(1000)
 	}
 	function noteMouseoutListener(this: HTMLElement): void {
 		const layerId=Number(this.dataset.layerId)
 		const marker=layer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
+		marker.setZIndexOffset(0)
 		marker.setOpacity(0.5)
 	}
 	function noteClickListener(this: HTMLElement): void {
