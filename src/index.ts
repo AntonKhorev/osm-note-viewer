@@ -290,6 +290,7 @@ function writeExtras($container: HTMLElement, username: string): void {
 }
 
 function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.FeatureGroup, notes: Note[]): void {
+	let currentLayerId: number | undefined
 	const $table=document.createElement('table')
 	$container.append($table)
 	{
@@ -390,6 +391,7 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 		marker.setZIndexOffset(1000)
 	}
 	function noteMouseoutListener(this: HTMLElement): void {
+		currentLayerId=undefined
 		const layerId=Number(this.dataset.layerId)
 		const marker=layer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
@@ -400,7 +402,13 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 		const layerId=Number(this.dataset.layerId)
 		const marker=layer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
-		map.panTo(marker.getLatLng())
+		if (layerId==currentLayerId) {
+			const nextZoom=Math.min(map.getZoom()+1,map.getMaxZoom())
+			map.flyTo(marker.getLatLng(),nextZoom)
+		} else {
+			currentLayerId=layerId
+			map.panTo(marker.getLatLng())
+		}
 	}
 	function getStatusClass(status: Note['status']): string {
 		if (status=='open') {
@@ -425,7 +433,10 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 function installMap($container: HTMLElement): L.Map {
 	return L.map($container).addLayer(L.tileLayer(
 		'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-		{attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>"}
+		{
+			attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>",
+			maxZoom: 19
+		}
 	)).fitWorld()
 }
 
