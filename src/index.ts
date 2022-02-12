@@ -196,6 +196,7 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 		const $header=$table.createTHead()
 		const $row=$header.insertRow()
 		$row.append(
+			makeHeaderCell(''),
 			makeHeaderCell('id'),
 			makeHeaderCell('date'),
 			makeHeaderCell('user'),
@@ -214,9 +215,16 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 		$rowGroup.addEventListener('mouseout',noteMouseoutListener)
 		$rowGroup.addEventListener('click',noteClickListener)
 		let $row=$rowGroup.insertRow()
+		const nComments=note.properties.comments.length
 		{
 			const $cell=$row.insertCell()
-			const nComments=note.properties.comments.length
+			if (nComments>1) $cell.rowSpan=nComments
+			const $checkbox=document.createElement('input')
+			$checkbox.type='checkbox'
+			$cell.append($checkbox)
+		}
+		{
+			const $cell=$row.insertCell()
 			if (nComments>1) $cell.rowSpan=nComments
 			const $a=document.createElement('a')
 			$a.href=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.properties.id)
