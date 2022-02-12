@@ -25,6 +25,8 @@ interface NoteComment {
 }
 
 function main(): void {
+	const flipped=localStorage.getItem('flipped')
+	if (flipped) document.body.classList.add('flipped')
 	const $controlsContainer=document.getElementById('controls-container')
 	if (!($controlsContainer instanceof HTMLElement)) return
 	const $notesContainer=document.getElementById('notes-container')
@@ -43,6 +45,11 @@ function writeFlipPanesButton($container: HTMLElement, map: L.Map): void {
 	$button.textContent=`Flip panes`
 	$button.addEventListener('click',()=>{
 		document.body.classList.toggle('flipped')
+		if (document.body.classList.contains('flipped')) {
+			localStorage.setItem('flipped','1')
+		} else {
+			localStorage.removeItem('flipped')
+		}
 		map.invalidateSize()
 	})
 	$div.append($button)
