@@ -310,6 +310,7 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 			opacity: 0.5
 		}).addTo(layer)
 		const $rowGroup=$table.createTBody()
+		$rowGroup.classList.add(getStatusClass(note.status))
 		$rowGroup.dataset.layerId=String(layer.getLayerId(marker))
 		$rowGroup.addEventListener('mouseover',noteMouseoverListener)
 		$rowGroup.addEventListener('mouseout',noteMouseoutListener)
@@ -367,17 +368,8 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 				$cell.classList.add('note-action')
 				const $icon=document.createElement('span')
 				$icon.title=comment.action
-				$icon.classList.add('icon',getActionClass(comment))
+				$icon.classList.add('icon',getActionClass(comment.action))
 				$cell.append($icon)
-				function getActionClass(comment: NoteComment): string {
-					if (comment.action=='opened' || comment.action=='reopened') {
-						return 'open'
-					} else if (comment.action=='closed' || comment.action=='hidden') {
-						return 'close'
-					} else {
-						return 'other'
-					}
-				}
 			}{
 				const $cell=$row.insertCell()
 				$cell.classList.add('note-comment')
@@ -409,6 +401,24 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 		const marker=layer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
 		map.panTo(marker.getLatLng())
+	}
+	function getStatusClass(status: Note['status']): string {
+		if (status=='open') {
+			return 'open'
+		} else if (status=='closed' || status=='hidden') {
+			return 'closed'
+		} else {
+			return 'other'
+		}
+	}
+	function getActionClass(action: NoteComment['action']): string {
+		if (action=='opened' || action=='reopened') {
+			return 'open'
+		} else if (action=='closed' || action=='hidden') {
+			return 'closed'
+		} else {
+			return 'other'
+		}
 	}
 }
 

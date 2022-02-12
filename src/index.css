@@ -1,25 +1,35 @@
-#text-pane {
-	position: fixed;
-	height: 50%;
-	width: 100%;
-	top: 0;
-	left: 0;
-	overflow-y: scroll;
-}
+#text-pane,
 #map-container {
 	position: fixed;
 	height: 50%;
 	width: 100%;
-	bottom: 0;
-	right: 0;
 }
 body.flipped #map-container,
 body.flipped #text-pane {
 	height: 100%;
 	width: 50%;
 }
+#text-pane {
+	top: 0;
+	left: 0;
+	overflow-y: scroll;
+}
+#map-container {
+	bottom: 0;
+	right: 0;
+}
 #notes-container table {
 	border-collapse: collapse;
+	margin: 0 2px;
+}
+#notes-container tbody {
+	box-shadow: -2px 0px 0px 0px red, 2px 0px 0px 0px red;
+}
+#notes-container tbody.closed {
+	box-shadow: -2px 0px 0px 0px green, 2px 0px 0px 0px green;
+}
+#notes-container tbody:hover {
+	background: #DEF;
 }
 #notes-container td {
 	vertical-align: top;
@@ -51,19 +61,14 @@ body.flipped #notes-container td.note-user {
 #notes-container td.note-action .icon.open {
 	background: url("icon-open.svg");
 }
-#notes-container td.note-action .icon.close {
-	background: url("icon-close.svg");
+#notes-container td.note-action .icon.closed {
+	background: url("icon-closed.svg");
 }
 #notes-container td.note-comment {
 	white-space: pre-wrap;
+	width: 100%;
 }
 #notes-container td.note-comment:empty::before {
 	content: "no comment";
 	color: gray;
-}
-#notes-container tbody:hover {
-	background: #DEF;
-}
-#notes-container table td:last-child {
-	width: 100%;
 }
