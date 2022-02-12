@@ -2,30 +2,51 @@
 
 main()
 
+/**
+ * notes as received from the server
+ */
 interface NoteFeatureCollection {
 	type: "FeatureCollection"
 	features: NoteFeature[]
 }
 
+/**
+ * single note as received from the server
+ */
 interface NoteFeature {
 	geometry: {
 		coordinates: [lon: number, lat: number]
 	}
 	properties: {
 		id: number
+		status: 'open' | 'closed' | 'hidden'
 		comments: NoteComment[]
 	}
 }
 
+/**
+ * single note comment as received from the server / saved in the local storage
+ */
 interface NoteComment {
 	date: string
+	uid?: number
 	user?: string
 	action: 'opened' | 'closed' | 'reopened' | 'commented' | 'hidden'
 	text: string
 }
 
+/**
+ * single note as saved in the local storage
+ */
+interface Note {
+	id: number
+	coordinates: [lon: number, lat: number]
+	status: 'open' | 'closed' | 'hidden'
+	comments: NoteComment[]
+}
+
 function main(): void {
-	const flipped=localStorage.getItem('flipped')
+	const flipped=!!localStorage.getItem('flipped')
 	if (flipped) document.body.classList.add('flipped')
 	const $controlsContainer=document.getElementById('controls-container')
 	if (!($controlsContainer instanceof HTMLElement)) return
@@ -62,8 +83,10 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 	const $fetchButton=document.createElement('button')
 	const $fetchAllButton=document.createElement('button')
 	{
+		const username=localStorage.getItem('user')
 		$userInput.type='text'
 		$userInput.name='user'
+		if (username) $userInput.value=username
 		const $div=document.createElement('div')
 		const $label=document.createElement('label')
 		$label.append(`OSM username: `,$userInput)
@@ -87,10 +110,17 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 		$fetchButton.disabled=true
 		$fetchAllButton.disabled=true
 		const username=$userInput.value
+		if (username) {
+			localStorage.setItem('user',username)
+		} else {
+			localStorage.removeItem('user')
+		}
+		clearNoteStorage()
 		$notesContainer.innerHTML=``
 		writeMessage($notesContainer,`Loading notes of user `,[username],` ...`)
 		const url=`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=${encodeURIComponent(limit)}&display_name=${encodeURIComponent(username)}`
 		try {
+			const requestBeganAt=new Date().toJSON()
 			const response=await fetch(url)
 			if (!response.ok) {
 				const responseText=await response.text()
@@ -98,12 +128,15 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 				writeErrorMessage($notesContainer,username,`received the following error response`,responseText)
 			} else {
 				const data=await response.json()
+				const requestEndedAt=new Date().toJSON()
 				if (!isNoteFeatureCollection(data)) return
+				const notes=transformFeatureCollectionToNotes(data)
+				saveToNoteStorage(requestBeganAt,requestEndedAt,notes)
 				$notesContainer.innerHTML=``
 				mapNoteLayer.clearLayers()
 				writeExtras($notesContainer,username)
-				if (data.features.length>0) {
-					writeNotesTableAndMap($notesContainer,map,mapNoteLayer,data.features)
+				if (notes.length>0) {
+					writeNotesTableAndMap($notesContainer,map,mapNoteLayer,notes)
 					map.fitBounds(mapNoteLayer.getBounds())
 				} else {
 					writeMessage($notesContainer,`User `,[username],` has no notes`)
@@ -125,6 +158,46 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 
 function isNoteFeatureCollection(data: any): data is NoteFeatureCollection {
 	return data.type=="FeatureCollection"
+}
+
+function transformFeatureCollectionToNotes(data: NoteFeatureCollection): Note[] {
+	return data.features.map(noteFeature=>({
+		id: noteFeature.properties.id,
+		coordinates: transformCoords(noteFeature.geometry.coordinates),
+		status: noteFeature.properties.status,
+		comments: noteFeature.properties.comments.map(cullCommentProps)
+	}))
+	function cullCommentProps(a: NoteComment): NoteComment {
+		const b:NoteComment={
+			date: transformDate(a.date),
+			action: a.action,
+			text: a.text
+		}
+		if (a.uid!=null) b.uid=a.uid
+		if (a.user!=null) b.user=a.user
+		return b
+	}
+	function transformDate(a: string): string {
+		const match=a.match(/^(\d\d\d\d-\d\d-\d\d)\s+(\d\d:\d\d:\d\d)/)
+		if (!match) return `2000-01-01 00:00:00` // shouldn't happen
+		const [,date,time]=match
+		return `${date} ${time}`
+	}
+	function transformCoords([lon,lat]: [number,number]): [lat: number, lon: number] {
+		return [lat,lon]
+	}
+}
+
+function clearNoteStorage(): void {
+	localStorage.removeItem('request-began-at')
+	localStorage.removeItem('request-ended-at')
+	localStorage.removeItem('notes')
+}
+
+function saveToNoteStorage(requestBeganAt: string, requestEndedAt: string, notes: Note[]): void {
+	localStorage.setItem('request-began-at',requestBeganAt)
+	localStorage.setItem('request-ended-at',requestEndedAt)
+	localStorage.setItem('notes',JSON.stringify(notes))
 }
 
 function writeMessage($container: HTMLElement, ...items: Array<string|[string]>): void {
@@ -196,7 +269,7 @@ function writeExtras($container: HTMLElement, username: string): void {
 	$container.append($details)
 }
 
-function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.FeatureGroup, notes: NoteFeature[]): void {
+function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.FeatureGroup, notes: Note[]): void {
 	const $table=document.createElement('table')
 	$container.append($table)
 	{
@@ -212,7 +285,7 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 		)
 	}
 	for (const note of notes) {
-		const marker=L.marker([note.geometry.coordinates[1],note.geometry.coordinates[0]],{
+		const marker=L.marker(note.coordinates,{
 			alt: `note`,
 			opacity: 0.5
 		}).addTo(layer)
@@ -222,7 +295,7 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 		$rowGroup.addEventListener('mouseout',noteMouseoutListener)
 		$rowGroup.addEventListener('click',noteClickListener)
 		let $row=$rowGroup.insertRow()
-		const nComments=note.properties.comments.length
+		const nComments=note.comments.length
 		{
 			const $cell=$row.insertCell()
 			if (nComments>1) $cell.rowSpan=nComments
@@ -234,12 +307,12 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 			const $cell=$row.insertCell()
 			if (nComments>1) $cell.rowSpan=nComments
 			const $a=document.createElement('a')
-			$a.href=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.properties.id)
-			$a.textContent=`${note.properties.id}`
+			$a.href=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.id)
+			$a.textContent=`${note.id}`
 			$cell.append($a)
 		}
 		let firstCommentRow=true
-		for (const comment of note.properties.comments) {
+		for (const comment of note.comments) {
 			{
 				if (firstCommentRow) {
 					firstCommentRow=false
