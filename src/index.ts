@@ -96,7 +96,7 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 				mapNoteLayer.clearLayers()
 				writeExtras($notesContainer,username)
 				if (data.features.length>0) {
-					writeNotesTableAndMap($notesContainer,mapNoteLayer,data.features)
+					writeNotesTableAndMap($notesContainer,map,mapNoteLayer,data.features)
 					map.fitBounds(mapNoteLayer.getBounds())
 				} else {
 					writeMessage($notesContainer,`User `,[username],` has no notes`)
@@ -189,7 +189,7 @@ function writeExtras($container: HTMLElement, username: string): void {
 	$container.append($details)
 }
 
-function writeNotesTableAndMap($container: HTMLElement, layer: L.FeatureGroup, notes: NoteFeature[]): void {
+function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.FeatureGroup, notes: NoteFeature[]): void {
 	const $table=document.createElement('table')
 	$container.append($table)
 	{
@@ -210,8 +210,9 @@ function writeNotesTableAndMap($container: HTMLElement, layer: L.FeatureGroup, n
 		}).addTo(layer)
 		const $rowGroup=$table.createTBody()
 		$rowGroup.dataset.layerId=String(layer.getLayerId(marker))
-		$rowGroup.addEventListener('mouseover',noteRowsMouseoverListener)
-		$rowGroup.addEventListener('mouseout' ,noteRowsMouseoutListener)
+		$rowGroup.addEventListener('mouseover',noteMouseoverListener)
+		$rowGroup.addEventListener('mouseout',noteMouseoutListener)
+		$rowGroup.addEventListener('click',noteClickListener)
 		let $row=$rowGroup.insertRow()
 		{
 			const $cell=$row.insertCell()
@@ -282,17 +283,23 @@ function writeNotesTableAndMap($container: HTMLElement, layer: L.FeatureGroup, n
 		$cell.textContent=text
 		return $cell
 	}
-	function noteRowsMouseoverListener(this: HTMLElement): void {
+	function noteMouseoverListener(this: HTMLElement): void {
 		const layerId=Number(this.dataset.layerId)
 		const marker=layer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
 		marker.setOpacity(1)
 	}
-	function noteRowsMouseoutListener(this: HTMLElement): void {
+	function noteMouseoutListener(this: HTMLElement): void {
 		const layerId=Number(this.dataset.layerId)
 		const marker=layer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
 		marker.setOpacity(0.5)
+	}
+	function noteClickListener(this: HTMLElement): void {
+		const layerId=Number(this.dataset.layerId)
+		const marker=layer.getLayer(layerId)
+		if (!(marker instanceof L.Marker)) return
+		map.panTo(marker.getLatLng())
 	}
 }
 
