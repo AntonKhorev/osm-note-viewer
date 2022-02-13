@@ -215,10 +215,10 @@ function transformFeatureCollectionToNotes(data: NoteFeatureCollection): Note[] 
 		return b
 	}
 	function transformDate(a: string): string {
-		const match=a.match(/^(\d\d\d\d-\d\d-\d\d)\s+(\d\d:\d\d:\d\d)/)
-		if (!match) return `2000-01-01 00:00:00` // shouldn't happen
-		const [,date,time]=match
-		return `${date} ${time}`
+		const match=a.match(/^(\d\d\d\d)-(\d\d)-(\d\d)\s+(\d\d):(\d\d):(\d\d)/)
+		if (!match) return `20000101000000` // shouldn't happen
+		const [,Y,M,D,h,m,s]=match
+		return Y+M+D+h+m+s
 	}
 	function transformCoords([lon,lat]: [number,number]): [lat: number, lon: number] {
 		return [lat,lon]
@@ -374,13 +374,15 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 				}
 			}{
 				const $cell=$row.insertCell()
-				const match=comment.date.match(/^(\d\d\d\d-\d\d-\d\d)\s+(\d\d:\d\d:\d\d)/)
+				const match=comment.date.match(/^(....)(..)(..)(..)(..)(..)/)
 				if (match) {
-					const [,date,time]=match
+					const [,Y,M,D,h,m,s]=match
+					const date=`${Y}-${M}-${D}`
+					const time=`${h}:${m}:${s}`
 					const $dateTime=document.createElement('time')
 					$dateTime.textContent=date
 					$dateTime.dateTime=`${date} ${time}Z`
-					$dateTime.title=`${comment.date} UTC`
+					$dateTime.title=`${date} ${time} UTC`
 					$cell.append($dateTime)
 				} else {
 					const $unknownDateTime=document.createElement('span')
