@@ -1,0 +1,75 @@
+#text-pane,
+#map-container {
+	position: fixed;
+	height: 50%;
+	width: 100%;
+}
+body.flipped #map-container,
+body.flipped #text-pane {
+	height: 100%;
+	width: 50%;
+}
+#text-pane {
+	top: 0;
+	left: 0;
+	overflow-y: scroll;
+}
+#map-container {
+	bottom: 0;
+	right: 0;
+}
+#notes-container table {
+	border-collapse: collapse;
+	margin: 0 2px;
+}
+#notes-container tbody {
+	box-shadow: -2px 0px 0px 0px red, 2px 0px 0px 0px red;
+}
+#notes-container tbody.closed {
+	box-shadow: -2px 0px 0px 0px green, 2px 0px 0px 0px green;
+}
+#notes-container tbody.active {
+	background: #DEF;
+}
+#notes-container td {
+	vertical-align: top;
+}
+#notes-container td,
+#notes-container th {
+	padding: 2px;
+}
+#notes-container td.note-user {
+	white-space: nowrap;
+	max-width: 20vw;
+	text-overflow: ellipsis;
+	overflow: hidden;
+}
+body.flipped #notes-container td.note-user {
+	max-width: 10vw;
+}
+#notes-container td.note-user:empty::before {
+	content: "anonymous";
+	color: gray;
+}
+#notes-container td.note-action .icon {
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	background: url("icon.svg");
+	vertical-align: text-top;
+}
+#notes-container td.note-action .icon.open {
+	background: url("icon-open.svg");
+}
+#notes-container td.note-action .icon.closed {
+	background: url("icon-closed.svg");
+}
+#notes-container td.note-comment {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	width: 100%;
+}
+#notes-container td.note-comment:empty::before {
+	content: "no comment";
+	color: gray;
+}
