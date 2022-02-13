@@ -54,9 +54,12 @@ interface Note {
 interface NoteComment {
 	date: number
 	uid?: number
-	user?: string
 	action: 'opened' | 'closed' | 'reopened' | 'commented' | 'hidden'
 	text: string
+}
+
+interface Users {
+	[uid: number]: string | undefined
 }
 
 class NoteMarker extends L.Marker {
@@ -143,7 +146,7 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 		} else {
 			localStorage.removeItem('user')
 		}
-		clearNoteStorage()
+		clearStorage()
 		$notesContainer.innerHTML=``
 		writeExtras($notesContainer,username)
 		writeMessage($notesContainer,`Loading notes of user `,[username],` ...`)
@@ -160,12 +163,12 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 				const data=await response.json()
 				const requestEndedAt=new Date().toJSON()
 				if (!isNoteFeatureCollection(data)) return
-				const notes=transformFeatureCollectionToNotes(data)
-				saveToNoteStorage(requestBeganAt,requestEndedAt,notes)
+				const [notes,users]=transformFeatureCollectionToNotesAndUsers(data)
+				saveToStorage(requestBeganAt,requestEndedAt,notes,users)
 				$notesContainer.innerHTML=``
 				writeExtras($notesContainer,username)
 				mapNoteLayer.clearLayers()
-				writeQueryResults($notesContainer,map,mapNoteLayer,username,notes)
+				writeQueryResults($notesContainer,map,mapNoteLayer,username,notes,users)
 			}
 		} catch (ex) {
 			$notesContainer.innerHTML=``
@@ -194,37 +197,48 @@ function writeStoredQueryResults($notesContainer: HTMLElement, map: L.Map, mapNo
 	if (requestEndedAt==null) return
 	const notesString=localStorage.getItem('notes')
 	if (notesString==null) return
+	const usersString=localStorage.getItem('users')
+	if (usersString==null) return
 	try {
 		const notes=JSON.parse(notesString)
-		writeQueryResults($notesContainer,map,mapNoteLayer,username,notes)
+		const users=JSON.parse(usersString)
+		writeQueryResults($notesContainer,map,mapNoteLayer,username,notes,users)
 	} catch {}
 }
 
-function writeQueryResults($notesContainer: HTMLElement, map: L.Map, mapNoteLayer: L.FeatureGroup, username: string, notes: Note[]): void {
+function writeQueryResults(
+	$notesContainer: HTMLElement,
+	map: L.Map, mapNoteLayer: L.FeatureGroup,
+	username: string, notes: Note[], users: Users
+): void {
 	if (notes.length>0) {
-		writeNotesTableAndMap($notesContainer,map,mapNoteLayer,notes)
+		writeNotesTableAndMap($notesContainer,map,mapNoteLayer,notes,users)
 		map.fitBounds(mapNoteLayer.getBounds())
 	} else {
 		writeMessage($notesContainer,`User `,[username],` has no notes`)
 	}
 }
 
-function transformFeatureCollectionToNotes(data: NoteFeatureCollection): Note[] {
-	return data.features.map(noteFeature=>({
+function transformFeatureCollectionToNotesAndUsers(data: NoteFeatureCollection): [Note[], Users] {
+	const users: Users = {}
+	const notes=data.features.map(noteFeature=>({
 		id: noteFeature.properties.id,
 		lat: noteFeature.geometry.coordinates[1],
 		lon: noteFeature.geometry.coordinates[0],
 		status: noteFeature.properties.status,
 		comments: noteFeature.properties.comments.map(cullCommentProps)
 	}))
+	return [notes,users]
 	function cullCommentProps(a: NoteFeatureComment): NoteComment {
 		const b:NoteComment={
 			date: transformDate(a.date),
 			action: a.action,
 			text: a.text
 		}
-		if (a.uid!=null) b.uid=a.uid
-		if (a.user!=null) b.user=a.user
+		if (a.uid!=null) {
+			b.uid=a.uid
+			if (a.user!=null) users[a.uid]=a.user
+		}
 		return b
 	}
 	function transformDate(a: string): number {
@@ -238,16 +252,18 @@ function transformFeatureCollectionToNotes(data: NoteFeatureCollection): Note[] 
 	}
 }
 
-function clearNoteStorage(): void {
+function clearStorage(): void {
 	localStorage.removeItem('request-began-at')
 	localStorage.removeItem('request-ended-at')
 	localStorage.removeItem('notes')
+	localStorage.removeItem('users')
 }
 
-function saveToNoteStorage(requestBeganAt: string, requestEndedAt: string, notes: Note[]): void {
+function saveToStorage(requestBeganAt: string, requestEndedAt: string, notes: Note[], users: Users): void {
 	localStorage.setItem('request-began-at',requestBeganAt)
 	localStorage.setItem('request-ended-at',requestEndedAt)
 	localStorage.setItem('notes',JSON.stringify(notes))
+	localStorage.setItem('users',JSON.stringify(users))
 }
 
 function writeMessage($container: HTMLElement, ...items: Array<string|[string]>): void {
@@ -335,7 +351,7 @@ function writeExtras($container: HTMLElement, username?: string): void {
 	$container.append($details)
 }
 
-function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.FeatureGroup, notes: Note[]): void {
+function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.FeatureGroup, notes: Note[], users: Users): void {
 	let currentLayerId: number | undefined
 	const $table=document.createElement('table')
 	$container.append($table)
@@ -406,8 +422,13 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 			}{
 				const $cell=$row.insertCell()
 				$cell.classList.add('note-user')
-				if (comment.user!=null) {
-					$cell.append(makeUserLink(comment.user))
+				if (comment.uid!=null) {
+					const username=users[comment.uid]
+					if (username!=null) {
+						$cell.append(makeUserLink(username))
+					} else {
+						$cell.append(`#${comment.uid}`)
+					}
 				}
 			}{
 				const $cell=$row.insertCell()
