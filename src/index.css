@@ -66,6 +66,7 @@ body.flipped #notes-container td.note-user {
 }
 #notes-container td.note-comment {
 	white-space: pre-wrap;
+	overflow-wrap: anywhere;
 	width: 100%;
 }
 #notes-container td.note-comment:empty::before {
