@@ -42,7 +42,8 @@ interface NoteFeatureComment {
  */
 interface Note {
 	id: number
-	coordinates: [lon: number, lat: number]
+	lat: number
+	lon: number
 	status: 'open' | 'closed' | 'hidden'
 	comments: NoteComment[]
 }
@@ -61,7 +62,7 @@ interface NoteComment {
 class NoteMarker extends L.Marker {
 	noteId: number
 	constructor(note: Note) {
-		super(note.coordinates,{
+		super([note.lat,note.lon],{
 			alt: `note`,
 			opacity: 0.5
 		})
@@ -211,7 +212,8 @@ function writeQueryResults($notesContainer: HTMLElement, map: L.Map, mapNoteLaye
 function transformFeatureCollectionToNotes(data: NoteFeatureCollection): Note[] {
 	return data.features.map(noteFeature=>({
 		id: noteFeature.properties.id,
-		coordinates: transformCoords(noteFeature.geometry.coordinates),
+		lat: noteFeature.geometry.coordinates[1],
+		lon: noteFeature.geometry.coordinates[0],
 		status: noteFeature.properties.status,
 		comments: noteFeature.properties.comments.map(cullCommentProps)
 	}))
