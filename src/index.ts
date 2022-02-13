@@ -133,6 +133,7 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 		}
 		clearNoteStorage()
 		$notesContainer.innerHTML=``
+		writeExtras($notesContainer,username)
 		writeMessage($notesContainer,`Loading notes of user `,[username],` ...`)
 		const url=`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=${encodeURIComponent(limit)}&display_name=${encodeURIComponent(username)}`
 		try {
@@ -141,6 +142,7 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 			if (!response.ok) {
 				const responseText=await response.text()
 				$notesContainer.innerHTML=``
+				writeExtras($notesContainer,username)
 				writeErrorMessage($notesContainer,username,`received the following error response`,responseText)
 			} else {
 				const data=await response.json()
@@ -149,6 +151,7 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 				const notes=transformFeatureCollectionToNotes(data)
 				saveToNoteStorage(requestBeganAt,requestEndedAt,notes)
 				$notesContainer.innerHTML=``
+				writeExtras($notesContainer,username)
 				mapNoteLayer.clearLayers()
 				writeQueryResults($notesContainer,map,mapNoteLayer,username,notes)
 			}
@@ -168,7 +171,11 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 
 function writeStoredQueryResults($notesContainer: HTMLElement, map: L.Map, mapNoteLayer: L.FeatureGroup): void {
 	const username=localStorage.getItem('user')
-	if (username==null) return
+	if (username==null) {
+		writeExtras($notesContainer)
+		return
+	}
+	writeExtras($notesContainer,username)
 	const requestBeganAt=localStorage.getItem('request-began-at')
 	if (requestBeganAt==null) return
 	const requestEndedAt=localStorage.getItem('request-ended-at')
@@ -182,7 +189,6 @@ function writeStoredQueryResults($notesContainer: HTMLElement, map: L.Map, mapNo
 }
 
 function writeQueryResults($notesContainer: HTMLElement, map: L.Map, mapNoteLayer: L.FeatureGroup, username: string, notes: Note[]): void {
-	writeExtras($notesContainer,username)
 	if (notes.length>0) {
 		writeNotesTableAndMap($notesContainer,map,mapNoteLayer,notes)
 		map.fitBounds(mapNoteLayer.getBounds())
@@ -251,51 +257,62 @@ function writeErrorMessage($container: HTMLElement, username: string, responseKi
 	$container.append($error)
 }
 
-function writeExtras($container: HTMLElement, username: string): void {
+function writeExtras($container: HTMLElement, username?: string): void {
 	const $details=document.createElement('details')
 	{
 		const $summary=document.createElement('summary')
-		$summary.textContent=`Extra links`
+		$summary.textContent=`Extra information`
 		$details.append($summary)
-	}{
-		const $links=document.createElement('div')
-		$links.append(
-			`Fetch up to 10000 notes of `,
-			makeLink(`this user`,`https://www.openstreetmap.org/user/${encodeURIComponent(username)}`),
-			` (may be slow): `,
-			makeLink(`json`,`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=10000&display_name=${encodeURIComponent(username)}`)
-		)
-		$details.append($links)
-	}{
-		const $links=document.createElement('div')
-		$links.append(
-			`Notes documentation: `,
-			makeLink(`wiki`,`https://wiki.openstreetmap.org/wiki/Notes`),
-			`, `,
-			makeLink(`api`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API`),
-			`, `,
-			makeLink(`GeoJSON`,`https://wiki.openstreetmap.org/wiki/GeoJSON`),
-			` (output format used for notes/search.json api calls)`
-		)
-		$details.append($links)
-	}{
-		const $links=document.createElement('div')
-		$links.append(
-			`Notes implementation code: `,
-			makeLink(`notes api controller`,`https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`),
-			` (db search query is build there), `,
-			makeLink(`notes controller`,`https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/notes_controller.rb`),
-			` (paginated user notes query is build there), `,
-			makeLink(`note model`,`https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note.rb`),
-			`, `,
-			makeLink(`note comment model`,`https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note_comment.rb`),
-			` in `,
-			makeLink(`Rails Port`,`https://wiki.openstreetmap.org/wiki/The_Rails_Port`),
-			` (not implemented in `,
-			makeLink(`CGIMap`,`https://wiki.openstreetmap.org/wiki/Cgimap`),
-			`)`
-		)
-		$details.append($links)
+	}
+	writeBlock(()=>{
+		const $computeButton=document.createElement('button')
+		$computeButton.textContent=`Compute storage size`
+		const $computeResult=document.createElement('span')
+		$computeButton.addEventListener('click',()=>{
+			// https://stackoverflow.com/a/15720835
+			let size=0
+			for (const k in localStorage) {
+				if (!localStorage.hasOwnProperty(k)) continue
+				size+=(localStorage[k].length+k.length)*2
+			}
+			$computeResult.textContent=(size/1024).toFixed(2)+" KB"
+		})
+		return [$computeButton,` `,$computeResult]
+	})
+	if (username!=null) writeBlock(()=>[
+		`Fetch up to 10000 notes of `,
+		makeLink(`this user`,`https://www.openstreetmap.org/user/${encodeURIComponent(username)}`),
+		` (may be slow): `,
+		makeLink(`json`,`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=10000&display_name=${encodeURIComponent(username)}`)
+	])
+	writeBlock(()=>[
+		`Notes documentation: `,
+		makeLink(`wiki`,`https://wiki.openstreetmap.org/wiki/Notes`),
+		`, `,
+		makeLink(`api`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API`),
+		`, `,
+		makeLink(`GeoJSON`,`https://wiki.openstreetmap.org/wiki/GeoJSON`),
+		` (output format used for notes/search.json api calls)`
+	])
+	writeBlock(()=>[
+		`Notes implementation code: `,
+		makeLink(`notes api controller`,`https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`),
+		` (db search query is build there), `,
+		makeLink(`notes controller`,`https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/notes_controller.rb`),
+		` (paginated user notes query is build there), `,
+		makeLink(`note model`,`https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note.rb`),
+		`, `,
+		makeLink(`note comment model`,`https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note_comment.rb`),
+		` in `,
+		makeLink(`Rails Port`,`https://wiki.openstreetmap.org/wiki/The_Rails_Port`),
+		` (not implemented in `,
+		makeLink(`CGIMap`,`https://wiki.openstreetmap.org/wiki/Cgimap`),
+		`)`
+	])
+	function writeBlock(makeBlockContents: ()=>Array<Node|string>): void {
+		const $block=document.createElement('div')
+		$block.append(...makeBlockContents())
+		$details.append($block)
 	}
 	$container.append($details)
 }
