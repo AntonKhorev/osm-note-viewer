@@ -1,5 +1,46 @@
 /// <reference path="../node_modules/@types/leaflet/index.d.ts" />
 
+class NoteViewerStorage {
+	prefix: string
+	constructor(prefix: string) {
+		this.prefix=prefix
+	}
+	getItem(k: string): string | null {
+		return localStorage.getItem(this.prefix+k)
+	}
+	setItem(k: string, v: string): void {
+		localStorage.setItem(this.prefix+k,v)
+	}
+	removeItem(k: string): void {
+		localStorage.removeItem(this.prefix+k)
+	}
+	getKeys(): string[] { // don't return iterator because may want to modify stuff while iterating
+		const result:string[]=[]
+		for (const k in localStorage) {
+			if (!localStorage.hasOwnProperty(k)) continue
+			if (!k.startsWith(this.prefix)) continue
+			result.push(k.substring(this.prefix.length))
+		}
+		return result
+	}
+	computeSize(): number {
+		let size=0
+		for (const k of this.getKeys()) {
+			const value=this.getItem(k)
+			if (value==null) continue
+			size+=(value.length+this.prefix.length+k.length)*2
+		}
+		return size
+	}
+	clear(): void {
+		for (const k of this.getKeys()) {
+			this.removeItem(k)
+		}
+	}
+}
+
+const storage=new NoteViewerStorage('osm-note-viewer-')
+
 /**
  * notes as received from the server
  */
@@ -76,7 +117,7 @@ class NoteMarker extends L.Marker {
 main()
 
 function main(): void {
-	const flipped=!!localStorage.getItem('flipped')
+	const flipped=!!storage.getItem('flipped')
 	if (flipped) document.body.classList.add('flipped')
 	const $controlsContainer=document.getElementById('controls-container')
 	if (!($controlsContainer instanceof HTMLElement)) return
@@ -98,9 +139,9 @@ function writeFlipPanesButton($container: HTMLElement, map: L.Map): void {
 	$button.addEventListener('click',()=>{
 		document.body.classList.toggle('flipped')
 		if (document.body.classList.contains('flipped')) {
-			localStorage.setItem('flipped','1')
+			storage.setItem('flipped','1')
 		} else {
-			localStorage.removeItem('flipped')
+			storage.removeItem('flipped')
 		}
 		map.invalidateSize()
 	})
@@ -114,7 +155,7 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 	const $fetchButton=document.createElement('button')
 	const $fetchAllButton=document.createElement('button')
 	{
-		const username=localStorage.getItem('user')
+		const username=storage.getItem('user')
 		$userInput.type='text'
 		$userInput.name='user'
 		if (username) $userInput.value=username
@@ -142,11 +183,11 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 		$fetchAllButton.disabled=true
 		const username=$userInput.value
 		if (username) {
-			localStorage.setItem('user',username)
+			storage.setItem('user',username)
 		} else {
-			localStorage.removeItem('user')
+			storage.removeItem('user')
 		}
-		clearStorage()
+		clearRequestStorage()
 		$notesContainer.innerHTML=``
 		writeExtras($notesContainer,username)
 		writeMessage($notesContainer,`Loading notes of user `,[username],` ...`)
@@ -164,7 +205,7 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 				const requestEndedAt=new Date().toJSON()
 				if (!isNoteFeatureCollection(data)) return
 				const [notes,users]=transformFeatureCollectionToNotesAndUsers(data)
-				saveToStorage(requestBeganAt,requestEndedAt,notes,users)
+				saveToRequestStorage(requestBeganAt,requestEndedAt,notes,users)
 				$notesContainer.innerHTML=``
 				writeExtras($notesContainer,username)
 				mapNoteLayer.clearLayers()
@@ -185,19 +226,19 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 }
 
 function writeStoredQueryResults($notesContainer: HTMLElement, map: L.Map, mapNoteLayer: L.FeatureGroup): void {
-	const username=localStorage.getItem('user')
+	const username=storage.getItem('user')
 	if (username==null) {
 		writeExtras($notesContainer)
 		return
 	}
 	writeExtras($notesContainer,username)
-	const requestBeganAt=localStorage.getItem('request-began-at')
+	const requestBeganAt=storage.getItem('request-began-at')
 	if (requestBeganAt==null) return
-	const requestEndedAt=localStorage.getItem('request-ended-at')
+	const requestEndedAt=storage.getItem('request-ended-at')
 	if (requestEndedAt==null) return
-	const notesString=localStorage.getItem('notes')
+	const notesString=storage.getItem('notes')
 	if (notesString==null) return
-	const usersString=localStorage.getItem('users')
+	const usersString=storage.getItem('users')
 	if (usersString==null) return
 	try {
 		const notes=JSON.parse(notesString)
@@ -252,18 +293,18 @@ function transformFeatureCollectionToNotesAndUsers(data: NoteFeatureCollection):
 	}
 }
 
-function clearStorage(): void {
-	localStorage.removeItem('request-began-at')
-	localStorage.removeItem('request-ended-at')
-	localStorage.removeItem('notes')
-	localStorage.removeItem('users')
+function clearRequestStorage(): void {
+	storage.removeItem('request-began-at')
+	storage.removeItem('request-ended-at')
+	storage.removeItem('notes')
+	storage.removeItem('users')
 }
 
-function saveToStorage(requestBeganAt: string, requestEndedAt: string, notes: Note[], users: Users): void {
-	localStorage.setItem('request-began-at',requestBeganAt)
-	localStorage.setItem('request-ended-at',requestEndedAt)
-	localStorage.setItem('notes',JSON.stringify(notes))
-	localStorage.setItem('users',JSON.stringify(users))
+function saveToRequestStorage(requestBeganAt: string, requestEndedAt: string, notes: Note[], users: Users): void {
+	storage.setItem('request-began-at',requestBeganAt)
+	storage.setItem('request-ended-at',requestEndedAt)
+	storage.setItem('notes',JSON.stringify(notes))
+	storage.setItem('users',JSON.stringify(users))
 }
 
 function writeMessage($container: HTMLElement, ...items: Array<string|[string]>): void {
@@ -300,15 +341,10 @@ function writeExtras($container: HTMLElement, username?: string): void {
 		$computeButton.textContent=`Compute storage size`
 		const $computeResult=document.createElement('span')
 		$clearButton.addEventListener('click',()=>{
-			localStorage.clear()
+			storage.clear()
 		})
 		$computeButton.addEventListener('click',()=>{
-			// https://stackoverflow.com/a/15720835
-			let size=0
-			for (const k in localStorage) {
-				if (!localStorage.hasOwnProperty(k)) continue
-				size+=(localStorage[k].length+k.length)*2
-			}
+			const size=storage.computeSize()
 			$computeResult.textContent=(size/1024).toFixed(2)+" KB"
 		})
 		return [$clearButton,` `,$computeButton,` `,$computeResult]
