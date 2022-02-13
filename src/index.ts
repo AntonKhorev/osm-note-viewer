@@ -22,14 +22,14 @@ interface NoteFeature {
 	properties: {
 		id: number
 		status: 'open' | 'closed' | 'hidden'
-		comments: NoteComment[]
+		comments: NoteFeatureComment[]
 	}
 }
 
 /**
- * single note comment as received from the server / saved in the local storage
+ * single note comment as received from the server
  */
-interface NoteComment {
+interface NoteFeatureComment {
 	date: string
 	uid?: number
 	user?: string
@@ -45,6 +45,17 @@ interface Note {
 	coordinates: [lon: number, lat: number]
 	status: 'open' | 'closed' | 'hidden'
 	comments: NoteComment[]
+}
+
+/**
+ * single note comment as saved in the local storage
+ */
+interface NoteComment {
+	date: number
+	uid?: number
+	user?: string
+	action: 'opened' | 'closed' | 'reopened' | 'commented' | 'hidden'
+	text: string
 }
 
 class NoteMarker extends L.Marker {
@@ -204,7 +215,7 @@ function transformFeatureCollectionToNotes(data: NoteFeatureCollection): Note[] 
 		status: noteFeature.properties.status,
 		comments: noteFeature.properties.comments.map(cullCommentProps)
 	}))
-	function cullCommentProps(a: NoteComment): NoteComment {
+	function cullCommentProps(a: NoteFeatureComment): NoteComment {
 		const b:NoteComment={
 			date: transformDate(a.date),
 			action: a.action,
@@ -214,11 +225,11 @@ function transformFeatureCollectionToNotes(data: NoteFeatureCollection): Note[] 
 		if (a.user!=null) b.user=a.user
 		return b
 	}
-	function transformDate(a: string): string {
-		const match=a.match(/^(\d\d\d\d)-(\d\d)-(\d\d)\s+(\d\d):(\d\d):(\d\d)/)
-		if (!match) return `20000101000000` // shouldn't happen
-		const [,Y,M,D,h,m,s]=match
-		return Y+M+D+h+m+s
+	function transformDate(a: string): number {
+		const match=a.match(/^\d\d\d\d-\d\d-\d\d\s+\d\d:\d\d:\d\d/)
+		if (!match) return 0 // shouldn't happen
+		const [s]=match
+		return Date.parse(s)/1000
 	}
 	function transformCoords([lon,lat]: [number,number]): [lat: number, lon: number] {
 		return [lat,lon]
@@ -374,11 +385,10 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 				}
 			}{
 				const $cell=$row.insertCell()
-				const match=comment.date.match(/^(....)(..)(..)(..)(..)(..)/)
+				const dateString=new Date(comment.date*1000).toISOString()
+				const match=dateString.match(/(\d\d\d\d-\d\d-\d\d)T(\d\d:\d\d:\d\d)/)
 				if (match) {
-					const [,Y,M,D,h,m,s]=match
-					const date=`${Y}-${M}-${D}`
-					const time=`${h}:${m}:${s}`
+					const [,date,time]=match
 					const $dateTime=document.createElement('time')
 					$dateTime.textContent=date
 					$dateTime.dateTime=`${date} ${time}Z`
@@ -387,7 +397,7 @@ function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.Fea
 				} else {
 					const $unknownDateTime=document.createElement('span')
 					$unknownDateTime.textContent=`?`
-					$unknownDateTime.title=comment.date
+					$unknownDateTime.title=String(comment.date)
 					$cell.append($unknownDateTime)
 				}
 			}{
