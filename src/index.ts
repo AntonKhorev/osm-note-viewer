@@ -265,9 +265,14 @@ function writeExtras($container: HTMLElement, username?: string): void {
 		$details.append($summary)
 	}
 	writeBlock(()=>{
+		const $clearButton=document.createElement('button')
+		$clearButton.textContent=`Clear storage`
 		const $computeButton=document.createElement('button')
 		$computeButton.textContent=`Compute storage size`
 		const $computeResult=document.createElement('span')
+		$clearButton.addEventListener('click',()=>{
+			localStorage.clear()
+		})
 		$computeButton.addEventListener('click',()=>{
 			// https://stackoverflow.com/a/15720835
 			let size=0
@@ -277,7 +282,7 @@ function writeExtras($container: HTMLElement, username?: string): void {
 			}
 			$computeResult.textContent=(size/1024).toFixed(2)+" KB"
 		})
-		return [$computeButton,` `,$computeResult]
+		return [$clearButton,` `,$computeButton,` `,$computeResult]
 	})
 	if (username!=null) writeBlock(()=>[
 		`Fetch up to 10000 notes of `,
