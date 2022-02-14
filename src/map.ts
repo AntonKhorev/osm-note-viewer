@@ -37,6 +37,15 @@ export class NoteMap extends L.Map {
 		return new NoteMarker(note).addTo(this.noteLayer)
 	}
 	showNoteTrack(layerIds: number[]): void {
+		const polylineOptions: L.PolylineOptions = {
+			interactive: false,
+			color: '#004', // TODO make it depend on time distance?
+			weight: 1,
+		}
+		const nodeOptions: L.CircleMarkerOptions = {
+			...polylineOptions,
+			radius: 3,
+		}
 		this.trackLayer.clearLayers()
 		const polylineCoords: L.LatLng[] = []
 		for (const layerId of layerIds) {
@@ -44,8 +53,9 @@ export class NoteMap extends L.Map {
 			if (!(marker instanceof L.Marker)) continue
 			const coords=marker.getLatLng()
 			polylineCoords.push(coords)
-			L.circleMarker(coords).addTo(this.trackLayer)
+			L.circleMarker(coords,nodeOptions).addTo(this.trackLayer)
 		}
-		L.polyline(polylineCoords).addTo(this.trackLayer)
+		L.polyline(polylineCoords,polylineOptions).addTo(this.trackLayer)
+		// this.fitBounds(this.trackLayer.getBounds()) // TODO checkbox; click on map marker should disable this
 	}
 }
