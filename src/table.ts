@@ -6,6 +6,18 @@ export default function writeNotesTableAndMap(
 	$container: HTMLElement, map: NoteMap,
 	notes: Note[], users: Users
 ): void {
+	const noteSectionLayerIdVisibility=new Map<number,boolean>()
+	let noteSectionVisibilityTimeoutId: number | undefined
+	const noteRowObserver=new IntersectionObserver((entries)=>{
+		for (const entry of entries) {
+			if (!(entry.target instanceof HTMLElement)) continue
+			const layerId=entry.target.dataset.layerId
+			if (layerId==null) continue
+			noteSectionLayerIdVisibility.set(Number(layerId),entry.isIntersecting)
+		}
+		clearTimeout(noteSectionVisibilityTimeoutId)
+		noteSectionVisibilityTimeoutId=setTimeout(noteSectionVisibilityHandler)
+	})
 	let currentLayerId: number | undefined
 	const $table=document.createElement('table')
 	$container.append($table)
@@ -22,16 +34,8 @@ export default function writeNotesTableAndMap(
 		)
 	}
 	for (const note of notes) {
-		const marker=map.addNote(note)
-		marker.on('click',markerClickListener)
-		const $rowGroup=$table.createTBody()
-		$rowGroup.id=`note-${note.id}`
-		$rowGroup.classList.add(getStatusClass(note.status))
-		$rowGroup.dataset.layerId=String(map.noteLayer.getLayerId(marker))
-		$rowGroup.addEventListener('mouseover',noteMouseoverListener)
-		$rowGroup.addEventListener('mouseout',noteMouseoutListener)
-		$rowGroup.addEventListener('click',noteClickListener)
-		let $row=$rowGroup.insertRow()
+		const $tableSection=writeNote(note)
+		let $row=$tableSection.insertRow()
 		const nComments=note.comments.length
 		{
 			const $cell=$row.insertCell()
@@ -54,7 +58,7 @@ export default function writeNotesTableAndMap(
 				if (firstCommentRow) {
 					firstCommentRow=false
 				} else {
-					$row=$rowGroup.insertRow()
+					$row=$tableSection.insertRow()
 				}
 			}{
 				const $cell=$row.insertCell()
@@ -104,6 +108,21 @@ export default function writeNotesTableAndMap(
 		$cell.textContent=text
 		return $cell
 	}
+	function writeNote(note: Note): HTMLTableSectionElement {
+		const marker=map.addNote(note)
+		marker.on('click',markerClickListener)
+		const layerId=map.noteLayer.getLayerId(marker)
+		const $tableSection=$table.createTBody()
+		$tableSection.id=`note-${note.id}`
+		$tableSection.classList.add(getStatusClass(note.status))
+		$tableSection.dataset.layerId=String(layerId)
+		$tableSection.addEventListener('mouseover',noteMouseoverListener)
+		$tableSection.addEventListener('mouseout',noteMouseoutListener)
+		$tableSection.addEventListener('click',noteClickListener)
+		noteSectionLayerIdVisibility.set(layerId,false)
+		noteRowObserver.observe($tableSection)
+		return $tableSection
+	}
 	function deactivateAllNotes(): void {
 		for (const $noteRows of $table.querySelectorAll<HTMLElement>('tbody.active')) {
 			deactivateNote($noteRows)
@@ -152,22 +171,31 @@ export default function writeNotesTableAndMap(
 			map.panTo(marker.getLatLng())
 		}
 	}
-	function getStatusClass(status: Note['status']): string {
-		if (status=='open') {
-			return 'open'
-		} else if (status=='closed' || status=='hidden') {
-			return 'closed'
-		} else {
-			return 'other'
+	function noteSectionVisibilityHandler(): void {
+		const visibleLayerIds:number[]=[]
+		for (const [layerId,visibility] of noteSectionLayerIdVisibility) {
+			if (visibility) visibleLayerIds.push(layerId)
 		}
+		map.showNoteTrack(visibleLayerIds)
 	}
-	function getActionClass(action: NoteComment['action']): string {
-		if (action=='opened' || action=='reopened') {
-			return 'open'
-		} else if (action=='closed' || action=='hidden') {
-			return 'closed'
-		} else {
-			return 'other'
-		}
+}
+
+function getStatusClass(status: Note['status']): string {
+	if (status=='open') {
+		return 'open'
+	} else if (status=='closed' || status=='hidden') {
+		return 'closed'
+	} else {
+		return 'other'
+	}
+}
+
+function getActionClass(action: NoteComment['action']): string {
+	if (action=='opened' || action=='reopened') {
+		return 'open'
+	} else if (action=='closed' || action=='hidden') {
+		return 'closed'
+	} else {
+		return 'other'
 	}
 }
