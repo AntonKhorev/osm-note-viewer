@@ -48,22 +48,29 @@ main()
 function main(): void {
 	const flipped=!!storage.getItem('flipped')
 	if (flipped) document.body.classList.add('flipped')
-	const $controlsContainer=document.getElementById('controls-container')
-	if (!($controlsContainer instanceof HTMLElement)) return
-	const $notesContainer=document.getElementById('notes-container')
-	if (!($notesContainer instanceof HTMLElement)) return
-	const $mapContainer=document.getElementById('map-container')
-	if (!($mapContainer instanceof HTMLElement)) return
+	const $textContainer=document.createElement('div')
+	$textContainer.id='text'
+	const $fetchContainer=document.createElement('div')
+	$fetchContainer.classList.add('panel')
+	const $notesContainer=document.createElement('div')
+	$notesContainer.id='notes'
+	const $commandContainer=document.createElement('div')
+	$commandContainer.classList.add('panel')
+	$commandContainer.textContent=`TODO!!!`
+	$textContainer.append($fetchContainer,$notesContainer,$commandContainer)
+	const $mapContainer=document.createElement('div')
+	$mapContainer.id='map'
+	document.body.append($textContainer,$mapContainer)
 	const map=new NoteMap($mapContainer)
-	writeFlipPanesButton($controlsContainer,map)
-	writeFetchForm($controlsContainer,$notesContainer,map)
+	writeFlipLayoutButton($fetchContainer,map)
+	writeFetchForm($fetchContainer,$notesContainer,map)
 	writeStoredQueryResults($notesContainer,map)
 }
 
-function writeFlipPanesButton($container: HTMLElement, map: NoteMap): void {
-	const $div=document.createElement('div')
+function writeFlipLayoutButton($container: HTMLElement, map: NoteMap): void {
 	const $button=document.createElement('button')
-	$button.textContent=`Flip panes`
+	$button.classList.add('flip')
+	$button.title=`Flip layout`
 	$button.addEventListener('click',()=>{
 		document.body.classList.toggle('flipped')
 		if (document.body.classList.contains('flipped')) {
@@ -73,8 +80,7 @@ function writeFlipPanesButton($container: HTMLElement, map: NoteMap): void {
 		}
 		map.invalidateSize()
 	})
-	$div.append($button)
-	$container.append($div)
+	$container.append($button)
 }
 
 function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, map: NoteMap): void {

@@ -9,6 +9,8 @@ await fs.copy('src/index.css','dist/index.css')
 await fs.copy('src/icon.svg','dist/icon.svg')
 await fs.copy('src/icon-open.svg','dist/icon-open.svg')
 await fs.copy('src/icon-closed.svg','dist/icon-closed.svg')
+await fs.copy('src/flip-ver.svg','dist/flip-ver.svg')
+await fs.copy('src/flip-hor.svg','dist/flip-hor.svg')
 
 // compile and bundle scripts
 const bundle=await rollup({
