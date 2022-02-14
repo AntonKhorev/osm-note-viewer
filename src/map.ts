@@ -56,6 +56,8 @@ export class NoteMap extends L.Map {
 			L.circleMarker(coords,nodeOptions).addTo(this.trackLayer)
 		}
 		L.polyline(polylineCoords,polylineOptions).addTo(this.trackLayer)
-		// this.fitBounds(this.trackLayer.getBounds()) // TODO checkbox; click on map marker should disable this
+	}
+	fitNoteTrack(): void {
+		this.fitBounds(this.trackLayer.getBounds())
 	}
 }

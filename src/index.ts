@@ -51,20 +51,19 @@ function main(): void {
 	const $textContainer=document.createElement('div')
 	$textContainer.id='text'
 	const $fetchContainer=document.createElement('div')
-	$fetchContainer.classList.add('panel')
+	$fetchContainer.classList.add('panel','fetch')
 	const $notesContainer=document.createElement('div')
 	$notesContainer.id='notes'
 	const $commandContainer=document.createElement('div')
-	$commandContainer.classList.add('panel')
-	$commandContainer.textContent=`TODO!!!`
+	$commandContainer.classList.add('panel','command')
 	$textContainer.append($fetchContainer,$notesContainer,$commandContainer)
 	const $mapContainer=document.createElement('div')
 	$mapContainer.id='map'
 	document.body.append($textContainer,$mapContainer)
 	const map=new NoteMap($mapContainer)
 	writeFlipLayoutButton($fetchContainer,map)
-	writeFetchForm($fetchContainer,$notesContainer,map)
-	writeStoredQueryResults($notesContainer,map)
+	writeFetchForm($fetchContainer,$notesContainer,$commandContainer,map)
+	writeStoredQueryResults($notesContainer,$commandContainer,map)
 }
 
 function writeFlipLayoutButton($container: HTMLElement, map: NoteMap): void {
@@ -83,7 +82,7 @@ function writeFlipLayoutButton($container: HTMLElement, map: NoteMap): void {
 	$container.append($button)
 }
 
-function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, map: NoteMap): void {
+function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, $commandContainer: HTMLElement, map: NoteMap): void {
 	const $form=document.createElement('form')
 	const $userInput=document.createElement('input')
 	const $fetchButton=document.createElement('button')
@@ -122,7 +121,9 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 			storage.removeItem('user')
 		}
 		clearRequestStorage()
+		map.clearNotes()
 		$notesContainer.innerHTML=``
+		$commandContainer.innerHTML=``
 		writeExtras($notesContainer,username)
 		writeMessage($notesContainer,`Loading notes of user `,[username],` ...`)
 		const url=`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=${encodeURIComponent(limit)}&display_name=${encodeURIComponent(username)}`
@@ -132,6 +133,7 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 			if (!response.ok) {
 				const responseText=await response.text()
 				$notesContainer.innerHTML=``
+				$commandContainer.innerHTML=``
 				writeExtras($notesContainer,username)
 				writeErrorMessage($notesContainer,username,`received the following error response`,responseText)
 			} else {
@@ -141,12 +143,13 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 				const [notes,users]=transformFeatureCollectionToNotesAndUsers(data)
 				saveToRequestStorage(requestBeganAt,requestEndedAt,notes,users)
 				$notesContainer.innerHTML=``
+				$commandContainer.innerHTML=``
 				writeExtras($notesContainer,username)
-				map.clearNotes()
-				writeQueryResults($notesContainer,map,username,notes,users)
+				writeQueryResults($notesContainer,$commandContainer,map,username,notes,users)
 			}
 		} catch (ex) {
 			$notesContainer.innerHTML=``
+			$commandContainer.innerHTML=``
 			if (ex instanceof TypeError) {
 				writeErrorMessage($notesContainer,username,`failed with the following error before receiving a response`,ex.message)
 			} else {
@@ -159,7 +162,7 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 	$container.append($form)
 }
 
-function writeStoredQueryResults($notesContainer: HTMLElement, map: NoteMap): void {
+function writeStoredQueryResults($notesContainer: HTMLElement, $commandContainer: HTMLElement, map: NoteMap): void {
 	const username=storage.getItem('user')
 	if (username==null) {
 		writeExtras($notesContainer)
@@ -177,16 +180,16 @@ function writeStoredQueryResults($notesContainer: HTMLElement, map: NoteMap): vo
 	try {
 		const notes=JSON.parse(notesString)
 		const users=JSON.parse(usersString)
-		writeQueryResults($notesContainer,map,username,notes,users)
+		writeQueryResults($notesContainer,$commandContainer,map,username,notes,users)
 	} catch {}
 }
 
 function writeQueryResults(
-	$notesContainer: HTMLElement, map: NoteMap,
+	$notesContainer: HTMLElement, $commandContainer: HTMLElement, map: NoteMap,
 	username: string, notes: Note[], users: Users
 ): void {
 	if (notes.length>0) {
-		writeNotesTableAndMap($notesContainer,map,notes,users)
+		writeNotesTableAndMap($notesContainer,$commandContainer,map,notes,users)
 		map.fitNotes()
 	} else {
 		writeMessage($notesContainer,`User `,[username],` has no notes`)

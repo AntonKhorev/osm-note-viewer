@@ -20,11 +20,14 @@ body.flipped #text {
 }
 .panel {
 	position: relative;
-	padding: .5rem 3rem;
+	padding: .5rem 1rem;
 	border-top: solid 1px #CCC;
 	border-bottom: solid 1px #CCC;
 }
-.panel button.flip {
+.panel.fetch {
+	padding: .5rem 3rem;
+}
+.panel.fetch button.flip {
 	position: absolute;
 	top: 0;
 	left: 0;
@@ -34,8 +37,13 @@ body.flipped #text {
 	border: none;
 	background: url("flip-ver.svg");
 }
-body.flipped .panel button.flip {
+body.flipped .panel.fetch button.flip {
 	background: url("flip-hor.svg");
+}
+.panel.command {
+	position: sticky;
+	bottom: 0;
+	background: Canvas;
 }
 .panel div {
 	margin: .5rem 0;

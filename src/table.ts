@@ -3,9 +3,10 @@ import {NoteMap, NoteMarker} from './map'
 import {makeUserLink} from './util'
 
 export default function writeNotesTableAndMap(
-	$container: HTMLElement, map: NoteMap,
+	$container: HTMLElement, $commandContainer: HTMLElement, map: NoteMap,
 	notes: Note[], users: Users
 ): void {
+	const $trackCheckbox=writeCommands($commandContainer)
 	const noteSectionLayerIdVisibility=new Map<number,boolean>()
 	let noteSectionVisibilityTimeoutId: number | undefined
 	const noteRowObserver=new IntersectionObserver((entries)=>{
@@ -103,6 +104,9 @@ export default function writeNotesTableAndMap(
 			}
 		}
 	}
+	$trackCheckbox.addEventListener('change',()=>{
+		if ($trackCheckbox.checked) map.fitNoteTrack()
+	})
 	function makeHeaderCell(text: string): HTMLTableCellElement {
 		const $cell=document.createElement('th')
 		$cell.textContent=text
@@ -146,6 +150,7 @@ export default function writeNotesTableAndMap(
 		$noteRows.classList.add('active')
 	}
 	function markerClickListener(this: NoteMarker): void {
+		$trackCheckbox.checked=false
 		deactivateAllNotes()
 		const $noteRows=document.getElementById(`note-`+this.noteId)
 		if (!$noteRows) return
@@ -177,6 +182,7 @@ export default function writeNotesTableAndMap(
 			if (visibility) visibleLayerIds.push(layerId)
 		}
 		map.showNoteTrack(visibleLayerIds)
+		if ($trackCheckbox.checked) map.fitNoteTrack()
 	}
 }
 
@@ -198,4 +204,15 @@ function getActionClass(action: NoteComment['action']): string {
 	} else {
 		return 'other'
 	}
+}
+
+function writeCommands($container: HTMLElement): HTMLInputElement {
+	const $div=document.createElement('div')
+	const $label=document.createElement('label')
+	const $checkbox=document.createElement('input')
+	$checkbox.type='checkbox'
+	$label.append($checkbox,` track visible notes on the map`)
+	$div.append($label)
+	$container.append($div)
+	return $checkbox
 }
