@@ -1,4 +1,8 @@
 import NoteViewerStorage from './storage'
+import type {Note, NoteComment, Users} from './data'
+import {NoteMap} from './map'
+import writeNotesTableAndMap from './table'
+import {makeLink, makeUserLink} from './util'
 
 const storage=new NoteViewerStorage('osm-note-viewer-')
 
@@ -39,42 +43,6 @@ interface NoteFeatureComment {
 	text: string
 }
 
-/**
- * single note as saved in the local storage
- */
-interface Note {
-	id: number
-	lat: number
-	lon: number
-	status: 'open' | 'closed' | 'hidden'
-	comments: NoteComment[]
-}
-
-/**
- * single note comment as saved in the local storage
- */
-interface NoteComment {
-	date: number
-	uid?: number
-	action: 'opened' | 'closed' | 'reopened' | 'commented' | 'hidden'
-	text: string
-}
-
-interface Users {
-	[uid: number]: string | undefined
-}
-
-class NoteMarker extends L.Marker {
-	noteId: number
-	constructor(note: Note) {
-		super([note.lat,note.lon],{
-			alt: `note`,
-			opacity: 0.5
-		})
-		this.noteId=note.id
-	}
-}
-
 main()
 
 function main(): void {
@@ -86,14 +54,13 @@ function main(): void {
 	if (!($notesContainer instanceof HTMLElement)) return
 	const $mapContainer=document.getElementById('map-container')
 	if (!($mapContainer instanceof HTMLElement)) return
-	const map=installMap($mapContainer)
-	const mapNoteLayer=L.featureGroup().addTo(map)
+	const map=new NoteMap($mapContainer)
 	writeFlipPanesButton($controlsContainer,map)
-	writeFetchForm($controlsContainer,$notesContainer,map,mapNoteLayer)
-	writeStoredQueryResults($notesContainer,map,mapNoteLayer)
+	writeFetchForm($controlsContainer,$notesContainer,map)
+	writeStoredQueryResults($notesContainer,map)
 }
 
-function writeFlipPanesButton($container: HTMLElement, map: L.Map): void {
+function writeFlipPanesButton($container: HTMLElement, map: NoteMap): void {
 	const $div=document.createElement('div')
 	const $button=document.createElement('button')
 	$button.textContent=`Flip panes`
@@ -110,7 +77,7 @@ function writeFlipPanesButton($container: HTMLElement, map: L.Map): void {
 	$container.append($div)
 }
 
-function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, map: L.Map, mapNoteLayer: L.FeatureGroup): void {
+function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, map: NoteMap): void {
 	const $form=document.createElement('form')
 	const $userInput=document.createElement('input')
 	const $fetchButton=document.createElement('button')
@@ -169,8 +136,8 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 				saveToRequestStorage(requestBeganAt,requestEndedAt,notes,users)
 				$notesContainer.innerHTML=``
 				writeExtras($notesContainer,username)
-				mapNoteLayer.clearLayers()
-				writeQueryResults($notesContainer,map,mapNoteLayer,username,notes,users)
+				map.clearNotes()
+				writeQueryResults($notesContainer,map,username,notes,users)
 			}
 		} catch (ex) {
 			$notesContainer.innerHTML=``
@@ -186,7 +153,7 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, m
 	$container.append($form)
 }
 
-function writeStoredQueryResults($notesContainer: HTMLElement, map: L.Map, mapNoteLayer: L.FeatureGroup): void {
+function writeStoredQueryResults($notesContainer: HTMLElement, map: NoteMap): void {
 	const username=storage.getItem('user')
 	if (username==null) {
 		writeExtras($notesContainer)
@@ -204,18 +171,17 @@ function writeStoredQueryResults($notesContainer: HTMLElement, map: L.Map, mapNo
 	try {
 		const notes=JSON.parse(notesString)
 		const users=JSON.parse(usersString)
-		writeQueryResults($notesContainer,map,mapNoteLayer,username,notes,users)
+		writeQueryResults($notesContainer,map,username,notes,users)
 	} catch {}
 }
 
 function writeQueryResults(
-	$notesContainer: HTMLElement,
-	map: L.Map, mapNoteLayer: L.FeatureGroup,
+	$notesContainer: HTMLElement, map: NoteMap,
 	username: string, notes: Note[], users: Users
 ): void {
 	if (notes.length>0) {
-		writeNotesTableAndMap($notesContainer,map,mapNoteLayer,notes,users)
-		map.fitBounds(mapNoteLayer.getBounds())
+		writeNotesTableAndMap($notesContainer,map,notes,users)
+		map.fitNotes()
 	} else {
 		writeMessage($notesContainer,`User `,[username],` has no notes`)
 	}
@@ -346,191 +312,4 @@ function writeExtras($container: HTMLElement, username?: string): void {
 		$details.append($block)
 	}
 	$container.append($details)
-}
-
-function writeNotesTableAndMap($container: HTMLElement, map: L.Map, layer: L.FeatureGroup, notes: Note[], users: Users): void {
-	let currentLayerId: number | undefined
-	const $table=document.createElement('table')
-	$container.append($table)
-	{
-		const $header=$table.createTHead()
-		const $row=$header.insertRow()
-		$row.append(
-			makeHeaderCell(''),
-			makeHeaderCell('id'),
-			makeHeaderCell('date'),
-			makeHeaderCell('user'),
-			makeHeaderCell(''),
-			makeHeaderCell('comment')
-		)
-	}
-	for (const note of notes) {
-		const marker=new NoteMarker(note).on('click',markerClickListener).addTo(layer)
-		const $rowGroup=$table.createTBody()
-		$rowGroup.id=`note-${note.id}`
-		$rowGroup.classList.add(getStatusClass(note.status))
-		$rowGroup.dataset.layerId=String(layer.getLayerId(marker))
-		$rowGroup.addEventListener('mouseover',noteMouseoverListener)
-		$rowGroup.addEventListener('mouseout',noteMouseoutListener)
-		$rowGroup.addEventListener('click',noteClickListener)
-		let $row=$rowGroup.insertRow()
-		const nComments=note.comments.length
-		{
-			const $cell=$row.insertCell()
-			if (nComments>1) $cell.rowSpan=nComments
-			const $checkbox=document.createElement('input')
-			$checkbox.type='checkbox'
-			$cell.append($checkbox)
-		}
-		{
-			const $cell=$row.insertCell()
-			if (nComments>1) $cell.rowSpan=nComments
-			const $a=document.createElement('a')
-			$a.href=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.id)
-			$a.textContent=`${note.id}`
-			$cell.append($a)
-		}
-		let firstCommentRow=true
-		for (const comment of note.comments) {
-			{
-				if (firstCommentRow) {
-					firstCommentRow=false
-				} else {
-					$row=$rowGroup.insertRow()
-				}
-			}{
-				const $cell=$row.insertCell()
-				const dateString=new Date(comment.date*1000).toISOString()
-				const match=dateString.match(/(\d\d\d\d-\d\d-\d\d)T(\d\d:\d\d:\d\d)/)
-				if (match) {
-					const [,date,time]=match
-					const $dateTime=document.createElement('time')
-					$dateTime.textContent=date
-					$dateTime.dateTime=`${date} ${time}Z`
-					$dateTime.title=`${date} ${time} UTC`
-					$cell.append($dateTime)
-				} else {
-					const $unknownDateTime=document.createElement('span')
-					$unknownDateTime.textContent=`?`
-					$unknownDateTime.title=String(comment.date)
-					$cell.append($unknownDateTime)
-				}
-			}{
-			}{
-				const $cell=$row.insertCell()
-				$cell.classList.add('note-user')
-				if (comment.uid!=null) {
-					const username=users[comment.uid]
-					if (username!=null) {
-						$cell.append(makeUserLink(username))
-					} else {
-						$cell.append(`#${comment.uid}`)
-					}
-				}
-			}{
-				const $cell=$row.insertCell()
-				$cell.classList.add('note-action')
-				const $icon=document.createElement('span')
-				$icon.title=comment.action
-				$icon.classList.add('icon',getActionClass(comment.action))
-				$cell.append($icon)
-			}{
-				const $cell=$row.insertCell()
-				$cell.classList.add('note-comment')
-				$cell.textContent=comment.text
-			}
-		}
-	}
-	function makeHeaderCell(text: string): HTMLTableCellElement {
-		const $cell=document.createElement('th')
-		$cell.textContent=text
-		return $cell
-	}
-	function deactivateAllNotes(): void {
-		for (const $noteRows of $table.querySelectorAll<HTMLElement>('tbody.active')) {
-			deactivateNote($noteRows)
-		}
-	}
-	function deactivateNote($noteRows: HTMLElement): void {
-		currentLayerId=undefined
-		$noteRows.classList.remove('active')
-		const layerId=Number($noteRows.dataset.layerId)
-		const marker=layer.getLayer(layerId)
-		if (!(marker instanceof L.Marker)) return
-		marker.setZIndexOffset(0)
-		marker.setOpacity(0.5)
-	}
-	function activateNote($noteRows: HTMLElement): void {
-		const layerId=Number($noteRows.dataset.layerId)
-		const marker=layer.getLayer(layerId)
-		if (!(marker instanceof L.Marker)) return
-		marker.setOpacity(1)
-		marker.setZIndexOffset(1000)
-		$noteRows.classList.add('active')
-	}
-	function markerClickListener(this: NoteMarker): void {
-		deactivateAllNotes()
-		const $noteRows=document.getElementById(`note-`+this.noteId)
-		if (!$noteRows) return
-		$noteRows.scrollIntoView()
-		activateNote($noteRows)
-	}
-	function noteMouseoverListener(this: HTMLElement): void {
-		deactivateAllNotes()
-		activateNote(this)
-	}
-	function noteMouseoutListener(this: HTMLElement): void {
-		deactivateNote(this)
-	}
-	function noteClickListener(this: HTMLElement): void {
-		const layerId=Number(this.dataset.layerId)
-		const marker=layer.getLayer(layerId)
-		if (!(marker instanceof L.Marker)) return
-		if (layerId==currentLayerId) {
-			const nextZoom=Math.min(map.getZoom()+1,map.getMaxZoom())
-			map.flyTo(marker.getLatLng(),nextZoom)
-		} else {
-			currentLayerId=layerId
-			map.panTo(marker.getLatLng())
-		}
-	}
-	function getStatusClass(status: Note['status']): string {
-		if (status=='open') {
-			return 'open'
-		} else if (status=='closed' || status=='hidden') {
-			return 'closed'
-		} else {
-			return 'other'
-		}
-	}
-	function getActionClass(action: NoteComment['action']): string {
-		if (action=='opened' || action=='reopened') {
-			return 'open'
-		} else if (action=='closed' || action=='hidden') {
-			return 'closed'
-		} else {
-			return 'other'
-		}
-	}
-}
-
-function installMap($container: HTMLElement): L.Map {
-	return L.map($container).addLayer(L.tileLayer(
-		'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-		{
-			attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>",
-			maxZoom: 19
-		}
-	)).fitWorld()
-}
-
-function makeUserLink(username: string): HTMLAnchorElement {
-	return makeLink(username,`https://www.openstreetmap.org/user/${encodeURIComponent(username)}`)
-}
-
-function makeLink(text: string, href: string): HTMLAnchorElement {
-	const $link=document.createElement('a')
-	$link.href=href
-	$link.textContent=text
-	return $link
 }
