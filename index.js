@@ -1,4 +1,3 @@
-/// <reference path="../node_modules/@types/leaflet/index.d.ts" />
 class NoteViewerStorage {
     constructor(prefix) {
         this.prefix = prefix;
@@ -39,10 +38,7 @@ class NoteViewerStorage {
         }
     }
 }
-const storage = new NoteViewerStorage('osm-note-viewer-');
-function isNoteFeatureCollection(data) {
-    return data.type == "FeatureCollection";
-}
+
 class NoteMarker extends L.Marker {
     constructor(note) {
         super([note.lat, note.lon], {
@@ -52,30 +48,317 @@ class NoteMarker extends L.Marker {
         this.noteId = note.id;
     }
 }
+class NoteMap extends L.Map {
+    constructor($container) {
+        super($container);
+        this.addLayer(L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>",
+            maxZoom: 19
+        })).fitWorld();
+        this.noteLayer = L.featureGroup().addTo(this);
+        this.trackLayer = L.featureGroup().addTo(this);
+    }
+    clearNotes() {
+        this.noteLayer.clearLayers();
+        this.trackLayer.clearLayers();
+    }
+    fitNotes() {
+        this.fitBounds(this.noteLayer.getBounds());
+    }
+    addNote(note) {
+        return new NoteMarker(note).addTo(this.noteLayer);
+    }
+    showNoteTrack(layerIds) {
+        const polylineOptions = {
+            interactive: false,
+            color: '#004',
+            weight: 1,
+        };
+        const nodeOptions = {
+            ...polylineOptions,
+            radius: 3,
+        };
+        this.trackLayer.clearLayers();
+        const polylineCoords = [];
+        for (const layerId of layerIds) {
+            const marker = this.noteLayer.getLayer(layerId);
+            if (!(marker instanceof L.Marker))
+                continue;
+            const coords = marker.getLatLng();
+            polylineCoords.push(coords);
+            L.circleMarker(coords, nodeOptions).addTo(this.trackLayer);
+        }
+        L.polyline(polylineCoords, polylineOptions).addTo(this.trackLayer);
+    }
+    fitNoteTrack() {
+        this.fitBounds(this.trackLayer.getBounds());
+    }
+}
+
+function makeUserLink(username) {
+    return makeLink(username, `https://www.openstreetmap.org/user/${encodeURIComponent(username)}`);
+}
+function makeLink(text, href) {
+    const $link = document.createElement('a');
+    $link.href = href;
+    $link.textContent = text;
+    return $link;
+}
+
+function writeNotesTableAndMap($container, $commandContainer, map, notes, users) {
+    const $trackCheckbox = writeCommands($commandContainer);
+    const noteSectionLayerIdVisibility = new Map();
+    let noteSectionVisibilityTimeoutId;
+    const noteRowObserver = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+            if (!(entry.target instanceof HTMLElement))
+                continue;
+            const layerId = entry.target.dataset.layerId;
+            if (layerId == null)
+                continue;
+            noteSectionLayerIdVisibility.set(Number(layerId), entry.isIntersecting);
+        }
+        clearTimeout(noteSectionVisibilityTimeoutId);
+        noteSectionVisibilityTimeoutId = setTimeout(noteSectionVisibilityHandler);
+    });
+    let currentLayerId;
+    const $table = document.createElement('table');
+    $container.append($table);
+    {
+        const $header = $table.createTHead();
+        const $row = $header.insertRow();
+        $row.append(makeHeaderCell(''), makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), makeHeaderCell(''), makeHeaderCell('comment'));
+    }
+    for (const note of notes) {
+        const $tableSection = writeNote(note);
+        let $row = $tableSection.insertRow();
+        const nComments = note.comments.length;
+        {
+            const $cell = $row.insertCell();
+            if (nComments > 1)
+                $cell.rowSpan = nComments;
+            const $checkbox = document.createElement('input');
+            $checkbox.type = 'checkbox';
+            $cell.append($checkbox);
+        }
+        {
+            const $cell = $row.insertCell();
+            if (nComments > 1)
+                $cell.rowSpan = nComments;
+            const $a = document.createElement('a');
+            $a.href = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
+            $a.textContent = `${note.id}`;
+            $cell.append($a);
+        }
+        let firstCommentRow = true;
+        for (const comment of note.comments) {
+            {
+                if (firstCommentRow) {
+                    firstCommentRow = false;
+                }
+                else {
+                    $row = $tableSection.insertRow();
+                }
+            }
+            {
+                const $cell = $row.insertCell();
+                const dateString = new Date(comment.date * 1000).toISOString();
+                const match = dateString.match(/(\d\d\d\d-\d\d-\d\d)T(\d\d:\d\d:\d\d)/);
+                if (match) {
+                    const [, date, time] = match;
+                    const $dateTime = document.createElement('time');
+                    $dateTime.textContent = date;
+                    $dateTime.dateTime = `${date} ${time}Z`;
+                    $dateTime.title = `${date} ${time} UTC`;
+                    $cell.append($dateTime);
+                }
+                else {
+                    const $unknownDateTime = document.createElement('span');
+                    $unknownDateTime.textContent = `?`;
+                    $unknownDateTime.title = String(comment.date);
+                    $cell.append($unknownDateTime);
+                }
+            }
+            {
+                const $cell = $row.insertCell();
+                $cell.classList.add('note-user');
+                if (comment.uid != null) {
+                    const username = users[comment.uid];
+                    if (username != null) {
+                        $cell.append(makeUserLink(username));
+                    }
+                    else {
+                        $cell.append(`#${comment.uid}`);
+                    }
+                }
+            }
+            {
+                const $cell = $row.insertCell();
+                $cell.classList.add('note-action');
+                const $icon = document.createElement('span');
+                $icon.title = comment.action;
+                $icon.classList.add('icon', getActionClass(comment.action));
+                $cell.append($icon);
+            }
+            {
+                const $cell = $row.insertCell();
+                $cell.classList.add('note-comment');
+                $cell.textContent = comment.text;
+            }
+        }
+    }
+    $trackCheckbox.addEventListener('change', () => {
+        if ($trackCheckbox.checked)
+            map.fitNoteTrack();
+    });
+    function makeHeaderCell(text) {
+        const $cell = document.createElement('th');
+        $cell.textContent = text;
+        return $cell;
+    }
+    function writeNote(note) {
+        const marker = map.addNote(note);
+        marker.on('click', markerClickListener);
+        const layerId = map.noteLayer.getLayerId(marker);
+        const $tableSection = $table.createTBody();
+        $tableSection.id = `note-${note.id}`;
+        $tableSection.classList.add(getStatusClass(note.status));
+        $tableSection.dataset.layerId = String(layerId);
+        $tableSection.addEventListener('mouseover', noteMouseoverListener);
+        $tableSection.addEventListener('mouseout', noteMouseoutListener);
+        $tableSection.addEventListener('click', noteClickListener);
+        noteSectionLayerIdVisibility.set(layerId, false);
+        noteRowObserver.observe($tableSection);
+        return $tableSection;
+    }
+    function deactivateAllNotes() {
+        for (const $noteRows of $table.querySelectorAll('tbody.active')) {
+            deactivateNote($noteRows);
+        }
+    }
+    function deactivateNote($noteRows) {
+        currentLayerId = undefined;
+        $noteRows.classList.remove('active');
+        const layerId = Number($noteRows.dataset.layerId);
+        const marker = map.noteLayer.getLayer(layerId);
+        if (!(marker instanceof L.Marker))
+            return;
+        marker.setZIndexOffset(0);
+        marker.setOpacity(0.5);
+    }
+    function activateNote($noteRows) {
+        const layerId = Number($noteRows.dataset.layerId);
+        const marker = map.noteLayer.getLayer(layerId);
+        if (!(marker instanceof L.Marker))
+            return;
+        marker.setOpacity(1);
+        marker.setZIndexOffset(1000);
+        $noteRows.classList.add('active');
+    }
+    function markerClickListener() {
+        $trackCheckbox.checked = false;
+        deactivateAllNotes();
+        const $noteRows = document.getElementById(`note-` + this.noteId);
+        if (!$noteRows)
+            return;
+        $noteRows.scrollIntoView();
+        activateNote($noteRows);
+    }
+    function noteMouseoverListener() {
+        deactivateAllNotes();
+        activateNote(this);
+    }
+    function noteMouseoutListener() {
+        deactivateNote(this);
+    }
+    function noteClickListener() {
+        const layerId = Number(this.dataset.layerId);
+        const marker = map.noteLayer.getLayer(layerId);
+        if (!(marker instanceof L.Marker))
+            return;
+        if (layerId == currentLayerId) {
+            const nextZoom = Math.min(map.getZoom() + 1, map.getMaxZoom());
+            map.flyTo(marker.getLatLng(), nextZoom);
+        }
+        else {
+            currentLayerId = layerId;
+            map.panTo(marker.getLatLng());
+        }
+    }
+    function noteSectionVisibilityHandler() {
+        const visibleLayerIds = [];
+        for (const [layerId, visibility] of noteSectionLayerIdVisibility) {
+            if (visibility)
+                visibleLayerIds.push(layerId);
+        }
+        map.showNoteTrack(visibleLayerIds);
+        if ($trackCheckbox.checked)
+            map.fitNoteTrack();
+    }
+}
+function getStatusClass(status) {
+    if (status == 'open') {
+        return 'open';
+    }
+    else if (status == 'closed' || status == 'hidden') {
+        return 'closed';
+    }
+    else {
+        return 'other';
+    }
+}
+function getActionClass(action) {
+    if (action == 'opened' || action == 'reopened') {
+        return 'open';
+    }
+    else if (action == 'closed' || action == 'hidden') {
+        return 'closed';
+    }
+    else {
+        return 'other';
+    }
+}
+function writeCommands($container) {
+    const $div = document.createElement('div');
+    const $label = document.createElement('label');
+    const $checkbox = document.createElement('input');
+    $checkbox.type = 'checkbox';
+    $label.append($checkbox, ` track visible notes on the map`);
+    $div.append($label);
+    $container.append($div);
+    return $checkbox;
+}
+
+const storage = new NoteViewerStorage('osm-note-viewer-');
+function isNoteFeatureCollection(data) {
+    return data.type == "FeatureCollection";
+}
 main();
 function main() {
     const flipped = !!storage.getItem('flipped');
     if (flipped)
         document.body.classList.add('flipped');
-    const $controlsContainer = document.getElementById('controls-container');
-    if (!($controlsContainer instanceof HTMLElement))
-        return;
-    const $notesContainer = document.getElementById('notes-container');
-    if (!($notesContainer instanceof HTMLElement))
-        return;
-    const $mapContainer = document.getElementById('map-container');
-    if (!($mapContainer instanceof HTMLElement))
-        return;
-    const map = installMap($mapContainer);
-    const mapNoteLayer = L.featureGroup().addTo(map);
-    writeFlipPanesButton($controlsContainer, map);
-    writeFetchForm($controlsContainer, $notesContainer, map, mapNoteLayer);
-    writeStoredQueryResults($notesContainer, map, mapNoteLayer);
+    const $textContainer = document.createElement('div');
+    $textContainer.id = 'text';
+    const $fetchContainer = document.createElement('div');
+    $fetchContainer.classList.add('panel', 'fetch');
+    const $notesContainer = document.createElement('div');
+    $notesContainer.id = 'notes';
+    const $commandContainer = document.createElement('div');
+    $commandContainer.classList.add('panel', 'command');
+    $textContainer.append($fetchContainer, $notesContainer, $commandContainer);
+    const $mapContainer = document.createElement('div');
+    $mapContainer.id = 'map';
+    document.body.append($textContainer, $mapContainer);
+    const map = new NoteMap($mapContainer);
+    writeFlipLayoutButton($fetchContainer, map);
+    writeFetchForm($fetchContainer, $notesContainer, $commandContainer, map);
+    writeStoredQueryResults($notesContainer, $commandContainer, map);
 }
-function writeFlipPanesButton($container, map) {
-    const $div = document.createElement('div');
+function writeFlipLayoutButton($container, map) {
     const $button = document.createElement('button');
-    $button.textContent = `Flip panes`;
+    $button.classList.add('flip');
+    $button.title = `Flip layout`;
     $button.addEventListener('click', () => {
         document.body.classList.toggle('flipped');
         if (document.body.classList.contains('flipped')) {
@@ -86,10 +369,9 @@ function writeFlipPanesButton($container, map) {
         }
         map.invalidateSize();
     });
-    $div.append($button);
-    $container.append($div);
+    $container.append($button);
 }
-function writeFetchForm($container, $notesContainer, map, mapNoteLayer) {
+function writeFetchForm($container, $notesContainer, $commandContainer, map) {
     const $form = document.createElement('form');
     const $userInput = document.createElement('input');
     const $fetchButton = document.createElement('button');
@@ -131,7 +413,9 @@ function writeFetchForm($container, $notesContainer, map, mapNoteLayer) {
             storage.removeItem('user');
         }
         clearRequestStorage();
+        map.clearNotes();
         $notesContainer.innerHTML = ``;
+        $commandContainer.innerHTML = ``;
         writeExtras($notesContainer, username);
         writeMessage($notesContainer, `Loading notes of user `, [username], ` ...`);
         const url = `https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=${encodeURIComponent(limit)}&display_name=${encodeURIComponent(username)}`;
@@ -141,6 +425,7 @@ function writeFetchForm($container, $notesContainer, map, mapNoteLayer) {
             if (!response.ok) {
                 const responseText = await response.text();
                 $notesContainer.innerHTML = ``;
+                $commandContainer.innerHTML = ``;
                 writeExtras($notesContainer, username);
                 writeErrorMessage($notesContainer, username, `received the following error response`, responseText);
             }
@@ -152,13 +437,14 @@ function writeFetchForm($container, $notesContainer, map, mapNoteLayer) {
                 const [notes, users] = transformFeatureCollectionToNotesAndUsers(data);
                 saveToRequestStorage(requestBeganAt, requestEndedAt, notes, users);
                 $notesContainer.innerHTML = ``;
+                $commandContainer.innerHTML = ``;
                 writeExtras($notesContainer, username);
-                mapNoteLayer.clearLayers();
-                writeQueryResults($notesContainer, map, mapNoteLayer, username, notes, users);
+                writeQueryResults($notesContainer, $commandContainer, map, username, notes, users);
             }
         }
         catch (ex) {
             $notesContainer.innerHTML = ``;
+            $commandContainer.innerHTML = ``;
             if (ex instanceof TypeError) {
                 writeErrorMessage($notesContainer, username, `failed with the following error before receiving a response`, ex.message);
             }
@@ -171,7 +457,7 @@ function writeFetchForm($container, $notesContainer, map, mapNoteLayer) {
     });
     $container.append($form);
 }
-function writeStoredQueryResults($notesContainer, map, mapNoteLayer) {
+function writeStoredQueryResults($notesContainer, $commandContainer, map) {
     const username = storage.getItem('user');
     if (username == null) {
         writeExtras($notesContainer);
@@ -193,14 +479,14 @@ function writeStoredQueryResults($notesContainer, map, mapNoteLayer) {
     try {
         const notes = JSON.parse(notesString);
         const users = JSON.parse(usersString);
-        writeQueryResults($notesContainer, map, mapNoteLayer, username, notes, users);
+        writeQueryResults($notesContainer, $commandContainer, map, username, notes, users);
     }
     catch { }
 }
-function writeQueryResults($notesContainer, map, mapNoteLayer, username, notes, users) {
+function writeQueryResults($notesContainer, $commandContainer, map, username, notes, users) {
     if (notes.length > 0) {
-        writeNotesTableAndMap($notesContainer, map, mapNoteLayer, notes, users);
-        map.fitBounds(mapNoteLayer.getBounds());
+        writeNotesTableAndMap($notesContainer, $commandContainer, map, notes, users);
+        map.fitNotes();
     }
     else {
         writeMessage($notesContainer, `User `, [username], ` has no notes`);
@@ -327,194 +613,4 @@ function writeExtras($container, username) {
         $details.append($block);
     }
     $container.append($details);
-}
-function writeNotesTableAndMap($container, map, layer, notes, users) {
-    let currentLayerId;
-    const $table = document.createElement('table');
-    $container.append($table);
-    {
-        const $header = $table.createTHead();
-        const $row = $header.insertRow();
-        $row.append(makeHeaderCell(''), makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), makeHeaderCell(''), makeHeaderCell('comment'));
-    }
-    for (const note of notes) {
-        const marker = new NoteMarker(note).on('click', markerClickListener).addTo(layer);
-        const $rowGroup = $table.createTBody();
-        $rowGroup.id = `note-${note.id}`;
-        $rowGroup.classList.add(getStatusClass(note.status));
-        $rowGroup.dataset.layerId = String(layer.getLayerId(marker));
-        $rowGroup.addEventListener('mouseover', noteMouseoverListener);
-        $rowGroup.addEventListener('mouseout', noteMouseoutListener);
-        $rowGroup.addEventListener('click', noteClickListener);
-        let $row = $rowGroup.insertRow();
-        const nComments = note.comments.length;
-        {
-            const $cell = $row.insertCell();
-            if (nComments > 1)
-                $cell.rowSpan = nComments;
-            const $checkbox = document.createElement('input');
-            $checkbox.type = 'checkbox';
-            $cell.append($checkbox);
-        }
-        {
-            const $cell = $row.insertCell();
-            if (nComments > 1)
-                $cell.rowSpan = nComments;
-            const $a = document.createElement('a');
-            $a.href = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
-            $a.textContent = `${note.id}`;
-            $cell.append($a);
-        }
-        let firstCommentRow = true;
-        for (const comment of note.comments) {
-            {
-                if (firstCommentRow) {
-                    firstCommentRow = false;
-                }
-                else {
-                    $row = $rowGroup.insertRow();
-                }
-            }
-            {
-                const $cell = $row.insertCell();
-                const dateString = new Date(comment.date * 1000).toISOString();
-                const match = dateString.match(/(\d\d\d\d-\d\d-\d\d)T(\d\d:\d\d:\d\d)/);
-                if (match) {
-                    const [, date, time] = match;
-                    const $dateTime = document.createElement('time');
-                    $dateTime.textContent = date;
-                    $dateTime.dateTime = `${date} ${time}Z`;
-                    $dateTime.title = `${date} ${time} UTC`;
-                    $cell.append($dateTime);
-                }
-                else {
-                    const $unknownDateTime = document.createElement('span');
-                    $unknownDateTime.textContent = `?`;
-                    $unknownDateTime.title = String(comment.date);
-                    $cell.append($unknownDateTime);
-                }
-            }
-            {
-                const $cell = $row.insertCell();
-                $cell.classList.add('note-user');
-                if (comment.uid != null) {
-                    const username = users[comment.uid];
-                    if (username != null) {
-                        $cell.append(makeUserLink(username));
-                    }
-                    else {
-                        $cell.append(`#${comment.uid}`);
-                    }
-                }
-            }
-            {
-                const $cell = $row.insertCell();
-                $cell.classList.add('note-action');
-                const $icon = document.createElement('span');
-                $icon.title = comment.action;
-                $icon.classList.add('icon', getActionClass(comment.action));
-                $cell.append($icon);
-            }
-            {
-                const $cell = $row.insertCell();
-                $cell.classList.add('note-comment');
-                $cell.textContent = comment.text;
-            }
-        }
-    }
-    function makeHeaderCell(text) {
-        const $cell = document.createElement('th');
-        $cell.textContent = text;
-        return $cell;
-    }
-    function deactivateAllNotes() {
-        for (const $noteRows of $table.querySelectorAll('tbody.active')) {
-            deactivateNote($noteRows);
-        }
-    }
-    function deactivateNote($noteRows) {
-        currentLayerId = undefined;
-        $noteRows.classList.remove('active');
-        const layerId = Number($noteRows.dataset.layerId);
-        const marker = layer.getLayer(layerId);
-        if (!(marker instanceof L.Marker))
-            return;
-        marker.setZIndexOffset(0);
-        marker.setOpacity(0.5);
-    }
-    function activateNote($noteRows) {
-        const layerId = Number($noteRows.dataset.layerId);
-        const marker = layer.getLayer(layerId);
-        if (!(marker instanceof L.Marker))
-            return;
-        marker.setOpacity(1);
-        marker.setZIndexOffset(1000);
-        $noteRows.classList.add('active');
-    }
-    function markerClickListener() {
-        deactivateAllNotes();
-        const $noteRows = document.getElementById(`note-` + this.noteId);
-        if (!$noteRows)
-            return;
-        $noteRows.scrollIntoView();
-        activateNote($noteRows);
-    }
-    function noteMouseoverListener() {
-        deactivateAllNotes();
-        activateNote(this);
-    }
-    function noteMouseoutListener() {
-        deactivateNote(this);
-    }
-    function noteClickListener() {
-        const layerId = Number(this.dataset.layerId);
-        const marker = layer.getLayer(layerId);
-        if (!(marker instanceof L.Marker))
-            return;
-        if (layerId == currentLayerId) {
-            const nextZoom = Math.min(map.getZoom() + 1, map.getMaxZoom());
-            map.flyTo(marker.getLatLng(), nextZoom);
-        }
-        else {
-            currentLayerId = layerId;
-            map.panTo(marker.getLatLng());
-        }
-    }
-    function getStatusClass(status) {
-        if (status == 'open') {
-            return 'open';
-        }
-        else if (status == 'closed' || status == 'hidden') {
-            return 'closed';
-        }
-        else {
-            return 'other';
-        }
-    }
-    function getActionClass(action) {
-        if (action == 'opened' || action == 'reopened') {
-            return 'open';
-        }
-        else if (action == 'closed' || action == 'hidden') {
-            return 'closed';
-        }
-        else {
-            return 'other';
-        }
-    }
-}
-function installMap($container) {
-    return L.map($container).addLayer(L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>",
-        maxZoom: 19
-    })).fitWorld();
-}
-function makeUserLink(username) {
-    return makeLink(username, `https://www.openstreetmap.org/user/${encodeURIComponent(username)}`);
-}
-function makeLink(text, href) {
-    const $link = document.createElement('a');
-    $link.href = href;
-    $link.textContent = text;
-    return $link;
 }
