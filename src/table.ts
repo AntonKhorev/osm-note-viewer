@@ -1,12 +1,12 @@
 import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
-import {makeUserLink} from './util'
+import {makeLink,makeUserLink} from './util'
 
 export default function writeNotesTableAndMap(
 	$container: HTMLElement, $commandContainer: HTMLElement, map: NoteMap,
 	notes: Note[], users: Users
 ): void {
-	const $trackCheckbox=writeCommands($commandContainer)
+	const [$trackCheckbox,$loadNotesButton]=writeCommands($commandContainer)
 	const noteSectionLayerIdVisibility=new Map<number,boolean>()
 	let noteSectionVisibilityTimeoutId: number | undefined
 	const noteRowObserver=new IntersectionObserver((entries)=>{
@@ -40,9 +40,11 @@ export default function writeNotesTableAndMap(
 		const nComments=note.comments.length
 		{
 			const $cell=$row.insertCell()
+			$cell.classList.add('note-checkbox')
 			if (nComments>1) $cell.rowSpan=nComments
 			const $checkbox=document.createElement('input')
 			$checkbox.type='checkbox'
+			$checkbox.addEventListener('click',noteCheckboxClickListener)
 			$cell.append($checkbox)
 		}
 		{
@@ -107,6 +109,18 @@ export default function writeNotesTableAndMap(
 	$trackCheckbox.addEventListener('change',()=>{
 		if ($trackCheckbox.checked) map.fitNoteTrack()
 	})
+	$loadNotesButton.addEventListener('click',async()=>{
+		const $checkedBoxes=$table.querySelectorAll('.note-checkbox :checked')
+		for (const $checkbox of $checkedBoxes) {
+			const $noteSection=$checkbox.closest('tbody')
+			if (!$noteSection) continue
+			const noteId=Number($noteSection.dataset.noteId)
+			if (!Number.isInteger(noteId)) continue
+			const noteUrl=`https://www.openstreetmap.org/note/`+encodeURIComponent(noteId)
+			const rcUrl=`http://127.0.0.1:8111/import?url=`+encodeURIComponent(noteUrl)
+			fetch(rcUrl)
+		}
+	})
 	function makeHeaderCell(text: string): HTMLTableCellElement {
 		const $cell=document.createElement('th')
 		$cell.textContent=text
@@ -120,6 +134,7 @@ export default function writeNotesTableAndMap(
 		$tableSection.id=`note-${note.id}`
 		$tableSection.classList.add(getStatusClass(note.status))
 		$tableSection.dataset.layerId=String(layerId)
+		$tableSection.dataset.noteId=String(note.id)
 		$tableSection.addEventListener('mouseover',noteMouseoverListener)
 		$tableSection.addEventListener('mouseout',noteMouseoutListener)
 		$tableSection.addEventListener('click',noteClickListener)
@@ -184,6 +199,11 @@ export default function writeNotesTableAndMap(
 		map.showNoteTrack(visibleLayerIds)
 		if ($trackCheckbox.checked) map.fitNoteTrack()
 	}
+	function noteCheckboxClickListener(this: HTMLInputElement, ev: Event): void { // need 'click' handler rather than 'change' to stop click propagation
+		ev.stopPropagation()
+		const $anyCheckedBox=$table.querySelector('.note-checkbox :checked')
+		$loadNotesButton.disabled=!$anyCheckedBox
+	}
 }
 
 function getStatusClass(status: Note['status']): string {
@@ -206,13 +226,26 @@ function getActionClass(action: NoteComment['action']): string {
 	}
 }
 
-function writeCommands($container: HTMLElement): HTMLInputElement {
-	const $div=document.createElement('div')
-	const $label=document.createElement('label')
+function writeCommands($container: HTMLElement): [$trackCheckbox: HTMLInputElement, $loadNotesButton: HTMLButtonElement] {
 	const $checkbox=document.createElement('input')
-	$checkbox.type='checkbox'
-	$label.append($checkbox,` track visible notes on the map`)
-	$div.append($label)
-	$container.append($div)
-	return $checkbox
+	const $loadNotesButton=document.createElement('button')
+	{
+		const $div=document.createElement('div')
+		const $label=document.createElement('label')
+		$checkbox.type='checkbox'
+		$label.append($checkbox,` track visible notes on the map`)
+		$div.append($label)
+		$container.append($div)
+	}{
+		const $div=document.createElement('div')
+		$loadNotesButton.disabled=true
+		$loadNotesButton.textContent=`Load selected notes`
+		$div.append(
+			makeLink(`RC`,'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl',`JOSM (or another editor) Remote Control`),
+			`: `,
+			$loadNotesButton
+		)
+		$container.append($div)
+	}
+	return [$checkbox,$loadNotesButton]
 }
