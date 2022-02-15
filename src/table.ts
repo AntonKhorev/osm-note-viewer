@@ -6,7 +6,7 @@ export default function writeNotesTableAndMap(
 	$container: HTMLElement, $commandContainer: HTMLElement, map: NoteMap,
 	notes: Note[], users: Users
 ): void {
-	const [$trackCheckbox,$loadNotesButton]=writeCommands($commandContainer)
+	const [$trackCheckbox,$loadNotesButton,$loadMapButton]=writeCommands($commandContainer)
 	const noteSectionLayerIdVisibility=new Map<number,boolean>()
 	let noteSectionVisibilityTimeoutId: number | undefined
 	const noteRowObserver=new IntersectionObserver((entries)=>{
@@ -121,6 +121,15 @@ export default function writeNotesTableAndMap(
 			fetch(rcUrl)
 		}
 	})
+	$loadMapButton.addEventListener('click',async()=>{
+		const bounds=map.getBounds()
+		const rcUrl=`http://127.0.0.1:8111/load_and_zoom`+
+			`?left=`+encodeURIComponent(bounds.getWest())+
+			`&right=`+encodeURIComponent(bounds.getEast())+
+			`&top=`+encodeURIComponent(bounds.getNorth())+
+			`&bottom=`+encodeURIComponent(bounds.getSouth())
+		fetch(rcUrl)
+	})
 	function makeHeaderCell(text: string): HTMLTableCellElement {
 		const $cell=document.createElement('th')
 		$cell.textContent=text
@@ -226,9 +235,10 @@ function getActionClass(action: NoteComment['action']): string {
 	}
 }
 
-function writeCommands($container: HTMLElement): [$trackCheckbox: HTMLInputElement, $loadNotesButton: HTMLButtonElement] {
+function writeCommands($container: HTMLElement): [$trackCheckbox: HTMLInputElement, $loadNotesButton: HTMLButtonElement, $loadMapButton: HTMLButtonElement] {
 	const $checkbox=document.createElement('input')
 	const $loadNotesButton=document.createElement('button')
+	const $loadMapButton=document.createElement('button')
 	{
 		const $div=document.createElement('div')
 		const $label=document.createElement('label')
@@ -240,12 +250,15 @@ function writeCommands($container: HTMLElement): [$trackCheckbox: HTMLInputEleme
 		const $div=document.createElement('div')
 		$loadNotesButton.disabled=true
 		$loadNotesButton.textContent=`Load selected notes`
+		$loadMapButton.textContent=`Load map area`
 		$div.append(
 			makeLink(`RC`,'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl',`JOSM (or another editor) Remote Control`),
 			`: `,
-			$loadNotesButton
+			$loadNotesButton,
+			` `,
+			$loadMapButton
 		)
 		$container.append($div)
 	}
-	return [$checkbox,$loadNotesButton]
+	return [$checkbox,$loadNotesButton,$loadMapButton]
 }
