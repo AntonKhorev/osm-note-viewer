@@ -6,7 +6,7 @@ export default function writeNotesTableAndMap(
 	$container: HTMLElement, $commandContainer: HTMLElement, map: NoteMap,
 	notes: Note[], users: Users
 ): void {
-	const [$trackCheckbox,$loadNotesButton,$loadMapButton]=writeCommands($commandContainer)
+	const [$trackCheckbox,$loadNotesButton,$loadMapButton,$yandexPanoramasButton]=writeCommands($commandContainer)
 	const noteSectionLayerIdVisibility=new Map<number,boolean>()
 	let noteSectionVisibilityTimeoutId: number | undefined
 	const noteRowObserver=new IntersectionObserver((entries)=>{
@@ -130,6 +130,12 @@ export default function writeNotesTableAndMap(
 			`&bottom=`+encodeURIComponent(bounds.getSouth())
 		fetch(rcUrl)
 	})
+	$yandexPanoramasButton.addEventListener('click',async()=>{
+		const center=map.getCenter()
+		const coords=encodeURIComponent(center.lng+','+center.lat)
+		const url=`https://yandex.ru/maps/2/saint-petersburg/?panorama%5Bpoint%5D=${coords}`
+		open(url,'yandex')
+	})
 	function makeHeaderCell(text: string): HTMLTableCellElement {
 		const $cell=document.createElement('th')
 		$cell.textContent=text
@@ -235,10 +241,14 @@ function getActionClass(action: NoteComment['action']): string {
 	}
 }
 
-function writeCommands($container: HTMLElement): [$trackCheckbox: HTMLInputElement, $loadNotesButton: HTMLButtonElement, $loadMapButton: HTMLButtonElement] {
+function writeCommands($container: HTMLElement): [
+	$trackCheckbox: HTMLInputElement,
+	$loadNotesButton: HTMLButtonElement, $loadMapButton: HTMLButtonElement, $yandexPanoramasButton: HTMLButtonElement
+] {
 	const $checkbox=document.createElement('input')
 	const $loadNotesButton=document.createElement('button')
 	const $loadMapButton=document.createElement('button')
+	const $yandexPanoramasButton=document.createElement('button')
 	{
 		const $div=document.createElement('div')
 		const $label=document.createElement('label')
@@ -259,6 +269,15 @@ function writeCommands($container: HTMLElement): [$trackCheckbox: HTMLInputEleme
 			$loadMapButton
 		)
 		$container.append($div)
+	}{
+		const $div=document.createElement('div')
+		$yandexPanoramasButton.textContent=`Open map center`
+		$div.append(
+			makeLink(`Y.Panoramas`,'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B',`Yandex.Panoramas (Яндекс.Панорамы)`),
+			`: `,
+			$yandexPanoramasButton
+		)
+		$container.append($div)
 	}
-	return [$checkbox,$loadNotesButton,$loadMapButton]
+	return [$checkbox,$loadNotesButton,$loadMapButton,$yandexPanoramasButton]
 }
