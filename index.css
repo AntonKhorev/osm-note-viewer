@@ -20,9 +20,12 @@ body.flipped #text {
 }
 .panel {
 	position: relative;
-	padding: .5rem 1rem;
+	padding: .5rem;
 	border-top: solid 1px #CCC;
 	border-bottom: solid 1px #CCC;
+}
+.panel div {
+	margin: .5rem 0;
 }
 .panel.fetch {
 	padding: .5rem 3rem;
@@ -44,9 +47,12 @@ body.flipped .panel.fetch button.flip {
 	position: sticky;
 	bottom: 0;
 	background: Canvas;
+	display: flex;
+	gap: .5em;
+	flex-wrap: wrap;
 }
-.panel div {
-	margin: .5rem 0;
+.panel.command div {
+	margin: 0;
 }
 .panel input[type=text] {
 	display: block;

@@ -98,15 +98,17 @@ class NoteMap extends L.Map {
 function makeUserLink(username) {
     return makeLink(username, `https://www.openstreetmap.org/user/${encodeURIComponent(username)}`);
 }
-function makeLink(text, href) {
+function makeLink(text, href, title) {
     const $link = document.createElement('a');
     $link.href = href;
     $link.textContent = text;
+    if (title != null)
+        $link.title = title;
     return $link;
 }
 
 function writeNotesTableAndMap($container, $commandContainer, map, notes, users) {
-    const $trackCheckbox = writeCommands($commandContainer);
+    const [$trackCheckbox, $loadNotesButton, $loadMapButton, $yandexPanoramasButton] = writeCommands($commandContainer);
     const noteSectionLayerIdVisibility = new Map();
     let noteSectionVisibilityTimeoutId;
     const noteRowObserver = new IntersectionObserver((entries) => {
@@ -135,10 +137,12 @@ function writeNotesTableAndMap($container, $commandContainer, map, notes, users)
         const nComments = note.comments.length;
         {
             const $cell = $row.insertCell();
+            $cell.classList.add('note-checkbox');
             if (nComments > 1)
                 $cell.rowSpan = nComments;
             const $checkbox = document.createElement('input');
             $checkbox.type = 'checkbox';
+            $checkbox.addEventListener('click', noteCheckboxClickListener);
             $cell.append($checkbox);
         }
         {
@@ -211,6 +215,35 @@ function writeNotesTableAndMap($container, $commandContainer, map, notes, users)
         if ($trackCheckbox.checked)
             map.fitNoteTrack();
     });
+    $loadNotesButton.addEventListener('click', async () => {
+        const $checkedBoxes = $table.querySelectorAll('.note-checkbox :checked');
+        for (const $checkbox of $checkedBoxes) {
+            const $noteSection = $checkbox.closest('tbody');
+            if (!$noteSection)
+                continue;
+            const noteId = Number($noteSection.dataset.noteId);
+            if (!Number.isInteger(noteId))
+                continue;
+            const noteUrl = `https://www.openstreetmap.org/note/` + encodeURIComponent(noteId);
+            const rcUrl = `http://127.0.0.1:8111/import?url=` + encodeURIComponent(noteUrl);
+            fetch(rcUrl);
+        }
+    });
+    $loadMapButton.addEventListener('click', async () => {
+        const bounds = map.getBounds();
+        const rcUrl = `http://127.0.0.1:8111/load_and_zoom` +
+            `?left=` + encodeURIComponent(bounds.getWest()) +
+            `&right=` + encodeURIComponent(bounds.getEast()) +
+            `&top=` + encodeURIComponent(bounds.getNorth()) +
+            `&bottom=` + encodeURIComponent(bounds.getSouth());
+        fetch(rcUrl);
+    });
+    $yandexPanoramasButton.addEventListener('click', async () => {
+        const center = map.getCenter();
+        const coords = encodeURIComponent(center.lng + ',' + center.lat);
+        const url = `https://yandex.ru/maps/2/saint-petersburg/?panorama%5Bpoint%5D=${coords}`;
+        open(url, 'yandex');
+    });
     function makeHeaderCell(text) {
         const $cell = document.createElement('th');
         $cell.textContent = text;
@@ -224,6 +257,7 @@ function writeNotesTableAndMap($container, $commandContainer, map, notes, users)
         $tableSection.id = `note-${note.id}`;
         $tableSection.classList.add(getStatusClass(note.status));
         $tableSection.dataset.layerId = String(layerId);
+        $tableSection.dataset.noteId = String(note.id);
         $tableSection.addEventListener('mouseover', noteMouseoverListener);
         $tableSection.addEventListener('mouseout', noteMouseoutListener);
         $tableSection.addEventListener('click', noteClickListener);
@@ -295,6 +329,11 @@ function writeNotesTableAndMap($container, $commandContainer, map, notes, users)
         if ($trackCheckbox.checked)
             map.fitNoteTrack();
     }
+    function noteCheckboxClickListener(ev) {
+        ev.stopPropagation();
+        const $anyCheckedBox = $table.querySelector('.note-checkbox :checked');
+        $loadNotesButton.disabled = !$anyCheckedBox;
+    }
 }
 function getStatusClass(status) {
     if (status == 'open') {
@@ -319,14 +358,33 @@ function getActionClass(action) {
     }
 }
 function writeCommands($container) {
-    const $div = document.createElement('div');
-    const $label = document.createElement('label');
     const $checkbox = document.createElement('input');
-    $checkbox.type = 'checkbox';
-    $label.append($checkbox, ` track visible notes on the map`);
-    $div.append($label);
-    $container.append($div);
-    return $checkbox;
+    const $loadNotesButton = document.createElement('button');
+    const $loadMapButton = document.createElement('button');
+    const $yandexPanoramasButton = document.createElement('button');
+    {
+        const $div = document.createElement('div');
+        const $label = document.createElement('label');
+        $checkbox.type = 'checkbox';
+        $label.append($checkbox, ` track visible notes on the map`);
+        $div.append($label);
+        $container.append($div);
+    }
+    {
+        const $div = document.createElement('div');
+        $loadNotesButton.disabled = true;
+        $loadNotesButton.textContent = `Load selected notes`;
+        $loadMapButton.textContent = `Load map area`;
+        $div.append(makeLink(`RC`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl', `JOSM (or another editor) Remote Control`), `: `, $loadNotesButton, ` `, $loadMapButton);
+        $container.append($div);
+    }
+    {
+        const $div = document.createElement('div');
+        $yandexPanoramasButton.textContent = `Open map center`;
+        $div.append(makeLink(`Y.Panoramas`, 'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B', `Yandex.Panoramas (Яндекс.Панорамы)`), `: `, $yandexPanoramasButton);
+        $container.append($div);
+    }
+    return [$checkbox, $loadNotesButton, $loadMapButton, $yandexPanoramasButton];
 }
 
 const storage = new NoteViewerStorage('osm-note-viewer-');
