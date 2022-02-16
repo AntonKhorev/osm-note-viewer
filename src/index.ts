@@ -48,19 +48,29 @@ main()
 function main(): void {
 	const flipped=!!storage.getItem('flipped')
 	if (flipped) document.body.classList.add('flipped')
-	const $textContainer=document.createElement('div')
-	$textContainer.id='text'
+	const $textSide=document.createElement('div')
+	$textSide.id='text'
+	const $mapSide=document.createElement('div')
+	$mapSide.id='map'
+	document.body.append($textSide,$mapSide)
+
+	const $scrollingPart=document.createElement('div')
+	$scrollingPart.classList.add('scrolling')
+	const $stickyPart=document.createElement('div')
+	$stickyPart.classList.add('sticky')
+	$textSide.append($scrollingPart,$stickyPart)
+
 	const $fetchContainer=document.createElement('div')
 	$fetchContainer.classList.add('panel','fetch')
 	const $notesContainer=document.createElement('div')
-	$notesContainer.id='notes'
+	$notesContainer.classList.add('notes')
 	const $commandContainer=document.createElement('div')
 	$commandContainer.classList.add('panel','command')
-	$textContainer.append($fetchContainer,$notesContainer,$commandContainer)
-	const $mapContainer=document.createElement('div')
-	$mapContainer.id='map'
-	document.body.append($textContainer,$mapContainer)
-	const map=new NoteMap($mapContainer)
+	
+	$scrollingPart.append($fetchContainer,$notesContainer)
+	$stickyPart.append($commandContainer)
+
+	const map=new NoteMap($mapSide)
 	writeFlipLayoutButton($fetchContainer,map)
 	writeFetchForm($fetchContainer,$notesContainer,$commandContainer,map)
 	writeStoredQueryResults($notesContainer,$commandContainer,map)

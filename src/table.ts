@@ -201,7 +201,7 @@ export default function writeNotesTableAndMap(
 		deactivateAllNotes()
 		const $noteRows=document.getElementById(`note-`+this.noteId)
 		if (!$noteRows) return
-		$noteRows.scrollIntoView()
+		$noteRows.scrollIntoView({block:'nearest'})
 		activateNote($noteRows)
 		focusMapOnNote($noteRows)
 	}
