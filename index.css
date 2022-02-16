@@ -12,12 +12,21 @@ body.flipped #text {
 #text {
 	top: 0;
 	left: 0;
-	overflow-y: scroll;
 }
 #map {
 	bottom: 0;
 	right: 0;
 }
+
+#text {
+	display: flex;
+	flex-direction: column;
+}
+#text .scrolling {
+	overflow-y: scroll;
+	flex-grow: 1;
+}
+
 .panel {
 	position: relative;
 	padding: .5rem;
@@ -44,9 +53,6 @@ body.flipped .panel.fetch button.flip {
 	background: url("flip-hor.svg");
 }
 .panel.command {
-	position: sticky;
-	bottom: 0;
-	background: Canvas;
 	display: flex;
 	gap: .5em;
 	flex-wrap: wrap;
@@ -59,58 +65,62 @@ body.flipped .panel.fetch button.flip {
 	box-sizing: border-box;
 	width: 100%;
 }
-#notes table {
+.notes table {
 	border-collapse: collapse;
 	margin: 0 2px;
 }
-#notes tbody {
+.notes tbody {
 	box-shadow: -2px 0px 0px 0px red, 2px 0px 0px 0px red;
 }
-#notes tbody.closed {
+.notes tbody.closed {
 	box-shadow: -2px 0px 0px 0px green, 2px 0px 0px 0px green;
 }
-#notes tbody.active {
+.notes tbody.active {
 	background: #DEF;
 }
-#notes td {
+.notes td {
 	vertical-align: top;
 }
-#notes td,
-#notes th {
+.notes td,
+.notes th {
 	padding: 2px;
 }
-#notes td.note-user {
+.notes td.note-user {
 	white-space: nowrap;
 	max-width: 20vw;
 	text-overflow: ellipsis;
 	overflow: hidden;
 }
-body.flipped #notes td.note-user {
+body.flipped .notes td.note-user {
 	max-width: 10vw;
 }
-#notes td.note-user:empty::before {
+.notes td.note-user:empty::before {
 	content: "anonymous";
 	color: gray;
 }
-#notes td.note-action .icon {
+.notes td.note-action .icon {
 	display: inline-block;
 	width: 16px;
 	height: 16px;
 	background: url("icon.svg");
 	vertical-align: text-top;
 }
-#notes td.note-action .icon.open {
+.notes td.note-action .icon.open {
 	background: url("icon-open.svg");
 }
-#notes td.note-action .icon.closed {
+.notes td.note-action .icon.closed {
 	background: url("icon-closed.svg");
 }
-#notes td.note-comment {
+.notes td.note-comment {
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 	width: 100%;
 }
-#notes td.note-comment:empty::before {
+.notes td.note-comment:empty::before {
 	content: "no comment";
 	color: gray;
+}
+
+#map .note-track {
+	vector-effect: non-scaling-stroke;
 }

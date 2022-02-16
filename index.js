@@ -73,10 +73,12 @@ class NoteMap extends L.Map {
             interactive: false,
             color: '#004',
             weight: 1,
+            className: 'note-track', // sets non-scaling stroke defined in css
         };
         const nodeOptions = {
             ...polylineOptions,
             radius: 3,
+            fill: false,
         };
         this.trackLayer.clearLayers();
         const polylineCoords = [];
@@ -124,6 +126,7 @@ function writeNotesTableAndMap($container, $commandContainer, map, notes, users)
         noteSectionVisibilityTimeoutId = setTimeout(noteSectionVisibilityHandler);
     });
     let currentLayerId;
+    let $lastClickedNoteSection;
     const $table = document.createElement('table');
     $container.append($table);
     {
@@ -142,6 +145,7 @@ function writeNotesTableAndMap($container, $commandContainer, map, notes, users)
                 $cell.rowSpan = nComments;
             const $checkbox = document.createElement('input');
             $checkbox.type = 'checkbox';
+            $checkbox.title = `shift+click to check/uncheck a range`;
             $checkbox.addEventListener('click', noteCheckboxClickListener);
             $cell.append($checkbox);
         }
@@ -240,8 +244,11 @@ function writeNotesTableAndMap($container, $commandContainer, map, notes, users)
     });
     $yandexPanoramasButton.addEventListener('click', async () => {
         const center = map.getCenter();
-        const coords = encodeURIComponent(center.lng + ',' + center.lat);
-        const url = `https://yandex.ru/maps/2/saint-petersburg/?panorama%5Bpoint%5D=${coords}`;
+        const coords = center.lng + ',' + center.lat;
+        const url = `https://yandex.ru/maps/2/saint-petersburg/` +
+            `?ll=` + encodeURIComponent(coords) + // required if 'z' argument is present
+            `&panorama%5Bpoint%5D=` + encodeURIComponent(coords) +
+            `&z=` + encodeURIComponent(map.getZoom());
         open(url, 'yandex');
     });
     function makeHeaderCell(text) {
@@ -251,16 +258,16 @@ function writeNotesTableAndMap($container, $commandContainer, map, notes, users)
     }
     function writeNote(note) {
         const marker = map.addNote(note);
-        marker.on('click', markerClickListener);
+        marker.on('click', noteMarkerClickListener);
         const layerId = map.noteLayer.getLayerId(marker);
         const $tableSection = $table.createTBody();
         $tableSection.id = `note-${note.id}`;
         $tableSection.classList.add(getStatusClass(note.status));
         $tableSection.dataset.layerId = String(layerId);
         $tableSection.dataset.noteId = String(note.id);
-        $tableSection.addEventListener('mouseover', noteMouseoverListener);
-        $tableSection.addEventListener('mouseout', noteMouseoutListener);
-        $tableSection.addEventListener('click', noteClickListener);
+        $tableSection.addEventListener('mouseover', noteSectionMouseoverListener);
+        $tableSection.addEventListener('mouseout', noteSectionMouseoutListener);
+        $tableSection.addEventListener('click', noteSectionClickListener);
         noteSectionLayerIdVisibility.set(layerId, false);
         noteRowObserver.observe($tableSection);
         return $tableSection;
@@ -270,54 +277,60 @@ function writeNotesTableAndMap($container, $commandContainer, map, notes, users)
             deactivateNote($noteRows);
         }
     }
-    function deactivateNote($noteRows) {
+    function deactivateNote($noteSection) {
         currentLayerId = undefined;
-        $noteRows.classList.remove('active');
-        const layerId = Number($noteRows.dataset.layerId);
+        $noteSection.classList.remove('active');
+        const layerId = Number($noteSection.dataset.layerId);
         const marker = map.noteLayer.getLayer(layerId);
         if (!(marker instanceof L.Marker))
             return;
         marker.setZIndexOffset(0);
         marker.setOpacity(0.5);
     }
-    function activateNote($noteRows) {
-        const layerId = Number($noteRows.dataset.layerId);
+    function activateNote($noteSection) {
+        const layerId = Number($noteSection.dataset.layerId);
         const marker = map.noteLayer.getLayer(layerId);
         if (!(marker instanceof L.Marker))
             return;
         marker.setOpacity(1);
         marker.setZIndexOffset(1000);
-        $noteRows.classList.add('active');
+        $noteSection.classList.add('active');
     }
-    function markerClickListener() {
-        $trackCheckbox.checked = false;
-        deactivateAllNotes();
-        const $noteRows = document.getElementById(`note-` + this.noteId);
-        if (!$noteRows)
-            return;
-        $noteRows.scrollIntoView();
-        activateNote($noteRows);
-    }
-    function noteMouseoverListener() {
-        deactivateAllNotes();
-        activateNote(this);
-    }
-    function noteMouseoutListener() {
-        deactivateNote(this);
-    }
-    function noteClickListener() {
-        const layerId = Number(this.dataset.layerId);
+    function focusMapOnNote($noteSection) {
+        const layerId = Number($noteSection.dataset.layerId);
         const marker = map.noteLayer.getLayer(layerId);
         if (!(marker instanceof L.Marker))
             return;
         if (layerId == currentLayerId) {
-            const nextZoom = Math.min(map.getZoom() + 1, map.getMaxZoom());
+            const z1 = map.getZoom();
+            const z2 = map.getMaxZoom();
+            const nextZoom = Math.min(z2, z1 + Math.ceil((z2 - z1) / 2));
             map.flyTo(marker.getLatLng(), nextZoom);
         }
         else {
             currentLayerId = layerId;
             map.panTo(marker.getLatLng());
         }
+    }
+    function noteMarkerClickListener() {
+        $trackCheckbox.checked = false;
+        deactivateAllNotes();
+        const $noteRows = document.getElementById(`note-` + this.noteId);
+        if (!$noteRows)
+            return;
+        $noteRows.scrollIntoView({ block: 'nearest' });
+        activateNote($noteRows);
+        focusMapOnNote($noteRows);
+    }
+    function noteSectionMouseoverListener() {
+        deactivateAllNotes();
+        activateNote(this);
+    }
+    function noteSectionMouseoutListener() {
+        deactivateNote(this);
+    }
+    function noteSectionClickListener() {
+        focusMapOnNote(this);
     }
     function noteSectionVisibilityHandler() {
         const visibleLayerIds = [];
@@ -332,6 +345,17 @@ function writeNotesTableAndMap($container, $commandContainer, map, notes, users)
     function noteCheckboxClickListener(ev) {
         ev.stopPropagation();
         const $anyCheckedBox = $table.querySelector('.note-checkbox :checked');
+        const $clickedNoteSection = this.closest('tbody');
+        if ($clickedNoteSection) {
+            if (ev.shiftKey && $lastClickedNoteSection) {
+                for (const $section of getTableSectionRange($table, $lastClickedNoteSection, $clickedNoteSection)) {
+                    const $checkbox = $section.querySelector('.note-checkbox input');
+                    if ($checkbox instanceof HTMLInputElement)
+                        $checkbox.checked = this.checked;
+                }
+            }
+            $lastClickedNoteSection = $clickedNoteSection;
+        }
         $loadNotesButton.disabled = !$anyCheckedBox;
     }
 }
@@ -386,6 +410,37 @@ function writeCommands($container) {
     }
     return [$checkbox, $loadNotesButton, $loadMapButton, $yandexPanoramasButton];
 }
+/**
+ * range including $lastClickedSection but excluding $currentClickedSection
+ * excludes $currentClickedSection if equals to $lastClickedSection
+ */
+function* getTableSectionRange($table, $lastClickedSection, $currentClickedSection) {
+    const $sections = $table.tBodies;
+    let i = 0;
+    let $guardSection;
+    for (; i < $sections.length; i++) {
+        const $section = $sections[i];
+        if ($section == $lastClickedSection) {
+            $guardSection = $currentClickedSection;
+            break;
+        }
+        if ($section == $currentClickedSection) {
+            $guardSection = $lastClickedSection;
+            break;
+        }
+    }
+    if (!$guardSection)
+        return;
+    for (; i < $sections.length; i++) {
+        const $section = $sections[i];
+        if ($section != $currentClickedSection) {
+            yield $section;
+        }
+        if ($section == $guardSection) {
+            return;
+        }
+    }
+}
 
 const storage = new NoteViewerStorage('osm-note-viewer-');
 function isNoteFeatureCollection(data) {
@@ -396,19 +451,25 @@ function main() {
     const flipped = !!storage.getItem('flipped');
     if (flipped)
         document.body.classList.add('flipped');
-    const $textContainer = document.createElement('div');
-    $textContainer.id = 'text';
+    const $textSide = document.createElement('div');
+    $textSide.id = 'text';
+    const $mapSide = document.createElement('div');
+    $mapSide.id = 'map';
+    document.body.append($textSide, $mapSide);
+    const $scrollingPart = document.createElement('div');
+    $scrollingPart.classList.add('scrolling');
+    const $stickyPart = document.createElement('div');
+    $stickyPart.classList.add('sticky');
+    $textSide.append($scrollingPart, $stickyPart);
     const $fetchContainer = document.createElement('div');
     $fetchContainer.classList.add('panel', 'fetch');
     const $notesContainer = document.createElement('div');
-    $notesContainer.id = 'notes';
+    $notesContainer.classList.add('notes');
     const $commandContainer = document.createElement('div');
     $commandContainer.classList.add('panel', 'command');
-    $textContainer.append($fetchContainer, $notesContainer, $commandContainer);
-    const $mapContainer = document.createElement('div');
-    $mapContainer.id = 'map';
-    document.body.append($textContainer, $mapContainer);
-    const map = new NoteMap($mapContainer);
+    $scrollingPart.append($fetchContainer, $notesContainer);
+    $stickyPart.append($commandContainer);
+    const map = new NoteMap($mapSide);
     writeFlipLayoutButton($fetchContainer, map);
     writeFetchForm($fetchContainer, $notesContainer, $commandContainer, map);
     writeStoredQueryResults($notesContainer, $commandContainer, map);
