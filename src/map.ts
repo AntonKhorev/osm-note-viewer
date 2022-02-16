@@ -41,10 +41,12 @@ export class NoteMap extends L.Map {
 			interactive: false,
 			color: '#004', // TODO make it depend on time distance?
 			weight: 1,
+			className: 'note-track', // sets non-scaling stroke defined in css
 		}
 		const nodeOptions: L.CircleMarkerOptions = {
 			...polylineOptions,
 			radius: 3,
+			fill: false,
 		}
 		this.trackLayer.clearLayers()
 		const polylineCoords: L.LatLng[] = []

@@ -202,7 +202,9 @@ export default function writeNotesTableAndMap(
 		const marker=map.noteLayer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
 		if (layerId==currentLayerId) {
-			const nextZoom=Math.min(map.getZoom()+1,map.getMaxZoom())
+			const z1=map.getZoom()
+			const z2=map.getMaxZoom()
+			const nextZoom=Math.min(z2,z1+Math.ceil((z2-z1)/2))
 			map.flyTo(marker.getLatLng(),nextZoom)
 		} else {
 			currentLayerId=layerId

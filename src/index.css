@@ -18,6 +18,9 @@ body.flipped #text {
 	bottom: 0;
 	right: 0;
 }
+#map .note-track {
+	vector-effect: non-scaling-stroke;
+}
 .panel {
 	position: relative;
 	padding: .5rem;
