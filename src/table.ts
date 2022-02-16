@@ -132,8 +132,11 @@ export default function writeNotesTableAndMap(
 	})
 	$yandexPanoramasButton.addEventListener('click',async()=>{
 		const center=map.getCenter()
-		const coords=encodeURIComponent(center.lng+','+center.lat)
-		const url=`https://yandex.ru/maps/2/saint-petersburg/?panorama%5Bpoint%5D=${coords}`
+		const coords=center.lng+','+center.lat
+		const url=`https://yandex.ru/maps/2/saint-petersburg/`+
+			`?ll=`+encodeURIComponent(coords)+ // required if 'z' argument is present
+			`&panorama%5Bpoint%5D=`+encodeURIComponent(coords)+
+			`&z=`+encodeURIComponent(map.getZoom())
 		open(url,'yandex')
 	})
 	function makeHeaderCell(text: string): HTMLTableCellElement {
