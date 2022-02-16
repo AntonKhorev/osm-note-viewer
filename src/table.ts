@@ -146,16 +146,16 @@ export default function writeNotesTableAndMap(
 	}
 	function writeNote(note: Note): HTMLTableSectionElement {
 		const marker=map.addNote(note)
-		marker.on('click',markerClickListener)
+		marker.on('click',noteMarkerClickListener)
 		const layerId=map.noteLayer.getLayerId(marker)
 		const $tableSection=$table.createTBody()
 		$tableSection.id=`note-${note.id}`
 		$tableSection.classList.add(getStatusClass(note.status))
 		$tableSection.dataset.layerId=String(layerId)
 		$tableSection.dataset.noteId=String(note.id)
-		$tableSection.addEventListener('mouseover',noteMouseoverListener)
-		$tableSection.addEventListener('mouseout',noteMouseoutListener)
-		$tableSection.addEventListener('click',noteClickListener)
+		$tableSection.addEventListener('mouseover',noteSectionMouseoverListener)
+		$tableSection.addEventListener('mouseout',noteSectionMouseoutListener)
+		$tableSection.addEventListener('click',noteSectionClickListener)
 		noteSectionLayerIdVisibility.set(layerId,false)
 		noteRowObserver.observe($tableSection)
 		return $tableSection
@@ -165,40 +165,25 @@ export default function writeNotesTableAndMap(
 			deactivateNote($noteRows)
 		}
 	}
-	function deactivateNote($noteRows: HTMLElement): void {
+	function deactivateNote($noteSection: HTMLElement): void {
 		currentLayerId=undefined
-		$noteRows.classList.remove('active')
-		const layerId=Number($noteRows.dataset.layerId)
+		$noteSection.classList.remove('active')
+		const layerId=Number($noteSection.dataset.layerId)
 		const marker=map.noteLayer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
 		marker.setZIndexOffset(0)
 		marker.setOpacity(0.5)
 	}
-	function activateNote($noteRows: HTMLElement): void {
-		const layerId=Number($noteRows.dataset.layerId)
+	function activateNote($noteSection: HTMLElement): void {
+		const layerId=Number($noteSection.dataset.layerId)
 		const marker=map.noteLayer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
 		marker.setOpacity(1)
 		marker.setZIndexOffset(1000)
-		$noteRows.classList.add('active')
+		$noteSection.classList.add('active')
 	}
-	function markerClickListener(this: NoteMarker): void {
-		$trackCheckbox.checked=false
-		deactivateAllNotes()
-		const $noteRows=document.getElementById(`note-`+this.noteId)
-		if (!$noteRows) return
-		$noteRows.scrollIntoView()
-		activateNote($noteRows)
-	}
-	function noteMouseoverListener(this: HTMLElement): void {
-		deactivateAllNotes()
-		activateNote(this)
-	}
-	function noteMouseoutListener(this: HTMLElement): void {
-		deactivateNote(this)
-	}
-	function noteClickListener(this: HTMLElement): void {
-		const layerId=Number(this.dataset.layerId)
+	function focusMapOnNote($noteSection: HTMLElement): void {
+		const layerId=Number($noteSection.dataset.layerId)
 		const marker=map.noteLayer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
 		if (layerId==currentLayerId) {
@@ -210,6 +195,25 @@ export default function writeNotesTableAndMap(
 			currentLayerId=layerId
 			map.panTo(marker.getLatLng())
 		}
+	}
+	function noteMarkerClickListener(this: NoteMarker): void {
+		$trackCheckbox.checked=false
+		deactivateAllNotes()
+		const $noteRows=document.getElementById(`note-`+this.noteId)
+		if (!$noteRows) return
+		$noteRows.scrollIntoView()
+		activateNote($noteRows)
+		focusMapOnNote($noteRows)
+	}
+	function noteSectionMouseoverListener(this: HTMLElement): void {
+		deactivateAllNotes()
+		activateNote(this)
+	}
+	function noteSectionMouseoutListener(this: HTMLElement): void {
+		deactivateNote(this)
+	}
+	function noteSectionClickListener(this: HTMLElement): void {
+		focusMapOnNote(this)
 	}
 	function noteSectionVisibilityHandler(): void {
 		const visibleLayerIds:number[]=[]
