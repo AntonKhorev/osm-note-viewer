@@ -20,6 +20,7 @@ export default function writeNotesTableAndMap(
 		noteSectionVisibilityTimeoutId=setTimeout(noteSectionVisibilityHandler)
 	})
 	let currentLayerId: number | undefined
+	let $lastClickedNoteSection: HTMLTableSectionElement | undefined
 	const $table=document.createElement('table')
 	$container.append($table)
 	{
@@ -44,6 +45,7 @@ export default function writeNotesTableAndMap(
 			if (nComments>1) $cell.rowSpan=nComments
 			const $checkbox=document.createElement('input')
 			$checkbox.type='checkbox'
+			$checkbox.title=`shift+click to check/uncheck a range`
 			$checkbox.addEventListener('click',noteCheckboxClickListener)
 			$cell.append($checkbox)
 		}
@@ -223,9 +225,19 @@ export default function writeNotesTableAndMap(
 		map.showNoteTrack(visibleLayerIds)
 		if ($trackCheckbox.checked) map.fitNoteTrack()
 	}
-	function noteCheckboxClickListener(this: HTMLInputElement, ev: Event): void { // need 'click' handler rather than 'change' to stop click propagation
+	function noteCheckboxClickListener(this: HTMLInputElement, ev: MouseEvent): void { // need 'click' handler rather than 'change' to stop click propagation
 		ev.stopPropagation()
 		const $anyCheckedBox=$table.querySelector('.note-checkbox :checked')
+		const $clickedNoteSection=this.closest('tbody')
+		if ($clickedNoteSection) {
+			if (ev.shiftKey && $lastClickedNoteSection) {
+				for (const $section of getTableSectionRange($table,$lastClickedNoteSection,$clickedNoteSection)) {
+					const $checkbox=$section.querySelector('.note-checkbox input')
+					if ($checkbox instanceof HTMLInputElement) $checkbox.checked=this.checked
+				}
+			}
+			$lastClickedNoteSection=$clickedNoteSection
+		}
 		$loadNotesButton.disabled=!$anyCheckedBox
 	}
 }
@@ -289,4 +301,38 @@ function writeCommands($container: HTMLElement): [
 		$container.append($div)
 	}
 	return [$checkbox,$loadNotesButton,$loadMapButton,$yandexPanoramasButton]
+}
+
+/**
+ * range including $lastClickedSection but excluding $currentClickedSection
+ * excludes $currentClickedSection if equals to $lastClickedSection
+ */
+function *getTableSectionRange(
+	$table: HTMLTableElement,
+	$lastClickedSection: HTMLTableSectionElement, $currentClickedSection: HTMLTableSectionElement
+): Iterable<HTMLTableSectionElement> {
+	const $sections=$table.tBodies
+	let i=0
+	let $guardSection: HTMLTableSectionElement | undefined
+	for (;i<$sections.length;i++) {
+		const $section=$sections[i]
+		if ($section==$lastClickedSection) {
+			$guardSection=$currentClickedSection
+			break
+		}
+		if ($section==$currentClickedSection) {
+			$guardSection=$lastClickedSection
+			break
+		}
+	}
+	if (!$guardSection) return
+	for (;i<$sections.length;i++) {
+		const $section=$sections[i]
+		if ($section!=$currentClickedSection) {
+			yield $section
+		}
+		if ($section==$guardSection) {
+			return
+		}
+	}
 }
