@@ -17,5 +17,16 @@
   },
   "dependencies": {
     "@types/leaflet": "^1.7.9"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AntonKhorev/osm-note-viewer.git"
+  },
+  "keywords": [
+    "osm"
+  ],
+  "bugs": {
+    "url": "https://github.com/AntonKhorev/osm-note-viewer/issues"
+  },
+  "homepage": "https://github.com/AntonKhorev/osm-note-viewer#readme"
 }

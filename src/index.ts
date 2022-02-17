@@ -325,6 +325,9 @@ function writeExtras($container: HTMLElement, username?: string): void {
 		makeLink(`CGIMap`,`https://wiki.openstreetmap.org/wiki/Cgimap`),
 		`)`
 	])
+	writeBlock(()=>[
+		makeLink(`Source code`,`https://github.com/AntonKhorev/osm-note-viewer`)
+	])
 	function writeBlock(makeBlockContents: ()=>Array<Node|string>): void {
 		const $block=document.createElement('div')
 		$block.append(...makeBlockContents())
