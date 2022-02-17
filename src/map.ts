@@ -7,9 +7,12 @@ export class NoteMarker extends L.Marker {
 		const height=40
 		const r=width/2
 		const rp=height-r
+		const y=r**2/rp
+		const x=Math.sqrt(r**2-y**2)
 		const html=
 			`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-r} ${-r} ${width} ${height}">`+
-			`<path d="M0,${rp} L${-r},0 L0,${-r} L${r},0 Z" fill="${note.status=='open'?'red':'green'}" />`+
+			//`<path d="M0,${rp} L${-r},0 L0,${-r} L${r},0 Z" fill="${note.status=='open'?'red':'green'}" />`+
+			`<path d="M0,${rp} L${-x},${y} A${r},${r} 0 1 1 ${x},${y} Z" fill="${note.status=='open'?'red':'green'}" />`+
 			`</svg>`
 		const icon=L.divIcon({
 			html,
