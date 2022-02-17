@@ -3,7 +3,22 @@ import type {Note} from './data'
 export class NoteMarker extends L.Marker {
 	noteId: number
 	constructor(note: Note) {
+		const width=25
+		const height=40
+		const r=width/2
+		const rp=height-r
+		const html=
+			`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-r} ${-r} ${width} ${height}">`+
+			`<path d="M0,${rp} L${-r},0 L0,${-r} L${r},0 Z" fill="${note.status=='open'?'red':'green'}" />`+
+			`</svg>`
+		const icon=L.divIcon({
+			html,
+			className: '',
+			iconSize: [width,height],
+			iconAnchor: [(width-1)/2,height],
+		})
 		super([note.lat,note.lon],{
+			icon,
 			alt: `note`,
 			opacity: 0.5
 		})
