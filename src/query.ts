@@ -45,11 +45,17 @@ export function getNextFetchDetails(query: NoteQuery, allNotes: Note[], lastBatc
 	if (allNotes.length>0) {
 		const lastNote=allNotes[allNotes.length-1]
 		if (lastNote.comments.length>0) {
-			const lastComment=lastNote.comments[lastNote.comments.length-1]
 			if (query.order=='oldest') {
-				lowerDateLimit=makeLowerLimit(lastComment.date)
+				lowerDateLimit=makeLowerLimit(getTargetComment().date)
 			} else {
-				upperDateLimit=makeUpperLimit(lastComment.date)
+				upperDateLimit=makeUpperLimit(getTargetComment().date)
+			}
+		}
+		function getTargetComment(): NoteComment {
+			if (query.sort=='created_at') {
+				return lastNote.comments[0]
+			} else {
+				return lastNote.comments[lastNote.comments.length-1]
 			}
 		}
 	}

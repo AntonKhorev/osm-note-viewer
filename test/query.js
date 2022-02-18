@@ -24,7 +24,7 @@ describe("query module",()=>{
 		assert(fd.autorun)
 		assert.equal(fd.parameters,`display_name=SomeOne&sort=created_at&order=newest&closed=0&limit=23`)
 	})
-	it("provides subsequent fetch for newest-first order",()=>{
+	context("with a single-comment notes",()=>{
 		const makeNote=(id,date)=>({
 			id,
 			lat: 60,
@@ -36,48 +36,79 @@ describe("query module",()=>{
 				text: 'Hello!'
 			}]
 		})
-		const notes=[
-			makeNote(1,1645398621),
-			makeNote(2,1645298621),
-			makeNote(3,1645198621) // 2022-02-18T15:37:01Z
-		]
-		const fd=getNextFetchDetails({
-			user: 'Dude',
-			status: 'mixed',
-			sort: 'created_at',
-			order: 'newest',
-			limit: 3
-		},notes,notes)
-		assert(fd.autorun)
-		assert.equal(fd.parameters,`display_name=Dude&sort=created_at&order=newest&closed=-1&limit=3&from=2001-01-01T00%3A00%3A00Z&to=2022-02-18T15%3A37%3A02Z`)
+		for (const sort of ['created_at','updated_at']) {
+			it(`provides subsequent fetch for newest-first ${sort} order`,()=>{
+				const notes=[
+					makeNote(1,1645398621),
+					makeNote(2,1645298621),
+					makeNote(3,1645198621) // 2022-02-18T15:37:01Z
+				]
+				const fd=getNextFetchDetails({
+					user: 'Dude',
+					status: 'mixed',
+					sort,
+					order: 'newest',
+					limit: 3
+				},notes,notes)
+				assert(fd.autorun)
+				assert.equal(fd.parameters,`display_name=Dude&sort=${sort}&order=newest&closed=-1&limit=3&from=2001-01-01T00%3A00%3A00Z&to=2022-02-18T15%3A37%3A02Z`)
+			})
+			it(`provides subsequent fetch for oldest-first ${sort} order`,()=>{
+				const notes=[
+					makeNote(1,1643198621),
+					makeNote(2,1644198621),
+					makeNote(3,1645198621) // 2022-02-18T15:37:01Z
+				]
+				const fd=getNextFetchDetails({
+					user: 'Dude',
+					status: 'mixed',
+					sort,
+					order: 'oldest',
+					limit: 3
+				},notes,notes)
+				assert(fd.autorun)
+				assert.equal(fd.parameters,`display_name=Dude&sort=${sort}&order=oldest&closed=-1&limit=3&from=2022-02-18T15%3A37%3A01Z`)
+			})
+		}
 	})
-	it("provides subsequent fetch for newest-first order",()=>{
-		const makeNote=(id,date)=>({
+	context("with a multiple-comment notes",()=>{
+		const makeNote=(id,...dates)=>({
 			id,
 			lat: 60,
 			lon: 30,
 			status: 'open',
-			comments: [{
+			comments: dates.map((date,i)=>({
 				date,
-				action: 'opened',
+				action: i==0 ? 'opened' : 'commented',
 				text: 'Hello!'
-			}]
+			}))
 		})
 		const notes=[
-			makeNote(1,1643198621),
-			makeNote(2,1644198621),
-			makeNote(3,1645198621) // 2022-02-18T15:37:01Z
+			makeNote(1,1744198621,1744198622,1744198623),
+			makeNote(2,1645198621,1645298621,1645398621),
+			makeNote(3,1543215432,1546215432,1549215432) // 2018-11-26T06:57:12Z, ..., 2019-02-03T17:37:12Z
 		]
-		const fd=getNextFetchDetails({
-			user: 'Dude',
-			status: 'mixed',
-			sort: 'created_at',
-			order: 'oldest',
-			limit: 3
-		},notes,notes)
-		assert(fd.autorun)
-		assert.equal(fd.parameters,`display_name=Dude&sort=created_at&order=oldest&closed=-1&limit=3&from=2022-02-18T15%3A37%3A01Z`)
+		it(`provides subsequent fetch for newest-first created_at order`,()=>{
+			const fd=getNextFetchDetails({
+				user: 'Gimme',
+				status: 'mixed',
+				sort: 'created_at',
+				order: 'newest',
+				limit: 3
+			},notes,notes)
+			assert(fd.autorun)
+			assert.equal(fd.parameters,`display_name=Gimme&sort=created_at&order=newest&closed=-1&limit=3&from=2001-01-01T00%3A00%3A00Z&to=2018-11-26T06%3A57%3A13Z`)
+		})
+		it(`provides subsequent fetch for newest-first updated_at order`,()=>{
+			const fd=getNextFetchDetails({
+				user: 'Gimme',
+				status: 'mixed',
+				sort: 'updated_at',
+				order: 'newest',
+				limit: 3
+			},notes,notes)
+			assert(fd.autorun)
+			assert.equal(fd.parameters,`display_name=Gimme&sort=updated_at&order=newest&closed=-1&limit=3&from=2001-01-01T00%3A00%3A00Z&to=2019-02-03T17%3A37%3A13Z`)
+		})
 	})
-	// TODO test multiple comments created sort
-	// TODO test multiple comments updated sort
 })
