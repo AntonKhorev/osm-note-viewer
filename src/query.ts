@@ -38,8 +38,17 @@ export interface NoteFetchDetails {
                             from, to - this change for pagination purposes, only one of them is present
  */
 export function getNextFetchDetails(query: NoteQuery, allNotes: Note[], lastBatchNotes: Note[]): NoteFetchDetails {
+	let closed=-1
+	if (query.status=='open') closed=0
+	const parameters:Array<[string,string|number]>=[
+		['display_name',query.user],
+		['sort',query.sort],
+		['order',query.order],
+		['closed',closed],
+		['limit',query.limit]
+	]
 	return {
-		parameters: `display_name=${encodeURIComponent(query.user)}&sort=${encodeURIComponent(query.sort)}&order=${encodeURIComponent(query.order)}&closed=-1&limit=${encodeURIComponent(query.limit)}`,
+		parameters: parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&'),
 		autorun: true
 	}
 }
