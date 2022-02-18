@@ -1,5 +1,6 @@
 import NoteViewerStorage from './storage'
 import type {Note, NoteComment, Users} from './data'
+import {NoteQuery, NoteFetchDetails, toNoteQueryStatus, toNoteQuerySort, toNoteQueryOrder, getNextFetchDetails} from './query'
 import {NoteMap} from './map'
 import writeNotesTableAndMap from './table'
 import {makeLink, makeUserLink} from './util'
@@ -93,80 +94,127 @@ function writeFlipLayoutButton($container: HTMLElement, map: NoteMap): void {
 }
 
 function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, $commandContainer: HTMLElement, map: NoteMap): void {
+	const query: NoteQuery = {
+		user: '',
+		status: 'mixed',
+		sort: 'created_at',
+		order: 'newest',
+		limit: 20,
+	}
+	try {
+		const queryString=storage.getItem('query')
+		if (queryString!=null) {
+			const parsedQuery=JSON.parse(queryString)
+			if (typeof parsedQuery == 'object') {
+				Object.assign(query,parsedQuery)
+			}
+		}
+	} catch {}
 	const $form=document.createElement('form')
 	const $userInput=document.createElement('input')
+	const $statusSelect=document.createElement('select')
+	const $sortSelect=document.createElement('select')
+	const $orderSelect=document.createElement('select')
+	const $limitSelect=document.createElement('select')
 	const $fetchButton=document.createElement('button')
-	const $fetchAllButton=document.createElement('button')
 	{
-		const username=storage.getItem('user')
 		$userInput.type='text'
 		$userInput.name='user'
-		if (username) $userInput.value=username
+		$userInput.value=query.user
 		const $div=document.createElement('div')
 		const $label=document.createElement('label')
 		$label.append(`OSM username: `,$userInput)
 		$div.append($label)
 		$form.append($div)
 	}{
+		const $div=document.createElement('div')
+		$statusSelect.append(
+			new Option(`both open and closed`,'mixed'),
+			new Option(`only open`,'open'),
+			new Option(`open followed by closed`,'separate')
+		)
+		$statusSelect.value=query.status
+		$sortSelect.append(
+			new Option(`creation`,'created_at'),
+			new Option(`last update`,'updated_at')
+		)
+		$sortSelect.value=query.sort
+		$orderSelect.append(
+			new Option('newest'),
+			new Option('oldest')
+		)
+		$orderSelect.value=query.order
+		$limitSelect.append(
+			new Option('20'),
+			new Option('100'),
+			new Option('500'),
+			new Option('2500')
+		)
+		$limitSelect.value=String(query.limit)
+		$div.append(
+			span(`Fetch `,$statusSelect,` notes`),` `,
+			span(`sorted by `,$sortSelect,` date`),`, `,
+			span($orderSelect,` first`),`, `,
+			span(`in batches of `,$limitSelect,` notes`)
+		)
+		$form.append($div)
+		function span(...items: Array<string|HTMLElement>): HTMLSpanElement {
+			const $span=document.createElement('span')
+			$span.append(...items)
+			return $span
+		}
+	}{
 		$fetchButton.textContent=`Fetch notes`
 		$fetchButton.type='submit'
-		$fetchAllButton.textContent=`Fetch all notes`
-		$fetchAllButton.type='submit'
 		const $div=document.createElement('div')
-		$div.append($fetchButton,` `,$fetchAllButton)
+		$div.append($fetchButton)
 		$form.append($div)
 	}
 	$form.addEventListener('submit',async(ev)=>{
 		ev.preventDefault()
-		let limit=20
-		if (ev.submitter===$fetchAllButton) {
-			limit=10000
-		}
 		$fetchButton.disabled=true
-		$fetchAllButton.disabled=true
-		const username=$userInput.value
-		if (username) {
-			storage.setItem('user',username)
-		} else {
-			storage.removeItem('user')
-		}
-		clearRequestStorage()
+		query.user=$userInput.value
+		query.status=toNoteQueryStatus($statusSelect.value)
+		query.sort=toNoteQuerySort($sortSelect.value)
+		query.order=toNoteQueryOrder($orderSelect.value)
+		query.limit=Number($limitSelect.value)
+		resetQueryStorage(query)
 		map.clearNotes()
 		$notesContainer.innerHTML=``
 		$commandContainer.innerHTML=``
-		writeExtras($notesContainer,username)
-		writeMessage($notesContainer,`Loading notes of user `,[username],` ...`)
-		const url=`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=${encodeURIComponent(limit)}&display_name=${encodeURIComponent(username)}`
+		writeExtras($notesContainer,query.user)
+		writeMessage($notesContainer,`Loading notes of user `,[query.user],` ...`)
+		const fetchDetails=getNextFetchDetails(query,[],[])
+		const url=`https://api.openstreetmap.org/api/0.6/notes/search.json?`+fetchDetails.parameters
 		try {
-			const requestBeganAt=new Date().toJSON()
+			query.beganAt=Date.now()
 			const response=await fetch(url)
 			if (!response.ok) {
 				const responseText=await response.text()
 				$notesContainer.innerHTML=``
 				$commandContainer.innerHTML=``
-				writeExtras($notesContainer,username)
-				writeErrorMessage($notesContainer,username,`received the following error response`,responseText)
+				writeExtras($notesContainer,query.user)
+				writeErrorMessage($notesContainer,query.user,`received the following error response`,responseText)
 			} else {
 				const data=await response.json()
-				const requestEndedAt=new Date().toJSON()
+				query.endedAt=Date.now()
 				if (!isNoteFeatureCollection(data)) return
 				const [notes,users]=transformFeatureCollectionToNotesAndUsers(data)
-				saveToRequestStorage(requestBeganAt,requestEndedAt,notes,users)
+				saveToQueryStorage(query,notes,users)
 				$notesContainer.innerHTML=``
 				$commandContainer.innerHTML=``
-				writeExtras($notesContainer,username)
-				writeQueryResults($notesContainer,$commandContainer,map,username,notes,users)
+				writeExtras($notesContainer,query.user)
+				writeQueryResults($notesContainer,$commandContainer,map,query.user,notes,users)
 			}
 		} catch (ex) {
 			$notesContainer.innerHTML=``
 			$commandContainer.innerHTML=``
 			if (ex instanceof TypeError) {
-				writeErrorMessage($notesContainer,username,`failed with the following error before receiving a response`,ex.message)
+				writeErrorMessage($notesContainer,query.user,`failed with the following error before receiving a response`,ex.message)
 			} else {
-				writeErrorMessage($notesContainer,username,`failed for unknown reason`,`${ex}`)
+				writeErrorMessage($notesContainer,query.user,`failed for unknown reason`,`${ex}`)
 			}
 		}
-		$fetchAllButton.disabled=false
 		$fetchButton.disabled=false
 	})
 	$container.append($form)
@@ -239,16 +287,15 @@ function transformFeatureCollectionToNotesAndUsers(data: NoteFeatureCollection):
 	}
 }
 
-function clearRequestStorage(): void {
-	storage.removeItem('request-began-at')
-	storage.removeItem('request-ended-at')
+function resetQueryStorage(query: NoteQuery): void {
+	query.beganAt=query.endedAt=undefined
+	storage.removeItem('query')
 	storage.removeItem('notes')
 	storage.removeItem('users')
 }
 
-function saveToRequestStorage(requestBeganAt: string, requestEndedAt: string, notes: Note[], users: Users): void {
-	storage.setItem('request-began-at',requestBeganAt)
-	storage.setItem('request-ended-at',requestEndedAt)
+function saveToQueryStorage(query: NoteQuery, notes: Note[], users: Users): void {
+	storage.setItem('query',JSON.stringify(query))
 	storage.setItem('notes',JSON.stringify(notes))
 	storage.setItem('users',JSON.stringify(users))
 }
@@ -306,7 +353,9 @@ function writeExtras($container: HTMLElement, username?: string): void {
 		makeLink(`wiki`,`https://wiki.openstreetmap.org/wiki/Notes`),
 		`, `,
 		makeLink(`api`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API`),
-		`, `,
+		` (`,
+		makeLink(`search`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch`),
+		`), `,
 		makeLink(`GeoJSON`,`https://wiki.openstreetmap.org/wiki/GeoJSON`),
 		` (output format used for notes/search.json api calls)`
 	])

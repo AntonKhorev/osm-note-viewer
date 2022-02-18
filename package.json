@@ -4,20 +4,20 @@
   "description": "View OSM notes of an user",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha"
   },
   "author": "Anton Khorev",
   "license": "MIT",
   "devDependencies": {
     "@rollup/plugin-typescript": "^8.3.0",
+    "@types/leaflet": "^1.7.9",
     "fs-extra": "^10.0.0",
+    "mocha": "^9.2.0",
     "rollup": "^2.67.1",
     "tslib": "^2.3.1",
     "typescript": "^4.5.5"
   },
-  "dependencies": {
-    "@types/leaflet": "^1.7.9"
-  },
+  "dependencies": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/AntonKhorev/osm-note-viewer.git"

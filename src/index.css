@@ -36,6 +36,9 @@ body.flipped #text {
 .panel div {
 	margin: .5rem 0;
 }
+.panel div span {
+	white-space: nowrap;
+}
 .panel.fetch {
 	padding: .5rem 3rem;
 }
@@ -60,10 +63,15 @@ body.flipped .panel.fetch button.flip {
 .panel.command div {
 	margin: 0;
 }
-.panel input[type=text] {
+.panel input[type=text],
+.panel button[type=submit]
+ {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
+}
+.panel button[type=submit] {
+	padding: .3rem;
 }
 .notes table {
 	border-collapse: collapse;
