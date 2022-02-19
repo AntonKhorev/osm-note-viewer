@@ -77,8 +77,8 @@ function main(): void {
 
 	const map=new NoteMap($mapSide)
 	writeFlipLayoutButton($fetchContainer,map)
-	writeFetchForm($fetchContainer,$extrasContainer,$notesContainer,$commandContainer,map)
-	writeStoredQueryResults($extrasContainer,$notesContainer,$commandContainer,map)
+	writeFetchForm($fetchContainer,$extrasContainer,$notesContainer,$moreContainer,$commandContainer,map)
+	writeStoredQueryResults($extrasContainer,$notesContainer,$moreContainer,$commandContainer,map)
 }
 
 function writeFlipLayoutButton($container: HTMLElement, map: NoteMap): void {
@@ -97,7 +97,7 @@ function writeFlipLayoutButton($container: HTMLElement, map: NoteMap): void {
 	$container.append($button)
 }
 
-function writeFetchForm($container: HTMLElement, $extrasContainer: HTMLElement, $notesContainer: HTMLElement, $commandContainer: HTMLElement, map: NoteMap): void {
+function writeFetchForm($container: HTMLElement, $extrasContainer: HTMLElement, $notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement, map: NoteMap): void {
 	const query: NoteQuery = {
 		user: '',
 		status: 'mixed',
@@ -176,55 +176,100 @@ function writeFetchForm($container: HTMLElement, $extrasContainer: HTMLElement, 
 	}
 	$form.addEventListener('submit',async(ev)=>{
 		ev.preventDefault()
-		$fetchButton.disabled=true
 		query.user=$userInput.value
 		query.status=toNoteQueryStatus($statusSelect.value)
 		query.sort=toNoteQuerySort($sortSelect.value)
 		query.order=toNoteQueryOrder($orderSelect.value)
 		query.limit=Number($limitSelect.value)
-		resetQueryStorage(query)
+		query.beganAt=Date.now()
+		query.endedAt=undefined
+		const seenNotes: {[id: number]: boolean} = {}
+		const notes: Note[] = []
+		const users: Users = {}
+		saveToQueryStorage(query,notes,users)
 		map.clearNotes()
 		$notesContainer.innerHTML=``
 		$commandContainer.innerHTML=``
 		rewriteExtras($extrasContainer,query.user)
-		writeMessage($notesContainer,`Loading notes of user `,[query.user],` ...`)
-		const fetchDetails=getNextFetchDetails(query)
-		const url=`https://api.openstreetmap.org/api/0.6/notes/search.json?`+fetchDetails.parameters
-		try {
-			query.beganAt=Date.now()
-			const response=await fetch(url)
-			if (!response.ok) {
-				const responseText=await response.text()
-				$notesContainer.innerHTML=``
-				$commandContainer.innerHTML=``
-				rewriteExtras($extrasContainer,query.user)
-				writeErrorMessage($notesContainer,query.user,`received the following error response`,responseText)
-			} else {
-				const data=await response.json()
-				query.endedAt=Date.now()
-				if (!isNoteFeatureCollection(data)) return
-				const [notes,users]=transformFeatureCollectionToNotesAndUsers(data)
-				saveToQueryStorage(query,notes,users)
-				$notesContainer.innerHTML=``
-				$commandContainer.innerHTML=``
-				rewriteExtras($extrasContainer,query.user)
-				writeQueryResults($notesContainer,$commandContainer,map,query.user,notes,users)
+		let lastNote: Note | undefined
+		let prevLastNote: Note | undefined
+		let lastLimit: number | undefined
+		await fetchCycle()
+		async function fetchCycle() {
+			rewriteMessage($moreContainer,`Loading notes of user `,[query.user],` ...`)
+			const fetchDetails=getNextFetchDetails(query,lastNote,prevLastNote,lastLimit)
+			if (fetchDetails.limit>10000) {
+				rewriteMessage($moreContainer,`Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`)
+				return
 			}
-		} catch (ex) {
-			$notesContainer.innerHTML=``
-			$commandContainer.innerHTML=``
-			if (ex instanceof TypeError) {
-				writeErrorMessage($notesContainer,query.user,`failed with the following error before receiving a response`,ex.message)
-			} else {
-				writeErrorMessage($notesContainer,query.user,`failed for unknown reason`,`${ex}`)
+			const url=`https://api.openstreetmap.org/api/0.6/notes/search.json?`+fetchDetails.parameters
+			$fetchButton.disabled=true
+			try {
+				const response=await fetch(url)
+				if (!response.ok) {
+					const responseText=await response.text()
+					rewriteErrorMessage($moreContainer,query.user,`received the following error response`,responseText)
+				} else {
+					const data=await response.json()
+					query.endedAt=Date.now()
+					if (!isNoteFeatureCollection(data)) {
+						rewriteMessage($moreContainer,`Received invalid data`)
+						return
+					}
+					mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data))
+					saveToQueryStorage(query,notes,users)
+					if (!lastNote) { // first iteration
+						if (notes.length>0) {
+							writeNotesTableAndMap($notesContainer,$commandContainer,map,notes,users)
+							map.fitNotes()
+						}
+					} else {
+						// TODO proper append instead of rewriting everything
+						map.clearNotes()
+						$notesContainer.innerHTML=``
+						$commandContainer.innerHTML=``
+						writeNotesTableAndMap($notesContainer,$commandContainer,map,notes,users)
+					}
+					if (data.features.length<fetchDetails.limit) {
+						if (notes.length==0) {
+							rewriteMessage($moreContainer,`User `,[query.user],` has no notes`)
+						} else {
+							rewriteMessage($moreContainer,`Got all notes`)
+						}
+						return
+					}
+					prevLastNote=lastNote
+					lastNote=notes[notes.length-1]
+					lastLimit=fetchDetails.limit
+					$moreContainer.innerHTML=''
+					const $moreButton=document.createElement('button')
+					$moreButton.textContent=`Load more notes`
+					$moreButton.addEventListener('click',fetchCycle)
+					$moreContainer.append($moreButton)
+				}
+			} catch (ex) {
+				if (ex instanceof TypeError) {
+					rewriteErrorMessage($moreContainer,query.user,`failed with the following error before receiving a response`,ex.message)
+				} else {
+					rewriteErrorMessage($moreContainer,query.user,`failed for unknown reason`,`${ex}`)
+				}
+			} finally {
+				$fetchButton.disabled=false
 			}
 		}
-		$fetchButton.disabled=false
+		function mergeNotesAndUsers(newNotes: Note[], newUsers: Users): void {
+			for (const note of newNotes) {
+				if (seenNotes[note.id]) continue
+				seenNotes[note.id]=true
+				notes.push(note)
+			}
+			Object.assign(users,newUsers)
+		}
 	})
 	$container.append($form)
 }
 
-function writeStoredQueryResults($extrasContainer: HTMLElement, $notesContainer: HTMLElement, $commandContainer: HTMLElement, map: NoteMap): void {
+function writeStoredQueryResults($extrasContainer: HTMLElement, $notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement, map: NoteMap): void {
 	const queryString=storage.getItem('query')
 	if (queryString==null) {
 		rewriteExtras($extrasContainer)
@@ -239,20 +284,11 @@ function writeStoredQueryResults($extrasContainer: HTMLElement, $notesContainer:
 		if (usersString==null) return
 		const notes=JSON.parse(notesString)
 		const users=JSON.parse(usersString)
-		writeQueryResults($notesContainer,$commandContainer,map,query.user,notes,users)
+		if (notes.length>0) {
+			writeNotesTableAndMap($notesContainer,$commandContainer,map,notes,users)
+			map.fitNotes()
+		}
 	} catch {}
-}
-
-function writeQueryResults(
-	$notesContainer: HTMLElement, $commandContainer: HTMLElement, map: NoteMap,
-	username: string, notes: Note[], users: Users
-): void {
-	if (notes.length>0) {
-		writeNotesTableAndMap($notesContainer,$commandContainer,map,notes,users)
-		map.fitNotes()
-	} else {
-		writeMessage($notesContainer,`User `,[username],` has no notes`)
-	}
 }
 
 function transformFeatureCollectionToNotesAndUsers(data: NoteFeatureCollection): [Note[], Users] {
@@ -285,20 +321,14 @@ function transformFeatureCollectionToNotesAndUsers(data: NoteFeatureCollection):
 	}
 }
 
-function resetQueryStorage(query: NoteQuery): void {
-	query.beganAt=query.endedAt=undefined
-	storage.removeItem('query')
-	storage.removeItem('notes')
-	storage.removeItem('users')
-}
-
 function saveToQueryStorage(query: NoteQuery, notes: Note[], users: Users): void {
 	storage.setItem('query',JSON.stringify(query))
 	storage.setItem('notes',JSON.stringify(notes))
 	storage.setItem('users',JSON.stringify(users))
 }
 
-function writeMessage($container: HTMLElement, ...items: Array<string|[string]>): void {
+function rewriteMessage($container: HTMLElement, ...items: Array<string|[string]>): void {
+	$container.innerHTML=''
 	const $message=document.createElement('div')
 	for (const item of items) {
 		if (Array.isArray(item)) {
@@ -311,8 +341,8 @@ function writeMessage($container: HTMLElement, ...items: Array<string|[string]>)
 	$container.append($message)
 }
 
-function writeErrorMessage($container: HTMLElement, username: string, responseKindText: string, errorText: string): void {
-	writeMessage($container,`Loading notes of user `,[username],` ${responseKindText}:`)
+function rewriteErrorMessage($container: HTMLElement, username: string, responseKindText: string, errorText: string): void {
+	rewriteMessage($container,`Loading notes of user `,[username],` ${responseKindText}:`)
 	const $error=document.createElement('pre')
 	$error.textContent=errorText
 	$container.append($error)
