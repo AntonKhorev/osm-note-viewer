@@ -33,6 +33,9 @@ body.flipped #text {
 	border-top: solid 1px #CCC;
 	border-bottom: solid 1px #CCC;
 }
+.panel + .panel {
+	border-top: none;
+}
 .panel div {
 	margin: .5rem 0;
 }

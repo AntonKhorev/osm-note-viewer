@@ -63,18 +63,22 @@ function main(): void {
 
 	const $fetchContainer=document.createElement('div')
 	$fetchContainer.classList.add('panel','fetch')
+	const $extrasContainer=document.createElement('div')
+	$extrasContainer.classList.add('panel')
 	const $notesContainer=document.createElement('div')
 	$notesContainer.classList.add('notes')
+	const $moreContainer=document.createElement('div')
+	$moreContainer.classList.add('more')
 	const $commandContainer=document.createElement('div')
 	$commandContainer.classList.add('panel','command')
 	
-	$scrollingPart.append($fetchContainer,$notesContainer)
+	$scrollingPart.append($fetchContainer,$extrasContainer,$notesContainer,$moreContainer)
 	$stickyPart.append($commandContainer)
 
 	const map=new NoteMap($mapSide)
 	writeFlipLayoutButton($fetchContainer,map)
-	writeFetchForm($fetchContainer,$notesContainer,$commandContainer,map)
-	writeStoredQueryResults($notesContainer,$commandContainer,map)
+	writeFetchForm($fetchContainer,$extrasContainer,$notesContainer,$commandContainer,map)
+	writeStoredQueryResults($extrasContainer,$notesContainer,$commandContainer,map)
 }
 
 function writeFlipLayoutButton($container: HTMLElement, map: NoteMap): void {
@@ -93,7 +97,7 @@ function writeFlipLayoutButton($container: HTMLElement, map: NoteMap): void {
 	$container.append($button)
 }
 
-function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, $commandContainer: HTMLElement, map: NoteMap): void {
+function writeFetchForm($container: HTMLElement, $extrasContainer: HTMLElement, $notesContainer: HTMLElement, $commandContainer: HTMLElement, map: NoteMap): void {
 	const query: NoteQuery = {
 		user: '',
 		status: 'mixed',
@@ -131,7 +135,7 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, $
 		$statusSelect.append(
 			new Option(`both open and closed`,'mixed'),
 			new Option(`only open`,'open'),
-			new Option(`open followed by closed`,'separate')
+			// new Option(`open followed by closed`,'separate') // TODO requires two fetch phases
 		)
 		$statusSelect.value=query.status
 		$sortSelect.append(
@@ -182,7 +186,7 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, $
 		map.clearNotes()
 		$notesContainer.innerHTML=``
 		$commandContainer.innerHTML=``
-		writeExtras($notesContainer,query.user)
+		rewriteExtras($extrasContainer,query.user)
 		writeMessage($notesContainer,`Loading notes of user `,[query.user],` ...`)
 		const fetchDetails=getNextFetchDetails(query)
 		const url=`https://api.openstreetmap.org/api/0.6/notes/search.json?`+fetchDetails.parameters
@@ -193,7 +197,7 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, $
 				const responseText=await response.text()
 				$notesContainer.innerHTML=``
 				$commandContainer.innerHTML=``
-				writeExtras($notesContainer,query.user)
+				rewriteExtras($extrasContainer,query.user)
 				writeErrorMessage($notesContainer,query.user,`received the following error response`,responseText)
 			} else {
 				const data=await response.json()
@@ -203,7 +207,7 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, $
 				saveToQueryStorage(query,notes,users)
 				$notesContainer.innerHTML=``
 				$commandContainer.innerHTML=``
-				writeExtras($notesContainer,query.user)
+				rewriteExtras($extrasContainer,query.user)
 				writeQueryResults($notesContainer,$commandContainer,map,query.user,notes,users)
 			}
 		} catch (ex) {
@@ -220,15 +224,15 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, $
 	$container.append($form)
 }
 
-function writeStoredQueryResults($notesContainer: HTMLElement, $commandContainer: HTMLElement, map: NoteMap): void {
+function writeStoredQueryResults($extrasContainer: HTMLElement, $notesContainer: HTMLElement, $commandContainer: HTMLElement, map: NoteMap): void {
 	const queryString=storage.getItem('query')
 	if (queryString==null) {
-		writeExtras($notesContainer)
+		rewriteExtras($extrasContainer)
 		return
 	}
 	try {
 		const query=JSON.parse(queryString)
-		writeExtras($notesContainer,query.user)
+		rewriteExtras($extrasContainer,query.user)
 		const notesString=storage.getItem('notes')
 		if (notesString==null) return
 		const usersString=storage.getItem('users')
@@ -314,7 +318,8 @@ function writeErrorMessage($container: HTMLElement, username: string, responseKi
 	$container.append($error)
 }
 
-function writeExtras($container: HTMLElement, username?: string): void {
+function rewriteExtras($container: HTMLElement, username?: string): void {
+	$container.innerHTML=''
 	const $details=document.createElement('details')
 	{
 		const $summary=document.createElement('summary')
