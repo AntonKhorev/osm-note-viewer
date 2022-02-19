@@ -2,10 +2,9 @@ import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
 import {makeLink,makeUserLink} from './util'
 
-export default function writeNotesTableAndMap(
-	$container: HTMLElement, $commandContainer: HTMLElement, map: NoteMap,
-	notes: Note[], users: Users
-): void {
+export default function writeNotesTableHeaderAndGetNoteAdder(
+	$container: HTMLElement, $commandContainer: HTMLElement, map: NoteMap
+): (notes: Note[], users: Users) => void {
 	const [$trackCheckbox,$loadNotesButton,$loadMapButton,$yandexPanoramasButton]=writeCommands($commandContainer)
 	const noteSectionLayerIdVisibility=new Map<number,boolean>()
 	let noteSectionVisibilityTimeoutId: number | undefined
@@ -34,79 +33,6 @@ export default function writeNotesTableAndMap(
 			makeHeaderCell(''),
 			makeHeaderCell('comment')
 		)
-	}
-	for (const note of notes) {
-		const $tableSection=writeNote(note)
-		let $row=$tableSection.insertRow()
-		const nComments=note.comments.length
-		{
-			const $cell=$row.insertCell()
-			$cell.classList.add('note-checkbox')
-			if (nComments>1) $cell.rowSpan=nComments
-			const $checkbox=document.createElement('input')
-			$checkbox.type='checkbox'
-			$checkbox.title=`shift+click to check/uncheck a range`
-			$checkbox.addEventListener('click',noteCheckboxClickListener)
-			$cell.append($checkbox)
-		}
-		{
-			const $cell=$row.insertCell()
-			if (nComments>1) $cell.rowSpan=nComments
-			const $a=document.createElement('a')
-			$a.href=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.id)
-			$a.textContent=`${note.id}`
-			$cell.append($a)
-		}
-		let firstCommentRow=true
-		for (const comment of note.comments) {
-			{
-				if (firstCommentRow) {
-					firstCommentRow=false
-				} else {
-					$row=$tableSection.insertRow()
-				}
-			}{
-				const $cell=$row.insertCell()
-				const dateString=new Date(comment.date*1000).toISOString()
-				const match=dateString.match(/(\d\d\d\d-\d\d-\d\d)T(\d\d:\d\d:\d\d)/)
-				if (match) {
-					const [,date,time]=match
-					const $dateTime=document.createElement('time')
-					$dateTime.textContent=date
-					$dateTime.dateTime=`${date} ${time}Z`
-					$dateTime.title=`${date} ${time} UTC`
-					$cell.append($dateTime)
-				} else {
-					const $unknownDateTime=document.createElement('span')
-					$unknownDateTime.textContent=`?`
-					$unknownDateTime.title=String(comment.date)
-					$cell.append($unknownDateTime)
-				}
-			}{
-			}{
-				const $cell=$row.insertCell()
-				$cell.classList.add('note-user')
-				if (comment.uid!=null) {
-					const username=users[comment.uid]
-					if (username!=null) {
-						$cell.append(makeUserLink(username))
-					} else {
-						$cell.append(`#${comment.uid}`)
-					}
-				}
-			}{
-				const $cell=$row.insertCell()
-				$cell.classList.add('note-action')
-				const $icon=document.createElement('span')
-				$icon.title=comment.action
-				$icon.classList.add('icon',getActionClass(comment.action))
-				$cell.append($icon)
-			}{
-				const $cell=$row.insertCell()
-				$cell.classList.add('note-comment')
-				$cell.textContent=comment.text
-			}
-		}
 	}
 	$trackCheckbox.addEventListener('change',()=>{
 		if ($trackCheckbox.checked) map.fitNoteTrack()
@@ -239,6 +165,81 @@ export default function writeNotesTableAndMap(
 			$lastClickedNoteSection=$clickedNoteSection
 		}
 		$loadNotesButton.disabled=!$anyCheckedBox
+	}
+	return (notes,users)=>{
+		for (const note of notes) {
+			const $tableSection=writeNote(note)
+			let $row=$tableSection.insertRow()
+			const nComments=note.comments.length
+			{
+				const $cell=$row.insertCell()
+				$cell.classList.add('note-checkbox')
+				if (nComments>1) $cell.rowSpan=nComments
+				const $checkbox=document.createElement('input')
+				$checkbox.type='checkbox'
+				$checkbox.title=`shift+click to check/uncheck a range`
+				$checkbox.addEventListener('click',noteCheckboxClickListener)
+				$cell.append($checkbox)
+			}
+			{
+				const $cell=$row.insertCell()
+				if (nComments>1) $cell.rowSpan=nComments
+				const $a=document.createElement('a')
+				$a.href=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.id)
+				$a.textContent=`${note.id}`
+				$cell.append($a)
+			}
+			let firstCommentRow=true
+			for (const comment of note.comments) {
+				{
+					if (firstCommentRow) {
+						firstCommentRow=false
+					} else {
+						$row=$tableSection.insertRow()
+					}
+				}{
+					const $cell=$row.insertCell()
+					const dateString=new Date(comment.date*1000).toISOString()
+					const match=dateString.match(/(\d\d\d\d-\d\d-\d\d)T(\d\d:\d\d:\d\d)/)
+					if (match) {
+						const [,date,time]=match
+						const $dateTime=document.createElement('time')
+						$dateTime.textContent=date
+						$dateTime.dateTime=`${date} ${time}Z`
+						$dateTime.title=`${date} ${time} UTC`
+						$cell.append($dateTime)
+					} else {
+						const $unknownDateTime=document.createElement('span')
+						$unknownDateTime.textContent=`?`
+						$unknownDateTime.title=String(comment.date)
+						$cell.append($unknownDateTime)
+					}
+				}{
+				}{
+					const $cell=$row.insertCell()
+					$cell.classList.add('note-user')
+					if (comment.uid!=null) {
+						const username=users[comment.uid]
+						if (username!=null) {
+							$cell.append(makeUserLink(username))
+						} else {
+							$cell.append(`#${comment.uid}`)
+						}
+					}
+				}{
+					const $cell=$row.insertCell()
+					$cell.classList.add('note-action')
+					const $icon=document.createElement('span')
+					$icon.title=comment.action
+					$icon.classList.add('icon',getActionClass(comment.action))
+					$cell.append($icon)
+				}{
+					const $cell=$row.insertCell()
+					$cell.classList.add('note-comment')
+					$cell.textContent=comment.text
+				}
+			}
+		}
 	}
 }
 

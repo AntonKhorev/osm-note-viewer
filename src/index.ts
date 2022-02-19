@@ -2,7 +2,7 @@ import NoteViewerStorage from './storage'
 import {Note, NoteComment, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesAndUsers} from './data'
 import {NoteQuery, NoteFetchDetails, toNoteQueryStatus, toNoteQuerySort, toNoteQueryOrder, getNextFetchDetails} from './query'
 import {NoteMap} from './map'
-import writeNotesTableAndMap from './table'
+import writeNotesTableHeaderAndGetNoteAdder from './table'
 import {makeLink, makeUserLink} from './util'
 
 const storage=new NoteViewerStorage('osm-note-viewer-')
@@ -157,6 +157,7 @@ function writeFetchForm($container: HTMLElement, $extrasContainer: HTMLElement, 
 		let lastNote: Note | undefined
 		let prevLastNote: Note | undefined
 		let lastLimit: number | undefined
+		let addNotesToTable: ((notes: Note[], users: Users) => void) | undefined
 		await fetchCycle()
 		async function fetchCycle() {
 			rewriteMessage($moreContainer,`Loading notes of user `,[query.user],` ...`)
@@ -179,26 +180,21 @@ function writeFetchForm($container: HTMLElement, $extrasContainer: HTMLElement, 
 						rewriteMessage($moreContainer,`Received invalid data`)
 						return
 					}
-					mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data))
+					const unseenNotes=mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data))
 					saveToQueryStorage(query,notes,users)
-					if (!lastNote) { // first iteration
-						if (notes.length>0) {
-							writeNotesTableAndMap($notesContainer,$commandContainer,map,notes,users)
-							map.fitNotes()
-						}
+					if (!addNotesToTable && notes.length<=0) {
+						rewriteMessage($moreContainer,`User `,[query.user],` has no ${query.status=='open'?'open ':''}notes`)
+						return
+					}
+					if (!addNotesToTable) {
+						addNotesToTable=writeNotesTableHeaderAndGetNoteAdder($notesContainer,$commandContainer,map)
+						addNotesToTable(unseenNotes,users)
+						map.fitNotes()
 					} else {
-						// TODO proper append instead of rewriting everything
-						map.clearNotes()
-						$notesContainer.innerHTML=``
-						$commandContainer.innerHTML=``
-						writeNotesTableAndMap($notesContainer,$commandContainer,map,notes,users)
+						addNotesToTable(unseenNotes,users)
 					}
 					if (data.features.length<fetchDetails.limit) {
-						if (notes.length==0) {
-							rewriteMessage($moreContainer,`User `,[query.user],` has no notes`)
-						} else {
-							rewriteMessage($moreContainer,`Got all notes`)
-						}
+						rewriteMessage($moreContainer,`Got all notes`)
 						return
 					}
 					prevLastNote=lastNote
@@ -224,13 +220,16 @@ function writeFetchForm($container: HTMLElement, $extrasContainer: HTMLElement, 
 				$fetchButton.disabled=false
 			}
 		}
-		function mergeNotesAndUsers(newNotes: Note[], newUsers: Users): void {
+		function mergeNotesAndUsers(newNotes: Note[], newUsers: Users): Note[] {
+			const unseenNotes: Note[] = []
 			for (const note of newNotes) {
 				if (seenNotes[note.id]) continue
 				seenNotes[note.id]=true
 				notes.push(note)
+				unseenNotes.push(note)
 			}
 			Object.assign(users,newUsers)
+			return unseenNotes
 		}
 	})
 	$container.append($form)
@@ -252,9 +251,10 @@ function writeStoredQueryResults($extrasContainer: HTMLElement, $notesContainer:
 		const notes=JSON.parse(notesString)
 		const users=JSON.parse(usersString)
 		if (notes.length>0) {
-			writeNotesTableAndMap($notesContainer,$commandContainer,map,notes,users)
+			writeNotesTableHeaderAndGetNoteAdder($notesContainer,$commandContainer,map)(notes,users)
 			map.fitNotes()
 		}
+		// TODO setup load more button
 	} catch {}
 }
 

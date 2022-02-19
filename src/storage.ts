@@ -1,8 +1,5 @@
 export default class NoteViewerStorage {
-	prefix: string
-	constructor(prefix: string) {
-		this.prefix=prefix
-	}
+	constructor(private readonly prefix: string) {}
 	getItem(k: string): string | null {
 		return localStorage.getItem(this.prefix+k)
 	}
