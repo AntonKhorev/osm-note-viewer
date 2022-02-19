@@ -86,6 +86,6 @@ export function transformFeatureCollectionToNotesAndUsers(data: NoteFeatureColle
 		const match=a.match(/^\d\d\d\d-\d\d-\d\d\s+\d\d:\d\d:\d\d/)
 		if (!match) return 0 // shouldn't happen
 		const [s]=match
-		return Date.parse(s)/1000
+		return Date.parse(s+'Z')/1000
 	}
 }
