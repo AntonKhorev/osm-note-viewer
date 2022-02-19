@@ -27,9 +27,9 @@ export async function startFetcher(
 		addNotesToTable=writeNotesTableHeaderAndGetNoteAdder($notesContainer,$commandContainer,map)
 		addNotesToTable(notes,users)
 		map.fitNotes()
+		lastNote=notes[notes.length-1]
 		rewriteLoadMoreButton()
 	} else {
-		lastNote=notes[notes.length-1]
 		await fetchCycle()
 	}
 	async function fetchCycle() {
