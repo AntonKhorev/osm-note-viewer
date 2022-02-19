@@ -1,9 +1,9 @@
 import NoteViewerStorage from './storage'
-import {Note, NoteComment, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesAndUsers} from './data'
-import {NoteQuery, NoteFetchDetails, toNoteQueryStatus, toNoteQuerySort, toNoteQueryOrder, getNextFetchDetails} from './query'
+import {Note, Users} from './data'
+import {NoteQuery, toNoteQueryStatus, toNoteQuerySort, toNoteQueryOrder} from './query'
+import {startFetcher} from './fetch'
 import {NoteMap} from './map'
-import writeNotesTableHeaderAndGetNoteAdder from './table'
-import {makeLink, makeUserLink} from './util'
+import {makeLink} from './util'
 
 const storage=new NoteViewerStorage('osm-note-viewer-')
 
@@ -40,8 +40,8 @@ function main(): void {
 
 	const map=new NoteMap($mapSide)
 	writeFlipLayoutButton($fetchContainer,map)
-	writeFetchForm($fetchContainer,$extrasContainer,$notesContainer,$moreContainer,$commandContainer,map)
-	writeStoredQueryResults($extrasContainer,$notesContainer,$moreContainer,$commandContainer,map)
+	const $fetchButton=writeFetchForm($fetchContainer,$extrasContainer,$notesContainer,$moreContainer,$commandContainer,map)
+	writeStoredQueryResults($extrasContainer,$notesContainer,$moreContainer,$commandContainer,map,$fetchButton)
 }
 
 function writeFlipLayoutButton($container: HTMLElement, map: NoteMap): void {
@@ -60,7 +60,10 @@ function writeFlipLayoutButton($container: HTMLElement, map: NoteMap): void {
 	$container.append($button)
 }
 
-function writeFetchForm($container: HTMLElement, $extrasContainer: HTMLElement, $notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement, map: NoteMap): void {
+function writeFetchForm(
+	$container: HTMLElement, $extrasContainer: HTMLElement, $notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
+	map: NoteMap
+): HTMLButtonElement {
 	const query: NoteQuery = {
 		user: '',
 		status: 'mixed',
@@ -137,7 +140,7 @@ function writeFetchForm($container: HTMLElement, $extrasContainer: HTMLElement, 
 		$div.append($fetchButton)
 		$form.append($div)
 	}
-	$form.addEventListener('submit',async(ev)=>{
+	$form.addEventListener('submit',(ev)=>{
 		ev.preventDefault()
 		query.user=$userInput.value
 		query.status=toNoteQueryStatus($statusSelect.value)
@@ -146,96 +149,24 @@ function writeFetchForm($container: HTMLElement, $extrasContainer: HTMLElement, 
 		query.limit=Number($limitSelect.value)
 		query.beganAt=Date.now()
 		query.endedAt=undefined
-		const seenNotes: {[id: number]: boolean} = {}
-		const notes: Note[] = []
-		const users: Users = {}
-		saveToQueryStorage(query,notes,users)
-		map.clearNotes()
-		$notesContainer.innerHTML=``
-		$commandContainer.innerHTML=``
 		rewriteExtras($extrasContainer,query.user)
-		let lastNote: Note | undefined
-		let prevLastNote: Note | undefined
-		let lastLimit: number | undefined
-		let addNotesToTable: ((notes: Note[], users: Users) => void) | undefined
-		await fetchCycle()
-		async function fetchCycle() {
-			rewriteMessage($moreContainer,`Loading notes of user `,[query.user],` ...`)
-			const fetchDetails=getNextFetchDetails(query,lastNote,prevLastNote,lastLimit)
-			if (fetchDetails.limit>10000) {
-				rewriteMessage($moreContainer,`Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`)
-				return
-			}
-			const url=`https://api.openstreetmap.org/api/0.6/notes/search.json?`+fetchDetails.parameters
-			$fetchButton.disabled=true
-			try {
-				const response=await fetch(url)
-				if (!response.ok) {
-					const responseText=await response.text()
-					rewriteFetchErrorMessage($moreContainer,query.user,`received the following error response`,responseText)
-				} else {
-					const data=await response.json()
-					query.endedAt=Date.now()
-					if (!isNoteFeatureCollection(data)) {
-						rewriteMessage($moreContainer,`Received invalid data`)
-						return
-					}
-					const unseenNotes=mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data))
-					saveToQueryStorage(query,notes,users)
-					if (!addNotesToTable && notes.length<=0) {
-						rewriteMessage($moreContainer,`User `,[query.user],` has no ${query.status=='open'?'open ':''}notes`)
-						return
-					}
-					if (!addNotesToTable) {
-						addNotesToTable=writeNotesTableHeaderAndGetNoteAdder($notesContainer,$commandContainer,map)
-						addNotesToTable(unseenNotes,users)
-						map.fitNotes()
-					} else {
-						addNotesToTable(unseenNotes,users)
-					}
-					if (data.features.length<fetchDetails.limit) {
-						rewriteMessage($moreContainer,`Got all notes`)
-						return
-					}
-					prevLastNote=lastNote
-					lastNote=notes[notes.length-1]
-					lastLimit=fetchDetails.limit
-					{
-						const $div=document.createElement('div')
-						$moreContainer.innerHTML=''
-						const $moreButton=document.createElement('button')
-						$moreButton.textContent=`Load more notes`
-						$moreButton.addEventListener('click',fetchCycle)
-						$div.append($moreButton)
-						$moreContainer.append($div)
-					}
-				}
-			} catch (ex) {
-				if (ex instanceof TypeError) {
-					rewriteFetchErrorMessage($moreContainer,query.user,`failed with the following error before receiving a response`,ex.message)
-				} else {
-					rewriteFetchErrorMessage($moreContainer,query.user,`failed for unknown reason`,`${ex}`)
-				}
-			} finally {
-				$fetchButton.disabled=false
-			}
-		}
-		function mergeNotesAndUsers(newNotes: Note[], newUsers: Users): Note[] {
-			const unseenNotes: Note[] = []
-			for (const note of newNotes) {
-				if (seenNotes[note.id]) continue
-				seenNotes[note.id]=true
-				notes.push(note)
-				unseenNotes.push(note)
-			}
-			Object.assign(users,newUsers)
-			return unseenNotes
-		}
+		startFetcher(
+			saveToQueryStorage,
+			$notesContainer,$moreContainer,$commandContainer,
+			map,
+			$fetchButton,
+			query,[],{}
+		)
 	})
 	$container.append($form)
+	return $fetchButton
 }
 
-function writeStoredQueryResults($extrasContainer: HTMLElement, $notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement, map: NoteMap): void {
+function writeStoredQueryResults(
+	$extrasContainer: HTMLElement, $notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
+	map: NoteMap,
+	$fetchButton: HTMLButtonElement
+): void {
 	const queryString=storage.getItem('query')
 	if (queryString==null) {
 		rewriteExtras($extrasContainer)
@@ -250,11 +181,13 @@ function writeStoredQueryResults($extrasContainer: HTMLElement, $notesContainer:
 		if (usersString==null) return
 		const notes=JSON.parse(notesString)
 		const users=JSON.parse(usersString)
-		if (notes.length>0) {
-			writeNotesTableHeaderAndGetNoteAdder($notesContainer,$commandContainer,map)(notes,users)
-			map.fitNotes()
-		}
-		// TODO setup load more button
+		startFetcher(
+			saveToQueryStorage,
+			$notesContainer,$moreContainer,$commandContainer,
+			map,
+			$fetchButton,
+			query,notes,users
+		)
 	} catch {}
 }
 
@@ -262,34 +195,6 @@ function saveToQueryStorage(query: NoteQuery, notes: Note[], users: Users): void
 	storage.setItem('query',JSON.stringify(query))
 	storage.setItem('notes',JSON.stringify(notes))
 	storage.setItem('users',JSON.stringify(users))
-}
-
-function rewriteMessage($container: HTMLElement, ...items: Array<string|[string]>): HTMLElement {
-	$container.innerHTML=''
-	const $message=document.createElement('div')
-	for (const item of items) {
-		if (Array.isArray(item)) {
-			const [username]=item
-			$message.append(makeUserLink(username))
-		} else {
-			$message.append(item)
-		}
-	}
-	$container.append($message)
-	return $message
-}
-
-function rewriteErrorMessage($container: HTMLElement, ...items: Array<string|[string]>): HTMLElement {
-	const $message=rewriteMessage($container,...items)
-	$message.classList.add('error')
-	return $message
-}
-
-function rewriteFetchErrorMessage($container: HTMLElement, username: string, responseKindText: string, fetchErrorText: string): void {
-	const $message=rewriteErrorMessage($container,`Loading notes of user `,[username],` ${responseKindText}:`)
-	const $error=document.createElement('pre')
-	$error.textContent=fetchErrorText
-	$message.append($error)
 }
 
 function rewriteExtras($container: HTMLElement, username?: string): void {
