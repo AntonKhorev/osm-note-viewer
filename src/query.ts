@@ -43,12 +43,22 @@ export function getNextFetchDetails(query: NoteQuery, lastNote?: Note, prevLastN
 	if (query.status=='open') closed=0
 	let lowerDateLimit:string|undefined
 	let upperDateLimit:string|undefined
+	let limit=query.limit
 	if (lastNote) {
 		if (lastNote.comments.length<=0) throw new Error(`note #${lastNote.id} has no comments`)
+		const lastDate=getTargetComment(lastNote).date
 		if (query.order=='oldest') {
-			lowerDateLimit=makeLowerLimit(getTargetComment(lastNote).date)
+			lowerDateLimit=makeLowerLimit(lastDate)
 		} else {
-			upperDateLimit=makeUpperLimit(getTargetComment(lastNote).date)
+			upperDateLimit=makeUpperLimit(lastDate)
+		}
+		if (prevLastNote) {
+			if (prevLastNote.comments.length<=0) throw new Error(`note #${prevLastNote.id} has no comments`)
+			if (lastLimit==null) throw new Error(`no last limit provided along with previous last note #${prevLastNote.id}`)
+			const prevLastDate=getTargetComment(prevLastNote).date
+			if (lastDate==prevLastDate) {
+				limit=lastLimit+query.limit
+			}
 		}
 	}
 	if (lowerDateLimit==null && upperDateLimit!=null) {
@@ -59,13 +69,13 @@ export function getNextFetchDetails(query: NoteQuery, lastNote?: Note, prevLastN
 		['sort',query.sort],
 		['order',query.order],
 		['closed',closed],
-		['limit',query.limit]
+		['limit',limit]
 	]
 	if (lowerDateLimit!=null) parameters.push(['from',lowerDateLimit])
 	if (upperDateLimit!=null) parameters.push(['to',upperDateLimit])
 	return {
 		parameters: parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&'),
-		limit: query.limit,
+		limit,
 		autorun: true
 	}
 	function getTargetComment(note: Note): NoteComment {
