@@ -39,6 +39,130 @@ class NoteViewerStorage {
     }
 }
 
+function isNoteFeatureCollection(data) {
+    return data.type == "FeatureCollection";
+}
+function transformFeatureCollectionToNotesAndUsers(data) {
+    const users = {};
+    const notes = data.features.map(noteFeature => ({
+        id: noteFeature.properties.id,
+        lat: noteFeature.geometry.coordinates[1],
+        lon: noteFeature.geometry.coordinates[0],
+        status: noteFeature.properties.status,
+        comments: noteFeature.properties.comments.map(cullCommentProps)
+    }));
+    return [notes, users];
+    function cullCommentProps(a) {
+        const b = {
+            date: transformDate(a.date),
+            action: a.action,
+            text: a.text
+        };
+        if (a.uid != null) {
+            b.uid = a.uid;
+            if (a.user != null)
+                users[a.uid] = a.user;
+        }
+        return b;
+    }
+    function transformDate(a) {
+        const match = a.match(/^\d\d\d\d-\d\d-\d\d\s+\d\d:\d\d:\d\d/);
+        if (!match)
+            return 0; // shouldn't happen
+        const [s] = match;
+        return Date.parse(s + 'Z') / 1000;
+    }
+}
+
+function toNoteQueryStatus(value) {
+    if (value == 'open' || value == 'separate')
+        return value;
+    return 'mixed';
+}
+function toNoteQuerySort(value) {
+    if (value == 'updated_at')
+        return value;
+    return 'created_at';
+}
+function toNoteQueryOrder(value) {
+    if (value == 'oldest')
+        return value;
+    return 'newest';
+}
+/**
+ * @returns fd.parameters - url parameters in this order:
+                            display_name, sort, order - these don't change within a query;
+                            closed - this may change between phases;
+                            limit - this may change within a phase in rare circumstances;
+                            from, to - this change for pagination purposes, from needs to be present with a dummy date if to is used
+ */
+function getNextFetchDetails(query, lastNote, prevLastNote, lastLimit) {
+    let closed = -1;
+    if (query.status == 'open')
+        closed = 0;
+    let lowerDateLimit;
+    let upperDateLimit;
+    let limit = query.limit;
+    if (lastNote) {
+        if (lastNote.comments.length <= 0)
+            throw new Error(`note #${lastNote.id} has no comments`);
+        const lastDate = getTargetComment(lastNote).date;
+        if (query.order == 'oldest') {
+            lowerDateLimit = makeLowerLimit(lastDate);
+        }
+        else {
+            upperDateLimit = makeUpperLimit(lastDate);
+        }
+        if (prevLastNote) {
+            if (prevLastNote.comments.length <= 0)
+                throw new Error(`note #${prevLastNote.id} has no comments`);
+            if (lastLimit == null)
+                throw new Error(`no last limit provided along with previous last note #${prevLastNote.id}`);
+            const prevLastDate = getTargetComment(prevLastNote).date;
+            if (lastDate == prevLastDate) {
+                limit = lastLimit + query.limit;
+            }
+        }
+    }
+    if (lowerDateLimit == null && upperDateLimit != null) {
+        lowerDateLimit = '2001-01-01T00:00:00Z';
+    }
+    const parameters = [
+        ['display_name', query.user],
+        ['sort', query.sort],
+        ['order', query.order],
+        ['closed', closed],
+        ['limit', limit]
+    ];
+    if (lowerDateLimit != null)
+        parameters.push(['from', lowerDateLimit]);
+    if (upperDateLimit != null)
+        parameters.push(['to', upperDateLimit]);
+    return {
+        parameters: parameters.map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&'),
+        limit
+    };
+    function getTargetComment(note) {
+        if (query.sort == 'created_at') {
+            return note.comments[0];
+        }
+        else {
+            return note.comments[note.comments.length - 1];
+        }
+    }
+}
+function makeLowerLimit(dateInSeconds) {
+    return makeISODateString(dateInSeconds);
+}
+function makeUpperLimit(dateInSeconds) {
+    return makeISODateString(dateInSeconds + 1);
+}
+function makeISODateString(dateInSeconds) {
+    const dateObject = new Date(dateInSeconds * 1000);
+    const dateString = dateObject.toISOString();
+    return dateString.replace(/.\d\d\dZ$/, 'Z');
+}
+
 class NoteMarker extends L.Marker {
     constructor(note) {
         const width = 25;
@@ -491,9 +615,6 @@ function* getTableSectionRange($table, $lastClickedSection, $currentClickedSecti
 }
 
 const storage = new NoteViewerStorage('osm-note-viewer-');
-function isNoteFeatureCollection(data) {
-    return data.type == "FeatureCollection";
-}
 main();
 function main() {
     const flipped = !!storage.getItem('flipped');
@@ -511,16 +632,20 @@ function main() {
     $textSide.append($scrollingPart, $stickyPart);
     const $fetchContainer = document.createElement('div');
     $fetchContainer.classList.add('panel', 'fetch');
+    const $extrasContainer = document.createElement('div');
+    $extrasContainer.classList.add('panel');
     const $notesContainer = document.createElement('div');
     $notesContainer.classList.add('notes');
+    const $moreContainer = document.createElement('div');
+    $moreContainer.classList.add('more');
     const $commandContainer = document.createElement('div');
     $commandContainer.classList.add('panel', 'command');
-    $scrollingPart.append($fetchContainer, $notesContainer);
+    $scrollingPart.append($fetchContainer, $extrasContainer, $notesContainer, $moreContainer);
     $stickyPart.append($commandContainer);
     const map = new NoteMap($mapSide);
     writeFlipLayoutButton($fetchContainer, map);
-    writeFetchForm($fetchContainer, $notesContainer, $commandContainer, map);
-    writeStoredQueryResults($notesContainer, $commandContainer, map);
+    writeFetchForm($fetchContainer, $extrasContainer, $notesContainer, $moreContainer, $commandContainer, map);
+    writeStoredQueryResults($extrasContainer, $notesContainer, $moreContainer, $commandContainer, map);
 }
 function writeFlipLayoutButton($container, map) {
     const $button = document.createElement('button');
@@ -538,17 +663,35 @@ function writeFlipLayoutButton($container, map) {
     });
     $container.append($button);
 }
-function writeFetchForm($container, $notesContainer, $commandContainer, map) {
+function writeFetchForm($container, $extrasContainer, $notesContainer, $moreContainer, $commandContainer, map) {
+    const query = {
+        user: '',
+        status: 'mixed',
+        sort: 'created_at',
+        order: 'newest',
+        limit: 20,
+    };
+    try {
+        const queryString = storage.getItem('query');
+        if (queryString != null) {
+            const parsedQuery = JSON.parse(queryString);
+            if (typeof parsedQuery == 'object') {
+                Object.assign(query, parsedQuery);
+            }
+        }
+    }
+    catch { }
     const $form = document.createElement('form');
     const $userInput = document.createElement('input');
+    const $statusSelect = document.createElement('select');
+    const $sortSelect = document.createElement('select');
+    const $orderSelect = document.createElement('select');
+    const $limitSelect = document.createElement('select');
     const $fetchButton = document.createElement('button');
-    const $fetchAllButton = document.createElement('button');
     {
-        const username = storage.getItem('user');
         $userInput.type = 'text';
         $userInput.name = 'user';
-        if (username)
-            $userInput.value = username;
+        $userInput.value = query.user;
         const $div = document.createElement('div');
         const $label = document.createElement('label');
         $label.append(`OSM username: `, $userInput);
@@ -556,153 +699,162 @@ function writeFetchForm($container, $notesContainer, $commandContainer, map) {
         $form.append($div);
     }
     {
+        const $div = document.createElement('div');
+        $statusSelect.append(new Option(`both open and closed`, 'mixed'), new Option(`only open`, 'open'));
+        $statusSelect.value = query.status;
+        $sortSelect.append(new Option(`creation`, 'created_at'), new Option(`last update`, 'updated_at'));
+        $sortSelect.value = query.sort;
+        $orderSelect.append(new Option('newest'), new Option('oldest'));
+        $orderSelect.value = query.order;
+        $limitSelect.append(new Option('20'), new Option('100'), new Option('500'), new Option('2500'));
+        $limitSelect.value = String(query.limit);
+        $div.append(span(`Fetch `, $statusSelect, ` notes`), ` `, span(`sorted by `, $sortSelect, ` date`), `, `, span($orderSelect, ` first`), `, `, span(`in batches of `, $limitSelect, ` notes`));
+        $form.append($div);
+        function span(...items) {
+            const $span = document.createElement('span');
+            $span.append(...items);
+            return $span;
+        }
+    }
+    {
         $fetchButton.textContent = `Fetch notes`;
         $fetchButton.type = 'submit';
-        $fetchAllButton.textContent = `Fetch all notes`;
-        $fetchAllButton.type = 'submit';
         const $div = document.createElement('div');
-        $div.append($fetchButton, ` `, $fetchAllButton);
+        $div.append($fetchButton);
         $form.append($div);
     }
     $form.addEventListener('submit', async (ev) => {
         ev.preventDefault();
-        let limit = 20;
-        if (ev.submitter === $fetchAllButton) {
-            limit = 10000;
-        }
-        $fetchButton.disabled = true;
-        $fetchAllButton.disabled = true;
-        const username = $userInput.value;
-        if (username) {
-            storage.setItem('user', username);
-        }
-        else {
-            storage.removeItem('user');
-        }
-        clearRequestStorage();
+        query.user = $userInput.value;
+        query.status = toNoteQueryStatus($statusSelect.value);
+        query.sort = toNoteQuerySort($sortSelect.value);
+        query.order = toNoteQueryOrder($orderSelect.value);
+        query.limit = Number($limitSelect.value);
+        query.beganAt = Date.now();
+        query.endedAt = undefined;
+        const seenNotes = {};
+        const notes = [];
+        const users = {};
+        saveToQueryStorage(query, notes, users);
         map.clearNotes();
         $notesContainer.innerHTML = ``;
         $commandContainer.innerHTML = ``;
-        writeExtras($notesContainer, username);
-        writeMessage($notesContainer, `Loading notes of user `, [username], ` ...`);
-        const url = `https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=${encodeURIComponent(limit)}&display_name=${encodeURIComponent(username)}`;
-        try {
-            const requestBeganAt = new Date().toJSON();
-            const response = await fetch(url);
-            if (!response.ok) {
-                const responseText = await response.text();
-                $notesContainer.innerHTML = ``;
-                $commandContainer.innerHTML = ``;
-                writeExtras($notesContainer, username);
-                writeErrorMessage($notesContainer, username, `received the following error response`, responseText);
+        rewriteExtras($extrasContainer, query.user);
+        let lastNote;
+        let prevLastNote;
+        let lastLimit;
+        await fetchCycle();
+        async function fetchCycle() {
+            rewriteMessage($moreContainer, `Loading notes of user `, [query.user], ` ...`);
+            const fetchDetails = getNextFetchDetails(query, lastNote, prevLastNote, lastLimit);
+            if (fetchDetails.limit > 10000) {
+                rewriteMessage($moreContainer, `Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`);
+                return;
             }
-            else {
-                const data = await response.json();
-                const requestEndedAt = new Date().toJSON();
-                if (!isNoteFeatureCollection(data))
-                    return;
-                const [notes, users] = transformFeatureCollectionToNotesAndUsers(data);
-                saveToRequestStorage(requestBeganAt, requestEndedAt, notes, users);
-                $notesContainer.innerHTML = ``;
-                $commandContainer.innerHTML = ``;
-                writeExtras($notesContainer, username);
-                writeQueryResults($notesContainer, $commandContainer, map, username, notes, users);
+            const url = `https://api.openstreetmap.org/api/0.6/notes/search.json?` + fetchDetails.parameters;
+            $fetchButton.disabled = true;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    const responseText = await response.text();
+                    rewriteErrorMessage($moreContainer, query.user, `received the following error response`, responseText);
+                }
+                else {
+                    const data = await response.json();
+                    query.endedAt = Date.now();
+                    if (!isNoteFeatureCollection(data)) {
+                        rewriteMessage($moreContainer, `Received invalid data`);
+                        return;
+                    }
+                    mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data));
+                    saveToQueryStorage(query, notes, users);
+                    if (!lastNote) { // first iteration
+                        if (notes.length > 0) {
+                            writeNotesTableAndMap($notesContainer, $commandContainer, map, notes, users);
+                            map.fitNotes();
+                        }
+                    }
+                    else {
+                        // TODO proper append instead of rewriting everything
+                        map.clearNotes();
+                        $notesContainer.innerHTML = ``;
+                        $commandContainer.innerHTML = ``;
+                        writeNotesTableAndMap($notesContainer, $commandContainer, map, notes, users);
+                    }
+                    if (data.features.length < fetchDetails.limit) {
+                        if (notes.length == 0) {
+                            rewriteMessage($moreContainer, `User `, [query.user], ` has no notes`);
+                        }
+                        else {
+                            rewriteMessage($moreContainer, `Got all notes`);
+                        }
+                        return;
+                    }
+                    prevLastNote = lastNote;
+                    lastNote = notes[notes.length - 1];
+                    lastLimit = fetchDetails.limit;
+                    $moreContainer.innerHTML = '';
+                    const $moreButton = document.createElement('button');
+                    $moreButton.textContent = `Load more notes`;
+                    $moreButton.addEventListener('click', fetchCycle);
+                    $moreContainer.append($moreButton);
+                }
+            }
+            catch (ex) {
+                if (ex instanceof TypeError) {
+                    rewriteErrorMessage($moreContainer, query.user, `failed with the following error before receiving a response`, ex.message);
+                }
+                else {
+                    rewriteErrorMessage($moreContainer, query.user, `failed for unknown reason`, `${ex}`);
+                }
+            }
+            finally {
+                $fetchButton.disabled = false;
             }
         }
-        catch (ex) {
-            $notesContainer.innerHTML = ``;
-            $commandContainer.innerHTML = ``;
-            if (ex instanceof TypeError) {
-                writeErrorMessage($notesContainer, username, `failed with the following error before receiving a response`, ex.message);
+        function mergeNotesAndUsers(newNotes, newUsers) {
+            for (const note of newNotes) {
+                if (seenNotes[note.id])
+                    continue;
+                seenNotes[note.id] = true;
+                notes.push(note);
             }
-            else {
-                writeErrorMessage($notesContainer, username, `failed for unknown reason`, `${ex}`);
-            }
+            Object.assign(users, newUsers);
         }
-        $fetchAllButton.disabled = false;
-        $fetchButton.disabled = false;
     });
     $container.append($form);
 }
-function writeStoredQueryResults($notesContainer, $commandContainer, map) {
-    const username = storage.getItem('user');
-    if (username == null) {
-        writeExtras($notesContainer);
+function writeStoredQueryResults($extrasContainer, $notesContainer, $moreContainer, $commandContainer, map) {
+    const queryString = storage.getItem('query');
+    if (queryString == null) {
+        rewriteExtras($extrasContainer);
         return;
     }
-    writeExtras($notesContainer, username);
-    const requestBeganAt = storage.getItem('request-began-at');
-    if (requestBeganAt == null)
-        return;
-    const requestEndedAt = storage.getItem('request-ended-at');
-    if (requestEndedAt == null)
-        return;
-    const notesString = storage.getItem('notes');
-    if (notesString == null)
-        return;
-    const usersString = storage.getItem('users');
-    if (usersString == null)
-        return;
     try {
+        const query = JSON.parse(queryString);
+        rewriteExtras($extrasContainer, query.user);
+        const notesString = storage.getItem('notes');
+        if (notesString == null)
+            return;
+        const usersString = storage.getItem('users');
+        if (usersString == null)
+            return;
         const notes = JSON.parse(notesString);
         const users = JSON.parse(usersString);
-        writeQueryResults($notesContainer, $commandContainer, map, username, notes, users);
+        if (notes.length > 0) {
+            writeNotesTableAndMap($notesContainer, $commandContainer, map, notes, users);
+            map.fitNotes();
+        }
     }
     catch { }
 }
-function writeQueryResults($notesContainer, $commandContainer, map, username, notes, users) {
-    if (notes.length > 0) {
-        writeNotesTableAndMap($notesContainer, $commandContainer, map, notes, users);
-        map.fitNotes();
-    }
-    else {
-        writeMessage($notesContainer, `User `, [username], ` has no notes`);
-    }
-}
-function transformFeatureCollectionToNotesAndUsers(data) {
-    const users = {};
-    const notes = data.features.map(noteFeature => ({
-        id: noteFeature.properties.id,
-        lat: noteFeature.geometry.coordinates[1],
-        lon: noteFeature.geometry.coordinates[0],
-        status: noteFeature.properties.status,
-        comments: noteFeature.properties.comments.map(cullCommentProps)
-    }));
-    return [notes, users];
-    function cullCommentProps(a) {
-        const b = {
-            date: transformDate(a.date),
-            action: a.action,
-            text: a.text
-        };
-        if (a.uid != null) {
-            b.uid = a.uid;
-            if (a.user != null)
-                users[a.uid] = a.user;
-        }
-        return b;
-    }
-    function transformDate(a) {
-        const match = a.match(/^\d\d\d\d-\d\d-\d\d\s+\d\d:\d\d:\d\d/);
-        if (!match)
-            return 0; // shouldn't happen
-        const [s] = match;
-        return Date.parse(s) / 1000;
-    }
-}
-function clearRequestStorage() {
-    storage.removeItem('request-began-at');
-    storage.removeItem('request-ended-at');
-    storage.removeItem('notes');
-    storage.removeItem('users');
-}
-function saveToRequestStorage(requestBeganAt, requestEndedAt, notes, users) {
-    storage.setItem('request-began-at', requestBeganAt);
-    storage.setItem('request-ended-at', requestEndedAt);
+function saveToQueryStorage(query, notes, users) {
+    storage.setItem('query', JSON.stringify(query));
     storage.setItem('notes', JSON.stringify(notes));
     storage.setItem('users', JSON.stringify(users));
 }
-function writeMessage($container, ...items) {
+function rewriteMessage($container, ...items) {
+    $container.innerHTML = '';
     const $message = document.createElement('div');
     for (const item of items) {
         if (Array.isArray(item)) {
@@ -715,13 +867,14 @@ function writeMessage($container, ...items) {
     }
     $container.append($message);
 }
-function writeErrorMessage($container, username, responseKindText, errorText) {
-    writeMessage($container, `Loading notes of user `, [username], ` ${responseKindText}:`);
+function rewriteErrorMessage($container, username, responseKindText, errorText) {
+    rewriteMessage($container, `Loading notes of user `, [username], ` ${responseKindText}:`);
     const $error = document.createElement('pre');
     $error.textContent = errorText;
     $container.append($error);
 }
-function writeExtras($container, username) {
+function rewriteExtras($container, username) {
+    $container.innerHTML = '';
     const $details = document.createElement('details');
     {
         const $summary = document.createElement('summary');
@@ -755,7 +908,9 @@ function writeExtras($container, username) {
         makeLink(`wiki`, `https://wiki.openstreetmap.org/wiki/Notes`),
         `, `,
         makeLink(`api`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API`),
-        `, `,
+        ` (`,
+        makeLink(`search`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch`),
+        `), `,
         makeLink(`GeoJSON`, `https://wiki.openstreetmap.org/wiki/GeoJSON`),
         ` (output format used for notes/search.json api calls)`
     ]);
