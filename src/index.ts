@@ -171,7 +171,7 @@ function writeFetchForm($container: HTMLElement, $extrasContainer: HTMLElement, 
 				const response=await fetch(url)
 				if (!response.ok) {
 					const responseText=await response.text()
-					rewriteErrorMessage($moreContainer,query.user,`received the following error response`,responseText)
+					rewriteFetchErrorMessage($moreContainer,query.user,`received the following error response`,responseText)
 				} else {
 					const data=await response.json()
 					query.endedAt=Date.now()
@@ -204,17 +204,21 @@ function writeFetchForm($container: HTMLElement, $extrasContainer: HTMLElement, 
 					prevLastNote=lastNote
 					lastNote=notes[notes.length-1]
 					lastLimit=fetchDetails.limit
-					$moreContainer.innerHTML=''
-					const $moreButton=document.createElement('button')
-					$moreButton.textContent=`Load more notes`
-					$moreButton.addEventListener('click',fetchCycle)
-					$moreContainer.append($moreButton)
+					{
+						const $div=document.createElement('div')
+						$moreContainer.innerHTML=''
+						const $moreButton=document.createElement('button')
+						$moreButton.textContent=`Load more notes`
+						$moreButton.addEventListener('click',fetchCycle)
+						$div.append($moreButton)
+						$moreContainer.append($div)
+					}
 				}
 			} catch (ex) {
 				if (ex instanceof TypeError) {
-					rewriteErrorMessage($moreContainer,query.user,`failed with the following error before receiving a response`,ex.message)
+					rewriteFetchErrorMessage($moreContainer,query.user,`failed with the following error before receiving a response`,ex.message)
 				} else {
-					rewriteErrorMessage($moreContainer,query.user,`failed for unknown reason`,`${ex}`)
+					rewriteFetchErrorMessage($moreContainer,query.user,`failed for unknown reason`,`${ex}`)
 				}
 			} finally {
 				$fetchButton.disabled=false
@@ -260,7 +264,7 @@ function saveToQueryStorage(query: NoteQuery, notes: Note[], users: Users): void
 	storage.setItem('users',JSON.stringify(users))
 }
 
-function rewriteMessage($container: HTMLElement, ...items: Array<string|[string]>): void {
+function rewriteMessage($container: HTMLElement, ...items: Array<string|[string]>): HTMLElement {
 	$container.innerHTML=''
 	const $message=document.createElement('div')
 	for (const item of items) {
@@ -272,13 +276,20 @@ function rewriteMessage($container: HTMLElement, ...items: Array<string|[string]
 		}
 	}
 	$container.append($message)
+	return $message
 }
 
-function rewriteErrorMessage($container: HTMLElement, username: string, responseKindText: string, errorText: string): void {
-	rewriteMessage($container,`Loading notes of user `,[username],` ${responseKindText}:`)
+function rewriteErrorMessage($container: HTMLElement, ...items: Array<string|[string]>): HTMLElement {
+	const $message=rewriteMessage($container,...items)
+	$message.classList.add('error')
+	return $message
+}
+
+function rewriteFetchErrorMessage($container: HTMLElement, username: string, responseKindText: string, fetchErrorText: string): void {
+	const $message=rewriteErrorMessage($container,`Loading notes of user `,[username],` ${responseKindText}:`)
 	const $error=document.createElement('pre')
-	$error.textContent=errorText
-	$container.append($error)
+	$error.textContent=fetchErrorText
+	$message.append($error)
 }
 
 function rewriteExtras($container: HTMLElement, username?: string): void {
