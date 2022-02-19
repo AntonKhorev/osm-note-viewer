@@ -39,43 +39,8 @@ class NoteViewerStorage {
     }
 }
 
-function isNoteFeatureCollection(data) {
-    return data.type == "FeatureCollection";
-}
-function transformFeatureCollectionToNotesAndUsers(data) {
-    const users = {};
-    const notes = data.features.map(noteFeature => ({
-        id: noteFeature.properties.id,
-        lat: noteFeature.geometry.coordinates[1],
-        lon: noteFeature.geometry.coordinates[0],
-        status: noteFeature.properties.status,
-        comments: noteFeature.properties.comments.map(cullCommentProps)
-    }));
-    return [notes, users];
-    function cullCommentProps(a) {
-        const b = {
-            date: transformDate(a.date),
-            action: a.action,
-            text: a.text
-        };
-        if (a.uid != null) {
-            b.uid = a.uid;
-            if (a.user != null)
-                users[a.uid] = a.user;
-        }
-        return b;
-    }
-    function transformDate(a) {
-        const match = a.match(/^\d\d\d\d-\d\d-\d\d\s+\d\d:\d\d:\d\d/);
-        if (!match)
-            return 0; // shouldn't happen
-        const [s] = match;
-        return Date.parse(s + 'Z') / 1000;
-    }
-}
-
 function toNoteQueryStatus(value) {
-    if (value == 'open' || value == 'separate')
+    if (value == 'open' || value == 'recent' || value == 'separate')
         return value;
     return 'mixed';
 }
@@ -98,8 +63,12 @@ function toNoteQueryOrder(value) {
  */
 function getNextFetchDetails(query, lastNote, prevLastNote, lastLimit) {
     let closed = -1;
-    if (query.status == 'open')
+    if (query.status == 'open') {
         closed = 0;
+    }
+    else if (query.status == 'recent') {
+        closed = 7;
+    }
     let lowerDateLimit;
     let upperDateLimit;
     let limit = query.limit;
@@ -163,109 +132,38 @@ function makeISODateString(dateInSeconds) {
     return dateString.replace(/.\d\d\dZ$/, 'Z');
 }
 
-class NoteMarker extends L.Marker {
-    constructor(note) {
-        const width = 25;
-        const height = 40;
-        const nInnerCircles = 4;
-        const r = width / 2;
-        const rp = height - r;
-        const y = r ** 2 / rp;
-        const x = Math.sqrt(r ** 2 - y ** 2);
-        const xf = x.toFixed(2);
-        const yf = y.toFixed(2);
-        const dcr = (r - .5) / nInnerCircles;
-        let html = ``;
-        html += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-r} ${-r} ${width} ${height}">`;
-        html += `<path d="M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z" fill="${note.status == 'open' ? 'red' : 'green'}" />`;
-        const states = [...noteCommentsToStates(note.comments)];
-        const statesToDraw = states.slice(-nInnerCircles, -1);
-        for (let i = 2; i >= 0; i--) {
-            if (i >= statesToDraw.length)
-                continue;
-            const cr = dcr * (i + 1);
-            html += `<circle r="${cr}" fill="${color()}" stroke="white" />`;
-            function color() {
-                if (i == 0 && states.length <= nInnerCircles)
-                    return 'white';
-                if (statesToDraw[i])
-                    return 'red';
-                return 'green';
-            }
-        }
-        html += `</svg>`;
-        const icon = L.divIcon({
-            html,
-            className: '',
-            iconSize: [width, height],
-            iconAnchor: [(width - 1) / 2, height],
-        });
-        super([note.lat, note.lon], {
-            icon,
-            alt: `note`,
-            opacity: 0.5
-        });
-        this.noteId = note.id;
-    }
+function isNoteFeatureCollection(data) {
+    return data.type == "FeatureCollection";
 }
-class NoteMap extends L.Map {
-    constructor($container) {
-        super($container);
-        this.addLayer(L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>",
-            maxZoom: 19
-        })).fitWorld();
-        this.noteLayer = L.featureGroup().addTo(this);
-        this.trackLayer = L.featureGroup().addTo(this);
-    }
-    clearNotes() {
-        this.noteLayer.clearLayers();
-        this.trackLayer.clearLayers();
-    }
-    fitNotes() {
-        this.fitBounds(this.noteLayer.getBounds());
-    }
-    addNote(note) {
-        return new NoteMarker(note).addTo(this.noteLayer);
-    }
-    showNoteTrack(layerIds) {
-        const polylineOptions = {
-            interactive: false,
-            color: '#004',
-            weight: 1,
-            className: 'note-track', // sets non-scaling stroke defined in css
+function transformFeatureCollectionToNotesAndUsers(data) {
+    const users = {};
+    const notes = data.features.map(noteFeature => ({
+        id: noteFeature.properties.id,
+        lat: noteFeature.geometry.coordinates[1],
+        lon: noteFeature.geometry.coordinates[0],
+        status: noteFeature.properties.status,
+        comments: noteFeature.properties.comments.map(cullCommentProps)
+    }));
+    return [notes, users];
+    function cullCommentProps(a) {
+        const b = {
+            date: transformDate(a.date),
+            action: a.action,
+            text: a.text
         };
-        const nodeOptions = {
-            ...polylineOptions,
-            radius: 3,
-            fill: false,
-        };
-        this.trackLayer.clearLayers();
-        const polylineCoords = [];
-        for (const layerId of layerIds) {
-            const marker = this.noteLayer.getLayer(layerId);
-            if (!(marker instanceof L.Marker))
-                continue;
-            const coords = marker.getLatLng();
-            polylineCoords.push(coords);
-            L.circleMarker(coords, nodeOptions).addTo(this.trackLayer);
+        if (a.uid != null) {
+            b.uid = a.uid;
+            if (a.user != null)
+                users[a.uid] = a.user;
         }
-        L.polyline(polylineCoords, polylineOptions).addTo(this.trackLayer);
+        return b;
     }
-    fitNoteTrack() {
-        this.fitBounds(this.trackLayer.getBounds());
-    }
-}
-function* noteCommentsToStates(comments) {
-    let currentState = true;
-    for (const comment of comments) {
-        if (comment.action == 'opened' || comment.action == 'reopened') {
-            currentState = true;
-        }
-        else if (comment.action == 'closed' || comment.action == 'hidden') {
-            currentState = false;
-        }
-        yield currentState;
+    function transformDate(a) {
+        const match = a.match(/^\d\d\d\d-\d\d-\d\d\s+\d\d:\d\d:\d\d/);
+        if (!match)
+            return 0; // shouldn't happen
+        const [s] = match;
+        return Date.parse(s + 'Z') / 1000;
     }
 }
 
@@ -281,7 +179,7 @@ function makeLink(text, href, title) {
     return $link;
 }
 
-function writeNotesTableAndMap($container, $commandContainer, map, notes, users) {
+function writeNotesTableHeaderAndGetNoteAdder($container, $commandContainer, map) {
     const [$trackCheckbox, $loadNotesButton, $loadMapButton, $yandexPanoramasButton] = writeCommands($commandContainer);
     const noteSectionLayerIdVisibility = new Map();
     let noteSectionVisibilityTimeoutId;
@@ -305,87 +203,6 @@ function writeNotesTableAndMap($container, $commandContainer, map, notes, users)
         const $header = $table.createTHead();
         const $row = $header.insertRow();
         $row.append(makeHeaderCell(''), makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), makeHeaderCell(''), makeHeaderCell('comment'));
-    }
-    for (const note of notes) {
-        const $tableSection = writeNote(note);
-        let $row = $tableSection.insertRow();
-        const nComments = note.comments.length;
-        {
-            const $cell = $row.insertCell();
-            $cell.classList.add('note-checkbox');
-            if (nComments > 1)
-                $cell.rowSpan = nComments;
-            const $checkbox = document.createElement('input');
-            $checkbox.type = 'checkbox';
-            $checkbox.title = `shift+click to check/uncheck a range`;
-            $checkbox.addEventListener('click', noteCheckboxClickListener);
-            $cell.append($checkbox);
-        }
-        {
-            const $cell = $row.insertCell();
-            if (nComments > 1)
-                $cell.rowSpan = nComments;
-            const $a = document.createElement('a');
-            $a.href = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
-            $a.textContent = `${note.id}`;
-            $cell.append($a);
-        }
-        let firstCommentRow = true;
-        for (const comment of note.comments) {
-            {
-                if (firstCommentRow) {
-                    firstCommentRow = false;
-                }
-                else {
-                    $row = $tableSection.insertRow();
-                }
-            }
-            {
-                const $cell = $row.insertCell();
-                const dateString = new Date(comment.date * 1000).toISOString();
-                const match = dateString.match(/(\d\d\d\d-\d\d-\d\d)T(\d\d:\d\d:\d\d)/);
-                if (match) {
-                    const [, date, time] = match;
-                    const $dateTime = document.createElement('time');
-                    $dateTime.textContent = date;
-                    $dateTime.dateTime = `${date} ${time}Z`;
-                    $dateTime.title = `${date} ${time} UTC`;
-                    $cell.append($dateTime);
-                }
-                else {
-                    const $unknownDateTime = document.createElement('span');
-                    $unknownDateTime.textContent = `?`;
-                    $unknownDateTime.title = String(comment.date);
-                    $cell.append($unknownDateTime);
-                }
-            }
-            {
-                const $cell = $row.insertCell();
-                $cell.classList.add('note-user');
-                if (comment.uid != null) {
-                    const username = users[comment.uid];
-                    if (username != null) {
-                        $cell.append(makeUserLink(username));
-                    }
-                    else {
-                        $cell.append(`#${comment.uid}`);
-                    }
-                }
-            }
-            {
-                const $cell = $row.insertCell();
-                $cell.classList.add('note-action');
-                const $icon = document.createElement('span');
-                $icon.title = comment.action;
-                $icon.classList.add('icon', getActionClass(comment.action));
-                $cell.append($icon);
-            }
-            {
-                const $cell = $row.insertCell();
-                $cell.classList.add('note-comment');
-                $cell.textContent = comment.text;
-            }
-        }
     }
     $trackCheckbox.addEventListener('change', () => {
         if ($trackCheckbox.checked)
@@ -530,6 +347,89 @@ function writeNotesTableAndMap($container, $commandContainer, map, notes, users)
         }
         $loadNotesButton.disabled = !$anyCheckedBox;
     }
+    return (notes, users) => {
+        for (const note of notes) {
+            const $tableSection = writeNote(note);
+            let $row = $tableSection.insertRow();
+            const nComments = note.comments.length;
+            {
+                const $cell = $row.insertCell();
+                $cell.classList.add('note-checkbox');
+                if (nComments > 1)
+                    $cell.rowSpan = nComments;
+                const $checkbox = document.createElement('input');
+                $checkbox.type = 'checkbox';
+                $checkbox.title = `shift+click to check/uncheck a range`;
+                $checkbox.addEventListener('click', noteCheckboxClickListener);
+                $cell.append($checkbox);
+            }
+            {
+                const $cell = $row.insertCell();
+                if (nComments > 1)
+                    $cell.rowSpan = nComments;
+                const $a = document.createElement('a');
+                $a.href = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
+                $a.textContent = `${note.id}`;
+                $cell.append($a);
+            }
+            let firstCommentRow = true;
+            for (const comment of note.comments) {
+                {
+                    if (firstCommentRow) {
+                        firstCommentRow = false;
+                    }
+                    else {
+                        $row = $tableSection.insertRow();
+                    }
+                }
+                {
+                    const $cell = $row.insertCell();
+                    const dateString = new Date(comment.date * 1000).toISOString();
+                    const match = dateString.match(/(\d\d\d\d-\d\d-\d\d)T(\d\d:\d\d:\d\d)/);
+                    if (match) {
+                        const [, date, time] = match;
+                        const $dateTime = document.createElement('time');
+                        $dateTime.textContent = date;
+                        $dateTime.dateTime = `${date} ${time}Z`;
+                        $dateTime.title = `${date} ${time} UTC`;
+                        $cell.append($dateTime);
+                    }
+                    else {
+                        const $unknownDateTime = document.createElement('span');
+                        $unknownDateTime.textContent = `?`;
+                        $unknownDateTime.title = String(comment.date);
+                        $cell.append($unknownDateTime);
+                    }
+                }
+                {
+                    const $cell = $row.insertCell();
+                    $cell.classList.add('note-user');
+                    if (comment.uid != null) {
+                        const username = users[comment.uid];
+                        if (username != null) {
+                            $cell.append(makeUserLink(username));
+                        }
+                        else {
+                            $cell.append(`#${comment.uid}`);
+                        }
+                    }
+                }
+                {
+                    const $cell = $row.insertCell();
+                    $cell.classList.add('note-action');
+                    const $icon = document.createElement('span');
+                    $icon.title = comment.action;
+                    $icon.classList.add('icon', getActionClass(comment.action));
+                    $cell.append($icon);
+                }
+                {
+                    const $cell = $row.insertCell();
+                    $cell.classList.add('note-comment');
+                    $cell.textContent = comment.text;
+                }
+            }
+        }
+    };
 }
 function getStatusClass(status) {
     if (status == 'open') {
@@ -614,6 +514,270 @@ function* getTableSectionRange($table, $lastClickedSection, $currentClickedSecti
     }
 }
 
+const maxSingleAutoLoadLimit = 200;
+const maxTotalAutoLoadLimit = 1000;
+async function startFetcher(saveToQueryStorage, $notesContainer, $moreContainer, $commandContainer, map, $fetchButton, query, initialNotes, initialUsers) {
+    const [notes, users, mergeNotesAndUsers] = makeNotesAndUsersAndMerger();
+    mergeNotesAndUsers(initialNotes, initialUsers);
+    saveToQueryStorage(query, notes, users);
+    map.clearNotes();
+    $notesContainer.innerHTML = ``;
+    $commandContainer.innerHTML = ``;
+    let lastNote;
+    let prevLastNote;
+    let lastLimit;
+    let addNotesToTable;
+    if (notes.length > 0) {
+        addNotesToTable = writeNotesTableHeaderAndGetNoteAdder($notesContainer, $commandContainer, map);
+        addNotesToTable(notes, users);
+        map.fitNotes();
+        lastNote = notes[notes.length - 1];
+        rewriteLoadMoreButton();
+    }
+    else {
+        await fetchCycle();
+    }
+    async function fetchCycle() {
+        rewriteLoadingButton();
+        const fetchDetails = getNextFetchDetails(query, lastNote, prevLastNote, lastLimit);
+        if (fetchDetails.limit > 10000) {
+            rewriteMessage($moreContainer, `Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`);
+            return;
+        }
+        const url = `https://api.openstreetmap.org/api/0.6/notes/search.json?` + fetchDetails.parameters;
+        $fetchButton.disabled = true;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                const responseText = await response.text();
+                rewriteFetchErrorMessage($moreContainer, query.user, `received the following error response`, responseText);
+            }
+            else {
+                const data = await response.json();
+                query.endedAt = Date.now();
+                if (!isNoteFeatureCollection(data)) {
+                    rewriteMessage($moreContainer, `Received invalid data`);
+                    return;
+                }
+                const unseenNotes = mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data));
+                saveToQueryStorage(query, notes, users);
+                if (!addNotesToTable && notes.length <= 0) {
+                    rewriteMessage($moreContainer, `User `, [query.user], ` has no ${query.status == 'open' ? 'open ' : ''}notes`);
+                    return;
+                }
+                if (!addNotesToTable) {
+                    addNotesToTable = writeNotesTableHeaderAndGetNoteAdder($notesContainer, $commandContainer, map);
+                    addNotesToTable(unseenNotes, users);
+                    map.fitNotes();
+                }
+                else {
+                    addNotesToTable(unseenNotes, users);
+                }
+                if (data.features.length < fetchDetails.limit) {
+                    rewriteMessage($moreContainer, `Got all ${notes.length} notes`);
+                    return;
+                }
+                prevLastNote = lastNote;
+                lastNote = notes[notes.length - 1];
+                lastLimit = fetchDetails.limit;
+                const $moreButton = rewriteLoadMoreButton();
+                if (notes.length <= maxTotalAutoLoadLimit &&
+                    getNextFetchDetails(query, lastNote, prevLastNote, lastLimit).limit <= maxSingleAutoLoadLimit) {
+                    const moreButtonIntersectionObserver = new IntersectionObserver((entries) => {
+                        if (entries.length <= 0)
+                            return;
+                        if (!entries[0].isIntersecting)
+                            return;
+                        moreButtonIntersectionObserver.disconnect();
+                        $moreButton.click();
+                    });
+                    moreButtonIntersectionObserver.observe($moreButton);
+                }
+            }
+        }
+        catch (ex) {
+            if (ex instanceof TypeError) {
+                rewriteFetchErrorMessage($moreContainer, query.user, `failed with the following error before receiving a response`, ex.message);
+            }
+            else {
+                rewriteFetchErrorMessage($moreContainer, query.user, `failed for unknown reason`, `${ex}`);
+            }
+        }
+        finally {
+            $fetchButton.disabled = false;
+        }
+    }
+    function rewriteLoadMoreButton() {
+        $moreContainer.innerHTML = '';
+        const $div = document.createElement('div');
+        const $button = document.createElement('button');
+        $button.textContent = `Load more notes`;
+        $button.addEventListener('click', fetchCycle);
+        $div.append($button);
+        $moreContainer.append($div);
+        return $button;
+    }
+    function rewriteLoadingButton() {
+        $moreContainer.innerHTML = '';
+        const $div = document.createElement('div');
+        const $button = document.createElement('button');
+        $button.textContent = `Loading notes...`;
+        $button.disabled = true;
+        $div.append($button);
+        $moreContainer.append($div);
+    }
+}
+function makeNotesAndUsersAndMerger() {
+    const seenNotes = {};
+    const notes = [];
+    const users = {};
+    const merger = (newNotes, newUsers) => {
+        const unseenNotes = [];
+        for (const note of newNotes) {
+            if (seenNotes[note.id])
+                continue;
+            seenNotes[note.id] = true;
+            notes.push(note);
+            unseenNotes.push(note);
+        }
+        Object.assign(users, newUsers);
+        return unseenNotes;
+    };
+    return [notes, users, merger];
+}
+function rewriteMessage($container, ...items) {
+    $container.innerHTML = '';
+    const $message = document.createElement('div');
+    for (const item of items) {
+        if (Array.isArray(item)) {
+            const [username] = item;
+            $message.append(makeUserLink(username));
+        }
+        else {
+            $message.append(item);
+        }
+    }
+    $container.append($message);
+    return $message;
+}
+function rewriteErrorMessage($container, ...items) {
+    const $message = rewriteMessage($container, ...items);
+    $message.classList.add('error');
+    return $message;
+}
+function rewriteFetchErrorMessage($container, username, responseKindText, fetchErrorText) {
+    const $message = rewriteErrorMessage($container, `Loading notes of user `, [username], ` ${responseKindText}:`);
+    const $error = document.createElement('pre');
+    $error.textContent = fetchErrorText;
+    $message.append($error);
+}
+
+class NoteMarker extends L.Marker {
+    constructor(note) {
+        const width = 25;
+        const height = 40;
+        const nInnerCircles = 4;
+        const r = width / 2;
+        const rp = height - r;
+        const y = r ** 2 / rp;
+        const x = Math.sqrt(r ** 2 - y ** 2);
+        const xf = x.toFixed(2);
+        const yf = y.toFixed(2);
+        const dcr = (r - .5) / nInnerCircles;
+        let html = ``;
+        html += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-r} ${-r} ${width} ${height}">`;
+        html += `<path d="M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z" fill="${note.status == 'open' ? 'red' : 'green'}" />`;
+        const states = [...noteCommentsToStates(note.comments)];
+        const statesToDraw = states.slice(-nInnerCircles, -1);
+        for (let i = 2; i >= 0; i--) {
+            if (i >= statesToDraw.length)
+                continue;
+            const cr = dcr * (i + 1);
+            html += `<circle r="${cr}" fill="${color()}" stroke="white" />`;
+            function color() {
+                if (i == 0 && states.length <= nInnerCircles)
+                    return 'white';
+                if (statesToDraw[i])
+                    return 'red';
+                return 'green';
+            }
+        }
+        html += `</svg>`;
+        const icon = L.divIcon({
+            html,
+            className: '',
+            iconSize: [width, height],
+            iconAnchor: [(width - 1) / 2, height],
+        });
+        super([note.lat, note.lon], {
+            icon,
+            alt: `note`,
+            opacity: 0.5
+        });
+        this.noteId = note.id;
+    }
+}
+class NoteMap extends L.Map {
+    constructor($container) {
+        super($container);
+        this.addLayer(L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>",
+            maxZoom: 19
+        })).fitWorld();
+        this.noteLayer = L.featureGroup().addTo(this);
+        this.trackLayer = L.featureGroup().addTo(this);
+    }
+    clearNotes() {
+        this.noteLayer.clearLayers();
+        this.trackLayer.clearLayers();
+    }
+    fitNotes() {
+        this.fitBounds(this.noteLayer.getBounds());
+    }
+    addNote(note) {
+        return new NoteMarker(note).addTo(this.noteLayer);
+    }
+    showNoteTrack(layerIds) {
+        const polylineOptions = {
+            interactive: false,
+            color: '#004',
+            weight: 1,
+            className: 'note-track', // sets non-scaling stroke defined in css
+        };
+        const nodeOptions = {
+            ...polylineOptions,
+            radius: 3,
+            fill: false,
+        };
+        this.trackLayer.clearLayers();
+        const polylineCoords = [];
+        for (const layerId of layerIds) {
+            const marker = this.noteLayer.getLayer(layerId);
+            if (!(marker instanceof L.Marker))
+                continue;
+            const coords = marker.getLatLng();
+            polylineCoords.push(coords);
+            L.circleMarker(coords, nodeOptions).addTo(this.trackLayer);
+        }
+        L.polyline(polylineCoords, polylineOptions).addTo(this.trackLayer);
+    }
+    fitNoteTrack() {
+        this.fitBounds(this.trackLayer.getBounds());
+    }
+}
+function* noteCommentsToStates(comments) {
+    let currentState = true;
+    for (const comment of comments) {
+        if (comment.action == 'opened' || comment.action == 'reopened') {
+            currentState = true;
+        }
+        else if (comment.action == 'closed' || comment.action == 'hidden') {
+            currentState = false;
+        }
+        yield currentState;
+    }
+}
+
 const storage = new NoteViewerStorage('osm-note-viewer-');
 main();
 function main() {
@@ -644,8 +808,8 @@ function main() {
     $stickyPart.append($commandContainer);
     const map = new NoteMap($mapSide);
     writeFlipLayoutButton($fetchContainer, map);
-    writeFetchForm($fetchContainer, $extrasContainer, $notesContainer, $moreContainer, $commandContainer, map);
-    writeStoredQueryResults($extrasContainer, $notesContainer, $moreContainer, $commandContainer, map);
+    const $fetchButton = writeFetchForm($fetchContainer, $extrasContainer, $notesContainer, $moreContainer, $commandContainer, map);
+    writeStoredQueryResults($extrasContainer, $notesContainer, $moreContainer, $commandContainer, map, $fetchButton);
 }
 function writeFlipLayoutButton($container, map) {
     const $button = document.createElement('button');
@@ -700,7 +864,7 @@ function writeFetchForm($container, $extrasContainer, $notesContainer, $moreCont
     }
     {
         const $div = document.createElement('div');
-        $statusSelect.append(new Option(`both open and closed`, 'mixed'), new Option(`only open`, 'open'));
+        $statusSelect.append(new Option(`both open and closed`, 'mixed'), new Option(`open and recently closed`, 'recent'), new Option(`only open`, 'open'));
         $statusSelect.value = query.status;
         $sortSelect.append(new Option(`creation`, 'created_at'), new Option(`last update`, 'updated_at'));
         $sortSelect.value = query.sort;
@@ -723,7 +887,7 @@ function writeFetchForm($container, $extrasContainer, $notesContainer, $moreCont
         $div.append($fetchButton);
         $form.append($div);
     }
-    $form.addEventListener('submit', async (ev) => {
+    $form.addEventListener('submit', (ev) => {
         ev.preventDefault();
         query.user = $userInput.value;
         query.status = toNoteQueryStatus($statusSelect.value);
@@ -732,99 +896,13 @@ function writeFetchForm($container, $extrasContainer, $notesContainer, $moreCont
         query.limit = Number($limitSelect.value);
         query.beganAt = Date.now();
         query.endedAt = undefined;
-        const seenNotes = {};
-        const notes = [];
-        const users = {};
-        saveToQueryStorage(query, notes, users);
-        map.clearNotes();
-        $notesContainer.innerHTML = ``;
-        $commandContainer.innerHTML = ``;
         rewriteExtras($extrasContainer, query.user);
-        let lastNote;
-        let prevLastNote;
-        let lastLimit;
-        await fetchCycle();
-        async function fetchCycle() {
-            rewriteMessage($moreContainer, `Loading notes of user `, [query.user], ` ...`);
-            const fetchDetails = getNextFetchDetails(query, lastNote, prevLastNote, lastLimit);
-            if (fetchDetails.limit > 10000) {
-                rewriteMessage($moreContainer, `Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`);
-                return;
-            }
-            const url = `https://api.openstreetmap.org/api/0.6/notes/search.json?` + fetchDetails.parameters;
-            $fetchButton.disabled = true;
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    const responseText = await response.text();
-                    rewriteErrorMessage($moreContainer, query.user, `received the following error response`, responseText);
-                }
-                else {
-                    const data = await response.json();
-                    query.endedAt = Date.now();
-                    if (!isNoteFeatureCollection(data)) {
-                        rewriteMessage($moreContainer, `Received invalid data`);
-                        return;
-                    }
-                    mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data));
-                    saveToQueryStorage(query, notes, users);
-                    if (!lastNote) { // first iteration
-                        if (notes.length > 0) {
-                            writeNotesTableAndMap($notesContainer, $commandContainer, map, notes, users);
-                            map.fitNotes();
-                        }
-                    }
-                    else {
-                        // TODO proper append instead of rewriting everything
-                        map.clearNotes();
-                        $notesContainer.innerHTML = ``;
-                        $commandContainer.innerHTML = ``;
-                        writeNotesTableAndMap($notesContainer, $commandContainer, map, notes, users);
-                    }
-                    if (data.features.length < fetchDetails.limit) {
-                        if (notes.length == 0) {
-                            rewriteMessage($moreContainer, `User `, [query.user], ` has no notes`);
-                        }
-                        else {
-                            rewriteMessage($moreContainer, `Got all notes`);
-                        }
-                        return;
-                    }
-                    prevLastNote = lastNote;
-                    lastNote = notes[notes.length - 1];
-                    lastLimit = fetchDetails.limit;
-                    $moreContainer.innerHTML = '';
-                    const $moreButton = document.createElement('button');
-                    $moreButton.textContent = `Load more notes`;
-                    $moreButton.addEventListener('click', fetchCycle);
-                    $moreContainer.append($moreButton);
-                }
-            }
-            catch (ex) {
-                if (ex instanceof TypeError) {
-                    rewriteErrorMessage($moreContainer, query.user, `failed with the following error before receiving a response`, ex.message);
-                }
-                else {
-                    rewriteErrorMessage($moreContainer, query.user, `failed for unknown reason`, `${ex}`);
-                }
-            }
-            finally {
-                $fetchButton.disabled = false;
-            }
-        }
-        function mergeNotesAndUsers(newNotes, newUsers) {
-            for (const note of newNotes) {
-                if (seenNotes[note.id])
-                    continue;
-                seenNotes[note.id] = true;
-                notes.push(note);
-            }
-            Object.assign(users, newUsers);
-        }
+        startFetcher(saveToQueryStorage, $notesContainer, $moreContainer, $commandContainer, map, $fetchButton, query, [], {});
     });
     $container.append($form);
+    return $fetchButton;
 }
-function writeStoredQueryResults($extrasContainer, $notesContainer, $moreContainer, $commandContainer, map) {
+function writeStoredQueryResults($extrasContainer, $notesContainer, $moreContainer, $commandContainer, map, $fetchButton) {
     const queryString = storage.getItem('query');
     if (queryString == null) {
         rewriteExtras($extrasContainer);
@@ -841,10 +919,7 @@ function writeStoredQueryResults($extrasContainer, $notesContainer, $moreContain
             return;
         const notes = JSON.parse(notesString);
         const users = JSON.parse(usersString);
-        if (notes.length > 0) {
-            writeNotesTableAndMap($notesContainer, $commandContainer, map, notes, users);
-            map.fitNotes();
-        }
+        startFetcher(saveToQueryStorage, $notesContainer, $moreContainer, $commandContainer, map, $fetchButton, query, notes, users);
     }
     catch { }
 }
@@ -852,26 +927,6 @@ function saveToQueryStorage(query, notes, users) {
     storage.setItem('query', JSON.stringify(query));
     storage.setItem('notes', JSON.stringify(notes));
     storage.setItem('users', JSON.stringify(users));
-}
-function rewriteMessage($container, ...items) {
-    $container.innerHTML = '';
-    const $message = document.createElement('div');
-    for (const item of items) {
-        if (Array.isArray(item)) {
-            const [username] = item;
-            $message.append(makeUserLink(username));
-        }
-        else {
-            $message.append(item);
-        }
-    }
-    $container.append($message);
-}
-function rewriteErrorMessage($container, username, responseKindText, errorText) {
-    rewriteMessage($container, `Loading notes of user `, [username], ` ${responseKindText}:`);
-    const $error = document.createElement('pre');
-    $error.textContent = errorText;
-    $container.append($error);
 }
 function rewriteExtras($container, username) {
     $container.innerHTML = '';

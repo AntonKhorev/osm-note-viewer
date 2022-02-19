@@ -131,11 +131,22 @@ body.flipped .notes td.note-user {
 	content: "no comment";
 	color: gray;
 }
+.more div {
+	padding: 1em;
+}
 .more button {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
 	padding: .3rem;
+}
+.more .error {
+	background: #FCC;
+}
+.more pre {
+	margin: 1rem 0 0 0;
+	padding: 1rem;
+	background: #CCC;
 }
 
 #map .note-track {
