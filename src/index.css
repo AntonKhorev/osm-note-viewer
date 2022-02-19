@@ -131,6 +131,12 @@ body.flipped .notes td.note-user {
 	content: "no comment";
 	color: gray;
 }
+.more button {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	padding: .3rem;
+}
 
 #map .note-track {
 	vector-effect: non-scaling-stroke;
