@@ -27,6 +27,7 @@ export function toNoteQueryOrder(value: string): NoteQuery['order'] {
 
 export interface NoteFetchDetails {
 	parameters: string
+	limit: number // to be (checked against result size for exit condition) and (passed as lastLimit on the next iteration)
 	autorun: boolean
 }
 
@@ -37,26 +38,17 @@ export interface NoteFetchDetails {
                             limit - this may change within a phase in rare circumstances;
                             from, to - this change for pagination purposes, from needs to be present with a dummy date if to is used
  */
-export function getNextFetchDetails(query: NoteQuery, allNotes: Note[], lastBatchNotes: Note[]): NoteFetchDetails {
+export function getNextFetchDetails(query: NoteQuery, lastNote?: Note, prevLastNote?: Note, lastLimit?: number): NoteFetchDetails {
 	let closed=-1
 	if (query.status=='open') closed=0
 	let lowerDateLimit:string|undefined
 	let upperDateLimit:string|undefined
-	if (allNotes.length>0) {
-		const lastNote=allNotes[allNotes.length-1]
-		if (lastNote.comments.length>0) {
-			if (query.order=='oldest') {
-				lowerDateLimit=makeLowerLimit(getTargetComment().date)
-			} else {
-				upperDateLimit=makeUpperLimit(getTargetComment().date)
-			}
-		}
-		function getTargetComment(): NoteComment {
-			if (query.sort=='created_at') {
-				return lastNote.comments[0]
-			} else {
-				return lastNote.comments[lastNote.comments.length-1]
-			}
+	if (lastNote) {
+		if (lastNote.comments.length<=0) throw new Error(`note #${lastNote.id} has no comments`)
+		if (query.order=='oldest') {
+			lowerDateLimit=makeLowerLimit(getTargetComment(lastNote).date)
+		} else {
+			upperDateLimit=makeUpperLimit(getTargetComment(lastNote).date)
 		}
 	}
 	if (lowerDateLimit==null && upperDateLimit!=null) {
@@ -73,7 +65,15 @@ export function getNextFetchDetails(query: NoteQuery, allNotes: Note[], lastBatc
 	if (upperDateLimit!=null) parameters.push(['to',upperDateLimit])
 	return {
 		parameters: parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&'),
+		limit: query.limit,
 		autorun: true
+	}
+	function getTargetComment(note: Note): NoteComment {
+		if (query.sort=='created_at') {
+			return note.comments[0]
+		} else {
+			return note.comments[note.comments.length-1]
+		}
 	}
 }
 

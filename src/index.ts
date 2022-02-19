@@ -184,7 +184,7 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, $
 		$commandContainer.innerHTML=``
 		writeExtras($notesContainer,query.user)
 		writeMessage($notesContainer,`Loading notes of user `,[query.user],` ...`)
-		const fetchDetails=getNextFetchDetails(query,[],[])
+		const fetchDetails=getNextFetchDetails(query)
 		const url=`https://api.openstreetmap.org/api/0.6/notes/search.json?`+fetchDetails.parameters
 		try {
 			query.beganAt=Date.now()
@@ -256,7 +256,7 @@ function writeQueryResults(
 
 function transformFeatureCollectionToNotesAndUsers(data: NoteFeatureCollection): [Note[], Users] {
 	const users: Users = {}
-	const notes=data.features.map(noteFeature=>({
+	const notes=data.features.map(noteFeature=>({ // TODO make sure note has at least one comment
 		id: noteFeature.properties.id,
 		lat: noteFeature.geometry.coordinates[1],
 		lon: noteFeature.geometry.coordinates[0],
@@ -281,9 +281,6 @@ function transformFeatureCollectionToNotesAndUsers(data: NoteFeatureCollection):
 		if (!match) return 0 // shouldn't happen
 		const [s]=match
 		return Date.parse(s)/1000
-	}
-	function transformCoords([lon,lat]: [number,number]): [lat: number, lon: number] {
-		return [lat,lon]
 	}
 }
 
