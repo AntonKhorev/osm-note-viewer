@@ -4,6 +4,8 @@ import {NoteMap} from './map'
 import writeNotesTableHeaderAndGetNoteAdder from './table'
 import {makeUserLink} from './util'
 
+const maxAutoLoadLimit=500
+
 export async function startFetcher(
 	saveToQueryStorage: (query: NoteQuery, notes: Note[], users: Users) => void,
 	$notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
@@ -70,7 +72,16 @@ export async function startFetcher(
 				prevLastNote=lastNote
 				lastNote=notes[notes.length-1]
 				lastLimit=fetchDetails.limit
-				rewriteLoadMoreButton()
+				const $moreButton=rewriteLoadMoreButton()
+				if (getNextFetchDetails(query,lastNote,prevLastNote,lastLimit).limit<=maxAutoLoadLimit) {
+					const moreButtonIntersectionObserver=new IntersectionObserver((entries)=>{
+						if (entries.length<=0) return
+						if (!entries[0].isIntersecting) return
+						moreButtonIntersectionObserver.disconnect()
+						$moreButton.click()
+					})
+					moreButtonIntersectionObserver.observe($moreButton)
+				}
 			}
 		} catch (ex) {
 			if (ex instanceof TypeError) {
@@ -82,7 +93,7 @@ export async function startFetcher(
 			$fetchButton.disabled=false
 		}
 	}
-	function rewriteLoadMoreButton() {
+	function rewriteLoadMoreButton(): HTMLButtonElement {
 		$moreContainer.innerHTML=''
 		const $div=document.createElement('div')
 		const $button=document.createElement('button')
@@ -90,8 +101,9 @@ export async function startFetcher(
 		$button.addEventListener('click',fetchCycle)
 		$div.append($button)
 		$moreContainer.append($div)
+		return $button
 	}
-	function rewriteLoadingButton() {
+	function rewriteLoadingButton(): void {
 		$moreContainer.innerHTML=''
 		const $div=document.createElement('div')
 		const $button=document.createElement('button')
