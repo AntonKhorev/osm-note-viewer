@@ -12,9 +12,10 @@ export async function startFetcher(
 	$notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
 	map: NoteMap,
 	$fetchButton: HTMLButtonElement,
-	query: NoteQuery, notes: Note[], users: Users
+	query: NoteQuery, initialNotes: Note[], initialUsers: Users
 ) {
-	const seenNotes: {[id: number]: boolean} = {}
+	const [notes,users,mergeNotesAndUsers]=makeNotesAndUsersAndMerger()
+	mergeNotesAndUsers(initialNotes,initialUsers)
 	saveToQueryStorage(query,notes,users)
 	map.clearNotes()
 	$notesContainer.innerHTML=``
@@ -116,7 +117,16 @@ export async function startFetcher(
 		$div.append($button)
 		$moreContainer.append($div)
 	}
-	function mergeNotesAndUsers(newNotes: Note[], newUsers: Users): Note[] {
+}
+
+function makeNotesAndUsersAndMerger(): [
+	notes: Note[], users: Users,
+	merger: (newNotes: Note[], newUsers: Users) => Note[]
+] {
+	const seenNotes: {[id: number]: boolean} = {}
+	const notes: Note[] = []
+	const users: Users = {}
+	const merger=(newNotes: Note[], newUsers: Users): Note[] => {
 		const unseenNotes: Note[] = []
 		for (const note of newNotes) {
 			if (seenNotes[note.id]) continue
@@ -127,6 +137,7 @@ export async function startFetcher(
 		Object.assign(users,newUsers)
 		return unseenNotes
 	}
+	return [notes,users,merger]
 }
 
 function rewriteMessage($container: HTMLElement, ...items: Array<string|[string]>): HTMLElement {
