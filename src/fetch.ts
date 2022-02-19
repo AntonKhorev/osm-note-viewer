@@ -4,7 +4,8 @@ import {NoteMap} from './map'
 import writeNotesTableHeaderAndGetNoteAdder from './table'
 import {makeUserLink} from './util'
 
-const maxAutoLoadLimit=500
+const maxSingleAutoLoadLimit=200
+const maxTotalAutoLoadLimit=1000
 
 export async function startFetcher(
 	saveToQueryStorage: (query: NoteQuery, notes: Note[], users: Users) => void,
@@ -73,7 +74,10 @@ export async function startFetcher(
 				lastNote=notes[notes.length-1]
 				lastLimit=fetchDetails.limit
 				const $moreButton=rewriteLoadMoreButton()
-				if (getNextFetchDetails(query,lastNote,prevLastNote,lastLimit).limit<=maxAutoLoadLimit) {
+				if (
+					notes.length<=maxTotalAutoLoadLimit &&
+					getNextFetchDetails(query,lastNote,prevLastNote,lastLimit).limit<=maxSingleAutoLoadLimit
+				) {
 					const moreButtonIntersectionObserver=new IntersectionObserver((entries)=>{
 						if (entries.length<=0) return
 						if (!entries[0].isIntersecting) return
