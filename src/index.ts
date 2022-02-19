@@ -100,6 +100,7 @@ function writeFetchForm(
 		const $div=document.createElement('div')
 		$statusSelect.append(
 			new Option(`both open and closed`,'mixed'),
+			new Option(`open and recently closed`,'recent'),
 			new Option(`only open`,'open'),
 			// new Option(`open followed by closed`,'separate') // TODO requires two fetch phases
 		)

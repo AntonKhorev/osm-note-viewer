@@ -2,7 +2,7 @@ import {Note, NoteComment} from './data'
 
 export interface NoteQuery {
 	user: string
-	status: 'mixed'|'open'|'separate'
+	status: 'mixed'|'recent'|'open'|'separate'
 	sort: 'created_at'|'updated_at'
 	order: 'newest'|'oldest'
 	limit: number
@@ -11,7 +11,7 @@ export interface NoteQuery {
 }
 
 export function toNoteQueryStatus(value: string): NoteQuery['status'] {
-	if (value=='open' || value=='separate') return value
+	if (value=='open' || value=='recent' || value=='separate') return value
 	return 'mixed'
 }
 
@@ -39,7 +39,11 @@ export interface NoteFetchDetails {
  */
 export function getNextFetchDetails(query: NoteQuery, lastNote?: Note, prevLastNote?: Note, lastLimit?: number): NoteFetchDetails {
 	let closed=-1
-	if (query.status=='open') closed=0
+	if (query.status=='open') {
+		closed=0
+	} else if (query.status=='recent') {
+		closed=7
+	}
 	let lowerDateLimit:string|undefined
 	let upperDateLimit:string|undefined
 	let limit=query.limit
