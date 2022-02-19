@@ -67,7 +67,7 @@ export async function startFetcher(
 					addNotesToTable(unseenNotes,users)
 				}
 				if (data.features.length<fetchDetails.limit) {
-					rewriteMessage($moreContainer,`Got all notes`)
+					rewriteMessage($moreContainer,`Got all ${notes.length} notes`)
 					return
 				}
 				prevLastNote=lastNote
