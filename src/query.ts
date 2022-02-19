@@ -28,7 +28,6 @@ export function toNoteQueryOrder(value: string): NoteQuery['order'] {
 export interface NoteFetchDetails {
 	parameters: string
 	limit: number // to be (checked against result size for exit condition) and (passed as lastLimit on the next iteration)
-	autorun: boolean
 }
 
 /**
@@ -75,8 +74,7 @@ export function getNextFetchDetails(query: NoteQuery, lastNote?: Note, prevLastN
 	if (upperDateLimit!=null) parameters.push(['to',upperDateLimit])
 	return {
 		parameters: parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&'),
-		limit,
-		autorun: true
+		limit
 	}
 	function getTargetComment(note: Note): NoteComment {
 		if (query.sort=='created_at') {
