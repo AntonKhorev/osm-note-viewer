@@ -1,48 +1,11 @@
 import NoteViewerStorage from './storage'
-import type {Note, NoteComment, Users} from './data'
+import {Note, NoteComment, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesAndUsers} from './data'
 import {NoteQuery, NoteFetchDetails, toNoteQueryStatus, toNoteQuerySort, toNoteQueryOrder, getNextFetchDetails} from './query'
 import {NoteMap} from './map'
 import writeNotesTableAndMap from './table'
 import {makeLink, makeUserLink} from './util'
 
 const storage=new NoteViewerStorage('osm-note-viewer-')
-
-/**
- * notes as received from the server
- */
-interface NoteFeatureCollection {
-	type: "FeatureCollection"
-	features: NoteFeature[]
-}
-
-function isNoteFeatureCollection(data: any): data is NoteFeatureCollection {
-	return data.type=="FeatureCollection"
-}
-
-/**
- * single note as received from the server
- */
-interface NoteFeature {
-	geometry: {
-		coordinates: [lon: number, lat: number]
-	}
-	properties: {
-		id: number
-		status: 'open' | 'closed' | 'hidden'
-		comments: NoteFeatureComment[]
-	}
-}
-
-/**
- * single note comment as received from the server
- */
-interface NoteFeatureComment {
-	date: string
-	uid?: number
-	user?: string
-	action: 'opened' | 'closed' | 'reopened' | 'commented' | 'hidden'
-	text: string
-}
 
 main()
 
@@ -289,36 +252,6 @@ function writeStoredQueryResults($extrasContainer: HTMLElement, $notesContainer:
 			map.fitNotes()
 		}
 	} catch {}
-}
-
-function transformFeatureCollectionToNotesAndUsers(data: NoteFeatureCollection): [Note[], Users] {
-	const users: Users = {}
-	const notes=data.features.map(noteFeature=>({ // TODO make sure note has at least one comment
-		id: noteFeature.properties.id,
-		lat: noteFeature.geometry.coordinates[1],
-		lon: noteFeature.geometry.coordinates[0],
-		status: noteFeature.properties.status,
-		comments: noteFeature.properties.comments.map(cullCommentProps)
-	}))
-	return [notes,users]
-	function cullCommentProps(a: NoteFeatureComment): NoteComment {
-		const b:NoteComment={
-			date: transformDate(a.date),
-			action: a.action,
-			text: a.text
-		}
-		if (a.uid!=null) {
-			b.uid=a.uid
-			if (a.user!=null) users[a.uid]=a.user
-		}
-		return b
-	}
-	function transformDate(a: string): number {
-		const match=a.match(/^\d\d\d\d-\d\d-\d\d\s+\d\d:\d\d:\d\d/)
-		if (!match) return 0 // shouldn't happen
-		const [s]=match
-		return Date.parse(s)/1000
-	}
 }
 
 function saveToQueryStorage(query: NoteQuery, notes: Note[], users: Users): void {
