@@ -30,7 +30,7 @@ export async function startFetcher(
 		await fetchCycle()
 	}
 	async function fetchCycle() {
-		rewriteMessage($moreContainer,`Loading notes of user `,[query.user],` ...`)
+		rewriteLoadingButton()
 		const fetchDetails=getNextFetchDetails(query,lastNote,prevLastNote,lastLimit)
 		if (fetchDetails.limit>10000) {
 			rewriteMessage($moreContainer,`Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`)
@@ -83,12 +83,21 @@ export async function startFetcher(
 		}
 	}
 	function rewriteLoadMoreButton() {
-		const $div=document.createElement('div')
 		$moreContainer.innerHTML=''
-		const $moreButton=document.createElement('button')
-		$moreButton.textContent=`Load more notes`
-		$moreButton.addEventListener('click',fetchCycle)
-		$div.append($moreButton)
+		const $div=document.createElement('div')
+		const $button=document.createElement('button')
+		$button.textContent=`Load more notes`
+		$button.addEventListener('click',fetchCycle)
+		$div.append($button)
+		$moreContainer.append($div)
+	}
+	function rewriteLoadingButton() {
+		$moreContainer.innerHTML=''
+		const $div=document.createElement('div')
+		const $button=document.createElement('button')
+		$button.textContent=`Loading notes...`
+		$button.disabled=true
+		$div.append($button)
 		$moreContainer.append($div)
 	}
 	function mergeNotesAndUsers(newNotes: Note[], newUsers: Users): Note[] {
