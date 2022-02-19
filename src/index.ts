@@ -221,24 +221,21 @@ function writeFetchForm($container: HTMLElement, $notesContainer: HTMLElement, $
 }
 
 function writeStoredQueryResults($notesContainer: HTMLElement, $commandContainer: HTMLElement, map: NoteMap): void {
-	const username=storage.getItem('user')
-	if (username==null) {
+	const queryString=storage.getItem('query')
+	if (queryString==null) {
 		writeExtras($notesContainer)
 		return
 	}
-	writeExtras($notesContainer,username)
-	const requestBeganAt=storage.getItem('request-began-at')
-	if (requestBeganAt==null) return
-	const requestEndedAt=storage.getItem('request-ended-at')
-	if (requestEndedAt==null) return
-	const notesString=storage.getItem('notes')
-	if (notesString==null) return
-	const usersString=storage.getItem('users')
-	if (usersString==null) return
 	try {
+		const query=JSON.parse(queryString)
+		writeExtras($notesContainer,query.user)
+		const notesString=storage.getItem('notes')
+		if (notesString==null) return
+		const usersString=storage.getItem('users')
+		if (usersString==null) return
 		const notes=JSON.parse(notesString)
 		const users=JSON.parse(usersString)
-		writeQueryResults($notesContainer,$commandContainer,map,username,notes,users)
+		writeQueryResults($notesContainer,$commandContainer,map,query.user,notes,users)
 	} catch {}
 }
 
