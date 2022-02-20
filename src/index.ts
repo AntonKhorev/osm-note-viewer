@@ -90,6 +90,9 @@ function writeFetchForm(
 	{
 		$userInput.type='text'
 		$userInput.name='user'
+		$userInput.required=true
+		$userInput.pattern=`[^/;.,?%#]+`
+		$userInput.title=`Inputs containing any of these characters /;.,?%# are invalid`
 		$userInput.value=query.user
 		const $div=document.createElement('div')
 		const $label=document.createElement('label')
@@ -228,6 +231,11 @@ function rewriteExtras($container: HTMLElement, username?: string): void {
 		makeLink(`json`,`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=10000&display_name=${encodeURIComponent(username)}`)
 	])
 	writeBlock(()=>[
+		`Usernames can't contain any of these characters: `,
+		makeCode(`/;.,?%#`),
+		` , can't have leading/trailing whitespace, have to be between 3 and 255 characters in length`
+	])
+	writeBlock(()=>[
 		`Notes documentation: `,
 		makeLink(`wiki`,`https://wiki.openstreetmap.org/wiki/Notes`),
 		`, `,
@@ -260,6 +268,11 @@ function rewriteExtras($container: HTMLElement, username?: string): void {
 		const $block=document.createElement('div')
 		$block.append(...makeBlockContents())
 		$details.append($block)
+	}
+	function makeCode(s: string): HTMLElement {
+		const $code=document.createElement('code')
+		$code.textContent=s
+		return $code
 	}
 	$container.append($details)
 }
