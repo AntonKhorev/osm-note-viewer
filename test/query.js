@@ -14,9 +14,10 @@ const makeNote=(id,...dates)=>({
 })
 
 describe("query module",()=>{
-	it("provides simple initial fetch",()=>{
+	it("provides username initial fetch",()=>{
 		const fd=getNextFetchDetails({
-			user: 'Someone',
+			userType: 'name',
+			username: 'Someone',
 			status: 'mixed',
 			sort: 'created_at',
 			order: 'newest',
@@ -25,9 +26,22 @@ describe("query module",()=>{
 		assert.equal(fd.limit,12)
 		assert.equal(fd.parameters,`display_name=Someone&sort=created_at&order=newest&closed=-1&limit=12`)
 	})
+	it("provides uid initial fetch",()=>{
+		const fd=getNextFetchDetails({
+			userType: 'id',
+			uid: 31337,
+			status: 'mixed',
+			sort: 'created_at',
+			order: 'newest',
+			limit: 21
+		})
+		assert.equal(fd.limit,21)
+		assert.equal(fd.parameters,`user=31337&sort=created_at&order=newest&closed=-1&limit=21`)
+	})
 	it("provides open notes initial fetch",()=>{
 		const fd=getNextFetchDetails({
-			user: 'SomeOne',
+			userType: 'name',
+			username: 'SomeOne',
 			status: 'open',
 			sort: 'created_at',
 			order: 'newest',
@@ -41,7 +55,8 @@ describe("query module",()=>{
 			it(`provides subsequent fetch for newest-first ${sort} order`,()=>{
 				const note=makeNote(3,1645198621) // 2022-02-18T15:37:01Z
 				const fd=getNextFetchDetails({
-					user: 'Dude',
+					userType: 'name',
+					username: 'Dude',
 					status: 'mixed',
 					sort,
 					order: 'newest',
@@ -53,7 +68,8 @@ describe("query module",()=>{
 			it(`provides subsequent fetch for oldest-first ${sort} order`,()=>{
 				const note=makeNote(3,1645198621) // 2022-02-18T15:37:01Z
 				const fd=getNextFetchDetails({
-					user: 'Dude',
+					userType: 'name',
+					username: 'Dude',
 					status: 'mixed',
 					sort,
 					order: 'oldest',
@@ -68,7 +84,8 @@ describe("query module",()=>{
 		const note=makeNote(3,1543215432,1546215432,1549215432) // 2018-11-26T06:57:12Z, ..., 2019-02-03T17:37:12Z
 		it(`provides subsequent fetch for newest-first created_at order`,()=>{
 			const fd=getNextFetchDetails({
-				user: 'Gimme',
+				userType: 'name',
+				username: 'Gimme',
 				status: 'mixed',
 				sort: 'created_at',
 				order: 'newest',
@@ -79,7 +96,8 @@ describe("query module",()=>{
 		})
 		it(`provides subsequent fetch for newest-first updated_at order`,()=>{
 			const fd=getNextFetchDetails({
-				user: 'Gimme',
+				userType: 'name',
+				username: 'Gimme',
 				status: 'mixed',
 				sort: 'updated_at',
 				order: 'newest',
@@ -93,7 +111,8 @@ describe("query module",()=>{
 		const note2=makeNote(11,1745198621) // different dates
 		const note1=makeNote(12,1645198621) // 2022-02-18T15:37:01Z
 		const fd=getNextFetchDetails({
-			user: 'Mapper',
+			userType: 'name',
+			username: 'Mapper',
 			status: 'mixed',
 			sort: 'created_at',
 			order: 'newest',
@@ -106,7 +125,8 @@ describe("query module",()=>{
 		const note2=makeNote(11,1645198621) // same dates
 		const note1=makeNote(12,1645198621) // 2022-02-18T15:37:01Z
 		const fd=getNextFetchDetails({
-			user: 'Mapper',
+			userType: 'name',
+			username: 'Mapper',
 			status: 'mixed',
 			sort: 'created_at',
 			order: 'newest',
@@ -119,7 +139,8 @@ describe("query module",()=>{
 		const note2=makeNote(11,1645198621) // same dates
 		const note1=makeNote(12,1645198621) // 2022-02-18T15:37:01Z
 		const fd=getNextFetchDetails({
-			user: 'Mapper',
+			userType: 'name',
+			username: 'Mapper',
 			status: 'mixed',
 			sort: 'created_at',
 			order: 'newest',

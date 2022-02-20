@@ -1,9 +1,9 @@
 import NoteViewerStorage from './storage'
 import {Note, Users} from './data'
-import {NoteQuery, toNoteQueryStatus, toNoteQuerySort, toNoteQueryOrder} from './query'
+import {toUserQueryPart, NoteQuery, toNoteQueryStatus, toNoteQuerySort, toNoteQueryOrder, getNextFetchDetails} from './query'
 import {startFetcher} from './fetch'
 import {NoteMap} from './map'
-import {makeLink} from './util'
+import {makeLink, makeUserLink} from './util'
 
 const storage=new NoteViewerStorage('osm-note-viewer-')
 
@@ -64,19 +64,13 @@ function writeFetchForm(
 	$container: HTMLElement, $extrasContainer: HTMLElement, $notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
 	map: NoteMap
 ): HTMLButtonElement {
-	const query: NoteQuery = {
-		user: '',
-		status: 'mixed',
-		sort: 'created_at',
-		order: 'newest',
-		limit: 20,
-	}
+	const partialQuery: Partial<NoteQuery> = {}
 	try {
 		const queryString=storage.getItem('query')
 		if (queryString!=null) {
 			const parsedQuery=JSON.parse(queryString)
 			if (typeof parsedQuery == 'object') {
-				Object.assign(query,parsedQuery)
+				Object.assign(partialQuery,parsedQuery)
 			}
 		}
 	} catch {}
@@ -91,12 +85,14 @@ function writeFetchForm(
 		$userInput.type='text'
 		$userInput.name='user'
 		$userInput.required=true
-		$userInput.pattern=`[^/;.,?%#]+`
-		$userInput.title=`Inputs containing any of these characters /;.,?%# are invalid`
-		$userInput.value=query.user
+		if (partialQuery.userType=='id' && partialQuery.uid!=null) {
+			$userInput.value='#'+partialQuery.uid
+		} else if (partialQuery.userType=='name' && partialQuery.username!=null) {
+			$userInput.value=partialQuery.username
+		}
 		const $div=document.createElement('div')
 		const $label=document.createElement('label')
-		$label.append(`OSM username: `,$userInput)
+		$label.append(`OSM username, URL or #id: `,$userInput)
 		$div.append($label)
 		$form.append($div)
 	}{
@@ -107,24 +103,24 @@ function writeFetchForm(
 			new Option(`only open`,'open'),
 			// new Option(`open followed by closed`,'separate') // TODO requires two fetch phases
 		)
-		$statusSelect.value=query.status
+		if (partialQuery.status!=null) $statusSelect.value=partialQuery.status
 		$sortSelect.append(
 			new Option(`creation`,'created_at'),
 			new Option(`last update`,'updated_at')
 		)
-		$sortSelect.value=query.sort
+		if (partialQuery.sort!=null) $sortSelect.value=partialQuery.sort
 		$orderSelect.append(
 			new Option('newest'),
 			new Option('oldest')
 		)
-		$orderSelect.value=query.order
+		if (partialQuery.order!=null) $orderSelect.value=partialQuery.order
 		$limitSelect.append(
 			new Option('20'),
 			new Option('100'),
 			new Option('500'),
 			new Option('2500')
 		)
-		$limitSelect.value=String(query.limit)
+		if (partialQuery.limit!=null) $limitSelect.value=String(partialQuery.limit)
 		$div.append(
 			span(`Fetch `,$statusSelect,` notes`),` `,
 			span(`sorted by `,$sortSelect,` date`),`, `,
@@ -144,16 +140,27 @@ function writeFetchForm(
 		$div.append($fetchButton)
 		$form.append($div)
 	}
+	$userInput.addEventListener('input',()=>{
+		const uqp=toUserQueryPart($userInput.value)
+		if (uqp.userType=='invalid') {
+			$userInput.setCustomValidity(uqp.message)
+		} else {
+			$userInput.setCustomValidity('')
+		}
+	})
 	$form.addEventListener('submit',(ev)=>{
 		ev.preventDefault()
-		query.user=$userInput.value
-		query.status=toNoteQueryStatus($statusSelect.value)
-		query.sort=toNoteQuerySort($sortSelect.value)
-		query.order=toNoteQueryOrder($orderSelect.value)
-		query.limit=Number($limitSelect.value)
-		query.beganAt=Date.now()
-		query.endedAt=undefined
-		rewriteExtras($extrasContainer,query.user)
+		const uqp=toUserQueryPart($userInput.value)
+		if (uqp.userType=='invalid') return
+		const query: NoteQuery = {
+			...uqp,
+			status: toNoteQueryStatus($statusSelect.value),
+			sort: toNoteQuerySort($sortSelect.value),
+			order: toNoteQueryOrder($orderSelect.value),
+			limit: Number($limitSelect.value),
+			beganAt: Date.now()
+		}
+		rewriteExtras($extrasContainer,query)
 		startFetcher(
 			saveToQueryStorage,
 			$notesContainer,$moreContainer,$commandContainer,
@@ -201,7 +208,7 @@ function saveToQueryStorage(query: NoteQuery, notes: Note[], users: Users): void
 	storage.setItem('users',JSON.stringify(users))
 }
 
-function rewriteExtras($container: HTMLElement, username?: string): void {
+function rewriteExtras($container: HTMLElement, query?: NoteQuery): void {
 	$container.innerHTML=''
 	const $details=document.createElement('details')
 	{
@@ -224,11 +231,14 @@ function rewriteExtras($container: HTMLElement, username?: string): void {
 		})
 		return [$clearButton,` `,$computeButton,` `,$computeResult]
 	})
-	if (username!=null) writeBlock(()=>[
-		`Fetch up to 10000 notes of `,
-		makeLink(`this user`,`https://www.openstreetmap.org/user/${encodeURIComponent(username)}`),
-		` (may be slow): `,
-		makeLink(`json`,`https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=10000&display_name=${encodeURIComponent(username)}`)
+	if (query!=null) writeBlock(()=>[
+		`API links to queries on this user`,
+		makeUserLink(query,`this user`),
+		`: `,
+		makeNoteQueryLink(`with specified limit`,query),
+		`, `,
+		makeNoteQueryLink(`with max limit`,toMaxLimitQuery(query)),
+		` (may be slow)`
 	])
 	writeBlock(()=>[
 		`Usernames can't contain any of these characters: `,
@@ -239,7 +249,7 @@ function rewriteExtras($container: HTMLElement, username?: string): void {
 		`Notes documentation: `,
 		makeLink(`wiki`,`https://wiki.openstreetmap.org/wiki/Notes`),
 		`, `,
-		makeLink(`api`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API`),
+		makeLink(`API`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API`),
 		` (`,
 		makeLink(`search`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch`),
 		`), `,
@@ -273,6 +283,15 @@ function rewriteExtras($container: HTMLElement, username?: string): void {
 		const $code=document.createElement('code')
 		$code.textContent=s
 		return $code
+	}
+	function makeNoteQueryLink(text: string, query: NoteQuery): HTMLAnchorElement {
+		return makeLink(text,`https://api.openstreetmap.org/api/0.6/notes/search.json?`+getNextFetchDetails(query).parameters)
+	}
+	function toMaxLimitQuery(query: NoteQuery): NoteQuery {
+		return {
+			...query,
+			limit: 10000
+		}
 	}
 	$container.append($details)
 }

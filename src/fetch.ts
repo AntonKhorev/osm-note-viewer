@@ -1,5 +1,5 @@
 import {Note, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesAndUsers} from './data'
-import {NoteQuery, getNextFetchDetails} from './query'
+import {ValidUserQueryPart, NoteQuery, getNextFetchDetails} from './query'
 import {NoteMap} from './map'
 import writeNotesTableHeaderAndGetNoteAdder from './table'
 import {makeUserLink} from './util'
@@ -46,7 +46,7 @@ export async function startFetcher(
 			const response=await fetch(url)
 			if (!response.ok) {
 				const responseText=await response.text()
-				rewriteFetchErrorMessage($moreContainer,query.user,`received the following error response`,responseText)
+				rewriteFetchErrorMessage($moreContainer,query,`received the following error response`,responseText)
 			} else {
 				const data=await response.json()
 				query.endedAt=Date.now()
@@ -57,7 +57,7 @@ export async function startFetcher(
 				const unseenNotes=mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data))
 				saveToQueryStorage(query,notes,users)
 				if (!addNotesToTable && notes.length<=0) {
-					rewriteMessage($moreContainer,`User `,[query.user],` has no ${query.status=='open'?'open ':''}notes`)
+					rewriteMessage($moreContainer,`User `,[query],` has no ${query.status=='open'?'open ':''}notes`)
 					return
 				}
 				if (!addNotesToTable) {
@@ -90,9 +90,9 @@ export async function startFetcher(
 			}
 		} catch (ex) {
 			if (ex instanceof TypeError) {
-				rewriteFetchErrorMessage($moreContainer,query.user,`failed with the following error before receiving a response`,ex.message)
+				rewriteFetchErrorMessage($moreContainer,query,`failed with the following error before receiving a response`,ex.message)
 			} else {
-				rewriteFetchErrorMessage($moreContainer,query.user,`failed for unknown reason`,`${ex}`)
+				rewriteFetchErrorMessage($moreContainer,query,`failed for unknown reason`,`${ex}`)
 			}
 		} finally {
 			$fetchButton.disabled=false
@@ -140,7 +140,7 @@ function makeNotesAndUsersAndMerger(): [
 	return [notes,users,merger]
 }
 
-function rewriteMessage($container: HTMLElement, ...items: Array<string|[string]>): HTMLElement {
+function rewriteMessage($container: HTMLElement, ...items: Array<string|[ValidUserQueryPart]>): HTMLElement {
 	$container.innerHTML=''
 	const $message=document.createElement('div')
 	for (const item of items) {
@@ -155,14 +155,14 @@ function rewriteMessage($container: HTMLElement, ...items: Array<string|[string]
 	return $message
 }
 
-function rewriteErrorMessage($container: HTMLElement, ...items: Array<string|[string]>): HTMLElement {
+function rewriteErrorMessage($container: HTMLElement, ...items: Array<string|[ValidUserQueryPart]>): HTMLElement {
 	const $message=rewriteMessage($container,...items)
 	$message.classList.add('error')
 	return $message
 }
 
-function rewriteFetchErrorMessage($container: HTMLElement, username: string, responseKindText: string, fetchErrorText: string): void {
-	const $message=rewriteErrorMessage($container,`Loading notes of user `,[username],` ${responseKindText}:`)
+function rewriteFetchErrorMessage($container: HTMLElement, user: ValidUserQueryPart, responseKindText: string, fetchErrorText: string): void {
+	const $message=rewriteErrorMessage($container,`Loading notes of user `,[user],` ${responseKindText}:`)
 	const $error=document.createElement('pre')
 	$error.textContent=fetchErrorText
 	$message.append($error)

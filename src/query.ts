@@ -1,7 +1,41 @@
 import {Note, NoteComment} from './data'
 
-export interface NoteQuery {
-	user: string
+export interface UsernameQueryPart {
+	userType: 'name'
+	username: string
+}
+
+export interface UidQueryPart {
+	userType: 'id'
+	uid: number
+}
+
+export type ValidUserQueryPart = UsernameQueryPart | UidQueryPart
+
+export interface InvalidUserQueryPart {
+	userType: 'invalid'
+	message: string
+}
+
+export type UserQueryPart = ValidUserQueryPart | InvalidUserQueryPart
+
+export function toUserQueryPart(value: string): UserQueryPart {
+	return {
+		userType: 'name',
+		username: value
+	}
+	// TODO
+	/*
+		if ($userInput.value.startsWith(`https://www.openstreetmap.org/user/`)) {
+		} else if ($userInput.value.match(new RegExp(`[/;.,?%#]`))) {
+			$userInput.setCustomValidity('has bad char')
+			return
+		}
+		$userInput.setCustomValidity('')
+	*/
+}
+
+export type NoteQuery = ValidUserQueryPart & {
 	status: 'mixed'|'recent'|'open'|'separate'
 	sort: 'created_at'|'updated_at'
 	order: 'newest'|'oldest'
@@ -32,7 +66,8 @@ export interface NoteFetchDetails {
 
 /**
  * @returns fd.parameters - url parameters in this order: 
-                            display_name, sort, order - these don't change within a query;
+                            user OR display_name;
+                            sort, order - these don't change within a query;
                             closed - this may change between phases;
                             limit - this may change within a phase in rare circumstances;
                             from, to - this change for pagination purposes, from needs to be present with a dummy date if to is used
@@ -67,13 +102,18 @@ export function getNextFetchDetails(query: NoteQuery, lastNote?: Note, prevLastN
 	if (lowerDateLimit==null && upperDateLimit!=null) {
 		lowerDateLimit='2001-01-01T00:00:00Z'
 	}
-	const parameters:Array<[string,string|number]>=[
-		['display_name',query.user],
+	const parameters:Array<[string,string|number]>=[]
+	if (query.userType=='id') {
+		parameters.push(['user',query.uid])
+	} else {
+		parameters.push(['display_name',query.username])
+	}
+	parameters.push(
 		['sort',query.sort],
 		['order',query.order],
 		['closed',closed],
 		['limit',limit]
-	]
+	)
 	if (lowerDateLimit!=null) parameters.push(['from',lowerDateLimit])
 	if (upperDateLimit!=null) parameters.push(['to',upperDateLimit])
 	return {

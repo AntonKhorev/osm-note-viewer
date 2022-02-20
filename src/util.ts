@@ -1,5 +1,15 @@
-export function makeUserLink(username: string): HTMLAnchorElement {
-	return makeLink(username,`https://www.openstreetmap.org/user/${encodeURIComponent(username)}`)
+import {ValidUserQueryPart} from './query'
+
+export function makeUserLink(user: ValidUserQueryPart|string, text?: string): HTMLAnchorElement {
+	const fromId=(id: number)=>`https://api.openstreetmap.org/api/0.6/user/${encodeURIComponent(id)}`
+	const fromName=(name: string)=>`https://www.openstreetmap.org/user/${encodeURIComponent(name)}`
+	if (typeof user == 'string') {
+		return makeLink(text??user,fromName(user))
+	} else if (user.userType=='id') {
+		return makeLink(text??'#'+user.uid,fromId(user.uid))
+	} else {
+		return makeLink(text??user.username,fromName(user.username))
+	}
 }
 
 export function makeLink(text: string, href: string, title?: string): HTMLAnchorElement {
