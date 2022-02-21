@@ -39,6 +39,100 @@ class NoteViewerStorage {
     }
 }
 
+function toUserQueryPart(value) {
+    const s = value.trim();
+    if (s == '')
+        return {
+            userType: 'invalid',
+            message: `cannot be empty`
+        };
+    if (s[0] == '#') {
+        let match;
+        if (match = s.match(/^#\s*(\d+)$/)) {
+            const [, uid] = match;
+            return {
+                userType: 'id',
+                uid: Number(uid)
+            };
+        }
+        else if (match = s.match(/^#\s*\d*(.)/)) {
+            const [, c] = match;
+            return {
+                userType: 'invalid',
+                message: `uid cannot contain non-digits, found ${c}`
+            };
+        }
+        else {
+            return {
+                userType: 'invalid',
+                message: `uid cannot be empty`
+            };
+        }
+    }
+    if (s.includes('/')) {
+        try {
+            const url = new URL(s);
+            if (url.host == 'www.openstreetmap.org' ||
+                url.host == 'openstreetmap.org' ||
+                url.host == 'www.osm.org' ||
+                url.host == 'osm.org') {
+                const [, userPathDir, userPathEnd] = url.pathname.split('/');
+                if (userPathDir == 'user' && userPathEnd) {
+                    const username = decodeURIComponent(userPathEnd);
+                    return {
+                        userType: 'name',
+                        username
+                    };
+                }
+                return {
+                    userType: 'invalid',
+                    message: `OSM URL has to include username`
+                };
+            }
+            else if (url.host == `api.openstreetmap.org`) {
+                const [, apiDir, apiVersionDir, apiCall, apiValue] = url.pathname.split('/');
+                if (apiDir == 'api' && apiVersionDir == '0.6' && apiCall == 'user') {
+                    const [uidString] = apiValue.split('.');
+                    const uid = Number(uidString);
+                    if (Number.isInteger(uid))
+                        return {
+                            userType: 'id',
+                            uid
+                        };
+                }
+                return {
+                    userType: 'invalid',
+                    message: `OSM API URL has to be "api/0.6/user/..."`
+                };
+            }
+            else {
+                return {
+                    userType: 'invalid',
+                    message: `URL has to be of an OSM domain, was given ${url.host}`
+                };
+            }
+        }
+        catch {
+            return {
+                userType: 'invalid',
+                message: `string containing / character has to be a valid URL`
+            };
+        }
+    }
+    return {
+        userType: 'name',
+        username: s
+    };
+    // TODO
+    /*
+        if ($userInput.value.startsWith(`https://www.openstreetmap.org/user/`)) {
+        } else if ($userInput.value.match(new RegExp(`[/;.,?%#]`))) {
+            $userInput.setCustomValidity('has bad char')
+            return
+        }
+        $userInput.setCustomValidity('')
+    */
+}
 function toNoteQueryStatus(value) {
     if (value == 'open' || value == 'recent' || value == 'separate')
         return value;
@@ -56,7 +150,8 @@ function toNoteQueryOrder(value) {
 }
 /**
  * @returns fd.parameters - url parameters in this order:
-                            display_name, sort, order - these don't change within a query;
+                            user OR display_name;
+                            sort, order - these don't change within a query;
                             closed - this may change between phases;
                             limit - this may change within a phase in rare circumstances;
                             from, to - this change for pagination purposes, from needs to be present with a dummy date if to is used
@@ -96,13 +191,14 @@ function getNextFetchDetails(query, lastNote, prevLastNote, lastLimit) {
     if (lowerDateLimit == null && upperDateLimit != null) {
         lowerDateLimit = '2001-01-01T00:00:00Z';
     }
-    const parameters = [
-        ['display_name', query.user],
-        ['sort', query.sort],
-        ['order', query.order],
-        ['closed', closed],
-        ['limit', limit]
-    ];
+    const parameters = [];
+    if (query.userType == 'id') {
+        parameters.push(['user', query.uid]);
+    }
+    else {
+        parameters.push(['display_name', query.username]);
+    }
+    parameters.push(['sort', query.sort], ['order', query.order], ['closed', closed], ['limit', limit]);
     if (lowerDateLimit != null)
         parameters.push(['from', lowerDateLimit]);
     if (upperDateLimit != null)
@@ -167,8 +263,18 @@ function transformFeatureCollectionToNotesAndUsers(data) {
     }
 }
 
-function makeUserLink(username) {
-    return makeLink(username, `https://www.openstreetmap.org/user/${encodeURIComponent(username)}`);
+function makeUserLink(user, text) {
+    const fromId = (id) => `https://api.openstreetmap.org/api/0.6/user/${encodeURIComponent(id)}`;
+    const fromName = (name) => `https://www.openstreetmap.org/user/${encodeURIComponent(name)}`;
+    if (typeof user == 'string') {
+        return makeLink(text ?? user, fromName(user));
+    }
+    else if (user.userType == 'id') {
+        return makeLink(text ?? '#' + user.uid, fromId(user.uid));
+    }
+    else {
+        return makeLink(text ?? user.username, fromName(user.username));
+    }
 }
 function makeLink(text, href, title) {
     const $link = document.createElement('a');
@@ -550,7 +656,7 @@ async function startFetcher(saveToQueryStorage, $notesContainer, $moreContainer,
             const response = await fetch(url);
             if (!response.ok) {
                 const responseText = await response.text();
-                rewriteFetchErrorMessage($moreContainer, query.user, `received the following error response`, responseText);
+                rewriteFetchErrorMessage($moreContainer, query, `received the following error response`, responseText);
             }
             else {
                 const data = await response.json();
@@ -562,7 +668,7 @@ async function startFetcher(saveToQueryStorage, $notesContainer, $moreContainer,
                 const unseenNotes = mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data));
                 saveToQueryStorage(query, notes, users);
                 if (!addNotesToTable && notes.length <= 0) {
-                    rewriteMessage($moreContainer, `User `, [query.user], ` has no ${query.status == 'open' ? 'open ' : ''}notes`);
+                    rewriteMessage($moreContainer, `User `, [query], ` has no ${query.status == 'open' ? 'open ' : ''}notes`);
                     return;
                 }
                 if (!addNotesToTable) {
@@ -597,10 +703,10 @@ async function startFetcher(saveToQueryStorage, $notesContainer, $moreContainer,
         }
         catch (ex) {
             if (ex instanceof TypeError) {
-                rewriteFetchErrorMessage($moreContainer, query.user, `failed with the following error before receiving a response`, ex.message);
+                rewriteFetchErrorMessage($moreContainer, query, `failed with the following error before receiving a response`, ex.message);
             }
             else {
-                rewriteFetchErrorMessage($moreContainer, query.user, `failed for unknown reason`, `${ex}`);
+                rewriteFetchErrorMessage($moreContainer, query, `failed for unknown reason`, `${ex}`);
             }
         }
         finally {
@@ -665,8 +771,8 @@ function rewriteErrorMessage($container, ...items) {
     $message.classList.add('error');
     return $message;
 }
-function rewriteFetchErrorMessage($container, username, responseKindText, fetchErrorText) {
-    const $message = rewriteErrorMessage($container, `Loading notes of user `, [username], ` ${responseKindText}:`);
+function rewriteFetchErrorMessage($container, user, responseKindText, fetchErrorText) {
+    const $message = rewriteErrorMessage($container, `Loading notes of user `, [user], ` ${responseKindText}:`);
     const $error = document.createElement('pre');
     $error.textContent = fetchErrorText;
     $message.append($error);
@@ -828,19 +934,13 @@ function writeFlipLayoutButton($container, map) {
     $container.append($button);
 }
 function writeFetchForm($container, $extrasContainer, $notesContainer, $moreContainer, $commandContainer, map) {
-    const query = {
-        user: '',
-        status: 'mixed',
-        sort: 'created_at',
-        order: 'newest',
-        limit: 20,
-    };
+    const partialQuery = {};
     try {
         const queryString = storage.getItem('query');
         if (queryString != null) {
             const parsedQuery = JSON.parse(queryString);
             if (typeof parsedQuery == 'object') {
-                Object.assign(query, parsedQuery);
+                Object.assign(partialQuery, parsedQuery);
             }
         }
     }
@@ -855,23 +955,33 @@ function writeFetchForm($container, $extrasContainer, $notesContainer, $moreCont
     {
         $userInput.type = 'text';
         $userInput.name = 'user';
-        $userInput.value = query.user;
+        $userInput.required = true;
+        if (partialQuery.userType == 'id' && partialQuery.uid != null) {
+            $userInput.value = '#' + partialQuery.uid;
+        }
+        else if (partialQuery.userType == 'name' && partialQuery.username != null) {
+            $userInput.value = partialQuery.username;
+        }
         const $div = document.createElement('div');
         const $label = document.createElement('label');
-        $label.append(`OSM username: `, $userInput);
+        $label.append(`OSM username, URL or #id: `, $userInput);
         $div.append($label);
         $form.append($div);
     }
     {
         const $div = document.createElement('div');
         $statusSelect.append(new Option(`both open and closed`, 'mixed'), new Option(`open and recently closed`, 'recent'), new Option(`only open`, 'open'));
-        $statusSelect.value = query.status;
+        if (partialQuery.status != null)
+            $statusSelect.value = partialQuery.status;
         $sortSelect.append(new Option(`creation`, 'created_at'), new Option(`last update`, 'updated_at'));
-        $sortSelect.value = query.sort;
+        if (partialQuery.sort != null)
+            $sortSelect.value = partialQuery.sort;
         $orderSelect.append(new Option('newest'), new Option('oldest'));
-        $orderSelect.value = query.order;
+        if (partialQuery.order != null)
+            $orderSelect.value = partialQuery.order;
         $limitSelect.append(new Option('20'), new Option('100'), new Option('500'), new Option('2500'));
-        $limitSelect.value = String(query.limit);
+        if (partialQuery.limit != null)
+            $limitSelect.value = String(partialQuery.limit);
         $div.append(span(`Fetch `, $statusSelect, ` notes`), ` `, span(`sorted by `, $sortSelect, ` date`), `, `, span($orderSelect, ` first`), `, `, span(`in batches of `, $limitSelect, ` notes`));
         $form.append($div);
         function span(...items) {
@@ -887,16 +997,29 @@ function writeFetchForm($container, $extrasContainer, $notesContainer, $moreCont
         $div.append($fetchButton);
         $form.append($div);
     }
+    $userInput.addEventListener('input', () => {
+        const uqp = toUserQueryPart($userInput.value);
+        if (uqp.userType == 'invalid') {
+            $userInput.setCustomValidity(uqp.message);
+        }
+        else {
+            $userInput.setCustomValidity('');
+        }
+    });
     $form.addEventListener('submit', (ev) => {
         ev.preventDefault();
-        query.user = $userInput.value;
-        query.status = toNoteQueryStatus($statusSelect.value);
-        query.sort = toNoteQuerySort($sortSelect.value);
-        query.order = toNoteQueryOrder($orderSelect.value);
-        query.limit = Number($limitSelect.value);
-        query.beganAt = Date.now();
-        query.endedAt = undefined;
-        rewriteExtras($extrasContainer, query.user);
+        const uqp = toUserQueryPart($userInput.value);
+        if (uqp.userType == 'invalid')
+            return;
+        const query = {
+            ...uqp,
+            status: toNoteQueryStatus($statusSelect.value),
+            sort: toNoteQuerySort($sortSelect.value),
+            order: toNoteQueryOrder($orderSelect.value),
+            limit: Number($limitSelect.value),
+            beganAt: Date.now()
+        };
+        rewriteExtras($extrasContainer, query);
         startFetcher(saveToQueryStorage, $notesContainer, $moreContainer, $commandContainer, map, $fetchButton, query, [], {});
     });
     $container.append($form);
@@ -928,7 +1051,7 @@ function saveToQueryStorage(query, notes, users) {
     storage.setItem('notes', JSON.stringify(notes));
     storage.setItem('users', JSON.stringify(users));
 }
-function rewriteExtras($container, username) {
+function rewriteExtras($container, query) {
     $container.innerHTML = '';
     const $details = document.createElement('details');
     {
@@ -951,18 +1074,25 @@ function rewriteExtras($container, username) {
         });
         return [$clearButton, ` `, $computeButton, ` `, $computeResult];
     });
-    if (username != null)
+    if (query != null)
         writeBlock(() => [
-            `Fetch up to 10000 notes of `,
-            makeLink(`this user`, `https://www.openstreetmap.org/user/${encodeURIComponent(username)}`),
-            ` (may be slow): `,
-            makeLink(`json`, `https://api.openstreetmap.org/api/0.6/notes/search.json?closed=-1&sort=created_at&limit=10000&display_name=${encodeURIComponent(username)}`)
+            `API links to queries on `,
+            makeUserLink(query, `this user`),
+            `: `,
+            makeNoteQueryLink(`with specified limit`, query),
+            `, `,
+            makeNoteQueryLink(`with max limit`, toMaxLimitQuery(query)),
+            ` (may be slow)`
         ]);
+    writeBlock(() => [
+        `User query have whitespace trimmed, then the remaining part starting with `, makeCode(`#`), ` is treated as a user id; containing `, makeCode(`/`), `is treated as a URL, anything else as a username. `,
+        `This works because usernames can't contain any of these characters: `, makeCode(`/;.,?%#`), ` , can't have leading/trailing whitespace, have to be between 3 and 255 characters in length.`
+    ]);
     writeBlock(() => [
         `Notes documentation: `,
         makeLink(`wiki`, `https://wiki.openstreetmap.org/wiki/Notes`),
         `, `,
-        makeLink(`api`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API`),
+        makeLink(`API`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API`),
         ` (`,
         makeLink(`search`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch`),
         `), `,
@@ -991,6 +1121,20 @@ function rewriteExtras($container, username) {
         const $block = document.createElement('div');
         $block.append(...makeBlockContents());
         $details.append($block);
+    }
+    function makeCode(s) {
+        const $code = document.createElement('code');
+        $code.textContent = s;
+        return $code;
+    }
+    function makeNoteQueryLink(text, query) {
+        return makeLink(text, `https://api.openstreetmap.org/api/0.6/notes/search.json?` + getNextFetchDetails(query).parameters);
+    }
+    function toMaxLimitQuery(query) {
+        return {
+            ...query,
+            limit: 10000
+        };
     }
     $container.append($details);
 }
