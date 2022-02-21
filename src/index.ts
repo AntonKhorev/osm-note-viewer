@@ -232,7 +232,7 @@ function rewriteExtras($container: HTMLElement, query?: NoteQuery): void {
 		return [$clearButton,` `,$computeButton,` `,$computeResult]
 	})
 	if (query!=null) writeBlock(()=>[
-		`API links to queries on this user`,
+		`API links to queries on `,
 		makeUserLink(query,`this user`),
 		`: `,
 		makeNoteQueryLink(`with specified limit`,query),

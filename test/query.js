@@ -17,10 +17,12 @@ describe("query module / toUserQueryPart()",()=>{
 	it("gives invalid output on empty input",()=>{
 		const uqp=toUserQueryPart(``)
 		assert.equal(uqp.userType,'invalid')
+		assert(uqp.message.includes('empty'))
 	})
 	it("gives invalid output on spaces",()=>{
 		const uqp=toUserQueryPart(`   `)
 		assert.equal(uqp.userType,'invalid')
+		assert(uqp.message.includes('empty'))
 	})
 	it("gives name on single word",()=>{
 		const uqp=toUserQueryPart(`Alice`)
@@ -31,6 +33,31 @@ describe("query module / toUserQueryPart()",()=>{
 		const uqp=toUserQueryPart(`  Bob   `)
 		assert.equal(uqp.userType,'name')
 		assert.equal(uqp.username,`Bob`)
+	})
+	it("gives id on #number",()=>{
+		const uqp=toUserQueryPart(`#987`)
+		assert.equal(uqp.userType,'id')
+		assert.equal(uqp.uid,987)
+	})
+	it("trims id",()=>{
+		const uqp=toUserQueryPart(` #654 `)
+		assert.equal(uqp.userType,'id')
+		assert.equal(uqp.uid,654)
+	})
+	it("ignores spaces after # in uid",()=>{
+		const uqp=toUserQueryPart(`#  1357`)
+		assert.equal(uqp.userType,'id')
+		assert.equal(uqp.uid,1357)
+	})
+	it("gives invalid output if # is followed by non-numbers",()=>{
+		const uqp=toUserQueryPart(`#13x57`)
+		assert.equal(uqp.userType,'invalid')
+		assert(uqp.message.includes('x'))
+	})
+	it("gives invalid output if # is not followed by anything",()=>{
+		const uqp=toUserQueryPart(`#`)
+		assert.equal(uqp.userType,'invalid')
+		assert(uqp.message.includes('empty'))
 	})
 })
 

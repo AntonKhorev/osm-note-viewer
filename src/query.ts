@@ -25,6 +25,27 @@ export function toUserQueryPart(value: string): UserQueryPart {
 		userType: 'invalid',
 		message: `cannot be empty`
 	}
+	if (s[0]=='#') {
+		let match: RegExpMatchArray | null
+		if (match=s.match(/^#\s*(\d+)$/)) {
+			const [,uid]=match
+			return {
+				userType: 'id',
+				uid: Number(uid)
+			}
+		} else if (match=s.match(/^#\s*\d*(.)/)) {
+			const [,c]=match
+			return {
+				userType: 'invalid',
+				message: `uid cannot contain non-digits, found ${c}`
+			}
+		} else {
+			return {
+				userType: 'invalid',
+				message: `uid cannot be empty`
+			}
+		}
+	}
 	return {
 		userType: 'name',
 		username: s
