@@ -120,6 +120,16 @@ describe("query module / toUserQueryPart()",()=>{
 		const uqp=toUserQueryPart(`https://www.openstreetmap.org/user/`)
 		assert.equal(uqp.userType,'invalid')
 	})
+	it("parses osm api user link",()=>{
+		const uqp=toUserQueryPart(`https://api.openstreetmap.org/api/0.6/user/15243`)
+		assert.equal(uqp.userType,'id')
+		assert.equal(uqp.uid,15243)
+	})
+	it("parses osm api json user link",()=>{
+		const uqp=toUserQueryPart(`https://api.openstreetmap.org/api/0.6/user/51423.json`)
+		assert.equal(uqp.userType,'id')
+		assert.equal(uqp.uid,51423)
+	})
 })
 
 describe("query module / getNextFetchDetails()",()=>{

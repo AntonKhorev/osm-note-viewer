@@ -67,6 +67,20 @@ export function toUserQueryPart(value: string): UserQueryPart {
 					userType: 'invalid',
 					message: `OSM URL has to include username`
 				}
+			} else if (url.host==`api.openstreetmap.org`) {
+				const [,apiDir,apiVersionDir,apiCall,apiValue]=url.pathname.split('/')
+				if (apiDir=='api' && apiVersionDir=='0.6' && apiCall=='user') {
+					const [uidString]=apiValue.split('.')
+					const uid=Number(uidString)
+					if (Number.isInteger(uid)) return {
+						userType: 'id',
+						uid
+					}
+				}
+				return {
+					userType: 'invalid',
+					message: `OSM API URL has to be "api/0.6/user/..."`
+				}
 			} else {
 				return {
 					userType: 'invalid',
