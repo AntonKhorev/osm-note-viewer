@@ -123,15 +123,6 @@ function toUserQueryPart(value) {
         userType: 'name',
         username: s
     };
-    // TODO
-    /*
-        if ($userInput.value.startsWith(`https://www.openstreetmap.org/user/`)) {
-        } else if ($userInput.value.match(new RegExp(`[/;.,?%#]`))) {
-            $userInput.setCustomValidity('has bad char')
-            return
-        }
-        $userInput.setCustomValidity('')
-    */
 }
 function toNoteQueryStatus(value) {
     if (value == 'open' || value == 'recent' || value == 'separate')
@@ -156,7 +147,7 @@ function toNoteQueryOrder(value) {
                             limit - this may change within a phase in rare circumstances;
                             from, to - this change for pagination purposes, from needs to be present with a dummy date if to is used
  */
-function getNextFetchDetails(query, lastNote, prevLastNote, lastLimit) {
+function getNextFetchDetails(query, requestedLimit, lastNote, prevLastNote, lastLimit) {
     let closed = -1;
     if (query.status == 'open') {
         closed = 0;
@@ -166,7 +157,7 @@ function getNextFetchDetails(query, lastNote, prevLastNote, lastLimit) {
     }
     let lowerDateLimit;
     let upperDateLimit;
-    let limit = query.limit;
+    let limit = requestedLimit;
     if (lastNote) {
         if (lastNote.comments.length <= 0)
             throw new Error(`note #${lastNote.id} has no comments`);
@@ -184,7 +175,7 @@ function getNextFetchDetails(query, lastNote, prevLastNote, lastLimit) {
                 throw new Error(`no last limit provided along with previous last note #${prevLastNote.id}`);
             const prevLastDate = getTargetComment(prevLastNote).date;
             if (lastDate == prevLastDate) {
-                limit = lastLimit + query.limit;
+                limit = lastLimit + requestedLimit;
             }
         }
     }
@@ -622,7 +613,7 @@ function* getTableSectionRange($table, $lastClickedSection, $currentClickedSecti
 
 const maxSingleAutoLoadLimit = 200;
 const maxTotalAutoLoadLimit = 1000;
-async function startFetcher(saveToQueryStorage, $notesContainer, $moreContainer, $commandContainer, map, $fetchButton, query, initialNotes, initialUsers) {
+async function startFetcher(saveToQueryStorage, $notesContainer, $moreContainer, $commandContainer, map, $limitSelect, $autoLoadCheckbox, $fetchButton, query, initialNotes, initialUsers) {
     const [notes, users, mergeNotesAndUsers] = makeNotesAndUsersAndMerger();
     mergeNotesAndUsers(initialNotes, initialUsers);
     saveToQueryStorage(query, notes, users);
@@ -645,7 +636,8 @@ async function startFetcher(saveToQueryStorage, $notesContainer, $moreContainer,
     }
     async function fetchCycle() {
         rewriteLoadingButton();
-        const fetchDetails = getNextFetchDetails(query, lastNote, prevLastNote, lastLimit);
+        const limit = getLimit($limitSelect);
+        const fetchDetails = getNextFetchDetails(query, limit, lastNote, prevLastNote, lastLimit);
         if (fetchDetails.limit > 10000) {
             rewriteMessage($moreContainer, `Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`);
             return;
@@ -687,12 +679,19 @@ async function startFetcher(saveToQueryStorage, $notesContainer, $moreContainer,
                 lastNote = notes[notes.length - 1];
                 lastLimit = fetchDetails.limit;
                 const $moreButton = rewriteLoadMoreButton();
-                if (notes.length <= maxTotalAutoLoadLimit &&
-                    getNextFetchDetails(query, lastNote, prevLastNote, lastLimit).limit <= maxSingleAutoLoadLimit) {
+                if (notes.length > maxTotalAutoLoadLimit) {
+                    $moreButton.append(` (no auto download because displaying too many notes)`);
+                }
+                else if (getNextFetchDetails(query, limit, lastNote, prevLastNote, lastLimit).limit > maxSingleAutoLoadLimit) {
+                    $moreButton.append(` (no auto download because required batch too large)`);
+                }
+                else {
                     const moreButtonIntersectionObserver = new IntersectionObserver((entries) => {
                         if (entries.length <= 0)
                             return;
                         if (!entries[0].isIntersecting)
+                            return;
+                        if (!$autoLoadCheckbox.checked)
                             return;
                         moreButtonIntersectionObserver.disconnect();
                         $moreButton.click();
@@ -776,6 +775,12 @@ function rewriteFetchErrorMessage($container, user, responseKindText, fetchError
     const $error = document.createElement('pre');
     $error.textContent = fetchErrorText;
     $message.append($error);
+}
+function getLimit($limitSelect) {
+    const limit = Number($limitSelect.value);
+    if (Number.isInteger(limit) && limit >= 1 && limit <= 10000)
+        return limit;
+    return 20;
 }
 
 class NoteMarker extends L.Marker {
@@ -914,8 +919,8 @@ function main() {
     $stickyPart.append($commandContainer);
     const map = new NoteMap($mapSide);
     writeFlipLayoutButton($fetchContainer, map);
-    const $fetchButton = writeFetchForm($fetchContainer, $extrasContainer, $notesContainer, $moreContainer, $commandContainer, map);
-    writeStoredQueryResults($extrasContainer, $notesContainer, $moreContainer, $commandContainer, map, $fetchButton);
+    const $formInputs = writeFetchForm($fetchContainer, $extrasContainer, $notesContainer, $moreContainer, $commandContainer, map);
+    writeStoredQueryResults($extrasContainer, $notesContainer, $moreContainer, $commandContainer, map, ...$formInputs);
 }
 function writeFlipLayoutButton($container, map) {
     const $button = document.createElement('button');
@@ -951,44 +956,75 @@ function writeFetchForm($container, $extrasContainer, $notesContainer, $moreCont
     const $sortSelect = document.createElement('select');
     const $orderSelect = document.createElement('select');
     const $limitSelect = document.createElement('select');
+    const $autoLoadCheckbox = document.createElement('input');
     const $fetchButton = document.createElement('button');
     {
-        $userInput.type = 'text';
-        $userInput.name = 'user';
-        $userInput.required = true;
-        if (partialQuery.userType == 'id' && partialQuery.uid != null) {
-            $userInput.value = '#' + partialQuery.uid;
+        const $fieldset = document.createElement('fieldset');
+        {
+            const $legend = document.createElement('legend');
+            $legend.textContent = `Scope and order`;
+            $fieldset.append($legend);
         }
-        else if (partialQuery.userType == 'name' && partialQuery.username != null) {
-            $userInput.value = partialQuery.username;
+        {
+            $userInput.type = 'text';
+            $userInput.name = 'user';
+            $userInput.required = true;
+            if (partialQuery.userType == 'id' && partialQuery.uid != null) {
+                $userInput.value = '#' + partialQuery.uid;
+            }
+            else if (partialQuery.userType == 'name' && partialQuery.username != null) {
+                $userInput.value = partialQuery.username;
+            }
+            const $div = document.createElement('div');
+            const $label = document.createElement('label');
+            $label.append(`OSM username, URL or #id: `, $userInput);
+            $div.append($label);
+            $fieldset.append($div);
         }
-        const $div = document.createElement('div');
-        const $label = document.createElement('label');
-        $label.append(`OSM username, URL or #id: `, $userInput);
-        $div.append($label);
-        $form.append($div);
+        {
+            const $div = document.createElement('div');
+            $statusSelect.append(new Option(`both open and closed`, 'mixed'), new Option(`open and recently closed`, 'recent'), new Option(`only open`, 'open'));
+            if (partialQuery.status != null)
+                $statusSelect.value = partialQuery.status;
+            $sortSelect.append(new Option(`creation`, 'created_at'), new Option(`last update`, 'updated_at'));
+            if (partialQuery.sort != null)
+                $sortSelect.value = partialQuery.sort;
+            $orderSelect.append(new Option('newest'), new Option('oldest'));
+            if (partialQuery.order != null)
+                $orderSelect.value = partialQuery.order;
+            $div.append(span(`Fetch this user's `, $statusSelect, ` notes`), ` `, span(`sorted by `, $sortSelect, ` date`), `, `, span($orderSelect, ` first`));
+            $fieldset.append($div);
+            function span(...items) {
+                const $span = document.createElement('span');
+                $span.append(...items);
+                return $span;
+            }
+        }
+        $form.append($fieldset);
     }
     {
-        const $div = document.createElement('div');
-        $statusSelect.append(new Option(`both open and closed`, 'mixed'), new Option(`open and recently closed`, 'recent'), new Option(`only open`, 'open'));
-        if (partialQuery.status != null)
-            $statusSelect.value = partialQuery.status;
-        $sortSelect.append(new Option(`creation`, 'created_at'), new Option(`last update`, 'updated_at'));
-        if (partialQuery.sort != null)
-            $sortSelect.value = partialQuery.sort;
-        $orderSelect.append(new Option('newest'), new Option('oldest'));
-        if (partialQuery.order != null)
-            $orderSelect.value = partialQuery.order;
-        $limitSelect.append(new Option('20'), new Option('100'), new Option('500'), new Option('2500'));
-        if (partialQuery.limit != null)
-            $limitSelect.value = String(partialQuery.limit);
-        $div.append(span(`Fetch `, $statusSelect, ` notes`), ` `, span(`sorted by `, $sortSelect, ` date`), `, `, span($orderSelect, ` first`), `, `, span(`in batches of `, $limitSelect, ` notes`));
-        $form.append($div);
-        function span(...items) {
-            const $span = document.createElement('span');
-            $span.append(...items);
-            return $span;
+        const $fieldset = document.createElement('fieldset');
+        {
+            const $legend = document.createElement('legend');
+            $legend.textContent = `Download mode (can change anytime)`;
+            $fieldset.append($legend);
         }
+        {
+            const $div = document.createElement('div');
+            $limitSelect.append(new Option('20'), new Option('100'), new Option('500'), new Option('2500'));
+            $div.append(`Download these in batches of `, $limitSelect, ` notes`);
+            $fieldset.append($div);
+        }
+        {
+            $autoLoadCheckbox.type = 'checkbox';
+            $autoLoadCheckbox.checked = true;
+            const $div = document.createElement('div');
+            const $label = document.createElement('label');
+            $label.append($autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`);
+            $div.append($label);
+            $fieldset.append($div);
+        }
+        $form.append($fieldset);
     }
     {
         $fetchButton.textContent = `Fetch notes`;
@@ -1016,16 +1052,15 @@ function writeFetchForm($container, $extrasContainer, $notesContainer, $moreCont
             status: toNoteQueryStatus($statusSelect.value),
             sort: toNoteQuerySort($sortSelect.value),
             order: toNoteQueryOrder($orderSelect.value),
-            limit: Number($limitSelect.value),
             beganAt: Date.now()
         };
-        rewriteExtras($extrasContainer, query);
-        startFetcher(saveToQueryStorage, $notesContainer, $moreContainer, $commandContainer, map, $fetchButton, query, [], {});
+        rewriteExtras($extrasContainer, query, Number($limitSelect.value));
+        startFetcher(saveToQueryStorage, $notesContainer, $moreContainer, $commandContainer, map, $limitSelect, $autoLoadCheckbox, $fetchButton, query, [], {});
     });
     $container.append($form);
-    return $fetchButton;
+    return [$limitSelect, $autoLoadCheckbox, $fetchButton];
 }
-function writeStoredQueryResults($extrasContainer, $notesContainer, $moreContainer, $commandContainer, map, $fetchButton) {
+function writeStoredQueryResults($extrasContainer, $notesContainer, $moreContainer, $commandContainer, map, $limitSelect, $autoLoadCheckbox, $fetchButton) {
     const queryString = storage.getItem('query');
     if (queryString == null) {
         rewriteExtras($extrasContainer);
@@ -1033,7 +1068,7 @@ function writeStoredQueryResults($extrasContainer, $notesContainer, $moreContain
     }
     try {
         const query = JSON.parse(queryString);
-        rewriteExtras($extrasContainer, query.user);
+        rewriteExtras($extrasContainer, query, Number($limitSelect.value));
         const notesString = storage.getItem('notes');
         if (notesString == null)
             return;
@@ -1042,7 +1077,7 @@ function writeStoredQueryResults($extrasContainer, $notesContainer, $moreContain
             return;
         const notes = JSON.parse(notesString);
         const users = JSON.parse(usersString);
-        startFetcher(saveToQueryStorage, $notesContainer, $moreContainer, $commandContainer, map, $fetchButton, query, notes, users);
+        startFetcher(saveToQueryStorage, $notesContainer, $moreContainer, $commandContainer, map, $limitSelect, $autoLoadCheckbox, $fetchButton, query, notes, users);
     }
     catch { }
 }
@@ -1051,7 +1086,7 @@ function saveToQueryStorage(query, notes, users) {
     storage.setItem('notes', JSON.stringify(notes));
     storage.setItem('users', JSON.stringify(users));
 }
-function rewriteExtras($container, query) {
+function rewriteExtras($container, query, limit) {
     $container.innerHTML = '';
     const $details = document.createElement('details');
     {
@@ -1074,14 +1109,14 @@ function rewriteExtras($container, query) {
         });
         return [$clearButton, ` `, $computeButton, ` `, $computeResult];
     });
-    if (query != null)
+    if (query != null && limit != null)
         writeBlock(() => [
             `API links to queries on `,
             makeUserLink(query, `this user`),
             `: `,
-            makeNoteQueryLink(`with specified limit`, query),
+            makeNoteQueryLink(`with specified limit`, query, limit),
             `, `,
-            makeNoteQueryLink(`with max limit`, toMaxLimitQuery(query)),
+            makeNoteQueryLink(`with max limit`, query, 10000),
             ` (may be slow)`
         ]);
     writeBlock(() => [
@@ -1127,14 +1162,8 @@ function rewriteExtras($container, query) {
         $code.textContent = s;
         return $code;
     }
-    function makeNoteQueryLink(text, query) {
-        return makeLink(text, `https://api.openstreetmap.org/api/0.6/notes/search.json?` + getNextFetchDetails(query).parameters);
-    }
-    function toMaxLimitQuery(query) {
-        return {
-            ...query,
-            limit: 10000
-        };
+    function makeNoteQueryLink(text, query, limit) {
+        return makeLink(text, `https://api.openstreetmap.org/api/0.6/notes/search.json?` + getNextFetchDetails(query, limit).parameters);
     }
     $container.append($details);
 }
