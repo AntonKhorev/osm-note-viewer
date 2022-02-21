@@ -140,8 +140,7 @@ describe("query module / getNextFetchDetails()",()=>{
 			status: 'mixed',
 			sort: 'created_at',
 			order: 'newest',
-			limit: 12
-		})
+		},12)
 		assert.equal(fd.limit,12)
 		assert.equal(fd.parameters,`display_name=Someone&sort=created_at&order=newest&closed=-1&limit=12`)
 	})
@@ -152,8 +151,7 @@ describe("query module / getNextFetchDetails()",()=>{
 			status: 'mixed',
 			sort: 'created_at',
 			order: 'newest',
-			limit: 21
-		})
+		},21)
 		assert.equal(fd.limit,21)
 		assert.equal(fd.parameters,`user=31337&sort=created_at&order=newest&closed=-1&limit=21`)
 	})
@@ -164,8 +162,7 @@ describe("query module / getNextFetchDetails()",()=>{
 			status: 'open',
 			sort: 'created_at',
 			order: 'newest',
-			limit: 23
-		})
+		},23)
 		assert.equal(fd.limit,23)
 		assert.equal(fd.parameters,`display_name=SomeOne&sort=created_at&order=newest&closed=0&limit=23`)
 	})
@@ -179,8 +176,7 @@ describe("query module / getNextFetchDetails()",()=>{
 					status: 'mixed',
 					sort,
 					order: 'newest',
-					limit: 3
-				},note)
+				},3,note)
 				assert.equal(fd.limit,3)
 				assert.equal(fd.parameters,`display_name=Dude&sort=${sort}&order=newest&closed=-1&limit=3&from=2001-01-01T00%3A00%3A00Z&to=2022-02-18T15%3A37%3A02Z`)
 			})
@@ -192,8 +188,7 @@ describe("query module / getNextFetchDetails()",()=>{
 					status: 'mixed',
 					sort,
 					order: 'oldest',
-					limit: 3
-				},note)
+				},3,note)
 				assert.equal(fd.limit,3)
 				assert.equal(fd.parameters,`display_name=Dude&sort=${sort}&order=oldest&closed=-1&limit=3&from=2022-02-18T15%3A37%3A01Z`)
 			})
@@ -208,8 +203,7 @@ describe("query module / getNextFetchDetails()",()=>{
 				status: 'mixed',
 				sort: 'created_at',
 				order: 'newest',
-				limit: 3
-			},note)
+			},3,note)
 			assert.equal(fd.limit,3)
 			assert.equal(fd.parameters,`display_name=Gimme&sort=created_at&order=newest&closed=-1&limit=3&from=2001-01-01T00%3A00%3A00Z&to=2018-11-26T06%3A57%3A13Z`)
 		})
@@ -220,8 +214,7 @@ describe("query module / getNextFetchDetails()",()=>{
 				status: 'mixed',
 				sort: 'updated_at',
 				order: 'newest',
-				limit: 3
-			},note)
+			},3,note)
 			assert.equal(fd.limit,3)
 			assert.equal(fd.parameters,`display_name=Gimme&sort=updated_at&order=newest&closed=-1&limit=3&from=2001-01-01T00%3A00%3A00Z&to=2019-02-03T17%3A37%3A13Z`)
 		})
@@ -235,8 +228,7 @@ describe("query module / getNextFetchDetails()",()=>{
 			status: 'mixed',
 			sort: 'created_at',
 			order: 'newest',
-			limit: 3
-		},note1,note2,3)
+		},3,note1,note2,3)
 		assert.equal(fd.limit,3)
 		assert.equal(fd.parameters,`display_name=Mapper&sort=created_at&order=newest&closed=-1&limit=3&from=2001-01-01T00%3A00%3A00Z&to=2022-02-18T15%3A37%3A02Z`)
 	})
@@ -249,8 +241,7 @@ describe("query module / getNextFetchDetails()",()=>{
 			status: 'mixed',
 			sort: 'created_at',
 			order: 'newest',
-			limit: 3
-		},note1,note2,3)
+		},3,note1,note2,3)
 		assert.equal(fd.limit,6)
 		assert.equal(fd.parameters,`display_name=Mapper&sort=created_at&order=newest&closed=-1&limit=6&from=2001-01-01T00%3A00%3A00Z&to=2022-02-18T15%3A37%3A02Z`)
 	})
@@ -263,8 +254,7 @@ describe("query module / getNextFetchDetails()",()=>{
 			status: 'mixed',
 			sort: 'created_at',
 			order: 'newest',
-			limit: 3
-		},note1,note2,6)
+		},3,note1,note2,6)
 		assert.equal(fd.limit,9)
 		assert.equal(fd.parameters,`display_name=Mapper&sort=created_at&order=newest&closed=-1&limit=9&from=2001-01-01T00%3A00%3A00Z&to=2022-02-18T15%3A37%3A02Z`)
 	})

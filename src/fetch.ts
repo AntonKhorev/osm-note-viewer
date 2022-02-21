@@ -11,7 +11,7 @@ export async function startFetcher(
 	saveToQueryStorage: (query: NoteQuery, notes: Note[], users: Users) => void,
 	$notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
 	map: NoteMap,
-	$autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement,
+	$limitSelect: HTMLSelectElement, $autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement,
 	query: NoteQuery, initialNotes: Note[], initialUsers: Users
 ) {
 	const [notes,users,mergeNotesAndUsers]=makeNotesAndUsersAndMerger()
@@ -35,7 +35,8 @@ export async function startFetcher(
 	}
 	async function fetchCycle() {
 		rewriteLoadingButton()
-		const fetchDetails=getNextFetchDetails(query,lastNote,prevLastNote,lastLimit)
+		const limit=getLimit($limitSelect)
+		const fetchDetails=getNextFetchDetails(query,limit,lastNote,prevLastNote,lastLimit)
 		if (fetchDetails.limit>10000) {
 			rewriteMessage($moreContainer,`Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`)
 			return
@@ -77,7 +78,7 @@ export async function startFetcher(
 				const $moreButton=rewriteLoadMoreButton()
 				if (notes.length>maxTotalAutoLoadLimit) {
 					$moreButton.append(` (no auto download because displaying too many notes)`)
-				} else if (getNextFetchDetails(query,lastNote,prevLastNote,lastLimit).limit>maxSingleAutoLoadLimit) {
+				} else if (getNextFetchDetails(query,limit,lastNote,prevLastNote,lastLimit).limit>maxSingleAutoLoadLimit) {
 					$moreButton.append(` (no auto download because required batch too large)`)
 				} else {
 					const moreButtonIntersectionObserver=new IntersectionObserver((entries)=>{
@@ -168,4 +169,10 @@ function rewriteFetchErrorMessage($container: HTMLElement, user: ValidUserQueryP
 	const $error=document.createElement('pre')
 	$error.textContent=fetchErrorText
 	$message.append($error)
+}
+
+function getLimit($limitSelect: HTMLSelectElement): number {
+	const limit=Number($limitSelect.value)
+	if (Number.isInteger(limit) && limit>=1 && limit<=10000) return limit
+	return 20
 }

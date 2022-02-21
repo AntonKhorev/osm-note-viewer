@@ -40,8 +40,8 @@ function main(): void {
 
 	const map=new NoteMap($mapSide)
 	writeFlipLayoutButton($fetchContainer,map)
-	const [$autoLoadCheckbox,$fetchButton]=writeFetchForm($fetchContainer,$extrasContainer,$notesContainer,$moreContainer,$commandContainer,map)
-	writeStoredQueryResults($extrasContainer,$notesContainer,$moreContainer,$commandContainer,map,$autoLoadCheckbox,$fetchButton)
+	const $formInputs=writeFetchForm($fetchContainer,$extrasContainer,$notesContainer,$moreContainer,$commandContainer,map)
+	writeStoredQueryResults($extrasContainer,$notesContainer,$moreContainer,$commandContainer,map,...$formInputs)
 }
 
 function writeFlipLayoutButton($container: HTMLElement, map: NoteMap): void {
@@ -63,7 +63,7 @@ function writeFlipLayoutButton($container: HTMLElement, map: NoteMap): void {
 function writeFetchForm(
 	$container: HTMLElement, $extrasContainer: HTMLElement, $notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
 	map: NoteMap
-): [$autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement] {
+): [$limitSelect: HTMLSelectElement, $autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement] {
 	const partialQuery: Partial<NoteQuery> = {}
 	try {
 		const queryString=storage.getItem('query')
@@ -138,7 +138,7 @@ function writeFetchForm(
 		const $fieldset=document.createElement('fieldset')
 		{
 			const $legend=document.createElement('legend')
-			$legend.textContent=`Download mode`
+			$legend.textContent=`Download mode (can change anytime)`
 			$fieldset.append($legend)
 		}{
 			const $div=document.createElement('div')
@@ -148,7 +148,6 @@ function writeFetchForm(
 				new Option('500'),
 				new Option('2500')
 			)
-			if (partialQuery.limit!=null) $limitSelect.value=String(partialQuery.limit)
 			$div.append(
 				`Download these in batches of `,$limitSelect,` notes`
 			)
@@ -187,26 +186,25 @@ function writeFetchForm(
 			status: toNoteQueryStatus($statusSelect.value),
 			sort: toNoteQuerySort($sortSelect.value),
 			order: toNoteQueryOrder($orderSelect.value),
-			limit: Number($limitSelect.value),
 			beganAt: Date.now()
 		}
-		rewriteExtras($extrasContainer,query)
+		rewriteExtras($extrasContainer,query,Number($limitSelect.value))
 		startFetcher(
 			saveToQueryStorage,
 			$notesContainer,$moreContainer,$commandContainer,
 			map,
-			$autoLoadCheckbox,$fetchButton,
+			$limitSelect,$autoLoadCheckbox,$fetchButton,
 			query,[],{}
 		)
 	})
 	$container.append($form)
-	return [$autoLoadCheckbox,$fetchButton]
+	return [$limitSelect,$autoLoadCheckbox,$fetchButton]
 }
 
 function writeStoredQueryResults(
 	$extrasContainer: HTMLElement, $notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
 	map: NoteMap,
-	$autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement
+	$limitSelect: HTMLSelectElement, $autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement
 ): void {
 	const queryString=storage.getItem('query')
 	if (queryString==null) {
@@ -215,7 +213,7 @@ function writeStoredQueryResults(
 	}
 	try {
 		const query=JSON.parse(queryString)
-		rewriteExtras($extrasContainer,query.user)
+		rewriteExtras($extrasContainer,query,Number($limitSelect.value))
 		const notesString=storage.getItem('notes')
 		if (notesString==null) return
 		const usersString=storage.getItem('users')
@@ -226,7 +224,7 @@ function writeStoredQueryResults(
 			saveToQueryStorage,
 			$notesContainer,$moreContainer,$commandContainer,
 			map,
-			$autoLoadCheckbox,$fetchButton,
+			$limitSelect,$autoLoadCheckbox,$fetchButton,
 			query,notes,users
 		)
 	} catch {}
@@ -238,7 +236,7 @@ function saveToQueryStorage(query: NoteQuery, notes: Note[], users: Users): void
 	storage.setItem('users',JSON.stringify(users))
 }
 
-function rewriteExtras($container: HTMLElement, query?: NoteQuery): void {
+function rewriteExtras($container: HTMLElement, query?: NoteQuery, limit?: number): void {
 	$container.innerHTML=''
 	const $details=document.createElement('details')
 	{
@@ -261,13 +259,13 @@ function rewriteExtras($container: HTMLElement, query?: NoteQuery): void {
 		})
 		return [$clearButton,` `,$computeButton,` `,$computeResult]
 	})
-	if (query!=null) writeBlock(()=>[
+	if (query!=null && limit!=null) writeBlock(()=>[
 		`API links to queries on `,
 		makeUserLink(query,`this user`),
 		`: `,
-		makeNoteQueryLink(`with specified limit`,query),
+		makeNoteQueryLink(`with specified limit`,query,limit),
 		`, `,
-		makeNoteQueryLink(`with max limit`,toMaxLimitQuery(query)),
+		makeNoteQueryLink(`with max limit`,query,10000),
 		` (may be slow)`
 	])
 	writeBlock(()=>[
@@ -313,14 +311,8 @@ function rewriteExtras($container: HTMLElement, query?: NoteQuery): void {
 		$code.textContent=s
 		return $code
 	}
-	function makeNoteQueryLink(text: string, query: NoteQuery): HTMLAnchorElement {
-		return makeLink(text,`https://api.openstreetmap.org/api/0.6/notes/search.json?`+getNextFetchDetails(query).parameters)
-	}
-	function toMaxLimitQuery(query: NoteQuery): NoteQuery {
-		return {
-			...query,
-			limit: 10000
-		}
+	function makeNoteQueryLink(text: string, query: NoteQuery, limit: number): HTMLAnchorElement {
+		return makeLink(text,`https://api.openstreetmap.org/api/0.6/notes/search.json?`+getNextFetchDetails(query,limit).parameters)
 	}
 	$container.append($details)
 }

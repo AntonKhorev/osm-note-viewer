@@ -98,22 +98,12 @@ export function toUserQueryPart(value: string): UserQueryPart {
 		userType: 'name',
 		username: s
 	}
-	// TODO
-	/*
-		if ($userInput.value.startsWith(`https://www.openstreetmap.org/user/`)) {
-		} else if ($userInput.value.match(new RegExp(`[/;.,?%#]`))) {
-			$userInput.setCustomValidity('has bad char')
-			return
-		}
-		$userInput.setCustomValidity('')
-	*/
 }
 
 export type NoteQuery = ValidUserQueryPart & {
 	status: 'mixed'|'recent'|'open'|'separate'
 	sort: 'created_at'|'updated_at'
 	order: 'newest'|'oldest'
-	limit: number
 	beganAt?: number
 	endedAt?: number
 }
@@ -146,7 +136,7 @@ export interface NoteFetchDetails {
                             limit - this may change within a phase in rare circumstances;
                             from, to - this change for pagination purposes, from needs to be present with a dummy date if to is used
  */
-export function getNextFetchDetails(query: NoteQuery, lastNote?: Note, prevLastNote?: Note, lastLimit?: number): NoteFetchDetails {
+export function getNextFetchDetails(query: NoteQuery, requestedLimit: number, lastNote?: Note, prevLastNote?: Note, lastLimit?: number): NoteFetchDetails {
 	let closed=-1
 	if (query.status=='open') {
 		closed=0
@@ -155,7 +145,7 @@ export function getNextFetchDetails(query: NoteQuery, lastNote?: Note, prevLastN
 	}
 	let lowerDateLimit:string|undefined
 	let upperDateLimit:string|undefined
-	let limit=query.limit
+	let limit=requestedLimit
 	if (lastNote) {
 		if (lastNote.comments.length<=0) throw new Error(`note #${lastNote.id} has no comments`)
 		const lastDate=getTargetComment(lastNote).date
@@ -169,7 +159,7 @@ export function getNextFetchDetails(query: NoteQuery, lastNote?: Note, prevLastN
 			if (lastLimit==null) throw new Error(`no last limit provided along with previous last note #${prevLastNote.id}`)
 			const prevLastDate=getTargetComment(prevLastNote).date
 			if (lastDate==prevLastDate) {
-				limit=lastLimit+query.limit
+				limit=lastLimit+requestedLimit
 			}
 		}
 	}
