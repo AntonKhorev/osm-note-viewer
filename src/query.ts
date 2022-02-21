@@ -20,9 +20,14 @@ export interface InvalidUserQueryPart {
 export type UserQueryPart = ValidUserQueryPart | InvalidUserQueryPart
 
 export function toUserQueryPart(value: string): UserQueryPart {
+	const s=value.trim()
+	if (s=='') return {
+		userType: 'invalid',
+		message: `cannot be empty`
+	}
 	return {
 		userType: 'name',
-		username: value
+		username: s
 	}
 	// TODO
 	/*

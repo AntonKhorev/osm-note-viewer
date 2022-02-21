@@ -1,5 +1,5 @@
 import {strict as assert} from 'assert'
-import {getNextFetchDetails} from '../test-build/query.js'
+import {toUserQueryPart, getNextFetchDetails} from '../test-build/query.js'
 
 const makeNote=(id,...dates)=>({
 	id,
@@ -13,7 +13,28 @@ const makeNote=(id,...dates)=>({
 	}))
 })
 
-describe("query module",()=>{
+describe("query module / toUserQueryPart()",()=>{
+	it("gives invalid output on empty input",()=>{
+		const uqp=toUserQueryPart(``)
+		assert.equal(uqp.userType,'invalid')
+	})
+	it("gives invalid output on spaces",()=>{
+		const uqp=toUserQueryPart(`   `)
+		assert.equal(uqp.userType,'invalid')
+	})
+	it("gives name on single word",()=>{
+		const uqp=toUserQueryPart(`Alice`)
+		assert.equal(uqp.userType,'name')
+		assert.equal(uqp.username,`Alice`)
+	})
+	it("trims name",()=>{
+		const uqp=toUserQueryPart(`  Bob   `)
+		assert.equal(uqp.userType,'name')
+		assert.equal(uqp.username,`Bob`)
+	})
+})
+
+describe("query module / getNextFetchDetails()",()=>{
 	it("provides username initial fetch",()=>{
 		const fd=getNextFetchDetails({
 			userType: 'name',
