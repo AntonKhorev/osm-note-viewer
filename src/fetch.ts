@@ -11,7 +11,7 @@ export async function startFetcher(
 	saveToQueryStorage: (query: NoteQuery, notes: Note[], users: Users) => void,
 	$notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
 	map: NoteMap,
-	$fetchButton: HTMLButtonElement,
+	$autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement,
 	query: NoteQuery, initialNotes: Note[], initialUsers: Users
 ) {
 	const [notes,users,mergeNotesAndUsers]=makeNotesAndUsersAndMerger()
@@ -75,13 +75,15 @@ export async function startFetcher(
 				lastNote=notes[notes.length-1]
 				lastLimit=fetchDetails.limit
 				const $moreButton=rewriteLoadMoreButton()
-				if (
-					notes.length<=maxTotalAutoLoadLimit &&
-					getNextFetchDetails(query,lastNote,prevLastNote,lastLimit).limit<=maxSingleAutoLoadLimit
-				) {
+				if (notes.length>maxTotalAutoLoadLimit) {
+					$moreButton.append(` (no auto download because displaying too many notes)`)
+				} else if (getNextFetchDetails(query,lastNote,prevLastNote,lastLimit).limit>maxSingleAutoLoadLimit) {
+					$moreButton.append(` (no auto download because required batch too large)`)
+				} else {
 					const moreButtonIntersectionObserver=new IntersectionObserver((entries)=>{
 						if (entries.length<=0) return
 						if (!entries[0].isIntersecting) return
+						if (!$autoLoadCheckbox.checked) return
 						moreButtonIntersectionObserver.disconnect()
 						$moreButton.click()
 					})

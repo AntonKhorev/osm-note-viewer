@@ -40,8 +40,8 @@ function main(): void {
 
 	const map=new NoteMap($mapSide)
 	writeFlipLayoutButton($fetchContainer,map)
-	const $fetchButton=writeFetchForm($fetchContainer,$extrasContainer,$notesContainer,$moreContainer,$commandContainer,map)
-	writeStoredQueryResults($extrasContainer,$notesContainer,$moreContainer,$commandContainer,map,$fetchButton)
+	const [$autoLoadCheckbox,$fetchButton]=writeFetchForm($fetchContainer,$extrasContainer,$notesContainer,$moreContainer,$commandContainer,map)
+	writeStoredQueryResults($extrasContainer,$notesContainer,$moreContainer,$commandContainer,map,$autoLoadCheckbox,$fetchButton)
 }
 
 function writeFlipLayoutButton($container: HTMLElement, map: NoteMap): void {
@@ -63,7 +63,7 @@ function writeFlipLayoutButton($container: HTMLElement, map: NoteMap): void {
 function writeFetchForm(
 	$container: HTMLElement, $extrasContainer: HTMLElement, $notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
 	map: NoteMap
-): HTMLButtonElement {
+): [$autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement] {
 	const partialQuery: Partial<NoteQuery> = {}
 	try {
 		const queryString=storage.getItem('query')
@@ -80,59 +80,89 @@ function writeFetchForm(
 	const $sortSelect=document.createElement('select')
 	const $orderSelect=document.createElement('select')
 	const $limitSelect=document.createElement('select')
+	const $autoLoadCheckbox=document.createElement('input')
 	const $fetchButton=document.createElement('button')
 	{
-		$userInput.type='text'
-		$userInput.name='user'
-		$userInput.required=true
-		if (partialQuery.userType=='id' && partialQuery.uid!=null) {
-			$userInput.value='#'+partialQuery.uid
-		} else if (partialQuery.userType=='name' && partialQuery.username!=null) {
-			$userInput.value=partialQuery.username
+		const $fieldset=document.createElement('fieldset')
+		{
+			const $legend=document.createElement('legend')
+			$legend.textContent=`Scope and order`
+			$fieldset.append($legend)
+		}{
+			$userInput.type='text'
+			$userInput.name='user'
+			$userInput.required=true
+			if (partialQuery.userType=='id' && partialQuery.uid!=null) {
+				$userInput.value='#'+partialQuery.uid
+			} else if (partialQuery.userType=='name' && partialQuery.username!=null) {
+				$userInput.value=partialQuery.username
+			}
+			const $div=document.createElement('div')
+			const $label=document.createElement('label')
+			$label.append(`OSM username, URL or #id: `,$userInput)
+			$div.append($label)
+			$fieldset.append($div)
+		}{
+			const $div=document.createElement('div')
+			$statusSelect.append(
+				new Option(`both open and closed`,'mixed'),
+				new Option(`open and recently closed`,'recent'),
+				new Option(`only open`,'open'),
+				// new Option(`open followed by closed`,'separate') // TODO requires two fetch phases
+			)
+			if (partialQuery.status!=null) $statusSelect.value=partialQuery.status
+			$sortSelect.append(
+				new Option(`creation`,'created_at'),
+				new Option(`last update`,'updated_at')
+			)
+			if (partialQuery.sort!=null) $sortSelect.value=partialQuery.sort
+			$orderSelect.append(
+				new Option('newest'),
+				new Option('oldest')
+			)
+			if (partialQuery.order!=null) $orderSelect.value=partialQuery.order
+			$div.append(
+				span(`Fetch this user's `,$statusSelect,` notes`),` `,
+				span(`sorted by `,$sortSelect,` date`),`, `,
+				span($orderSelect,` first`)
+			)
+			$fieldset.append($div)
+			function span(...items: Array<string|HTMLElement>): HTMLSpanElement {
+				const $span=document.createElement('span')
+				$span.append(...items)
+				return $span
+			}
 		}
-		const $div=document.createElement('div')
-		const $label=document.createElement('label')
-		$label.append(`OSM username, URL or #id: `,$userInput)
-		$div.append($label)
-		$form.append($div)
+		$form.append($fieldset)
 	}{
-		const $div=document.createElement('div')
-		$statusSelect.append(
-			new Option(`both open and closed`,'mixed'),
-			new Option(`open and recently closed`,'recent'),
-			new Option(`only open`,'open'),
-			// new Option(`open followed by closed`,'separate') // TODO requires two fetch phases
-		)
-		if (partialQuery.status!=null) $statusSelect.value=partialQuery.status
-		$sortSelect.append(
-			new Option(`creation`,'created_at'),
-			new Option(`last update`,'updated_at')
-		)
-		if (partialQuery.sort!=null) $sortSelect.value=partialQuery.sort
-		$orderSelect.append(
-			new Option('newest'),
-			new Option('oldest')
-		)
-		if (partialQuery.order!=null) $orderSelect.value=partialQuery.order
-		$limitSelect.append(
-			new Option('20'),
-			new Option('100'),
-			new Option('500'),
-			new Option('2500')
-		)
-		if (partialQuery.limit!=null) $limitSelect.value=String(partialQuery.limit)
-		$div.append(
-			span(`Fetch `,$statusSelect,` notes`),` `,
-			span(`sorted by `,$sortSelect,` date`),`, `,
-			span($orderSelect,` first`),`, `,
-			span(`in batches of `,$limitSelect,` notes`)
-		)
-		$form.append($div)
-		function span(...items: Array<string|HTMLElement>): HTMLSpanElement {
-			const $span=document.createElement('span')
-			$span.append(...items)
-			return $span
+		const $fieldset=document.createElement('fieldset')
+		{
+			const $legend=document.createElement('legend')
+			$legend.textContent=`Download mode`
+			$fieldset.append($legend)
+		}{
+			const $div=document.createElement('div')
+			$limitSelect.append(
+				new Option('20'),
+				new Option('100'),
+				new Option('500'),
+				new Option('2500')
+			)
+			if (partialQuery.limit!=null) $limitSelect.value=String(partialQuery.limit)
+			$div.append(
+				`Download these in batches of `,$limitSelect,` notes`
+			)
+			$fieldset.append($div)
+		}{
+			$autoLoadCheckbox.type='checkbox'
+			$autoLoadCheckbox.checked=true
+			const $div=document.createElement('div')
+			const $label=document.createElement('label')
+			$label.append($autoLoadCheckbox,` Automatically load more notes when scrolled to the end of the table`)
+			$div.append($label)
+			$fieldset.append($div)
 		}
+		$form.append($fieldset)
 	}{
 		$fetchButton.textContent=`Fetch notes`
 		$fetchButton.type='submit'
@@ -165,18 +195,18 @@ function writeFetchForm(
 			saveToQueryStorage,
 			$notesContainer,$moreContainer,$commandContainer,
 			map,
-			$fetchButton,
+			$autoLoadCheckbox,$fetchButton,
 			query,[],{}
 		)
 	})
 	$container.append($form)
-	return $fetchButton
+	return [$autoLoadCheckbox,$fetchButton]
 }
 
 function writeStoredQueryResults(
 	$extrasContainer: HTMLElement, $notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
 	map: NoteMap,
-	$fetchButton: HTMLButtonElement
+	$autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement
 ): void {
 	const queryString=storage.getItem('query')
 	if (queryString==null) {
@@ -196,7 +226,7 @@ function writeStoredQueryResults(
 			saveToQueryStorage,
 			$notesContainer,$moreContainer,$commandContainer,
 			map,
-			$fetchButton,
+			$autoLoadCheckbox,$fetchButton,
 			query,notes,users
 		)
 	} catch {}

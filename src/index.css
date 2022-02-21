@@ -76,6 +76,10 @@ body.flipped .panel.fetch button.flip {
 .panel button[type=submit] {
 	padding: .3rem;
 }
+.panel fieldset {
+	margin-left: 0;
+	margin-right: 0;
+}
 .notes table {
 	border-collapse: collapse;
 	margin: 0 2px;
