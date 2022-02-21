@@ -59,6 +59,67 @@ describe("query module / toUserQueryPart()",()=>{
 		assert.equal(uqp.userType,'invalid')
 		assert(uqp.message.includes('empty'))
 	})
+	it("parses osm user url",()=>{
+		const uqp=toUserQueryPart(`https://www.openstreetmap.org/user/Bob`)
+		assert.equal(uqp.userType,'name')
+		assert.equal(uqp.username,`Bob`)
+	})
+	it("parses osm user subpage url",()=>{
+		const uqp=toUserQueryPart(`https://www.openstreetmap.org/user/Fred/notes`)
+		assert.equal(uqp.userType,'name')
+		assert.equal(uqp.username,`Fred`)
+	})
+	it("parses osm user url with hash",()=>{
+		const uqp=toUserQueryPart(`https://www.openstreetmap.org/user/User#content`)
+		assert.equal(uqp.userType,'name')
+		assert.equal(uqp.username,`User`)
+	})
+	it("parses osm user url with space",()=>{
+		const uqp=toUserQueryPart(`https://www.openstreetmap.org/user/FirstName%20LastName`)
+		assert.equal(uqp.userType,'name')
+		assert.equal(uqp.username,`FirstName LastName`)
+	})
+	it("parses http osm user url",()=>{
+		const uqp=toUserQueryPart(`http://www.openstreetmap.org/user/Bob`)
+		assert.equal(uqp.userType,'name')
+		assert.equal(uqp.username,`Bob`)
+	})
+	it("parses osm user url without www",()=>{
+		const uqp=toUserQueryPart(`https://openstreetmap.org/user/John`)
+		assert.equal(uqp.userType,'name')
+		assert.equal(uqp.username,`John`)
+	})
+	it("parses www.osm.org user url",()=>{
+		const uqp=toUserQueryPart(`https://www.osm.org/user/John`)
+		assert.equal(uqp.userType,'name')
+		assert.equal(uqp.username,`John`)
+	})
+	it("parses osm.org user url",()=>{
+		const uqp=toUserQueryPart(`https://www.osm.org/user/John`)
+		assert.equal(uqp.userType,'name')
+		assert.equal(uqp.username,`John`)
+	})
+	it("rejects unknown domain",()=>{
+		const uqp=toUserQueryPart(`https://www.google.com/user/John`)
+		assert.equal(uqp.userType,'invalid')
+		assert(uqp.message.includes('www.google.com'))
+	})
+	it("rejects malformed url",()=>{
+		const uqp=toUserQueryPart(`ht/tp/s://ww/w.go/ogle.c/om/user/Jo/hn`)
+		assert.equal(uqp.userType,'invalid')
+	})
+	it("rejects osm non-user url",()=>{
+		const uqp=toUserQueryPart(`https://www.openstreetmap.org/`)
+		assert.equal(uqp.userType,'invalid')
+	})
+	it("rejects osm incomplete user url",()=>{
+		const uqp=toUserQueryPart(`https://www.openstreetmap.org/user`)
+		assert.equal(uqp.userType,'invalid')
+	})
+	it("rejects osm incomplete user/ url",()=>{
+		const uqp=toUserQueryPart(`https://www.openstreetmap.org/user/`)
+		assert.equal(uqp.userType,'invalid')
+	})
 })
 
 describe("query module / getNextFetchDetails()",()=>{

@@ -46,6 +46,40 @@ export function toUserQueryPart(value: string): UserQueryPart {
 			}
 		}
 	}
+	if (s.includes('/')) {
+		try {
+			const url=new URL(s)
+			if (
+				url.host=='www.openstreetmap.org' ||
+				url.host=='openstreetmap.org' ||
+				url.host=='www.osm.org' ||
+				url.host=='osm.org'
+			) {
+				const [,userPathDir,userPathEnd]=url.pathname.split('/')
+				if (userPathDir=='user' && userPathEnd) {
+					const username=decodeURIComponent(userPathEnd)
+					return {
+						userType: 'name',
+						username
+					}
+				}
+				return {
+					userType: 'invalid',
+					message: `OSM URL has to include username`
+				}
+			} else {
+				return {
+					userType: 'invalid',
+					message: `URL has to be of an OSM domain, was given ${url.host}`
+				}
+			}
+		} catch {
+			return {
+				userType: 'invalid',
+				message: `string containing / character has to be a valid URL`
+			}
+		}
+	}
 	return {
 		userType: 'name',
 		username: s
