@@ -27,19 +27,20 @@ export default class CommandPanel {
 				for (const noteId of this.checkedNoteIds) {
 					const noteUrl=`https://www.openstreetmap.org/note/`+encodeURIComponent(noteId)
 					const rcUrl=`http://127.0.0.1:8111/import?url=`+encodeURIComponent(noteUrl)
-					fetch(rcUrl)
+					const success=await openRcUrl($loadNotesButton,rcUrl)
+					if (!success) break
 				}
 			})
 			const $loadMapButton=document.createElement('button')
 			$loadMapButton.textContent=`Load map area`
-			$loadMapButton.addEventListener('click',async()=>{
+			$loadMapButton.addEventListener('click',()=>{
 				const bounds=map.getBounds()
 				const rcUrl=`http://127.0.0.1:8111/load_and_zoom`+
 					`?left=`+encodeURIComponent(bounds.getWest())+
 					`&right=`+encodeURIComponent(bounds.getEast())+
 					`&top=`+encodeURIComponent(bounds.getNorth())+
 					`&bottom=`+encodeURIComponent(bounds.getSouth())
-				fetch(rcUrl)
+				openRcUrl($loadMapButton,rcUrl)
 			})
 			$div.append(
 				makeLink(`RC`,'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl',`JOSM (or another editor) Remote Control`),
@@ -54,7 +55,7 @@ export default class CommandPanel {
 			const $div=document.createElement('div')
 			const $yandexPanoramasButton=document.createElement('button')
 			$yandexPanoramasButton.textContent=`Open map center`
-			$yandexPanoramasButton.addEventListener('click',async()=>{
+			$yandexPanoramasButton.addEventListener('click',()=>{
 				const center=map.getCenter()
 				const coords=center.lng+','+center.lat
 				const url=`https://yandex.ru/maps/2/saint-petersburg/`+
@@ -80,5 +81,25 @@ export default class CommandPanel {
 	}
 	disableTracking(): void {
 		this.$trackCheckbox.checked=false
+	}
+}
+
+async function openRcUrl($button: HTMLButtonElement, rcUrl: string): Promise<boolean> {
+	try {
+		const response=await fetch(rcUrl)
+		if (response.ok) {
+			clearError()
+			return true
+		}
+	} catch {}
+	setError()
+	return false
+	function setError() {
+		$button.classList.add('error')
+		$button.title='Remote control command failed. Make sure you have an editor open and remote control enabled.'
+	}
+	function clearError() {
+		$button.classList.remove('error')
+		$button.title=''
 	}
 }
