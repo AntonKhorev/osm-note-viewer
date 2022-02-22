@@ -67,14 +67,17 @@ body.flipped .panel.fetch button.flip {
 	margin: 0;
 }
 .panel input[type=text],
-.panel button[type=submit]
- {
+.panel button[type=submit] {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
 }
 .panel button[type=submit] {
 	padding: .3rem;
+}
+.panel button.error {
+	color: red;
+	box-shadow: 0px 0px 0px 1px red;
 }
 .panel fieldset {
 	margin-left: 0;

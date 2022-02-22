@@ -276,8 +276,103 @@ function makeLink(text, href, title) {
     return $link;
 }
 
+class CommandPanel {
+    constructor($container, map) {
+        this.checkedNoteIds = [];
+        {
+            const $div = document.createElement('div');
+            const $label = document.createElement('label');
+            const $trackCheckbox = document.createElement('input');
+            $trackCheckbox.type = 'checkbox';
+            $trackCheckbox.addEventListener('change', () => {
+                if ($trackCheckbox.checked)
+                    map.fitNoteTrack();
+            });
+            $label.append($trackCheckbox, ` track visible notes on the map`);
+            $div.append($label);
+            $container.append($div);
+            this.$trackCheckbox = $trackCheckbox;
+        }
+        {
+            const $div = document.createElement('div');
+            const $loadNotesButton = document.createElement('button');
+            $loadNotesButton.disabled = true;
+            $loadNotesButton.textContent = `Load selected notes`;
+            $loadNotesButton.addEventListener('click', async () => {
+                for (const noteId of this.checkedNoteIds) {
+                    const noteUrl = `https://www.openstreetmap.org/note/` + encodeURIComponent(noteId);
+                    const rcUrl = `http://127.0.0.1:8111/import?url=` + encodeURIComponent(noteUrl);
+                    const success = await openRcUrl($loadNotesButton, rcUrl);
+                    if (!success)
+                        break;
+                }
+            });
+            const $loadMapButton = document.createElement('button');
+            $loadMapButton.textContent = `Load map area`;
+            $loadMapButton.addEventListener('click', () => {
+                const bounds = map.getBounds();
+                const rcUrl = `http://127.0.0.1:8111/load_and_zoom` +
+                    `?left=` + encodeURIComponent(bounds.getWest()) +
+                    `&right=` + encodeURIComponent(bounds.getEast()) +
+                    `&top=` + encodeURIComponent(bounds.getNorth()) +
+                    `&bottom=` + encodeURIComponent(bounds.getSouth());
+                openRcUrl($loadMapButton, rcUrl);
+            });
+            $div.append(makeLink(`RC`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl', `JOSM (or another editor) Remote Control`), `: `, $loadNotesButton, ` `, $loadMapButton);
+            $container.append($div);
+            this.$loadNotesButton = $loadNotesButton;
+        }
+        {
+            const $div = document.createElement('div');
+            const $yandexPanoramasButton = document.createElement('button');
+            $yandexPanoramasButton.textContent = `Open map center`;
+            $yandexPanoramasButton.addEventListener('click', () => {
+                const center = map.getCenter();
+                const coords = center.lng + ',' + center.lat;
+                const url = `https://yandex.ru/maps/2/saint-petersburg/` +
+                    `?ll=` + encodeURIComponent(coords) + // required if 'z' argument is present
+                    `&panorama%5Bpoint%5D=` + encodeURIComponent(coords) +
+                    `&z=` + encodeURIComponent(map.getZoom());
+                open(url, 'yandex');
+            });
+            $div.append(makeLink(`Y.Panoramas`, 'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B', `Yandex.Panoramas (Яндекс.Панорамы)`), `: `, $yandexPanoramasButton);
+            $container.append($div);
+        }
+    }
+    receiveCheckedNoteIds(checkedNoteIds) {
+        this.checkedNoteIds = checkedNoteIds;
+        this.$loadNotesButton.disabled = checkedNoteIds.length <= 0;
+    }
+    isTracking() {
+        return this.$trackCheckbox.checked;
+    }
+    disableTracking() {
+        this.$trackCheckbox.checked = false;
+    }
+}
+async function openRcUrl($button, rcUrl) {
+    try {
+        const response = await fetch(rcUrl);
+        if (response.ok) {
+            clearError();
+            return true;
+        }
+    }
+    catch { }
+    setError();
+    return false;
+    function setError() {
+        $button.classList.add('error');
+        $button.title = 'Remote control command failed. Make sure you have an editor open and remote control enabled.';
+    }
+    function clearError() {
+        $button.classList.remove('error');
+        $button.title = '';
+    }
+}
+
 function writeNotesTableHeaderAndGetNoteAdder($container, $commandContainer, map) {
-    const [$trackCheckbox, $loadNotesButton, $loadMapButton, $yandexPanoramasButton] = writeCommands($commandContainer);
+    const commandPanel = new CommandPanel($commandContainer, map);
     const noteSectionLayerIdVisibility = new Map();
     let noteSectionVisibilityTimeoutId;
     const noteRowObserver = new IntersectionObserver((entries) => {
@@ -301,42 +396,6 @@ function writeNotesTableHeaderAndGetNoteAdder($container, $commandContainer, map
         const $row = $header.insertRow();
         $row.append(makeHeaderCell(''), makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), makeHeaderCell(''), makeHeaderCell('comment'));
     }
-    $trackCheckbox.addEventListener('change', () => {
-        if ($trackCheckbox.checked)
-            map.fitNoteTrack();
-    });
-    $loadNotesButton.addEventListener('click', async () => {
-        const $checkedBoxes = $table.querySelectorAll('.note-checkbox :checked');
-        for (const $checkbox of $checkedBoxes) {
-            const $noteSection = $checkbox.closest('tbody');
-            if (!$noteSection)
-                continue;
-            const noteId = Number($noteSection.dataset.noteId);
-            if (!Number.isInteger(noteId))
-                continue;
-            const noteUrl = `https://www.openstreetmap.org/note/` + encodeURIComponent(noteId);
-            const rcUrl = `http://127.0.0.1:8111/import?url=` + encodeURIComponent(noteUrl);
-            fetch(rcUrl);
-        }
-    });
-    $loadMapButton.addEventListener('click', async () => {
-        const bounds = map.getBounds();
-        const rcUrl = `http://127.0.0.1:8111/load_and_zoom` +
-            `?left=` + encodeURIComponent(bounds.getWest()) +
-            `&right=` + encodeURIComponent(bounds.getEast()) +
-            `&top=` + encodeURIComponent(bounds.getNorth()) +
-            `&bottom=` + encodeURIComponent(bounds.getSouth());
-        fetch(rcUrl);
-    });
-    $yandexPanoramasButton.addEventListener('click', async () => {
-        const center = map.getCenter();
-        const coords = center.lng + ',' + center.lat;
-        const url = `https://yandex.ru/maps/2/saint-petersburg/` +
-            `?ll=` + encodeURIComponent(coords) + // required if 'z' argument is present
-            `&panorama%5Bpoint%5D=` + encodeURIComponent(coords) +
-            `&z=` + encodeURIComponent(map.getZoom());
-        open(url, 'yandex');
-    });
     function makeHeaderCell(text) {
         const $cell = document.createElement('th');
         $cell.textContent = text;
@@ -399,7 +458,7 @@ function writeNotesTableHeaderAndGetNoteAdder($container, $commandContainer, map
         }
     }
     function noteMarkerClickListener() {
-        $trackCheckbox.checked = false;
+        commandPanel.disableTracking();
         deactivateAllNotes();
         const $noteRows = document.getElementById(`note-` + this.noteId);
         if (!$noteRows)
@@ -425,12 +484,11 @@ function writeNotesTableHeaderAndGetNoteAdder($container, $commandContainer, map
                 visibleLayerIds.push(layerId);
         }
         map.showNoteTrack(visibleLayerIds);
-        if ($trackCheckbox.checked)
+        if (commandPanel.isTracking())
             map.fitNoteTrack();
     }
     function noteCheckboxClickListener(ev) {
         ev.stopPropagation();
-        const $anyCheckedBox = $table.querySelector('.note-checkbox :checked');
         const $clickedNoteSection = this.closest('tbody');
         if ($clickedNoteSection) {
             if (ev.shiftKey && $lastClickedNoteSection) {
@@ -442,8 +500,9 @@ function writeNotesTableHeaderAndGetNoteAdder($container, $commandContainer, map
             }
             $lastClickedNoteSection = $clickedNoteSection;
         }
-        $loadNotesButton.disabled = !$anyCheckedBox;
+        commandPanel.receiveCheckedNoteIds(getCheckedNoteIds($table));
     }
+    commandPanel.receiveCheckedNoteIds(getCheckedNoteIds($table));
     return (notes, users) => {
         for (const note of notes) {
             const $tableSection = writeNote(note);
@@ -550,35 +609,6 @@ function getActionClass(action) {
         return 'other';
     }
 }
-function writeCommands($container) {
-    const $checkbox = document.createElement('input');
-    const $loadNotesButton = document.createElement('button');
-    const $loadMapButton = document.createElement('button');
-    const $yandexPanoramasButton = document.createElement('button');
-    {
-        const $div = document.createElement('div');
-        const $label = document.createElement('label');
-        $checkbox.type = 'checkbox';
-        $label.append($checkbox, ` track visible notes on the map`);
-        $div.append($label);
-        $container.append($div);
-    }
-    {
-        const $div = document.createElement('div');
-        $loadNotesButton.disabled = true;
-        $loadNotesButton.textContent = `Load selected notes`;
-        $loadMapButton.textContent = `Load map area`;
-        $div.append(makeLink(`RC`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl', `JOSM (or another editor) Remote Control`), `: `, $loadNotesButton, ` `, $loadMapButton);
-        $container.append($div);
-    }
-    {
-        const $div = document.createElement('div');
-        $yandexPanoramasButton.textContent = `Open map center`;
-        $div.append(makeLink(`Y.Panoramas`, 'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B', `Yandex.Panoramas (Яндекс.Панорамы)`), `: `, $yandexPanoramasButton);
-        $container.append($div);
-    }
-    return [$checkbox, $loadNotesButton, $loadMapButton, $yandexPanoramasButton];
-}
 /**
  * range including $lastClickedSection but excluding $currentClickedSection
  * excludes $currentClickedSection if equals to $lastClickedSection
@@ -609,6 +639,20 @@ function* getTableSectionRange($table, $lastClickedSection, $currentClickedSecti
             return;
         }
     }
+}
+function getCheckedNoteIds($table) {
+    const checkedNoteIds = [];
+    const $checkedBoxes = $table.querySelectorAll('.note-checkbox :checked');
+    for (const $checkbox of $checkedBoxes) {
+        const $noteSection = $checkbox.closest('tbody');
+        if (!$noteSection)
+            continue;
+        const noteId = Number($noteSection.dataset.noteId);
+        if (!Number.isInteger(noteId))
+            continue;
+        checkedNoteIds.push(noteId);
+    }
+    return checkedNoteIds;
 }
 
 const maxSingleAutoLoadLimit = 200;
