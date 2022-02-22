@@ -38,18 +38,6 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 	commandPanel.$trackCheckbox.addEventListener('change',()=>{
 		if (commandPanel.$trackCheckbox.checked) map.fitNoteTrack()
 	})
-	commandPanel.$loadNotesButton.addEventListener('click',async()=>{
-		const $checkedBoxes=$table.querySelectorAll('.note-checkbox :checked')
-		for (const $checkbox of $checkedBoxes) {
-			const $noteSection=$checkbox.closest('tbody')
-			if (!$noteSection) continue
-			const noteId=Number($noteSection.dataset.noteId)
-			if (!Number.isInteger(noteId)) continue
-			const noteUrl=`https://www.openstreetmap.org/note/`+encodeURIComponent(noteId)
-			const rcUrl=`http://127.0.0.1:8111/import?url=`+encodeURIComponent(noteUrl)
-			fetch(rcUrl)
-		}
-	})
 	function makeHeaderCell(text: string): HTMLTableCellElement {
 		const $cell=document.createElement('th')
 		$cell.textContent=text
@@ -136,7 +124,6 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 	}
 	function noteCheckboxClickListener(this: HTMLInputElement, ev: MouseEvent): void { // need 'click' handler rather than 'change' to stop click propagation
 		ev.stopPropagation()
-		const $anyCheckedBox=$table.querySelector('.note-checkbox :checked')
 		const $clickedNoteSection=this.closest('tbody')
 		if ($clickedNoteSection) {
 			if (ev.shiftKey && $lastClickedNoteSection) {
@@ -147,8 +134,9 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 			}
 			$lastClickedNoteSection=$clickedNoteSection
 		}
-		commandPanel.$loadNotesButton.disabled=!$anyCheckedBox
+		commandPanel.receiveCheckedNoteIds(getCheckedNoteIds($table))
 	}
+	commandPanel.receiveCheckedNoteIds(getCheckedNoteIds($table))
 	return (notes,users)=>{
 		for (const note of notes) {
 			const $tableSection=writeNote(note)
@@ -278,4 +266,17 @@ function *getTableSectionRange(
 			return
 		}
 	}
+}
+
+function getCheckedNoteIds($table: HTMLTableElement): number[] {
+	const checkedNoteIds: number[] = []
+	const $checkedBoxes=$table.querySelectorAll('.note-checkbox :checked')
+	for (const $checkbox of $checkedBoxes) {
+		const $noteSection=$checkbox.closest('tbody')
+		if (!$noteSection) continue
+		const noteId=Number($noteSection.dataset.noteId)
+		if (!Number.isInteger(noteId)) continue
+		checkedNoteIds.push(noteId)
+	}
+	return checkedNoteIds
 }

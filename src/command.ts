@@ -4,6 +4,7 @@ import {makeLink} from './util'
 export default class CommandPanel {
 	$trackCheckbox: HTMLInputElement
 	$loadNotesButton: HTMLButtonElement
+	checkedNoteIds: number[] = []
 	constructor($container: HTMLElement, map: NoteMap) {
 		this.$trackCheckbox=document.createElement('input')
 		this.$loadNotesButton=document.createElement('button')
@@ -39,6 +40,13 @@ export default class CommandPanel {
 			)
 			$container.append($div)
 		}
+		this.$loadNotesButton.addEventListener('click',async()=>{
+			for (const noteId of this.checkedNoteIds) {
+				const noteUrl=`https://www.openstreetmap.org/note/`+encodeURIComponent(noteId)
+				const rcUrl=`http://127.0.0.1:8111/import?url=`+encodeURIComponent(noteUrl)
+				fetch(rcUrl)
+			}
+		})
 		$loadMapButton.addEventListener('click',async()=>{
 			const bounds=map.getBounds()
 			const rcUrl=`http://127.0.0.1:8111/load_and_zoom`+
@@ -57,5 +65,9 @@ export default class CommandPanel {
 				`&z=`+encodeURIComponent(map.getZoom())
 			open(url,'yandex')
 		})
+	}
+	receiveCheckedNoteIds(checkedNoteIds: number[]): void {
+		this.checkedNoteIds=checkedNoteIds
+		this.$loadNotesButton.disabled=checkedNoteIds.length<=0
 	}
 }
