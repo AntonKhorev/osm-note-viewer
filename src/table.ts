@@ -1,11 +1,12 @@
 import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
-import {makeLink,makeUserLink} from './util'
+import CommandPanel from './command'
+import {makeUserLink} from './util'
 
 export default function writeNotesTableHeaderAndGetNoteAdder(
 	$container: HTMLElement, $commandContainer: HTMLElement, map: NoteMap
 ): (notes: Note[], users: Users) => void {
-	const [$trackCheckbox,$loadNotesButton,$loadMapButton,$yandexPanoramasButton]=writeCommands($commandContainer)
+	const commandPanel=new CommandPanel($commandContainer)
 	const noteSectionLayerIdVisibility=new Map<number,boolean>()
 	let noteSectionVisibilityTimeoutId: number | undefined
 	const noteRowObserver=new IntersectionObserver((entries)=>{
@@ -34,10 +35,10 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 			makeHeaderCell('comment')
 		)
 	}
-	$trackCheckbox.addEventListener('change',()=>{
-		if ($trackCheckbox.checked) map.fitNoteTrack()
+	commandPanel.$trackCheckbox.addEventListener('change',()=>{
+		if (commandPanel.$trackCheckbox.checked) map.fitNoteTrack()
 	})
-	$loadNotesButton.addEventListener('click',async()=>{
+	commandPanel.$loadNotesButton.addEventListener('click',async()=>{
 		const $checkedBoxes=$table.querySelectorAll('.note-checkbox :checked')
 		for (const $checkbox of $checkedBoxes) {
 			const $noteSection=$checkbox.closest('tbody')
@@ -49,7 +50,7 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 			fetch(rcUrl)
 		}
 	})
-	$loadMapButton.addEventListener('click',async()=>{
+	commandPanel.$loadMapButton.addEventListener('click',async()=>{
 		const bounds=map.getBounds()
 		const rcUrl=`http://127.0.0.1:8111/load_and_zoom`+
 			`?left=`+encodeURIComponent(bounds.getWest())+
@@ -58,7 +59,7 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 			`&bottom=`+encodeURIComponent(bounds.getSouth())
 		fetch(rcUrl)
 	})
-	$yandexPanoramasButton.addEventListener('click',async()=>{
+	commandPanel.$yandexPanoramasButton.addEventListener('click',async()=>{
 		const center=map.getCenter()
 		const coords=center.lng+','+center.lat
 		const url=`https://yandex.ru/maps/2/saint-petersburg/`+
@@ -125,7 +126,7 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 		}
 	}
 	function noteMarkerClickListener(this: NoteMarker): void {
-		$trackCheckbox.checked=false
+		commandPanel.$trackCheckbox.checked=false
 		deactivateAllNotes()
 		const $noteRows=document.getElementById(`note-`+this.noteId)
 		if (!$noteRows) return
@@ -149,7 +150,7 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 			if (visibility) visibleLayerIds.push(layerId)
 		}
 		map.showNoteTrack(visibleLayerIds)
-		if ($trackCheckbox.checked) map.fitNoteTrack()
+		if (commandPanel.$trackCheckbox.checked) map.fitNoteTrack()
 	}
 	function noteCheckboxClickListener(this: HTMLInputElement, ev: MouseEvent): void { // need 'click' handler rather than 'change' to stop click propagation
 		ev.stopPropagation()
@@ -164,7 +165,7 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 			}
 			$lastClickedNoteSection=$clickedNoteSection
 		}
-		$loadNotesButton.disabled=!$anyCheckedBox
+		commandPanel.$loadNotesButton.disabled=!$anyCheckedBox
 	}
 	return (notes,users)=>{
 		for (const note of notes) {
@@ -261,47 +262,6 @@ function getActionClass(action: NoteComment['action']): string {
 	} else {
 		return 'other'
 	}
-}
-
-function writeCommands($container: HTMLElement): [
-	$trackCheckbox: HTMLInputElement,
-	$loadNotesButton: HTMLButtonElement, $loadMapButton: HTMLButtonElement, $yandexPanoramasButton: HTMLButtonElement
-] {
-	const $checkbox=document.createElement('input')
-	const $loadNotesButton=document.createElement('button')
-	const $loadMapButton=document.createElement('button')
-	const $yandexPanoramasButton=document.createElement('button')
-	{
-		const $div=document.createElement('div')
-		const $label=document.createElement('label')
-		$checkbox.type='checkbox'
-		$label.append($checkbox,` track visible notes on the map`)
-		$div.append($label)
-		$container.append($div)
-	}{
-		const $div=document.createElement('div')
-		$loadNotesButton.disabled=true
-		$loadNotesButton.textContent=`Load selected notes`
-		$loadMapButton.textContent=`Load map area`
-		$div.append(
-			makeLink(`RC`,'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl',`JOSM (or another editor) Remote Control`),
-			`: `,
-			$loadNotesButton,
-			` `,
-			$loadMapButton
-		)
-		$container.append($div)
-	}{
-		const $div=document.createElement('div')
-		$yandexPanoramasButton.textContent=`Open map center`
-		$div.append(
-			makeLink(`Y.Panoramas`,'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B',`Yandex.Panoramas (Яндекс.Панорамы)`),
-			`: `,
-			$yandexPanoramasButton
-		)
-		$container.append($div)
-	}
-	return [$checkbox,$loadNotesButton,$loadMapButton,$yandexPanoramasButton]
 }
 
 /**
