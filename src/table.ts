@@ -35,9 +35,6 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 			makeHeaderCell('comment')
 		)
 	}
-	commandPanel.$trackCheckbox.addEventListener('change',()=>{
-		if (commandPanel.$trackCheckbox.checked) map.fitNoteTrack()
-	})
 	function makeHeaderCell(text: string): HTMLTableCellElement {
 		const $cell=document.createElement('th')
 		$cell.textContent=text
@@ -96,7 +93,7 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 		}
 	}
 	function noteMarkerClickListener(this: NoteMarker): void {
-		commandPanel.$trackCheckbox.checked=false
+		commandPanel.disableTracking()
 		deactivateAllNotes()
 		const $noteRows=document.getElementById(`note-`+this.noteId)
 		if (!$noteRows) return
@@ -120,7 +117,7 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 			if (visibility) visibleLayerIds.push(layerId)
 		}
 		map.showNoteTrack(visibleLayerIds)
-		if (commandPanel.$trackCheckbox.checked) map.fitNoteTrack()
+		if (commandPanel.isTracking()) map.fitNoteTrack()
 	}
 	function noteCheckboxClickListener(this: HTMLInputElement, ev: MouseEvent): void { // need 'click' handler rather than 'change' to stop click propagation
 		ev.stopPropagation()
