@@ -6,7 +6,7 @@ import {makeUserLink} from './util'
 export default function writeNotesTableHeaderAndGetNoteAdder(
 	$container: HTMLElement, $commandContainer: HTMLElement, map: NoteMap
 ): (notes: Note[], users: Users) => void {
-	const commandPanel=new CommandPanel($commandContainer)
+	const commandPanel=new CommandPanel($commandContainer,map)
 	const noteSectionLayerIdVisibility=new Map<number,boolean>()
 	let noteSectionVisibilityTimeoutId: number | undefined
 	const noteRowObserver=new IntersectionObserver((entries)=>{
@@ -49,24 +49,6 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 			const rcUrl=`http://127.0.0.1:8111/import?url=`+encodeURIComponent(noteUrl)
 			fetch(rcUrl)
 		}
-	})
-	commandPanel.$loadMapButton.addEventListener('click',async()=>{
-		const bounds=map.getBounds()
-		const rcUrl=`http://127.0.0.1:8111/load_and_zoom`+
-			`?left=`+encodeURIComponent(bounds.getWest())+
-			`&right=`+encodeURIComponent(bounds.getEast())+
-			`&top=`+encodeURIComponent(bounds.getNorth())+
-			`&bottom=`+encodeURIComponent(bounds.getSouth())
-		fetch(rcUrl)
-	})
-	commandPanel.$yandexPanoramasButton.addEventListener('click',async()=>{
-		const center=map.getCenter()
-		const coords=center.lng+','+center.lat
-		const url=`https://yandex.ru/maps/2/saint-petersburg/`+
-			`?ll=`+encodeURIComponent(coords)+ // required if 'z' argument is present
-			`&panorama%5Bpoint%5D=`+encodeURIComponent(coords)+
-			`&z=`+encodeURIComponent(map.getZoom())
-		open(url,'yandex')
 	})
 	function makeHeaderCell(text: string): HTMLTableCellElement {
 		const $cell=document.createElement('th')
