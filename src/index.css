@@ -117,11 +117,17 @@ body.flipped .notes td.note-user {
 	color: gray;
 }
 .notes td.note-action .icon {
+	appearance: none;
 	display: inline-block;
+	margin: 0;
+	padding: 0;
 	width: 16px;
 	height: 16px;
 	background: url("icon.svg");
 	vertical-align: text-top;
+}
+.notes td.note-action .icon:checked {
+	outline: auto;
 }
 .notes td.note-action .icon.open {
 	background: url("icon-open.svg");

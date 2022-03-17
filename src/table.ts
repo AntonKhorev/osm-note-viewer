@@ -133,6 +133,14 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 		}
 		commandPanel.receiveCheckedNoteIds(getCheckedNoteIds($table))
 	}
+	function commentRadioClickListener(this: HTMLInputElement, ev: MouseEvent) {
+		ev.stopPropagation()
+		const $clickedRow=this.closest('tr')
+		if (!$clickedRow) return
+		const $time=$clickedRow.querySelector('time')
+		if (!$time) return
+		commandPanel.receiveCheckedCommentTime($time.dateTime)
+	}
 	commandPanel.receiveCheckedNoteIds(getCheckedNoteIds($table))
 	return (notes,users)=>{
 		for (const note of notes) {
@@ -157,12 +165,10 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 				$a.textContent=`${note.id}`
 				$cell.append($a)
 			}
-			let firstCommentRow=true
+			let iComment=0
 			for (const comment of note.comments) {
 				{
-					if (firstCommentRow) {
-						firstCommentRow=false
-					} else {
+					if (iComment>0) {
 						$row=$tableSection.insertRow()
 					}
 				}{
@@ -197,15 +203,20 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-action')
-					const $icon=document.createElement('span')
-					$icon.title=comment.action
-					$icon.classList.add('icon',getActionClass(comment.action))
-					$cell.append($icon)
+					const $radio=document.createElement('input')
+					$radio.type='radio'
+					$radio.name='comment'
+					$radio.value=`${note.id}-${iComment}`
+					$radio.title=comment.action
+					$radio.classList.add('icon',getActionClass(comment.action))
+					$radio.addEventListener('click',commentRadioClickListener)
+					$cell.append($radio)
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-comment')
 					$cell.textContent=comment.text
 				}
+				iComment++
 			}
 		}
 	}

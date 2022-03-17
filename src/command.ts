@@ -4,7 +4,9 @@ import {makeLink} from './util'
 export default class CommandPanel {
 	private $trackCheckbox: HTMLInputElement
 	private $loadNotesButton: HTMLButtonElement
+	private $loadAreaAtCommentButton: HTMLButtonElement
 	private checkedNoteIds: number[] = []
+	private checkedCommentTime?: string
 	constructor($container: HTMLElement, map: NoteMap) {
 		{
 			const $div=document.createElement('div')
@@ -53,6 +55,31 @@ export default class CommandPanel {
 			this.$loadNotesButton=$loadNotesButton
 		}{
 			const $div=document.createElement('div')
+			const $loadAreaAtCommentButton=document.createElement('button')
+			$loadAreaAtCommentButton.disabled=true
+			$loadAreaAtCommentButton.textContent=`Load map area @ comment time`
+			$loadAreaAtCommentButton.addEventListener('click',async()=>{
+				if (this.checkedCommentTime==null) return
+				const bounds=map.getBounds()
+				let query=''
+				query+=`[date:"${this.checkedCommentTime}"]\n`
+				query+=`[bbox:${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}]\n`
+				// query+=`[bbox:${bounds.toBBoxString()}];\n` // nope, different format
+				query+=`;\n`
+				query+='nwr;\n'
+				query+='out meta geom;'
+				const url=`https://overpass-turbo.eu/?Q=`+encodeURIComponent(query)
+				open(url,'overpass-turbo')
+			})
+			$div.append(
+				makeLink(`Overpass turbo`,'https://wiki.openstreetmap.org/wiki/Overpass_turbo'),
+				`: `,
+				$loadAreaAtCommentButton
+			)
+			$container.append($div)
+			this.$loadAreaAtCommentButton=$loadAreaAtCommentButton
+		}{
+			const $div=document.createElement('div')
 			const $yandexPanoramasButton=document.createElement('button')
 			$yandexPanoramasButton.textContent=`Open map center`
 			$yandexPanoramasButton.addEventListener('click',()=>{
@@ -75,6 +102,10 @@ export default class CommandPanel {
 	receiveCheckedNoteIds(checkedNoteIds: number[]): void {
 		this.checkedNoteIds=checkedNoteIds
 		this.$loadNotesButton.disabled=checkedNoteIds.length<=0
+	}
+	receiveCheckedCommentTime(checkedCommentTime?: string): void {
+		this.checkedCommentTime=checkedCommentTime
+		this.$loadAreaAtCommentButton.disabled=checkedCommentTime==null
 	}
 	isTracking(): boolean {
 		return this.$trackCheckbox.checked
