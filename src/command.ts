@@ -4,7 +4,7 @@ import {makeLink} from './util'
 export default class CommandPanel {
 	private $trackCheckbox: HTMLInputElement
 	private $loadNotesButton: HTMLButtonElement
-	private $loadAreaAtCommentButton: HTMLButtonElement
+	private $overpassButtons: HTMLButtonElement[] = []
 	private checkedNoteIds: number[] = []
 	private checkedCommentTime?: string
 	constructor($container: HTMLElement, map: NoteMap) {
@@ -54,11 +54,7 @@ export default class CommandPanel {
 			$container.append($div)
 			this.$loadNotesButton=$loadNotesButton
 		}{
-			const $div=document.createElement('div')
-			const $loadAreaAtCommentButton=document.createElement('button')
-			$loadAreaAtCommentButton.disabled=true
-			$loadAreaAtCommentButton.textContent=`Load map area @ comment time`
-			$loadAreaAtCommentButton.addEventListener('click',async()=>{
+			const clickListener=(withRelations: boolean)=>{
 				if (this.checkedCommentTime==null) return
 				const bounds=map.getBounds()
 				let query=''
@@ -66,18 +62,38 @@ export default class CommandPanel {
 				query+=`[bbox:${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}]\n`
 				// query+=`[bbox:${bounds.toBBoxString()}];\n` // nope, different format
 				query+=`;\n`
-				query+='nwr;\n'
+				if (withRelations) {
+					query+='nwr;\n'
+				} else {
+					query+='nw;\n'
+				}
 				query+='out meta geom;'
 				const url=`https://overpass-turbo.eu/?Q=`+encodeURIComponent(query)
 				open(url,'overpass-turbo')
-			})
+			}
+			const $div=document.createElement('div')
+			{
+				const $button=document.createElement('button')
+				$button.disabled=true
+				$button.textContent=`exclude relations`
+				$button.addEventListener('click',()=>clickListener(false))
+				this.$overpassButtons.push($button)
+			}{
+				const $button=document.createElement('button')
+				$button.disabled=true
+				$button.textContent=`include relations`
+				$button.title=`may fetch large unwanted relations like routes`
+				$button.addEventListener('click',()=>clickListener(true))
+				this.$overpassButtons.push($button)
+			}
 			$div.append(
 				makeLink(`Overpass turbo`,'https://wiki.openstreetmap.org/wiki/Overpass_turbo'),
-				`: `,
-				$loadAreaAtCommentButton
+				`: Load map area @ comment time:`
 			)
+			for (const $button of this.$overpassButtons) {
+				$div.append(` `,$button)
+			}
 			$container.append($div)
-			this.$loadAreaAtCommentButton=$loadAreaAtCommentButton
 		}{
 			const $div=document.createElement('div')
 			const $yandexPanoramasButton=document.createElement('button')
@@ -105,7 +121,9 @@ export default class CommandPanel {
 	}
 	receiveCheckedCommentTime(checkedCommentTime?: string): void {
 		this.checkedCommentTime=checkedCommentTime
-		this.$loadAreaAtCommentButton.disabled=checkedCommentTime==null
+		for (const $button of this.$overpassButtons) {
+			$button.disabled=checkedCommentTime==null
+		}
 	}
 	isTracking(): boolean {
 		return this.$trackCheckbox.checked
