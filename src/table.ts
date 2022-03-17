@@ -31,13 +31,14 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 			makeHeaderCell('id'),
 			makeHeaderCell('date'),
 			makeHeaderCell('user'),
-			makeHeaderCell(''),
+			makeHeaderCell('?',`Action performed along with adding the comment. Also a radio button. Click to select comment for Overpass turbo commands.`),
 			makeHeaderCell('comment')
 		)
 	}
-	function makeHeaderCell(text: string): HTMLTableCellElement {
+	function makeHeaderCell(text: string, title?: string): HTMLTableCellElement {
 		const $cell=document.createElement('th')
 		$cell.textContent=text
+		if (title) $cell.title=title
 		return $cell
 	}
 	function writeNote(note: Note): HTMLTableSectionElement {
@@ -204,14 +205,16 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-action')
+					const $span=document.createElement('span')
+					$span.classList.add('icon',getActionClass(comment.action))
+					$span.title=comment.action
 					const $radio=document.createElement('input')
 					$radio.type='radio'
 					$radio.name='comment'
 					$radio.value=`${note.id}-${iComment}`
-					$radio.title=comment.action
-					$radio.classList.add('icon',getActionClass(comment.action))
 					$radio.addEventListener('click',commentRadioClickListener)
-					$cell.append($radio)
+					$span.append($radio)
+					$cell.append($span)
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-comment')

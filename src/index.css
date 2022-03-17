@@ -117,17 +117,27 @@ body.flipped .notes td.note-user {
 	color: gray;
 }
 .notes td.note-action .icon {
-	appearance: none;
+	position: relative;
 	display: inline-block;
 	margin: 0;
 	padding: 0;
 	width: 16px;
 	height: 16px;
-	background: url("icon.svg");
 	vertical-align: text-top;
+	background: url("icon.svg");
 }
-.notes td.note-action .icon:checked {
-	outline: auto;
+.notes td.note-action .icon input {
+	position: absolute;
+	margin: 0;
+	padding: 0;
+	width: 16px;
+	height: 16px;
+	top: 0;
+	left: 0;
+	opacity: 0;
+}
+.notes td.note-action .icon input:checked {
+	opacity: .7;
 }
 .notes td.note-action .icon.open {
 	background: url("icon-open.svg");
