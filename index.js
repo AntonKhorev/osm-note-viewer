@@ -278,6 +278,7 @@ function makeLink(text, href, title) {
 
 class CommandPanel {
     constructor($container, map) {
+        this.$overpassButtons = [];
         this.checkedNoteIds = [];
         {
             const $div = document.createElement('div');
@@ -324,6 +325,77 @@ class CommandPanel {
         }
         {
             const $div = document.createElement('div');
+            const $commentTimeSelectLabel = document.createElement('label');
+            const $commentTimeSelect = document.createElement('select');
+            $commentTimeSelect.append(new Option('in text', 'text'), new Option('of comment', 'comment'));
+            $commentTimeSelectLabel.append(`at time `, $commentTimeSelect);
+            $commentTimeSelectLabel.title = `"In text" looks for time inside the comment text. Useful for MAPS.ME-generated comments. Falls back to the comment time if no time detected in the text.`;
+            this.$commentTimeSelect = $commentTimeSelect;
+            const $commentTimeInputLabel = document.createElement('label');
+            const $commentTimeInput = document.createElement('input');
+            $commentTimeInput.type = 'text';
+            $commentTimeInput.size = 20;
+            $commentTimeInput.readOnly = true;
+            $commentTimeInputLabel.append(`that is `, $commentTimeInput);
+            this.$commentTimeInput = $commentTimeInput;
+            $commentTimeSelect.addEventListener('input', () => this.registerCommentTime());
+            const buttonClickListener = (withRelations, onlyAround) => {
+                const time = this.$commentTimeInput.value;
+                if (!time)
+                    return;
+                const center = map.getCenter();
+                const bounds = map.getBounds();
+                let query = '';
+                query += `[date:"${time}"]\n`;
+                query += `[bbox:${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}]\n`;
+                // query+=`[bbox:${bounds.toBBoxString()}];\n` // nope, different format
+                query += `;\n`;
+                if (withRelations) {
+                    query += `nwr`;
+                }
+                else {
+                    query += `nw`;
+                }
+                if (onlyAround) {
+                    const radius = 10;
+                    query += `(around:${radius},${center.lat},${center.lng})`;
+                }
+                query += `;\n`;
+                query += `out meta geom;`;
+                const location = `${center.lat};${center.lng};${map.getZoom()}`;
+                const url = `https://overpass-turbo.eu/?C=${encodeURIComponent(location)}&Q=${encodeURIComponent(query)}`;
+                open(url, 'overpass-turbo');
+            };
+            {
+                const $button = document.createElement('button');
+                $button.disabled = true;
+                $button.textContent = `map area without relations`;
+                $button.addEventListener('click', () => buttonClickListener(false, false));
+                this.$overpassButtons.push($button);
+            }
+            {
+                const $button = document.createElement('button');
+                $button.disabled = true;
+                $button.textContent = `map area with relations`;
+                $button.title = `May fetch large unwanted relations like routes.`;
+                $button.addEventListener('click', () => buttonClickListener(true, false));
+                this.$overpassButtons.push($button);
+            }
+            {
+                const $button = document.createElement('button');
+                $button.disabled = true;
+                $button.textContent = `around map center`;
+                $button.addEventListener('click', () => buttonClickListener(false, true));
+                this.$overpassButtons.push($button);
+            }
+            $div.append(makeLink(`Overpass turbo`, 'https://wiki.openstreetmap.org/wiki/Overpass_turbo'), `: `, $commentTimeSelectLabel, ` `, $commentTimeInputLabel, ` load:`);
+            for (const $button of this.$overpassButtons) {
+                $div.append(` `, $button);
+            }
+            $container.append($div);
+        }
+        {
+            const $div = document.createElement('div');
             const $yandexPanoramasButton = document.createElement('button');
             $yandexPanoramasButton.textContent = `Open map center`;
             $yandexPanoramasButton.addEventListener('click', () => {
@@ -343,11 +415,30 @@ class CommandPanel {
         this.checkedNoteIds = checkedNoteIds;
         this.$loadNotesButton.disabled = checkedNoteIds.length <= 0;
     }
+    receiveCheckedComment(checkedCommentTime, checkedCommentText) {
+        this.checkedCommentTime = checkedCommentTime;
+        this.checkedCommentText = checkedCommentText;
+        for (const $button of this.$overpassButtons) {
+            $button.disabled = checkedCommentTime == null;
+        }
+        this.registerCommentTime();
+    }
     isTracking() {
         return this.$trackCheckbox.checked;
     }
     disableTracking() {
         this.$trackCheckbox.checked = false;
+    }
+    registerCommentTime() {
+        if (this.$commentTimeSelect.value == 'text' && this.checkedCommentText != null) {
+            const match = this.checkedCommentText.match(/\d\d\d\d-\d\d-\d\d[T ]\d\d:\d\d:\d\dZ/);
+            if (match) {
+                const [time] = match;
+                this.$commentTimeInput.value = time;
+                return;
+            }
+        }
+        this.$commentTimeInput.value = this.checkedCommentTime ?? '';
     }
 }
 async function openRcUrl($button, rcUrl) {
@@ -394,11 +485,13 @@ function writeNotesTableHeaderAndGetNoteAdder($container, $commandContainer, map
     {
         const $header = $table.createTHead();
         const $row = $header.insertRow();
-        $row.append(makeHeaderCell(''), makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), makeHeaderCell(''), makeHeaderCell('comment'));
+        $row.append(makeHeaderCell(''), makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), makeHeaderCell('?', `Action performed along with adding the comment. Also a radio button. Click to select comment for Overpass turbo commands.`), makeHeaderCell('comment'));
     }
-    function makeHeaderCell(text) {
+    function makeHeaderCell(text, title) {
         const $cell = document.createElement('th');
         $cell.textContent = text;
+        if (title)
+            $cell.title = title;
         return $cell;
     }
     function writeNote(note) {
@@ -502,6 +595,17 @@ function writeNotesTableHeaderAndGetNoteAdder($container, $commandContainer, map
         }
         commandPanel.receiveCheckedNoteIds(getCheckedNoteIds($table));
     }
+    function commentRadioClickListener(ev) {
+        ev.stopPropagation();
+        const $clickedRow = this.closest('tr');
+        if (!$clickedRow)
+            return;
+        const $time = $clickedRow.querySelector('time');
+        if (!$time)
+            return;
+        const $text = $clickedRow.querySelector('td.note-comment');
+        commandPanel.receiveCheckedComment($time.dateTime, $text?.textContent ?? undefined);
+    }
     commandPanel.receiveCheckedNoteIds(getCheckedNoteIds($table));
     return (notes, users) => {
         for (const note of notes) {
@@ -528,13 +632,10 @@ function writeNotesTableHeaderAndGetNoteAdder($container, $commandContainer, map
                 $a.textContent = `${note.id}`;
                 $cell.append($a);
             }
-            let firstCommentRow = true;
+            let iComment = 0;
             for (const comment of note.comments) {
                 {
-                    if (firstCommentRow) {
-                        firstCommentRow = false;
-                    }
-                    else {
+                    if (iComment > 0) {
                         $row = $tableSection.insertRow();
                     }
                 }
@@ -573,16 +674,23 @@ function writeNotesTableHeaderAndGetNoteAdder($container, $commandContainer, map
                 {
                     const $cell = $row.insertCell();
                     $cell.classList.add('note-action');
-                    const $icon = document.createElement('span');
-                    $icon.title = comment.action;
-                    $icon.classList.add('icon', getActionClass(comment.action));
-                    $cell.append($icon);
+                    const $span = document.createElement('span');
+                    $span.classList.add('icon', getActionClass(comment.action));
+                    $span.title = comment.action;
+                    const $radio = document.createElement('input');
+                    $radio.type = 'radio';
+                    $radio.name = 'comment';
+                    $radio.value = `${note.id}-${iComment}`;
+                    $radio.addEventListener('click', commentRadioClickListener);
+                    $span.append($radio);
+                    $cell.append($span);
                 }
                 {
                     const $cell = $row.insertCell();
                     $cell.classList.add('note-comment');
                     $cell.textContent = comment.text;
                 }
+                iComment++;
             }
         }
     };
@@ -1020,6 +1128,7 @@ function writeFetchForm($container, $extrasContainer, $notesContainer, $moreCont
                 $userInput.value = partialQuery.username;
             }
             const $div = document.createElement('div');
+            $div.classList.add('major-input');
             const $label = document.createElement('label');
             $label.append(`OSM username, URL or #id: `, $userInput);
             $div.append($label);
@@ -1074,6 +1183,7 @@ function writeFetchForm($container, $extrasContainer, $notesContainer, $moreCont
         $fetchButton.textContent = `Fetch notes`;
         $fetchButton.type = 'submit';
         const $div = document.createElement('div');
+        $div.classList.add('major-input');
         $div.append($fetchButton);
         $form.append($div);
     }

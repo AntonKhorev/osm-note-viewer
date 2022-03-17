@@ -66,13 +66,13 @@ body.flipped .panel.fetch button.flip {
 .panel.command div {
 	margin: 0;
 }
-.panel input[type=text],
-.panel button[type=submit] {
+.panel .major-input input[type=text],
+.panel .major-input button {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
 }
-.panel button[type=submit] {
+.panel .major-input button {
 	padding: .3rem;
 }
 .panel button.error {
@@ -117,11 +117,27 @@ body.flipped .notes td.note-user {
 	color: gray;
 }
 .notes td.note-action .icon {
+	position: relative;
 	display: inline-block;
+	margin: 0;
+	padding: 0;
 	width: 16px;
 	height: 16px;
-	background: url("icon.svg");
 	vertical-align: text-top;
+	background: url("icon.svg");
+}
+.notes td.note-action .icon input {
+	position: absolute;
+	margin: 0;
+	padding: 0;
+	width: 16px;
+	height: 16px;
+	top: 0;
+	left: 0;
+	opacity: 0;
+}
+.notes td.note-action .icon input:checked {
+	opacity: .7;
 }
 .notes td.note-action .icon.open {
 	background: url("icon-open.svg");
