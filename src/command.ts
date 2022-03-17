@@ -56,6 +56,7 @@ export default class CommandPanel {
 		}{
 			const clickListener=(withRelations: boolean)=>{
 				if (this.checkedCommentTime==null) return
+				const center=map.getCenter()
 				const bounds=map.getBounds()
 				let query=''
 				query+=`[date:"${this.checkedCommentTime}"]\n`
@@ -68,7 +69,8 @@ export default class CommandPanel {
 					query+='nw;\n'
 				}
 				query+='out meta geom;'
-				const url=`https://overpass-turbo.eu/?Q=`+encodeURIComponent(query)
+				const location=`${center.lat};${center.lng};${map.getZoom()}`
+				const url=`https://overpass-turbo.eu/?C=${encodeURIComponent(location)}&Q=${encodeURIComponent(query)}`
 				open(url,'overpass-turbo')
 			}
 			const $div=document.createElement('div')
