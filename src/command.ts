@@ -54,7 +54,7 @@ export default class CommandPanel {
 			$container.append($div)
 			this.$loadNotesButton=$loadNotesButton
 		}{
-			const clickListener=(withRelations: boolean)=>{
+			const clickListener=(withRelations: boolean, onlyAround: boolean)=>{
 				if (this.checkedCommentTime==null) return
 				const center=map.getCenter()
 				const bounds=map.getBounds()
@@ -64,11 +64,16 @@ export default class CommandPanel {
 				// query+=`[bbox:${bounds.toBBoxString()}];\n` // nope, different format
 				query+=`;\n`
 				if (withRelations) {
-					query+='nwr;\n'
+					query+=`nwr`
 				} else {
-					query+='nw;\n'
+					query+=`nw`
 				}
-				query+='out meta geom;'
+				if (onlyAround) {
+					const radius=10
+					query+=`(around:${radius},${center.lat},${center.lng})`
+				}
+				query+=`;\n`
+				query+=`out meta geom;`
 				const location=`${center.lat};${center.lng};${map.getZoom()}`
 				const url=`https://overpass-turbo.eu/?C=${encodeURIComponent(location)}&Q=${encodeURIComponent(query)}`
 				open(url,'overpass-turbo')
@@ -77,20 +82,26 @@ export default class CommandPanel {
 			{
 				const $button=document.createElement('button')
 				$button.disabled=true
-				$button.textContent=`exclude relations`
-				$button.addEventListener('click',()=>clickListener(false))
+				$button.textContent=`map area without relations`
+				$button.addEventListener('click',()=>clickListener(false,false))
 				this.$overpassButtons.push($button)
 			}{
 				const $button=document.createElement('button')
 				$button.disabled=true
-				$button.textContent=`include relations`
+				$button.textContent=`map area with relations`
 				$button.title=`may fetch large unwanted relations like routes`
-				$button.addEventListener('click',()=>clickListener(true))
+				$button.addEventListener('click',()=>clickListener(true,false))
+				this.$overpassButtons.push($button)
+			}{
+				const $button=document.createElement('button')
+				$button.disabled=true
+				$button.textContent=`around map center`
+				$button.addEventListener('click',()=>clickListener(false,true))
 				this.$overpassButtons.push($button)
 			}
 			$div.append(
 				makeLink(`Overpass turbo`,'https://wiki.openstreetmap.org/wiki/Overpass_turbo'),
-				`: Load map area @ comment time:`
+				`: load @ comment time:`
 			)
 			for (const $button of this.$overpassButtons) {
 				$div.append(` `,$button)
