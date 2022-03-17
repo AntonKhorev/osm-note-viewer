@@ -61,11 +61,11 @@ export default class CommandPanel {
 			const $commentTimeSelectLabel=document.createElement('label')
 			const $commentTimeSelect=document.createElement('select')
 			$commentTimeSelect.append(
-				new Option('found inside comment text','text'),
-				new Option('strictly of comment','comment'),
+				new Option('in text','text'),
+				new Option('of comment','comment'),
 			)
 			$commentTimeSelectLabel.append(`at time `,$commentTimeSelect)
-			$commentTimeSelectLabel.title=`"Found inside comment text" is useful for MAPS.ME-generated comments. Falls back to comment time if no time inside is detected.`
+			$commentTimeSelectLabel.title=`"In text" looks for time inside the comment text. Useful for MAPS.ME-generated comments. Falls back to the comment time if no time detected in the text.`
 			this.$commentTimeSelect=$commentTimeSelect
 			const $commentTimeInputLabel=document.createElement('label')
 			const $commentTimeInput=document.createElement('input')
