@@ -139,7 +139,8 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 		if (!$clickedRow) return
 		const $time=$clickedRow.querySelector('time')
 		if (!$time) return
-		commandPanel.receiveCheckedCommentTime($time.dateTime)
+		const $text=$clickedRow.querySelector('td.note-comment')
+		commandPanel.receiveCheckedComment($time.dateTime,$text?.textContent??undefined)
 	}
 	commandPanel.receiveCheckedNoteIds(getCheckedNoteIds($table))
 	return (notes,users)=>{

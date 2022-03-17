@@ -4,9 +4,12 @@ import {makeLink} from './util'
 export default class CommandPanel {
 	private $trackCheckbox: HTMLInputElement
 	private $loadNotesButton: HTMLButtonElement
+	private $commentTimeSelect: HTMLSelectElement
+	private $commentTimeInput: HTMLInputElement
 	private $overpassButtons: HTMLButtonElement[] = []
 	private checkedNoteIds: number[] = []
 	private checkedCommentTime?: string
+	private checkedCommentText?: string
 	constructor($container: HTMLElement, map: NoteMap) {
 		{
 			const $div=document.createElement('div')
@@ -54,12 +57,31 @@ export default class CommandPanel {
 			$container.append($div)
 			this.$loadNotesButton=$loadNotesButton
 		}{
-			const clickListener=(withRelations: boolean, onlyAround: boolean)=>{
-				if (this.checkedCommentTime==null) return
+			const $div=document.createElement('div')
+			const $commentTimeSelectLabel=document.createElement('label')
+			const $commentTimeSelect=document.createElement('select')
+			$commentTimeSelect.append(
+				new Option('found inside comment text','text'),
+				new Option('strictly of comment','comment'),
+			)
+			$commentTimeSelectLabel.append(`at time `,$commentTimeSelect)
+			$commentTimeSelectLabel.title=`"Found inside comment text" is useful for MAPS.ME-generated comments. Falls back to comment time if no time inside is detected.`
+			this.$commentTimeSelect=$commentTimeSelect
+			const $commentTimeInputLabel=document.createElement('label')
+			const $commentTimeInput=document.createElement('input')
+			$commentTimeInput.type='text'
+			$commentTimeInput.size=20
+			$commentTimeInput.readOnly=true
+			$commentTimeInputLabel.append(`that is `,$commentTimeInput)
+			this.$commentTimeInput=$commentTimeInput
+			$commentTimeSelect.addEventListener('input',()=>this.registerCommentTime())
+			const buttonClickListener=(withRelations: boolean, onlyAround: boolean)=>{
+				const time=this.$commentTimeInput.value
+				if (!time) return
 				const center=map.getCenter()
 				const bounds=map.getBounds()
 				let query=''
-				query+=`[date:"${this.checkedCommentTime}"]\n`
+				query+=`[date:"${time}"]\n`
 				query+=`[bbox:${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}]\n`
 				// query+=`[bbox:${bounds.toBBoxString()}];\n` // nope, different format
 				query+=`;\n`
@@ -78,30 +100,30 @@ export default class CommandPanel {
 				const url=`https://overpass-turbo.eu/?C=${encodeURIComponent(location)}&Q=${encodeURIComponent(query)}`
 				open(url,'overpass-turbo')
 			}
-			const $div=document.createElement('div')
 			{
 				const $button=document.createElement('button')
 				$button.disabled=true
 				$button.textContent=`map area without relations`
-				$button.addEventListener('click',()=>clickListener(false,false))
+				$button.addEventListener('click',()=>buttonClickListener(false,false))
 				this.$overpassButtons.push($button)
 			}{
 				const $button=document.createElement('button')
 				$button.disabled=true
 				$button.textContent=`map area with relations`
-				$button.title=`may fetch large unwanted relations like routes`
-				$button.addEventListener('click',()=>clickListener(true,false))
+				$button.title=`May fetch large unwanted relations like routes.`
+				$button.addEventListener('click',()=>buttonClickListener(true,false))
 				this.$overpassButtons.push($button)
 			}{
 				const $button=document.createElement('button')
 				$button.disabled=true
 				$button.textContent=`around map center`
-				$button.addEventListener('click',()=>clickListener(false,true))
+				$button.addEventListener('click',()=>buttonClickListener(false,true))
 				this.$overpassButtons.push($button)
 			}
 			$div.append(
 				makeLink(`Overpass turbo`,'https://wiki.openstreetmap.org/wiki/Overpass_turbo'),
-				`: load @ comment time:`
+				`: `,$commentTimeSelectLabel,` `,$commentTimeInputLabel,
+				` load:`
 			)
 			for (const $button of this.$overpassButtons) {
 				$div.append(` `,$button)
@@ -132,17 +154,30 @@ export default class CommandPanel {
 		this.checkedNoteIds=checkedNoteIds
 		this.$loadNotesButton.disabled=checkedNoteIds.length<=0
 	}
-	receiveCheckedCommentTime(checkedCommentTime?: string): void {
+	receiveCheckedComment(checkedCommentTime?: string, checkedCommentText?: string): void {
 		this.checkedCommentTime=checkedCommentTime
+		this.checkedCommentText=checkedCommentText
 		for (const $button of this.$overpassButtons) {
 			$button.disabled=checkedCommentTime==null
 		}
+		this.registerCommentTime()
 	}
 	isTracking(): boolean {
 		return this.$trackCheckbox.checked
 	}
 	disableTracking(): void {
 		this.$trackCheckbox.checked=false
+	}
+	private registerCommentTime() {
+		if (this.$commentTimeSelect.value=='text' && this.checkedCommentText!=null) {
+			const match=this.checkedCommentText.match(/\d\d\d\d-\d\d-\d\d[T ]\d\d:\d\d:\d\dZ/)
+			if (match) {
+				const [time]=match
+				this.$commentTimeInput.value=time
+				return
+			}
+		}
+		this.$commentTimeInput.value=this.checkedCommentTime??''
 	}
 }
 

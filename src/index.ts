@@ -98,6 +98,7 @@ function writeFetchForm(
 				$userInput.value=partialQuery.username
 			}
 			const $div=document.createElement('div')
+			$div.classList.add('major-input')
 			const $label=document.createElement('label')
 			$label.append(`OSM username, URL or #id: `,$userInput)
 			$div.append($label)
@@ -166,6 +167,7 @@ function writeFetchForm(
 		$fetchButton.textContent=`Fetch notes`
 		$fetchButton.type='submit'
 		const $div=document.createElement('div')
+		$div.classList.add('major-input')
 		$div.append($fetchButton)
 		$form.append($div)
 	}
