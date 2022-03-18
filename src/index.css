@@ -71,10 +71,17 @@ body.flipped .panel.fetch button.flip {
 	display: inline;
 }
 .panel.command details summary::before {
-	content: '+ ';
+	content: '+';
+	display: inline-block;
+	width: 1em;
+	height: 1em;
+	text-align: center;
+}
+.panel.command details summary:hover::before {
+	background: yellow;
 }
 .panel.command details[open] summary::before {
-	content: '− ';
+	content: '−';
 }
 .panel.command details[open] summary::after {
 	content: ': ';
