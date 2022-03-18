@@ -277,8 +277,7 @@ function makeLink(text, href, title) {
 }
 
 class CommandPanel {
-    constructor($container, map) {
-        this.$overpassButtons = [];
+    constructor($container, map, storage) {
         this.checkedNoteIds = [];
         {
             const $div = document.createElement('div');
@@ -295,7 +294,28 @@ class CommandPanel {
             this.$trackCheckbox = $trackCheckbox;
         }
         {
-            const $div = document.createElement('div');
+            const $commandGroup = makeCommandGroup('timestamp', `Timestamp for historic queries`);
+            const $commentTimeSelectLabel = document.createElement('label');
+            const $commentTimeSelect = document.createElement('select');
+            $commentTimeSelect.append(new Option('from comment text', 'text'), new Option('of comment', 'comment'));
+            $commentTimeSelectLabel.append(`pick time `, $commentTimeSelect);
+            $commentTimeSelectLabel.title = `"from comment text" looks for time inside the comment text. Useful for MAPS.ME-generated comments. Falls back to the comment time if no time detected in the text.`;
+            this.$commentTimeSelect = $commentTimeSelect;
+            const $commentTimeInputLabel = document.createElement('label');
+            const $commentTimeInput = document.createElement('input');
+            // $commentTimeInput.type='datetime-local'
+            // $commentTimeInput.step='1'
+            $commentTimeInput.type = 'text';
+            $commentTimeInput.size = 20;
+            // $commentTimeInput.readOnly=true
+            $commentTimeInputLabel.append(`picked `, $commentTimeInput);
+            $commentTimeInputLabel.title = `In whatever format Overpass understands. No standard datetime input for now because they're being difficult with UTC and 24-hour format.`;
+            this.$commentTimeInput = $commentTimeInput;
+            $commentTimeSelect.addEventListener('input', () => this.pickCommentTime());
+            $commandGroup.append($commentTimeSelectLabel, ` — `, $commentTimeInputLabel);
+        }
+        {
+            const $commandGroup = makeCommandGroup('rc', `RC`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl', `JOSM (or another editor) Remote Control`);
             const $loadNotesButton = document.createElement('button');
             $loadNotesButton.disabled = true;
             $loadNotesButton.textContent = `Load selected notes`;
@@ -319,26 +339,12 @@ class CommandPanel {
                     `&bottom=` + encodeURIComponent(bounds.getSouth());
                 openRcUrl($loadMapButton, rcUrl);
             });
-            $div.append(makeLink(`RC`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl', `JOSM (or another editor) Remote Control`), `: `, $loadNotesButton, ` `, $loadMapButton);
-            $container.append($div);
+            $commandGroup.append($loadNotesButton, ` `, $loadMapButton);
             this.$loadNotesButton = $loadNotesButton;
         }
         {
-            const $div = document.createElement('div');
-            const $commentTimeSelectLabel = document.createElement('label');
-            const $commentTimeSelect = document.createElement('select');
-            $commentTimeSelect.append(new Option('in text', 'text'), new Option('of comment', 'comment'));
-            $commentTimeSelectLabel.append(`at time `, $commentTimeSelect);
-            $commentTimeSelectLabel.title = `"In text" looks for time inside the comment text. Useful for MAPS.ME-generated comments. Falls back to the comment time if no time detected in the text.`;
-            this.$commentTimeSelect = $commentTimeSelect;
-            const $commentTimeInputLabel = document.createElement('label');
-            const $commentTimeInput = document.createElement('input');
-            $commentTimeInput.type = 'text';
-            $commentTimeInput.size = 20;
-            $commentTimeInput.readOnly = true;
-            $commentTimeInputLabel.append(`that is `, $commentTimeInput);
-            this.$commentTimeInput = $commentTimeInput;
-            $commentTimeSelect.addEventListener('input', () => this.registerCommentTime());
+            const $commandGroup = makeCommandGroup('overpass-turbo', `Overpass turbo`, 'https://wiki.openstreetmap.org/wiki/Overpass_turbo');
+            const $overpassButtons = [];
             const buttonClickListener = (withRelations, onlyAround) => {
                 const time = this.$commentTimeInput.value;
                 if (!time)
@@ -371,7 +377,7 @@ class CommandPanel {
                 $button.disabled = true;
                 $button.textContent = `map area without relations`;
                 $button.addEventListener('click', () => buttonClickListener(false, false));
-                this.$overpassButtons.push($button);
+                $overpassButtons.push($button);
             }
             {
                 const $button = document.createElement('button');
@@ -379,23 +385,28 @@ class CommandPanel {
                 $button.textContent = `map area with relations`;
                 $button.title = `May fetch large unwanted relations like routes.`;
                 $button.addEventListener('click', () => buttonClickListener(true, false));
-                this.$overpassButtons.push($button);
+                $overpassButtons.push($button);
             }
             {
                 const $button = document.createElement('button');
                 $button.disabled = true;
                 $button.textContent = `around map center`;
                 $button.addEventListener('click', () => buttonClickListener(false, true));
-                this.$overpassButtons.push($button);
+                $overpassButtons.push($button);
             }
-            $div.append(makeLink(`Overpass turbo`, 'https://wiki.openstreetmap.org/wiki/Overpass_turbo'), `: `, $commentTimeSelectLabel, ` `, $commentTimeInputLabel, ` load:`);
-            for (const $button of this.$overpassButtons) {
-                $div.append(` `, $button);
+            $commandGroup.append(`load:`);
+            for (const $button of $overpassButtons) {
+                $commandGroup.append(` `, $button);
             }
-            $container.append($div);
+            this.$commentTimeInput.addEventListener('input', () => {
+                const disableButtons = this.$commentTimeInput.value == '';
+                for (const $button of $overpassButtons) {
+                    $button.disabled = disableButtons;
+                }
+            });
         }
         {
-            const $div = document.createElement('div');
+            const $commandGroup = makeCommandGroup('yandex-panoramas', `Y.Panoramas`, 'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B', `Yandex.Panoramas (Яндекс.Панорамы)`);
             const $yandexPanoramasButton = document.createElement('button');
             $yandexPanoramasButton.textContent = `Open map center`;
             $yandexPanoramasButton.addEventListener('click', () => {
@@ -407,8 +418,32 @@ class CommandPanel {
                     `&z=` + encodeURIComponent(map.getZoom());
                 open(url, 'yandex');
             });
-            $div.append(makeLink(`Y.Panoramas`, 'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B', `Yandex.Panoramas (Яндекс.Панорамы)`), `: `, $yandexPanoramasButton);
-            $container.append($div);
+            $commandGroup.append($yandexPanoramasButton);
+        }
+        function makeCommandGroup(name, title, linkHref, linkTitle) {
+            const storageKey = 'commands-' + name;
+            const $commandGroup = document.createElement('details');
+            $commandGroup.open = !!storage.getItem(storageKey);
+            const $summary = document.createElement('summary');
+            if (linkHref == null) {
+                $summary.textContent = title;
+            }
+            else {
+                const $a = makeLink(title, linkHref, linkTitle);
+                $a.target = '_blank';
+                $summary.append($a);
+            }
+            $commandGroup.append($summary);
+            $commandGroup.addEventListener('toggle', () => {
+                if ($commandGroup.open) {
+                    storage.setItem(storageKey, '1');
+                }
+                else {
+                    storage.removeItem(storageKey);
+                }
+            });
+            $container.append($commandGroup);
+            return $commandGroup;
         }
     }
     receiveCheckedNoteIds(checkedNoteIds) {
@@ -418,10 +453,7 @@ class CommandPanel {
     receiveCheckedComment(checkedCommentTime, checkedCommentText) {
         this.checkedCommentTime = checkedCommentTime;
         this.checkedCommentText = checkedCommentText;
-        for (const $button of this.$overpassButtons) {
-            $button.disabled = checkedCommentTime == null;
-        }
-        this.registerCommentTime();
+        this.pickCommentTime();
     }
     isTracking() {
         return this.$trackCheckbox.checked;
@@ -429,16 +461,19 @@ class CommandPanel {
     disableTracking() {
         this.$trackCheckbox.checked = false;
     }
-    registerCommentTime() {
+    pickCommentTime() {
+        const setTime = (time) => {
+            this.$commentTimeInput.value = time;
+            this.$commentTimeInput.dispatchEvent(new Event('input'));
+        };
         if (this.$commentTimeSelect.value == 'text' && this.checkedCommentText != null) {
             const match = this.checkedCommentText.match(/\d\d\d\d-\d\d-\d\d[T ]\d\d:\d\d:\d\dZ/);
             if (match) {
                 const [time] = match;
-                this.$commentTimeInput.value = time;
-                return;
+                return setTime(time);
             }
         }
-        this.$commentTimeInput.value = this.checkedCommentTime ?? '';
+        setTime(this.checkedCommentTime ?? '');
     }
 }
 async function openRcUrl($button, rcUrl) {
@@ -462,8 +497,7 @@ async function openRcUrl($button, rcUrl) {
     }
 }
 
-function writeNotesTableHeaderAndGetNoteAdder($container, $commandContainer, map) {
-    const commandPanel = new CommandPanel($commandContainer, map);
+function writeNotesTableHeaderAndGetNoteAdder($container, commandPanel, map) {
     const noteSectionLayerIdVisibility = new Map();
     let noteSectionVisibilityTimeoutId;
     const noteRowObserver = new IntersectionObserver((entries) => {
@@ -765,19 +799,20 @@ function getCheckedNoteIds($table) {
 
 const maxSingleAutoLoadLimit = 200;
 const maxTotalAutoLoadLimit = 1000;
-async function startFetcher(saveToQueryStorage, $notesContainer, $moreContainer, $commandContainer, map, $limitSelect, $autoLoadCheckbox, $fetchButton, query, initialNotes, initialUsers) {
+async function startFetcher(storage, $notesContainer, $moreContainer, $commandContainer, map, $limitSelect, $autoLoadCheckbox, $fetchButton, query, initialNotes, initialUsers) {
     const [notes, users, mergeNotesAndUsers] = makeNotesAndUsersAndMerger();
     mergeNotesAndUsers(initialNotes, initialUsers);
     saveToQueryStorage(query, notes, users);
     map.clearNotes();
     $notesContainer.innerHTML = ``;
     $commandContainer.innerHTML = ``;
+    const commandPanel = new CommandPanel($commandContainer, map, storage);
     let lastNote;
     let prevLastNote;
     let lastLimit;
     let addNotesToTable;
     if (notes.length > 0) {
-        addNotesToTable = writeNotesTableHeaderAndGetNoteAdder($notesContainer, $commandContainer, map);
+        addNotesToTable = writeNotesTableHeaderAndGetNoteAdder($notesContainer, commandPanel, map);
         addNotesToTable(notes, users);
         map.fitNotes();
         lastNote = notes[notes.length - 1];
@@ -816,7 +851,7 @@ async function startFetcher(saveToQueryStorage, $notesContainer, $moreContainer,
                     return;
                 }
                 if (!addNotesToTable) {
-                    addNotesToTable = writeNotesTableHeaderAndGetNoteAdder($notesContainer, $commandContainer, map);
+                    addNotesToTable = writeNotesTableHeaderAndGetNoteAdder($notesContainer, commandPanel, map);
                     addNotesToTable(unseenNotes, users);
                     map.fitNotes();
                 }
@@ -882,6 +917,11 @@ async function startFetcher(saveToQueryStorage, $notesContainer, $moreContainer,
         $button.disabled = true;
         $div.append($button);
         $moreContainer.append($div);
+    }
+    function saveToQueryStorage(query, notes, users) {
+        storage.setItem('query', JSON.stringify(query));
+        storage.setItem('notes', JSON.stringify(notes));
+        storage.setItem('users', JSON.stringify(users));
     }
 }
 function makeNotesAndUsersAndMerger() {
@@ -1209,7 +1249,7 @@ function writeFetchForm($container, $extrasContainer, $notesContainer, $moreCont
             beganAt: Date.now()
         };
         rewriteExtras($extrasContainer, query, Number($limitSelect.value));
-        startFetcher(saveToQueryStorage, $notesContainer, $moreContainer, $commandContainer, map, $limitSelect, $autoLoadCheckbox, $fetchButton, query, [], {});
+        startFetcher(storage, $notesContainer, $moreContainer, $commandContainer, map, $limitSelect, $autoLoadCheckbox, $fetchButton, query, [], {});
     });
     $container.append($form);
     return [$limitSelect, $autoLoadCheckbox, $fetchButton];
@@ -1231,14 +1271,9 @@ function writeStoredQueryResults($extrasContainer, $notesContainer, $moreContain
             return;
         const notes = JSON.parse(notesString);
         const users = JSON.parse(usersString);
-        startFetcher(saveToQueryStorage, $notesContainer, $moreContainer, $commandContainer, map, $limitSelect, $autoLoadCheckbox, $fetchButton, query, notes, users);
+        startFetcher(storage, $notesContainer, $moreContainer, $commandContainer, map, $limitSelect, $autoLoadCheckbox, $fetchButton, query, notes, users);
     }
     catch { }
-}
-function saveToQueryStorage(query, notes, users) {
-    storage.setItem('query', JSON.stringify(query));
-    storage.setItem('notes', JSON.stringify(notes));
-    storage.setItem('users', JSON.stringify(users));
 }
 function rewriteExtras($container, query, limit) {
     $container.innerHTML = '';
