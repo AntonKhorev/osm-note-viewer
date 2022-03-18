@@ -4,9 +4,8 @@ import CommandPanel from './command'
 import {makeUserLink} from './util'
 
 export default function writeNotesTableHeaderAndGetNoteAdder(
-	$container: HTMLElement, $commandContainer: HTMLElement, map: NoteMap
+	$container: HTMLElement, commandPanel: CommandPanel, map: NoteMap
 ): (notes: Note[], users: Users) => void {
-	const commandPanel=new CommandPanel($commandContainer,map)
 	const noteSectionLayerIdVisibility=new Map<number,boolean>()
 	let noteSectionVisibilityTimeoutId: number | undefined
 	const noteRowObserver=new IntersectionObserver((entries)=>{

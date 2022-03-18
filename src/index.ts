@@ -192,7 +192,7 @@ function writeFetchForm(
 		}
 		rewriteExtras($extrasContainer,query,Number($limitSelect.value))
 		startFetcher(
-			saveToQueryStorage,
+			storage,
 			$notesContainer,$moreContainer,$commandContainer,
 			map,
 			$limitSelect,$autoLoadCheckbox,$fetchButton,
@@ -223,19 +223,13 @@ function writeStoredQueryResults(
 		const notes=JSON.parse(notesString)
 		const users=JSON.parse(usersString)
 		startFetcher(
-			saveToQueryStorage,
+			storage,
 			$notesContainer,$moreContainer,$commandContainer,
 			map,
 			$limitSelect,$autoLoadCheckbox,$fetchButton,
 			query,notes,users
 		)
 	} catch {}
-}
-
-function saveToQueryStorage(query: NoteQuery, notes: Note[], users: Users): void {
-	storage.setItem('query',JSON.stringify(query))
-	storage.setItem('notes',JSON.stringify(notes))
-	storage.setItem('users',JSON.stringify(users))
 }
 
 function rewriteExtras($container: HTMLElement, query?: NoteQuery, limit?: number): void {

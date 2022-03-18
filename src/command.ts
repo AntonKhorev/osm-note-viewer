@@ -1,3 +1,4 @@
+import NoteViewerStorage from './storage'
 import {NoteMap} from './map'
 import {makeLink} from './util'
 
@@ -9,7 +10,7 @@ export default class CommandPanel {
 	private checkedNoteIds: number[] = []
 	private checkedCommentTime?: string
 	private checkedCommentText?: string
-	constructor($container: HTMLElement, map: NoteMap) {
+	constructor($container: HTMLElement, map: NoteMap, storage: NoteViewerStorage) {
 		{
 			const $div=document.createElement('div')
 			const $label=document.createElement('label')
@@ -23,7 +24,10 @@ export default class CommandPanel {
 			$container.append($div)
 			this.$trackCheckbox=$trackCheckbox
 		}{
-			const $commandGroup=makeCommandGroup(`Timestamp for historic queries`)
+			const $commandGroup=makeCommandGroup(
+				'timestamp',
+				`Timestamp for historic queries`
+			)
 			const $commentTimeSelectLabel=document.createElement('label')
 			const $commentTimeSelect=document.createElement('select')
 			$commentTimeSelect.append(
@@ -46,7 +50,12 @@ export default class CommandPanel {
 			$commentTimeSelect.addEventListener('input',()=>this.pickCommentTime())
 			$commandGroup.append($commentTimeSelectLabel,` — `,$commentTimeInputLabel)
 		}{
-			const $commandGroup=makeCommandGroup(`RC`,'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl',`JOSM (or another editor) Remote Control`)
+			const $commandGroup=makeCommandGroup(
+				'rc',
+				`RC`,
+				'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl',
+				`JOSM (or another editor) Remote Control`
+			)
 			const $loadNotesButton=document.createElement('button')
 			$loadNotesButton.disabled=true
 			$loadNotesButton.textContent=`Load selected notes`
@@ -72,7 +81,11 @@ export default class CommandPanel {
 			$commandGroup.append($loadNotesButton,` `,$loadMapButton)
 			this.$loadNotesButton=$loadNotesButton
 		}{
-			const $commandGroup=makeCommandGroup(`Overpass turbo`,'https://wiki.openstreetmap.org/wiki/Overpass_turbo')
+			const $commandGroup=makeCommandGroup(
+				'overpass-turbo',
+				`Overpass turbo`,
+				'https://wiki.openstreetmap.org/wiki/Overpass_turbo'
+			)
 			const $overpassButtons: HTMLButtonElement[] = []
 			const buttonClickListener=(withRelations: boolean, onlyAround: boolean)=>{
 				const time=this.$commentTimeInput.value
@@ -130,7 +143,12 @@ export default class CommandPanel {
 				}
 			})
 		}{
-			const $commandGroup=makeCommandGroup(`Y.Panoramas`,'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B',`Yandex.Panoramas (Яндекс.Панорамы)`)
+			const $commandGroup=makeCommandGroup(
+				'yandex-panoramas',
+				`Y.Panoramas`,
+				'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B',
+				`Yandex.Panoramas (Яндекс.Панорамы)`
+			)
 			const $yandexPanoramasButton=document.createElement('button')
 			$yandexPanoramasButton.textContent=`Open map center`
 			$yandexPanoramasButton.addEventListener('click',()=>{
@@ -144,9 +162,10 @@ export default class CommandPanel {
 			})
 			$commandGroup.append($yandexPanoramasButton)
 		}
-		function makeCommandGroup(title: string, linkHref?: string, linkTitle?: string): HTMLDetailsElement {
+		function makeCommandGroup(name: string, title: string, linkHref?: string, linkTitle?: string): HTMLDetailsElement {
+			const storageKey='commands-'+name
 			const $commandGroup=document.createElement('details')
-			$commandGroup.open=true
+			$commandGroup.open=!!storage.getItem(storageKey)
 			const $summary=document.createElement('summary')
 			if (linkHref==null) {
 				$summary.textContent=title
@@ -156,6 +175,13 @@ export default class CommandPanel {
 				$summary.append($a)
 			}
 			$commandGroup.append($summary)
+			$commandGroup.addEventListener('toggle',()=>{
+				if ($commandGroup.open) {
+					storage.setItem(storageKey,'1')
+				} else {
+					storage.removeItem(storageKey)
+				}
+			})
 			$container.append($commandGroup)
 			return $commandGroup
 		}

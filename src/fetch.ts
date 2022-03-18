@@ -1,6 +1,8 @@
+import NoteViewerStorage from './storage'
 import {Note, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesAndUsers} from './data'
 import {ValidUserQueryPart, NoteQuery, getNextFetchDetails} from './query'
 import {NoteMap} from './map'
+import CommandPanel from './command'
 import writeNotesTableHeaderAndGetNoteAdder from './table'
 import {makeUserLink} from './util'
 
@@ -8,7 +10,7 @@ const maxSingleAutoLoadLimit=200
 const maxTotalAutoLoadLimit=1000
 
 export async function startFetcher(
-	saveToQueryStorage: (query: NoteQuery, notes: Note[], users: Users) => void,
+	storage: NoteViewerStorage,
 	$notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
 	map: NoteMap,
 	$limitSelect: HTMLSelectElement, $autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement,
@@ -20,12 +22,13 @@ export async function startFetcher(
 	map.clearNotes()
 	$notesContainer.innerHTML=``
 	$commandContainer.innerHTML=``
+	const commandPanel=new CommandPanel($commandContainer,map,storage)
 	let lastNote: Note | undefined
 	let prevLastNote: Note | undefined
 	let lastLimit: number | undefined
 	let addNotesToTable: ((notes: Note[], users: Users) => void) | undefined
 	if (notes.length>0) {
-		addNotesToTable=writeNotesTableHeaderAndGetNoteAdder($notesContainer,$commandContainer,map)
+		addNotesToTable=writeNotesTableHeaderAndGetNoteAdder($notesContainer,commandPanel,map)
 		addNotesToTable(notes,users)
 		map.fitNotes()
 		lastNote=notes[notes.length-1]
@@ -62,7 +65,7 @@ export async function startFetcher(
 					return
 				}
 				if (!addNotesToTable) {
-					addNotesToTable=writeNotesTableHeaderAndGetNoteAdder($notesContainer,$commandContainer,map)
+					addNotesToTable=writeNotesTableHeaderAndGetNoteAdder($notesContainer,commandPanel,map)
 					addNotesToTable(unseenNotes,users)
 					map.fitNotes()
 				} else {
@@ -119,6 +122,11 @@ export async function startFetcher(
 		$button.disabled=true
 		$div.append($button)
 		$moreContainer.append($div)
+	}
+	function saveToQueryStorage(query: NoteQuery, notes: Note[], users: Users): void {
+		storage.setItem('query',JSON.stringify(query))
+		storage.setItem('notes',JSON.stringify(notes))
+		storage.setItem('users',JSON.stringify(users))
 	}
 }
 
