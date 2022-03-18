@@ -66,6 +66,7 @@ body.flipped .panel.fetch button.flip {
 .panel.command div,
 .panel.command details {
 	margin: 0;
+	line-height: 1.4em;
 }
 .panel.command details summary {
 	display: inline;
@@ -75,6 +76,7 @@ body.flipped .panel.fetch button.flip {
 	display: inline-block;
 	width: 1em;
 	height: 1em;
+	line-height: 1em;
 	text-align: center;
 }
 .panel.command details summary:hover::before {
