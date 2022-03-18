@@ -58,19 +58,12 @@ export class NoteMap extends L.Map {
 		)).fitWorld()
 		this.noteLayer=L.featureGroup().addTo(this)
 		this.trackLayer=L.featureGroup().addTo(this)
-		// const crosshairLayer=new CrosshairLayer()
+		const crosshairLayer=new CrosshairLayer().addTo(this)
 		const layersControl=L.control.layers()
 		layersControl.addOverlay(this.noteLayer,`Notes`)
 		layersControl.addOverlay(this.trackLayer,`Track between notes`)
-		// layersControl.addOverlay(crosshairLayer,`Crosshair`)
+		layersControl.addOverlay(crosshairLayer,`Crosshair`)
 		layersControl.addTo(this)
-		// https://stackoverflow.com/questions/49184531/leafletjs-how-to-make-layer-not-movable
-		const $crosshairOverlay=document.createElement('div')
-		$crosshairOverlay.classList.add('crosshair-overlay')
-		const $crosshair=document.createElement('div')
-		$crosshair.classList.add('crosshair')
-		$crosshairOverlay.append($crosshair)
-		this.getContainer().append($crosshairOverlay)
 	}
 	clearNotes(): void {
 		this.noteLayer.clearLayers()
@@ -110,16 +103,25 @@ export class NoteMap extends L.Map {
 	}
 }
 
-// class CrosshairLayer extends L.Layer {
-// 	onAdd(map: L.Map): this {
-// 		const $div=document.createElement('div')
-// 		$div.textContent='LOL!'
-// 		$div.style.background='red'
-// 		$div.style.width='100%'
-// 		this.getPane()?.appendChild($div)
-// 		return this
-// 	}
-// }
+class CrosshairLayer extends L.Layer {
+	$overlay?: HTMLDivElement
+	onAdd(map: L.Map): this {
+		// https://stackoverflow.com/questions/49184531/leafletjs-how-to-make-layer-not-movable
+		this.$overlay?.remove()
+		this.$overlay=document.createElement('div')
+		this.$overlay.classList.add('crosshair-overlay')
+		const $crosshair=document.createElement('div')
+		$crosshair.classList.add('crosshair')
+		this.$overlay.append($crosshair)
+		map.getContainer().append(this.$overlay)
+		return this
+	}
+	onRemove(map: L.Map): this {
+		this.$overlay?.remove()
+		this.$overlay=undefined
+		return this
+	}
+}
 
 function *noteCommentsToStates(comments: NoteComment[]): Iterable<boolean> {
 	let currentState=true
