@@ -151,7 +151,9 @@ export default class CommandPanel {
 			if (linkHref==null) {
 				$summary.textContent=title
 			} else {
-				$summary.append(makeLink(title,linkHref,linkTitle))
+				const $a=makeLink(title,linkHref,linkTitle)
+				$a.target='_blank'
+				$summary.append($a)
 			}
 			$commandGroup.append($summary)
 			$container.append($commandGroup)
