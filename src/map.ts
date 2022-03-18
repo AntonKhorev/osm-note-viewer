@@ -58,6 +58,19 @@ export class NoteMap extends L.Map {
 		)).fitWorld()
 		this.noteLayer=L.featureGroup().addTo(this)
 		this.trackLayer=L.featureGroup().addTo(this)
+		// const crosshairLayer=new CrosshairLayer()
+		const layersControl=L.control.layers()
+		layersControl.addOverlay(this.noteLayer,`Notes`)
+		layersControl.addOverlay(this.trackLayer,`Track between notes`)
+		// layersControl.addOverlay(crosshairLayer,`Crosshair`)
+		layersControl.addTo(this)
+		// https://stackoverflow.com/questions/49184531/leafletjs-how-to-make-layer-not-movable
+		const $crosshairOverlay=document.createElement('div')
+		$crosshairOverlay.classList.add('crosshair-overlay')
+		const $crosshair=document.createElement('div')
+		$crosshair.classList.add('crosshair')
+		$crosshairOverlay.append($crosshair)
+		this.getContainer().append($crosshairOverlay)
 	}
 	clearNotes(): void {
 		this.noteLayer.clearLayers()
@@ -96,6 +109,17 @@ export class NoteMap extends L.Map {
 		this.fitBounds(this.trackLayer.getBounds())
 	}
 }
+
+// class CrosshairLayer extends L.Layer {
+// 	onAdd(map: L.Map): this {
+// 		const $div=document.createElement('div')
+// 		$div.textContent='LOL!'
+// 		$div.style.background='red'
+// 		$div.style.width='100%'
+// 		this.getPane()?.appendChild($div)
+// 		return this
+// 	}
+// }
 
 function *noteCommentsToStates(comments: NoteComment[]): Iterable<boolean> {
 	let currentState=true
