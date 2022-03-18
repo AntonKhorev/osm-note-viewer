@@ -6,7 +6,6 @@ export default class CommandPanel {
 	private $loadNotesButton: HTMLButtonElement
 	private $commentTimeSelect: HTMLSelectElement
 	private $commentTimeInput: HTMLInputElement
-	private $overpassButtons: HTMLButtonElement[] = []
 	private checkedNoteIds: number[] = []
 	private checkedCommentTime?: string
 	private checkedCommentText?: string
@@ -23,6 +22,33 @@ export default class CommandPanel {
 			$div.append($label)
 			$container.append($div)
 			this.$trackCheckbox=$trackCheckbox
+		}{
+			const $div=document.createElement('div')
+			const $commentTimeSelectLabel=document.createElement('label')
+			const $commentTimeSelect=document.createElement('select')
+			$commentTimeSelect.append(
+				new Option('from comment text','text'),
+				new Option('of comment','comment'),
+			)
+			$commentTimeSelectLabel.append(`pick time `,$commentTimeSelect)
+			$commentTimeSelectLabel.title=`"from comment text" looks for time inside the comment text. Useful for MAPS.ME-generated comments. Falls back to the comment time if no time detected in the text.`
+			this.$commentTimeSelect=$commentTimeSelect
+			const $commentTimeInputLabel=document.createElement('label')
+			const $commentTimeInput=document.createElement('input')
+			// $commentTimeInput.type='datetime-local'
+			// $commentTimeInput.step='1'
+			$commentTimeInput.type='text'
+			$commentTimeInput.size=20
+			// $commentTimeInput.readOnly=true
+			$commentTimeInputLabel.append(`picked `,$commentTimeInput)
+			$commentTimeInputLabel.title=`In whatever format Overpass understands. No standard datetime input for now because they're being difficult with UTC and 24-hour format.`
+			this.$commentTimeInput=$commentTimeInput
+			$commentTimeSelect.addEventListener('input',()=>this.pickCommentTime())
+			$div.append(
+				`Timestamp for historic queries: `,$commentTimeSelectLabel,
+				` — `,$commentTimeInputLabel
+			)
+			$container.append($div)
 		}{
 			const $div=document.createElement('div')
 			const $loadNotesButton=document.createElement('button')
@@ -58,23 +84,7 @@ export default class CommandPanel {
 			this.$loadNotesButton=$loadNotesButton
 		}{
 			const $div=document.createElement('div')
-			const $commentTimeSelectLabel=document.createElement('label')
-			const $commentTimeSelect=document.createElement('select')
-			$commentTimeSelect.append(
-				new Option('in text','text'),
-				new Option('of comment','comment'),
-			)
-			$commentTimeSelectLabel.append(`at time `,$commentTimeSelect)
-			$commentTimeSelectLabel.title=`"In text" looks for time inside the comment text. Useful for MAPS.ME-generated comments. Falls back to the comment time if no time detected in the text.`
-			this.$commentTimeSelect=$commentTimeSelect
-			const $commentTimeInputLabel=document.createElement('label')
-			const $commentTimeInput=document.createElement('input')
-			$commentTimeInput.type='text'
-			$commentTimeInput.size=20
-			$commentTimeInput.readOnly=true
-			$commentTimeInputLabel.append(`that is `,$commentTimeInput)
-			this.$commentTimeInput=$commentTimeInput
-			$commentTimeSelect.addEventListener('input',()=>this.registerCommentTime())
+			const $overpassButtons: HTMLButtonElement[] = []
 			const buttonClickListener=(withRelations: boolean, onlyAround: boolean)=>{
 				const time=this.$commentTimeInput.value
 				if (!time) return
@@ -105,30 +115,35 @@ export default class CommandPanel {
 				$button.disabled=true
 				$button.textContent=`map area without relations`
 				$button.addEventListener('click',()=>buttonClickListener(false,false))
-				this.$overpassButtons.push($button)
+				$overpassButtons.push($button)
 			}{
 				const $button=document.createElement('button')
 				$button.disabled=true
 				$button.textContent=`map area with relations`
 				$button.title=`May fetch large unwanted relations like routes.`
 				$button.addEventListener('click',()=>buttonClickListener(true,false))
-				this.$overpassButtons.push($button)
+				$overpassButtons.push($button)
 			}{
 				const $button=document.createElement('button')
 				$button.disabled=true
 				$button.textContent=`around map center`
 				$button.addEventListener('click',()=>buttonClickListener(false,true))
-				this.$overpassButtons.push($button)
+				$overpassButtons.push($button)
 			}
 			$div.append(
 				makeLink(`Overpass turbo`,'https://wiki.openstreetmap.org/wiki/Overpass_turbo'),
-				`: `,$commentTimeSelectLabel,` `,$commentTimeInputLabel,
-				` load:`
+				`: load:`
 			)
-			for (const $button of this.$overpassButtons) {
+			for (const $button of $overpassButtons) {
 				$div.append(` `,$button)
 			}
 			$container.append($div)
+			this.$commentTimeInput.addEventListener('input',()=>{
+				const disableButtons=this.$commentTimeInput.value==''
+				for (const $button of $overpassButtons) {
+					$button.disabled=disableButtons
+				}
+			})
 		}{
 			const $div=document.createElement('div')
 			const $yandexPanoramasButton=document.createElement('button')
@@ -157,10 +172,7 @@ export default class CommandPanel {
 	receiveCheckedComment(checkedCommentTime?: string, checkedCommentText?: string): void {
 		this.checkedCommentTime=checkedCommentTime
 		this.checkedCommentText=checkedCommentText
-		for (const $button of this.$overpassButtons) {
-			$button.disabled=checkedCommentTime==null
-		}
-		this.registerCommentTime()
+		this.pickCommentTime()
 	}
 	isTracking(): boolean {
 		return this.$trackCheckbox.checked
@@ -168,16 +180,19 @@ export default class CommandPanel {
 	disableTracking(): void {
 		this.$trackCheckbox.checked=false
 	}
-	private registerCommentTime() {
+	private pickCommentTime(): void {
+		const setTime=(time:string):void=>{
+			this.$commentTimeInput.value=time
+			this.$commentTimeInput.dispatchEvent(new Event('input'))
+		}
 		if (this.$commentTimeSelect.value=='text' && this.checkedCommentText!=null) {
 			const match=this.checkedCommentText.match(/\d\d\d\d-\d\d-\d\d[T ]\d\d:\d\d:\d\dZ/)
 			if (match) {
 				const [time]=match
-				this.$commentTimeInput.value=time
-				return
+				return setTime(time)
 			}
 		}
-		this.$commentTimeInput.value=this.checkedCommentTime??''
+		setTime(this.checkedCommentTime??'')
 	}
 }
 
