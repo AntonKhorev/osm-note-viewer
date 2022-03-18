@@ -63,8 +63,21 @@ body.flipped .panel.fetch button.flip {
 	gap: .5em;
 	flex-wrap: wrap;
 }
-.panel.command div {
+.panel.command div,
+.panel.command details {
 	margin: 0;
+}
+.panel.command details summary {
+	display: inline;
+}
+.panel.command details summary::before {
+	content: '+ ';
+}
+.panel.command details[open] summary::before {
+	content: '− ';
+}
+.panel.command details[open] summary::after {
+	content: ': ';
 }
 .panel .major-input input[type=text],
 .panel .major-input button {

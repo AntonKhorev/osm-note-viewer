@@ -23,7 +23,7 @@ export default class CommandPanel {
 			$container.append($div)
 			this.$trackCheckbox=$trackCheckbox
 		}{
-			const $div=document.createElement('div')
+			const $commandGroup=makeCommandGroup(`Timestamp for historic queries`)
 			const $commentTimeSelectLabel=document.createElement('label')
 			const $commentTimeSelect=document.createElement('select')
 			$commentTimeSelect.append(
@@ -44,13 +44,9 @@ export default class CommandPanel {
 			$commentTimeInputLabel.title=`In whatever format Overpass understands. No standard datetime input for now because they're being difficult with UTC and 24-hour format.`
 			this.$commentTimeInput=$commentTimeInput
 			$commentTimeSelect.addEventListener('input',()=>this.pickCommentTime())
-			$div.append(
-				`Timestamp for historic queries: `,$commentTimeSelectLabel,
-				` — `,$commentTimeInputLabel
-			)
-			$container.append($div)
+			$commandGroup.append($commentTimeSelectLabel,` — `,$commentTimeInputLabel)
 		}{
-			const $div=document.createElement('div')
+			const $commandGroup=makeCommandGroup(`RC`,'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl',`JOSM (or another editor) Remote Control`)
 			const $loadNotesButton=document.createElement('button')
 			$loadNotesButton.disabled=true
 			$loadNotesButton.textContent=`Load selected notes`
@@ -73,17 +69,10 @@ export default class CommandPanel {
 					`&bottom=`+encodeURIComponent(bounds.getSouth())
 				openRcUrl($loadMapButton,rcUrl)
 			})
-			$div.append(
-				makeLink(`RC`,'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl',`JOSM (or another editor) Remote Control`),
-				`: `,
-				$loadNotesButton,
-				` `,
-				$loadMapButton
-			)
-			$container.append($div)
+			$commandGroup.append($loadNotesButton,` `,$loadMapButton)
 			this.$loadNotesButton=$loadNotesButton
 		}{
-			const $div=document.createElement('div')
+			const $commandGroup=makeCommandGroup(`Overpass turbo`,'https://wiki.openstreetmap.org/wiki/Overpass_turbo')
 			const $overpassButtons: HTMLButtonElement[] = []
 			const buttonClickListener=(withRelations: boolean, onlyAround: boolean)=>{
 				const time=this.$commentTimeInput.value
@@ -130,14 +119,10 @@ export default class CommandPanel {
 				$button.addEventListener('click',()=>buttonClickListener(false,true))
 				$overpassButtons.push($button)
 			}
-			$div.append(
-				makeLink(`Overpass turbo`,'https://wiki.openstreetmap.org/wiki/Overpass_turbo'),
-				`: load:`
-			)
+			$commandGroup.append(`load:`)
 			for (const $button of $overpassButtons) {
-				$div.append(` `,$button)
+				$commandGroup.append(` `,$button)
 			}
-			$container.append($div)
 			this.$commentTimeInput.addEventListener('input',()=>{
 				const disableButtons=this.$commentTimeInput.value==''
 				for (const $button of $overpassButtons) {
@@ -145,7 +130,7 @@ export default class CommandPanel {
 				}
 			})
 		}{
-			const $div=document.createElement('div')
+			const $commandGroup=makeCommandGroup(`Y.Panoramas`,'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B',`Yandex.Panoramas (Яндекс.Панорамы)`)
 			const $yandexPanoramasButton=document.createElement('button')
 			$yandexPanoramasButton.textContent=`Open map center`
 			$yandexPanoramasButton.addEventListener('click',()=>{
@@ -157,12 +142,20 @@ export default class CommandPanel {
 					`&z=`+encodeURIComponent(map.getZoom())
 				open(url,'yandex')
 			})
-			$div.append(
-				makeLink(`Y.Panoramas`,'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B',`Yandex.Panoramas (Яндекс.Панорамы)`),
-				`: `,
-				$yandexPanoramasButton
-			)
-			$container.append($div)
+			$commandGroup.append($yandexPanoramasButton)
+		}
+		function makeCommandGroup(title: string, linkHref?: string, linkTitle?: string): HTMLDetailsElement {
+			const $commandGroup=document.createElement('details')
+			$commandGroup.open=true
+			const $summary=document.createElement('summary')
+			if (linkHref==null) {
+				$summary.textContent=title
+			} else {
+				$summary.append(makeLink(title,linkHref,linkTitle))
+			}
+			$commandGroup.append($summary)
+			$container.append($commandGroup)
+			return $commandGroup
 		}
 	}
 	receiveCheckedNoteIds(checkedNoteIds: number[]): void {
