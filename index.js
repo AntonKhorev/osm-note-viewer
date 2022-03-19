@@ -39,6 +39,144 @@ class NoteViewerStorage {
     }
 }
 
+class NoteMarker extends L.Marker {
+    constructor(note) {
+        const width = 25;
+        const height = 40;
+        const nInnerCircles = 4;
+        const r = width / 2;
+        const rp = height - r;
+        const y = r ** 2 / rp;
+        const x = Math.sqrt(r ** 2 - y ** 2);
+        const xf = x.toFixed(2);
+        const yf = y.toFixed(2);
+        const dcr = (r - .5) / nInnerCircles;
+        let html = ``;
+        html += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-r} ${-r} ${width} ${height}">`;
+        html += `<path d="M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z" fill="${note.status == 'open' ? 'red' : 'green'}" />`;
+        const states = [...noteCommentsToStates(note.comments)];
+        const statesToDraw = states.slice(-nInnerCircles, -1);
+        for (let i = 2; i >= 0; i--) {
+            if (i >= statesToDraw.length)
+                continue;
+            const cr = dcr * (i + 1);
+            html += `<circle r="${cr}" fill="${color()}" stroke="white" />`;
+            function color() {
+                if (i == 0 && states.length <= nInnerCircles)
+                    return 'white';
+                if (statesToDraw[i])
+                    return 'red';
+                return 'green';
+            }
+        }
+        html += `</svg>`;
+        const icon = L.divIcon({
+            html,
+            className: '',
+            iconSize: [width, height],
+            iconAnchor: [(width - 1) / 2, height],
+        });
+        super([note.lat, note.lon], {
+            icon,
+            alt: `note`,
+            opacity: 0.5
+        });
+        this.noteId = note.id;
+    }
+}
+class NoteMap extends L.Map {
+    constructor($container) {
+        super($container);
+        this.needToFitNotes = false;
+        this.addLayer(L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>",
+            maxZoom: 19
+        })).fitWorld();
+        this.noteLayer = L.featureGroup().addTo(this);
+        this.filteredNoteLayer = L.featureGroup();
+        this.trackLayer = L.featureGroup().addTo(this);
+        const crosshairLayer = new CrosshairLayer().addTo(this);
+        const layersControl = L.control.layers();
+        layersControl.addOverlay(this.noteLayer, `Notes`);
+        layersControl.addOverlay(this.filteredNoteLayer, `Filtered notes`);
+        layersControl.addOverlay(this.trackLayer, `Track between notes`);
+        layersControl.addOverlay(crosshairLayer, `Crosshair`);
+        layersControl.addTo(this);
+    }
+    clearNotes() {
+        this.noteLayer.clearLayers();
+        this.filteredNoteLayer.clearLayers();
+        this.trackLayer.clearLayers();
+        this.needToFitNotes = true;
+    }
+    fitNotesIfNeeded() {
+        if (!this.needToFitNotes)
+            return;
+        const bounds = this.noteLayer.getBounds();
+        if (!bounds.isValid())
+            return;
+        this.fitBounds(bounds);
+        this.needToFitNotes = false;
+    }
+    showNoteTrack(layerIds) {
+        const polylineOptions = {
+            interactive: false,
+            color: '#004',
+            weight: 1,
+            className: 'note-track', // sets non-scaling stroke defined in css
+        };
+        const nodeOptions = {
+            ...polylineOptions,
+            radius: 3,
+            fill: false,
+        };
+        this.trackLayer.clearLayers();
+        const polylineCoords = [];
+        for (const layerId of layerIds) {
+            const marker = this.noteLayer.getLayer(layerId);
+            if (!(marker instanceof L.Marker))
+                continue;
+            const coords = marker.getLatLng();
+            polylineCoords.push(coords);
+            L.circleMarker(coords, nodeOptions).addTo(this.trackLayer);
+        }
+        L.polyline(polylineCoords, polylineOptions).addTo(this.trackLayer);
+    }
+    fitNoteTrack() {
+        this.fitBounds(this.trackLayer.getBounds());
+    }
+}
+class CrosshairLayer extends L.Layer {
+    onAdd(map) {
+        // https://stackoverflow.com/questions/49184531/leafletjs-how-to-make-layer-not-movable
+        this.$overlay?.remove();
+        this.$overlay = document.createElement('div');
+        this.$overlay.classList.add('crosshair-overlay');
+        const $crosshair = document.createElement('div');
+        $crosshair.classList.add('crosshair');
+        this.$overlay.append($crosshair);
+        map.getContainer().append(this.$overlay);
+        return this;
+    }
+    onRemove(map) {
+        this.$overlay?.remove();
+        this.$overlay = undefined;
+        return this;
+    }
+}
+function* noteCommentsToStates(comments) {
+    let currentState = true;
+    for (const comment of comments) {
+        if (comment.action == 'opened' || comment.action == 'reopened') {
+            currentState = true;
+        }
+        else if (comment.action == 'closed' || comment.action == 'hidden') {
+            currentState = false;
+        }
+        yield currentState;
+    }
+}
+
 function toUserQueryPart(value) {
     const s = value.trim();
     if (s == '')
@@ -578,154 +716,97 @@ function getClosestNodeId(doc, centerLat, centerLon) {
     return closestNodeId;
 }
 
-function writeNotesTableHeaderAndGetNoteAdder($container, commandPanel, map) {
-    const noteSectionLayerIdVisibility = new Map();
-    let noteSectionVisibilityTimeoutId;
-    const noteRowObserver = new IntersectionObserver((entries) => {
-        for (const entry of entries) {
-            if (!(entry.target instanceof HTMLElement))
-                continue;
-            const layerId = entry.target.dataset.layerId;
-            if (layerId == null)
-                continue;
-            noteSectionLayerIdVisibility.set(Number(layerId), entry.isIntersecting);
+class NoteTable {
+    constructor($container, commandPanel, map, filter) {
+        this.commandPanel = commandPanel;
+        this.map = map;
+        this.filter = filter;
+        this.noteSectionLayerIdVisibility = new Map();
+        const that = this;
+        this.wrappedNoteMarkerClickListener = function () {
+            that.noteMarkerClickListener(this);
+        };
+        this.wrappedNoteSectionMouseoverListener = function () {
+            that.deactivateAllNotes();
+            that.activateNote(this);
+        };
+        this.wrappedNoteSectionMouseoutListener = function () {
+            that.deactivateNote(this);
+        };
+        this.wrappedNoteSectionClickListener = function () {
+            that.focusMapOnNote(this);
+        };
+        this.wrappedNoteCheckboxClickListener = function (ev) {
+            that.noteCheckboxClickListener(this, ev);
+        };
+        this.wrappedCommentRadioClickListener = function (ev) {
+            that.commentRadioClickListener(this, ev);
+        };
+        this.noteRowObserver = makeNoteSectionObserver(commandPanel, map, this.noteSectionLayerIdVisibility);
+        this.$table = document.createElement('table');
+        $container.append(this.$table);
+        {
+            const $header = this.$table.createTHead();
+            const $row = $header.insertRow();
+            $row.append(makeHeaderCell(''), makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), makeHeaderCell('?', `Action performed along with adding the comment. Also a radio button. Click to select comment for Overpass turbo commands.`), makeHeaderCell('comment'));
         }
-        clearTimeout(noteSectionVisibilityTimeoutId);
-        noteSectionVisibilityTimeoutId = setTimeout(noteSectionVisibilityHandler);
-    });
-    let currentLayerId;
-    let $lastClickedNoteSection;
-    const $table = document.createElement('table');
-    $container.append($table);
-    {
-        const $header = $table.createTHead();
-        const $row = $header.insertRow();
-        $row.append(makeHeaderCell(''), makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), makeHeaderCell('?', `Action performed along with adding the comment. Also a radio button. Click to select comment for Overpass turbo commands.`), makeHeaderCell('comment'));
-    }
-    function makeHeaderCell(text, title) {
-        const $cell = document.createElement('th');
-        $cell.textContent = text;
-        if (title)
-            $cell.title = title;
-        return $cell;
-    }
-    function writeNote(note) {
-        const marker = map.addNote(note);
-        marker.on('click', noteMarkerClickListener);
-        const layerId = map.noteLayer.getLayerId(marker);
-        const $tableSection = $table.createTBody();
-        $tableSection.id = `note-${note.id}`;
-        $tableSection.classList.add(getStatusClass(note.status));
-        $tableSection.dataset.layerId = String(layerId);
-        $tableSection.dataset.noteId = String(note.id);
-        $tableSection.addEventListener('mouseover', noteSectionMouseoverListener);
-        $tableSection.addEventListener('mouseout', noteSectionMouseoutListener);
-        $tableSection.addEventListener('click', noteSectionClickListener);
-        noteSectionLayerIdVisibility.set(layerId, false);
-        noteRowObserver.observe($tableSection);
-        return $tableSection;
-    }
-    function deactivateAllNotes() {
-        for (const $noteRows of $table.querySelectorAll('tbody.active')) {
-            deactivateNote($noteRows);
+        function makeHeaderCell(text, title) {
+            const $cell = document.createElement('th');
+            $cell.textContent = text;
+            if (title)
+                $cell.title = title;
+            return $cell;
         }
+        commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table));
     }
-    function deactivateNote($noteSection) {
-        currentLayerId = undefined;
-        $noteSection.classList.remove('active');
-        const layerId = Number($noteSection.dataset.layerId);
-        const marker = map.noteLayer.getLayer(layerId);
-        if (!(marker instanceof L.Marker))
-            return;
-        marker.setZIndexOffset(0);
-        marker.setOpacity(0.5);
-    }
-    function activateNote($noteSection) {
-        const layerId = Number($noteSection.dataset.layerId);
-        const marker = map.noteLayer.getLayer(layerId);
-        if (!(marker instanceof L.Marker))
-            return;
-        marker.setOpacity(1);
-        marker.setZIndexOffset(1000);
-        $noteSection.classList.add('active');
-    }
-    function focusMapOnNote($noteSection) {
-        const layerId = Number($noteSection.dataset.layerId);
-        const marker = map.noteLayer.getLayer(layerId);
-        if (!(marker instanceof L.Marker))
-            return;
-        if (layerId == currentLayerId) {
-            const z1 = map.getZoom();
-            const z2 = map.getMaxZoom();
-            const nextZoom = Math.min(z2, z1 + Math.ceil((z2 - z1) / 2));
-            map.flyTo(marker.getLatLng(), nextZoom);
-        }
-        else {
-            currentLayerId = layerId;
-            map.panTo(marker.getLatLng());
-        }
-    }
-    function noteMarkerClickListener() {
-        commandPanel.disableTracking();
-        deactivateAllNotes();
-        const $noteRows = document.getElementById(`note-` + this.noteId);
-        if (!$noteRows)
-            return;
-        $noteRows.scrollIntoView({ block: 'nearest' });
-        activateNote($noteRows);
-        focusMapOnNote($noteRows);
-    }
-    function noteSectionMouseoverListener() {
-        deactivateAllNotes();
-        activateNote(this);
-    }
-    function noteSectionMouseoutListener() {
-        deactivateNote(this);
-    }
-    function noteSectionClickListener() {
-        focusMapOnNote(this);
-    }
-    function noteSectionVisibilityHandler() {
-        const visibleLayerIds = [];
-        for (const [layerId, visibility] of noteSectionLayerIdVisibility) {
-            if (visibility)
-                visibleLayerIds.push(layerId);
-        }
-        map.showNoteTrack(visibleLayerIds);
-        if (commandPanel.isTracking())
-            map.fitNoteTrack();
-    }
-    function noteCheckboxClickListener(ev) {
-        ev.stopPropagation();
-        const $clickedNoteSection = this.closest('tbody');
-        if ($clickedNoteSection) {
-            if (ev.shiftKey && $lastClickedNoteSection) {
-                for (const $section of getTableSectionRange($table, $lastClickedNoteSection, $clickedNoteSection)) {
-                    const $checkbox = $section.querySelector('.note-checkbox input');
-                    if ($checkbox instanceof HTMLInputElement)
-                        $checkbox.checked = this.checked;
-                }
-            }
-            $lastClickedNoteSection = $clickedNoteSection;
-        }
-        commandPanel.receiveCheckedNoteIds(getCheckedNoteIds($table));
-    }
-    function commentRadioClickListener(ev) {
-        ev.stopPropagation();
-        const $clickedRow = this.closest('tr');
-        if (!$clickedRow)
-            return;
-        const $time = $clickedRow.querySelector('time');
-        if (!$time)
-            return;
-        const $text = $clickedRow.querySelector('td.note-comment');
-        commandPanel.receiveCheckedComment($time.dateTime, $text?.textContent ?? undefined);
-    }
-    commandPanel.receiveCheckedNoteIds(getCheckedNoteIds($table));
-    return (notes, users) => {
+    updateFilter(notes, users, filter) {
+        this.filter = filter;
+        const noteById = new Map();
         for (const note of notes) {
-            const $tableSection = writeNote(note);
-            let $row = $tableSection.insertRow();
+            noteById.set(note.id, note);
+        }
+        const uidMatcher = this.makeUidMatcher(users);
+        for (const $noteSection of this.$table.querySelectorAll('tbody')) {
+            const noteId = Number($noteSection.dataset.noteId);
+            const note = noteById.get(noteId);
+            const layerId = Number($noteSection.dataset.layerId);
+            if (note == null)
+                continue;
+            if (this.filter.matchNote(note, uidMatcher)) {
+                const marker = this.map.filteredNoteLayer.getLayer(layerId);
+                if (marker) {
+                    this.map.filteredNoteLayer.removeLayer(marker);
+                    this.map.noteLayer.addLayer(marker);
+                }
+                $noteSection.classList.remove('hidden');
+            }
+            else {
+                this.deactivateNote($noteSection);
+                const marker = this.map.noteLayer.getLayer(layerId);
+                if (marker) {
+                    this.map.noteLayer.removeLayer(marker);
+                    this.map.filteredNoteLayer.addLayer(marker);
+                }
+                $noteSection.classList.add('hidden');
+                const $checkbox = $noteSection.querySelector('.note-checkbox input');
+                if ($checkbox instanceof HTMLInputElement)
+                    $checkbox.checked = false;
+            }
+        }
+        this.commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table));
+    }
+    /**
+     * @returns number of added notes that passed through the filter
+     */
+    addNotes(notes, users) {
+        let nUnfilteredNotes = 0;
+        const uidMatcher = this.makeUidMatcher(users);
+        for (const note of notes) {
+            const isVisible = this.filter.matchNote(note, uidMatcher);
+            if (isVisible)
+                nUnfilteredNotes++;
+            const $noteSection = this.writeNote(note, isVisible);
+            let $row = $noteSection.insertRow();
             const nComments = note.comments.length;
             {
                 const $cell = $row.insertCell();
@@ -735,7 +816,7 @@ function writeNotesTableHeaderAndGetNoteAdder($container, commandPanel, map) {
                 const $checkbox = document.createElement('input');
                 $checkbox.type = 'checkbox';
                 $checkbox.title = `shift+click to check/uncheck a range`;
-                $checkbox.addEventListener('click', noteCheckboxClickListener);
+                $checkbox.addEventListener('click', this.wrappedNoteCheckboxClickListener);
                 $cell.append($checkbox);
             }
             {
@@ -751,7 +832,7 @@ function writeNotesTableHeaderAndGetNoteAdder($container, commandPanel, map) {
             for (const comment of note.comments) {
                 {
                     if (iComment > 0) {
-                        $row = $tableSection.insertRow();
+                        $row = $noteSection.insertRow();
                     }
                 }
                 {
@@ -796,7 +877,7 @@ function writeNotesTableHeaderAndGetNoteAdder($container, commandPanel, map) {
                     $radio.type = 'radio';
                     $radio.name = 'comment';
                     $radio.value = `${note.id}-${iComment}`;
-                    $radio.addEventListener('click', commentRadioClickListener);
+                    $radio.addEventListener('click', this.wrappedCommentRadioClickListener);
                     $span.append($radio);
                     $cell.append($span);
                 }
@@ -808,7 +889,133 @@ function writeNotesTableHeaderAndGetNoteAdder($container, commandPanel, map) {
                 iComment++;
             }
         }
-    };
+        this.map.fitNotesIfNeeded();
+        return nUnfilteredNotes;
+    }
+    makeUidMatcher(users) {
+        return (uid, username) => users[uid] == username;
+    }
+    writeNote(note, isVisible) {
+        const marker = new NoteMarker(note);
+        const parentLayer = (isVisible ? this.map.noteLayer : this.map.filteredNoteLayer);
+        marker.addTo(parentLayer);
+        marker.on('click', this.wrappedNoteMarkerClickListener);
+        const layerId = this.map.noteLayer.getLayerId(marker);
+        const $noteSection = this.$table.createTBody();
+        if (!isVisible)
+            $noteSection.classList.add('hidden');
+        $noteSection.id = `note-${note.id}`;
+        $noteSection.classList.add(getStatusClass(note.status));
+        $noteSection.dataset.layerId = String(layerId);
+        $noteSection.dataset.noteId = String(note.id);
+        $noteSection.addEventListener('mouseover', this.wrappedNoteSectionMouseoverListener);
+        $noteSection.addEventListener('mouseout', this.wrappedNoteSectionMouseoutListener);
+        $noteSection.addEventListener('click', this.wrappedNoteSectionClickListener);
+        this.noteSectionLayerIdVisibility.set(layerId, false);
+        this.noteRowObserver.observe($noteSection);
+        return $noteSection;
+    }
+    noteMarkerClickListener(marker) {
+        this.commandPanel.disableTracking();
+        this.deactivateAllNotes();
+        const $noteRows = document.getElementById(`note-` + marker.noteId);
+        if (!$noteRows)
+            return;
+        $noteRows.scrollIntoView({ block: 'nearest' });
+        this.activateNote($noteRows);
+        this.focusMapOnNote($noteRows);
+    }
+    noteCheckboxClickListener($checkbox, ev) {
+        ev.stopPropagation();
+        const $clickedNoteSection = $checkbox.closest('tbody');
+        if ($clickedNoteSection) {
+            if (ev.shiftKey && this.$lastClickedNoteSection) {
+                for (const $section of getTableSectionRange(this.$table, this.$lastClickedNoteSection, $clickedNoteSection)) {
+                    const $checkbox = $section.querySelector('.note-checkbox input');
+                    if ($checkbox instanceof HTMLInputElement)
+                        $checkbox.checked = $checkbox.checked;
+                }
+            }
+            this.$lastClickedNoteSection = $clickedNoteSection;
+        }
+        this.commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table));
+    }
+    commentRadioClickListener($radio, ev) {
+        ev.stopPropagation();
+        const $clickedRow = $radio.closest('tr');
+        if (!$clickedRow)
+            return;
+        const $time = $clickedRow.querySelector('time');
+        if (!$time)
+            return;
+        const $text = $clickedRow.querySelector('td.note-comment');
+        this.commandPanel.receiveCheckedComment($time.dateTime, $text?.textContent ?? undefined);
+    }
+    deactivateAllNotes() {
+        for (const $noteRows of this.$table.querySelectorAll('tbody.active')) {
+            this.deactivateNote($noteRows);
+        }
+    }
+    deactivateNote($noteSection) {
+        this.currentLayerId = undefined;
+        $noteSection.classList.remove('active');
+        const layerId = Number($noteSection.dataset.layerId);
+        const marker = this.map.noteLayer.getLayer(layerId);
+        if (!(marker instanceof L.Marker))
+            return;
+        marker.setZIndexOffset(0);
+        marker.setOpacity(0.5);
+    }
+    activateNote($noteSection) {
+        const layerId = Number($noteSection.dataset.layerId);
+        const marker = this.map.noteLayer.getLayer(layerId);
+        if (!(marker instanceof L.Marker))
+            return;
+        marker.setOpacity(1);
+        marker.setZIndexOffset(1000);
+        $noteSection.classList.add('active');
+    }
+    focusMapOnNote($noteSection) {
+        const layerId = Number($noteSection.dataset.layerId);
+        const marker = this.map.noteLayer.getLayer(layerId);
+        if (!(marker instanceof L.Marker))
+            return;
+        if (layerId == this.currentLayerId) {
+            const z1 = this.map.getZoom();
+            const z2 = this.map.getMaxZoom();
+            const nextZoom = Math.min(z2, z1 + Math.ceil((z2 - z1) / 2));
+            this.map.flyTo(marker.getLatLng(), nextZoom);
+        }
+        else {
+            this.currentLayerId = layerId;
+            this.map.panTo(marker.getLatLng());
+        }
+    }
+}
+function makeNoteSectionObserver(commandPanel, map, noteSectionLayerIdVisibility) {
+    let noteSectionVisibilityTimeoutId;
+    return new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+            if (!(entry.target instanceof HTMLElement))
+                continue;
+            const layerId = entry.target.dataset.layerId;
+            if (layerId == null)
+                continue;
+            noteSectionLayerIdVisibility.set(Number(layerId), entry.isIntersecting);
+        }
+        clearTimeout(noteSectionVisibilityTimeoutId);
+        noteSectionVisibilityTimeoutId = setTimeout(noteSectionVisibilityHandler);
+    });
+    function noteSectionVisibilityHandler() {
+        const visibleLayerIds = [];
+        for (const [layerId, visibility] of noteSectionLayerIdVisibility) {
+            if (visibility)
+                visibleLayerIds.push(layerId);
+        }
+        map.showNoteTrack(visibleLayerIds);
+        if (commandPanel.isTracking())
+            map.fitNoteTrack();
+    }
 }
 function getStatusClass(status) {
     if (status == 'open') {
@@ -880,9 +1087,13 @@ function getCheckedNoteIds($table) {
 
 const maxSingleAutoLoadLimit = 200;
 const maxTotalAutoLoadLimit = 1000;
-async function startFetcher(storage, $notesContainer, $moreContainer, $commandContainer, map, $limitSelect, $autoLoadCheckbox, $fetchButton, query, initialNotes, initialUsers) {
+const maxFullyFilteredFetches = 10;
+async function startFetcher(storage, $notesContainer, $moreContainer, $commandContainer, filterPanel, map, $limitSelect, $autoLoadCheckbox, $fetchButton, query, initialNotes, initialUsers) {
+    filterPanel.unsubscribe();
+    let noteTable;
     const [notes, users, mergeNotesAndUsers] = makeNotesAndUsersAndMerger();
     mergeNotesAndUsers(initialNotes, initialUsers);
+    filterPanel.subscribe(noteFilter => noteTable?.updateFilter(notes, users, noteFilter));
     saveToQueryStorage(query, notes, users);
     map.clearNotes();
     $notesContainer.innerHTML = ``;
@@ -891,16 +1102,27 @@ async function startFetcher(storage, $notesContainer, $moreContainer, $commandCo
     let lastNote;
     let prevLastNote;
     let lastLimit;
-    let addNotesToTable;
+    let nFullyFilteredFetches = 0;
     if (notes.length > 0) {
-        addNotesToTable = writeNotesTableHeaderAndGetNoteAdder($notesContainer, commandPanel, map);
-        addNotesToTable(notes, users);
-        map.fitNotes();
+        addNewNotes(notes);
         lastNote = notes[notes.length - 1];
         rewriteLoadMoreButton();
     }
     else {
         await fetchCycle();
+    }
+    function addNewNotes(newNotes) {
+        if (!noteTable) {
+            noteTable = new NoteTable($notesContainer, commandPanel, map, filterPanel.noteFilter);
+        }
+        noteTable.addNotes(newNotes, users);
+        const nUnfilteredNotes = noteTable.addNotes(newNotes, users);
+        if (nUnfilteredNotes == 0) {
+            nFullyFilteredFetches++;
+        }
+        else {
+            nFullyFilteredFetches = 0;
+        }
     }
     async function fetchCycle() {
         rewriteLoadingButton();
@@ -927,18 +1149,11 @@ async function startFetcher(storage, $notesContainer, $moreContainer, $commandCo
                 }
                 const unseenNotes = mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data));
                 saveToQueryStorage(query, notes, users);
-                if (!addNotesToTable && notes.length <= 0) {
+                if (!noteTable && notes.length <= 0) {
                     rewriteMessage($moreContainer, `User `, [query], ` has no ${query.status == 'open' ? 'open ' : ''}notes`);
                     return;
                 }
-                if (!addNotesToTable) {
-                    addNotesToTable = writeNotesTableHeaderAndGetNoteAdder($notesContainer, commandPanel, map);
-                    addNotesToTable(unseenNotes, users);
-                    map.fitNotes();
-                }
-                else {
-                    addNotesToTable(unseenNotes, users);
-                }
+                addNewNotes(unseenNotes);
                 if (data.features.length < fetchDetails.limit) {
                     rewriteMessage($moreContainer, `Got all ${notes.length} notes`);
                     return;
@@ -948,10 +1163,14 @@ async function startFetcher(storage, $notesContainer, $moreContainer, $commandCo
                 lastLimit = fetchDetails.limit;
                 const $moreButton = rewriteLoadMoreButton();
                 if (notes.length > maxTotalAutoLoadLimit) {
-                    $moreButton.append(` (no auto download because displaying too many notes)`);
+                    $moreButton.append(` (no auto download because displaying more than ${maxTotalAutoLoadLimit} notes)`);
                 }
                 else if (getNextFetchDetails(query, limit, lastNote, prevLastNote, lastLimit).limit > maxSingleAutoLoadLimit) {
-                    $moreButton.append(` (no auto download because required batch too large)`);
+                    $moreButton.append(` (no auto download because required batch is larger than ${maxSingleAutoLoadLimit})`);
+                }
+                else if (nFullyFilteredFetches > maxFullyFilteredFetches) {
+                    $moreButton.append(` (no auto download because ${maxFullyFilteredFetches} consecutive fetches were fully filtered)`);
+                    nFullyFilteredFetches = 0;
                 }
                 else {
                     const moreButtonIntersectionObserver = new IntersectionObserver((entries) => {
@@ -1056,133 +1275,296 @@ function getLimit($limitSelect) {
     return 20;
 }
 
-class NoteMarker extends L.Marker {
-    constructor(note) {
-        const width = 25;
-        const height = 40;
-        const nInnerCircles = 4;
-        const r = width / 2;
-        const rp = height - r;
-        const y = r ** 2 / rp;
-        const x = Math.sqrt(r ** 2 - y ** 2);
-        const xf = x.toFixed(2);
-        const yf = y.toFixed(2);
-        const dcr = (r - .5) / nInnerCircles;
-        let html = ``;
-        html += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-r} ${-r} ${width} ${height}">`;
-        html += `<path d="M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z" fill="${note.status == 'open' ? 'red' : 'green'}" />`;
-        const states = [...noteCommentsToStates(note.comments)];
-        const statesToDraw = states.slice(-nInnerCircles, -1);
-        for (let i = 2; i >= 0; i--) {
-            if (i >= statesToDraw.length)
-                continue;
-            const cr = dcr * (i + 1);
-            html += `<circle r="${cr}" fill="${color()}" stroke="white" />`;
-            function color() {
-                if (i == 0 && states.length <= nInnerCircles)
-                    return 'white';
-                if (statesToDraw[i])
-                    return 'red';
-                return 'green';
+class NoteFetchPanel {
+    constructor(storage, $container, $notesContainer, $moreContainer, $commandContainer, filterPanel, extrasPanel, map) {
+        const partialQuery = {};
+        try {
+            const queryString = storage.getItem('query');
+            if (queryString != null) {
+                const parsedQuery = JSON.parse(queryString);
+                if (typeof parsedQuery == 'object') {
+                    Object.assign(partialQuery, parsedQuery);
+                }
             }
         }
-        html += `</svg>`;
-        const icon = L.divIcon({
-            html,
-            className: '',
-            iconSize: [width, height],
-            iconAnchor: [(width - 1) / 2, height],
+        catch { }
+        const $form = document.createElement('form');
+        const $userInput = document.createElement('input');
+        const $statusSelect = document.createElement('select');
+        const $sortSelect = document.createElement('select');
+        const $orderSelect = document.createElement('select');
+        const $limitSelect = document.createElement('select');
+        const $autoLoadCheckbox = document.createElement('input');
+        const $fetchButton = document.createElement('button');
+        {
+            const $fieldset = document.createElement('fieldset');
+            {
+                const $legend = document.createElement('legend');
+                $legend.textContent = `Scope and order`;
+                $fieldset.append($legend);
+            }
+            {
+                $userInput.type = 'text';
+                $userInput.name = 'user';
+                $userInput.required = true;
+                if (partialQuery.userType == 'id' && partialQuery.uid != null) {
+                    $userInput.value = '#' + partialQuery.uid;
+                }
+                else if (partialQuery.userType == 'name' && partialQuery.username != null) {
+                    $userInput.value = partialQuery.username;
+                }
+                const $div = document.createElement('div');
+                $div.classList.add('major-input');
+                const $label = document.createElement('label');
+                $label.append(`OSM username, URL or #id: `, $userInput);
+                $div.append($label);
+                $fieldset.append($div);
+            }
+            {
+                const $div = document.createElement('div');
+                $statusSelect.append(new Option(`both open and closed`, 'mixed'), new Option(`open and recently closed`, 'recent'), new Option(`only open`, 'open'));
+                if (partialQuery.status != null)
+                    $statusSelect.value = partialQuery.status;
+                $sortSelect.append(new Option(`creation`, 'created_at'), new Option(`last update`, 'updated_at'));
+                if (partialQuery.sort != null)
+                    $sortSelect.value = partialQuery.sort;
+                $orderSelect.append(new Option('newest'), new Option('oldest'));
+                if (partialQuery.order != null)
+                    $orderSelect.value = partialQuery.order;
+                $div.append(span(`Fetch this user's `, $statusSelect, ` notes`), ` `, span(`sorted by `, $sortSelect, ` date`), `, `, span($orderSelect, ` first`));
+                $fieldset.append($div);
+                function span(...items) {
+                    const $span = document.createElement('span');
+                    $span.append(...items);
+                    return $span;
+                }
+            }
+            $form.append($fieldset);
+        }
+        {
+            const $fieldset = document.createElement('fieldset');
+            {
+                const $legend = document.createElement('legend');
+                $legend.textContent = `Download mode (can change anytime)`;
+                $fieldset.append($legend);
+            }
+            {
+                const $div = document.createElement('div');
+                $limitSelect.append(new Option('20'), new Option('100'), new Option('500'), new Option('2500'));
+                $div.append(`Download these in batches of `, $limitSelect, ` notes`);
+                $fieldset.append($div);
+            }
+            {
+                $autoLoadCheckbox.type = 'checkbox';
+                $autoLoadCheckbox.checked = true;
+                const $div = document.createElement('div');
+                const $label = document.createElement('label');
+                $label.append($autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`);
+                $div.append($label);
+                $fieldset.append($div);
+            }
+            $form.append($fieldset);
+        }
+        {
+            $fetchButton.textContent = `Fetch notes`;
+            $fetchButton.type = 'submit';
+            const $div = document.createElement('div');
+            $div.classList.add('major-input');
+            $div.append($fetchButton);
+            $form.append($div);
+        }
+        $userInput.addEventListener('input', () => {
+            const uqp = toUserQueryPart($userInput.value);
+            if (uqp.userType == 'invalid') {
+                $userInput.setCustomValidity(uqp.message);
+            }
+            else {
+                $userInput.setCustomValidity('');
+            }
         });
-        super([note.lat, note.lon], {
-            icon,
-            alt: `note`,
-            opacity: 0.5
+        $form.addEventListener('submit', (ev) => {
+            ev.preventDefault();
+            const uqp = toUserQueryPart($userInput.value);
+            if (uqp.userType == 'invalid')
+                return;
+            const query = {
+                ...uqp,
+                status: toNoteQueryStatus($statusSelect.value),
+                sort: toNoteQuerySort($sortSelect.value),
+                order: toNoteQueryOrder($orderSelect.value),
+                beganAt: Date.now()
+            };
+            extrasPanel.rewrite(query, Number($limitSelect.value));
+            startFetcher(storage, $notesContainer, $moreContainer, $commandContainer, filterPanel, map, $limitSelect, $autoLoadCheckbox, $fetchButton, query, [], {});
         });
-        this.noteId = note.id;
+        $container.append($form);
+        const queryString = storage.getItem('query');
+        if (queryString == null) {
+            extrasPanel.rewrite();
+            return;
+        }
+        try {
+            const query = JSON.parse(queryString);
+            extrasPanel.rewrite(query, Number($limitSelect.value));
+            const notesString = storage.getItem('notes');
+            if (notesString == null)
+                return;
+            const usersString = storage.getItem('users');
+            if (usersString == null)
+                return;
+            const notes = JSON.parse(notesString);
+            const users = JSON.parse(usersString);
+            startFetcher(storage, $notesContainer, $moreContainer, $commandContainer, filterPanel, map, $limitSelect, $autoLoadCheckbox, $fetchButton, query, notes, users);
+        }
+        catch { }
     }
 }
-class NoteMap extends L.Map {
-    constructor($container) {
-        super($container);
-        this.addLayer(L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>",
-            maxZoom: 19
-        })).fitWorld();
-        this.noteLayer = L.featureGroup().addTo(this);
-        this.trackLayer = L.featureGroup().addTo(this);
-        const crosshairLayer = new CrosshairLayer().addTo(this);
-        const layersControl = L.control.layers();
-        layersControl.addOverlay(this.noteLayer, `Notes`);
-        layersControl.addOverlay(this.trackLayer, `Track between notes`);
-        layersControl.addOverlay(crosshairLayer, `Crosshair`);
-        layersControl.addTo(this);
+
+class NoteFilter {
+    constructor(query) {
+        const match = query.match(/^\s*user\s*=\s*(.+?)\s*$/);
+        if (match) {
+            [, this.username] = match;
+        }
     }
-    clearNotes() {
-        this.noteLayer.clearLayers();
-        this.trackLayer.clearLayers();
-    }
-    fitNotes() {
-        this.fitBounds(this.noteLayer.getBounds());
-    }
-    addNote(note) {
-        return new NoteMarker(note).addTo(this.noteLayer);
-    }
-    showNoteTrack(layerIds) {
-        const polylineOptions = {
-            interactive: false,
-            color: '#004',
-            weight: 1,
-            className: 'note-track', // sets non-scaling stroke defined in css
-        };
-        const nodeOptions = {
-            ...polylineOptions,
-            radius: 3,
-            fill: false,
-        };
-        this.trackLayer.clearLayers();
-        const polylineCoords = [];
-        for (const layerId of layerIds) {
-            const marker = this.noteLayer.getLayer(layerId);
-            if (!(marker instanceof L.Marker))
+    matchNote(note, uidMatcher) {
+        if (this.username == null)
+            return true;
+        for (const comment of note.comments) {
+            if (comment.uid == null)
                 continue;
-            const coords = marker.getLatLng();
-            polylineCoords.push(coords);
-            L.circleMarker(coords, nodeOptions).addTo(this.trackLayer);
+            if (uidMatcher(comment.uid, this.username))
+                return true;
         }
-        L.polyline(polylineCoords, polylineOptions).addTo(this.trackLayer);
-    }
-    fitNoteTrack() {
-        this.fitBounds(this.trackLayer.getBounds());
+        return false;
     }
 }
-class CrosshairLayer extends L.Layer {
-    onAdd(map) {
-        // https://stackoverflow.com/questions/49184531/leafletjs-how-to-make-layer-not-movable
-        this.$overlay?.remove();
-        this.$overlay = document.createElement('div');
-        this.$overlay.classList.add('crosshair-overlay');
-        const $crosshair = document.createElement('div');
-        $crosshair.classList.add('crosshair');
-        this.$overlay.append($crosshair);
-        map.getContainer().append(this.$overlay);
-        return this;
+
+class NoteFilterPanel {
+    constructor($container) {
+        const $form = document.createElement('form');
+        const $textarea = document.createElement('textarea');
+        this.noteFilter = new NoteFilter($textarea.value);
+        {
+            const $div = document.createElement('div');
+            $div.classList.add('major-input');
+            const $label = document.createElement('label');
+            const $code = document.createElement('code');
+            $code.textContent = `user = username`;
+            $label.append(`Filter: (only single `, $code, ` clause supported for now)`, $textarea);
+            $div.append($label);
+            $form.append($div);
+        }
+        {
+            const $div = document.createElement('div');
+            $div.classList.add('major-input');
+            const $button = document.createElement('button');
+            $button.textContent = `Apply filter`;
+            $button.type = 'submit';
+            $div.append($button);
+            $form.append($div);
+        }
+        $form.addEventListener('submit', (ev) => {
+            ev.preventDefault();
+            this.noteFilter = new NoteFilter($textarea.value);
+            if (this.callback)
+                this.callback(this.noteFilter);
+        });
+        $container.append($form);
     }
-    onRemove(map) {
-        this.$overlay?.remove();
-        this.$overlay = undefined;
-        return this;
+    subscribe(callback) {
+        this.callback = callback;
+    }
+    unsubscribe() {
+        this.callback = undefined;
     }
 }
-function* noteCommentsToStates(comments) {
-    let currentState = true;
-    for (const comment of comments) {
-        if (comment.action == 'opened' || comment.action == 'reopened') {
-            currentState = true;
+
+class ExtrasPanel {
+    constructor(storage, $container) {
+        this.storage = storage;
+        this.$container = $container;
+    }
+    rewrite(query, limit) {
+        this.$container.innerHTML = '';
+        const $details = document.createElement('details');
+        {
+            const $summary = document.createElement('summary');
+            $summary.textContent = `Extra information`;
+            $details.append($summary);
         }
-        else if (comment.action == 'closed' || comment.action == 'hidden') {
-            currentState = false;
+        writeBlock(() => {
+            const $clearButton = document.createElement('button');
+            $clearButton.textContent = `Clear storage`;
+            const $computeButton = document.createElement('button');
+            $computeButton.textContent = `Compute storage size`;
+            const $computeResult = document.createElement('span');
+            $clearButton.addEventListener('click', () => {
+                this.storage.clear();
+            });
+            $computeButton.addEventListener('click', () => {
+                const size = this.storage.computeSize();
+                $computeResult.textContent = (size / 1024).toFixed(2) + " KB";
+            });
+            return [$clearButton, ` `, $computeButton, ` `, $computeResult];
+        });
+        if (query != null && limit != null)
+            writeBlock(() => [
+                `API links to queries on `,
+                makeUserLink(query, `this user`),
+                `: `,
+                makeNoteQueryLink(`with specified limit`, query, limit),
+                `, `,
+                makeNoteQueryLink(`with max limit`, query, 10000),
+                ` (may be slow)`
+            ]);
+        writeBlock(() => [
+            `User query have whitespace trimmed, then the remaining part starting with `, makeCode(`#`), ` is treated as a user id; containing `, makeCode(`/`), `is treated as a URL, anything else as a username. `,
+            `This works because usernames can't contain any of these characters: `, makeCode(`/;.,?%#`), ` , can't have leading/trailing whitespace, have to be between 3 and 255 characters in length.`
+        ]);
+        writeBlock(() => [
+            `Notes documentation: `,
+            makeLink(`wiki`, `https://wiki.openstreetmap.org/wiki/Notes`),
+            `, `,
+            makeLink(`API`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API`),
+            ` (`,
+            makeLink(`search`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch`),
+            `), `,
+            makeLink(`GeoJSON`, `https://wiki.openstreetmap.org/wiki/GeoJSON`),
+            ` (output format used for notes/search.json api calls)`
+        ]);
+        writeBlock(() => [
+            `Notes implementation code: `,
+            makeLink(`notes api controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`),
+            ` (db search query is build there), `,
+            makeLink(`notes controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/notes_controller.rb`),
+            ` (paginated user notes query is build there), `,
+            makeLink(`note model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note.rb`),
+            `, `,
+            makeLink(`note comment model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note_comment.rb`),
+            ` in `,
+            makeLink(`Rails Port`, `https://wiki.openstreetmap.org/wiki/The_Rails_Port`),
+            ` (not implemented in `,
+            makeLink(`CGIMap`, `https://wiki.openstreetmap.org/wiki/Cgimap`),
+            `)`
+        ]);
+        writeBlock(() => [
+            makeLink(`Source code`, `https://github.com/AntonKhorev/osm-note-viewer`)
+        ]);
+        function writeBlock(makeBlockContents) {
+            const $block = document.createElement('div');
+            $block.append(...makeBlockContents());
+            $details.append($block);
         }
-        yield currentState;
+        function makeCode(s) {
+            const $code = document.createElement('code');
+            $code.textContent = s;
+            return $code;
+        }
+        function makeNoteQueryLink(text, query, limit) {
+            return makeLink(text, `https://api.openstreetmap.org/api/0.6/notes/search.json?` + getNextFetchDetails(query, limit).parameters);
+        }
+        this.$container.append($details);
     }
 }
 
@@ -1204,6 +1586,8 @@ function main() {
     $textSide.append($scrollingPart, $stickyPart);
     const $fetchContainer = document.createElement('div');
     $fetchContainer.classList.add('panel', 'fetch');
+    const $filterContainer = document.createElement('div');
+    $filterContainer.classList.add('panel', 'fetch');
     const $extrasContainer = document.createElement('div');
     $extrasContainer.classList.add('panel');
     const $notesContainer = document.createElement('div');
@@ -1212,12 +1596,13 @@ function main() {
     $moreContainer.classList.add('more');
     const $commandContainer = document.createElement('div');
     $commandContainer.classList.add('panel', 'command');
-    $scrollingPart.append($fetchContainer, $extrasContainer, $notesContainer, $moreContainer);
+    $scrollingPart.append($fetchContainer, $filterContainer, $extrasContainer, $notesContainer, $moreContainer);
     $stickyPart.append($commandContainer);
     const map = new NoteMap($mapSide);
     writeFlipLayoutButton($fetchContainer, map);
-    const $formInputs = writeFetchForm($fetchContainer, $extrasContainer, $notesContainer, $moreContainer, $commandContainer, map);
-    writeStoredQueryResults($extrasContainer, $notesContainer, $moreContainer, $commandContainer, map, ...$formInputs);
+    const extrasPanel = new ExtrasPanel(storage, $extrasContainer);
+    const filterPanel = new NoteFilterPanel($filterContainer);
+    new NoteFetchPanel(storage, $fetchContainer, $notesContainer, $moreContainer, $commandContainer, filterPanel, extrasPanel, map);
 }
 function writeFlipLayoutButton($container, map) {
     const $button = document.createElement('button');
@@ -1234,230 +1619,4 @@ function writeFlipLayoutButton($container, map) {
         map.invalidateSize();
     });
     $container.append($button);
-}
-function writeFetchForm($container, $extrasContainer, $notesContainer, $moreContainer, $commandContainer, map) {
-    const partialQuery = {};
-    try {
-        const queryString = storage.getItem('query');
-        if (queryString != null) {
-            const parsedQuery = JSON.parse(queryString);
-            if (typeof parsedQuery == 'object') {
-                Object.assign(partialQuery, parsedQuery);
-            }
-        }
-    }
-    catch { }
-    const $form = document.createElement('form');
-    const $userInput = document.createElement('input');
-    const $statusSelect = document.createElement('select');
-    const $sortSelect = document.createElement('select');
-    const $orderSelect = document.createElement('select');
-    const $limitSelect = document.createElement('select');
-    const $autoLoadCheckbox = document.createElement('input');
-    const $fetchButton = document.createElement('button');
-    {
-        const $fieldset = document.createElement('fieldset');
-        {
-            const $legend = document.createElement('legend');
-            $legend.textContent = `Scope and order`;
-            $fieldset.append($legend);
-        }
-        {
-            $userInput.type = 'text';
-            $userInput.name = 'user';
-            $userInput.required = true;
-            if (partialQuery.userType == 'id' && partialQuery.uid != null) {
-                $userInput.value = '#' + partialQuery.uid;
-            }
-            else if (partialQuery.userType == 'name' && partialQuery.username != null) {
-                $userInput.value = partialQuery.username;
-            }
-            const $div = document.createElement('div');
-            $div.classList.add('major-input');
-            const $label = document.createElement('label');
-            $label.append(`OSM username, URL or #id: `, $userInput);
-            $div.append($label);
-            $fieldset.append($div);
-        }
-        {
-            const $div = document.createElement('div');
-            $statusSelect.append(new Option(`both open and closed`, 'mixed'), new Option(`open and recently closed`, 'recent'), new Option(`only open`, 'open'));
-            if (partialQuery.status != null)
-                $statusSelect.value = partialQuery.status;
-            $sortSelect.append(new Option(`creation`, 'created_at'), new Option(`last update`, 'updated_at'));
-            if (partialQuery.sort != null)
-                $sortSelect.value = partialQuery.sort;
-            $orderSelect.append(new Option('newest'), new Option('oldest'));
-            if (partialQuery.order != null)
-                $orderSelect.value = partialQuery.order;
-            $div.append(span(`Fetch this user's `, $statusSelect, ` notes`), ` `, span(`sorted by `, $sortSelect, ` date`), `, `, span($orderSelect, ` first`));
-            $fieldset.append($div);
-            function span(...items) {
-                const $span = document.createElement('span');
-                $span.append(...items);
-                return $span;
-            }
-        }
-        $form.append($fieldset);
-    }
-    {
-        const $fieldset = document.createElement('fieldset');
-        {
-            const $legend = document.createElement('legend');
-            $legend.textContent = `Download mode (can change anytime)`;
-            $fieldset.append($legend);
-        }
-        {
-            const $div = document.createElement('div');
-            $limitSelect.append(new Option('20'), new Option('100'), new Option('500'), new Option('2500'));
-            $div.append(`Download these in batches of `, $limitSelect, ` notes`);
-            $fieldset.append($div);
-        }
-        {
-            $autoLoadCheckbox.type = 'checkbox';
-            $autoLoadCheckbox.checked = true;
-            const $div = document.createElement('div');
-            const $label = document.createElement('label');
-            $label.append($autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`);
-            $div.append($label);
-            $fieldset.append($div);
-        }
-        $form.append($fieldset);
-    }
-    {
-        $fetchButton.textContent = `Fetch notes`;
-        $fetchButton.type = 'submit';
-        const $div = document.createElement('div');
-        $div.classList.add('major-input');
-        $div.append($fetchButton);
-        $form.append($div);
-    }
-    $userInput.addEventListener('input', () => {
-        const uqp = toUserQueryPart($userInput.value);
-        if (uqp.userType == 'invalid') {
-            $userInput.setCustomValidity(uqp.message);
-        }
-        else {
-            $userInput.setCustomValidity('');
-        }
-    });
-    $form.addEventListener('submit', (ev) => {
-        ev.preventDefault();
-        const uqp = toUserQueryPart($userInput.value);
-        if (uqp.userType == 'invalid')
-            return;
-        const query = {
-            ...uqp,
-            status: toNoteQueryStatus($statusSelect.value),
-            sort: toNoteQuerySort($sortSelect.value),
-            order: toNoteQueryOrder($orderSelect.value),
-            beganAt: Date.now()
-        };
-        rewriteExtras($extrasContainer, query, Number($limitSelect.value));
-        startFetcher(storage, $notesContainer, $moreContainer, $commandContainer, map, $limitSelect, $autoLoadCheckbox, $fetchButton, query, [], {});
-    });
-    $container.append($form);
-    return [$limitSelect, $autoLoadCheckbox, $fetchButton];
-}
-function writeStoredQueryResults($extrasContainer, $notesContainer, $moreContainer, $commandContainer, map, $limitSelect, $autoLoadCheckbox, $fetchButton) {
-    const queryString = storage.getItem('query');
-    if (queryString == null) {
-        rewriteExtras($extrasContainer);
-        return;
-    }
-    try {
-        const query = JSON.parse(queryString);
-        rewriteExtras($extrasContainer, query, Number($limitSelect.value));
-        const notesString = storage.getItem('notes');
-        if (notesString == null)
-            return;
-        const usersString = storage.getItem('users');
-        if (usersString == null)
-            return;
-        const notes = JSON.parse(notesString);
-        const users = JSON.parse(usersString);
-        startFetcher(storage, $notesContainer, $moreContainer, $commandContainer, map, $limitSelect, $autoLoadCheckbox, $fetchButton, query, notes, users);
-    }
-    catch { }
-}
-function rewriteExtras($container, query, limit) {
-    $container.innerHTML = '';
-    const $details = document.createElement('details');
-    {
-        const $summary = document.createElement('summary');
-        $summary.textContent = `Extra information`;
-        $details.append($summary);
-    }
-    writeBlock(() => {
-        const $clearButton = document.createElement('button');
-        $clearButton.textContent = `Clear storage`;
-        const $computeButton = document.createElement('button');
-        $computeButton.textContent = `Compute storage size`;
-        const $computeResult = document.createElement('span');
-        $clearButton.addEventListener('click', () => {
-            storage.clear();
-        });
-        $computeButton.addEventListener('click', () => {
-            const size = storage.computeSize();
-            $computeResult.textContent = (size / 1024).toFixed(2) + " KB";
-        });
-        return [$clearButton, ` `, $computeButton, ` `, $computeResult];
-    });
-    if (query != null && limit != null)
-        writeBlock(() => [
-            `API links to queries on `,
-            makeUserLink(query, `this user`),
-            `: `,
-            makeNoteQueryLink(`with specified limit`, query, limit),
-            `, `,
-            makeNoteQueryLink(`with max limit`, query, 10000),
-            ` (may be slow)`
-        ]);
-    writeBlock(() => [
-        `User query have whitespace trimmed, then the remaining part starting with `, makeCode(`#`), ` is treated as a user id; containing `, makeCode(`/`), `is treated as a URL, anything else as a username. `,
-        `This works because usernames can't contain any of these characters: `, makeCode(`/;.,?%#`), ` , can't have leading/trailing whitespace, have to be between 3 and 255 characters in length.`
-    ]);
-    writeBlock(() => [
-        `Notes documentation: `,
-        makeLink(`wiki`, `https://wiki.openstreetmap.org/wiki/Notes`),
-        `, `,
-        makeLink(`API`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API`),
-        ` (`,
-        makeLink(`search`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch`),
-        `), `,
-        makeLink(`GeoJSON`, `https://wiki.openstreetmap.org/wiki/GeoJSON`),
-        ` (output format used for notes/search.json api calls)`
-    ]);
-    writeBlock(() => [
-        `Notes implementation code: `,
-        makeLink(`notes api controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`),
-        ` (db search query is build there), `,
-        makeLink(`notes controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/notes_controller.rb`),
-        ` (paginated user notes query is build there), `,
-        makeLink(`note model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note.rb`),
-        `, `,
-        makeLink(`note comment model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note_comment.rb`),
-        ` in `,
-        makeLink(`Rails Port`, `https://wiki.openstreetmap.org/wiki/The_Rails_Port`),
-        ` (not implemented in `,
-        makeLink(`CGIMap`, `https://wiki.openstreetmap.org/wiki/Cgimap`),
-        `)`
-    ]);
-    writeBlock(() => [
-        makeLink(`Source code`, `https://github.com/AntonKhorev/osm-note-viewer`)
-    ]);
-    function writeBlock(makeBlockContents) {
-        const $block = document.createElement('div');
-        $block.append(...makeBlockContents());
-        $details.append($block);
-    }
-    function makeCode(s) {
-        const $code = document.createElement('code');
-        $code.textContent = s;
-        return $code;
-    }
-    function makeNoteQueryLink(text, query, limit) {
-        return makeLink(text, `https://api.openstreetmap.org/api/0.6/notes/search.json?` + getNextFetchDetails(query, limit).parameters);
-    }
-    $container.append($details);
 }
