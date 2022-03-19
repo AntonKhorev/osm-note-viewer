@@ -9,6 +9,7 @@ import {makeUserLink} from './util'
 
 const maxSingleAutoLoadLimit=200
 const maxTotalAutoLoadLimit=1000
+const maxFullyFilteredFetches=10
 
 export async function startFetcher(
 	storage: NoteViewerStorage,
@@ -30,16 +31,25 @@ export async function startFetcher(
 	let lastNote: Note | undefined
 	let prevLastNote: Note | undefined
 	let lastLimit: number | undefined
+	let nFullyFilteredFetches=0
 	if (notes.length>0) {
-		createNoteTable(notes)
+		addNewNotes(notes)
 		lastNote=notes[notes.length-1]
 		rewriteLoadMoreButton()
 	} else {
 		await fetchCycle()
 	}
-	function createNoteTable(notes: Note[]) {
-		noteTable=new NoteTable($notesContainer,commandPanel,map,filterPanel.noteFilter)
-		noteTable.addNotes(notes,users)
+	function addNewNotes(newNotes: Note[]) {
+		if (!noteTable) {
+			noteTable=new NoteTable($notesContainer,commandPanel,map,filterPanel.noteFilter)
+		}
+		noteTable.addNotes(newNotes,users)
+		const nUnfilteredNotes=noteTable.addNotes(newNotes,users)
+		if (nUnfilteredNotes==0) {
+			nFullyFilteredFetches++
+		} else {
+			nFullyFilteredFetches=0
+		}
 	}
 	async function fetchCycle() {
 		rewriteLoadingButton()
@@ -69,11 +79,7 @@ export async function startFetcher(
 					rewriteMessage($moreContainer,`User `,[query],` has no ${query.status=='open'?'open ':''}notes`)
 					return
 				}
-				if (!noteTable) {
-					createNoteTable(unseenNotes)
-				} else {
-					noteTable.addNotes(unseenNotes,users)
-				}
+				addNewNotes(unseenNotes)
 				if (data.features.length<fetchDetails.limit) {
 					rewriteMessage($moreContainer,`Got all ${notes.length} notes`)
 					return
@@ -83,9 +89,11 @@ export async function startFetcher(
 				lastLimit=fetchDetails.limit
 				const $moreButton=rewriteLoadMoreButton()
 				if (notes.length>maxTotalAutoLoadLimit) {
-					$moreButton.append(` (no auto download because displaying too many notes)`)
+					$moreButton.append(` (no auto download because displaying more than ${maxTotalAutoLoadLimit} notes)`)
 				} else if (getNextFetchDetails(query,limit,lastNote,prevLastNote,lastLimit).limit>maxSingleAutoLoadLimit) {
-					$moreButton.append(` (no auto download because required batch too large)`)
+					$moreButton.append(` (no auto download because required batch is larger than ${maxSingleAutoLoadLimit})`)
+				} else if (nFullyFilteredFetches>maxFullyFilteredFetches) {
+					$moreButton.append(` (no auto download because ${maxFullyFilteredFetches} consecutive fetches were fully filtered)`)
 				} else {
 					const moreButtonIntersectionObserver=new IntersectionObserver((entries)=>{
 						if (entries.length<=0) return

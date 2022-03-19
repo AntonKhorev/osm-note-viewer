@@ -93,10 +93,16 @@ export default class NoteTable {
 		}
 		this.commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table))
 	}
-	addNotes(notes: Note[], users: Users): void {
+	/**
+	 * @returns number of added notes that passed through the filter
+	 */
+	addNotes(notes: Note[], users: Users): number {
+		let nUnfilteredNotes=0
 		const uidMatcher=this.makeUidMatcher(users)
 		for (const note of notes) {
-			const $noteSection=this.writeNote(note,this.filter.matchNote(note,uidMatcher))
+			const isVisible=this.filter.matchNote(note,uidMatcher)
+			if (isVisible) nUnfilteredNotes++
+			const $noteSection=this.writeNote(note,isVisible)
 			let $row=$noteSection.insertRow()
 			const nComments=note.comments.length
 			{
@@ -174,6 +180,7 @@ export default class NoteTable {
 			}
 		}
 		this.map.fitNotesIfNeeded()
+		return nUnfilteredNotes
 	}
 	private makeUidMatcher(users: Users) {
 		return (uid:number,username:string)=>users[uid]==username
