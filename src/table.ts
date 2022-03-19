@@ -70,10 +70,21 @@ export default class NoteTable {
 		for (const $tableSection of this.$table.querySelectorAll('tbody')) {
 			const noteId=Number($tableSection.dataset.noteId)
 			const note=noteById.get(noteId)
+			const layerId=Number($tableSection.dataset.layerId)
 			if (note==null) continue
 			if (this.filter.matchNote(note,uidMatcher)) {
+				const marker=this.map.filteredNoteLayer.getLayer(layerId)
+				if (marker) {
+					this.map.filteredNoteLayer.removeLayer(marker)
+					this.map.noteLayer.addLayer(marker)
+				}
 				$tableSection.classList.remove('hidden')
 			} else {
+				const marker=this.map.noteLayer.getLayer(layerId)
+				if (marker) {
+					this.map.noteLayer.removeLayer(marker)
+					this.map.filteredNoteLayer.addLayer(marker)
+				}
 				$tableSection.classList.add('hidden')
 			}
 		}
@@ -83,10 +94,7 @@ export default class NoteTable {
 	addNotes(notes: Note[], users: Users): void {
 		const uidMatcher=()=>true // TODO by looking at users
 		for (const note of notes) {
-			const $tableSection=this.writeNote(note)
-			if (!this.filter.matchNote(note,uidMatcher)) {
-				$tableSection.classList.add('hidden')
-			}
+			const $tableSection=this.writeNote(note,this.filter.matchNote(note,uidMatcher))
 			let $row=$tableSection.insertRow()
 			const nComments=note.comments.length
 			{
@@ -164,11 +172,14 @@ export default class NoteTable {
 			}
 		}
 	}
-	private writeNote(note: Note): HTMLTableSectionElement {
-		const marker=this.map.addNote(note)
+	private writeNote(note: Note, isVisible: boolean): HTMLTableSectionElement {
+		const marker=new NoteMarker(note)
+		const parentLayer=(isVisible ? this.map.noteLayer : this.map.filteredNoteLayer)
+		marker.addTo(parentLayer)
 		marker.on('click',this.wrappedNoteMarkerClickListener)
 		const layerId=this.map.noteLayer.getLayerId(marker)
 		const $tableSection=this.$table.createTBody()
+		if (!isVisible) $tableSection.classList.add('hidden')
 		$tableSection.id=`note-${note.id}`
 		$tableSection.classList.add(getStatusClass(note.status))
 		$tableSection.dataset.layerId=String(layerId)

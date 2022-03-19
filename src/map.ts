@@ -46,6 +46,7 @@ export class NoteMarker extends L.Marker {
 
 export class NoteMap extends L.Map {
 	noteLayer: L.FeatureGroup
+	filteredNoteLayer: L.FeatureGroup
 	trackLayer: L.FeatureGroup
 	constructor($container: HTMLElement) {
 		super($container)
@@ -57,10 +58,12 @@ export class NoteMap extends L.Map {
 			}
 		)).fitWorld()
 		this.noteLayer=L.featureGroup().addTo(this)
+		this.filteredNoteLayer=L.featureGroup()
 		this.trackLayer=L.featureGroup().addTo(this)
 		const crosshairLayer=new CrosshairLayer().addTo(this)
 		const layersControl=L.control.layers()
 		layersControl.addOverlay(this.noteLayer,`Notes`)
+		layersControl.addOverlay(this.filteredNoteLayer,`Filtered notes`)
 		layersControl.addOverlay(this.trackLayer,`Track between notes`)
 		layersControl.addOverlay(crosshairLayer,`Crosshair`)
 		layersControl.addTo(this)
@@ -71,9 +74,6 @@ export class NoteMap extends L.Map {
 	}
 	fitNotes(): void {
 		this.fitBounds(this.noteLayer.getBounds())
-	}
-	addNote(note: Note): NoteMarker {
-		return new NoteMarker(note).addTo(this.noteLayer)
 	}
 	showNoteTrack(layerIds: number[]): void {
 		const polylineOptions: L.PolylineOptions = {
