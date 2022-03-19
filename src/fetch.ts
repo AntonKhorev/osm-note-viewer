@@ -22,6 +22,7 @@ export async function startFetcher(
 	mergeNotesAndUsers(initialNotes,initialUsers)
 	saveToQueryStorage(query,notes,users)
 	map.clearNotes()
+	// TODO unsubscribe table from filter UI
 	$notesContainer.innerHTML=``
 	$commandContainer.innerHTML=``
 	const commandPanel=new CommandPanel($commandContainer,map,storage)
