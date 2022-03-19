@@ -67,10 +67,10 @@ export default class NoteTable {
 			noteById.set(note.id,note)
 		}
 		const uidMatcher=()=>true // TODO by looking at users
-		for (const $tableSection of this.$table.querySelectorAll('tbody')) {
-			const noteId=Number($tableSection.dataset.noteId)
+		for (const $noteSection of this.$table.querySelectorAll('tbody')) {
+			const noteId=Number($noteSection.dataset.noteId)
 			const note=noteById.get(noteId)
-			const layerId=Number($tableSection.dataset.layerId)
+			const layerId=Number($noteSection.dataset.layerId)
 			if (note==null) continue
 			if (this.filter.matchNote(note,uidMatcher)) {
 				const marker=this.map.filteredNoteLayer.getLayer(layerId)
@@ -78,24 +78,25 @@ export default class NoteTable {
 					this.map.filteredNoteLayer.removeLayer(marker)
 					this.map.noteLayer.addLayer(marker)
 				}
-				$tableSection.classList.remove('hidden')
+				$noteSection.classList.remove('hidden')
 			} else {
 				const marker=this.map.noteLayer.getLayer(layerId)
 				if (marker) {
 					this.map.noteLayer.removeLayer(marker)
 					this.map.filteredNoteLayer.addLayer(marker)
 				}
-				$tableSection.classList.add('hidden')
+				$noteSection.classList.add('hidden')
+				const $checkbox=$noteSection.querySelector('.note-checkbox input')
+				if ($checkbox instanceof HTMLInputElement) $checkbox.checked=false
 			}
 		}
-
-		//$tableSection.dataset.noteId=String(note.id)
+		this.commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table))
 	}
 	addNotes(notes: Note[], users: Users): void {
 		const uidMatcher=()=>true // TODO by looking at users
 		for (const note of notes) {
-			const $tableSection=this.writeNote(note,this.filter.matchNote(note,uidMatcher))
-			let $row=$tableSection.insertRow()
+			const $noteSection=this.writeNote(note,this.filter.matchNote(note,uidMatcher))
+			let $row=$noteSection.insertRow()
 			const nComments=note.comments.length
 			{
 				const $cell=$row.insertCell()
@@ -119,7 +120,7 @@ export default class NoteTable {
 			for (const comment of note.comments) {
 				{
 					if (iComment>0) {
-						$row=$tableSection.insertRow()
+						$row=$noteSection.insertRow()
 					}
 				}{
 					const $cell=$row.insertCell()
@@ -178,18 +179,18 @@ export default class NoteTable {
 		marker.addTo(parentLayer)
 		marker.on('click',this.wrappedNoteMarkerClickListener)
 		const layerId=this.map.noteLayer.getLayerId(marker)
-		const $tableSection=this.$table.createTBody()
-		if (!isVisible) $tableSection.classList.add('hidden')
-		$tableSection.id=`note-${note.id}`
-		$tableSection.classList.add(getStatusClass(note.status))
-		$tableSection.dataset.layerId=String(layerId)
-		$tableSection.dataset.noteId=String(note.id)
-		$tableSection.addEventListener('mouseover',this.wrappedNoteSectionMouseoverListener)
-		$tableSection.addEventListener('mouseout',this.wrappedNoteSectionMouseoutListener)
-		$tableSection.addEventListener('click',this.wrappedNoteSectionClickListener)
+		const $noteSection=this.$table.createTBody()
+		if (!isVisible) $noteSection.classList.add('hidden')
+		$noteSection.id=`note-${note.id}`
+		$noteSection.classList.add(getStatusClass(note.status))
+		$noteSection.dataset.layerId=String(layerId)
+		$noteSection.dataset.noteId=String(note.id)
+		$noteSection.addEventListener('mouseover',this.wrappedNoteSectionMouseoverListener)
+		$noteSection.addEventListener('mouseout',this.wrappedNoteSectionMouseoutListener)
+		$noteSection.addEventListener('click',this.wrappedNoteSectionClickListener)
 		this.noteSectionLayerIdVisibility.set(layerId,false)
-		this.noteRowObserver.observe($tableSection)
-		return $tableSection
+		this.noteRowObserver.observe($noteSection)
+		return $noteSection
 	}
 	private noteMarkerClickListener(marker: NoteMarker): void {
 		this.commandPanel.disableTracking()
