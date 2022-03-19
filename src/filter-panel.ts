@@ -11,7 +11,9 @@ export default class NoteFilterPanel {
 			const $div=document.createElement('div')
 			$div.classList.add('major-input')
 			const $label=document.createElement('label')
-			$label.append(`Filter: `,$textarea)
+			const $code=document.createElement('code')
+			$code.textContent=`user = username`
+			$label.append(`Filter: (only single `,$code,` clause supported for now)`,$textarea)
 			$div.append($label)
 			$form.append($div)
 		}{
