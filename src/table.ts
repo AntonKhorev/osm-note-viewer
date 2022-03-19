@@ -66,7 +66,7 @@ export default class NoteTable {
 		for (const note of notes) {
 			noteById.set(note.id,note)
 		}
-		const uidMatcher=()=>true // TODO by looking at users
+		const uidMatcher=this.makeUidMatcher(users)
 		for (const $noteSection of this.$table.querySelectorAll('tbody')) {
 			const noteId=Number($noteSection.dataset.noteId)
 			const note=noteById.get(noteId)
@@ -94,7 +94,7 @@ export default class NoteTable {
 		this.commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table))
 	}
 	addNotes(notes: Note[], users: Users): void {
-		const uidMatcher=()=>true // TODO by looking at users
+		const uidMatcher=this.makeUidMatcher(users)
 		for (const note of notes) {
 			const $noteSection=this.writeNote(note,this.filter.matchNote(note,uidMatcher))
 			let $row=$noteSection.insertRow()
@@ -173,6 +173,9 @@ export default class NoteTable {
 				iComment++
 			}
 		}
+	}
+	private makeUidMatcher(users: Users) {
+		return (uid:number,username:string)=>users[uid]==username
 	}
 	private writeNote(note: Note, isVisible: boolean): HTMLTableSectionElement {
 		const marker=new NoteMarker(note)

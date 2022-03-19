@@ -1,13 +1,19 @@
 import {Note, NoteComment} from './data'
 
 export default class NoteFilter {
-	private odd: boolean // fake filter
+	private username?: string
 	constructor(query: string) {
-		// TODO
-		this.odd=!!query // fake filter
+		const match=query.match(/^\s*user\s*=\s*(.+?)\s*$/)
+		if (match) {
+			[,this.username]=match
+		}
 	}
 	matchNote(note: Note, uidMatcher: (uid: number, matchUser: string) => boolean): boolean {
-		if (this.odd) return !!(note.id%2) // fake filter
-		return true
+		if (this.username==null) return true
+		for (const comment of note.comments) {
+			if (comment.uid==null) continue
+			if (uidMatcher(comment.uid,this.username)) return true
+		}
+		return false
 	}
 }
