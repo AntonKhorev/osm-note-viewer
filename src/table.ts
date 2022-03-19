@@ -60,12 +60,33 @@ export default class NoteTable {
 		}
 		commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table))
 	}
-	updateFilter(filter: NoteFilter): void {
+	updateFilter(notes: Note[], users: Users, filter: NoteFilter): void {
 		this.filter=filter
+		const noteById=new Map<number,Note>()
+		for (const note of notes) {
+			noteById.set(note.id,note)
+		}
+		const uidMatcher=()=>true // TODO by looking at users
+		for (const $tableSection of this.$table.querySelectorAll('tbody')) {
+			const noteId=Number($tableSection.dataset.noteId)
+			const note=noteById.get(noteId)
+			if (note==null) continue
+			if (this.filter.matchNote(note,uidMatcher)) {
+				$tableSection.classList.remove('hidden')
+			} else {
+				$tableSection.classList.add('hidden')
+			}
+		}
+
+		//$tableSection.dataset.noteId=String(note.id)
 	}
 	addNotes(notes: Note[], users: Users): void {
+		const uidMatcher=()=>true // TODO by looking at users
 		for (const note of notes) {
 			const $tableSection=this.writeNote(note)
+			if (!this.filter.matchNote(note,uidMatcher)) {
+				$tableSection.classList.add('hidden')
+			}
 			let $row=$tableSection.insertRow()
 			const nComments=note.comments.length
 			{

@@ -1,5 +1,6 @@
 import NoteViewerStorage from './storage'
 import {NoteMap} from './map'
+import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
 import {toUserQueryPart, NoteQuery, toNoteQueryStatus, toNoteQuerySort, toNoteQueryOrder} from './query'
 import {startFetcher} from './fetch'
@@ -9,7 +10,7 @@ export default class NoteFetchPanel {
 		storage: NoteViewerStorage,
 		$container: HTMLElement,
 		$notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
-		extrasPanel: ExtrasPanel, map: NoteMap
+		filterPanel: NoteFilterPanel, extrasPanel: ExtrasPanel, map: NoteMap
 	) {
 		const partialQuery: Partial<NoteQuery> = {}
 		try {
@@ -141,7 +142,7 @@ export default class NoteFetchPanel {
 			startFetcher(
 				storage,
 				$notesContainer,$moreContainer,$commandContainer,
-				map,
+				filterPanel,map,
 				$limitSelect,$autoLoadCheckbox,$fetchButton,
 				query,[],{}
 			)
@@ -164,7 +165,7 @@ export default class NoteFetchPanel {
 			startFetcher(
 				storage,
 				$notesContainer,$moreContainer,$commandContainer,
-				map,
+				filterPanel,map,
 				$limitSelect,$autoLoadCheckbox,$fetchButton,
 				query,notes,users
 			)

@@ -42,8 +42,8 @@ function main(): void {
 	const map=new NoteMap($mapSide)
 	writeFlipLayoutButton($fetchContainer,map)
 	const extrasPanel=new ExtrasPanel(storage,$extrasContainer)
-	new NoteFetchPanel(storage,$fetchContainer,$notesContainer,$moreContainer,$commandContainer,extrasPanel,map)
-	new NoteFilterPanel($filterContainer,()=>true)
+	const filterPanel=new NoteFilterPanel($filterContainer)
+	new NoteFetchPanel(storage,$fetchContainer,$notesContainer,$moreContainer,$commandContainer,filterPanel,extrasPanel,map)
 }
 
 function writeFlipLayoutButton($container: HTMLElement, map: NoteMap): void {

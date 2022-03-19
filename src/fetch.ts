@@ -1,10 +1,10 @@
 import NoteViewerStorage from './storage'
 import {Note, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesAndUsers} from './data'
 import {ValidUserQueryPart, NoteQuery, getNextFetchDetails} from './query'
+import NoteFilterPanel from './filter-panel'
 import {NoteMap} from './map'
 import CommandPanel from './command'
 import NoteTable from './table'
-import NoteFilter from './filter'
 import {makeUserLink} from './util'
 
 const maxSingleAutoLoadLimit=200
@@ -13,31 +13,34 @@ const maxTotalAutoLoadLimit=1000
 export async function startFetcher(
 	storage: NoteViewerStorage,
 	$notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
-	map: NoteMap,
+	filterPanel: NoteFilterPanel, map: NoteMap,
 	$limitSelect: HTMLSelectElement, $autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement,
 	query: NoteQuery, initialNotes: Note[], initialUsers: Users
 ) {
-	const noteFilter=new NoteFilter('',()=>true) // TODO get real filter
+	filterPanel.unsubscribe()
+	let noteTable: NoteTable | undefined
 	const [notes,users,mergeNotesAndUsers]=makeNotesAndUsersAndMerger()
 	mergeNotesAndUsers(initialNotes,initialUsers)
+	filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(notes,users,noteFilter))
 	saveToQueryStorage(query,notes,users)
 	map.clearNotes()
-	// TODO unsubscribe table from filter UI
 	$notesContainer.innerHTML=``
 	$commandContainer.innerHTML=``
 	const commandPanel=new CommandPanel($commandContainer,map,storage)
 	let lastNote: Note | undefined
 	let prevLastNote: Note | undefined
 	let lastLimit: number | undefined
-	let noteTable: NoteTable | undefined
 	if (notes.length>0) {
-		noteTable=new NoteTable($notesContainer,commandPanel,map,noteFilter)
-		noteTable.addNotes(notes,users)
-		map.fitNotes()
+		createNoteTable(notes)
 		lastNote=notes[notes.length-1]
 		rewriteLoadMoreButton()
 	} else {
 		await fetchCycle()
+	}
+	function createNoteTable(notes: Note[]) {
+		noteTable=new NoteTable($notesContainer,commandPanel,map,filterPanel.noteFilter)
+		noteTable.addNotes(notes,users)
+		map.fitNotes()
 	}
 	async function fetchCycle() {
 		rewriteLoadingButton()
@@ -68,9 +71,7 @@ export async function startFetcher(
 					return
 				}
 				if (!noteTable) {
-					noteTable=new NoteTable($notesContainer,commandPanel,map,noteFilter)
-					noteTable.addNotes(unseenNotes,users)
-					map.fitNotes()
+					createNoteTable(unseenNotes)
 				} else {
 					noteTable.addNotes(unseenNotes,users)
 				}

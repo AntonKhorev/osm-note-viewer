@@ -113,6 +113,9 @@ body.flipped .panel.fetch button.flip {
 .notes tbody {
 	box-shadow: -2px 0px 0px 0px red, 2px 0px 0px 0px red;
 }
+.notes tbody.hidden {
+	display: none;
+}
 .notes tbody.closed {
 	box-shadow: -2px 0px 0px 0px green, 2px 0px 0px 0px green;
 }
