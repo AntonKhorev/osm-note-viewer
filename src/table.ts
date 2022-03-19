@@ -80,6 +80,7 @@ export default class NoteTable {
 				}
 				$noteSection.classList.remove('hidden')
 			} else {
+				this.deactivateNote($noteSection)
 				const marker=this.map.noteLayer.getLayer(layerId)
 				if (marker) {
 					this.map.noteLayer.removeLayer(marker)
