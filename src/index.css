@@ -208,7 +208,7 @@ body.flipped .notes td.note-user {
 	pointer-events: none;
 }
 #map .crosshair-overlay .crosshair {
-	height: 11px;
-	width: 11px;
-	border: solid 1px black;
+	height: 15px;
+	width: 15px;
+	background: url("crosshair.svg");
 }
