@@ -94,6 +94,7 @@ export async function startFetcher(
 					$moreButton.append(` (no auto download because required batch is larger than ${maxSingleAutoLoadLimit})`)
 				} else if (nFullyFilteredFetches>maxFullyFilteredFetches) {
 					$moreButton.append(` (no auto download because ${maxFullyFilteredFetches} consecutive fetches were fully filtered)`)
+					nFullyFilteredFetches=0
 				} else {
 					const moreButtonIntersectionObserver=new IntersectionObserver((entries)=>{
 						if (entries.length<=0) return
