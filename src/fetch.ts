@@ -40,7 +40,6 @@ export async function startFetcher(
 	function createNoteTable(notes: Note[]) {
 		noteTable=new NoteTable($notesContainer,commandPanel,map,filterPanel.noteFilter)
 		noteTable.addNotes(notes,users)
-		map.fitNotes()
 	}
 	async function fetchCycle() {
 		rewriteLoadingButton()

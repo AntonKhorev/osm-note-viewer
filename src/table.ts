@@ -173,6 +173,7 @@ export default class NoteTable {
 				iComment++
 			}
 		}
+		this.map.fitNotesIfNeeded()
 	}
 	private makeUidMatcher(users: Users) {
 		return (uid:number,username:string)=>users[uid]==username

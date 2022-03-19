@@ -48,6 +48,7 @@ export class NoteMap extends L.Map {
 	noteLayer: L.FeatureGroup
 	filteredNoteLayer: L.FeatureGroup
 	trackLayer: L.FeatureGroup
+	needToFitNotes: boolean = false
 	constructor($container: HTMLElement) {
 		super($container)
 		this.addLayer(L.tileLayer(
@@ -70,10 +71,16 @@ export class NoteMap extends L.Map {
 	}
 	clearNotes(): void {
 		this.noteLayer.clearLayers()
+		this.filteredNoteLayer.clearLayers()
 		this.trackLayer.clearLayers()
+		this.needToFitNotes=true
 	}
-	fitNotes(): void {
-		this.fitBounds(this.noteLayer.getBounds())
+	fitNotesIfNeeded(): void {
+		if (!this.needToFitNotes) return
+		const bounds=this.noteLayer.getBounds()
+		if (!bounds.isValid()) return
+		this.fitBounds(bounds)
+		this.needToFitNotes=false
 	}
 	showNoteTrack(layerIds: number[]): void {
 		const polylineOptions: L.PolylineOptions = {
