@@ -66,6 +66,7 @@ body.flipped .panel.fetch button.flip {
 .panel.command div,
 .panel.command details {
 	margin: 0;
+	line-height: 1.4em;
 }
 .panel.command details summary {
 	display: inline;
@@ -75,6 +76,7 @@ body.flipped .panel.fetch button.flip {
 	display: inline-block;
 	width: 1em;
 	height: 1em;
+	line-height: 1em;
 	text-align: center;
 }
 .panel.command details summary:hover::before {
@@ -194,4 +196,19 @@ body.flipped .notes td.note-user {
 
 #map .note-track {
 	vector-effect: non-scaling-stroke;
+}
+#map .crosshair-overlay {
+	position: absolute;
+	z-index: 500;
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+}
+#map .crosshair-overlay .crosshair {
+	height: 15px;
+	width: 15px;
+	background: url("crosshair.svg");
 }

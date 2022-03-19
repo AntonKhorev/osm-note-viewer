@@ -279,6 +279,8 @@ function makeLink(text, href, title) {
 class CommandPanel {
     constructor($container, map, storage) {
         this.checkedNoteIds = [];
+        const centerChar = '⌖';
+        const areaChar = '▭';
         {
             const $div = document.createElement('div');
             const $label = document.createElement('label');
@@ -312,50 +314,19 @@ class CommandPanel {
             $commentTimeInputLabel.title = `In whatever format Overpass understands. No standard datetime input for now because they're being difficult with UTC and 24-hour format.`;
             this.$commentTimeInput = $commentTimeInput;
             $commentTimeSelect.addEventListener('input', () => this.pickCommentTime());
-            $commandGroup.append($commentTimeSelectLabel, ` — `, $commentTimeInputLabel);
-        }
-        {
-            const $commandGroup = makeCommandGroup('rc', `RC`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl', `JOSM (or another editor) Remote Control`);
-            const $loadNotesButton = document.createElement('button');
-            $loadNotesButton.disabled = true;
-            $loadNotesButton.textContent = `Load selected notes`;
-            $loadNotesButton.addEventListener('click', async () => {
-                for (const noteId of this.checkedNoteIds) {
-                    const noteUrl = `https://www.openstreetmap.org/note/` + encodeURIComponent(noteId);
-                    const rcUrl = `http://127.0.0.1:8111/import?url=` + encodeURIComponent(noteUrl);
-                    const success = await openRcUrl($loadNotesButton, rcUrl);
-                    if (!success)
-                        break;
-                }
+            const $clearButton = document.createElement('button');
+            $clearButton.textContent = 'Clear';
+            $clearButton.addEventListener('click', () => {
+                $commentTimeInput.value = '';
             });
-            const $loadMapButton = document.createElement('button');
-            $loadMapButton.textContent = `Load map area`;
-            $loadMapButton.addEventListener('click', () => {
-                const bounds = map.getBounds();
-                const rcUrl = `http://127.0.0.1:8111/load_and_zoom` +
-                    `?left=` + encodeURIComponent(bounds.getWest()) +
-                    `&right=` + encodeURIComponent(bounds.getEast()) +
-                    `&top=` + encodeURIComponent(bounds.getNorth()) +
-                    `&bottom=` + encodeURIComponent(bounds.getSouth());
-                openRcUrl($loadMapButton, rcUrl);
-            });
-            $commandGroup.append($loadNotesButton, ` `, $loadMapButton);
-            this.$loadNotesButton = $loadNotesButton;
+            $commandGroup.append($commentTimeSelectLabel, ` — `, $commentTimeInputLabel, ` `, $clearButton);
         }
         {
             const $commandGroup = makeCommandGroup('overpass-turbo', `Overpass turbo`, 'https://wiki.openstreetmap.org/wiki/Overpass_turbo');
             const $overpassButtons = [];
             const buttonClickListener = (withRelations, onlyAround) => {
-                const time = this.$commentTimeInput.value;
-                if (!time)
-                    return;
                 const center = map.getCenter();
-                const bounds = map.getBounds();
-                let query = '';
-                query += `[date:"${time}"]\n`;
-                query += `[bbox:${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}]\n`;
-                // query+=`[bbox:${bounds.toBBoxString()}];\n` // nope, different format
-                query += `;\n`;
+                let query = this.getOverpassQueryPreamble(map);
                 if (withRelations) {
                     query += `nwr`;
                 }
@@ -374,41 +345,89 @@ class CommandPanel {
             };
             {
                 const $button = document.createElement('button');
-                $button.disabled = true;
-                $button.textContent = `map area without relations`;
+                $button.textContent = `Load ${areaChar} without relations`;
                 $button.addEventListener('click', () => buttonClickListener(false, false));
                 $overpassButtons.push($button);
             }
             {
                 const $button = document.createElement('button');
-                $button.disabled = true;
-                $button.textContent = `map area with relations`;
+                $button.textContent = `Load ${areaChar} with relations`;
                 $button.title = `May fetch large unwanted relations like routes.`;
                 $button.addEventListener('click', () => buttonClickListener(true, false));
                 $overpassButtons.push($button);
             }
             {
                 const $button = document.createElement('button');
-                $button.disabled = true;
-                $button.textContent = `around map center`;
+                $button.textContent = `Load around ${centerChar}`;
                 $button.addEventListener('click', () => buttonClickListener(false, true));
                 $overpassButtons.push($button);
             }
-            $commandGroup.append(`load:`);
             for (const $button of $overpassButtons) {
                 $commandGroup.append(` `, $button);
             }
-            this.$commentTimeInput.addEventListener('input', () => {
-                const disableButtons = this.$commentTimeInput.value == '';
-                for (const $button of $overpassButtons) {
-                    $button.disabled = disableButtons;
+        }
+        {
+            const $commandGroup = makeCommandGroup('overpass', `Overpass`, 'https://wiki.openstreetmap.org/wiki/Overpass_API');
+            const $button = document.createElement('button');
+            $button.textContent = `Find closest node to ${centerChar}`;
+            $button.addEventListener('click', async () => {
+                $button.disabled = true;
+                try {
+                    const radius = 10;
+                    const center = map.getCenter();
+                    let query = this.getOverpassQueryPreamble(map);
+                    query += `node(around:${radius},${center.lat},${center.lng});\n`;
+                    query += `out skel;`;
+                    const doc = await makeOverpassQuery($button, query);
+                    if (!doc)
+                        return;
+                    const closestNodeId = getClosestNodeId(doc, center.lat, center.lng);
+                    if (!closestNodeId) {
+                        $button.classList.add('error');
+                        $button.title = `Could not find nodes nearby`;
+                        return;
+                    }
+                    const url = `https://www.openstreetmap.org/node/` + encodeURIComponent(closestNodeId);
+                    open(url);
+                }
+                finally {
+                    $button.disabled = false;
                 }
             });
+            $commandGroup.append($button);
+        }
+        {
+            const $commandGroup = makeCommandGroup('rc', `RC`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl', `JOSM (or another editor) Remote Control`);
+            const $loadNotesButton = document.createElement('button');
+            $loadNotesButton.disabled = true;
+            $loadNotesButton.textContent = `Load selected notes`;
+            $loadNotesButton.addEventListener('click', async () => {
+                for (const noteId of this.checkedNoteIds) {
+                    const noteUrl = `https://www.openstreetmap.org/note/` + encodeURIComponent(noteId);
+                    const rcUrl = `http://127.0.0.1:8111/import?url=` + encodeURIComponent(noteUrl);
+                    const success = await openRcUrl($loadNotesButton, rcUrl);
+                    if (!success)
+                        break;
+                }
+            });
+            const $loadMapButton = document.createElement('button');
+            $loadMapButton.textContent = `Load ${areaChar}`;
+            $loadMapButton.addEventListener('click', () => {
+                const bounds = map.getBounds();
+                const rcUrl = `http://127.0.0.1:8111/load_and_zoom` +
+                    `?left=` + encodeURIComponent(bounds.getWest()) +
+                    `&right=` + encodeURIComponent(bounds.getEast()) +
+                    `&top=` + encodeURIComponent(bounds.getNorth()) +
+                    `&bottom=` + encodeURIComponent(bounds.getSouth());
+                openRcUrl($loadMapButton, rcUrl);
+            });
+            $commandGroup.append($loadNotesButton, ` `, $loadMapButton);
+            this.$loadNotesButton = $loadNotesButton;
         }
         {
             const $commandGroup = makeCommandGroup('yandex-panoramas', `Y.Panoramas`, 'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B', `Yandex.Panoramas (Яндекс.Панорамы)`);
             const $yandexPanoramasButton = document.createElement('button');
-            $yandexPanoramasButton.textContent = `Open map center`;
+            $yandexPanoramasButton.textContent = `Open ${centerChar}`;
             $yandexPanoramasButton.addEventListener('click', () => {
                 const center = map.getCenter();
                 const coords = center.lng + ',' + center.lat;
@@ -419,6 +438,10 @@ class CommandPanel {
                 open(url, 'yandex');
             });
             $commandGroup.append($yandexPanoramasButton);
+        }
+        {
+            const $commandGroup = makeCommandGroup('legend', `Legend`);
+            $commandGroup.append(`${centerChar} = map center, ${areaChar} = map area`);
         }
         function makeCommandGroup(name, title, linkHref, linkTitle) {
             const storageKey = 'commands-' + name;
@@ -464,7 +487,6 @@ class CommandPanel {
     pickCommentTime() {
         const setTime = (time) => {
             this.$commentTimeInput.value = time;
-            this.$commentTimeInput.dispatchEvent(new Event('input'));
         };
         if (this.$commentTimeSelect.value == 'text' && this.checkedCommentText != null) {
             const match = this.checkedCommentText.match(/\d\d\d\d-\d\d-\d\d[T ]\d\d:\d\d:\d\dZ/);
@@ -474,6 +496,17 @@ class CommandPanel {
             }
         }
         setTime(this.checkedCommentTime ?? '');
+    }
+    getOverpassQueryPreamble(map) {
+        const time = this.$commentTimeInput.value;
+        const bounds = map.getBounds();
+        let query = '';
+        if (time)
+            query += `[date:"${time}"]\n`;
+        query += `[bbox:${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}]\n`;
+        // query+=`[bbox:${bounds.toBBoxString()}];\n` // nope, different format
+        query += `;\n`;
+        return query;
     }
 }
 async function openRcUrl($button, rcUrl) {
@@ -495,6 +528,54 @@ async function openRcUrl($button, rcUrl) {
         $button.classList.remove('error');
         $button.title = '';
     }
+}
+async function makeOverpassQuery($button, query) {
+    try {
+        const response = await fetch(`https://www.overpass-api.de/api/interpreter`, {
+            method: 'POST',
+            body: new URLSearchParams({ data: query })
+        });
+        const text = await response.text();
+        if (!response.ok) {
+            setError(`receiving the following message: ${text}`);
+            return;
+        }
+        clearError();
+        return new DOMParser().parseFromString(text, 'text/xml');
+    }
+    catch (ex) {
+        if (ex instanceof TypeError) {
+            setError(`with the following error before receiving a response: ${ex.message}`);
+        }
+        else {
+            setError(`for unknown reason`);
+        }
+    }
+    function setError(reason) {
+        $button.classList.add('error');
+        $button.title = `Overpass query failed ${reason}`;
+    }
+    function clearError() {
+        $button.classList.remove('error');
+        $button.title = '';
+    }
+}
+function getClosestNodeId(doc, centerLat, centerLon) {
+    let closestNodeId;
+    let closestNodeDistanceSquared = Infinity;
+    for (const node of doc.querySelectorAll('node')) {
+        const lat = Number(node.getAttribute('lat'));
+        const lon = Number(node.getAttribute('lon'));
+        const id = node.getAttribute('id');
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) || !id)
+            continue;
+        const distanceSquared = (lat - centerLat) ** 2 + (lon - centerLon) ** 2;
+        if (distanceSquared < closestNodeDistanceSquared) {
+            closestNodeDistanceSquared = distanceSquared;
+            closestNodeId = id;
+        }
+    }
+    return closestNodeId;
 }
 
 function writeNotesTableHeaderAndGetNoteAdder($container, commandPanel, map) {
@@ -1029,6 +1110,12 @@ class NoteMap extends L.Map {
         })).fitWorld();
         this.noteLayer = L.featureGroup().addTo(this);
         this.trackLayer = L.featureGroup().addTo(this);
+        const crosshairLayer = new CrosshairLayer().addTo(this);
+        const layersControl = L.control.layers();
+        layersControl.addOverlay(this.noteLayer, `Notes`);
+        layersControl.addOverlay(this.trackLayer, `Track between notes`);
+        layersControl.addOverlay(crosshairLayer, `Crosshair`);
+        layersControl.addTo(this);
     }
     clearNotes() {
         this.noteLayer.clearLayers();
@@ -1066,6 +1153,24 @@ class NoteMap extends L.Map {
     }
     fitNoteTrack() {
         this.fitBounds(this.trackLayer.getBounds());
+    }
+}
+class CrosshairLayer extends L.Layer {
+    onAdd(map) {
+        // https://stackoverflow.com/questions/49184531/leafletjs-how-to-make-layer-not-movable
+        this.$overlay?.remove();
+        this.$overlay = document.createElement('div');
+        this.$overlay.classList.add('crosshair-overlay');
+        const $crosshair = document.createElement('div');
+        $crosshair.classList.add('crosshair');
+        this.$overlay.append($crosshair);
+        map.getContainer().append(this.$overlay);
+        return this;
+    }
+    onRemove(map) {
+        this.$overlay?.remove();
+        this.$overlay = undefined;
+        return this;
     }
 }
 function* noteCommentsToStates(comments) {
