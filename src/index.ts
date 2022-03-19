@@ -26,6 +26,8 @@ function main(): void {
 
 	const $fetchContainer=document.createElement('div')
 	$fetchContainer.classList.add('panel','fetch')
+	const $filterContainer=document.createElement('div')
+	$filterContainer.classList.add('panel','fetch')
 	const $extrasContainer=document.createElement('div')
 	$extrasContainer.classList.add('panel')
 	const $notesContainer=document.createElement('div')
@@ -35,12 +37,13 @@ function main(): void {
 	const $commandContainer=document.createElement('div')
 	$commandContainer.classList.add('panel','command')
 	
-	$scrollingPart.append($fetchContainer,$extrasContainer,$notesContainer,$moreContainer)
+	$scrollingPart.append($fetchContainer,$filterContainer,$extrasContainer,$notesContainer,$moreContainer)
 	$stickyPart.append($commandContainer)
 
 	const map=new NoteMap($mapSide)
 	writeFlipLayoutButton($fetchContainer,map)
 	const $formInputs=writeFetchForm($fetchContainer,$extrasContainer,$notesContainer,$moreContainer,$commandContainer,map)
+	writeFilterForm($filterContainer)
 	writeStoredQueryResults($extrasContainer,$notesContainer,$moreContainer,$commandContainer,map,...$formInputs)
 }
 
@@ -201,6 +204,28 @@ function writeFetchForm(
 	})
 	$container.append($form)
 	return [$limitSelect,$autoLoadCheckbox,$fetchButton]
+}
+
+function writeFilterForm($container: HTMLElement): void {
+	const $form=document.createElement('form')
+	{
+		const $div=document.createElement('div')
+		$div.classList.add('major-input')
+		const $textarea=document.createElement('textarea')
+		const $label=document.createElement('label')
+		$label.append(`Filter: `,$textarea)
+		$div.append($label)
+		$form.append($div)
+	}{
+		const $div=document.createElement('div')
+		$div.classList.add('major-input')
+		const $button=document.createElement('button')
+		$button.textContent=`Apply filter`
+		$button.type='submit'
+		$div.append($button)
+		$form.append($div)
+	}
+	$container.append($form)
 }
 
 function writeStoredQueryResults(

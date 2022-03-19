@@ -89,6 +89,7 @@ body.flipped .panel.fetch button.flip {
 	content: ': ';
 }
 .panel .major-input input[type=text],
+.panel .major-input textarea,
 .panel .major-input button {
 	display: block;
 	box-sizing: border-box;
