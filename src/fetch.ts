@@ -3,7 +3,8 @@ import {Note, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesA
 import {ValidUserQueryPart, NoteQuery, getNextFetchDetails} from './query'
 import {NoteMap} from './map'
 import CommandPanel from './command'
-import writeNotesTableHeaderAndGetNoteAdder from './table'
+import NoteTable from './table'
+import NoteFilter from './filter'
 import {makeUserLink} from './util'
 
 const maxSingleAutoLoadLimit=200
@@ -16,6 +17,7 @@ export async function startFetcher(
 	$limitSelect: HTMLSelectElement, $autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement,
 	query: NoteQuery, initialNotes: Note[], initialUsers: Users
 ) {
+	const noteFilter=new NoteFilter('',()=>true) // TODO get real filter
 	const [notes,users,mergeNotesAndUsers]=makeNotesAndUsersAndMerger()
 	mergeNotesAndUsers(initialNotes,initialUsers)
 	saveToQueryStorage(query,notes,users)
@@ -26,10 +28,10 @@ export async function startFetcher(
 	let lastNote: Note | undefined
 	let prevLastNote: Note | undefined
 	let lastLimit: number | undefined
-	let addNotesToTable: ((notes: Note[], users: Users) => void) | undefined
+	let noteTable: NoteTable | undefined
 	if (notes.length>0) {
-		addNotesToTable=writeNotesTableHeaderAndGetNoteAdder($notesContainer,commandPanel,map)
-		addNotesToTable(notes,users)
+		noteTable=new NoteTable($notesContainer,commandPanel,map,noteFilter)
+		noteTable.addNotes(notes,users)
 		map.fitNotes()
 		lastNote=notes[notes.length-1]
 		rewriteLoadMoreButton()
@@ -60,16 +62,16 @@ export async function startFetcher(
 				}
 				const unseenNotes=mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data))
 				saveToQueryStorage(query,notes,users)
-				if (!addNotesToTable && notes.length<=0) {
+				if (!noteTable && notes.length<=0) {
 					rewriteMessage($moreContainer,`User `,[query],` has no ${query.status=='open'?'open ':''}notes`)
 					return
 				}
-				if (!addNotesToTable) {
-					addNotesToTable=writeNotesTableHeaderAndGetNoteAdder($notesContainer,commandPanel,map)
-					addNotesToTable(unseenNotes,users)
+				if (!noteTable) {
+					noteTable=new NoteTable($notesContainer,commandPanel,map,noteFilter)
+					noteTable.addNotes(unseenNotes,users)
 					map.fitNotes()
 				} else {
-					addNotesToTable(unseenNotes,users)
+					noteTable.addNotes(unseenNotes,users)
 				}
 				if (data.features.length<fetchDetails.limit) {
 					rewriteMessage($moreContainer,`Got all ${notes.length} notes`)

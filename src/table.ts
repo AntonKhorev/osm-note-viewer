@@ -1,151 +1,71 @@
 import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
 import CommandPanel from './command'
+import NoteFilter from './filter'
 import {makeUserLink} from './util'
 
-export default function writeNotesTableHeaderAndGetNoteAdder(
-	$container: HTMLElement, commandPanel: CommandPanel, map: NoteMap
-): (notes: Note[], users: Users) => void {
-	const noteSectionLayerIdVisibility=new Map<number,boolean>()
-	let noteSectionVisibilityTimeoutId: number | undefined
-	const noteRowObserver=new IntersectionObserver((entries)=>{
-		for (const entry of entries) {
-			if (!(entry.target instanceof HTMLElement)) continue
-			const layerId=entry.target.dataset.layerId
-			if (layerId==null) continue
-			noteSectionLayerIdVisibility.set(Number(layerId),entry.isIntersecting)
+export default class NoteTable {
+	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
+	private wrappedNoteSectionMouseoverListener: (this: HTMLElement) => void
+	private wrappedNoteSectionMouseoutListener: (this: HTMLElement) => void 
+	private wrappedNoteSectionClickListener: (this: HTMLElement) => void
+	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
+	private wrappedCommentRadioClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
+	private noteRowObserver: IntersectionObserver
+	private $table: HTMLTableElement
+	private currentLayerId: number | undefined
+	private noteSectionLayerIdVisibility=new Map<number,boolean>()
+	private $lastClickedNoteSection: HTMLTableSectionElement | undefined
+	constructor($container: HTMLElement, private commandPanel: CommandPanel, private map: NoteMap, private filter: NoteFilter) {
+		const that=this
+		this.wrappedNoteMarkerClickListener=function(){
+			that.noteMarkerClickListener(this)
 		}
-		clearTimeout(noteSectionVisibilityTimeoutId)
-		noteSectionVisibilityTimeoutId=setTimeout(noteSectionVisibilityHandler)
-	})
-	let currentLayerId: number | undefined
-	let $lastClickedNoteSection: HTMLTableSectionElement | undefined
-	const $table=document.createElement('table')
-	$container.append($table)
-	{
-		const $header=$table.createTHead()
-		const $row=$header.insertRow()
-		$row.append(
-			makeHeaderCell(''),
-			makeHeaderCell('id'),
-			makeHeaderCell('date'),
-			makeHeaderCell('user'),
-			makeHeaderCell('?',`Action performed along with adding the comment. Also a radio button. Click to select comment for Overpass turbo commands.`),
-			makeHeaderCell('comment')
-		)
-	}
-	function makeHeaderCell(text: string, title?: string): HTMLTableCellElement {
-		const $cell=document.createElement('th')
-		$cell.textContent=text
-		if (title) $cell.title=title
-		return $cell
-	}
-	function writeNote(note: Note): HTMLTableSectionElement {
-		const marker=map.addNote(note)
-		marker.on('click',noteMarkerClickListener)
-		const layerId=map.noteLayer.getLayerId(marker)
-		const $tableSection=$table.createTBody()
-		$tableSection.id=`note-${note.id}`
-		$tableSection.classList.add(getStatusClass(note.status))
-		$tableSection.dataset.layerId=String(layerId)
-		$tableSection.dataset.noteId=String(note.id)
-		$tableSection.addEventListener('mouseover',noteSectionMouseoverListener)
-		$tableSection.addEventListener('mouseout',noteSectionMouseoutListener)
-		$tableSection.addEventListener('click',noteSectionClickListener)
-		noteSectionLayerIdVisibility.set(layerId,false)
-		noteRowObserver.observe($tableSection)
-		return $tableSection
-	}
-	function deactivateAllNotes(): void {
-		for (const $noteRows of $table.querySelectorAll<HTMLElement>('tbody.active')) {
-			deactivateNote($noteRows)
+		this.wrappedNoteSectionMouseoverListener=function(){
+			that.deactivateAllNotes()
+			that.activateNote(this)
 		}
-	}
-	function deactivateNote($noteSection: HTMLElement): void {
-		currentLayerId=undefined
-		$noteSection.classList.remove('active')
-		const layerId=Number($noteSection.dataset.layerId)
-		const marker=map.noteLayer.getLayer(layerId)
-		if (!(marker instanceof L.Marker)) return
-		marker.setZIndexOffset(0)
-		marker.setOpacity(0.5)
-	}
-	function activateNote($noteSection: HTMLElement): void {
-		const layerId=Number($noteSection.dataset.layerId)
-		const marker=map.noteLayer.getLayer(layerId)
-		if (!(marker instanceof L.Marker)) return
-		marker.setOpacity(1)
-		marker.setZIndexOffset(1000)
-		$noteSection.classList.add('active')
-	}
-	function focusMapOnNote($noteSection: HTMLElement): void {
-		const layerId=Number($noteSection.dataset.layerId)
-		const marker=map.noteLayer.getLayer(layerId)
-		if (!(marker instanceof L.Marker)) return
-		if (layerId==currentLayerId) {
-			const z1=map.getZoom()
-			const z2=map.getMaxZoom()
-			const nextZoom=Math.min(z2,z1+Math.ceil((z2-z1)/2))
-			map.flyTo(marker.getLatLng(),nextZoom)
-		} else {
-			currentLayerId=layerId
-			map.panTo(marker.getLatLng())
+		this.wrappedNoteSectionMouseoutListener=function(){
+			that.deactivateNote(this)
 		}
-	}
-	function noteMarkerClickListener(this: NoteMarker): void {
-		commandPanel.disableTracking()
-		deactivateAllNotes()
-		const $noteRows=document.getElementById(`note-`+this.noteId)
-		if (!$noteRows) return
-		$noteRows.scrollIntoView({block:'nearest'})
-		activateNote($noteRows)
-		focusMapOnNote($noteRows)
-	}
-	function noteSectionMouseoverListener(this: HTMLElement): void {
-		deactivateAllNotes()
-		activateNote(this)
-	}
-	function noteSectionMouseoutListener(this: HTMLElement): void {
-		deactivateNote(this)
-	}
-	function noteSectionClickListener(this: HTMLElement): void {
-		focusMapOnNote(this)
-	}
-	function noteSectionVisibilityHandler(): void {
-		const visibleLayerIds:number[]=[]
-		for (const [layerId,visibility] of noteSectionLayerIdVisibility) {
-			if (visibility) visibleLayerIds.push(layerId)
+		this.wrappedNoteSectionClickListener=function(){
+			that.focusMapOnNote(this)
 		}
-		map.showNoteTrack(visibleLayerIds)
-		if (commandPanel.isTracking()) map.fitNoteTrack()
-	}
-	function noteCheckboxClickListener(this: HTMLInputElement, ev: MouseEvent): void { // need 'click' handler rather than 'change' to stop click propagation
-		ev.stopPropagation()
-		const $clickedNoteSection=this.closest('tbody')
-		if ($clickedNoteSection) {
-			if (ev.shiftKey && $lastClickedNoteSection) {
-				for (const $section of getTableSectionRange($table,$lastClickedNoteSection,$clickedNoteSection)) {
-					const $checkbox=$section.querySelector('.note-checkbox input')
-					if ($checkbox instanceof HTMLInputElement) $checkbox.checked=this.checked
-				}
-			}
-			$lastClickedNoteSection=$clickedNoteSection
+		this.wrappedNoteCheckboxClickListener=function(ev: MouseEvent){
+			that.noteCheckboxClickListener(this,ev)
 		}
-		commandPanel.receiveCheckedNoteIds(getCheckedNoteIds($table))
+		this.wrappedCommentRadioClickListener=function(ev: MouseEvent){
+			that.commentRadioClickListener(this,ev)
+		}
+		this.noteRowObserver=makeNoteSectionObserver(commandPanel,map,this.noteSectionLayerIdVisibility)
+		this.$table=document.createElement('table')
+		$container.append(this.$table)
+		{
+			const $header=this.$table.createTHead()
+			const $row=$header.insertRow()
+			$row.append(
+				makeHeaderCell(''),
+				makeHeaderCell('id'),
+				makeHeaderCell('date'),
+				makeHeaderCell('user'),
+				makeHeaderCell('?',`Action performed along with adding the comment. Also a radio button. Click to select comment for Overpass turbo commands.`),
+				makeHeaderCell('comment')
+			)
+		}
+		function makeHeaderCell(text: string, title?: string): HTMLTableCellElement {
+			const $cell=document.createElement('th')
+			$cell.textContent=text
+			if (title) $cell.title=title
+			return $cell
+		}
+		commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table))
 	}
-	function commentRadioClickListener(this: HTMLInputElement, ev: MouseEvent) {
-		ev.stopPropagation()
-		const $clickedRow=this.closest('tr')
-		if (!$clickedRow) return
-		const $time=$clickedRow.querySelector('time')
-		if (!$time) return
-		const $text=$clickedRow.querySelector('td.note-comment')
-		commandPanel.receiveCheckedComment($time.dateTime,$text?.textContent??undefined)
+	updateFilter(filter: NoteFilter): void {
+		this.filter=filter
 	}
-	commandPanel.receiveCheckedNoteIds(getCheckedNoteIds($table))
-	return (notes,users)=>{
+	addNotes(notes: Note[], users: Users): void {
 		for (const note of notes) {
-			const $tableSection=writeNote(note)
+			const $tableSection=this.writeNote(note)
 			let $row=$tableSection.insertRow()
 			const nComments=note.comments.length
 			{
@@ -155,7 +75,7 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 				const $checkbox=document.createElement('input')
 				$checkbox.type='checkbox'
 				$checkbox.title=`shift+click to check/uncheck a range`
-				$checkbox.addEventListener('click',noteCheckboxClickListener)
+				$checkbox.addEventListener('click',this.wrappedNoteCheckboxClickListener)
 				$cell.append($checkbox)
 			}
 			{
@@ -211,7 +131,7 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 					$radio.type='radio'
 					$radio.name='comment'
 					$radio.value=`${note.id}-${iComment}`
-					$radio.addEventListener('click',commentRadioClickListener)
+					$radio.addEventListener('click',this.wrappedCommentRadioClickListener)
 					$span.append($radio)
 					$cell.append($span)
 				}{
@@ -222,6 +142,115 @@ export default function writeNotesTableHeaderAndGetNoteAdder(
 				iComment++
 			}
 		}
+	}
+	private writeNote(note: Note): HTMLTableSectionElement {
+		const marker=this.map.addNote(note)
+		marker.on('click',this.wrappedNoteMarkerClickListener)
+		const layerId=this.map.noteLayer.getLayerId(marker)
+		const $tableSection=this.$table.createTBody()
+		$tableSection.id=`note-${note.id}`
+		$tableSection.classList.add(getStatusClass(note.status))
+		$tableSection.dataset.layerId=String(layerId)
+		$tableSection.dataset.noteId=String(note.id)
+		$tableSection.addEventListener('mouseover',this.wrappedNoteSectionMouseoverListener)
+		$tableSection.addEventListener('mouseout',this.wrappedNoteSectionMouseoutListener)
+		$tableSection.addEventListener('click',this.wrappedNoteSectionClickListener)
+		this.noteSectionLayerIdVisibility.set(layerId,false)
+		this.noteRowObserver.observe($tableSection)
+		return $tableSection
+	}
+	private noteMarkerClickListener(marker: NoteMarker): void {
+		this.commandPanel.disableTracking()
+		this.deactivateAllNotes()
+		const $noteRows=document.getElementById(`note-`+marker.noteId)
+		if (!$noteRows) return
+		$noteRows.scrollIntoView({block:'nearest'})
+		this.activateNote($noteRows)
+		this.focusMapOnNote($noteRows)
+	}
+	private noteCheckboxClickListener($checkbox: HTMLInputElement, ev: MouseEvent): void { // need 'click' handler rather than 'change' to stop click propagation
+		ev.stopPropagation()
+		const $clickedNoteSection=$checkbox.closest('tbody')
+		if ($clickedNoteSection) {
+			if (ev.shiftKey && this.$lastClickedNoteSection) {
+				for (const $section of getTableSectionRange(this.$table,this.$lastClickedNoteSection,$clickedNoteSection)) {
+					const $checkbox=$section.querySelector('.note-checkbox input')
+					if ($checkbox instanceof HTMLInputElement) $checkbox.checked=$checkbox.checked
+				}
+			}
+			this.$lastClickedNoteSection=$clickedNoteSection
+		}
+		this.commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table))
+	}
+	private commentRadioClickListener($radio: HTMLInputElement, ev: MouseEvent) {
+		ev.stopPropagation()
+		const $clickedRow=$radio.closest('tr')
+		if (!$clickedRow) return
+		const $time=$clickedRow.querySelector('time')
+		if (!$time) return
+		const $text=$clickedRow.querySelector('td.note-comment')
+		this.commandPanel.receiveCheckedComment($time.dateTime,$text?.textContent??undefined)
+	}
+	private deactivateAllNotes(): void {
+		for (const $noteRows of this.$table.querySelectorAll<HTMLElement>('tbody.active')) {
+			this.deactivateNote($noteRows)
+		}
+	}
+	private deactivateNote($noteSection: HTMLElement): void {
+		this.currentLayerId=undefined
+		$noteSection.classList.remove('active')
+		const layerId=Number($noteSection.dataset.layerId)
+		const marker=this.map.noteLayer.getLayer(layerId)
+		if (!(marker instanceof L.Marker)) return
+		marker.setZIndexOffset(0)
+		marker.setOpacity(0.5)
+	}
+	private activateNote($noteSection: HTMLElement): void {
+		const layerId=Number($noteSection.dataset.layerId)
+		const marker=this.map.noteLayer.getLayer(layerId)
+		if (!(marker instanceof L.Marker)) return
+		marker.setOpacity(1)
+		marker.setZIndexOffset(1000)
+		$noteSection.classList.add('active')
+	}
+	private focusMapOnNote($noteSection: HTMLElement): void {
+		const layerId=Number($noteSection.dataset.layerId)
+		const marker=this.map.noteLayer.getLayer(layerId)
+		if (!(marker instanceof L.Marker)) return
+		if (layerId==this.currentLayerId) {
+			const z1=this.map.getZoom()
+			const z2=this.map.getMaxZoom()
+			const nextZoom=Math.min(z2,z1+Math.ceil((z2-z1)/2))
+			this.map.flyTo(marker.getLatLng(),nextZoom)
+		} else {
+			this.currentLayerId=layerId
+			this.map.panTo(marker.getLatLng())
+		}
+	}
+}
+
+function makeNoteSectionObserver(
+	commandPanel: CommandPanel, map: NoteMap,
+	noteSectionLayerIdVisibility: Map<number,boolean>
+): IntersectionObserver {
+	let noteSectionVisibilityTimeoutId: number | undefined
+	return new IntersectionObserver((entries)=>{
+		for (const entry of entries) {
+			if (!(entry.target instanceof HTMLElement)) continue
+			const layerId=entry.target.dataset.layerId
+			if (layerId==null) continue
+			noteSectionLayerIdVisibility.set(Number(layerId),entry.isIntersecting)
+		}
+		clearTimeout(noteSectionVisibilityTimeoutId)
+		noteSectionVisibilityTimeoutId=setTimeout(noteSectionVisibilityHandler)
+	})
+	function noteSectionVisibilityHandler(): void {
+		const visibleLayerIds:number[]=[]
+		for (const [layerId,visibility] of noteSectionLayerIdVisibility) {
+			if (visibility) visibleLayerIds.push(layerId)
+		}
+		map.showNoteTrack(visibleLayerIds)
+		if (commandPanel.isTracking()) map.fitNoteTrack()
 	}
 }
 

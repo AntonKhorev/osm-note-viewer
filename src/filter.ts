@@ -1,6 +1,6 @@
 import {Note, NoteComment} from './data'
 
-export default class Filter {
+export default class NoteFilter {
 	private odd: boolean // fake filter
 	constructor(query: string, uidMatcher: (uid: number, matchUser: string) => boolean) {
 		// TODO
