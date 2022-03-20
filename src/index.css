@@ -200,6 +200,14 @@ body.flipped .notes td.note-user {
 	padding: 1rem;
 	background: #CCC;
 }
+.examples dd {
+	margin: .5em 0 .5em 2em;
+	padding: .5em;
+	background: #EEE;
+}
+.examples code {
+	white-space: pre-wrap;
+}
 
 #map .note-track {
 	vector-effect: non-scaling-stroke;
