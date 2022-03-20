@@ -72,8 +72,12 @@ export default class NoteFilter {
 			if (iComment>=note.comments.length) return false
 			const comment=note.comments[iComment]
 			if (statement.type=='user') {
-				if (comment.uid==null) return false
-				if (!uidMatcher(comment.uid,statement.user)) return false
+				if (statement.user=='0') {
+					if (comment.uid!=null) return false
+				} else {
+					if (comment.uid==null) return false
+					if (!uidMatcher(comment.uid,statement.user)) return false
+				}
 				return rec(iStatement+1,iComment+1)
 			}
 			return false // shouldn't happen

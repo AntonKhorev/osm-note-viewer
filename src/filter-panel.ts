@@ -21,8 +21,18 @@ const syntaxDescription=`<summary>Filter syntax</summary>
 	<li><dl><dt><kbd>*</kbd>
 		<dd>any sequence of comments, including an empty one
 	</dl>
-	<li><dl><dt><kbd>user = ${val('username')}</kbd>
-		<dd>comment by a user with the specified name
+	<li><dl><dt><kbd>user = ${term('user descriptor')}</kbd>
+		<dd>comment by a specified user
+	</dl>
+	</ul>
+<dt>${term('user descriptor')}
+<dd>One of:
+	<ul>
+	<li><dl><dt><kbd>0</kbd>
+		<dd>anonymous user (no user with actual name "0" can exist because it's too short)
+	</dl>
+	<li><dl><dt>${val('username')}
+		<dd>user name, also known as display name
 	</dl>
 	</ul>
 </dl>`
