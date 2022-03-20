@@ -43,7 +43,6 @@ export async function startFetcher(
 		if (!noteTable) {
 			noteTable=new NoteTable($notesContainer,commandPanel,map,filterPanel.noteFilter)
 		}
-		noteTable.addNotes(newNotes,users)
 		const nUnfilteredNotes=noteTable.addNotes(newNotes,users)
 		if (nUnfilteredNotes==0) {
 			nFullyFilteredFetches++
