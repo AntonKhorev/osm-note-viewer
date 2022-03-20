@@ -1,6 +1,6 @@
 import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
-import CommandPanel from './command'
+import CommandPanel from './command-panel'
 import NoteFilter from './filter'
 import {makeUserLink} from './util'
 
@@ -61,6 +61,8 @@ export default class NoteTable {
 		commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table))
 	}
 	updateFilter(notes: Note[], users: Users, filter: NoteFilter): void {
+		let nFetched=0
+		let nVisible=0
 		this.filter=filter
 		const noteById=new Map<number,Note>()
 		for (const note of notes) {
@@ -72,7 +74,9 @@ export default class NoteTable {
 			const note=noteById.get(noteId)
 			const layerId=Number($noteSection.dataset.layerId)
 			if (note==null) continue
+			nFetched++
 			if (this.filter.matchNote(note,uidMatcher)) {
+				nVisible++
 				const marker=this.map.filteredNoteLayer.getLayer(layerId)
 				if (marker) {
 					this.map.filteredNoteLayer.removeLayer(marker)
@@ -91,6 +95,7 @@ export default class NoteTable {
 				if ($checkbox instanceof HTMLInputElement) $checkbox.checked=false
 			}
 		}
+		this.commandPanel.receiveNoteCounts(nFetched,nVisible)
 		this.commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table))
 	}
 	/**
@@ -180,6 +185,14 @@ export default class NoteTable {
 			}
 		}
 		this.map.fitNotesIfNeeded()
+		let nFetched=0
+		let nVisible=0
+		for (const $noteSection of this.$table.querySelectorAll('tbody')) {
+			if (!$noteSection.dataset.noteId) continue
+			nFetched++
+			if (!$noteSection.classList.contains('hidden')) nVisible++
+		}
+		this.commandPanel.receiveNoteCounts(nFetched,nVisible)
 		return nUnfilteredNotes
 	}
 	private makeUidMatcher(users: Users) {

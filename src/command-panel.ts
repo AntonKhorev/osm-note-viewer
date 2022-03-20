@@ -7,6 +7,9 @@ export default class CommandPanel {
 	private $loadNotesButton: HTMLButtonElement
 	private $commentTimeSelect: HTMLSelectElement
 	private $commentTimeInput: HTMLInputElement
+	private $fetchedNoteCount: HTMLSpanElement
+	private $visibleNoteCount: HTMLSpanElement
+	private $checkedNoteCount: HTMLSpanElement
 	private checkedNoteIds: number[] = []
 	private checkedCommentTime?: string
 	private checkedCommentText?: string
@@ -183,6 +186,19 @@ export default class CommandPanel {
 			})
 			$commandGroup.append($yandexPanoramasButton)
 		}{
+			const $commandGroup=makeCommandGroup('counts',`Note counts`)
+			this.$fetchedNoteCount=document.createElement('span')
+			this.$fetchedNoteCount.textContent='0'
+			this.$visibleNoteCount=document.createElement('span')
+			this.$visibleNoteCount.textContent='0'
+			this.$checkedNoteCount=document.createElement('span')
+			this.$checkedNoteCount.textContent='0'
+			$commandGroup.append(
+				this.$fetchedNoteCount,` fetched, `,
+				this.$visibleNoteCount,` visible, `,
+				this.$checkedNoteCount,` selected`
+			)
+		}{
 			const $commandGroup=makeCommandGroup('legend',`Legend`)
 			$commandGroup.append(`${centerChar} = map center, ${areaChar} = map area`)
 		}
@@ -210,7 +226,12 @@ export default class CommandPanel {
 			return $commandGroup
 		}
 	}
+	receiveNoteCounts(nFetched: number, nVisible: number) {
+		this.$fetchedNoteCount.textContent=String(nFetched)
+		this.$visibleNoteCount.textContent=String(nVisible)
+	}
 	receiveCheckedNoteIds(checkedNoteIds: number[]): void {
+		this.$checkedNoteCount.textContent=String(checkedNoteIds.length)
 		this.checkedNoteIds=checkedNoteIds
 		this.$loadNotesButton.disabled=checkedNoteIds.length<=0
 	}

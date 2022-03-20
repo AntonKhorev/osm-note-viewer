@@ -3,7 +3,7 @@ import {Note, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesA
 import {ValidUserQueryPart, NoteQuery, getNextFetchDetails} from './query'
 import NoteFilterPanel from './filter-panel'
 import {NoteMap} from './map'
-import CommandPanel from './command'
+import CommandPanel from './command-panel'
 import NoteTable from './table'
 import {makeUserLink} from './util'
 
