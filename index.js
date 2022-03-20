@@ -1422,36 +1422,180 @@ class NoteFetchPanel {
 
 class NoteFilter {
     constructor(query) {
-        const match = query.match(/^\s*user\s*=\s*(.+?)\s*$/);
-        if (match) {
-            [, this.username] = match;
+        this.statements = [];
+        for (const untrimmedLine of query.split('\n')) {
+            const line = untrimmedLine.trim();
+            for (const c of ['^', '$', '*']) {
+                if (line == c) {
+                    this.statements.push({ type: c });
+                    continue;
+                }
+            }
+            let match;
+            if (match = line.match(/^user\s*(!?=)\s*(.+)$/)) {
+                const [, operator, user] = match;
+                if (operator != '=' && operator != '!=')
+                    continue; // impossible
+                const userQueryPart = toUserQueryPart(user);
+                if (userQueryPart.userType == 'invalid')
+                    continue; // TODO parse error?
+                this.statements.push({ type: 'user', operator, ...userQueryPart });
+                continue;
+            }
+            // TODO parse error?
+        }
+        if (this.statements.length > 0) {
+            const st1 = this.statements[0].type;
+            if (st1 != '^' && st1 != '*') {
+                this.statements.unshift({ type: '*' });
+            }
+            const st2 = this.statements[this.statements.length - 1].type;
+            if (st2 != '$' && st2 != '*') {
+                this.statements.push({ type: '*' });
+            }
         }
     }
     matchNote(note, uidMatcher) {
-        if (this.username == null)
-            return true;
-        for (const comment of note.comments) {
-            if (comment.uid == null)
-                continue;
-            if (uidMatcher(comment.uid, this.username))
+        // const rec=(iStatement: number, iComment: number): boolean => {
+        // 	console.log('>> rec',iStatement,iComment)
+        // 	const result=rec1(iStatement,iComment)
+        // 	console.log('<< rec',iStatement,iComment,'got',result)
+        // 	return result
+        // }
+        const rec = (iStatement, iComment) => {
+            // const rec1=(iStatement: number, iComment: number): boolean => {
+            if (iStatement >= this.statements.length)
                 return true;
-        }
-        return false;
+            const statement = this.statements[iStatement];
+            if (statement.type == '^') {
+                if (iComment != 0)
+                    return false;
+                return rec(iStatement + 1, iComment);
+            }
+            else if (statement.type == '$') {
+                return iComment == note.comments.length;
+            }
+            else if (statement.type == '*') {
+                if (iComment < note.comments.length && rec(iStatement, iComment + 1))
+                    return true;
+                return rec(iStatement + 1, iComment);
+            }
+            if (iComment >= note.comments.length)
+                return false;
+            const comment = note.comments[iComment];
+            const userEquals = () => {
+                if (statement.userType == 'id') {
+                    if (statement.uid == 0) {
+                        if (comment.uid != null)
+                            return false;
+                    }
+                    else {
+                        if (comment.uid != statement.uid)
+                            return false;
+                    }
+                }
+                else {
+                    if (statement.username == '0') {
+                        if (comment.uid != null)
+                            return false;
+                    }
+                    else {
+                        if (comment.uid == null)
+                            return false;
+                        if (!uidMatcher(comment.uid, statement.username))
+                            return false;
+                    }
+                }
+                return true;
+            };
+            if (statement.type == 'user') {
+                if (statement.operator == '=') {
+                    if (!userEquals())
+                        return false;
+                }
+                else if (statement.operator == '!=') {
+                    if (userEquals())
+                        return false;
+                }
+                return rec(iStatement + 1, iComment + 1);
+            }
+            return false; // shouldn't happen
+        };
+        return rec(0, 0);
+        // return rec1(0,0)
     }
 }
 
+const syntaxDescription = `<summary>Filter syntax</summary>
+<ul>
+<li>Blank lines are ignored
+<li>Leading/trailing spaces are ignored
+<li>Each line is a note comment/action ${term('match statement')}
+<li>Comments and actions are the same things, we'll call them <em>comments</em> because that's how they are referred to by API/DB: each action is accompanied by a possibly empty comment, commenting without closing/opening is also an action
+<li>${term('match statement')}s form a sequence that has to match a subsequence of note comments, like a <a href='https://en.wikipedia.org/wiki/Regular_expression'>regular expression</a>
+</ul>
+<dl>
+<dt>${term('match statement')}
+<dd>One of:
+	<ul>
+	<li><dl><dt><kbd>^</kbd>
+		<dd>beginning of comment sequence: next ${term('match statement')} is checked against the first note comment
+	</dl>
+	<li><dl><dt><kbd>$</kbd>
+		<dd>end of comment sequence: previous ${term('match statement')} is checked against the last note comment
+	</dl>
+	<li><dl><dt><kbd>*</kbd>
+		<dd>any sequence of comments, including an empty one
+	</dl>
+	<li><dl><dt><kbd>user = ${term('user descriptor')}</kbd>
+		<dd>comment by a specified user
+	</dl>
+	<li><dl><dt><kbd>user != ${term('user descriptor')}</kbd>
+		<dd>comment by someone other than a specified user
+	</dl>
+	</ul>
+<dt>${term('user descriptor')}
+<dd>OSM username, URL or #id, like in a fetch query input. Additionally you can specify username <kbd>0</kbd> or id <kbd>#0</kbd> to match anonymous users. No user with actual name "0" can exist because it's too short.
+</dl>`;
+const syntaxExamples = [
+    [`Notes commented by user A`, [`user = A`]],
+    [`Notes commented by user A, later commented by user B`, [`user = A`, `*`, `user = B`]],
+    [`Notes opened by user A`, [`^`, `user = A`]],
+];
+function term(t) {
+    return `<em>&lt;${t}&gt;</em>`;
+}
 class NoteFilterPanel {
     constructor($container) {
         const $form = document.createElement('form');
         const $textarea = document.createElement('textarea');
         this.noteFilter = new NoteFilter($textarea.value);
         {
+            const $details = document.createElement('details');
+            $details.innerHTML = syntaxDescription;
+            const $examplesTitle = document.createElement('p');
+            $examplesTitle.innerHTML = '<strong>Examples</strong>:';
+            const $examplesList = document.createElement('dl');
+            $examplesList.classList.add('examples');
+            for (const [title, codeLines] of syntaxExamples) {
+                const $dt = document.createElement('dt');
+                $dt.append(title);
+                const $dd = document.createElement('dd');
+                const $code = document.createElement('code');
+                $code.textContent = codeLines.join('\n');
+                $dd.append($code);
+                $examplesList.append($dt, $dd);
+            }
+            $details.append($examplesTitle, $examplesList);
+            $form.append($details);
+        }
+        {
             const $div = document.createElement('div');
             $div.classList.add('major-input');
             const $label = document.createElement('label');
             const $code = document.createElement('code');
             $code.textContent = `user = username`;
-            $label.append(`Filter: (only single `, $code, ` clause supported for now)`, $textarea);
+            $label.append(`Filter:`, $textarea);
             $div.append($label);
             $form.append($div);
         }

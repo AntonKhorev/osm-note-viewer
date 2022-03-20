@@ -95,6 +95,9 @@ body.flipped .panel.fetch button.flip {
 	box-sizing: border-box;
 	width: 100%;
 }
+.panel .major-input textarea {
+	resize: vertical;
+}
 .panel .major-input button {
 	padding: .3rem;
 }
@@ -196,6 +199,14 @@ body.flipped .notes td.note-user {
 	margin: 1rem 0 0 0;
 	padding: 1rem;
 	background: #CCC;
+}
+.examples dd {
+	margin: .5em 0 .5em 2em;
+	padding: .5em;
+	background: #EEE;
+}
+.examples code {
+	white-space: pre-wrap;
 }
 
 #map .note-track {
