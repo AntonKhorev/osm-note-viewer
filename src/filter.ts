@@ -22,7 +22,7 @@ type Statement = BeginningStatement | EndStatement | AnyStatement | UserStatemen
 
 export default class NoteFilter {
 	private statements: Statement[] = []
-	constructor(query: string) {
+	constructor(private query: string) {
 		for (const untrimmedLine of query.split('\n')) {
 			const line=untrimmedLine.trim()
 			for (const c of ['^','$','*'] as const) {
@@ -52,6 +52,9 @@ export default class NoteFilter {
 				this.statements.push({type:'*'})
 			}
 		}
+	}
+	isSameQuery(query: string): boolean {
+		return this.query==query
 	}
 	matchNote(note: Note, uidMatcher: (uid: number, matchUser: string) => boolean): boolean {
 		// const rec=(iStatement: number, iComment: number): boolean => {

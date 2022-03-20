@@ -51,7 +51,7 @@ export default class NoteFilterPanel {
 	constructor($container: HTMLElement) {
 		const $form=document.createElement('form')
 		const $textarea=document.createElement('textarea')
-		$textarea.rows=5
+		const $button=document.createElement('button')
 		this.noteFilter=new NoteFilter($textarea.value)
 		{
 			const $details=document.createElement('details')
@@ -74,25 +74,28 @@ export default class NoteFilterPanel {
 		}{
 			const $div=document.createElement('div')
 			$div.classList.add('major-input')
+			$textarea.rows=5
 			const $label=document.createElement('label')
-			const $code=document.createElement('code')
-			$code.textContent=`user = username`
 			$label.append(`Filter:`,$textarea)
 			$div.append($label)
 			$form.append($div)
 		}{
 			const $div=document.createElement('div')
 			$div.classList.add('major-input')
-			const $button=document.createElement('button')
 			$button.textContent=`Apply filter`
 			$button.type='submit'
+			$button.disabled=true
 			$div.append($button)
 			$form.append($div)
 		}
+		$textarea.addEventListener('input',()=>{
+			$button.disabled=this.noteFilter.isSameQuery($textarea.value)
+		})
 		$form.addEventListener('submit',(ev)=>{
 			ev.preventDefault()
 			this.noteFilter=new NoteFilter($textarea.value)
 			if (this.callback) this.callback(this.noteFilter)
+			$button.disabled=true
 		})
 		$container.append($form)
 	}
