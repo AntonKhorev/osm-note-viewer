@@ -51,6 +51,7 @@ export default class NoteFilterPanel {
 	constructor($container: HTMLElement) {
 		const $form=document.createElement('form')
 		const $textarea=document.createElement('textarea')
+		$textarea.rows=5
 		this.noteFilter=new NoteFilter($textarea.value)
 		{
 			const $details=document.createElement('details')
