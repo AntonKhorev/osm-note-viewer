@@ -26,15 +26,7 @@ const syntaxDescription=`<summary>Filter syntax</summary>
 	</dl>
 	</ul>
 <dt>${term('user descriptor')}
-<dd>One of:
-	<ul>
-	<li><dl><dt><kbd>0</kbd>
-		<dd>anonymous user (no user with actual name "0" can exist because it's too short)
-	</dl>
-	<li><dl><dt>${val('username')}
-		<dd>user name, also known as display name
-	</dl>
-	</ul>
+<dd>OSM username, URL or #id, like in a fetch query input. Additionally you can specify username <kbd>0</kbd> or id <kbd>#0</kbd> to match anonymous users. No user with actual name "0" can exist because it's too short.
 </dl>`
 
 const syntaxExamples: Array<[string,string[]]> = [

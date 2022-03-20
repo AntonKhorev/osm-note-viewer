@@ -1,4 +1,5 @@
 import {Note, NoteComment} from './data'
+import {ValidUserQueryPart, toUserQueryPart} from './query'
 
 interface BeginningStatement {
 	type: '^'
@@ -12,9 +13,8 @@ interface AnyStatement {
 	type: '*'
 }
 
-interface UserStatement {
-	type: 'user',
-	user: string
+type UserStatement = ValidUserQueryPart & {
+	type: 'user'
 }
 
 type Statement = BeginningStatement | EndStatement | AnyStatement | UserStatement
@@ -33,7 +33,9 @@ export default class NoteFilter {
 			let match
 			if (match=line.match(/^user\s*=\s*(.+)$/)) {
 				const [,user]=match
-				this.statements.push({type:'user',user})
+				const userQueryPart=toUserQueryPart(user)
+				if (userQueryPart.userType=='invalid') continue // TODO parse error?
+				this.statements.push({type:'user',...userQueryPart})
 				continue
 			}
 			// TODO parse error?
@@ -72,11 +74,19 @@ export default class NoteFilter {
 			if (iComment>=note.comments.length) return false
 			const comment=note.comments[iComment]
 			if (statement.type=='user') {
-				if (statement.user=='0') {
-					if (comment.uid!=null) return false
+				if (statement.userType=='id') {
+					if (statement.uid==0) {
+						if (comment.uid!=null) return false
+					} else {
+						if (comment.uid!=statement.uid) return false
+					}
 				} else {
-					if (comment.uid==null) return false
-					if (!uidMatcher(comment.uid,statement.user)) return false
+					if (statement.username=='0') {
+						if (comment.uid!=null) return false
+					} else {
+						if (comment.uid==null) return false
+						if (!uidMatcher(comment.uid,statement.username)) return false
+					}
 				}
 				return rec(iStatement+1,iComment+1)
 			}

@@ -88,4 +88,55 @@ describe("NoteFilter",()=>{
 			)
 		})
 	})
+	context("anonymous user filter",()=>{
+		const filter=new NoteFilter('user = 0')
+		it("accepts anonymous note",()=>{
+			assert.equal(
+				filter.matchNote(makeNote(0),uidMatcher),
+				true
+			)
+		})
+		it("rejects user note",()=>{
+			assert.equal(
+				filter.matchNote(makeNote(103),uidMatcher),
+				false
+			)
+		})
+	})
+	context("anonymous uid filter",()=>{
+		const filter=new NoteFilter('user = #0')
+		it("accepts anonymous note",()=>{
+			assert.equal(
+				filter.matchNote(makeNote(0),uidMatcher),
+				true
+			)
+		})
+		it("rejects user note",()=>{
+			assert.equal(
+				filter.matchNote(makeNote(103),uidMatcher),
+				false
+			)
+		})
+	})
+	context("single user url filter",()=>{
+		const filter=new NoteFilter('user = https://www.openstreetmap.org/user/Alice')
+		it("rejects anonymous note",()=>{
+			assert.equal(
+				filter.matchNote(makeNote(0),uidMatcher),
+				false
+			)
+		})
+		it("accepts matching user note",()=>{
+			assert.equal(
+				filter.matchNote(makeNote(101),uidMatcher),
+				true
+			)
+		})
+		it("rejects non-matching user note",()=>{
+			assert.equal(
+				filter.matchNote(makeNote(102),uidMatcher),
+				false
+			)
+		})
+	})
 })
