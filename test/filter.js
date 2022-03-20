@@ -70,4 +70,22 @@ describe("NoteFilter",()=>{
 			)
 		})
 	})
+	context("beginning + single user filter",()=>{
+		const filter=new NoteFilter(
+			'^\n'+
+			'user = Fred'
+		)
+		it("accepts matching user note",()=>{
+			assert.equal(
+				filter.matchNote(makeNote(103),uidMatcher),
+				true
+			)
+		})
+		it("rejects matching user note not at beginning",()=>{
+			assert.equal(
+				filter.matchNote(makeNote(101,103),uidMatcher),
+				false
+			)
+		})
+	})
 })
