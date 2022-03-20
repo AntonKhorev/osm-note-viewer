@@ -95,6 +95,9 @@ body.flipped .panel.fetch button.flip {
 	box-sizing: border-box;
 	width: 100%;
 }
+.panel .major-input textarea {
+	resize: vertical;
+}
 .panel .major-input button {
 	padding: .3rem;
 }
