@@ -15,6 +15,7 @@ interface AnyStatement {
 
 type UserStatement = ValidUserQueryPart & {
 	type: 'user'
+	operator: '=' | '!='
 }
 
 type Statement = BeginningStatement | EndStatement | AnyStatement | UserStatement
@@ -31,11 +32,12 @@ export default class NoteFilter {
 				}
 			}
 			let match
-			if (match=line.match(/^user\s*=\s*(.+)$/)) {
-				const [,user]=match
+			if (match=line.match(/^user\s*(!?=)\s*(.+)$/)) {
+				const [,operator,user]=match
+				if (operator!='=' && operator!='!=') continue // impossible
 				const userQueryPart=toUserQueryPart(user)
 				if (userQueryPart.userType=='invalid') continue // TODO parse error?
-				this.statements.push({type:'user',...userQueryPart})
+				this.statements.push({type:'user',operator,...userQueryPart})
 				continue
 			}
 			// TODO parse error?
@@ -73,7 +75,7 @@ export default class NoteFilter {
 			}
 			if (iComment>=note.comments.length) return false
 			const comment=note.comments[iComment]
-			if (statement.type=='user') {
+			const userEquals=(): boolean => {
 				if (statement.userType=='id') {
 					if (statement.uid==0) {
 						if (comment.uid!=null) return false
@@ -87,6 +89,14 @@ export default class NoteFilter {
 						if (comment.uid==null) return false
 						if (!uidMatcher(comment.uid,statement.username)) return false
 					}
+				}
+				return true
+			}
+			if (statement.type=='user') {
+				if (statement.operator=='=') {
+					if (!userEquals()) return false
+				} else if (statement.operator=='!=') {
+					if (userEquals()) return false
 				}
 				return rec(iStatement+1,iComment+1)
 			}

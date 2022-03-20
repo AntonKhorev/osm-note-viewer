@@ -24,6 +24,9 @@ const syntaxDescription=`<summary>Filter syntax</summary>
 	<li><dl><dt><kbd>user = ${term('user descriptor')}</kbd>
 		<dd>comment by a specified user
 	</dl>
+	<li><dl><dt><kbd>user != ${term('user descriptor')}</kbd>
+		<dd>comment by someone other than a specified user
+	</dl>
 	</ul>
 <dt>${term('user descriptor')}
 <dd>OSM username, URL or #id, like in a fetch query input. Additionally you can specify username <kbd>0</kbd> or id <kbd>#0</kbd> to match anonymous users. No user with actual name "0" can exist because it's too short.
