@@ -9,44 +9,36 @@ describe("NoteFilter",()=>{
 		104:'Joe Osmer',
 	}
 	const uidMatcher=(uid,matchUser)=>users[uid]==matchUser
-	const anonNote={
-		id: 42,
-		lat: 60,
-		lon: 30,
-		status: 'open',
-		comments: [
-			{date:1645433069,action:'opened',text:'hello world'}
-		]
-	}
-	const aliceNote={
-		id: 42,
-		lat: 60,
-		lon: 30,
-		status: 'open',
-		comments: [
-			{date:1645433069,action:'opened',text:'hello world',uid:101}
-		]
-	}
-	const bobNote={
-		id: 42,
-		lat: 60,
-		lon: 30,
-		status: 'open',
-		comments: [
-			{date:1645433069,action:'opened',text:'hello world',uid:102}
-		]
+	const makeNote=(...uids)=>{
+		const comments=[]
+		let date=1645433069
+		let action='opened'
+		for (const uid of uids) {
+			const comment={date,action,text:'hello world'}
+			if (uid) comment.uid=uid
+			comments.push(comment)
+			date+=60*60*24
+			action='commented'
+		}
+		return {
+			id: 42,
+			lat: 60,
+			lon: 30,
+			status: 'open',
+			comments
+		}
 	}
 	context("blank filter",()=>{
 		const filter=new NoteFilter('')
 		it("accepts anonymous note",()=>{
 			assert.equal(
-				filter.matchNote(anonNote,uidMatcher),
+				filter.matchNote(makeNote(0),uidMatcher),
 				true
 			)
 		})
 		it("accepts user note",()=>{
 			assert.equal(
-				filter.matchNote(aliceNote,uidMatcher),
+				filter.matchNote(makeNote(101),uidMatcher),
 				true
 			)
 		})
@@ -55,20 +47,26 @@ describe("NoteFilter",()=>{
 		const filter=new NoteFilter('user = Alice')
 		it("rejects anonymous note",()=>{
 			assert.equal(
-				filter.matchNote(anonNote,uidMatcher),
+				filter.matchNote(makeNote(0),uidMatcher),
 				false
 			)
 		})
 		it("accepts matching user note",()=>{
 			assert.equal(
-				filter.matchNote(aliceNote,uidMatcher),
+				filter.matchNote(makeNote(101),uidMatcher),
 				true
 			)
 		})
 		it("rejects non-matching user note",()=>{
 			assert.equal(
-				filter.matchNote(bobNote,uidMatcher),
+				filter.matchNote(makeNote(102),uidMatcher),
 				false
+			)
+		})
+		it("accepts matching multi-user note",()=>{
+			assert.equal(
+				filter.matchNote(makeNote(103,101,102),uidMatcher),
+				true
 			)
 		})
 	})
