@@ -578,6 +578,16 @@ class CommandPanel {
             $commandGroup.append($yandexPanoramasButton);
         }
         {
+            const $commandGroup = makeCommandGroup('counts', `Note counts`);
+            this.$fetchedNoteCount = document.createElement('span');
+            this.$fetchedNoteCount.textContent = '0';
+            this.$visibleNoteCount = document.createElement('span');
+            this.$visibleNoteCount.textContent = '0';
+            this.$checkedNoteCount = document.createElement('span');
+            this.$checkedNoteCount.textContent = '0';
+            $commandGroup.append(this.$fetchedNoteCount, ` fetched, `, this.$visibleNoteCount, ` visible, `, this.$checkedNoteCount, ` selected`);
+        }
+        {
             const $commandGroup = makeCommandGroup('legend', `Legend`);
             $commandGroup.append(`${centerChar} = map center, ${areaChar} = map area`);
         }
@@ -607,7 +617,12 @@ class CommandPanel {
             return $commandGroup;
         }
     }
+    receiveNoteCounts(nFetched, nVisible) {
+        this.$fetchedNoteCount.textContent = String(nFetched);
+        this.$visibleNoteCount.textContent = String(nVisible);
+    }
     receiveCheckedNoteIds(checkedNoteIds) {
+        this.$checkedNoteCount.textContent = String(checkedNoteIds.length);
         this.checkedNoteIds = checkedNoteIds;
         this.$loadNotesButton.disabled = checkedNoteIds.length <= 0;
     }
@@ -760,6 +775,8 @@ class NoteTable {
         commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table));
     }
     updateFilter(notes, users, filter) {
+        let nFetched = 0;
+        let nVisible = 0;
         this.filter = filter;
         const noteById = new Map();
         for (const note of notes) {
@@ -772,7 +789,9 @@ class NoteTable {
             const layerId = Number($noteSection.dataset.layerId);
             if (note == null)
                 continue;
+            nFetched++;
             if (this.filter.matchNote(note, uidMatcher)) {
+                nVisible++;
                 const marker = this.map.filteredNoteLayer.getLayer(layerId);
                 if (marker) {
                     this.map.filteredNoteLayer.removeLayer(marker);
@@ -793,6 +812,7 @@ class NoteTable {
                     $checkbox.checked = false;
             }
         }
+        this.commandPanel.receiveNoteCounts(nFetched, nVisible);
         this.commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table));
     }
     /**
@@ -890,6 +910,16 @@ class NoteTable {
             }
         }
         this.map.fitNotesIfNeeded();
+        let nFetched = 0;
+        let nVisible = 0;
+        for (const $noteSection of this.$table.querySelectorAll('tbody')) {
+            if (!$noteSection.dataset.noteId)
+                continue;
+            nFetched++;
+            if (!$noteSection.classList.contains('hidden'))
+                nVisible++;
+        }
+        this.commandPanel.receiveNoteCounts(nFetched, nVisible);
         return nUnfilteredNotes;
     }
     makeUidMatcher(users) {
@@ -1115,7 +1145,6 @@ async function startFetcher(storage, $notesContainer, $moreContainer, $commandCo
         if (!noteTable) {
             noteTable = new NoteTable($notesContainer, commandPanel, map, filterPanel.noteFilter);
         }
-        noteTable.addNotes(newNotes, users);
         const nUnfilteredNotes = noteTable.addNotes(newNotes, users);
         if (nUnfilteredNotes == 0) {
             nFullyFilteredFetches++;
