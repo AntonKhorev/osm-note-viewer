@@ -154,4 +154,19 @@ describe("NoteFilter",()=>{
 			)
 		})
 	})
+	context("double inequality user filter",()=>{
+		const filter=new NoteFilter('user != Alice, user != Bob')
+		it("rejects note with one user equal",()=>{
+			assert.equal(
+				filter.matchNote(makeNote(101),uidMatcher),
+				false
+			)
+		})
+		it("accepts note with none user equal",()=>{
+			assert.equal(
+				filter.matchNote(makeNote(103),uidMatcher),
+				true
+			)
+		})
+	})
 })

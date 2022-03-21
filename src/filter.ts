@@ -13,34 +13,61 @@ interface AnyStatement {
 	type: '*'
 }
 
-type UserStatement = ValidUserQueryPart & {
-	type: 'user'
+interface BaseCondition {
 	operator: '=' | '!='
 }
 
-type Statement = BeginningStatement | EndStatement | AnyStatement | UserStatement
+type UserCondition = BaseCondition & ValidUserQueryPart & {
+	type: 'user'
+}
+
+interface ActionCondition extends BaseCondition {
+	type: 'action'
+	action: 'opened' | 'closed' | 'reopened' | 'commented' | 'hidden'
+}
+
+type Condition = UserCondition | ActionCondition
+
+interface ConditionsStatement {
+	type: 'conditions',
+	conditions: Condition[]
+}
+
+type Statement = BeginningStatement | EndStatement | AnyStatement | ConditionsStatement
 
 export default class NoteFilter {
 	private statements: Statement[] = []
 	constructor(private query: string) {
-		for (const untrimmedLine of query.split('\n')) {
+		lineLoop: for (const untrimmedLine of query.split('\n')) {
 			const line=untrimmedLine.trim()
+			if (!line) continue
 			for (const c of ['^','$','*'] as const) {
 				if (line==c) {
 					this.statements.push({type:c})
-					continue
+					continue lineLoop
 				}
 			}
-			let match
-			if (match=line.match(/^user\s*(!?=)\s*(.+)$/)) {
-				const [,operator,user]=match
-				if (operator!='=' && operator!='!=') continue // impossible
-				const userQueryPart=toUserQueryPart(user)
-				if (userQueryPart.userType=='invalid') continue // TODO parse error?
-				this.statements.push({type:'user',operator,...userQueryPart})
-				continue
+			const conditions: Condition[] = []
+			for (const untrimmedTerm of line.split(',')) {
+				const term=untrimmedTerm.trim()
+				let match
+				if (match=term.match(/^user\s*(!?=)\s*(.+)$/)) {
+					const [,operator,user]=match
+					if (operator!='=' && operator!='!=') continue // impossible
+					const userQueryPart=toUserQueryPart(user)
+					if (userQueryPart.userType=='invalid') continue // TODO parse error?
+					conditions.push({type:'user',operator,...userQueryPart})
+					continue
+				} else if (match=term.match(/^action\s*(!?=)\s*(.+)$/)) {
+					const [,operator,action]=match
+					if (operator!='=' && operator!='!=') continue // impossible
+					if (action!='opened' && action!='closed' && action!='reopened' && action!='commented' && action!='hidden') continue
+					conditions.push({type:'action',operator,action})
+					continue
+				}
+				// TODO parse error?
 			}
-			// TODO parse error?
+			if (conditions.length>0) this.statements.push({type:'conditions',conditions})
 		}
 		if (this.statements.length>0) {
 			const st1=this.statements[0].type
@@ -57,6 +84,29 @@ export default class NoteFilter {
 		return this.query==query
 	}
 	matchNote(note: Note, uidMatcher: (uid: number, matchUser: string) => boolean): boolean {
+		// console.log('> match',this.statements,note.comments)
+		const isCommentValueEqualToConditionValue=(condition: Condition, comment: NoteComment): boolean => {
+			if (condition.type=='user') {
+				if (condition.userType=='id') {
+					if (condition.uid==0) {
+						if (comment.uid!=null) return false
+					} else {
+						if (comment.uid!=condition.uid) return false
+					}
+				} else {
+					if (condition.username=='0') {
+						if (comment.uid!=null) return false
+					} else {
+						if (comment.uid==null) return false
+						if (!uidMatcher(comment.uid,condition.username)) return false
+					}
+				}
+				return true
+			} else if (condition.type=='action') {
+				return comment.action==condition.action
+			}
+			return false // shouldn't happen
+		}
 		// const rec=(iStatement: number, iComment: number): boolean => {
 		// 	console.log('>> rec',iStatement,iComment)
 		// 	const result=rec1(iStatement,iComment)
@@ -78,28 +128,15 @@ export default class NoteFilter {
 			}
 			if (iComment>=note.comments.length) return false
 			const comment=note.comments[iComment]
-			const userEquals=(): boolean => {
-				if (statement.userType=='id') {
-					if (statement.uid==0) {
-						if (comment.uid!=null) return false
-					} else {
-						if (comment.uid!=statement.uid) return false
+			if (statement.type=='conditions') {
+				for (const condition of statement.conditions) {
+					let ok=isCommentValueEqualToConditionValue(condition,comment)
+					if (condition.operator=='=') {
+						// ok
+					} else if (condition.operator=='!=') {
+						ok=!ok
 					}
-				} else {
-					if (statement.username=='0') {
-						if (comment.uid!=null) return false
-					} else {
-						if (comment.uid==null) return false
-						if (!uidMatcher(comment.uid,statement.username)) return false
-					}
-				}
-				return true
-			}
-			if (statement.type=='user') {
-				if (statement.operator=='=') {
-					if (!userEquals()) return false
-				} else if (statement.operator=='!=') {
-					if (userEquals()) return false
+					if (!ok) return false
 				}
 				return rec(iStatement+1,iComment+1)
 			}
