@@ -1451,27 +1451,45 @@ class NoteFetchPanel {
 
 class NoteFilter {
     constructor(query) {
+        this.query = query;
         this.statements = [];
-        for (const untrimmedLine of query.split('\n')) {
+        lineLoop: for (const untrimmedLine of query.split('\n')) {
             const line = untrimmedLine.trim();
+            if (!line)
+                continue;
             for (const c of ['^', '$', '*']) {
                 if (line == c) {
                     this.statements.push({ type: c });
-                    continue;
+                    continue lineLoop;
                 }
             }
-            let match;
-            if (match = line.match(/^user\s*(!?=)\s*(.+)$/)) {
-                const [, operator, user] = match;
-                if (operator != '=' && operator != '!=')
-                    continue; // impossible
-                const userQueryPart = toUserQueryPart(user);
-                if (userQueryPart.userType == 'invalid')
-                    continue; // TODO parse error?
-                this.statements.push({ type: 'user', operator, ...userQueryPart });
-                continue;
+            const conditions = [];
+            for (const untrimmedTerm of line.split(',')) {
+                const term = untrimmedTerm.trim();
+                let match;
+                if (match = term.match(/^user\s*(!?=)\s*(.+)$/)) {
+                    const [, operator, user] = match;
+                    if (operator != '=' && operator != '!=')
+                        continue; // impossible
+                    const userQueryPart = toUserQueryPart(user);
+                    if (userQueryPart.userType == 'invalid')
+                        continue; // TODO parse error?
+                    conditions.push({ type: 'user', operator, ...userQueryPart });
+                    continue;
+                }
+                else if (match = term.match(/^action\s*(!?=)\s*(.+)$/)) {
+                    const [, operator, action] = match;
+                    if (operator != '=' && operator != '!=')
+                        continue; // impossible
+                    if (action != 'opened' && action != 'closed' && action != 'reopened' && action != 'commented' && action != 'hidden')
+                        continue;
+                    conditions.push({ type: 'action', operator, action });
+                    continue;
+                }
+                // TODO parse error?
             }
-            // TODO parse error?
+            if (conditions.length > 0)
+                this.statements.push({ type: 'conditions', conditions });
         }
         if (this.statements.length > 0) {
             const st1 = this.statements[0].type;
@@ -1484,7 +1502,42 @@ class NoteFilter {
             }
         }
     }
+    isSameQuery(query) {
+        return this.query == query;
+    }
     matchNote(note, uidMatcher) {
+        // console.log('> match',this.statements,note.comments)
+        const isCommentValueEqualToConditionValue = (condition, comment) => {
+            if (condition.type == 'user') {
+                if (condition.userType == 'id') {
+                    if (condition.uid == 0) {
+                        if (comment.uid != null)
+                            return false;
+                    }
+                    else {
+                        if (comment.uid != condition.uid)
+                            return false;
+                    }
+                }
+                else {
+                    if (condition.username == '0') {
+                        if (comment.uid != null)
+                            return false;
+                    }
+                    else {
+                        if (comment.uid == null)
+                            return false;
+                        if (!uidMatcher(comment.uid, condition.username))
+                            return false;
+                    }
+                }
+                return true;
+            }
+            else if (condition.type == 'action') {
+                return comment.action == condition.action;
+            }
+            return false; // shouldn't happen
+        };
         // const rec=(iStatement: number, iComment: number): boolean => {
         // 	console.log('>> rec',iStatement,iComment)
         // 	const result=rec1(iStatement,iComment)
@@ -1512,38 +1565,14 @@ class NoteFilter {
             if (iComment >= note.comments.length)
                 return false;
             const comment = note.comments[iComment];
-            const userEquals = () => {
-                if (statement.userType == 'id') {
-                    if (statement.uid == 0) {
-                        if (comment.uid != null)
-                            return false;
+            if (statement.type == 'conditions') {
+                for (const condition of statement.conditions) {
+                    let ok = isCommentValueEqualToConditionValue(condition, comment);
+                    if (condition.operator == '=') ;
+                    else if (condition.operator == '!=') {
+                        ok = !ok;
                     }
-                    else {
-                        if (comment.uid != statement.uid)
-                            return false;
-                    }
-                }
-                else {
-                    if (statement.username == '0') {
-                        if (comment.uid != null)
-                            return false;
-                    }
-                    else {
-                        if (comment.uid == null)
-                            return false;
-                        if (!uidMatcher(comment.uid, statement.username))
-                            return false;
-                    }
-                }
-                return true;
-            };
-            if (statement.type == 'user') {
-                if (statement.operator == '=') {
-                    if (!userEquals())
-                        return false;
-                }
-                else if (statement.operator == '!=') {
-                    if (userEquals())
+                    if (!ok)
                         return false;
                 }
                 return rec(iStatement + 1, iComment + 1);
@@ -1559,37 +1588,49 @@ const syntaxDescription = `<summary>Filter syntax</summary>
 <ul>
 <li>Blank lines are ignored
 <li>Leading/trailing spaces are ignored
-<li>Each line is a note comment/action ${term('match statement')}
+<li>Each line is a note comment/action ${term('comment match statement')}
 <li>Comments and actions are the same things, we'll call them <em>comments</em> because that's how they are referred to by API/DB: each action is accompanied by a possibly empty comment, commenting without closing/opening is also an action
-<li>${term('match statement')}s form a sequence that has to match a subsequence of note comments, like a <a href='https://en.wikipedia.org/wiki/Regular_expression'>regular expression</a>
+<li>${term('comment match statement')}s form a sequence that has to match a subsequence of note comments, like a <a href='https://en.wikipedia.org/wiki/Regular_expression'>regular expression</a>
 </ul>
 <dl>
-<dt>${term('match statement')}
+<dt>${term('comment match statement')}
 <dd>One of:
 	<ul>
 	<li><dl><dt><kbd>^</kbd>
-		<dd>beginning of comment sequence: next ${term('match statement')} is checked against the first note comment
+		<dd>beginning of comment sequence: next ${term('comment match statement')} is checked against the first note comment
 	</dl>
 	<li><dl><dt><kbd>$</kbd>
-		<dd>end of comment sequence: previous ${term('match statement')} is checked against the last note comment
+		<dd>end of comment sequence: previous ${term('comment match statement')} is checked against the last note comment
 	</dl>
 	<li><dl><dt><kbd>*</kbd>
 		<dd>any sequence of comments, including an empty one
 	</dl>
-	<li><dl><dt><kbd>user = ${term('user descriptor')}</kbd>
-		<dd>comment by a specified user
-	</dl>
-	<li><dl><dt><kbd>user != ${term('user descriptor')}</kbd>
-		<dd>comment by someone other than a specified user
+	<li><dl><dt>${term('comment condition')} [<kbd>,</kbd> ${term('comment condition')}]*
+		<dd>one comment satisfying every condition in this comma-separated list
 	</dl>
 	</ul>
+<dt>${term('comment condition')}
+<dd>One of:
+	<ul>
+	<li><dl><dt><kbd>user ${term('comparison operator')} ${term('user descriptor')}</kbd>
+		<dd>comment (not) by a specified user
+	</dl>
+	<li><dl><dt><kbd>user ${term('comparison operator')} ${term('action descriptor')}</kbd>
+		<dd>comment (not) performing a specified action
+	</dl>
+	</ul>
+<dt>${term('comparison operator')}
+<dd>One of: <kbd>=</kbd> <kbd>!=</kbd>
 <dt>${term('user descriptor')}
 <dd>OSM username, URL or #id, like in a fetch query input. Additionally you can specify username <kbd>0</kbd> or id <kbd>#0</kbd> to match anonymous users. No user with actual name "0" can exist because it's too short.
+<dt>${term('action descriptor')}
+<dd>One of: <kbd>opened</kbd> <kbd>closed</kbd> <kbd>reopened</kbd> <kbd>commented</kbd> <kbd>hidden</kbd>
 </dl>`;
 const syntaxExamples = [
     [`Notes commented by user A`, [`user = A`]],
     [`Notes commented by user A, later commented by user B`, [`user = A`, `*`, `user = B`]],
     [`Notes opened by user A`, [`^`, `user = A`]],
+    [`Notes closed by user A that were opened by somebody else`, [`^`, `user != A`, `*`, `user = A, action = closed`]],
 ];
 function term(t) {
     return `<em>&lt;${t}&gt;</em>`;
@@ -1598,6 +1639,7 @@ class NoteFilterPanel {
     constructor($container) {
         const $form = document.createElement('form');
         const $textarea = document.createElement('textarea');
+        const $button = document.createElement('button');
         this.noteFilter = new NoteFilter($textarea.value);
         {
             const $details = document.createElement('details');
@@ -1621,9 +1663,8 @@ class NoteFilterPanel {
         {
             const $div = document.createElement('div');
             $div.classList.add('major-input');
+            $textarea.rows = 5;
             const $label = document.createElement('label');
-            const $code = document.createElement('code');
-            $code.textContent = `user = username`;
             $label.append(`Filter:`, $textarea);
             $div.append($label);
             $form.append($div);
@@ -1631,17 +1672,21 @@ class NoteFilterPanel {
         {
             const $div = document.createElement('div');
             $div.classList.add('major-input');
-            const $button = document.createElement('button');
             $button.textContent = `Apply filter`;
             $button.type = 'submit';
+            $button.disabled = true;
             $div.append($button);
             $form.append($div);
         }
+        $textarea.addEventListener('input', () => {
+            $button.disabled = this.noteFilter.isSameQuery($textarea.value);
+        });
         $form.addEventListener('submit', (ev) => {
             ev.preventDefault();
             this.noteFilter = new NoteFilter($textarea.value);
             if (this.callback)
                 this.callback(this.noteFilter);
+            $button.disabled = true;
         });
         $container.append($form);
     }
