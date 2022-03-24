@@ -132,6 +132,9 @@ body.flipped .panel.fetch button.flip {
 .notes th {
 	padding: 2px;
 }
+.notes td.note-date {
+	white-space: nowrap;
+}
 .notes td.note-user {
 	white-space: nowrap;
 	max-width: 20vw;

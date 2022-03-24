@@ -857,6 +857,7 @@ class NoteTable {
                 }
                 {
                     const $cell = $row.insertCell();
+                    $cell.classList.add('note-date');
                     const dateString = new Date(comment.date * 1000).toISOString();
                     const match = dateString.match(/(\d\d\d\d-\d\d-\d\d)T(\d\d:\d\d:\d\d)/);
                     if (match) {
