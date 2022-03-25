@@ -1,4 +1,5 @@
 import NoteViewerStorage from './storage'
+import NoteViewerDB from './db'
 import {NoteMap} from './map'
 import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
@@ -7,7 +8,7 @@ import {startFetcher} from './fetch'
 
 export default class NoteFetchPanel {
 	constructor(
-		storage: NoteViewerStorage,
+		storage: NoteViewerStorage, db: NoteViewerDB,
 		$container: HTMLElement,
 		$notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
 		filterPanel: NoteFilterPanel, extrasPanel: ExtrasPanel, map: NoteMap
@@ -140,7 +141,7 @@ export default class NoteFetchPanel {
 			}
 			extrasPanel.rewrite(query,Number($limitSelect.value))
 			startFetcher(
-				storage,
+				storage,db,
 				$notesContainer,$moreContainer,$commandContainer,
 				filterPanel,map,
 				$limitSelect,$autoLoadCheckbox,$fetchButton,
@@ -163,7 +164,7 @@ export default class NoteFetchPanel {
 			const notes=JSON.parse(notesString)
 			const users=JSON.parse(usersString)
 			startFetcher(
-				storage,
+				storage,db,
 				$notesContainer,$moreContainer,$commandContainer,
 				filterPanel,map,
 				$limitSelect,$autoLoadCheckbox,$fetchButton,

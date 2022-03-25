@@ -1,14 +1,16 @@
 import NoteViewerStorage from './storage'
+import NoteViewerDB from './db'
 import {NoteMap} from './map'
 import NoteFetchPanel from './fetch-panel'
 import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
 
-const storage=new NoteViewerStorage('osm-note-viewer-')
-
 main()
 
-function main(): void {
+async function main() {
+	const storage=new NoteViewerStorage('osm-note-viewer-')
+	const db=await NoteViewerDB.open()
+
 	const flipped=!!storage.getItem('flipped')
 	if (flipped) document.body.classList.add('flipped')
 	const $textSide=document.createElement('div')
@@ -40,13 +42,13 @@ function main(): void {
 	$stickyPart.append($commandContainer)
 
 	const map=new NoteMap($mapSide)
-	writeFlipLayoutButton($fetchContainer,map)
+	writeFlipLayoutButton(storage,$fetchContainer,map)
 	const extrasPanel=new ExtrasPanel(storage,$extrasContainer)
 	const filterPanel=new NoteFilterPanel($filterContainer)
-	new NoteFetchPanel(storage,$fetchContainer,$notesContainer,$moreContainer,$commandContainer,filterPanel,extrasPanel,map)
+	new NoteFetchPanel(storage,db,$fetchContainer,$notesContainer,$moreContainer,$commandContainer,filterPanel,extrasPanel,map)
 }
 
-function writeFlipLayoutButton($container: HTMLElement, map: NoteMap): void {
+function writeFlipLayoutButton(storage: NoteViewerStorage, $container: HTMLElement, map: NoteMap): void {
 	const $button=document.createElement('button')
 	$button.classList.add('flip')
 	$button.title=`Flip layout`

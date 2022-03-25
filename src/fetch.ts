@@ -1,4 +1,5 @@
 import NoteViewerStorage from './storage'
+import NoteViewerDB from './db'
 import {Note, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesAndUsers} from './data'
 import {ValidUserQueryPart, NoteQuery, getNextFetchDetails} from './query'
 import NoteFilterPanel from './filter-panel'
@@ -12,11 +13,12 @@ const maxTotalAutoLoadLimit=1000
 const maxFullyFilteredFetches=10
 
 export async function startFetcher(
-	storage: NoteViewerStorage,
+	storage: NoteViewerStorage, db: NoteViewerDB,
 	$notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
 	filterPanel: NoteFilterPanel, map: NoteMap,
 	$limitSelect: HTMLSelectElement, $autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement,
-	query: NoteQuery, initialNotes: Note[], initialUsers: Users
+	query: NoteQuery,
+	initialNotes: Note[], initialUsers: Users // TODO get them from db here b/c they are saved also here
 ) {
 	filterPanel.unsubscribe()
 	let noteTable: NoteTable | undefined
@@ -73,6 +75,7 @@ export async function startFetcher(
 					return
 				}
 				const unseenNotes=mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data))
+				db.save(unseenNotes)
 				saveToQueryStorage(query,notes,users)
 				if (!noteTable && notes.length<=0) {
 					rewriteMessage($moreContainer,`User `,[query],` has no ${query.status=='open'?'open ':''}notes`)
