@@ -32,9 +32,8 @@ export async function startFetcher(
 		try {
 			const usersString=storage.getItem('users')
 			if (usersString!=null) initialUsers=JSON.parse(usersString)
-			initialNotes=await db.load()
+			initialNotes=await db.load() // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
 		} catch {}
-		console.log('> initial db contents',initialNotes)
 		mergeNotesAndUsers(initialNotes,initialUsers)
 	}
 	filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(notes,users,noteFilter))

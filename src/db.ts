@@ -1,5 +1,9 @@
 import {Note} from './data'
-import {NoteQuery} from './query'
+
+// interface NoteEntry {
+// 	note: Note
+// 	sequenceNumber: number
+// }
 
 export default class NoteViewerDB {
 	private closed: boolean = false
@@ -31,7 +35,7 @@ export default class NoteViewerDB {
 			tx.onerror=()=>reject(new Error(`Database save error: ${tx.error}`))
 		})
 	}
-	load(): Promise<Note[]> { // TODO order
+	load(): Promise<Note[]> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction('notes','readonly')
@@ -97,25 +101,23 @@ export default class NoteViewerDB {
 	static open(): Promise<NoteViewerDB> {
 		return new Promise((resolve,reject)=>{
 			const request=indexedDB.open('OsmNoteViewer')
-			request.onsuccess=(ev:any)=>{
-				if (!(ev.target.result instanceof IDBDatabase)) {
-					reject(new Error(`opened database but resulted in unknown object`))
-				}
-				resolve(new NoteViewerDB(ev.target.result))
+			request.onsuccess=()=>{
+				resolve(new NoteViewerDB(request.result))
 			}
-			request.onupgradeneeded=(ev:any)=>{
-				const idb=ev.target.result
+			request.onupgradeneeded=()=>{
+				const idb=request.result
 				if (!(idb instanceof IDBDatabase)) {
 					reject(new Error(`opened database but resulted in unknown object`))
 				}
 				// idb.createObjectStore("fetches",{autoIncrement:true})
-				idb.createObjectStore('notes',{keyPath:'id'}) // TODO key is fetchId,id
+				// const noteStore=idb.createObjectStore('notes',{keyPath:'note.id'}) // TODO key is fetchId,id
+				const noteStore=idb.createObjectStore('notes',{keyPath:'id'}) // TODO key is fetchId,id
 				// idb.createObjectStore("users",{keyPath:'id'}) // key is fetchId,id
 			}
-			request.onerror=ev=>{
+			request.onerror=()=>{
 				reject(new Error(`failed to open the database`))
 			}
-			request.onblocked=ev=>{
+			request.onblocked=()=>{
 				reject(new Error(`failed to open the database because of blocked version change`)) // shouldn't happen
 			}
 			// May trigger upgradeneeded, blocked or versionchange events.
