@@ -1,9 +1,9 @@
 import {Note} from './data'
 
-// interface NoteEntry {
-// 	note: Note
-// 	sequenceNumber: number
-// }
+interface NoteEntry {
+	note: Note
+	sequenceNumber: number
+}
 
 export default class NoteViewerDB {
 	private closed: boolean = false
@@ -20,7 +20,7 @@ export default class NoteViewerDB {
 			const noteStore=tx.objectStore('notes')
 			const request=noteStore.clear()
 			request.onsuccess=()=>resolve()
-			request.onerror=()=>reject(new Error(`Database clear error: ${request.error}`))
+			tx.onerror=()=>reject(new Error(`Database clear error: ${tx.error}`))
 		})
 	}
 	save(notes: Note[]): Promise<void> {
@@ -28,8 +28,16 @@ export default class NoteViewerDB {
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction('notes','readwrite')
 			const noteStore=tx.objectStore('notes')
-			for (const note of notes) {
-				noteStore.put(note)
+			const noteSequenceIndex=noteStore.index('sequence')
+			const noteCursorRequest=noteSequenceIndex.openCursor(null,'prev')
+			noteCursorRequest.onsuccess=()=>{
+				let sequenceNumber=0
+				const cursor=noteCursorRequest.result
+				if (cursor) sequenceNumber=cursor.value.sequenceNumber
+				for (const note of notes) {
+					sequenceNumber++
+					noteStore.put({note,sequenceNumber})
+				}
 			}
 			tx.oncomplete=()=>resolve()
 			tx.onerror=()=>reject(new Error(`Database save error: ${tx.error}`))
@@ -40,9 +48,10 @@ export default class NoteViewerDB {
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction('notes','readonly')
 			const noteStore=tx.objectStore('notes')
-			const request=noteStore.getAll()
-			request.onsuccess=()=>resolve(request.result)
-			request.onerror=()=>reject(new Error(`Database read error: ${request.error}`))
+			const noteSequenceIndex=noteStore.index('sequence')
+			const request=noteSequenceIndex.getAll()
+			request.onsuccess=()=>resolve(request.result.map(noteEntry=>noteEntry.note))
+			tx.onerror=()=>reject(new Error(`Database read error: ${tx.error}`))
 		})
 	}
 	/*
@@ -110,8 +119,8 @@ export default class NoteViewerDB {
 					reject(new Error(`opened database but resulted in unknown object`))
 				}
 				// idb.createObjectStore("fetches",{autoIncrement:true})
-				// const noteStore=idb.createObjectStore('notes',{keyPath:'note.id'}) // TODO key is fetchId,id
-				const noteStore=idb.createObjectStore('notes',{keyPath:'id'}) // TODO key is fetchId,id
+				const noteStore=idb.createObjectStore('notes',{keyPath:'note.id'}) // TODO key is fetchId,id
+				noteStore.createIndex('sequence','sequenceNumber')
 				// idb.createObjectStore("users",{keyPath:'id'}) // key is fetchId,id
 			}
 			request.onerror=()=>{
