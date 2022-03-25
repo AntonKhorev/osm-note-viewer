@@ -4,21 +4,42 @@ import {NoteQuery} from './query'
 export default class NoteViewerDB {
 	private closed: boolean = false
 	constructor(private idb: IDBDatabase) {
-		console.log('created db') ///
 		idb.onversionchange=()=>{
 			idb.close()
 			this.closed=true
 		}
 	}
-	save(notes: Note[]): void {
-		if (closed) {
-			throw new Error(`Database is outdated, please reload the page.`)
-		}
-		const tx=this.idb.transaction('notes','readwrite')
-		const noteStore=tx.objectStore('notes')
-		for (const note of notes) {
-			noteStore.put(note)
-		}
+	clear(): Promise<void> {
+		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
+		return new Promise((resolve,reject)=>{
+			const tx=this.idb.transaction('notes','readwrite')
+			const noteStore=tx.objectStore('notes')
+			const request=noteStore.clear()
+			request.onsuccess=()=>resolve()
+			request.onerror=()=>reject(new Error(`Database clear error: ${request.error}`))
+		})
+	}
+	save(notes: Note[]): Promise<void> {
+		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
+		return new Promise((resolve,reject)=>{
+			const tx=this.idb.transaction('notes','readwrite')
+			const noteStore=tx.objectStore('notes')
+			for (const note of notes) {
+				noteStore.put(note)
+			}
+			tx.oncomplete=()=>resolve()
+			tx.onerror=()=>reject(new Error(`Database save error: ${tx.error}`))
+		})
+	}
+	load(): Promise<Note[]> { // TODO order
+		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
+		return new Promise((resolve,reject)=>{
+			const tx=this.idb.transaction('notes','readonly')
+			const noteStore=tx.objectStore('notes')
+			const request=noteStore.getAll()
+			request.onsuccess=()=>resolve(request.result)
+			request.onerror=()=>reject(new Error(`Database read error: ${request.error}`))
+		})
 	}
 	/*
 	getFetchRecord(query: NoteQuery) { // TODO NoteQuery shouldn't include timestamps
@@ -90,7 +111,6 @@ export default class NoteViewerDB {
 				// idb.createObjectStore("fetches",{autoIncrement:true})
 				idb.createObjectStore('notes',{keyPath:'id'}) // TODO key is fetchId,id
 				// idb.createObjectStore("users",{keyPath:'id'}) // key is fetchId,id
-				// TODO resolve?
 			}
 			request.onerror=ev=>{
 				reject(new Error(`failed to open the database`))

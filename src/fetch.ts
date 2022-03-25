@@ -18,14 +18,26 @@ export async function startFetcher(
 	filterPanel: NoteFilterPanel, map: NoteMap,
 	$limitSelect: HTMLSelectElement, $autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement,
 	query: NoteQuery,
-	initialNotes: Note[], initialUsers: Users // TODO get them from db here b/c they are saved also here
+	clearStore: boolean
 ) {
 	filterPanel.unsubscribe()
 	let noteTable: NoteTable | undefined
 	const [notes,users,mergeNotesAndUsers]=makeNotesAndUsersAndMerger()
-	mergeNotesAndUsers(initialNotes,initialUsers)
+	if (clearStore) {
+		await db.clear()
+		storage.setItem('users',JSON.stringify(users))
+	} else {
+		let initialNotes: Note[] = []
+		let initialUsers: Users = {}
+		try {
+			const usersString=storage.getItem('users')
+			if (usersString!=null) initialUsers=JSON.parse(usersString)
+			initialNotes=await db.load()
+		} catch {}
+		console.log('> initial db contents',initialNotes)
+		mergeNotesAndUsers(initialNotes,initialUsers)
+	}
 	filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(notes,users,noteFilter))
-	saveToQueryStorage(query,notes,users)
 	map.clearNotes()
 	$notesContainer.innerHTML=``
 	$commandContainer.innerHTML=``
@@ -34,7 +46,7 @@ export async function startFetcher(
 	let prevLastNote: Note | undefined
 	let lastLimit: number | undefined
 	let nFullyFilteredFetches=0
-	if (notes.length>0) {
+	if (!clearStore) {
 		addNewNotes(notes)
 		lastNote=notes[notes.length-1]
 		rewriteLoadMoreButton()
@@ -75,8 +87,7 @@ export async function startFetcher(
 					return
 				}
 				const unseenNotes=mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data))
-				db.save(unseenNotes)
-				saveToQueryStorage(query,notes,users)
+				await saveToQueryStorage(query,unseenNotes,users)
 				if (!noteTable && notes.length<=0) {
 					rewriteMessage($moreContainer,`User `,[query],` has no ${query.status=='open'?'open ':''}notes`)
 					return
@@ -137,9 +148,9 @@ export async function startFetcher(
 		$div.append($button)
 		$moreContainer.append($div)
 	}
-	function saveToQueryStorage(query: NoteQuery, notes: Note[], users: Users): void {
+	async function saveToQueryStorage(query: NoteQuery, newNotes: Note[], users: Users): Promise<void> {
+		await db.save(newNotes)
 		storage.setItem('query',JSON.stringify(query))
-		storage.setItem('notes',JSON.stringify(notes))
 		storage.setItem('users',JSON.stringify(users))
 	}
 }

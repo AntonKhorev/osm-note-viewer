@@ -145,7 +145,8 @@ export default class NoteFetchPanel {
 				$notesContainer,$moreContainer,$commandContainer,
 				filterPanel,map,
 				$limitSelect,$autoLoadCheckbox,$fetchButton,
-				query,[],{}
+				query,
+				true
 			)
 		})
 		$container.append($form)
@@ -157,18 +158,13 @@ export default class NoteFetchPanel {
 		try {
 			const query=JSON.parse(queryString)
 			extrasPanel.rewrite(query,Number($limitSelect.value))
-			const notesString=storage.getItem('notes')
-			if (notesString==null) return
-			const usersString=storage.getItem('users')
-			if (usersString==null) return
-			const notes=JSON.parse(notesString)
-			const users=JSON.parse(usersString)
 			startFetcher(
 				storage,db,
 				$notesContainer,$moreContainer,$commandContainer,
 				filterPanel,map,
 				$limitSelect,$autoLoadCheckbox,$fetchButton,
-				query,notes,users
+				query,
+				false
 			)
 		} catch {}
 	}
