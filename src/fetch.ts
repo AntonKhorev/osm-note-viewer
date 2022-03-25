@@ -25,14 +25,11 @@ export async function startFetcher(
 	const [notes,users,mergeNotesAndUsers]=makeNotesAndUsersAndMerger()
 	if (clearStore) {
 		await db.clear()
-		storage.setItem('users',JSON.stringify(users))
 	} else {
 		let initialNotes: Note[] = []
 		let initialUsers: Users = {}
 		try {
-			const usersString=storage.getItem('users')
-			if (usersString!=null) initialUsers=JSON.parse(usersString)
-			initialNotes=await db.load() // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
+			[initialNotes,initialUsers]=await db.load() // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
 		} catch {}
 		mergeNotesAndUsers(initialNotes,initialUsers)
 	}
@@ -85,8 +82,8 @@ export async function startFetcher(
 					rewriteMessage($moreContainer,`Received invalid data`)
 					return
 				}
-				const unseenNotes=mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data))
-				await saveToQueryStorage(query,unseenNotes,users)
+				const [unseenNotes,unseenUsers]=mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data))
+				await saveToQueryStorage(query,unseenNotes,unseenUsers)
 				if (!noteTable && notes.length<=0) {
 					rewriteMessage($moreContainer,`User `,[query],` has no ${query.status=='open'?'open ':''}notes`)
 					return
@@ -147,30 +144,34 @@ export async function startFetcher(
 		$div.append($button)
 		$moreContainer.append($div)
 	}
-	async function saveToQueryStorage(query: NoteQuery, newNotes: Note[], users: Users): Promise<void> {
-		await db.save(newNotes)
+	async function saveToQueryStorage(query: NoteQuery, newNotes: Note[], newUsers: Users): Promise<void> {
+		await db.save(newNotes,newUsers)
 		storage.setItem('query',JSON.stringify(query))
-		storage.setItem('users',JSON.stringify(users))
 	}
 }
 
 function makeNotesAndUsersAndMerger(): [
 	notes: Note[], users: Users,
-	merger: (newNotes: Note[], newUsers: Users) => Note[]
+	merger: (newNotes: Note[], newUsers: Users) => [Note[],Users]
 ] {
 	const seenNotes: {[id: number]: boolean} = {}
 	const notes: Note[] = []
 	const users: Users = {}
-	const merger=(newNotes: Note[], newUsers: Users): Note[] => {
+	const merger=(newNotes: Note[], newUsers: Users): [Note[],Users] => {
 		const unseenNotes: Note[] = []
+		const unseenUsers: Users ={}
 		for (const note of newNotes) {
 			if (seenNotes[note.id]) continue
 			seenNotes[note.id]=true
 			notes.push(note)
 			unseenNotes.push(note)
 		}
+		for (const newUserIdString in newUsers) {
+			const newUserId=Number(newUserIdString) // TODO rewrite this hack
+			if (users[newUserId]!=newUsers[newUserId]) unseenUsers[newUserId]=newUsers[newUserId]
+		}
 		Object.assign(users,newUsers)
-		return unseenNotes
+		return [unseenNotes,unseenUsers]
 	}
 	return [notes,users,merger]
 }

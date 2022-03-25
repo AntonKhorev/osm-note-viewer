@@ -1,8 +1,17 @@
-import {Note} from './data'
+import {Note, Users} from './data'
 
 interface NoteEntry {
+	// TODO fetchId
 	note: Note
 	sequenceNumber: number
+}
+
+interface UserEntry {
+	// TODO fetchId
+	user: {
+		id: number
+		name: string
+	}
 }
 
 export default class NoteViewerDB {
@@ -16,18 +25,19 @@ export default class NoteViewerDB {
 	clear(): Promise<void> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
 		return new Promise((resolve,reject)=>{
-			const tx=this.idb.transaction('notes','readwrite')
-			const noteStore=tx.objectStore('notes')
-			const request=noteStore.clear()
-			request.onsuccess=()=>resolve()
+			const tx=this.idb.transaction(['notes','users'],'readwrite')
+			tx.objectStore('notes').clear()
+			tx.objectStore('users').clear()
+			tx.oncomplete=()=>resolve()
 			tx.onerror=()=>reject(new Error(`Database clear error: ${tx.error}`))
 		})
 	}
-	save(notes: Note[]): Promise<void> {
+	save(notes: Note[], users: Users): Promise<void> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
 		return new Promise((resolve,reject)=>{
-			const tx=this.idb.transaction('notes','readwrite')
+			const tx=this.idb.transaction(['notes','users'],'readwrite')
 			const noteStore=tx.objectStore('notes')
+			const userStore=tx.objectStore('users')
 			const noteSequenceIndex=noteStore.index('sequence')
 			const noteCursorRequest=noteSequenceIndex.openCursor(null,'prev')
 			noteCursorRequest.onsuccess=()=>{
@@ -38,19 +48,36 @@ export default class NoteViewerDB {
 					sequenceNumber++
 					noteStore.put({note,sequenceNumber})
 				}
+				for (const userId in users) {
+					userStore.put({user:{
+						id: Number(userId),
+						name: users[userId]
+					}})
+				}
 			}
 			tx.oncomplete=()=>resolve()
 			tx.onerror=()=>reject(new Error(`Database save error: ${tx.error}`))
 		})
 	}
-	load(): Promise<Note[]> {
+	load(): Promise<[Note[], Users]> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
 		return new Promise((resolve,reject)=>{
-			const tx=this.idb.transaction('notes','readonly')
+			const tx=this.idb.transaction(['notes','users'],'readonly')
 			const noteStore=tx.objectStore('notes')
+			const userStore=tx.objectStore('users')
 			const noteSequenceIndex=noteStore.index('sequence')
-			const request=noteSequenceIndex.getAll()
-			request.onsuccess=()=>resolve(request.result.map(noteEntry=>noteEntry.note))
+			const noteRequest=noteSequenceIndex.getAll()
+			noteRequest.onsuccess=()=>{
+				const notes=noteRequest.result.map(noteEntry=>noteEntry.note)
+				const userRequest=userStore.getAll()
+				userRequest.onsuccess=()=>{
+					const users: Users = {}
+					for (const userEntry of userRequest.result) {
+						users[userEntry.user.id]=userEntry.user.name
+					}
+					resolve([notes,users])
+				}
+			}
 			tx.onerror=()=>reject(new Error(`Database read error: ${tx.error}`))
 		})
 	}
@@ -121,7 +148,7 @@ export default class NoteViewerDB {
 				// idb.createObjectStore("fetches",{autoIncrement:true})
 				const noteStore=idb.createObjectStore('notes',{keyPath:'note.id'}) // TODO key is fetchId,id
 				noteStore.createIndex('sequence','sequenceNumber')
-				// idb.createObjectStore("users",{keyPath:'id'}) // key is fetchId,id
+				idb.createObjectStore('users',{keyPath:'user.id'}) // TODO key is fetchId,id
 			}
 			request.onerror=()=>{
 				reject(new Error(`failed to open the database`))
