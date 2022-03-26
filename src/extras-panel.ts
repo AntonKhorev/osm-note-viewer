@@ -1,5 +1,5 @@
 import NoteViewerStorage from './storage'
-import {NoteQuery, getNextFetchDetails} from './query'
+import {NoteQuery, noteQueryToUserQuery, getNextFetchDetails} from './query'
 import {makeLink, makeUserLink} from './util'
 
 export default class ExtrasPanel {
@@ -27,15 +27,18 @@ export default class ExtrasPanel {
 			})
 			return [$clearButton,` `,$computeButton,` `,$computeResult]
 		})
-		if (query!=null && limit!=null) writeBlock(()=>[
-			`API links to queries on `,
-			makeUserLink(query,`this user`),
-			`: `,
-			makeNoteQueryLink(`with specified limit`,query,limit),
-			`, `,
-			makeNoteQueryLink(`with max limit`,query,10000),
-			` (may be slow)`
-		])
+		if (query!=null && limit!=null) { // TODO don't limit to this user
+			const userQuery=noteQueryToUserQuery(query)
+			if (userQuery.userType=='name' || userQuery.userType=='id') writeBlock(()=>[
+				`API links to queries on `,
+				makeUserLink(userQuery,`this user`),
+				`: `,
+				makeNoteQueryLink(`with specified limit`,query,limit),
+				`, `,
+				makeNoteQueryLink(`with max limit`,query,10000),
+				` (may be slow)`
+			])
+		}
 		writeBlock(()=>[
 			`User query have whitespace trimmed, then the remaining part starting with `,makeCode(`#`),` is treated as a user id; containing `,makeCode(`/`),`is treated as a URL, anything else as a username. `,
 			`This works because usernames can't contain any of these characters: `,makeCode(`/;.,?%#`),` , can't have leading/trailing whitespace, have to be between 3 and 255 characters in length.`

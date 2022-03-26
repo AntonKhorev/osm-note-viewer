@@ -1,12 +1,11 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
 import {Note, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesAndUsers} from './data'
-import {ValidUserQueryPart, NoteQuery, getNextFetchDetails} from './query'
+import {NoteQuery, getNextFetchDetails} from './query'
 import NoteFilterPanel from './filter-panel'
 import {NoteMap} from './map'
 import CommandPanel from './command-panel'
 import NoteTable from './table'
-import {makeUserLink} from './util'
 
 const maxSingleAutoLoadLimit=200
 const maxTotalAutoLoadLimit=1000
@@ -77,7 +76,7 @@ export async function startFetcher(
 				rewriteFetchErrorMessage($moreContainer,query,`received the following error response`,responseText)
 			} else {
 				const data=await response.json()
-				query.endedAt=Date.now()
+				// query.endedAt=Date.now()
 				if (!isNoteFeatureCollection(data)) {
 					rewriteMessage($moreContainer,`Received invalid data`)
 					return
@@ -85,7 +84,7 @@ export async function startFetcher(
 				const [unseenNotes,unseenUsers]=mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data))
 				await saveToQueryStorage(query,unseenNotes,unseenUsers)
 				if (!noteTable && notes.length<=0) {
-					rewriteMessage($moreContainer,`User `,[query],` has no ${query.status=='open'?'open ':''}notes`)
+					rewriteMessage($moreContainer,`No matching notes found`)
 					return
 				}
 				addNewNotes(unseenNotes)
@@ -176,29 +175,30 @@ function makeNotesAndUsersAndMerger(): [
 	return [notes,users,merger]
 }
 
-function rewriteMessage($container: HTMLElement, ...items: Array<string|[ValidUserQueryPart]>): HTMLElement {
+function rewriteMessage($container: HTMLElement, ...items: Array<string>): HTMLElement {
 	$container.innerHTML=''
 	const $message=document.createElement('div')
 	for (const item of items) {
-		if (Array.isArray(item)) {
-			const [username]=item
-			$message.append(makeUserLink(username))
-		} else {
+		// if (Array.isArray(item)) { // TODO implement displaying query details
+		// 	const [username]=item
+		// 	$message.append(makeUserLink(username))
+		// } else {
 			$message.append(item)
-		}
+		// }
 	}
 	$container.append($message)
 	return $message
 }
 
-function rewriteErrorMessage($container: HTMLElement, ...items: Array<string|[ValidUserQueryPart]>): HTMLElement {
+function rewriteErrorMessage($container: HTMLElement, ...items: Array<string>): HTMLElement {
 	const $message=rewriteMessage($container,...items)
 	$message.classList.add('error')
 	return $message
 }
 
-function rewriteFetchErrorMessage($container: HTMLElement, user: ValidUserQueryPart, responseKindText: string, fetchErrorText: string): void {
-	const $message=rewriteErrorMessage($container,`Loading notes of user `,[user],` ${responseKindText}:`)
+function rewriteFetchErrorMessage($container: HTMLElement, query: NoteQuery, responseKindText: string, fetchErrorText: string): void {
+	// TODO display query details
+	const $message=rewriteErrorMessage($container,`Loading notes ${responseKindText}:`)
 	const $error=document.createElement('pre')
 	$error.textContent=fetchErrorText
 	$message.append($error)

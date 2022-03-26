@@ -1,29 +1,32 @@
 import {Note, NoteComment} from './data'
 
-export interface UsernameQueryPart {
+export interface UsernameQuery {
 	userType: 'name'
 	username: string
 }
 
-export interface UidQueryPart {
+export interface UidQuery {
 	userType: 'id'
 	uid: number
 }
 
-export type ValidUserQueryPart = UsernameQueryPart | UidQueryPart
+export type ValidUserQuery = UsernameQuery | UidQuery
 
-export interface InvalidUserQueryPart {
+export interface InvalidUserQuery {
 	userType: 'invalid'
 	message: string
 }
 
-export type UserQueryPart = ValidUserQueryPart | InvalidUserQueryPart
+export interface EmptyUserQuery {
+	userType: 'empty'
+}
 
-export function toUserQueryPart(value: string): UserQueryPart {
+export type UserQuery = ValidUserQuery | InvalidUserQuery | EmptyUserQuery
+
+export function toUserQuery(value: string): UserQuery {
 	const s=value.trim()
 	if (s=='') return {
-		userType: 'invalid',
-		message: `cannot be empty`
+		userType: 'empty'
 	}
 	if (s[0]=='#') {
 		let match: RegExpMatchArray | null
@@ -100,17 +103,49 @@ export function toUserQueryPart(value: string): UserQueryPart {
 	}
 }
 
-export type NoteQuery = ValidUserQueryPart & {
-	status: 'mixed'|'recent'|'open'|'separate'
+export interface NoteQuery { // fields named like in the API
+	q?: string
+	closed: number
+	display_name?: string // username
+	user?: number // user id
+	// TODO from, to
 	sort: 'created_at'|'updated_at'
 	order: 'newest'|'oldest'
-	beganAt?: number
-	endedAt?: number
+	// beganAt?: number // TODO move to db record
+	// endedAt?: number
 }
 
-export function toNoteQueryStatus(value: string): NoteQuery['status'] {
-	if (value=='open' || value=='recent' || value=='separate') return value
-	return 'mixed'
+export function noteQueryToUserQuery(noteQuery: NoteQuery): UserQuery {
+	if (noteQuery.display_name!=null) {
+		return {
+			userType: 'name',
+			username: noteQuery.display_name
+		}
+	} else if (noteQuery.user!=null) {
+		return {
+			userType: 'id',
+			uid: noteQuery.user
+		}
+	} else {
+		return {
+			userType: 'empty'
+		}
+	}
+}
+
+export function toNoteQueryUser(userQuery: UserQuery): {display_name?: string, user?: number} {
+	if (userQuery.userType=='name') {
+		return {display_name: userQuery.username}
+	} else if (userQuery.userType=='id') {
+		return {user: userQuery.uid}
+	} else {
+		return {}
+	}
+}
+
+export function toNoteQueryClosed(value: string): NoteQuery['closed'] {
+	if (value=='-1' || value=='0' || value=='7') return Number(value)
+	return 7
 }
 
 export function toNoteQuerySort(value: string): NoteQuery['sort'] {
@@ -137,12 +172,6 @@ export interface NoteFetchDetails {
                             from, to - this change for pagination purposes, from needs to be present with a dummy date if to is used
  */
 export function getNextFetchDetails(query: NoteQuery, requestedLimit: number, lastNote?: Note, prevLastNote?: Note, lastLimit?: number): NoteFetchDetails {
-	let closed=-1
-	if (query.status=='open') {
-		closed=0
-	} else if (query.status=='recent') {
-		closed=7
-	}
 	let lowerDateLimit:string|undefined
 	let upperDateLimit:string|undefined
 	let limit=requestedLimit
@@ -167,15 +196,18 @@ export function getNextFetchDetails(query: NoteQuery, requestedLimit: number, la
 		lowerDateLimit='2001-01-01T00:00:00Z'
 	}
 	const parameters:Array<[string,string|number]>=[]
-	if (query.userType=='id') {
-		parameters.push(['user',query.uid])
-	} else {
-		parameters.push(['display_name',query.username])
+	if (query.q!=null) {
+		parameters.push(['q',query.q])
+	}
+	if (query.display_name!=null) {
+		parameters.push(['display_name',query.display_name])
+	} else if (query.user!=null) {
+		parameters.push(['user',query.user])
 	}
 	parameters.push(
 		['sort',query.sort],
 		['order',query.order],
-		['closed',closed],
+		['closed',query.closed],
 		['limit',limit]
 	)
 	if (lowerDateLimit!=null) parameters.push(['from',lowerDateLimit])

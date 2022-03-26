@@ -1,5 +1,5 @@
 import {strict as assert} from 'assert'
-import {toUserQueryPart, getNextFetchDetails} from '../test-build/query.js'
+import {toUserQuery, getNextFetchDetails} from '../test-build/query.js'
 
 const makeNote=(id,...dates)=>({
 	id,
@@ -13,120 +13,118 @@ const makeNote=(id,...dates)=>({
 	}))
 })
 
-describe("query module / toUserQueryPart()",()=>{
-	it("gives invalid output on empty input",()=>{
-		const uqp=toUserQueryPart(``)
-		assert.equal(uqp.userType,'invalid')
-		assert(uqp.message.includes('empty'))
+describe("query module / toUserQuery()",()=>{
+	it("gives empty output on empty input",()=>{
+		const uqp=toUserQuery(``)
+		assert.equal(uqp.userType,'empty')
 	})
-	it("gives invalid output on spaces",()=>{
-		const uqp=toUserQueryPart(`   `)
-		assert.equal(uqp.userType,'invalid')
-		assert(uqp.message.includes('empty'))
+	it("gives empty output on spaces",()=>{
+		const uqp=toUserQuery(`   `)
+		assert.equal(uqp.userType,'empty')
 	})
 	it("gives name on single word",()=>{
-		const uqp=toUserQueryPart(`Alice`)
+		const uqp=toUserQuery(`Alice`)
 		assert.equal(uqp.userType,'name')
 		assert.equal(uqp.username,`Alice`)
 	})
 	it("trims name",()=>{
-		const uqp=toUserQueryPart(`  Bob   `)
+		const uqp=toUserQuery(`  Bob   `)
 		assert.equal(uqp.userType,'name')
 		assert.equal(uqp.username,`Bob`)
 	})
 	it("gives id on #number",()=>{
-		const uqp=toUserQueryPart(`#987`)
+		const uqp=toUserQuery(`#987`)
 		assert.equal(uqp.userType,'id')
 		assert.equal(uqp.uid,987)
 	})
 	it("trims id",()=>{
-		const uqp=toUserQueryPart(` #654 `)
+		const uqp=toUserQuery(` #654 `)
 		assert.equal(uqp.userType,'id')
 		assert.equal(uqp.uid,654)
 	})
 	it("ignores spaces after # in uid",()=>{
-		const uqp=toUserQueryPart(`#  1357`)
+		const uqp=toUserQuery(`#  1357`)
 		assert.equal(uqp.userType,'id')
 		assert.equal(uqp.uid,1357)
 	})
 	it("gives invalid output if # is followed by non-numbers",()=>{
-		const uqp=toUserQueryPart(`#13x57`)
+		const uqp=toUserQuery(`#13x57`)
 		assert.equal(uqp.userType,'invalid')
 		assert(uqp.message.includes('x'))
 	})
 	it("gives invalid output if # is not followed by anything",()=>{
-		const uqp=toUserQueryPart(`#`)
+		const uqp=toUserQuery(`#`)
 		assert.equal(uqp.userType,'invalid')
 		assert(uqp.message.includes('empty'))
 	})
 	it("parses osm user url",()=>{
-		const uqp=toUserQueryPart(`https://www.openstreetmap.org/user/Bob`)
+		const uqp=toUserQuery(`https://www.openstreetmap.org/user/Bob`)
 		assert.equal(uqp.userType,'name')
 		assert.equal(uqp.username,`Bob`)
 	})
 	it("parses osm user subpage url",()=>{
-		const uqp=toUserQueryPart(`https://www.openstreetmap.org/user/Fred/notes`)
+		const uqp=toUserQuery(`https://www.openstreetmap.org/user/Fred/notes`)
 		assert.equal(uqp.userType,'name')
 		assert.equal(uqp.username,`Fred`)
 	})
 	it("parses osm user url with hash",()=>{
-		const uqp=toUserQueryPart(`https://www.openstreetmap.org/user/User#content`)
+		const uqp=toUserQuery(`https://www.openstreetmap.org/user/User#content`)
 		assert.equal(uqp.userType,'name')
 		assert.equal(uqp.username,`User`)
 	})
 	it("parses osm user url with space",()=>{
-		const uqp=toUserQueryPart(`https://www.openstreetmap.org/user/FirstName%20LastName`)
+		const uqp=toUserQuery(`https://www.openstreetmap.org/user/FirstName%20LastName`)
 		assert.equal(uqp.userType,'name')
 		assert.equal(uqp.username,`FirstName LastName`)
 	})
 	it("parses http osm user url",()=>{
-		const uqp=toUserQueryPart(`http://www.openstreetmap.org/user/Bob`)
+		const uqp=toUserQuery(`http://www.openstreetmap.org/user/Bob`)
 		assert.equal(uqp.userType,'name')
 		assert.equal(uqp.username,`Bob`)
 	})
 	it("parses osm user url without www",()=>{
-		const uqp=toUserQueryPart(`https://openstreetmap.org/user/John`)
+		const uqp=toUserQuery(`https://openstreetmap.org/user/John`)
 		assert.equal(uqp.userType,'name')
 		assert.equal(uqp.username,`John`)
 	})
 	it("parses www.osm.org user url",()=>{
-		const uqp=toUserQueryPart(`https://www.osm.org/user/John`)
+		const uqp=toUserQuery(`https://www.osm.org/user/John`)
 		assert.equal(uqp.userType,'name')
 		assert.equal(uqp.username,`John`)
 	})
 	it("parses osm.org user url",()=>{
-		const uqp=toUserQueryPart(`https://www.osm.org/user/John`)
+		const uqp=toUserQuery(`https://www.osm.org/user/John`)
 		assert.equal(uqp.userType,'name')
 		assert.equal(uqp.username,`John`)
 	})
 	it("rejects unknown domain",()=>{
-		const uqp=toUserQueryPart(`https://www.google.com/user/John`)
+		const uqp=toUserQuery(`https://www.google.com/user/John`)
 		assert.equal(uqp.userType,'invalid')
 		assert(uqp.message.includes('www.google.com'))
 	})
 	it("rejects malformed url",()=>{
-		const uqp=toUserQueryPart(`ht/tp/s://ww/w.go/ogle.c/om/user/Jo/hn`)
+		const uqp=toUserQuery(`ht/tp/s://ww/w.go/ogle.c/om/user/Jo/hn`)
 		assert.equal(uqp.userType,'invalid')
 	})
 	it("rejects osm non-user url",()=>{
-		const uqp=toUserQueryPart(`https://www.openstreetmap.org/`)
+		const uqp=toUserQuery(`https://www.openstreetmap.org/`)
 		assert.equal(uqp.userType,'invalid')
 	})
 	it("rejects osm incomplete user url",()=>{
-		const uqp=toUserQueryPart(`https://www.openstreetmap.org/user`)
+		const uqp=toUserQuery(`https://www.openstreetmap.org/user`)
 		assert.equal(uqp.userType,'invalid')
 	})
 	it("rejects osm incomplete user/ url",()=>{
-		const uqp=toUserQueryPart(`https://www.openstreetmap.org/user/`)
+		const uqp=toUserQuery(`https://www.openstreetmap.org/user/`)
 		assert.equal(uqp.userType,'invalid')
 	})
 	it("parses osm api user link",()=>{
-		const uqp=toUserQueryPart(`https://api.openstreetmap.org/api/0.6/user/15243`)
+		const uqp=toUserQuery(`https://api.openstreetmap.org/api/0.6/user/15243`)
 		assert.equal(uqp.userType,'id')
 		assert.equal(uqp.uid,15243)
 	})
 	it("parses osm api json user link",()=>{
-		const uqp=toUserQueryPart(`https://api.openstreetmap.org/api/0.6/user/51423.json`)
+		const uqp=toUserQuery(`https://api.openstreetmap.org/api/0.6/user/51423.json`)
 		assert.equal(uqp.userType,'id')
 		assert.equal(uqp.uid,51423)
 	})
@@ -135,9 +133,8 @@ describe("query module / toUserQueryPart()",()=>{
 describe("query module / getNextFetchDetails()",()=>{
 	it("provides username initial fetch",()=>{
 		const fd=getNextFetchDetails({
-			userType: 'name',
-			username: 'Someone',
-			status: 'mixed',
+			display_name: 'Someone',
+			closed: -1,
 			sort: 'created_at',
 			order: 'newest',
 		},12)
@@ -146,9 +143,8 @@ describe("query module / getNextFetchDetails()",()=>{
 	})
 	it("provides uid initial fetch",()=>{
 		const fd=getNextFetchDetails({
-			userType: 'id',
-			uid: 31337,
-			status: 'mixed',
+			user: 31337,
+			closed: -1,
 			sort: 'created_at',
 			order: 'newest',
 		},21)
@@ -157,9 +153,8 @@ describe("query module / getNextFetchDetails()",()=>{
 	})
 	it("provides open notes initial fetch",()=>{
 		const fd=getNextFetchDetails({
-			userType: 'name',
-			username: 'SomeOne',
-			status: 'open',
+			display_name: 'SomeOne',
+			closed: 0,
 			sort: 'created_at',
 			order: 'newest',
 		},23)
@@ -171,9 +166,8 @@ describe("query module / getNextFetchDetails()",()=>{
 			it(`provides subsequent fetch for newest-first ${sort} order`,()=>{
 				const note=makeNote(3,1645198621) // 2022-02-18T15:37:01Z
 				const fd=getNextFetchDetails({
-					userType: 'name',
-					username: 'Dude',
-					status: 'mixed',
+					display_name: 'Dude',
+					closed: -1,
 					sort,
 					order: 'newest',
 				},3,note)
@@ -183,9 +177,8 @@ describe("query module / getNextFetchDetails()",()=>{
 			it(`provides subsequent fetch for oldest-first ${sort} order`,()=>{
 				const note=makeNote(3,1645198621) // 2022-02-18T15:37:01Z
 				const fd=getNextFetchDetails({
-					userType: 'name',
-					username: 'Dude',
-					status: 'mixed',
+					display_name: 'Dude',
+					closed: -1,
 					sort,
 					order: 'oldest',
 				},3,note)
@@ -198,9 +191,8 @@ describe("query module / getNextFetchDetails()",()=>{
 		const note=makeNote(3,1543215432,1546215432,1549215432) // 2018-11-26T06:57:12Z, ..., 2019-02-03T17:37:12Z
 		it(`provides subsequent fetch for newest-first created_at order`,()=>{
 			const fd=getNextFetchDetails({
-				userType: 'name',
-				username: 'Gimme',
-				status: 'mixed',
+				display_name: 'Gimme',
+				closed: -1,
 				sort: 'created_at',
 				order: 'newest',
 			},3,note)
@@ -209,9 +201,8 @@ describe("query module / getNextFetchDetails()",()=>{
 		})
 		it(`provides subsequent fetch for newest-first updated_at order`,()=>{
 			const fd=getNextFetchDetails({
-				userType: 'name',
-				username: 'Gimme',
-				status: 'mixed',
+				display_name: 'Gimme',
+				closed: -1,
 				sort: 'updated_at',
 				order: 'newest',
 			},3,note)
@@ -223,9 +214,8 @@ describe("query module / getNextFetchDetails()",()=>{
 		const note2=makeNote(11,1745198621) // different dates
 		const note1=makeNote(12,1645198621) // 2022-02-18T15:37:01Z
 		const fd=getNextFetchDetails({
-			userType: 'name',
-			username: 'Mapper',
-			status: 'mixed',
+			display_name: 'Mapper',
+			closed: -1,
 			sort: 'created_at',
 			order: 'newest',
 		},3,note1,note2,3)
@@ -236,9 +226,8 @@ describe("query module / getNextFetchDetails()",()=>{
 		const note2=makeNote(11,1645198621) // same dates
 		const note1=makeNote(12,1645198621) // 2022-02-18T15:37:01Z
 		const fd=getNextFetchDetails({
-			userType: 'name',
-			username: 'Mapper',
-			status: 'mixed',
+			display_name: 'Mapper',
+			closed: -1,
 			sort: 'created_at',
 			order: 'newest',
 		},3,note1,note2,3)
@@ -249,9 +238,8 @@ describe("query module / getNextFetchDetails()",()=>{
 		const note2=makeNote(11,1645198621) // same dates
 		const note1=makeNote(12,1645198621) // 2022-02-18T15:37:01Z
 		const fd=getNextFetchDetails({
-			userType: 'name',
-			username: 'Mapper',
-			status: 'mixed',
+			display_name: 'Mapper',
+			closed: -1,
 			sort: 'created_at',
 			order: 'newest',
 		},3,note1,note2,6)

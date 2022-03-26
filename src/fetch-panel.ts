@@ -3,7 +3,7 @@ import NoteViewerDB from './db'
 import {NoteMap} from './map'
 import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
-import {toUserQueryPart, NoteQuery, toNoteQueryStatus, toNoteQuerySort, toNoteQueryOrder} from './query'
+import {toUserQuery, NoteQuery, toNoteQueryUser, toNoteQueryClosed, toNoteQuerySort, toNoteQueryOrder} from './query'
 import {startFetcher} from './fetch'
 
 export default class NoteFetchPanel {
@@ -40,11 +40,10 @@ export default class NoteFetchPanel {
 			}{
 				$userInput.type='text'
 				$userInput.name='user'
-				$userInput.required=true
-				if (partialQuery.userType=='id' && partialQuery.uid!=null) {
-					$userInput.value='#'+partialQuery.uid
-				} else if (partialQuery.userType=='name' && partialQuery.username!=null) {
-					$userInput.value=partialQuery.username
+				if (partialQuery.display_name) {
+					$userInput.value=partialQuery.display_name
+				} else if (partialQuery.user) {
+					$userInput.value='#'+partialQuery.user
 				}
 				const $div=document.createElement('div')
 				$div.classList.add('major-input')
@@ -55,12 +54,11 @@ export default class NoteFetchPanel {
 			}{
 				const $div=document.createElement('div')
 				$statusSelect.append(
-					new Option(`both open and closed`,'mixed'),
-					new Option(`open and recently closed`,'recent'),
-					new Option(`only open`,'open'),
-					// new Option(`open followed by closed`,'separate') // TODO requires two fetch phases
+					new Option(`both open and closed`,'-1'),
+					new Option(`open and recently closed`,'7'),
+					new Option(`only open`,'0'),
 				)
-				if (partialQuery.status!=null) $statusSelect.value=partialQuery.status
+				if (partialQuery.closed!=null) $statusSelect.value=String(partialQuery.closed)
 				$sortSelect.append(
 					new Option(`creation`,'created_at'),
 					new Option(`last update`,'updated_at')
@@ -121,23 +119,23 @@ export default class NoteFetchPanel {
 			$form.append($div)
 		}
 		$userInput.addEventListener('input',()=>{
-			const uqp=toUserQueryPart($userInput.value)
-			if (uqp.userType=='invalid') {
-				$userInput.setCustomValidity(uqp.message)
+			const userQuery=toUserQuery($userInput.value)
+			if (userQuery.userType=='invalid') {
+				$userInput.setCustomValidity(userQuery.message)
 			} else {
 				$userInput.setCustomValidity('')
 			}
 		})
 		$form.addEventListener('submit',(ev)=>{
 			ev.preventDefault()
-			const uqp=toUserQueryPart($userInput.value)
-			if (uqp.userType=='invalid') return
+			const userQuery=toUserQuery($userInput.value)
+			if (userQuery.userType=='invalid') return
 			const query: NoteQuery = {
-				...uqp,
-				status: toNoteQueryStatus($statusSelect.value),
+				// TODO q
+				...toNoteQueryUser(userQuery),
+				closed: toNoteQueryClosed($statusSelect.value),
 				sort: toNoteQuerySort($sortSelect.value),
 				order: toNoteQueryOrder($orderSelect.value),
-				beganAt: Date.now()
 			}
 			extrasPanel.rewrite(query,Number($limitSelect.value))
 			startFetcher(

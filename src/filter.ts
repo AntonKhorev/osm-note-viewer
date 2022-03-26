@@ -1,5 +1,5 @@
 import {Note, NoteComment} from './data'
-import {ValidUserQueryPart, toUserQueryPart} from './query'
+import {ValidUserQuery, toUserQuery} from './query'
 
 interface BeginningStatement {
 	type: '^'
@@ -17,7 +17,7 @@ interface BaseCondition {
 	operator: '=' | '!='
 }
 
-type UserCondition = BaseCondition & ValidUserQueryPart & {
+type UserCondition = BaseCondition & ValidUserQuery & {
 	type: 'user'
 }
 
@@ -54,9 +54,9 @@ export default class NoteFilter {
 				if (match=term.match(/^user\s*(!?=)\s*(.+)$/)) {
 					const [,operator,user]=match
 					if (operator!='=' && operator!='!=') continue // impossible
-					const userQueryPart=toUserQueryPart(user)
-					if (userQueryPart.userType=='invalid') continue // TODO parse error?
-					conditions.push({type:'user',operator,...userQueryPart})
+					const userQuery=toUserQuery(user)
+					if (userQuery.userType=='invalid' || userQuery.userType=='empty') continue // TODO parse error?
+					conditions.push({type:'user',operator,...userQuery})
 					continue
 				} else if (match=term.match(/^action\s*(!?=)\s*(.+)$/)) {
 					const [,operator,action]=match

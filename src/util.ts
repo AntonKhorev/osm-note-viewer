@@ -1,6 +1,6 @@
-import {ValidUserQueryPart} from './query'
+import {ValidUserQuery} from './query'
 
-export function makeUserLink(user: ValidUserQueryPart|string, text?: string): HTMLAnchorElement {
+export function makeUserLink(user: ValidUserQuery|string, text?: string): HTMLAnchorElement {
 	const fromId=(id: number)=>`https://api.openstreetmap.org/api/0.6/user/${encodeURIComponent(id)}`
 	const fromName=(name: string)=>`https://www.openstreetmap.org/user/${encodeURIComponent(name)}`
 	if (typeof user == 'string') {
