@@ -55,7 +55,7 @@ describe("query module / getNextFetchDetails()",()=>{
 					order: 'newest',
 				},3,note)
 				assert.equal(fd.limit,3)
-				assert.equal(fd.parameters,`display_name=Dude&sort=${sort}&order=newest&closed=-1&limit=3&from=2001-01-01T00%3A00%3A00Z&to=2022-02-18T15%3A37%3A02Z`)
+				assert.equal(fd.parameters,`display_name=Dude&sort=${sort}&order=newest&closed=-1&limit=3&from=20010101T000000Z&to=20220218T153702Z`)
 			})
 			it(`provides subsequent fetch for oldest-first ${sort} order`,()=>{
 				const note=makeNote(3,1645198621) // 2022-02-18T15:37:01Z
@@ -66,7 +66,7 @@ describe("query module / getNextFetchDetails()",()=>{
 					order: 'oldest',
 				},3,note)
 				assert.equal(fd.limit,3)
-				assert.equal(fd.parameters,`display_name=Dude&sort=${sort}&order=oldest&closed=-1&limit=3&from=2022-02-18T15%3A37%3A01Z`)
+				assert.equal(fd.parameters,`display_name=Dude&sort=${sort}&order=oldest&closed=-1&limit=3&from=20220218T153701Z`)
 			})
 		}
 	})
@@ -80,7 +80,7 @@ describe("query module / getNextFetchDetails()",()=>{
 				order: 'newest',
 			},3,note)
 			assert.equal(fd.limit,3)
-			assert.equal(fd.parameters,`display_name=Gimme&sort=created_at&order=newest&closed=-1&limit=3&from=2001-01-01T00%3A00%3A00Z&to=2018-11-26T06%3A57%3A13Z`)
+			assert.equal(fd.parameters,`display_name=Gimme&sort=created_at&order=newest&closed=-1&limit=3&from=20010101T000000Z&to=20181126T065713Z`)
 		})
 		it(`provides subsequent fetch for newest-first updated_at order`,()=>{
 			const fd=getNextFetchDetails({
@@ -90,7 +90,7 @@ describe("query module / getNextFetchDetails()",()=>{
 				order: 'newest',
 			},3,note)
 			assert.equal(fd.limit,3)
-			assert.equal(fd.parameters,`display_name=Gimme&sort=updated_at&order=newest&closed=-1&limit=3&from=2001-01-01T00%3A00%3A00Z&to=2019-02-03T17%3A37%3A13Z`)
+			assert.equal(fd.parameters,`display_name=Gimme&sort=updated_at&order=newest&closed=-1&limit=3&from=20010101T000000Z&to=20190203T173713Z`)
 		})
 	})
 	it("decides not to grow the window",()=>{
@@ -103,7 +103,7 @@ describe("query module / getNextFetchDetails()",()=>{
 			order: 'newest',
 		},3,note1,note2,3)
 		assert.equal(fd.limit,3)
-		assert.equal(fd.parameters,`display_name=Mapper&sort=created_at&order=newest&closed=-1&limit=3&from=2001-01-01T00%3A00%3A00Z&to=2022-02-18T15%3A37%3A02Z`)
+		assert.equal(fd.parameters,`display_name=Mapper&sort=created_at&order=newest&closed=-1&limit=3&from=20010101T000000Z&to=20220218T153702Z`)
 	})
 	it("decides to grow the window",()=>{
 		const note2=makeNote(11,1645198621) // same dates
@@ -115,7 +115,7 @@ describe("query module / getNextFetchDetails()",()=>{
 			order: 'newest',
 		},3,note1,note2,3)
 		assert.equal(fd.limit,6)
-		assert.equal(fd.parameters,`display_name=Mapper&sort=created_at&order=newest&closed=-1&limit=6&from=2001-01-01T00%3A00%3A00Z&to=2022-02-18T15%3A37%3A02Z`)
+		assert.equal(fd.parameters,`display_name=Mapper&sort=created_at&order=newest&closed=-1&limit=6&from=20010101T000000Z&to=20220218T153702Z`)
 	})
 	it("decides to grow the window further",()=>{
 		const note2=makeNote(11,1645198621) // same dates
@@ -127,6 +127,6 @@ describe("query module / getNextFetchDetails()",()=>{
 			order: 'newest',
 		},3,note1,note2,6)
 		assert.equal(fd.limit,9)
-		assert.equal(fd.parameters,`display_name=Mapper&sort=created_at&order=newest&closed=-1&limit=9&from=2001-01-01T00%3A00%3A00Z&to=2022-02-18T15%3A37%3A02Z`)
+		assert.equal(fd.parameters,`display_name=Mapper&sort=created_at&order=newest&closed=-1&limit=9&from=20010101T000000Z&to=20220218T153702Z`)
 	})
 })

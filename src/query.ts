@@ -103,7 +103,7 @@ export function getNextFetchDetails(query: NoteQuery, requestedLimit: number, la
 		}
 	}
 	if (lowerDateLimit==null && upperDateLimit!=null) {
-		lowerDateLimit='2001-01-01T00:00:00Z'
+		lowerDateLimit='20010101T000000Z'
 	}
 	const parameters:Array<[string,string|number]>=[]
 	if (query.display_name!=null) {
@@ -144,7 +144,16 @@ function makeUpperLimit(dateInSeconds: number): string {
 }
 
 function makeISODateString(dateInSeconds: number): string {
+	const pad=(n: number): string => ('0'+n).slice(-2)
 	const dateObject=new Date(dateInSeconds*1000)
-	const dateString=dateObject.toISOString()
-	return dateString.replace(/.\d\d\dZ$/,'Z')
+	const dateString=
+		dateObject.getUTCFullYear()+
+		pad(dateObject.getUTCMonth()+1)+
+		pad(dateObject.getUTCDate())+
+		'T'+
+		pad(dateObject.getUTCHours())+
+		pad(dateObject.getUTCMinutes())+
+		pad(dateObject.getUTCSeconds())+
+		'Z'
+	return dateString
 }
