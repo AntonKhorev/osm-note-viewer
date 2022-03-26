@@ -1,5 +1,5 @@
 import {Note, NoteComment} from './data'
-import {ValidUserQuery, toUserQuery} from './query'
+import {ValidUserQuery, toUserQuery} from './query-user'
 
 interface BeginningStatement {
 	type: '^'

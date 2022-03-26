@@ -3,7 +3,8 @@ import NoteViewerDB from './db'
 import {NoteMap} from './map'
 import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
-import {toUserQuery, NoteQuery, toNoteQueryUser, toNoteQueryClosed, toNoteQuerySort, toNoteQueryOrder} from './query'
+import {NoteQuery, makeNoteQueryFromInputValues} from './query'
+import {toUserQuery} from './query-user'
 import {startFetcher} from './fetch'
 
 export default class NoteFetchPanel {
@@ -25,6 +26,7 @@ export default class NoteFetchPanel {
 		} catch {}
 		const $form=document.createElement('form')
 		const $userInput=document.createElement('input')
+		const $textInput=document.createElement('input')
 		const $statusSelect=document.createElement('select')
 		const $sortSelect=document.createElement('select')
 		const $orderSelect=document.createElement('select')
@@ -49,6 +51,16 @@ export default class NoteFetchPanel {
 				$div.classList.add('major-input')
 				const $label=document.createElement('label')
 				$label.append(`OSM username, URL or #id: `,$userInput)
+				$div.append($label)
+				$fieldset.append($div)
+			}{
+				$textInput.type='text'
+				$textInput.name='user'
+				if (partialQuery.q) $textInput.value=partialQuery.q
+				const $div=document.createElement('div')
+				$div.classList.add('major-input')
+				const $label=document.createElement('label')
+				$label.append(`Comment text search query: `,$textInput)
 				$div.append($label)
 				$fieldset.append($div)
 			}{
@@ -128,15 +140,10 @@ export default class NoteFetchPanel {
 		})
 		$form.addEventListener('submit',(ev)=>{
 			ev.preventDefault()
-			const userQuery=toUserQuery($userInput.value)
-			if (userQuery.userType=='invalid') return
-			const query: NoteQuery = {
-				// TODO q
-				...toNoteQueryUser(userQuery),
-				closed: toNoteQueryClosed($statusSelect.value),
-				sort: toNoteQuerySort($sortSelect.value),
-				order: toNoteQueryOrder($orderSelect.value),
-			}
+			const query: NoteQuery | undefined = makeNoteQueryFromInputValues(
+				$userInput.value,$textInput.value,$statusSelect.value,$sortSelect.value,$orderSelect.value
+			)
+			if (!query) return
 			extrasPanel.rewrite(query,Number($limitSelect.value))
 			startFetcher(
 				storage,db,

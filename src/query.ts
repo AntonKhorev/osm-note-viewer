@@ -1,114 +1,12 @@
 import {Note, NoteComment} from './data'
-
-export interface UsernameQuery {
-	userType: 'name'
-	username: string
-}
-
-export interface UidQuery {
-	userType: 'id'
-	uid: number
-}
-
-export type ValidUserQuery = UsernameQuery | UidQuery
-
-export interface InvalidUserQuery {
-	userType: 'invalid'
-	message: string
-}
-
-export interface EmptyUserQuery {
-	userType: 'empty'
-}
-
-export type UserQuery = ValidUserQuery | InvalidUserQuery | EmptyUserQuery
-
-export function toUserQuery(value: string): UserQuery {
-	const s=value.trim()
-	if (s=='') return {
-		userType: 'empty'
-	}
-	if (s[0]=='#') {
-		let match: RegExpMatchArray | null
-		if (match=s.match(/^#\s*(\d+)$/)) {
-			const [,uid]=match
-			return {
-				userType: 'id',
-				uid: Number(uid)
-			}
-		} else if (match=s.match(/^#\s*\d*(.)/)) {
-			const [,c]=match
-			return {
-				userType: 'invalid',
-				message: `uid cannot contain non-digits, found ${c}`
-			}
-		} else {
-			return {
-				userType: 'invalid',
-				message: `uid cannot be empty`
-			}
-		}
-	}
-	if (s.includes('/')) {
-		try {
-			const url=new URL(s)
-			if (
-				url.host=='www.openstreetmap.org' ||
-				url.host=='openstreetmap.org' ||
-				url.host=='www.osm.org' ||
-				url.host=='osm.org'
-			) {
-				const [,userPathDir,userPathEnd]=url.pathname.split('/')
-				if (userPathDir=='user' && userPathEnd) {
-					const username=decodeURIComponent(userPathEnd)
-					return {
-						userType: 'name',
-						username
-					}
-				}
-				return {
-					userType: 'invalid',
-					message: `OSM URL has to include username`
-				}
-			} else if (url.host==`api.openstreetmap.org`) {
-				const [,apiDir,apiVersionDir,apiCall,apiValue]=url.pathname.split('/')
-				if (apiDir=='api' && apiVersionDir=='0.6' && apiCall=='user') {
-					const [uidString]=apiValue.split('.')
-					const uid=Number(uidString)
-					if (Number.isInteger(uid)) return {
-						userType: 'id',
-						uid
-					}
-				}
-				return {
-					userType: 'invalid',
-					message: `OSM API URL has to be "api/0.6/user/..."`
-				}
-			} else {
-				return {
-					userType: 'invalid',
-					message: `URL has to be of an OSM domain, was given ${url.host}`
-				}
-			}
-		} catch {
-			return {
-				userType: 'invalid',
-				message: `string containing / character has to be a valid URL`
-			}
-		}
-	}
-	return {
-		userType: 'name',
-		username: s
-	}
-}
+import {UserQuery, toUserQuery} from './query-user'
 
 export interface NoteQuery { // fields named like in the API
-	q?: string
-	closed: number
 	display_name?: string // username
 	user?: number // user id
+	q?: string
 	// TODO from, to
+	closed: number
 	sort: 'created_at'|'updated_at'
 	order: 'newest'|'oldest'
 	// beganAt?: number // TODO move to db record
@@ -133,29 +31,40 @@ export function noteQueryToUserQuery(noteQuery: NoteQuery): UserQuery {
 	}
 }
 
-export function toNoteQueryUser(userQuery: UserQuery): {display_name?: string, user?: number} {
-	if (userQuery.userType=='name') {
-		return {display_name: userQuery.username}
-	} else if (userQuery.userType=='id') {
-		return {user: userQuery.uid}
-	} else {
-		return {}
+export function makeNoteQueryFromInputValues(
+	userValue: string, textValue: string, closedValue: string, sortValue: string, orderValue: string
+): NoteQuery | undefined {
+	const noteQuery: NoteQuery = {
+		closed: toNoteQueryClosed(closedValue),
+		sort: toNoteQuerySort(sortValue),
+		order: toNoteQueryOrder(orderValue)
 	}
-}
-
-export function toNoteQueryClosed(value: string): NoteQuery['closed'] {
-	if (value=='-1' || value=='0' || value=='7') return Number(value)
-	return 7
-}
-
-export function toNoteQuerySort(value: string): NoteQuery['sort'] {
-	if (value=='updated_at') return value
-	return 'created_at'
-}
-
-export function toNoteQueryOrder(value: string): NoteQuery['order'] {
-	if (value=='oldest') return value
-	return 'newest'
+	{
+		const userQuery=toUserQuery(userValue)
+		if (userQuery.userType=='invalid') return undefined
+		if (userQuery.userType=='name') {
+			noteQuery.display_name=userQuery.username
+		} else if (userQuery.userType=='id') {
+			noteQuery.user=userQuery.uid
+		}
+	}{
+		const s=textValue.trim()
+		if (s) noteQuery.q=s
+	}
+	return noteQuery
+	function toNoteQueryClosed(value: string): NoteQuery['closed'] {
+		const n=Number(value)
+		if (Number.isInteger(n)) return n
+		return 7
+	}
+	function toNoteQuerySort(value: string): NoteQuery['sort'] {
+		if (value=='updated_at') return value
+		return 'created_at'
+	}
+	function toNoteQueryOrder(value: string): NoteQuery['order'] {
+		if (value=='oldest') return value
+		return 'newest'
+	}
 }
 
 export interface NoteFetchDetails {
@@ -166,6 +75,7 @@ export interface NoteFetchDetails {
 /**
  * @returns fd.parameters - url parameters in this order: 
                             user OR display_name;
+                            q;
                             sort, order - these don't change within a query;
                             closed - this may change between phases;
                             limit - this may change within a phase in rare circumstances;
@@ -196,13 +106,13 @@ export function getNextFetchDetails(query: NoteQuery, requestedLimit: number, la
 		lowerDateLimit='2001-01-01T00:00:00Z'
 	}
 	const parameters:Array<[string,string|number]>=[]
-	if (query.q!=null) {
-		parameters.push(['q',query.q])
-	}
 	if (query.display_name!=null) {
 		parameters.push(['display_name',query.display_name])
 	} else if (query.user!=null) {
 		parameters.push(['user',query.user])
+	}
+	if (query.q!=null) {
+		parameters.push(['q',query.q])
 	}
 	parameters.push(
 		['sort',query.sort],
