@@ -1,5 +1,6 @@
 import {Note, NoteComment} from './data'
 import {UserQuery, toUserQuery} from './query-user'
+import {toDateTimeQuery} from './query-datetime'
 
 export interface NoteQuery { // fields named like in the API
 	display_name?: string // username
@@ -33,7 +34,7 @@ export function noteQueryToUserQuery(noteQuery: NoteQuery): UserQuery {
 }
 
 export function makeNoteQueryFromInputValues(
-	userValue: string, textValue: string, closedValue: string, sortValue: string, orderValue: string
+	userValue: string, textValue: string, fromValue: string, toValue: string, closedValue: string, sortValue: string, orderValue: string
 ): NoteQuery | undefined {
 	const noteQuery: NoteQuery = {
 		closed: toNoteQueryClosed(closedValue),
@@ -51,6 +52,14 @@ export function makeNoteQueryFromInputValues(
 	}{
 		const s=textValue.trim()
 		if (s) noteQuery.q=s
+	}{
+		const dateTimeQuery=toDateTimeQuery(fromValue)
+		if (dateTimeQuery.dateTimeType=='invalid') return undefined
+		if (dateTimeQuery.dateTimeType=='valid') noteQuery.from=dateTimeQuery.dateTime
+	}{
+		const dateTimeQuery=toDateTimeQuery(toValue)
+		if (dateTimeQuery.dateTimeType=='invalid') return undefined
+		if (dateTimeQuery.dateTimeType=='valid') noteQuery.to=dateTimeQuery.dateTime
 	}
 	return noteQuery
 	function toNoteQueryClosed(value: string): NoteQuery['closed'] {

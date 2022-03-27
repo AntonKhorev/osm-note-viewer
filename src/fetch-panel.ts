@@ -168,7 +168,8 @@ export default class NoteFetchPanel {
 		$form.addEventListener('submit',(ev)=>{
 			ev.preventDefault()
 			const query: NoteQuery | undefined = makeNoteQueryFromInputValues(
-				$userInput.value,$textInput.value,$statusSelect.value,$sortSelect.value,$orderSelect.value
+				$userInput.value,$textInput.value,$fromInput.value,$toInput.value,
+				$statusSelect.value,$sortSelect.value,$orderSelect.value
 			)
 			if (!query) return
 			extrasPanel.rewrite(query,Number($limitSelect.value))
