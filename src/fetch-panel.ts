@@ -3,7 +3,7 @@ import NoteViewerDB from './db'
 import {NoteMap} from './map'
 import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
-import {NoteQuery, makeNoteQueryFromInputValues} from './query'
+import {NoteQuery, toReadableDateTime, makeNoteQueryFromInputValues} from './query'
 import {toUserQuery} from './query-user'
 import {startFetcher} from './fetch'
 
@@ -27,6 +27,8 @@ export default class NoteFetchPanel {
 		const $form=document.createElement('form')
 		const $userInput=document.createElement('input')
 		const $textInput=document.createElement('input')
+		const $fromInput=document.createElement('input')
+		const $toInput=document.createElement('input')
 		const $statusSelect=document.createElement('select')
 		const $sortSelect=document.createElement('select')
 		const $orderSelect=document.createElement('select')
@@ -64,6 +66,20 @@ export default class NoteFetchPanel {
 				$div.append($label)
 				$fieldset.append($div)
 			}{
+				$fromInput.type='text'
+				$fromInput.name='from'
+				$fromInput.value=toReadableDateTime(partialQuery.from)
+				const $fromLabel=document.createElement('label')
+				$fromLabel.append(`from `,$fromInput)
+				$toInput.type='text'
+				$toInput.name='to'
+				$toInput.value=toReadableDateTime(partialQuery.to)
+				const $toLabel=document.createElement('label')
+				$toLabel.append(`to `,$toInput)
+				const $div=document.createElement('div')
+				$div.append(`Date range: `,$fromLabel,` `,$toLabel)
+				$fieldset.append($div)
+			}{
 				const $div=document.createElement('div')
 				$statusSelect.append(
 					new Option(`both open and closed`,'-1'),
@@ -82,7 +98,7 @@ export default class NoteFetchPanel {
 				)
 				if (partialQuery.order!=null) $orderSelect.value=partialQuery.order
 				$div.append(
-					span(`Fetch this user's `,$statusSelect,` notes`),` `,
+					span(`Fetch matching `,$statusSelect,` notes`),` `,
 					span(`sorted by `,$sortSelect,` date`),`, `,
 					span($orderSelect,` first`)
 				)
