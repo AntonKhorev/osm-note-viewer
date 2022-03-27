@@ -92,17 +92,13 @@ export interface NoteFetchDetails {
                             from, to - this change for pagination purposes, from needs to be present with a dummy date if to is used
  */
 export function getNextFetchDetails(query: NoteQuery, requestedLimit: number, lastNote?: Note, prevLastNote?: Note, lastLimit?: number): NoteFetchDetails {
-	let lowerDateLimit:string|undefined
-	let upperDateLimit:string|undefined
+	let lowerDateLimit: string | undefined
+	let upperDateLimit: string | undefined
 	let limit=requestedLimit
+	let lastDate: number | undefined
 	if (lastNote) {
 		if (lastNote.comments.length<=0) throw new Error(`note #${lastNote.id} has no comments`)
-		const lastDate=getTargetComment(lastNote).date
-		if (query.order=='oldest') {
-			lowerDateLimit=makeLowerLimit(lastDate)
-		} else {
-			upperDateLimit=makeUpperLimit(lastDate)
-		}
+		lastDate=getTargetComment(lastNote).date
 		if (prevLastNote) {
 			if (prevLastNote.comments.length<=0) throw new Error(`note #${prevLastNote.id} has no comments`)
 			if (lastLimit==null) throw new Error(`no last limit provided along with previous last note #${prevLastNote.id}`)
@@ -111,6 +107,22 @@ export function getNextFetchDetails(query: NoteQuery, requestedLimit: number, la
 				limit=lastLimit+requestedLimit
 			}
 		}
+	}
+	if (lastDate!=null && query.order!='oldest') {
+		upperDateLimit=makeUpperLimit(lastDate)
+	}
+	if (query.to!=null) {
+		if (upperDateLimit==null) {
+			upperDateLimit=query.to
+		} else {
+			const upperQueryDate=getDateInSeconds(query.to)
+			if (upperQueryDate!=null && lastDate!=null && lastDate>=upperQueryDate) {
+				upperDateLimit=query.to
+			}
+		}
+	}
+	if (lastDate!=null && query.order=='oldest') {
+		lowerDateLimit=makeLowerLimit(lastDate)
 	}
 	if (lowerDateLimit==null) {
 		if (query.from!=null) {
@@ -170,4 +182,12 @@ function makeISODateString(dateInSeconds: number): string {
 		pad(dateObject.getUTCSeconds())+
 		'Z'
 	return dateString
+}
+
+function getDateInSeconds(queryDate: string): number | undefined {
+	const match=queryDate.match(/^(\d\d\d\d)(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)/)
+	if (!match) return undefined
+	const [,Y,M,D,h,m,s]=match
+	const parsableString=`${Y}-${M}-${D}T${h}:${m}:${s}Z`
+	return Date.parse(parsableString)/1000
 }
