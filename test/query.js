@@ -129,4 +129,37 @@ describe("query module / getNextFetchDetails()",()=>{
 		assert.equal(fd.limit,9)
 		assert.equal(fd.parameters,`display_name=Mapper&sort=created_at&order=newest&closed=-1&limit=9&from=20010101T000000Z&to=20220218T153702Z`)
 	})
+	context("with a lower bound date",()=>{
+		const note=makeNote(3,1543215432) // 2018-11-26T06:57:12Z
+		it("enforces lower bound on initial request",()=>{
+			const fd=getNextFetchDetails({
+				from: '20150607T123456Z',
+				closed: -1,
+				sort: 'created_at',
+				order: 'newest',
+			},7)
+			assert.equal(fd.limit,7)
+			assert.equal(fd.parameters,`sort=created_at&order=newest&closed=-1&limit=7&from=20150607T123456Z`)
+		})
+		it("enforces lower bound on subsequent request with newest order",()=>{
+			const fd=getNextFetchDetails({
+				from: '20150607T123456Z',
+				closed: -1,
+				sort: 'created_at',
+				order: 'newest',
+			},3,note)
+			assert.equal(fd.limit,3)
+			assert.equal(fd.parameters,`sort=created_at&order=newest&closed=-1&limit=3&from=20150607T123456Z&to=20181126T065713Z`)
+		})
+		it("updates lower bound on subsequent request with oldest order",()=>{
+			const fd=getNextFetchDetails({
+				from: '20150607T123456Z',
+				closed: -1,
+				sort: 'created_at',
+				order: 'oldest',
+			},3,note)
+			assert.equal(fd.limit,3)
+			assert.equal(fd.parameters,`sort=created_at&order=oldest&closed=-1&limit=3&from=20181126T065712Z`)
+		})
+	})
 })

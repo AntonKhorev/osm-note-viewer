@@ -112,8 +112,12 @@ export function getNextFetchDetails(query: NoteQuery, requestedLimit: number, la
 			}
 		}
 	}
-	if (lowerDateLimit==null && upperDateLimit!=null) {
-		lowerDateLimit='20010101T000000Z'
+	if (lowerDateLimit==null) {
+		if (query.from!=null) {
+			lowerDateLimit=query.from
+		} else if (upperDateLimit!=null) {
+			lowerDateLimit='20010101T000000Z'
+		}
 	}
 	const parameters:Array<[string,string|number]>=[]
 	if (query.display_name!=null) {
