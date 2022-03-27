@@ -14,25 +14,6 @@ export interface NoteQuery { // fields named like in the API
 	// endedAt?: number
 }
 
-export function toReadableDateTime(queryDateTime: string | undefined): string {
-	if (queryDateTime==null) return ''
-	const match=queryDateTime.match(/^(\d\d\d\d)-?(\d\d)-?(\d\d)[T ](\d\d):?(\d\d):?(\d\d)Z?$/)
-	if (!match) return ''
-	const [,Y,M,D,h,m,s]=match
-	return `${Y}-${M}-${D} ${h}:${m}:${s}`
-}
-
-// export function toQueryDateTime(readableDateTime: string): string | undefined {
-// 	return undefined
-// }
-
-// function transformDate(a: string): number {
-// 		const match=a.match(/^\d\d\d\d-\d\d-\d\d\s+\d\d:\d\d:\d\d/)
-// 		if (!match) return 0 // shouldn't happen
-// 		const [s]=match
-// 		return Date.parse(s+'Z')/1000
-// 	}
-
 export function noteQueryToUserQuery(noteQuery: NoteQuery): UserQuery {
 	if (noteQuery.display_name!=null) {
 		return {

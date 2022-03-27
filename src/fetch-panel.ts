@@ -3,8 +3,9 @@ import NoteViewerDB from './db'
 import {NoteMap} from './map'
 import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
-import {NoteQuery, toReadableDateTime, makeNoteQueryFromInputValues} from './query'
+import {NoteQuery, makeNoteQueryFromInputValues} from './query'
 import {toUserQuery} from './query-user'
+import {toReadableDateTime, toDateTimeQuery} from './query-datetime'
 import {startFetcher} from './fetch'
 
 export default class NoteFetchPanel {
@@ -67,11 +68,13 @@ export default class NoteFetchPanel {
 				$fieldset.append($div)
 			}{
 				$fromInput.type='text'
+				$fromInput.size=20
 				$fromInput.name='from'
 				$fromInput.value=toReadableDateTime(partialQuery.from)
 				const $fromLabel=document.createElement('label')
 				$fromLabel.append(`from `,$fromInput)
 				$toInput.type='text'
+				$toInput.size=20
 				$toInput.name='to'
 				$toInput.value=toReadableDateTime(partialQuery.to)
 				const $toLabel=document.createElement('label')
@@ -152,6 +155,14 @@ export default class NoteFetchPanel {
 				$userInput.setCustomValidity(userQuery.message)
 			} else {
 				$userInput.setCustomValidity('')
+			}
+		})
+		for (const $input of [$fromInput,$toInput]) $input.addEventListener('input',()=>{
+			const query=toDateTimeQuery($input.value)
+			if (query.dateTimeType=='invalid') {
+				$input.setCustomValidity(query.message)
+			} else {
+				$input.setCustomValidity('')
 			}
 		})
 		$form.addEventListener('submit',(ev)=>{

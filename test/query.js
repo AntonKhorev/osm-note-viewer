@@ -1,5 +1,5 @@
 import {strict as assert} from 'assert'
-import {toReadableDateTime, getNextFetchDetails} from '../test-build/query.js'
+import {getNextFetchDetails} from '../test-build/query.js'
 
 const makeNote=(id,...dates)=>({
 	id,
@@ -11,27 +11,6 @@ const makeNote=(id,...dates)=>({
 		action: i==0 ? 'opened' : 'commented',
 		text: 'Hello!'
 	}))
-})
-
-describe("query module / toReadableDateTime()",()=>{
-	it("returns blank for undefined dateTime",()=>{
-		assert.equal(
-			toReadableDateTime(undefined),
-			''
-		)
-	})
-	it("returns blank for invalid dateTime",()=>{
-		assert.equal(
-			toReadableDateTime('get lost'),
-			''
-		)
-	})
-	it("returns readable string for valid dateTime",()=>{
-		assert.equal(
-			toReadableDateTime('20150724T165348Z'),
-			'2015-07-24 16:53:48'
-		)
-	})
 })
 
 describe("query module / getNextFetchDetails()",()=>{
