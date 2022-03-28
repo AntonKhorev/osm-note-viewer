@@ -133,7 +133,7 @@ describe("query module / getNextFetchDetails()",()=>{
 		const note=makeNote(3,1543215432) // 2018-11-26T06:57:12Z
 		it("enforces lower bound on initial request",()=>{
 			const fd=getNextFetchDetails({
-				from: '20150607T123456Z',
+				from: makeDate('2015-06-07 12:34:56Z'),
 				closed: -1,
 				sort: 'created_at',
 				order: 'newest',
@@ -143,7 +143,7 @@ describe("query module / getNextFetchDetails()",()=>{
 		})
 		it("enforces lower bound on subsequent request with newest order",()=>{
 			const fd=getNextFetchDetails({
-				from: '20150607T123456Z',
+				from: makeDate('2015-06-07 12:34:56Z'),
 				closed: -1,
 				sort: 'created_at',
 				order: 'newest',
@@ -153,7 +153,7 @@ describe("query module / getNextFetchDetails()",()=>{
 		})
 		it("updates lower bound on subsequent request with oldest order",()=>{
 			const fd=getNextFetchDetails({
-				from: '20150607T123456Z',
+				from: makeDate('2015-06-07 12:34:56Z'),
 				closed: -1,
 				sort: 'created_at',
 				order: 'oldest',
@@ -166,7 +166,7 @@ describe("query module / getNextFetchDetails()",()=>{
 		const note=makeNote(3,1543215432) // 2018-11-26T06:57:12Z
 		it("enforces upper bound on initial request",()=>{
 			const fd=getNextFetchDetails({
-				to: '20190607T123456Z',
+				to: makeDate('2019-06-07 12:34:56Z'),
 				closed: -1,
 				sort: 'created_at',
 				order: 'newest',
@@ -176,7 +176,7 @@ describe("query module / getNextFetchDetails()",()=>{
 		})
 		it("enforces upper bound on subsequent request with oldest order",()=>{
 			const fd=getNextFetchDetails({
-				to: '20190607T123456Z',
+				to: makeDate('2019-06-07 12:34:56Z'),
 				closed: -1,
 				sort: 'created_at',
 				order: 'oldest',
@@ -186,7 +186,7 @@ describe("query module / getNextFetchDetails()",()=>{
 		})
 		it("updates upper bound on subsequent request with newest order",()=>{
 			const fd=getNextFetchDetails({
-				to: '20190607T123456Z',
+				to: makeDate('2019-06-07 12:34:56Z'),
 				closed: -1,
 				sort: 'created_at',
 				order: 'newest',
@@ -196,7 +196,7 @@ describe("query module / getNextFetchDetails()",()=>{
 		})
 		it("doesn't +1 upper bound on subsequent request with newest order when last note has exactly this date",()=>{
 			const fd=getNextFetchDetails({
-				to: '20181126T065712Z',
+				to: makeDate('2018-11-26 06:57:12Z'),
 				closed: -1,
 				sort: 'created_at',
 				order: 'newest',
@@ -206,3 +206,7 @@ describe("query module / getNextFetchDetails()",()=>{
 		})
 	})
 })
+
+function makeDate(s) {
+	return Date.parse(s)/1000
+}

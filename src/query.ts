@@ -1,13 +1,15 @@
 import {Note, NoteComment} from './data'
 import {UserQuery, toUserQuery} from './query-user'
-import {toDateTimeQuery} from './query-datetime'
+import {toDateQuery, toUrlDate} from './query-date'
+
+const defaultLowerDate=Date.parse('2001-01-01 00:00:00Z')/1000
 
 export interface NoteQuery { // fields named like in the API
 	display_name?: string // username
 	user?: number // user id
 	q?: string
-	from?: string
-	to?: string
+	from?: number
+	to?: number
 	closed: number
 	sort: 'created_at'|'updated_at'
 	order: 'newest'|'oldest'
@@ -53,13 +55,13 @@ export function makeNoteQueryFromInputValues(
 		const s=textValue.trim()
 		if (s) noteQuery.q=s
 	}{
-		const dateTimeQuery=toDateTimeQuery(fromValue)
-		if (dateTimeQuery.dateTimeType=='invalid') return undefined
-		if (dateTimeQuery.dateTimeType=='valid') noteQuery.from=dateTimeQuery.dateTime
+		const dateTimeQuery=toDateQuery(fromValue)
+		if (dateTimeQuery.dateType=='invalid') return undefined
+		if (dateTimeQuery.dateType=='valid') noteQuery.from=dateTimeQuery.date
 	}{
-		const dateTimeQuery=toDateTimeQuery(toValue)
-		if (dateTimeQuery.dateTimeType=='invalid') return undefined
-		if (dateTimeQuery.dateTimeType=='valid') noteQuery.to=dateTimeQuery.dateTime
+		const dateTimeQuery=toDateQuery(toValue)
+		if (dateTimeQuery.dateType=='invalid') return undefined
+		if (dateTimeQuery.dateType=='valid') noteQuery.to=dateTimeQuery.date
 	}
 	return noteQuery
 	function toNoteQueryClosed(value: string): NoteQuery['closed'] {
@@ -92,10 +94,10 @@ export interface NoteFetchDetails {
                             from, to - this change for pagination purposes, from needs to be present with a dummy date if to is used
  */
 export function getNextFetchDetails(query: NoteQuery, requestedLimit: number, lastNote?: Note, prevLastNote?: Note, lastLimit?: number): NoteFetchDetails {
-	let lowerDateLimit: string | undefined
-	let upperDateLimit: string | undefined
-	let limit=requestedLimit
+	let lowerDate: number | undefined
+	let upperDate: number | undefined
 	let lastDate: number | undefined
+	let limit=requestedLimit
 	if (lastNote) {
 		if (lastNote.comments.length<=0) throw new Error(`note #${lastNote.id} has no comments`)
 		lastDate=getTargetComment(lastNote).date
@@ -108,28 +110,29 @@ export function getNextFetchDetails(query: NoteQuery, requestedLimit: number, la
 			}
 		}
 	}
-	if (lastDate!=null && query.order!='oldest') {
-		upperDateLimit=makeUpperLimit(lastDate)
+	if (lastDate!=null) {
+		if (query.order=='oldest') {
+			lowerDate=lastDate
+		} else {
+			upperDate=lastDate+1
+		}
 	}
 	if (query.to!=null) {
-		if (upperDateLimit==null) {
-			upperDateLimit=query.to
+		if (upperDate==null) {
+			upperDate=query.to
 		} else {
-			const upperQueryDate=getDateInSeconds(query.to)
-			if (upperQueryDate!=null && lastDate!=null && lastDate>=upperQueryDate) {
-				upperDateLimit=query.to
+			if (upperDate>query.to) {
+				upperDate=query.to
 			}
 		}
 	}
-	if (lastDate!=null && query.order=='oldest') {
-		lowerDateLimit=makeLowerLimit(lastDate)
-	}
-	if (lowerDateLimit==null) {
-		if (query.from!=null) {
-			lowerDateLimit=query.from
-		} else if (upperDateLimit!=null) {
-			lowerDateLimit='20010101T000000Z'
+	if (query.from!=null) {
+		if (lowerDate==null) {
+			lowerDate=query.from
 		}
+	}
+	if (lowerDate==null && upperDate!=null) {
+		lowerDate=defaultLowerDate
 	}
 	const parameters:Array<[string,string|number]>=[]
 	if (query.display_name!=null) {
@@ -146,8 +149,8 @@ export function getNextFetchDetails(query: NoteQuery, requestedLimit: number, la
 		['closed',query.closed],
 		['limit',limit]
 	)
-	if (lowerDateLimit!=null) parameters.push(['from',lowerDateLimit])
-	if (upperDateLimit!=null) parameters.push(['to',upperDateLimit])
+	if (lowerDate!=null) parameters.push(['from',toUrlDate(lowerDate)])
+	if (upperDate!=null) parameters.push(['to',toUrlDate(upperDate)])
 	return {
 		parameters: parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&'),
 		limit
@@ -159,35 +162,4 @@ export function getNextFetchDetails(query: NoteQuery, requestedLimit: number, la
 			return note.comments[note.comments.length-1]
 		}
 	}
-}
-
-function makeLowerLimit(dateInSeconds: number): string {
-	return makeISODateString(dateInSeconds)
-}
-
-function makeUpperLimit(dateInSeconds: number): string {
-	return makeISODateString(dateInSeconds+1)
-}
-
-function makeISODateString(dateInSeconds: number): string {
-	const pad=(n: number): string => ('0'+n).slice(-2)
-	const dateObject=new Date(dateInSeconds*1000)
-	const dateString=
-		dateObject.getUTCFullYear()+
-		pad(dateObject.getUTCMonth()+1)+
-		pad(dateObject.getUTCDate())+
-		'T'+
-		pad(dateObject.getUTCHours())+
-		pad(dateObject.getUTCMinutes())+
-		pad(dateObject.getUTCSeconds())+
-		'Z'
-	return dateString
-}
-
-function getDateInSeconds(queryDate: string): number | undefined {
-	const match=queryDate.match(/^(\d\d\d\d)(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)/)
-	if (!match) return undefined
-	const [,Y,M,D,h,m,s]=match
-	const parsableString=`${Y}-${M}-${D}T${h}:${m}:${s}Z`
-	return Date.parse(parsableString)/1000
 }
