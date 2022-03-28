@@ -2,6 +2,7 @@ import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
 import CommandPanel from './command-panel'
 import NoteFilter from './filter'
+import {toReadableDate} from './query-date'
 import {makeUserLink} from './util'
 
 export default class NoteTable {
@@ -137,15 +138,14 @@ export default class NoteTable {
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-date')
-					const dateString=new Date(comment.date*1000).toISOString()
-					const match=dateString.match(/(\d\d\d\d-\d\d-\d\d)T(\d\d:\d\d:\d\d)/)
-					if (match) {
-						const [,date,time]=match
-						const $dateTime=document.createElement('time')
-						$dateTime.textContent=date
-						$dateTime.dateTime=`${date} ${time}Z`
-						$dateTime.title=`${date} ${time} UTC`
-						$cell.append($dateTime)
+					const readableDate=toReadableDate(comment.date)
+					const [readableDateWithoutTime]=readableDate.split(' ',1)
+					if (readableDate && readableDateWithoutTime) {
+						const $time=document.createElement('time')
+						$time.textContent=readableDateWithoutTime
+						$time.dateTime=`${readableDate}Z`
+						$time.title=`${readableDate} UTC`
+						$cell.append($time)
 					} else {
 						const $unknownDateTime=document.createElement('span')
 						$unknownDateTime.textContent=`?`
