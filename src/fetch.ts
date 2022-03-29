@@ -37,10 +37,16 @@ export async function startFetcher(
 	let prevLastNote: Note | undefined
 	let lastLimit: number | undefined
 	let nFullyFilteredFetches=0
+	let holdOffAutoLoad=false
 	if (!clearStore) {
 		addNewNotes(notes)
-		lastNote=notes[notes.length-1]
-		rewriteLoadMoreButton()
+		if (notes.length>0) {
+			lastNote=notes[notes.length-1]
+			rewriteLoadMoreButton()
+		} else {
+			holdOffAutoLoad=true // db was empty; expected to show something => need to fetch; not expected to autoload
+			await fetchCycle()
+		}
 	} else {
 		await fetchCycle()
 	}
@@ -91,7 +97,9 @@ export async function startFetcher(
 				lastNote=notes[notes.length-1]
 				lastLimit=fetchDetails.limit
 				const $moreButton=rewriteLoadMoreButton()
-				if (notes.length>maxTotalAutoLoadLimit) {
+				if (holdOffAutoLoad) {
+					holdOffAutoLoad=false
+				} else if (notes.length>maxTotalAutoLoadLimit) {
 					$moreButton.append(` (no auto download because displaying more than ${maxTotalAutoLoadLimit} notes)`)
 				} else if (getNextFetchDetails(query,limit,lastNote,prevLastNote,lastLimit).limit>maxSingleAutoLoadLimit) {
 					$moreButton.append(` (no auto download because required batch is larger than ${maxSingleAutoLoadLimit})`)
