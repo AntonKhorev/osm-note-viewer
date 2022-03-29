@@ -29,6 +29,17 @@ export default class NoteViewerDB {
 			this.closed=true
 		}
 	}
+	view(): Promise<FetchEntry[]> {
+		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
+		return new Promise((resolve,reject)=>{
+			const tx=this.idb.transaction(['fetches'],'readonly')
+			const request=tx.objectStore('fetches').index('access').getAll()
+			request.onsuccess=()=>{
+				resolve(request.result)
+			}
+			tx.onerror=()=>reject(new Error(`Database view error: ${tx.error}`))
+		})
+	}
 	clear(queryString: string): Promise<FetchEntry> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
 		const timestamp=Date.now()
@@ -171,6 +182,7 @@ export default class NoteViewerDB {
 				const idb=request.result
 				const fetchStore=idb.createObjectStore('fetches',{keyPath:'timestamp'})
 				fetchStore.createIndex('query','queryString',{unique: true})
+				fetchStore.createIndex('access','accessTimestamp')
 				const noteStore=idb.createObjectStore('notes',{keyPath:['fetchTimestamp','note.id']})
 				noteStore.createIndex('sequence',['fetchTimestamp','sequenceNumber'])
 				const userStore=idb.createObjectStore('users',{keyPath:['fetchTimestamp','user.id']})

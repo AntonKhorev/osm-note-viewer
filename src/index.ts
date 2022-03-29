@@ -43,7 +43,7 @@ async function main() {
 
 	const map=new NoteMap($mapSide)
 	writeFlipLayoutButton(storage,$fetchContainer,map)
-	const extrasPanel=new ExtrasPanel(storage,$extrasContainer)
+	const extrasPanel=new ExtrasPanel(storage,db,$extrasContainer)
 	const filterPanel=new NoteFilterPanel($filterContainer)
 	new NoteFetchPanel(storage,db,$fetchContainer,$notesContainer,$moreContainer,$commandContainer,filterPanel,extrasPanel,map)
 }

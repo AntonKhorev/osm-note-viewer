@@ -1,9 +1,13 @@
 import NoteViewerStorage from './storage'
+import NoteViewerDB from './db'
 import {NoteQuery, noteQueryToUserQuery, getNextFetchDetails} from './query'
 import {makeLink, makeUserLink} from './util'
 
 export default class ExtrasPanel {
-	constructor(private storage: NoteViewerStorage, private $container: HTMLElement) {}
+	constructor(
+		private storage: NoteViewerStorage, private db: NoteViewerDB, 
+		private $container: HTMLElement
+	) {}
 	rewrite(query?: NoteQuery, limit?: number): void {
 		this.$container.innerHTML=''
 		const $details=document.createElement('details')
@@ -12,20 +16,30 @@ export default class ExtrasPanel {
 			$summary.textContent=`Extra information`
 			$details.append($summary)
 		}
+		const $updateFetchesButton=document.createElement('button')
+		writeBlock(()=>{
+			$updateFetchesButton.textContent=`Update stored fetch list`
+			return [$updateFetchesButton]
+		})
+		const $fetchesContainer=writeBlock(()=>{
+			return [`Click Update button above to see stored fetches`]
+		})
+		$updateFetchesButton.addEventListener('click',async()=>{
+			$fetchesContainer.innerHTML=''
+			const $table=document.createElement('table')
+			for (const fetchEntry of await this.db.view()) {
+				const $row=$table.insertRow()
+				$row.insertCell().append(makeLink('fetch','#mode=search&'+fetchEntry.queryString))
+			}
+			$fetchesContainer.append($table)
+		})
 		writeBlock(()=>{
 			const $clearButton=document.createElement('button')
-			$clearButton.textContent=`Clear storage`
-			const $computeButton=document.createElement('button')
-			$computeButton.textContent=`Compute storage size`
-			const $computeResult=document.createElement('span')
+			$clearButton.textContent=`Clear settings`
 			$clearButton.addEventListener('click',()=>{
 				this.storage.clear()
 			})
-			$computeButton.addEventListener('click',()=>{
-				const size=this.storage.computeSize()
-				$computeResult.textContent=(size/1024).toFixed(2)+" KB"
-			})
-			return [$clearButton,` `,$computeButton,` `,$computeResult]
+			return [$clearButton]
 		})
 		if (query!=null && limit!=null) { // TODO don't limit to this user
 			const userQuery=noteQueryToUserQuery(query)
@@ -72,10 +86,11 @@ export default class ExtrasPanel {
 		writeBlock(()=>[
 			makeLink(`Source code`,`https://github.com/AntonKhorev/osm-note-viewer`)
 		])
-		function writeBlock(makeBlockContents: ()=>Array<Node|string>): void {
+		function writeBlock(makeBlockContents: ()=>Array<Node|string>): HTMLElement {
 			const $block=document.createElement('div')
 			$block.append(...makeBlockContents())
 			$details.append($block)
+			return $block
 		}
 		function makeCode(s: string): HTMLElement {
 			const $code=document.createElement('code')
