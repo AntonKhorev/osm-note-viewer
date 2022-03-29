@@ -81,7 +81,7 @@ export async function startFetcher(
 					return
 				}
 				const [unseenNotes,unseenUsers]=mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data))
-				await saveToQueryStorage(query,unseenNotes,unseenUsers)
+				await db.save(fetchEntry,notes,unseenNotes,users,unseenUsers)
 				if (!noteTable && notes.length<=0) {
 					rewriteMessage($moreContainer,`No matching notes found`)
 					return
@@ -141,10 +141,6 @@ export async function startFetcher(
 		$button.disabled=true
 		$div.append($button)
 		$moreContainer.append($div)
-	}
-	async function saveToQueryStorage(query: NoteQuery, newNotes: Note[], newUsers: Users): Promise<void> {
-		await db.save(fetchEntry,notes,newNotes,users,newUsers)
-		storage.setItem('query',JSON.stringify(query))
 	}
 }
 

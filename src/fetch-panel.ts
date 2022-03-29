@@ -3,7 +3,7 @@ import NoteViewerDB from './db'
 import {NoteMap} from './map'
 import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
-import {NoteQuery, makeNoteQueryFromInputValues} from './query'
+import {NoteQuery, makeNoteQueryFromInputValues, makeNoteQueryFromHash, toNoteQueryHash} from './query'
 import {toUserQuery} from './query-user'
 import {toReadableDate, toDateQuery} from './query-date'
 import {startFetcher} from './fetch'
@@ -15,16 +15,11 @@ export default class NoteFetchPanel {
 		$notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
 		filterPanel: NoteFilterPanel, extrasPanel: ExtrasPanel, map: NoteMap
 	) {
-		const partialQuery: Partial<NoteQuery> = {}
-		try {
-			const queryString=storage.getItem('query')
-			if (queryString!=null) {
-				const parsedQuery=JSON.parse(queryString)
-				if (typeof parsedQuery == 'object') {
-					Object.assign(partialQuery,parsedQuery)
-				}
-			}
-		} catch {}
+		const query=makeNoteQueryFromHash(location.hash)
+		modifyHistory(query,false)
+		window.addEventListener('hashchange',ev=>{
+			console.log('> hashchange',ev) ///
+		})
 		const $form=document.createElement('form')
 		const $userInput=document.createElement('input')
 		const $textInput=document.createElement('input')
@@ -45,10 +40,10 @@ export default class NoteFetchPanel {
 			}{
 				$userInput.type='text'
 				$userInput.name='user'
-				if (partialQuery.display_name) {
-					$userInput.value=partialQuery.display_name
-				} else if (partialQuery.user) {
-					$userInput.value='#'+partialQuery.user
+				if (query?.display_name) {
+					$userInput.value=query.display_name
+				} else if (query?.user) {
+					$userInput.value='#'+query.user
 				}
 				const $div=document.createElement('div')
 				$div.classList.add('major-input')
@@ -59,7 +54,7 @@ export default class NoteFetchPanel {
 			}{
 				$textInput.type='text'
 				$textInput.name='user'
-				if (partialQuery.q) $textInput.value=partialQuery.q
+				if (query?.q) $textInput.value=query.q
 				const $div=document.createElement('div')
 				$div.classList.add('major-input')
 				const $label=document.createElement('label')
@@ -70,13 +65,13 @@ export default class NoteFetchPanel {
 				$fromInput.type='text'
 				$fromInput.size=20
 				$fromInput.name='from'
-				$fromInput.value=toReadableDate(partialQuery.from)
+				$fromInput.value=toReadableDate(query?.from)
 				const $fromLabel=document.createElement('label')
 				$fromLabel.append(`from `,$fromInput)
 				$toInput.type='text'
 				$toInput.size=20
 				$toInput.name='to'
-				$toInput.value=toReadableDate(partialQuery.to)
+				$toInput.value=toReadableDate(query?.to)
 				const $toLabel=document.createElement('label')
 				$toLabel.append(`to `,$toInput)
 				const $div=document.createElement('div')
@@ -89,17 +84,17 @@ export default class NoteFetchPanel {
 					new Option(`open and recently closed`,'7'),
 					new Option(`only open`,'0'),
 				)
-				if (partialQuery.closed!=null) $statusSelect.value=String(partialQuery.closed)
+				if (query?.closed!=null) $statusSelect.value=String(query.closed)
 				$sortSelect.append(
 					new Option(`creation`,'created_at'),
 					new Option(`last update`,'updated_at')
 				)
-				if (partialQuery.sort!=null) $sortSelect.value=partialQuery.sort
+				if (query?.sort!=null) $sortSelect.value=query.sort
 				$orderSelect.append(
 					new Option('newest'),
 					new Option('oldest')
 				)
-				if (partialQuery.order!=null) $orderSelect.value=partialQuery.order
+				if (query?.order!=null) $orderSelect.value=query.order
 				$div.append(
 					span(`Fetch matching `,$statusSelect,` notes`),` `,
 					span(`sorted by `,$sortSelect,` date`),`, `,
@@ -172,6 +167,7 @@ export default class NoteFetchPanel {
 				$statusSelect.value,$sortSelect.value,$orderSelect.value
 			)
 			if (!query) return
+			modifyHistory(query,true)
 			extrasPanel.rewrite(query,Number($limitSelect.value))
 			startFetcher(
 				storage,db,
@@ -183,13 +179,9 @@ export default class NoteFetchPanel {
 			)
 		})
 		$container.append($form)
-		const queryString=storage.getItem('query')
-		if (queryString==null) {
+		if (!query) {
 			extrasPanel.rewrite()
-			return
-		}
-		try {
-			const query=JSON.parse(queryString)
+		} else {
 			extrasPanel.rewrite(query,Number($limitSelect.value))
 			startFetcher(
 				storage,db,
@@ -199,6 +191,18 @@ export default class NoteFetchPanel {
 				query,
 				false
 			)
-		} catch {}
+		}
+	}
+}
+
+function modifyHistory(query: NoteQuery | undefined, push: boolean): void {
+	const canonicalQueryHash=toNoteQueryHash(query)
+	if (canonicalQueryHash!=location.hash) {
+		const url=canonicalQueryHash||location.pathname+location.search
+		if (push) {
+			history.pushState(null,'',url)
+		} else {
+			history.replaceState(null,'',url)
+		}
 	}
 }

@@ -10,21 +10,21 @@ export interface NoteQuery { // fields named like in the API
 	q?: string
 	from?: number
 	to?: number
-	closed: number
-	sort: 'created_at'|'updated_at'
+	closed: number // defaults to -1 because that's how user's note page would have worked
+	sort: 'created_at'|'updated_at' // defaults to created_at for now because it's a more stable ordering
 	order: 'newest'|'oldest'
 }
 
-export function noteQueryToUserQuery(noteQuery: NoteQuery): UserQuery {
-	if (noteQuery.display_name!=null) {
+function displayNameAndUserToUserQuery(display_name: string|undefined|null, user: number|undefined|null): UserQuery {
+	if (display_name!=null) {
 		return {
 			userType: 'name',
-			username: noteQuery.display_name
+			username: display_name
 		}
-	} else if (noteQuery.user!=null) {
+	} else if (user!=null && Number.isInteger(user)) {
 		return {
 			userType: 'id',
-			uid: noteQuery.user
+			uid: user
 		}
 	} else {
 		return {
@@ -33,8 +33,12 @@ export function noteQueryToUserQuery(noteQuery: NoteQuery): UserQuery {
 	}
 }
 
-export function makeNoteQueryFromInputValues(
-	userValue: string, textValue: string, fromValue: string, toValue: string, closedValue: string, sortValue: string, orderValue: string
+export function noteQueryToUserQuery(noteQuery: NoteQuery): UserQuery {
+	return displayNameAndUserToUserQuery(noteQuery.display_name,noteQuery.user)
+}
+
+function makeNoteQueryFromUserQueryAndValues(
+	userQuery: UserQuery, textValue: string, fromValue: string, toValue: string, closedValue: string, sortValue: string, orderValue: string
 ): NoteQuery | undefined {
 	const noteQuery: NoteQuery = {
 		closed: toNoteQueryClosed(closedValue),
@@ -42,7 +46,6 @@ export function makeNoteQueryFromInputValues(
 		order: toNoteQueryOrder(orderValue)
 	}
 	{
-		const userQuery=toUserQuery(userValue)
 		if (userQuery.userType=='invalid') return undefined
 		if (userQuery.userType=='name') {
 			noteQuery.display_name=userQuery.username
@@ -63,9 +66,9 @@ export function makeNoteQueryFromInputValues(
 	}
 	return noteQuery
 	function toNoteQueryClosed(value: string): NoteQuery['closed'] {
-		const n=Number(value)
+		const n=Number(value||undefined)
 		if (Number.isInteger(n)) return n
-		return 7
+		return -1
 	}
 	function toNoteQuerySort(value: string): NoteQuery['sort'] {
 		if (value=='updated_at') return value
@@ -77,7 +80,38 @@ export function makeNoteQueryFromInputValues(
 	}
 }
 
-export function toNoteQueryString(query: NoteQuery) {
+export function makeNoteQueryFromInputValues(
+	userValue: string, textValue: string, fromValue: string, toValue: string, closedValue: string, sortValue: string, orderValue: string
+): NoteQuery | undefined {
+	return makeNoteQueryFromUserQueryAndValues(
+		toUserQuery(userValue),
+		textValue,fromValue,toValue,closedValue,sortValue,orderValue
+	)
+}
+
+export function makeNoteQueryFromHash(queryString: string): NoteQuery | undefined {
+	const paramString = (queryString[0]=='#')
+		? queryString.slice(1)
+		: queryString
+	const searchParams=new URLSearchParams(paramString)
+	if (searchParams.get('mode')!='search') return undefined
+	const userQuery=displayNameAndUserToUserQuery(searchParams.get('display_name'),Number(searchParams.get('user')||undefined))
+	return makeNoteQueryFromUserQueryAndValues(
+		userQuery,
+		searchParams.get('q')||'',searchParams.get('from')||'',searchParams.get('to')||'',
+		searchParams.get('closed')||'',searchParams.get('sort')||'',searchParams.get('order')||''
+	)
+}
+
+export function toNoteQueryHash(query: NoteQuery | undefined): string {
+	if (query) {
+		return '#mode=search&'+toNoteQueryString(query)
+	} else {
+		return ''
+	}
+}
+
+export function toNoteQueryString(query: NoteQuery): string {
 	const parameters:Array<[string,string|number]>=[]
 	if (query.display_name!=null) {
 		parameters.push(['display_name',query.display_name])

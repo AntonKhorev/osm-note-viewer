@@ -1,5 +1,5 @@
 import {strict as assert} from 'assert'
-import {getNextFetchDetails} from '../test-build/query.js'
+import {getNextFetchDetails, makeNoteQueryFromHash} from '../test-build/query.js'
 
 const makeNote=(id,...dates)=>({
 	id,
@@ -11,6 +11,30 @@ const makeNote=(id,...dates)=>({
 		action: i==0 ? 'opened' : 'commented',
 		text: 'Hello!'
 	}))
+})
+
+describe("query module / makeNoteQueryFromHash()",()=>{
+	it("returns empty query for empty string",()=>{
+		const query=makeNoteQueryFromHash(``)
+		assert.equal(query,undefined)
+	})
+	it("builds default query for empty search",()=>{
+		const query=makeNoteQueryFromHash(`#mode=search`)
+		assert.deepEqual(query,{
+			closed: -1,
+			sort: 'created_at',
+			order: 'newest'
+		})
+	})
+	it("builds default query for username",()=>{
+		const query=makeNoteQueryFromHash(`#mode=search&display_name=Some%20User`)
+		assert.deepEqual(query,{
+			display_name: 'Some User',
+			closed: -1,
+			sort: 'created_at',
+			order: 'newest'
+		})
+	})
 })
 
 describe("query module / getNextFetchDetails()",()=>{
