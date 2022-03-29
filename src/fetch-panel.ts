@@ -29,9 +29,8 @@ export default class NoteFetchPanel {
 		const $fetchButton=document.createElement('button')
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
 		window.addEventListener('hashchange',ev=>{
-			console.log('=== hashchange',location.hash,ev) ///
 			const query=makeNoteQueryFromHash(location.hash)
-			// TODO modify to canonical query
+			modifyHistory(query,false) // in case location was edited manually
 			populateInputs(query)
 			runStartFetcher(query,false)
 		})
