@@ -15,6 +15,7 @@ export async function startFetcher(
 	$notesContainer: HTMLElement, $moreContainer: HTMLElement,
 	filterPanel: NoteFilterPanel, commandPanel: CommandPanel, map: NoteMap,
 	$limitSelect: HTMLSelectElement, $autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement,
+	moreButtonIntersectionObservers: IntersectionObserver[],
 	query: NoteQuery,
 	clearStore: boolean
 ) {
@@ -102,9 +103,10 @@ export async function startFetcher(
 						if (entries.length<=0) return
 						if (!entries[0].isIntersecting) return
 						if (!$autoLoadCheckbox.checked) return
-						moreButtonIntersectionObserver.disconnect()
+						while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
 						$moreButton.click()
 					})
+					moreButtonIntersectionObservers.push(moreButtonIntersectionObserver)
 					moreButtonIntersectionObserver.observe($moreButton)
 				}
 			}

@@ -27,9 +27,11 @@ export default class NoteFetchPanel {
 		const $limitSelect=document.createElement('select')
 		const $autoLoadCheckbox=document.createElement('input')
 		const $fetchButton=document.createElement('button')
+		const moreButtonIntersectionObservers: IntersectionObserver[] = []
 		window.addEventListener('hashchange',ev=>{
-			console.log('> hashchange',location.hash,'|',ev) ///
+			console.log('=== hashchange',location.hash,ev) ///
 			const query=makeNoteQueryFromHash(location.hash)
+			// TODO modify to canonical query
 			populateInputs(query)
 			runStartFetcher(query,false)
 		})
@@ -104,6 +106,7 @@ export default class NoteFetchPanel {
 			$form.append($fieldset)
 		}{
 			const $fieldset=document.createElement('fieldset')
+			// TODO (re)store input values
 			{
 				const $legend=document.createElement('legend')
 				$legend.textContent=`Download mode (can change anytime)`
@@ -182,17 +185,18 @@ export default class NoteFetchPanel {
 			$orderSelect.value=query?.order ?? ''
 		}
 		function resetNoteDependents() {
+			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
 			map.clearNotes()
 			$notesContainer.innerHTML=``
 			$commandContainer.innerHTML=``
 		}
 		function runStartFetcher(query: NoteQuery | undefined, clearStore: boolean): void {
+			resetNoteDependents()
 			if (query) {
 				extrasPanel.rewrite(query,Number($limitSelect.value))
 			} else {
 				extrasPanel.rewrite()
 			}
-			resetNoteDependents()
 			if (query) {
 				const commandPanel=new CommandPanel($commandContainer,map,storage)
 				startFetcher(
@@ -200,6 +204,7 @@ export default class NoteFetchPanel {
 					$notesContainer,$moreContainer,
 					filterPanel,commandPanel,map,
 					$limitSelect,$autoLoadCheckbox,$fetchButton,
+					moreButtonIntersectionObservers,
 					query,
 					clearStore
 				)
