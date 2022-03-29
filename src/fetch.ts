@@ -1,7 +1,7 @@
 import NoteViewerStorage from './storage'
-import NoteViewerDB from './db'
+import NoteViewerDB, {FetchEntry} from './db'
 import {Note, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesAndUsers} from './data'
-import {NoteQuery, getNextFetchDetails} from './query'
+import {NoteQuery, getNextFetchDetails, toNoteQueryString} from './query'
 import NoteFilterPanel from './filter-panel'
 import {NoteMap} from './map'
 import CommandPanel from './command-panel'
@@ -22,16 +22,16 @@ export async function startFetcher(
 	filterPanel.unsubscribe()
 	let noteTable: NoteTable | undefined
 	const [notes,users,mergeNotesAndUsers]=makeNotesAndUsersAndMerger()
-	if (clearStore) {
-		await db.clear()
-	} else {
-		let initialNotes: Note[] = []
-		let initialUsers: Users = {}
-		try {
-			[initialNotes,initialUsers]=await db.load() // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
-		} catch {}
-		mergeNotesAndUsers(initialNotes,initialUsers)
-	}
+	const queryString=toNoteQueryString(query)
+	const fetchEntry: FetchEntry = await(async()=>{
+		if (clearStore) {
+			return await db.clear(queryString)
+		} else {
+			const [fetchEntry,initialNotes,initialUsers]=await db.load(queryString) // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
+			mergeNotesAndUsers(initialNotes,initialUsers)
+			return fetchEntry
+		}
+	})()
 	filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(notes,users,noteFilter))
 	map.clearNotes()
 	$notesContainer.innerHTML=``
@@ -76,7 +76,6 @@ export async function startFetcher(
 				rewriteFetchErrorMessage($moreContainer,query,`received the following error response`,responseText)
 			} else {
 				const data=await response.json()
-				// query.endedAt=Date.now()
 				if (!isNoteFeatureCollection(data)) {
 					rewriteMessage($moreContainer,`Received invalid data`)
 					return
@@ -144,7 +143,7 @@ export async function startFetcher(
 		$moreContainer.append($div)
 	}
 	async function saveToQueryStorage(query: NoteQuery, newNotes: Note[], newUsers: Users): Promise<void> {
-		await db.save(newNotes,newUsers)
+		await db.save(fetchEntry,notes,newNotes,users,newUsers)
 		storage.setItem('query',JSON.stringify(query))
 	}
 }

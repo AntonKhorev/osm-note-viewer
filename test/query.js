@@ -55,7 +55,7 @@ describe("query module / getNextFetchDetails()",()=>{
 					order: 'newest',
 				},3,note)
 				assert.equal(fd.limit,3)
-				assert.equal(fd.parameters,`display_name=Dude&sort=${sort}&order=newest&closed=-1&limit=3&from=20010101T000000Z&to=20220218T153702Z`)
+				assert.equal(fd.parameters,`display_name=Dude&sort=${sort}&order=newest&closed=-1&from=20010101T000000Z&to=20220218T153702Z&limit=3`)
 			})
 			it(`provides subsequent fetch for oldest-first ${sort} order`,()=>{
 				const note=makeNote(3,1645198621) // 2022-02-18T15:37:01Z
@@ -66,7 +66,7 @@ describe("query module / getNextFetchDetails()",()=>{
 					order: 'oldest',
 				},3,note)
 				assert.equal(fd.limit,3)
-				assert.equal(fd.parameters,`display_name=Dude&sort=${sort}&order=oldest&closed=-1&limit=3&from=20220218T153701Z`)
+				assert.equal(fd.parameters,`display_name=Dude&sort=${sort}&order=oldest&closed=-1&from=20220218T153701Z&limit=3`)
 			})
 		}
 	})
@@ -80,7 +80,7 @@ describe("query module / getNextFetchDetails()",()=>{
 				order: 'newest',
 			},3,note)
 			assert.equal(fd.limit,3)
-			assert.equal(fd.parameters,`display_name=Gimme&sort=created_at&order=newest&closed=-1&limit=3&from=20010101T000000Z&to=20181126T065713Z`)
+			assert.equal(fd.parameters,`display_name=Gimme&sort=created_at&order=newest&closed=-1&from=20010101T000000Z&to=20181126T065713Z&limit=3`)
 		})
 		it(`provides subsequent fetch for newest-first updated_at order`,()=>{
 			const fd=getNextFetchDetails({
@@ -90,7 +90,7 @@ describe("query module / getNextFetchDetails()",()=>{
 				order: 'newest',
 			},3,note)
 			assert.equal(fd.limit,3)
-			assert.equal(fd.parameters,`display_name=Gimme&sort=updated_at&order=newest&closed=-1&limit=3&from=20010101T000000Z&to=20190203T173713Z`)
+			assert.equal(fd.parameters,`display_name=Gimme&sort=updated_at&order=newest&closed=-1&from=20010101T000000Z&to=20190203T173713Z&limit=3`)
 		})
 	})
 	it("decides not to grow the window",()=>{
@@ -103,7 +103,7 @@ describe("query module / getNextFetchDetails()",()=>{
 			order: 'newest',
 		},3,note1,note2,3)
 		assert.equal(fd.limit,3)
-		assert.equal(fd.parameters,`display_name=Mapper&sort=created_at&order=newest&closed=-1&limit=3&from=20010101T000000Z&to=20220218T153702Z`)
+		assert.equal(fd.parameters,`display_name=Mapper&sort=created_at&order=newest&closed=-1&from=20010101T000000Z&to=20220218T153702Z&limit=3`)
 	})
 	it("decides to grow the window",()=>{
 		const note2=makeNote(11,1645198621) // same dates
@@ -115,7 +115,7 @@ describe("query module / getNextFetchDetails()",()=>{
 			order: 'newest',
 		},3,note1,note2,3)
 		assert.equal(fd.limit,6)
-		assert.equal(fd.parameters,`display_name=Mapper&sort=created_at&order=newest&closed=-1&limit=6&from=20010101T000000Z&to=20220218T153702Z`)
+		assert.equal(fd.parameters,`display_name=Mapper&sort=created_at&order=newest&closed=-1&from=20010101T000000Z&to=20220218T153702Z&limit=6`)
 	})
 	it("decides to grow the window further",()=>{
 		const note2=makeNote(11,1645198621) // same dates
@@ -127,7 +127,7 @@ describe("query module / getNextFetchDetails()",()=>{
 			order: 'newest',
 		},3,note1,note2,6)
 		assert.equal(fd.limit,9)
-		assert.equal(fd.parameters,`display_name=Mapper&sort=created_at&order=newest&closed=-1&limit=9&from=20010101T000000Z&to=20220218T153702Z`)
+		assert.equal(fd.parameters,`display_name=Mapper&sort=created_at&order=newest&closed=-1&from=20010101T000000Z&to=20220218T153702Z&limit=9`)
 	})
 	context("with a lower bound date",()=>{
 		const note=makeNote(3,1543215432) // 2018-11-26T06:57:12Z
@@ -139,7 +139,7 @@ describe("query module / getNextFetchDetails()",()=>{
 				order: 'newest',
 			},7)
 			assert.equal(fd.limit,7)
-			assert.equal(fd.parameters,`sort=created_at&order=newest&closed=-1&limit=7&from=20150607T123456Z`)
+			assert.equal(fd.parameters,`sort=created_at&order=newest&closed=-1&from=20150607T123456Z&limit=7`)
 		})
 		it("enforces lower bound on subsequent request with newest order",()=>{
 			const fd=getNextFetchDetails({
@@ -149,7 +149,7 @@ describe("query module / getNextFetchDetails()",()=>{
 				order: 'newest',
 			},3,note)
 			assert.equal(fd.limit,3)
-			assert.equal(fd.parameters,`sort=created_at&order=newest&closed=-1&limit=3&from=20150607T123456Z&to=20181126T065713Z`)
+			assert.equal(fd.parameters,`sort=created_at&order=newest&closed=-1&from=20150607T123456Z&to=20181126T065713Z&limit=3`)
 		})
 		it("updates lower bound on subsequent request with oldest order",()=>{
 			const fd=getNextFetchDetails({
@@ -159,7 +159,7 @@ describe("query module / getNextFetchDetails()",()=>{
 				order: 'oldest',
 			},3,note)
 			assert.equal(fd.limit,3)
-			assert.equal(fd.parameters,`sort=created_at&order=oldest&closed=-1&limit=3&from=20181126T065712Z`)
+			assert.equal(fd.parameters,`sort=created_at&order=oldest&closed=-1&from=20181126T065712Z&limit=3`)
 		})
 	})
 	context("with an upper bound date",()=>{
@@ -172,7 +172,7 @@ describe("query module / getNextFetchDetails()",()=>{
 				order: 'newest',
 			},7)
 			assert.equal(fd.limit,7)
-			assert.equal(fd.parameters,`sort=created_at&order=newest&closed=-1&limit=7&from=20010101T000000Z&to=20190607T123456Z`)
+			assert.equal(fd.parameters,`sort=created_at&order=newest&closed=-1&from=20010101T000000Z&to=20190607T123456Z&limit=7`)
 		})
 		it("enforces upper bound on subsequent request with oldest order",()=>{
 			const fd=getNextFetchDetails({
@@ -182,7 +182,7 @@ describe("query module / getNextFetchDetails()",()=>{
 				order: 'oldest',
 			},3,note)
 			assert.equal(fd.limit,3)
-			assert.equal(fd.parameters,`sort=created_at&order=oldest&closed=-1&limit=3&from=20181126T065712Z&to=20190607T123456Z`)
+			assert.equal(fd.parameters,`sort=created_at&order=oldest&closed=-1&from=20181126T065712Z&to=20190607T123456Z&limit=3`)
 		})
 		it("updates upper bound on subsequent request with newest order",()=>{
 			const fd=getNextFetchDetails({
@@ -192,7 +192,7 @@ describe("query module / getNextFetchDetails()",()=>{
 				order: 'newest',
 			},3,note)
 			assert.equal(fd.limit,3)
-			assert.equal(fd.parameters,`sort=created_at&order=newest&closed=-1&limit=3&from=20010101T000000Z&to=20181126T065713Z`)
+			assert.equal(fd.parameters,`sort=created_at&order=newest&closed=-1&from=20010101T000000Z&to=20181126T065713Z&limit=3`)
 		})
 		it("doesn't +1 upper bound on subsequent request with newest order when last note has exactly this date",()=>{
 			const fd=getNextFetchDetails({
@@ -202,7 +202,7 @@ describe("query module / getNextFetchDetails()",()=>{
 				order: 'newest',
 			},3,note)
 			assert.equal(fd.limit,3)
-			assert.equal(fd.parameters,`sort=created_at&order=newest&closed=-1&limit=3&from=20010101T000000Z&to=20181126T065712Z`)
+			assert.equal(fd.parameters,`sort=created_at&order=newest&closed=-1&from=20010101T000000Z&to=20181126T065712Z&limit=3`)
 		})
 	})
 })

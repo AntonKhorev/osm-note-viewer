@@ -13,8 +13,6 @@ export interface NoteQuery { // fields named like in the API
 	closed: number
 	sort: 'created_at'|'updated_at'
 	order: 'newest'|'oldest'
-	// beganAt?: number // TODO move to db record
-	// endedAt?: number
 }
 
 export function noteQueryToUserQuery(noteQuery: NoteQuery): UserQuery {
@@ -79,6 +77,26 @@ export function makeNoteQueryFromInputValues(
 	}
 }
 
+export function toNoteQueryString(query: NoteQuery) {
+	const parameters:Array<[string,string|number]>=[]
+	if (query.display_name!=null) {
+		parameters.push(['display_name',query.display_name])
+	} else if (query.user!=null) {
+		parameters.push(['user',query.user])
+	}
+	if (query.q!=null) {
+		parameters.push(['q',query.q])
+	}
+	parameters.push(
+		['sort',query.sort],
+		['order',query.order],
+		['closed',query.closed]
+	)
+	if (query.from!=null) parameters.push(['from',toUrlDate(query.from)])
+	if (query.to  !=null) parameters.push(['to'  ,toUrlDate(query.to)])
+	return parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
+}
+
 export interface NoteFetchDetails {
 	parameters: string
 	limit: number // to be (checked against result size for exit condition) and (passed as lastLimit on the next iteration)
@@ -90,8 +108,8 @@ export interface NoteFetchDetails {
                             q;
                             sort, order - these don't change within a query;
                             closed - this may change between phases;
-                            limit - this may change within a phase in rare circumstances;
                             from, to - this change for pagination purposes, from needs to be present with a dummy date if to is used
+                            limit - this may change in rare circumstances, not part of query proper;
  */
 export function getNextFetchDetails(query: NoteQuery, requestedLimit: number, lastNote?: Note, prevLastNote?: Note, lastLimit?: number): NoteFetchDetails {
 	let lowerDate: number | undefined
@@ -134,27 +152,14 @@ export function getNextFetchDetails(query: NoteQuery, requestedLimit: number, la
 	if (lowerDate==null && upperDate!=null) {
 		lowerDate=defaultLowerDate
 	}
-	const parameters:Array<[string,string|number]>=[]
-	if (query.display_name!=null) {
-		parameters.push(['display_name',query.display_name])
-	} else if (query.user!=null) {
-		parameters.push(['user',query.user])
-	}
-	if (query.q!=null) {
-		parameters.push(['q',query.q])
-	}
-	parameters.push(
-		['sort',query.sort],
-		['order',query.order],
-		['closed',query.closed],
-		['limit',limit]
-	)
-	if (lowerDate!=null) parameters.push(['from',toUrlDate(lowerDate)])
-	if (upperDate!=null) parameters.push(['to',toUrlDate(upperDate)])
+	const updatedQuery={...query}
+	if (lowerDate!=null) updatedQuery.from=lowerDate
+	if (upperDate!=null) updatedQuery.to=upperDate
 	return {
-		parameters: parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&'),
+		parameters: toNoteQueryString(updatedQuery)+'&limit='+encodeURIComponent(limit),
 		limit
 	}
+	
 	function getTargetComment(note: Note): NoteComment {
 		if (query.sort=='created_at') {
 			return note.comments[0]
