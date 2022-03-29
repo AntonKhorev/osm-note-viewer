@@ -1,4 +1,3 @@
-import NoteViewerStorage from './storage'
 import NoteViewerDB, {FetchEntry} from './db'
 import {Note, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesAndUsers} from './data'
 import {NoteQuery, getNextFetchDetails, toNoteQueryString} from './query'
@@ -12,9 +11,9 @@ const maxTotalAutoLoadLimit=1000
 const maxFullyFilteredFetches=10
 
 export async function startFetcher(
-	storage: NoteViewerStorage, db: NoteViewerDB,
-	$notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
-	filterPanel: NoteFilterPanel, map: NoteMap,
+	db: NoteViewerDB,
+	$notesContainer: HTMLElement, $moreContainer: HTMLElement,
+	filterPanel: NoteFilterPanel, commandPanel: CommandPanel, map: NoteMap,
 	$limitSelect: HTMLSelectElement, $autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement,
 	query: NoteQuery,
 	clearStore: boolean
@@ -33,10 +32,6 @@ export async function startFetcher(
 		}
 	})()
 	filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(notes,users,noteFilter))
-	map.clearNotes()
-	$notesContainer.innerHTML=``
-	$commandContainer.innerHTML=``
-	const commandPanel=new CommandPanel($commandContainer,map,storage)
 	let lastNote: Note | undefined
 	let prevLastNote: Note | undefined
 	let lastLimit: number | undefined

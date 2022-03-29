@@ -3,6 +3,7 @@ import NoteViewerDB from './db'
 import {NoteMap} from './map'
 import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
+import CommandPanel from './command-panel'
 import {NoteQuery, makeNoteQueryFromInputValues, makeNoteQueryFromHash, toNoteQueryHash} from './query'
 import {toUserQuery} from './query-user'
 import {toReadableDate, toDateQuery} from './query-date'
@@ -15,11 +16,6 @@ export default class NoteFetchPanel {
 		$notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
 		filterPanel: NoteFilterPanel, extrasPanel: ExtrasPanel, map: NoteMap
 	) {
-		const query=makeNoteQueryFromHash(location.hash)
-		modifyHistory(query,false)
-		window.addEventListener('hashchange',ev=>{
-			console.log('> hashchange',ev) ///
-		})
 		const $form=document.createElement('form')
 		const $userInput=document.createElement('input')
 		const $textInput=document.createElement('input')
@@ -31,6 +27,15 @@ export default class NoteFetchPanel {
 		const $limitSelect=document.createElement('select')
 		const $autoLoadCheckbox=document.createElement('input')
 		const $fetchButton=document.createElement('button')
+		window.addEventListener('hashchange',ev=>{
+			console.log('> hashchange',location.hash,'|',ev) ///
+			const query=makeNoteQueryFromHash(location.hash)
+			populateInputs(query)
+			runStartFetcher(query,false)
+		})
+		const query=makeNoteQueryFromHash(location.hash)
+		modifyHistory(query,false)
+		populateInputs(query)
 		{
 			const $fieldset=document.createElement('fieldset')
 			{
@@ -40,11 +45,6 @@ export default class NoteFetchPanel {
 			}{
 				$userInput.type='text'
 				$userInput.name='user'
-				if (query?.display_name) {
-					$userInput.value=query.display_name
-				} else if (query?.user) {
-					$userInput.value='#'+query.user
-				}
 				const $div=document.createElement('div')
 				$div.classList.add('major-input')
 				const $label=document.createElement('label')
@@ -54,7 +54,6 @@ export default class NoteFetchPanel {
 			}{
 				$textInput.type='text'
 				$textInput.name='user'
-				if (query?.q) $textInput.value=query.q
 				const $div=document.createElement('div')
 				$div.classList.add('major-input')
 				const $label=document.createElement('label')
@@ -65,13 +64,11 @@ export default class NoteFetchPanel {
 				$fromInput.type='text'
 				$fromInput.size=20
 				$fromInput.name='from'
-				$fromInput.value=toReadableDate(query?.from)
 				const $fromLabel=document.createElement('label')
 				$fromLabel.append(`from `,$fromInput)
 				$toInput.type='text'
 				$toInput.size=20
 				$toInput.name='to'
-				$toInput.value=toReadableDate(query?.to)
 				const $toLabel=document.createElement('label')
 				$toLabel.append(`to `,$toInput)
 				const $div=document.createElement('div')
@@ -84,17 +81,14 @@ export default class NoteFetchPanel {
 					new Option(`open and recently closed`,'7'),
 					new Option(`only open`,'0'),
 				)
-				if (query?.closed!=null) $statusSelect.value=String(query.closed)
 				$sortSelect.append(
 					new Option(`creation`,'created_at'),
 					new Option(`last update`,'updated_at')
 				)
-				if (query?.sort!=null) $sortSelect.value=query.sort
 				$orderSelect.append(
 					new Option('newest'),
 					new Option('oldest')
 				)
-				if (query?.order!=null) $orderSelect.value=query.order
 				$div.append(
 					span(`Fetch matching `,$statusSelect,` notes`),` `,
 					span(`sorted by `,$sortSelect,` date`),`, `,
@@ -168,29 +162,48 @@ export default class NoteFetchPanel {
 			)
 			if (!query) return
 			modifyHistory(query,true)
-			extrasPanel.rewrite(query,Number($limitSelect.value))
-			startFetcher(
-				storage,db,
-				$notesContainer,$moreContainer,$commandContainer,
-				filterPanel,map,
-				$limitSelect,$autoLoadCheckbox,$fetchButton,
-				query,
-				true
-			)
+			runStartFetcher(query,true)
 		})
 		$container.append($form)
-		if (!query) {
-			extrasPanel.rewrite()
-		} else {
-			extrasPanel.rewrite(query,Number($limitSelect.value))
-			startFetcher(
-				storage,db,
-				$notesContainer,$moreContainer,$commandContainer,
-				filterPanel,map,
-				$limitSelect,$autoLoadCheckbox,$fetchButton,
-				query,
-				false
-			)
+		runStartFetcher(query,false)
+		function populateInputs(query: NoteQuery | undefined): void {
+			if (query?.display_name) {
+				$userInput.value=query.display_name
+			} else if (query?.user) {
+				$userInput.value='#'+query.user
+			} else {
+				$userInput.value=''
+			}
+			$textInput.value=query?.q ?? ''
+			$fromInput.value=toReadableDate(query?.from)
+			$toInput.value=toReadableDate(query?.to)
+			$statusSelect.value=query ? String(query.closed) : ''
+			$sortSelect.value=query?.sort ?? ''
+			$orderSelect.value=query?.order ?? ''
+		}
+		function resetNoteDependents() {
+			map.clearNotes()
+			$notesContainer.innerHTML=``
+			$commandContainer.innerHTML=``
+		}
+		function runStartFetcher(query: NoteQuery | undefined, clearStore: boolean): void {
+			if (query) {
+				extrasPanel.rewrite(query,Number($limitSelect.value))
+			} else {
+				extrasPanel.rewrite()
+			}
+			resetNoteDependents()
+			if (query) {
+				const commandPanel=new CommandPanel($commandContainer,map,storage)
+				startFetcher(
+					db,
+					$notesContainer,$moreContainer,
+					filterPanel,commandPanel,map,
+					$limitSelect,$autoLoadCheckbox,$fetchButton,
+					query,
+					clearStore
+				)
+			}
 		}
 	}
 }
