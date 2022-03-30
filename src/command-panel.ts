@@ -178,7 +178,7 @@ export default class CommandPanel {
 			$yandexPanoramasButton.addEventListener('click',()=>{
 				const center=map.getCenter()
 				const coords=center.lng+','+center.lat
-				const url=`https://yandex.ru/maps/2/saint-petersburg/`+
+				const url=`https://yandex.ru/maps/`+
 					`?ll=`+encodeURIComponent(coords)+ // required if 'z' argument is present
 					`&panorama%5Bpoint%5D=`+encodeURIComponent(coords)+
 					`&z=`+encodeURIComponent(map.getZoom())
