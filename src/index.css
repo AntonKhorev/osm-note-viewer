@@ -45,14 +45,22 @@ body.flipped #text {
 .panel.fetch {
 	padding: .5rem 3rem;
 }
+.panel.fetch button.reset,
 .panel.fetch button.flip {
 	position: absolute;
 	top: 0;
-	left: 0;
 	width: 2rem;
 	height: 2rem;
 	box-sizing: border-box;
 	border: none;
+	
+}
+.panel.fetch button.reset {
+	right: 0;
+	background: url("reset.svg");
+}
+.panel.fetch button.flip {
+	left: 0;
 	background: url("flip-ver.svg");
 }
 body.flipped .panel.fetch button.flip {

@@ -43,6 +43,7 @@ async function main() {
 
 	const map=new NoteMap($mapSide)
 	writeFlipLayoutButton(storage,$fetchContainer,map)
+	writeResetButton($fetchContainer)
 	const extrasPanel=new ExtrasPanel(storage,db,$extrasContainer)
 	const filterPanel=new NoteFilterPanel($filterContainer)
 	new NoteFetchPanel(storage,db,$fetchContainer,$notesContainer,$moreContainer,$commandContainer,filterPanel,extrasPanel,map)
@@ -60,6 +61,16 @@ function writeFlipLayoutButton(storage: NoteViewerStorage, $container: HTMLEleme
 			storage.removeItem('flipped')
 		}
 		map.invalidateSize()
+	})
+	$container.append($button)
+}
+
+function writeResetButton($container: HTMLElement): void {
+	const $button=document.createElement('button')
+	$button.classList.add('reset')
+	$button.title=`Reset query`
+	$button.addEventListener('click',()=>{
+		location.href=location.pathname+location.search
 	})
 	$container.append($button)
 }

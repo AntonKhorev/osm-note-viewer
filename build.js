@@ -8,7 +8,7 @@ await fs.copy('src/index.html','dist/index.html')
 await fs.copy('src/index.css','dist/index.css')
 for (const name of [
 	'icon','icon-open','icon-closed',
-	'flip-ver','flip-hor',
+	'flip-ver','flip-hor','reset',
 	'crosshair'
 ]) {
 	await fs.copy(`src/${name}.svg`,`dist/${name}.svg`)
