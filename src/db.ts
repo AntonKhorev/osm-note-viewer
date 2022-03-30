@@ -41,9 +41,12 @@ export default class NoteViewerDB {
 	delete(fetch: FetchEntry): Promise<void> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
 		return new Promise((resolve,reject)=>{
-			const tx=this.idb.transaction(['fetches'],'readwrite')
-			const request=tx.objectStore('fetches').delete(fetch.timestamp)
-			request.onsuccess=()=>resolve()
+			const tx=this.idb.transaction(['fetches','notes','users'],'readwrite')
+			const range=makeTimestampRange(fetch.timestamp)
+			tx.objectStore('notes').delete(range)
+			tx.objectStore('users').delete(range)
+			tx.objectStore('fetches').delete(fetch.timestamp)
+			tx.oncomplete=()=>resolve()
 			tx.onerror=()=>reject(new Error(`Database delete error: ${tx.error}`))
 		})
 	}
@@ -55,9 +58,9 @@ export default class NoteViewerDB {
 			const fetchStore=tx.objectStore('fetches')
 			const fetchRequest=fetchStore.index('query').getKey(queryString)
 			fetchRequest.onsuccess=()=>{
-				if (fetchRequest.result!=null) {
-					const existingFetchTimestamp=fetchRequest.result
-					const range=IDBKeyRange.bound([existingFetchTimestamp,-Infinity],[existingFetchTimestamp,+Infinity])
+				if (typeof fetchRequest.result == 'number') {
+					const existingFetchTimestamp: number = fetchRequest.result
+					const range=makeTimestampRange(existingFetchTimestamp)
 					tx.objectStore('notes').delete(range)
 					tx.objectStore('users').delete(range)
 					fetchStore.delete(existingFetchTimestamp)
@@ -93,7 +96,7 @@ export default class NoteViewerDB {
 					const fetch: FetchEntry = fetchRequest.result
 					fetch.accessTimestamp=timestamp
 					fetchStore.put(fetch)
-					const range=IDBKeyRange.bound([fetch.timestamp,-Infinity],[fetch.timestamp,+Infinity])
+					const range=makeTimestampRange(fetch.timestamp)
 					const noteRequest=tx.objectStore('notes').index('sequence').getAll(range)
 					noteRequest.onsuccess=()=>{
 						const notes: Note[] = noteRequest.result.map(noteEntry=>noteEntry.note)
@@ -133,7 +136,8 @@ export default class NoteViewerDB {
 						//	then should receive oldNotes instead of newNotes and merge them here
 					// }
 					fetchStore.put(fetch)
-					const noteCursorRequest=noteStore.index('sequence').openCursor(null,'prev')
+					const range=makeTimestampRange(fetch.timestamp)
+					const noteCursorRequest=noteStore.index('sequence').openCursor(range,'prev')
 					noteCursorRequest.onsuccess=()=>{
 						let sequenceNumber=0
 						const cursor=noteCursorRequest.result
@@ -202,4 +206,8 @@ export default class NoteViewerDB {
 			}
 		})
 	}
+}
+
+function makeTimestampRange(timestamp: number): IDBKeyRange {
+	return IDBKeyRange.bound([timestamp,-Infinity],[timestamp,+Infinity])
 }
