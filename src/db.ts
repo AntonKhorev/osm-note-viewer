@@ -34,10 +34,17 @@ export default class NoteViewerDB {
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction(['fetches'],'readonly')
 			const request=tx.objectStore('fetches').index('access').getAll()
-			request.onsuccess=()=>{
-				resolve(request.result)
-			}
+			request.onsuccess=()=>resolve(request.result)
 			tx.onerror=()=>reject(new Error(`Database view error: ${tx.error}`))
+		})
+	}
+	delete(fetch: FetchEntry): Promise<void> {
+		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
+		return new Promise((resolve,reject)=>{
+			const tx=this.idb.transaction(['fetches'],'readwrite')
+			const request=tx.objectStore('fetches').delete(fetch.timestamp)
+			request.onsuccess=()=>resolve()
+			tx.onerror=()=>reject(new Error(`Database delete error: ${tx.error}`))
 		})
 	}
 	clear(queryString: string): Promise<FetchEntry> {

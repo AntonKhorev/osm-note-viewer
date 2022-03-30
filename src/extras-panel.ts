@@ -27,9 +27,33 @@ export default class ExtrasPanel {
 		$updateFetchesButton.addEventListener('click',async()=>{
 			$fetchesContainer.innerHTML=''
 			const $table=document.createElement('table')
+			{
+				const $row=$table.insertRow()
+				insertCell().append('fetch')
+				insertCell().append('user')
+				insertCell().append('last access')
+				function insertCell() {
+					const $th=document.createElement('th')
+					$row.append($th)
+					return $th
+				}
+			}
+			let n=0
 			for (const fetchEntry of await this.db.view()) {
 				const $row=$table.insertRow()
-				$row.insertCell().append(makeLink('fetch','#mode=search&'+fetchEntry.queryString))
+				$row.insertCell().append(makeLink(`[${++n}]`,'#mode=search&'+fetchEntry.queryString))
+				const $userCell=$row.insertCell()
+				const searchParams=new URLSearchParams(fetchEntry.queryString)
+				const username=searchParams.get('display_name')
+				if (username) $userCell.append(makeUserLink(username))
+				$row.insertCell().append(String(new Date(fetchEntry.accessTimestamp)))
+				const $deleteButton=document.createElement('button')
+				$deleteButton.textContent=`Delete`
+				$deleteButton.addEventListener('click',async()=>{
+					await this.db.delete(fetchEntry)
+					$updateFetchesButton.click()
+				})
+				$row.insertCell().append($deleteButton)
 			}
 			$fetchesContainer.append($table)
 		})
