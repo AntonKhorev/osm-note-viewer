@@ -76,47 +76,47 @@ export async function startFetcher(
 			if (!response.ok) {
 				const responseText=await response.text()
 				rewriteFetchErrorMessage($moreContainer,query,`received the following error response`,responseText)
+				return
+			}
+			const data=await response.json()
+			if (!isNoteFeatureCollection(data)) {
+				rewriteMessage($moreContainer,`Received invalid data`)
+				return
+			}
+			const [unseenNotes,unseenUsers]=mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data))
+			await db.save(fetchEntry,notes,unseenNotes,users,unseenUsers)
+			if (!noteTable && notes.length<=0) {
+				rewriteMessage($moreContainer,`No matching notes found`)
+				return
+			}
+			addNewNotes(unseenNotes)
+			if (data.features.length<fetchDetails.limit) {
+				rewriteMessage($moreContainer,`Got all ${notes.length} notes`)
+				return
+			}
+			prevLastNote=lastNote
+			lastNote=notes[notes.length-1]
+			lastLimit=fetchDetails.limit
+			const $moreButton=rewriteLoadMoreButton()
+			if (holdOffAutoLoad) {
+				holdOffAutoLoad=false
+			} else if (notes.length>maxTotalAutoLoadLimit) {
+				$moreButton.append(` (no auto download because displaying more than ${maxTotalAutoLoadLimit} notes)`)
+			} else if (getNextFetchDetails(query,limit,lastNote,prevLastNote,lastLimit).limit>maxSingleAutoLoadLimit) {
+				$moreButton.append(` (no auto download because required batch is larger than ${maxSingleAutoLoadLimit})`)
+			} else if (nFullyFilteredFetches>maxFullyFilteredFetches) {
+				$moreButton.append(` (no auto download because ${maxFullyFilteredFetches} consecutive fetches were fully filtered)`)
+				nFullyFilteredFetches=0
 			} else {
-				const data=await response.json()
-				if (!isNoteFeatureCollection(data)) {
-					rewriteMessage($moreContainer,`Received invalid data`)
-					return
-				}
-				const [unseenNotes,unseenUsers]=mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data))
-				await db.save(fetchEntry,notes,unseenNotes,users,unseenUsers)
-				if (!noteTable && notes.length<=0) {
-					rewriteMessage($moreContainer,`No matching notes found`)
-					return
-				}
-				addNewNotes(unseenNotes)
-				if (data.features.length<fetchDetails.limit) {
-					rewriteMessage($moreContainer,`Got all ${notes.length} notes`)
-					return
-				}
-				prevLastNote=lastNote
-				lastNote=notes[notes.length-1]
-				lastLimit=fetchDetails.limit
-				const $moreButton=rewriteLoadMoreButton()
-				if (holdOffAutoLoad) {
-					holdOffAutoLoad=false
-				} else if (notes.length>maxTotalAutoLoadLimit) {
-					$moreButton.append(` (no auto download because displaying more than ${maxTotalAutoLoadLimit} notes)`)
-				} else if (getNextFetchDetails(query,limit,lastNote,prevLastNote,lastLimit).limit>maxSingleAutoLoadLimit) {
-					$moreButton.append(` (no auto download because required batch is larger than ${maxSingleAutoLoadLimit})`)
-				} else if (nFullyFilteredFetches>maxFullyFilteredFetches) {
-					$moreButton.append(` (no auto download because ${maxFullyFilteredFetches} consecutive fetches were fully filtered)`)
-					nFullyFilteredFetches=0
-				} else {
-					const moreButtonIntersectionObserver=new IntersectionObserver((entries)=>{
-						if (entries.length<=0) return
-						if (!entries[0].isIntersecting) return
-						if (!$autoLoadCheckbox.checked) return
-						while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
-						$moreButton.click()
-					})
-					moreButtonIntersectionObservers.push(moreButtonIntersectionObserver)
-					moreButtonIntersectionObserver.observe($moreButton)
-				}
+				const moreButtonIntersectionObserver=new IntersectionObserver((entries)=>{
+					if (entries.length<=0) return
+					if (!entries[0].isIntersecting) return
+					if (!$autoLoadCheckbox.checked) return
+					while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
+					$moreButton.click()
+				})
+				moreButtonIntersectionObservers.push(moreButtonIntersectionObserver)
+				moreButtonIntersectionObserver.observe($moreButton)
 			}
 		} catch (ex) {
 			if (ex instanceof TypeError) {
