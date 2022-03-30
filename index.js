@@ -39,6 +39,216 @@ class NoteViewerStorage {
     }
 }
 
+class NoteViewerDB {
+    constructor(idb) {
+        this.idb = idb;
+        this.closed = false;
+        idb.onversionchange = () => {
+            idb.close();
+            this.closed = true;
+        };
+    }
+    view() {
+        if (this.closed)
+            throw new Error(`Database is outdated, please reload the page.`);
+        return new Promise((resolve, reject) => {
+            const tx = this.idb.transaction(['fetches'], 'readonly');
+            const request = tx.objectStore('fetches').index('access').getAll();
+            request.onsuccess = () => resolve(request.result);
+            tx.onerror = () => reject(new Error(`Database view error: ${tx.error}`));
+        });
+    }
+    delete(fetch) {
+        if (this.closed)
+            throw new Error(`Database is outdated, please reload the page.`);
+        return new Promise((resolve, reject) => {
+            const tx = this.idb.transaction(['fetches', 'notes', 'users'], 'readwrite');
+            const range = makeTimestampRange(fetch.timestamp);
+            tx.objectStore('notes').delete(range);
+            tx.objectStore('users').delete(range);
+            tx.objectStore('fetches').delete(fetch.timestamp);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(new Error(`Database delete error: ${tx.error}`));
+        });
+    }
+    clear(queryString) {
+        if (this.closed)
+            throw new Error(`Database is outdated, please reload the page.`);
+        const timestamp = Date.now();
+        return new Promise((resolve, reject) => {
+            const tx = this.idb.transaction(['fetches', 'notes', 'users'], 'readwrite');
+            cleanupOutdatedFetches(timestamp, tx);
+            const fetchStore = tx.objectStore('fetches');
+            const fetchRequest = fetchStore.index('query').getKey(queryString);
+            fetchRequest.onsuccess = () => {
+                if (typeof fetchRequest.result == 'number') {
+                    const existingFetchTimestamp = fetchRequest.result;
+                    const range = makeTimestampRange(existingFetchTimestamp);
+                    tx.objectStore('notes').delete(range);
+                    tx.objectStore('users').delete(range);
+                    fetchStore.delete(existingFetchTimestamp);
+                }
+                const fetch = {
+                    queryString,
+                    timestamp,
+                    writeTimestamp: timestamp,
+                    accessTimestamp: timestamp
+                };
+                fetchStore.put(fetch).onsuccess = () => resolve(fetch);
+            };
+            tx.onerror = () => reject(new Error(`Database clear error: ${tx.error}`));
+        });
+    }
+    load(queryString) {
+        if (this.closed)
+            throw new Error(`Database is outdated, please reload the page.`);
+        const timestamp = Date.now();
+        return new Promise((resolve, reject) => {
+            const tx = this.idb.transaction(['fetches', 'notes', 'users'], 'readwrite');
+            cleanupOutdatedFetches(timestamp, tx);
+            const fetchStore = tx.objectStore('fetches');
+            const fetchRequest = fetchStore.index('query').get(queryString);
+            fetchRequest.onsuccess = () => {
+                if (fetchRequest.result == null) {
+                    const fetch = {
+                        queryString,
+                        timestamp,
+                        writeTimestamp: timestamp,
+                        accessTimestamp: timestamp
+                    };
+                    fetchStore.put(fetch).onsuccess = () => resolve([fetch, [], {}]);
+                }
+                else {
+                    const fetch = fetchRequest.result;
+                    fetch.accessTimestamp = timestamp;
+                    fetchStore.put(fetch);
+                    const range = makeTimestampRange(fetch.timestamp);
+                    const noteRequest = tx.objectStore('notes').index('sequence').getAll(range);
+                    noteRequest.onsuccess = () => {
+                        const notes = noteRequest.result.map(noteEntry => noteEntry.note);
+                        const userRequest = tx.objectStore('users').getAll(range);
+                        userRequest.onsuccess = () => {
+                            const users = {};
+                            for (const userEntry of userRequest.result) {
+                                users[userEntry.user.id] = userEntry.user.name;
+                            }
+                            resolve([fetch, notes, users]);
+                        };
+                    };
+                }
+            };
+            tx.onerror = () => reject(new Error(`Database read error: ${tx.error}`));
+        });
+    }
+    save(fetch, allNotes, newNotes, allUsers, newUsers) {
+        if (this.closed)
+            throw new Error(`Database is outdated, please reload the page.`);
+        const timestamp = Date.now();
+        return new Promise((resolve, reject) => {
+            const tx = this.idb.transaction(['fetches', 'notes', 'users'], 'readwrite');
+            const fetchStore = tx.objectStore('fetches');
+            const noteStore = tx.objectStore('notes');
+            const userStore = tx.objectStore('users');
+            const fetchRequest = fetchStore.get(fetch.timestamp);
+            fetchRequest.onsuccess = () => {
+                fetch.writeTimestamp = fetch.accessTimestamp = timestamp;
+                if (fetchRequest.result == null) {
+                    fetchStore.put(fetch);
+                    writeNotesAndUsers(0, allNotes, allUsers);
+                }
+                else {
+                    fetchRequest.result;
+                    // if (storedFetch.writeTimestamp>fetch.writeTimestamp) {
+                    // TODO write conflict if doesn't match
+                    //	report that newNotes shouldn't be merged
+                    //	then should receive oldNotes instead of newNotes and merge them here
+                    // }
+                    fetchStore.put(fetch);
+                    const range = makeTimestampRange(fetch.timestamp);
+                    const noteCursorRequest = noteStore.index('sequence').openCursor(range, 'prev');
+                    noteCursorRequest.onsuccess = () => {
+                        let sequenceNumber = 0;
+                        const cursor = noteCursorRequest.result;
+                        if (cursor)
+                            sequenceNumber = cursor.value.sequenceNumber;
+                        writeNotesAndUsers(sequenceNumber, newNotes, newUsers);
+                    };
+                }
+            };
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(new Error(`Database save error: ${tx.error}`));
+            function writeNotesAndUsers(sequenceNumber, notes, users) {
+                for (const note of notes) {
+                    sequenceNumber++;
+                    const noteEntry = {
+                        fetchTimestamp: fetch.timestamp,
+                        note,
+                        sequenceNumber
+                    };
+                    noteStore.put(noteEntry);
+                }
+                for (const userId in users) {
+                    const name = users[userId];
+                    if (name == null)
+                        continue;
+                    const userEntry = {
+                        fetchTimestamp: fetch.timestamp,
+                        user: {
+                            id: Number(userId),
+                            name
+                        }
+                    };
+                    userStore.put(userEntry);
+                }
+            }
+        });
+    }
+    /*
+    beforeFetch(fetchId, endDate) {
+        // read fetch record
+        // compare endDate
+        // if same return 'ok to fetch'
+        // fetch...
+        // update access
+        // return [new endDate, new notes, new users]
+    }
+    */
+    static open() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open('OsmNoteViewer');
+            request.onsuccess = () => {
+                resolve(new NoteViewerDB(request.result));
+            };
+            request.onupgradeneeded = () => {
+                const idb = request.result;
+                const fetchStore = idb.createObjectStore('fetches', { keyPath: 'timestamp' });
+                fetchStore.createIndex('query', 'queryString', { unique: true });
+                fetchStore.createIndex('access', 'accessTimestamp');
+                const noteStore = idb.createObjectStore('notes', { keyPath: ['fetchTimestamp', 'note.id'] });
+                noteStore.createIndex('sequence', ['fetchTimestamp', 'sequenceNumber']);
+                idb.createObjectStore('users', { keyPath: ['fetchTimestamp', 'user.id'] });
+            };
+            request.onerror = () => {
+                reject(new Error(`failed to open the database`));
+            };
+            request.onblocked = () => {
+                reject(new Error(`failed to open the database because of blocked version change`)); // shouldn't happen
+            };
+        });
+    }
+}
+function cleanupOutdatedFetches(timestamp, tx) {
+    const maxFetchAge = 24 * 60 * 60 * 1000;
+    const range1 = IDBKeyRange.upperBound(timestamp - maxFetchAge);
+    const range2 = IDBKeyRange.upperBound([timestamp - maxFetchAge, +Infinity]);
+    tx.objectStore('notes').delete(range2);
+    tx.objectStore('users').delete(range2);
+    tx.objectStore('fetches').delete(range1);
+}
+function makeTimestampRange(timestamp) {
+    return IDBKeyRange.bound([timestamp, -Infinity], [timestamp, +Infinity]);
+}
+
 class NoteMarker extends L.Marker {
     constructor(note) {
         const width = 25;
@@ -174,221 +384,6 @@ function* noteCommentsToStates(comments) {
             currentState = false;
         }
         yield currentState;
-    }
-}
-
-function toUserQueryPart(value) {
-    const s = value.trim();
-    if (s == '')
-        return {
-            userType: 'invalid',
-            message: `cannot be empty`
-        };
-    if (s[0] == '#') {
-        let match;
-        if (match = s.match(/^#\s*(\d+)$/)) {
-            const [, uid] = match;
-            return {
-                userType: 'id',
-                uid: Number(uid)
-            };
-        }
-        else if (match = s.match(/^#\s*\d*(.)/)) {
-            const [, c] = match;
-            return {
-                userType: 'invalid',
-                message: `uid cannot contain non-digits, found ${c}`
-            };
-        }
-        else {
-            return {
-                userType: 'invalid',
-                message: `uid cannot be empty`
-            };
-        }
-    }
-    if (s.includes('/')) {
-        try {
-            const url = new URL(s);
-            if (url.host == 'www.openstreetmap.org' ||
-                url.host == 'openstreetmap.org' ||
-                url.host == 'www.osm.org' ||
-                url.host == 'osm.org') {
-                const [, userPathDir, userPathEnd] = url.pathname.split('/');
-                if (userPathDir == 'user' && userPathEnd) {
-                    const username = decodeURIComponent(userPathEnd);
-                    return {
-                        userType: 'name',
-                        username
-                    };
-                }
-                return {
-                    userType: 'invalid',
-                    message: `OSM URL has to include username`
-                };
-            }
-            else if (url.host == `api.openstreetmap.org`) {
-                const [, apiDir, apiVersionDir, apiCall, apiValue] = url.pathname.split('/');
-                if (apiDir == 'api' && apiVersionDir == '0.6' && apiCall == 'user') {
-                    const [uidString] = apiValue.split('.');
-                    const uid = Number(uidString);
-                    if (Number.isInteger(uid))
-                        return {
-                            userType: 'id',
-                            uid
-                        };
-                }
-                return {
-                    userType: 'invalid',
-                    message: `OSM API URL has to be "api/0.6/user/..."`
-                };
-            }
-            else {
-                return {
-                    userType: 'invalid',
-                    message: `URL has to be of an OSM domain, was given ${url.host}`
-                };
-            }
-        }
-        catch {
-            return {
-                userType: 'invalid',
-                message: `string containing / character has to be a valid URL`
-            };
-        }
-    }
-    return {
-        userType: 'name',
-        username: s
-    };
-}
-function toNoteQueryStatus(value) {
-    if (value == 'open' || value == 'recent' || value == 'separate')
-        return value;
-    return 'mixed';
-}
-function toNoteQuerySort(value) {
-    if (value == 'updated_at')
-        return value;
-    return 'created_at';
-}
-function toNoteQueryOrder(value) {
-    if (value == 'oldest')
-        return value;
-    return 'newest';
-}
-/**
- * @returns fd.parameters - url parameters in this order:
-                            user OR display_name;
-                            sort, order - these don't change within a query;
-                            closed - this may change between phases;
-                            limit - this may change within a phase in rare circumstances;
-                            from, to - this change for pagination purposes, from needs to be present with a dummy date if to is used
- */
-function getNextFetchDetails(query, requestedLimit, lastNote, prevLastNote, lastLimit) {
-    let closed = -1;
-    if (query.status == 'open') {
-        closed = 0;
-    }
-    else if (query.status == 'recent') {
-        closed = 7;
-    }
-    let lowerDateLimit;
-    let upperDateLimit;
-    let limit = requestedLimit;
-    if (lastNote) {
-        if (lastNote.comments.length <= 0)
-            throw new Error(`note #${lastNote.id} has no comments`);
-        const lastDate = getTargetComment(lastNote).date;
-        if (query.order == 'oldest') {
-            lowerDateLimit = makeLowerLimit(lastDate);
-        }
-        else {
-            upperDateLimit = makeUpperLimit(lastDate);
-        }
-        if (prevLastNote) {
-            if (prevLastNote.comments.length <= 0)
-                throw new Error(`note #${prevLastNote.id} has no comments`);
-            if (lastLimit == null)
-                throw new Error(`no last limit provided along with previous last note #${prevLastNote.id}`);
-            const prevLastDate = getTargetComment(prevLastNote).date;
-            if (lastDate == prevLastDate) {
-                limit = lastLimit + requestedLimit;
-            }
-        }
-    }
-    if (lowerDateLimit == null && upperDateLimit != null) {
-        lowerDateLimit = '2001-01-01T00:00:00Z';
-    }
-    const parameters = [];
-    if (query.userType == 'id') {
-        parameters.push(['user', query.uid]);
-    }
-    else {
-        parameters.push(['display_name', query.username]);
-    }
-    parameters.push(['sort', query.sort], ['order', query.order], ['closed', closed], ['limit', limit]);
-    if (lowerDateLimit != null)
-        parameters.push(['from', lowerDateLimit]);
-    if (upperDateLimit != null)
-        parameters.push(['to', upperDateLimit]);
-    return {
-        parameters: parameters.map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&'),
-        limit
-    };
-    function getTargetComment(note) {
-        if (query.sort == 'created_at') {
-            return note.comments[0];
-        }
-        else {
-            return note.comments[note.comments.length - 1];
-        }
-    }
-}
-function makeLowerLimit(dateInSeconds) {
-    return makeISODateString(dateInSeconds);
-}
-function makeUpperLimit(dateInSeconds) {
-    return makeISODateString(dateInSeconds + 1);
-}
-function makeISODateString(dateInSeconds) {
-    const dateObject = new Date(dateInSeconds * 1000);
-    const dateString = dateObject.toISOString();
-    return dateString.replace(/.\d\d\dZ$/, 'Z');
-}
-
-function isNoteFeatureCollection(data) {
-    return data.type == "FeatureCollection";
-}
-function transformFeatureCollectionToNotesAndUsers(data) {
-    const users = {};
-    const notes = data.features.map(noteFeature => ({
-        id: noteFeature.properties.id,
-        lat: noteFeature.geometry.coordinates[1],
-        lon: noteFeature.geometry.coordinates[0],
-        status: noteFeature.properties.status,
-        comments: noteFeature.properties.comments.map(cullCommentProps)
-    }));
-    return [notes, users];
-    function cullCommentProps(a) {
-        const b = {
-            date: transformDate(a.date),
-            action: a.action,
-            text: a.text
-        };
-        if (a.uid != null) {
-            b.uid = a.uid;
-            if (a.user != null)
-                users[a.uid] = a.user;
-        }
-        return b;
-    }
-    function transformDate(a) {
-        const match = a.match(/^\d\d\d\d-\d\d-\d\d\s+\d\d:\d\d:\d\d/);
-        if (!match)
-            return 0; // shouldn't happen
-        const [s] = match;
-        return Date.parse(s + 'Z') / 1000;
     }
 }
 
@@ -731,6 +726,436 @@ function getClosestNodeId(doc, centerLat, centerLon) {
     return closestNodeId;
 }
 
+function toUserQuery(value) {
+    const s = value.trim();
+    if (s == '')
+        return {
+            userType: 'empty'
+        };
+    if (s[0] == '#') {
+        let match;
+        if (match = s.match(/^#\s*(\d+)$/)) {
+            const [, uid] = match;
+            return {
+                userType: 'id',
+                uid: Number(uid)
+            };
+        }
+        else if (match = s.match(/^#\s*\d*(.)/)) {
+            const [, c] = match;
+            return {
+                userType: 'invalid',
+                message: `uid cannot contain non-digits, found ${c}`
+            };
+        }
+        else {
+            return {
+                userType: 'invalid',
+                message: `uid cannot be empty`
+            };
+        }
+    }
+    if (s.includes('/')) {
+        try {
+            const url = new URL(s);
+            if (url.host == 'www.openstreetmap.org' ||
+                url.host == 'openstreetmap.org' ||
+                url.host == 'www.osm.org' ||
+                url.host == 'osm.org') {
+                const [, userPathDir, userPathEnd] = url.pathname.split('/');
+                if (userPathDir == 'user' && userPathEnd) {
+                    const username = decodeURIComponent(userPathEnd);
+                    return {
+                        userType: 'name',
+                        username
+                    };
+                }
+                return {
+                    userType: 'invalid',
+                    message: `OSM URL has to include username`
+                };
+            }
+            else if (url.host == `api.openstreetmap.org`) {
+                const [, apiDir, apiVersionDir, apiCall, apiValue] = url.pathname.split('/');
+                if (apiDir == 'api' && apiVersionDir == '0.6' && apiCall == 'user') {
+                    const [uidString] = apiValue.split('.');
+                    const uid = Number(uidString);
+                    if (Number.isInteger(uid))
+                        return {
+                            userType: 'id',
+                            uid
+                        };
+                }
+                return {
+                    userType: 'invalid',
+                    message: `OSM API URL has to be "api/0.6/user/..."`
+                };
+            }
+            else {
+                let domainString = `was given ${url.host}`;
+                if (!url.host)
+                    domainString = `no domain was given`;
+                return {
+                    userType: 'invalid',
+                    message: `URL has to be of an OSM domain, ${domainString}`
+                };
+            }
+        }
+        catch {
+            return {
+                userType: 'invalid',
+                message: `string containing / character has to be a valid URL`
+            };
+        }
+    }
+    return {
+        userType: 'name',
+        username: s
+    };
+}
+
+function toReadableDate(date) {
+    if (date == null)
+        return '';
+    const pad = (n) => ('0' + n).slice(-2);
+    const dateObject = new Date(date * 1000);
+    const dateString = dateObject.getUTCFullYear() +
+        '-' +
+        pad(dateObject.getUTCMonth() + 1) +
+        '-' +
+        pad(dateObject.getUTCDate()) +
+        ' ' +
+        pad(dateObject.getUTCHours()) +
+        ':' +
+        pad(dateObject.getUTCMinutes()) +
+        ':' +
+        pad(dateObject.getUTCSeconds());
+    return dateString;
+}
+function toUrlDate(date) {
+    const pad = (n) => ('0' + n).slice(-2);
+    const dateObject = new Date(date * 1000);
+    const dateString = dateObject.getUTCFullYear() +
+        pad(dateObject.getUTCMonth() + 1) +
+        pad(dateObject.getUTCDate()) +
+        'T' +
+        pad(dateObject.getUTCHours()) +
+        pad(dateObject.getUTCMinutes()) +
+        pad(dateObject.getUTCSeconds()) +
+        'Z';
+    return dateString;
+}
+function toDateQuery(readableDate) {
+    let s = readableDate.trim();
+    let m = '';
+    let r = '';
+    {
+        if (s == '')
+            return empty();
+        const match = s.match(/^((\d\d\d\d)-?)(.*)/);
+        if (!match)
+            return invalid();
+        next(match);
+    }
+    {
+        if (s == '')
+            return complete();
+        const match = s.match(/^((\d\d)-?)(.*)/);
+        if (!match)
+            return invalid();
+        r += '-';
+        next(match);
+    }
+    {
+        if (s == '')
+            return complete();
+        const match = s.match(/^((\d\d)[T ]?)(.*)/);
+        if (!match)
+            return invalid();
+        r += '-';
+        next(match);
+    }
+    {
+        if (s == '')
+            return complete();
+        const match = s.match(/^((\d\d):?)(.*)/);
+        if (!match)
+            return invalid();
+        r += ' ';
+        next(match);
+    }
+    {
+        if (s == '')
+            return complete();
+        const match = s.match(/^((\d\d):?)(.*)/);
+        if (!match)
+            return invalid();
+        r += ':';
+        next(match);
+    }
+    {
+        if (s == '')
+            return complete();
+        const match = s.match(/^((\d\d)Z?)$/);
+        if (!match)
+            return invalid();
+        r += ':';
+        next(match);
+    }
+    return complete();
+    function next(match) {
+        m += match[1];
+        r += match[2];
+        s = match[3];
+    }
+    function empty() {
+        return {
+            dateType: 'empty'
+        };
+    }
+    function invalid() {
+        let message = `invalid date string`;
+        if (m != '')
+            message += ` after ${m}`;
+        return {
+            dateType: 'invalid',
+            message
+        };
+    }
+    function complete() {
+        const completionTemplate = '2000-01-01 00:00:00Z';
+        const completedReadableDate = r + completionTemplate.slice(r.length);
+        return {
+            dateType: 'valid',
+            date: Date.parse(completedReadableDate) / 1000
+        };
+    }
+}
+
+const defaultLowerDate = Date.parse('2001-01-01 00:00:00Z') / 1000;
+function displayNameAndUserToUserQuery(display_name, user) {
+    if (display_name != null) {
+        return {
+            userType: 'name',
+            username: display_name
+        };
+    }
+    else if (user != null && Number.isInteger(user)) {
+        return {
+            userType: 'id',
+            uid: user
+        };
+    }
+    else {
+        return {
+            userType: 'empty'
+        };
+    }
+}
+function noteQueryToUserQuery(noteQuery) {
+    return displayNameAndUserToUserQuery(noteQuery.display_name, noteQuery.user);
+}
+function makeNoteQueryFromUserQueryAndValues(userQuery, textValue, fromValue, toValue, closedValue, sortValue, orderValue) {
+    const noteQuery = {
+        closed: toNoteQueryClosed(closedValue),
+        sort: toNoteQuerySort(sortValue),
+        order: toNoteQueryOrder(orderValue)
+    };
+    {
+        if (userQuery.userType == 'invalid')
+            return undefined;
+        if (userQuery.userType == 'name') {
+            noteQuery.display_name = userQuery.username;
+        }
+        else if (userQuery.userType == 'id') {
+            noteQuery.user = userQuery.uid;
+        }
+    }
+    {
+        const s = textValue.trim();
+        if (s)
+            noteQuery.q = s;
+    }
+    {
+        const dateTimeQuery = toDateQuery(fromValue);
+        if (dateTimeQuery.dateType == 'invalid')
+            return undefined;
+        if (dateTimeQuery.dateType == 'valid')
+            noteQuery.from = dateTimeQuery.date;
+    }
+    {
+        const dateTimeQuery = toDateQuery(toValue);
+        if (dateTimeQuery.dateType == 'invalid')
+            return undefined;
+        if (dateTimeQuery.dateType == 'valid')
+            noteQuery.to = dateTimeQuery.date;
+    }
+    return noteQuery;
+    function toNoteQueryClosed(value) {
+        const n = Number(value || undefined);
+        if (Number.isInteger(n))
+            return n;
+        return -1;
+    }
+    function toNoteQuerySort(value) {
+        if (value == 'updated_at')
+            return value;
+        return 'created_at';
+    }
+    function toNoteQueryOrder(value) {
+        if (value == 'oldest')
+            return value;
+        return 'newest';
+    }
+}
+function makeNoteQueryFromInputValues(userValue, textValue, fromValue, toValue, closedValue, sortValue, orderValue) {
+    return makeNoteQueryFromUserQueryAndValues(toUserQuery(userValue), textValue, fromValue, toValue, closedValue, sortValue, orderValue);
+}
+function makeNoteQueryFromHash(queryString) {
+    const paramString = (queryString[0] == '#')
+        ? queryString.slice(1)
+        : queryString;
+    const searchParams = new URLSearchParams(paramString);
+    if (searchParams.get('mode') != 'search')
+        return undefined;
+    const userQuery = displayNameAndUserToUserQuery(searchParams.get('display_name'), Number(searchParams.get('user') || undefined));
+    return makeNoteQueryFromUserQueryAndValues(userQuery, searchParams.get('q') || '', searchParams.get('from') || '', searchParams.get('to') || '', searchParams.get('closed') || '', searchParams.get('sort') || '', searchParams.get('order') || '');
+}
+function toNoteQueryHash(query) {
+    if (query) {
+        return '#mode=search&' + toNoteQueryString(query);
+    }
+    else {
+        return '';
+    }
+}
+function toNoteQueryString(query) {
+    const parameters = [];
+    if (query.display_name != null) {
+        parameters.push(['display_name', query.display_name]);
+    }
+    else if (query.user != null) {
+        parameters.push(['user', query.user]);
+    }
+    if (query.q != null) {
+        parameters.push(['q', query.q]);
+    }
+    parameters.push(['sort', query.sort], ['order', query.order], ['closed', query.closed]);
+    if (query.from != null)
+        parameters.push(['from', toUrlDate(query.from)]);
+    if (query.to != null)
+        parameters.push(['to', toUrlDate(query.to)]);
+    return parameters.map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+}
+/**
+ * @returns fd.parameters - url parameters in this order:
+                            user OR display_name;
+                            q;
+                            sort, order - these don't change within a query;
+                            closed - this may change between phases;
+                            from, to - this change for pagination purposes, from needs to be present with a dummy date if to is used
+                            limit - this may change in rare circumstances, not part of query proper;
+ */
+function getNextFetchDetails(query, requestedLimit, lastNote, prevLastNote, lastLimit) {
+    let lowerDate;
+    let upperDate;
+    let lastDate;
+    let limit = requestedLimit;
+    if (lastNote) {
+        if (lastNote.comments.length <= 0)
+            throw new Error(`note #${lastNote.id} has no comments`);
+        lastDate = getTargetComment(lastNote).date;
+        if (prevLastNote) {
+            if (prevLastNote.comments.length <= 0)
+                throw new Error(`note #${prevLastNote.id} has no comments`);
+            if (lastLimit == null)
+                throw new Error(`no last limit provided along with previous last note #${prevLastNote.id}`);
+            const prevLastDate = getTargetComment(prevLastNote).date;
+            if (lastDate == prevLastDate) {
+                limit = lastLimit + requestedLimit;
+            }
+        }
+    }
+    if (lastDate != null) {
+        if (query.order == 'oldest') {
+            lowerDate = lastDate;
+        }
+        else {
+            upperDate = lastDate + 1;
+        }
+    }
+    if (query.to != null) {
+        if (upperDate == null) {
+            upperDate = query.to;
+        }
+        else {
+            if (upperDate > query.to) {
+                upperDate = query.to;
+            }
+        }
+    }
+    if (query.from != null) {
+        if (lowerDate == null) {
+            lowerDate = query.from;
+        }
+    }
+    if (lowerDate == null && upperDate != null) {
+        lowerDate = defaultLowerDate;
+    }
+    const updatedQuery = { ...query };
+    if (lowerDate != null)
+        updatedQuery.from = lowerDate;
+    if (upperDate != null)
+        updatedQuery.to = upperDate;
+    return {
+        parameters: toNoteQueryString(updatedQuery) + '&limit=' + encodeURIComponent(limit),
+        limit
+    };
+    function getTargetComment(note) {
+        if (query.sort == 'created_at') {
+            return note.comments[0];
+        }
+        else {
+            return note.comments[note.comments.length - 1];
+        }
+    }
+}
+
+function isNoteFeatureCollection(data) {
+    return data.type == "FeatureCollection";
+}
+function transformFeatureCollectionToNotesAndUsers(data) {
+    const users = {};
+    const notes = data.features.map(noteFeature => ({
+        id: noteFeature.properties.id,
+        lat: noteFeature.geometry.coordinates[1],
+        lon: noteFeature.geometry.coordinates[0],
+        status: noteFeature.properties.status,
+        comments: noteFeature.properties.comments.map(cullCommentProps)
+    }));
+    return [notes, users];
+    function cullCommentProps(a) {
+        const b = {
+            date: transformDate(a.date),
+            action: a.action,
+            text: a.text
+        };
+        if (a.uid != null) {
+            b.uid = a.uid;
+            if (a.user != null)
+                users[a.uid] = a.user;
+        }
+        return b;
+    }
+    function transformDate(a) {
+        const match = a.match(/^\d\d\d\d-\d\d-\d\d\s+\d\d:\d\d:\d\d/);
+        if (!match)
+            return 0; // shouldn't happen
+        const [s] = match;
+        return Date.parse(s + 'Z') / 1000;
+    }
+}
+
 class NoteTable {
     constructor($container, commandPanel, map, filter) {
         this.commandPanel = commandPanel;
@@ -858,15 +1283,14 @@ class NoteTable {
                 {
                     const $cell = $row.insertCell();
                     $cell.classList.add('note-date');
-                    const dateString = new Date(comment.date * 1000).toISOString();
-                    const match = dateString.match(/(\d\d\d\d-\d\d-\d\d)T(\d\d:\d\d:\d\d)/);
-                    if (match) {
-                        const [, date, time] = match;
-                        const $dateTime = document.createElement('time');
-                        $dateTime.textContent = date;
-                        $dateTime.dateTime = `${date} ${time}Z`;
-                        $dateTime.title = `${date} ${time} UTC`;
-                        $cell.append($dateTime);
+                    const readableDate = toReadableDate(comment.date);
+                    const [readableDateWithoutTime] = readableDate.split(' ', 1);
+                    if (readableDate && readableDateWithoutTime) {
+                        const $time = document.createElement('time');
+                        $time.textContent = readableDateWithoutTime;
+                        $time.dateTime = `${readableDate}Z`;
+                        $time.title = `${readableDate} UTC`;
+                        $cell.append($time);
                     }
                     else {
                         const $unknownDateTime = document.createElement('span');
@@ -1119,25 +1543,37 @@ function getCheckedNoteIds($table) {
 const maxSingleAutoLoadLimit = 200;
 const maxTotalAutoLoadLimit = 1000;
 const maxFullyFilteredFetches = 10;
-async function startFetcher(storage, $notesContainer, $moreContainer, $commandContainer, filterPanel, map, $limitSelect, $autoLoadCheckbox, $fetchButton, query, initialNotes, initialUsers) {
+async function startFetcher(db, $notesContainer, $moreContainer, filterPanel, commandPanel, map, $limitSelect, $autoLoadCheckbox, $fetchButton, moreButtonIntersectionObservers, query, clearStore) {
     filterPanel.unsubscribe();
     let noteTable;
     const [notes, users, mergeNotesAndUsers] = makeNotesAndUsersAndMerger();
-    mergeNotesAndUsers(initialNotes, initialUsers);
+    const queryString = toNoteQueryString(query);
+    const fetchEntry = await (async () => {
+        if (clearStore) {
+            return await db.clear(queryString);
+        }
+        else {
+            const [fetchEntry, initialNotes, initialUsers] = await db.load(queryString); // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
+            mergeNotesAndUsers(initialNotes, initialUsers);
+            return fetchEntry;
+        }
+    })();
     filterPanel.subscribe(noteFilter => noteTable?.updateFilter(notes, users, noteFilter));
-    saveToQueryStorage(query, notes, users);
-    map.clearNotes();
-    $notesContainer.innerHTML = ``;
-    $commandContainer.innerHTML = ``;
-    const commandPanel = new CommandPanel($commandContainer, map, storage);
     let lastNote;
     let prevLastNote;
     let lastLimit;
     let nFullyFilteredFetches = 0;
-    if (notes.length > 0) {
+    let holdOffAutoLoad = false;
+    if (!clearStore) {
         addNewNotes(notes);
-        lastNote = notes[notes.length - 1];
-        rewriteLoadMoreButton();
+        if (notes.length > 0) {
+            lastNote = notes[notes.length - 1];
+            rewriteLoadMoreButton();
+        }
+        else {
+            holdOffAutoLoad = true; // db was empty; expected to show something => need to fetch; not expected to autoload
+            await fetchCycle();
+        }
     }
     else {
         await fetchCycle();
@@ -1169,52 +1605,55 @@ async function startFetcher(storage, $notesContainer, $moreContainer, $commandCo
             if (!response.ok) {
                 const responseText = await response.text();
                 rewriteFetchErrorMessage($moreContainer, query, `received the following error response`, responseText);
+                return;
+            }
+            const data = await response.json();
+            if (!isNoteFeatureCollection(data)) {
+                rewriteMessage($moreContainer, `Received invalid data`);
+                return;
+            }
+            const [unseenNotes, unseenUsers] = mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data));
+            await db.save(fetchEntry, notes, unseenNotes, users, unseenUsers);
+            if (!noteTable && notes.length <= 0) {
+                rewriteMessage($moreContainer, `No matching notes found`);
+                return;
+            }
+            addNewNotes(unseenNotes);
+            if (data.features.length < fetchDetails.limit) {
+                rewriteMessage($moreContainer, `Got all ${notes.length} notes`);
+                return;
+            }
+            prevLastNote = lastNote;
+            lastNote = notes[notes.length - 1];
+            lastLimit = fetchDetails.limit;
+            const $moreButton = rewriteLoadMoreButton();
+            if (holdOffAutoLoad) {
+                holdOffAutoLoad = false;
+            }
+            else if (notes.length > maxTotalAutoLoadLimit) {
+                $moreButton.append(` (no auto download because displaying more than ${maxTotalAutoLoadLimit} notes)`);
+            }
+            else if (getNextFetchDetails(query, limit, lastNote, prevLastNote, lastLimit).limit > maxSingleAutoLoadLimit) {
+                $moreButton.append(` (no auto download because required batch is larger than ${maxSingleAutoLoadLimit})`);
+            }
+            else if (nFullyFilteredFetches > maxFullyFilteredFetches) {
+                $moreButton.append(` (no auto download because ${maxFullyFilteredFetches} consecutive fetches were fully filtered)`);
+                nFullyFilteredFetches = 0;
             }
             else {
-                const data = await response.json();
-                query.endedAt = Date.now();
-                if (!isNoteFeatureCollection(data)) {
-                    rewriteMessage($moreContainer, `Received invalid data`);
-                    return;
-                }
-                const unseenNotes = mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data));
-                saveToQueryStorage(query, notes, users);
-                if (!noteTable && notes.length <= 0) {
-                    rewriteMessage($moreContainer, `User `, [query], ` has no ${query.status == 'open' ? 'open ' : ''}notes`);
-                    return;
-                }
-                addNewNotes(unseenNotes);
-                if (data.features.length < fetchDetails.limit) {
-                    rewriteMessage($moreContainer, `Got all ${notes.length} notes`);
-                    return;
-                }
-                prevLastNote = lastNote;
-                lastNote = notes[notes.length - 1];
-                lastLimit = fetchDetails.limit;
-                const $moreButton = rewriteLoadMoreButton();
-                if (notes.length > maxTotalAutoLoadLimit) {
-                    $moreButton.append(` (no auto download because displaying more than ${maxTotalAutoLoadLimit} notes)`);
-                }
-                else if (getNextFetchDetails(query, limit, lastNote, prevLastNote, lastLimit).limit > maxSingleAutoLoadLimit) {
-                    $moreButton.append(` (no auto download because required batch is larger than ${maxSingleAutoLoadLimit})`);
-                }
-                else if (nFullyFilteredFetches > maxFullyFilteredFetches) {
-                    $moreButton.append(` (no auto download because ${maxFullyFilteredFetches} consecutive fetches were fully filtered)`);
-                    nFullyFilteredFetches = 0;
-                }
-                else {
-                    const moreButtonIntersectionObserver = new IntersectionObserver((entries) => {
-                        if (entries.length <= 0)
-                            return;
-                        if (!entries[0].isIntersecting)
-                            return;
-                        if (!$autoLoadCheckbox.checked)
-                            return;
-                        moreButtonIntersectionObserver.disconnect();
-                        $moreButton.click();
-                    });
-                    moreButtonIntersectionObserver.observe($moreButton);
-                }
+                const moreButtonIntersectionObserver = new IntersectionObserver((entries) => {
+                    if (entries.length <= 0)
+                        return;
+                    if (!entries[0].isIntersecting)
+                        return;
+                    if (!$autoLoadCheckbox.checked)
+                        return;
+                    while (moreButtonIntersectionObservers.length > 0)
+                        moreButtonIntersectionObservers.pop()?.disconnect();
+                    $moreButton.click();
+                });
+                moreButtonIntersectionObservers.push(moreButtonIntersectionObserver);
+                moreButtonIntersectionObserver.observe($moreButton);
             }
         }
         catch (ex) {
@@ -1248,11 +1687,6 @@ async function startFetcher(storage, $notesContainer, $moreContainer, $commandCo
         $div.append($button);
         $moreContainer.append($div);
     }
-    function saveToQueryStorage(query, notes, users) {
-        storage.setItem('query', JSON.stringify(query));
-        storage.setItem('notes', JSON.stringify(notes));
-        storage.setItem('users', JSON.stringify(users));
-    }
 }
 function makeNotesAndUsersAndMerger() {
     const seenNotes = {};
@@ -1260,6 +1694,7 @@ function makeNotesAndUsersAndMerger() {
     const users = {};
     const merger = (newNotes, newUsers) => {
         const unseenNotes = [];
+        const unseenUsers = {};
         for (const note of newNotes) {
             if (seenNotes[note.id])
                 continue;
@@ -1267,8 +1702,13 @@ function makeNotesAndUsersAndMerger() {
             notes.push(note);
             unseenNotes.push(note);
         }
+        for (const newUserIdString in newUsers) {
+            const newUserId = Number(newUserIdString); // TODO rewrite this hack
+            if (users[newUserId] != newUsers[newUserId])
+                unseenUsers[newUserId] = newUsers[newUserId];
+        }
         Object.assign(users, newUsers);
-        return unseenNotes;
+        return [unseenNotes, unseenUsers];
     };
     return [notes, users, merger];
 }
@@ -1276,13 +1716,12 @@ function rewriteMessage($container, ...items) {
     $container.innerHTML = '';
     const $message = document.createElement('div');
     for (const item of items) {
-        if (Array.isArray(item)) {
-            const [username] = item;
-            $message.append(makeUserLink(username));
-        }
-        else {
-            $message.append(item);
-        }
+        // if (Array.isArray(item)) { // TODO implement displaying query details
+        // 	const [username]=item
+        // 	$message.append(makeUserLink(username))
+        // } else {
+        $message.append(item);
+        // }
     }
     $container.append($message);
     return $message;
@@ -1292,8 +1731,9 @@ function rewriteErrorMessage($container, ...items) {
     $message.classList.add('error');
     return $message;
 }
-function rewriteFetchErrorMessage($container, user, responseKindText, fetchErrorText) {
-    const $message = rewriteErrorMessage($container, `Loading notes of user `, [user], ` ${responseKindText}:`);
+function rewriteFetchErrorMessage($container, query, responseKindText, fetchErrorText) {
+    // TODO display query details
+    const $message = rewriteErrorMessage($container, `Loading notes ${responseKindText}:`);
     const $error = document.createElement('pre');
     $error.textContent = fetchErrorText;
     $message.append($error);
@@ -1306,26 +1746,28 @@ function getLimit($limitSelect) {
 }
 
 class NoteFetchPanel {
-    constructor(storage, $container, $notesContainer, $moreContainer, $commandContainer, filterPanel, extrasPanel, map) {
-        const partialQuery = {};
-        try {
-            const queryString = storage.getItem('query');
-            if (queryString != null) {
-                const parsedQuery = JSON.parse(queryString);
-                if (typeof parsedQuery == 'object') {
-                    Object.assign(partialQuery, parsedQuery);
-                }
-            }
-        }
-        catch { }
+    constructor(storage, db, $container, $notesContainer, $moreContainer, $commandContainer, filterPanel, extrasPanel, map) {
         const $form = document.createElement('form');
         const $userInput = document.createElement('input');
+        const $textInput = document.createElement('input');
+        const $fromInput = document.createElement('input');
+        const $toInput = document.createElement('input');
         const $statusSelect = document.createElement('select');
         const $sortSelect = document.createElement('select');
         const $orderSelect = document.createElement('select');
         const $limitSelect = document.createElement('select');
         const $autoLoadCheckbox = document.createElement('input');
         const $fetchButton = document.createElement('button');
+        const moreButtonIntersectionObservers = [];
+        window.addEventListener('hashchange', ev => {
+            const query = makeNoteQueryFromHash(location.hash);
+            modifyHistory(query, false); // in case location was edited manually
+            populateInputs(query);
+            runStartFetcher(query, false);
+        });
+        const query = makeNoteQueryFromHash(location.hash);
+        modifyHistory(query, false);
+        populateInputs(query);
         {
             const $fieldset = document.createElement('fieldset');
             {
@@ -1336,13 +1778,6 @@ class NoteFetchPanel {
             {
                 $userInput.type = 'text';
                 $userInput.name = 'user';
-                $userInput.required = true;
-                if (partialQuery.userType == 'id' && partialQuery.uid != null) {
-                    $userInput.value = '#' + partialQuery.uid;
-                }
-                else if (partialQuery.userType == 'name' && partialQuery.username != null) {
-                    $userInput.value = partialQuery.username;
-                }
                 const $div = document.createElement('div');
                 $div.classList.add('major-input');
                 const $label = document.createElement('label');
@@ -1351,17 +1786,36 @@ class NoteFetchPanel {
                 $fieldset.append($div);
             }
             {
+                $textInput.type = 'text';
+                $textInput.name = 'user';
                 const $div = document.createElement('div');
-                $statusSelect.append(new Option(`both open and closed`, 'mixed'), new Option(`open and recently closed`, 'recent'), new Option(`only open`, 'open'));
-                if (partialQuery.status != null)
-                    $statusSelect.value = partialQuery.status;
+                $div.classList.add('major-input');
+                const $label = document.createElement('label');
+                $label.append(`Comment text search query: `, $textInput);
+                $div.append($label);
+                $fieldset.append($div);
+            }
+            {
+                $fromInput.type = 'text';
+                $fromInput.size = 20;
+                $fromInput.name = 'from';
+                const $fromLabel = document.createElement('label');
+                $fromLabel.append(`from `, $fromInput);
+                $toInput.type = 'text';
+                $toInput.size = 20;
+                $toInput.name = 'to';
+                const $toLabel = document.createElement('label');
+                $toLabel.append(`to `, $toInput);
+                const $div = document.createElement('div');
+                $div.append(`Date range: `, $fromLabel, ` `, $toLabel);
+                $fieldset.append($div);
+            }
+            {
+                const $div = document.createElement('div');
+                $statusSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
                 $sortSelect.append(new Option(`creation`, 'created_at'), new Option(`last update`, 'updated_at'));
-                if (partialQuery.sort != null)
-                    $sortSelect.value = partialQuery.sort;
                 $orderSelect.append(new Option('newest'), new Option('oldest'));
-                if (partialQuery.order != null)
-                    $orderSelect.value = partialQuery.order;
-                $div.append(span(`Fetch this user's `, $statusSelect, ` notes`), ` `, span(`sorted by `, $sortSelect, ` date`), `, `, span($orderSelect, ` first`));
+                $div.append(span(`Fetch matching `, $statusSelect, ` notes`), ` `, span(`sorted by `, $sortSelect, ` date`), `, `, span($orderSelect, ` first`));
                 $fieldset.append($div);
                 function span(...items) {
                     const $span = document.createElement('span');
@@ -1373,6 +1827,7 @@ class NoteFetchPanel {
         }
         {
             const $fieldset = document.createElement('fieldset');
+            // TODO (re)store input values
             {
                 const $legend = document.createElement('legend');
                 $legend.textContent = `Download mode (can change anytime)`;
@@ -1404,49 +1859,83 @@ class NoteFetchPanel {
             $form.append($div);
         }
         $userInput.addEventListener('input', () => {
-            const uqp = toUserQueryPart($userInput.value);
-            if (uqp.userType == 'invalid') {
-                $userInput.setCustomValidity(uqp.message);
+            const userQuery = toUserQuery($userInput.value);
+            if (userQuery.userType == 'invalid') {
+                $userInput.setCustomValidity(userQuery.message);
             }
             else {
                 $userInput.setCustomValidity('');
             }
         });
+        for (const $input of [$fromInput, $toInput])
+            $input.addEventListener('input', () => {
+                const query = toDateQuery($input.value);
+                if (query.dateType == 'invalid') {
+                    $input.setCustomValidity(query.message);
+                }
+                else {
+                    $input.setCustomValidity('');
+                }
+            });
         $form.addEventListener('submit', (ev) => {
             ev.preventDefault();
-            const uqp = toUserQueryPart($userInput.value);
-            if (uqp.userType == 'invalid')
+            const query = makeNoteQueryFromInputValues($userInput.value, $textInput.value, $fromInput.value, $toInput.value, $statusSelect.value, $sortSelect.value, $orderSelect.value);
+            if (!query)
                 return;
-            const query = {
-                ...uqp,
-                status: toNoteQueryStatus($statusSelect.value),
-                sort: toNoteQuerySort($sortSelect.value),
-                order: toNoteQueryOrder($orderSelect.value),
-                beganAt: Date.now()
-            };
-            extrasPanel.rewrite(query, Number($limitSelect.value));
-            startFetcher(storage, $notesContainer, $moreContainer, $commandContainer, filterPanel, map, $limitSelect, $autoLoadCheckbox, $fetchButton, query, [], {});
+            modifyHistory(query, true);
+            runStartFetcher(query, true);
         });
         $container.append($form);
-        const queryString = storage.getItem('query');
-        if (queryString == null) {
-            extrasPanel.rewrite();
-            return;
+        runStartFetcher(query, false);
+        function populateInputs(query) {
+            if (query?.display_name) {
+                $userInput.value = query.display_name;
+            }
+            else if (query?.user) {
+                $userInput.value = '#' + query.user;
+            }
+            else {
+                $userInput.value = '';
+            }
+            $textInput.value = query?.q ?? '';
+            $fromInput.value = toReadableDate(query?.from);
+            $toInput.value = toReadableDate(query?.to);
+            $statusSelect.value = query ? String(query.closed) : '';
+            $sortSelect.value = query?.sort ?? '';
+            $orderSelect.value = query?.order ?? '';
         }
-        try {
-            const query = JSON.parse(queryString);
-            extrasPanel.rewrite(query, Number($limitSelect.value));
-            const notesString = storage.getItem('notes');
-            if (notesString == null)
-                return;
-            const usersString = storage.getItem('users');
-            if (usersString == null)
-                return;
-            const notes = JSON.parse(notesString);
-            const users = JSON.parse(usersString);
-            startFetcher(storage, $notesContainer, $moreContainer, $commandContainer, filterPanel, map, $limitSelect, $autoLoadCheckbox, $fetchButton, query, notes, users);
+        function resetNoteDependents() {
+            while (moreButtonIntersectionObservers.length > 0)
+                moreButtonIntersectionObservers.pop()?.disconnect();
+            map.clearNotes();
+            $notesContainer.innerHTML = ``;
+            $commandContainer.innerHTML = ``;
         }
-        catch { }
+        function runStartFetcher(query, clearStore) {
+            resetNoteDependents();
+            if (query) {
+                extrasPanel.rewrite(query, Number($limitSelect.value));
+            }
+            else {
+                extrasPanel.rewrite();
+            }
+            if (query) {
+                const commandPanel = new CommandPanel($commandContainer, map, storage);
+                startFetcher(db, $notesContainer, $moreContainer, filterPanel, commandPanel, map, $limitSelect, $autoLoadCheckbox, $fetchButton, moreButtonIntersectionObservers, query, clearStore);
+            }
+        }
+    }
+}
+function modifyHistory(query, push) {
+    const canonicalQueryHash = toNoteQueryHash(query);
+    if (canonicalQueryHash != location.hash) {
+        const url = canonicalQueryHash || location.pathname + location.search;
+        if (push) {
+            history.pushState(null, '', url);
+        }
+        else {
+            history.replaceState(null, '', url);
+        }
     }
 }
 
@@ -1472,10 +1961,10 @@ class NoteFilter {
                     const [, operator, user] = match;
                     if (operator != '=' && operator != '!=')
                         continue; // impossible
-                    const userQueryPart = toUserQueryPart(user);
-                    if (userQueryPart.userType == 'invalid')
+                    const userQuery = toUserQuery(user);
+                    if (userQuery.userType == 'invalid' || userQuery.userType == 'empty')
                         continue; // TODO parse error?
-                    conditions.push({ type: 'user', operator, ...userQueryPart });
+                    conditions.push({ type: 'user', operator, ...userQuery });
                     continue;
                 }
                 else if (match = term.match(/^action\s*(!?=)\s*(.+)$/)) {
@@ -1700,8 +2189,9 @@ class NoteFilterPanel {
 }
 
 class ExtrasPanel {
-    constructor(storage, $container) {
+    constructor(storage, db, $container) {
         this.storage = storage;
+        this.db = db;
         this.$container = $container;
     }
     rewrite(query, limit) {
@@ -1712,31 +2202,77 @@ class ExtrasPanel {
             $summary.textContent = `Extra information`;
             $details.append($summary);
         }
+        const $updateFetchesButton = document.createElement('button');
+        writeBlock(() => {
+            $updateFetchesButton.textContent = `Update stored fetch list`;
+            return [$updateFetchesButton];
+        });
+        const $fetchesContainer = writeBlock(() => {
+            return [`Click Update button above to see stored fetches`];
+        });
+        $updateFetchesButton.addEventListener('click', async () => {
+            $updateFetchesButton.disabled = true;
+            let fetchEntries = [];
+            try {
+                fetchEntries = await this.db.view();
+            }
+            catch { }
+            $updateFetchesButton.disabled = false;
+            $fetchesContainer.innerHTML = '';
+            const $table = document.createElement('table');
+            {
+                const $row = $table.insertRow();
+                insertCell().append('fetch');
+                insertCell().append('user');
+                insertCell().append('last access');
+                function insertCell() {
+                    const $th = document.createElement('th');
+                    $row.append($th);
+                    return $th;
+                }
+            }
+            let n = 0;
+            for (const fetchEntry of fetchEntries) {
+                const $row = $table.insertRow();
+                $row.insertCell().append(makeLink(`[${++n}]`, '#mode=search&' + fetchEntry.queryString));
+                const $userCell = $row.insertCell();
+                const searchParams = new URLSearchParams(fetchEntry.queryString);
+                const username = searchParams.get('display_name');
+                if (username)
+                    $userCell.append(makeUserLink(username));
+                $row.insertCell().append(String(new Date(fetchEntry.accessTimestamp)));
+                const $deleteButton = document.createElement('button');
+                $deleteButton.textContent = `Delete`;
+                $deleteButton.addEventListener('click', async () => {
+                    $deleteButton.disabled = true;
+                    await this.db.delete(fetchEntry);
+                    $updateFetchesButton.click();
+                });
+                $row.insertCell().append($deleteButton);
+            }
+            $fetchesContainer.append($table);
+        });
         writeBlock(() => {
             const $clearButton = document.createElement('button');
-            $clearButton.textContent = `Clear storage`;
-            const $computeButton = document.createElement('button');
-            $computeButton.textContent = `Compute storage size`;
-            const $computeResult = document.createElement('span');
+            $clearButton.textContent = `Clear settings`;
             $clearButton.addEventListener('click', () => {
                 this.storage.clear();
             });
-            $computeButton.addEventListener('click', () => {
-                const size = this.storage.computeSize();
-                $computeResult.textContent = (size / 1024).toFixed(2) + " KB";
-            });
-            return [$clearButton, ` `, $computeButton, ` `, $computeResult];
+            return [$clearButton];
         });
-        if (query != null && limit != null)
-            writeBlock(() => [
-                `API links to queries on `,
-                makeUserLink(query, `this user`),
-                `: `,
-                makeNoteQueryLink(`with specified limit`, query, limit),
-                `, `,
-                makeNoteQueryLink(`with max limit`, query, 10000),
-                ` (may be slow)`
-            ]);
+        if (query != null && limit != null) { // TODO don't limit to this user
+            const userQuery = noteQueryToUserQuery(query);
+            if (userQuery.userType == 'name' || userQuery.userType == 'id')
+                writeBlock(() => [
+                    `API links to queries on `,
+                    makeUserLink(userQuery, `this user`),
+                    `: `,
+                    makeNoteQueryLink(`with specified limit`, query, limit),
+                    `, `,
+                    makeNoteQueryLink(`with max limit`, query, 10000),
+                    ` (may be slow)`
+                ]);
+        }
         writeBlock(() => [
             `User query have whitespace trimmed, then the remaining part starting with `, makeCode(`#`), ` is treated as a user id; containing `, makeCode(`/`), `is treated as a URL, anything else as a username. `,
             `This works because usernames can't contain any of these characters: `, makeCode(`/;.,?%#`), ` , can't have leading/trailing whitespace, have to be between 3 and 255 characters in length.`
@@ -1774,6 +2310,7 @@ class ExtrasPanel {
             const $block = document.createElement('div');
             $block.append(...makeBlockContents());
             $details.append($block);
+            return $block;
         }
         function makeCode(s) {
             const $code = document.createElement('code');
@@ -1787,9 +2324,10 @@ class ExtrasPanel {
     }
 }
 
-const storage = new NoteViewerStorage('osm-note-viewer-');
 main();
-function main() {
+async function main() {
+    const storage = new NoteViewerStorage('osm-note-viewer-');
+    const db = await NoteViewerDB.open();
     const flipped = !!storage.getItem('flipped');
     if (flipped)
         document.body.classList.add('flipped');
@@ -1818,12 +2356,13 @@ function main() {
     $scrollingPart.append($fetchContainer, $filterContainer, $extrasContainer, $notesContainer, $moreContainer);
     $stickyPart.append($commandContainer);
     const map = new NoteMap($mapSide);
-    writeFlipLayoutButton($fetchContainer, map);
-    const extrasPanel = new ExtrasPanel(storage, $extrasContainer);
+    writeFlipLayoutButton(storage, $fetchContainer, map);
+    writeResetButton($fetchContainer);
+    const extrasPanel = new ExtrasPanel(storage, db, $extrasContainer);
     const filterPanel = new NoteFilterPanel($filterContainer);
-    new NoteFetchPanel(storage, $fetchContainer, $notesContainer, $moreContainer, $commandContainer, filterPanel, extrasPanel, map);
+    new NoteFetchPanel(storage, db, $fetchContainer, $notesContainer, $moreContainer, $commandContainer, filterPanel, extrasPanel, map);
 }
-function writeFlipLayoutButton($container, map) {
+function writeFlipLayoutButton(storage, $container, map) {
     const $button = document.createElement('button');
     $button.classList.add('flip');
     $button.title = `Flip layout`;
@@ -1836,6 +2375,15 @@ function writeFlipLayoutButton($container, map) {
             storage.removeItem('flipped');
         }
         map.invalidateSize();
+    });
+    $container.append($button);
+}
+function writeResetButton($container) {
+    const $button = document.createElement('button');
+    $button.classList.add('reset');
+    $button.title = `Reset query`;
+    $button.addEventListener('click', () => {
+        location.href = location.pathname + location.search;
     });
     $container.append($button);
 }

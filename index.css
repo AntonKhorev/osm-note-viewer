@@ -45,14 +45,25 @@ body.flipped #text {
 .panel.fetch {
 	padding: .5rem 3rem;
 }
+.panel.fetch button.reset,
 .panel.fetch button.flip {
 	position: absolute;
-	top: 0;
-	left: 0;
+	top: .5rem;
 	width: 2rem;
 	height: 2rem;
 	box-sizing: border-box;
 	border: none;
+}
+.panel.fetch button.reset:hover,
+.panel.fetch button.flip:hover {
+	outline: auto;
+}
+.panel.fetch button.reset {
+	right: .5rem;
+	background: url("reset.svg");
+}
+.panel.fetch button.flip {
+	left: .5rem;
 	background: url("flip-ver.svg");
 }
 body.flipped .panel.fetch button.flip {
