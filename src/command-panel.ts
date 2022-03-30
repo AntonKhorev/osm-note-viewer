@@ -186,6 +186,24 @@ export default class CommandPanel {
 			})
 			$commandGroup.append($yandexPanoramasButton)
 		}{
+			const $commandGroup=makeCommandGroup(
+				'mapillary',
+				`Mapillary`,
+				'https://wiki.openstreetmap.org/wiki/Mapillary'
+			)
+			const $mapillaryButton=document.createElement('button')
+			$mapillaryButton.textContent=`Open ${centerChar}`
+			$mapillaryButton.addEventListener('click',()=>{
+				const center=map.getCenter()
+				const url=`https://www.mapillary.com/app/`+
+					`?lat=`+encodeURIComponent(center.lat)+
+					`&lng=`+encodeURIComponent(center.lng)+
+					`&z=`+encodeURIComponent(map.getZoom())+
+					`&focus=photo`
+				open(url,'mapillary')
+			})
+			$commandGroup.append($mapillaryButton)
+		}{
 			const $commandGroup=makeCommandGroup('counts',`Note counts`)
 			this.$fetchedNoteCount=document.createElement('span')
 			this.$fetchedNoteCount.textContent='0'
