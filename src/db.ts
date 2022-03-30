@@ -55,6 +55,7 @@ export default class NoteViewerDB {
 		const timestamp=Date.now()
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction(['fetches','notes','users'],'readwrite')
+			cleanupOutdatedFetches(timestamp,tx)
 			const fetchStore=tx.objectStore('fetches')
 			const fetchRequest=fetchStore.index('query').getKey(queryString)
 			fetchRequest.onsuccess=()=>{
@@ -81,6 +82,7 @@ export default class NoteViewerDB {
 		const timestamp=Date.now()
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction(['fetches','notes','users'],'readwrite')
+			cleanupOutdatedFetches(timestamp,tx)
 			const fetchStore=tx.objectStore('fetches')
 			const fetchRequest=fetchStore.index('query').get(queryString)
 			fetchRequest.onsuccess=()=>{
@@ -206,6 +208,15 @@ export default class NoteViewerDB {
 			}
 		})
 	}
+}
+
+function cleanupOutdatedFetches(timestamp: number, tx: IDBTransaction) {
+	const maxFetchAge=24*60*60*1000
+	const range1=IDBKeyRange.upperBound(timestamp-maxFetchAge)
+	const range2=IDBKeyRange.upperBound([timestamp-maxFetchAge,+Infinity])
+	tx.objectStore('notes').delete(range2)
+	tx.objectStore('users').delete(range2)
+	tx.objectStore('fetches').delete(range1)
 }
 
 function makeTimestampRange(timestamp: number): IDBKeyRange {
