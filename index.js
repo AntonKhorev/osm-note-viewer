@@ -564,13 +564,28 @@ class CommandPanel {
             $yandexPanoramasButton.addEventListener('click', () => {
                 const center = map.getCenter();
                 const coords = center.lng + ',' + center.lat;
-                const url = `https://yandex.ru/maps/2/saint-petersburg/` +
+                const url = `https://yandex.ru/maps/` +
                     `?ll=` + encodeURIComponent(coords) + // required if 'z' argument is present
                     `&panorama%5Bpoint%5D=` + encodeURIComponent(coords) +
                     `&z=` + encodeURIComponent(map.getZoom());
                 open(url, 'yandex');
             });
             $commandGroup.append($yandexPanoramasButton);
+        }
+        {
+            const $commandGroup = makeCommandGroup('mapillary', `Mapillary`, 'https://wiki.openstreetmap.org/wiki/Mapillary');
+            const $mapillaryButton = document.createElement('button');
+            $mapillaryButton.textContent = `Open ${centerChar}`;
+            $mapillaryButton.addEventListener('click', () => {
+                const center = map.getCenter();
+                const url = `https://www.mapillary.com/app/` +
+                    `?lat=` + encodeURIComponent(center.lat) +
+                    `&lng=` + encodeURIComponent(center.lng) +
+                    `&z=` + encodeURIComponent(map.getZoom()) +
+                    `&focus=photo`;
+                open(url, 'mapillary');
+            });
+            $commandGroup.append($mapillaryButton);
         }
         {
             const $commandGroup = makeCommandGroup('counts', `Note counts`);
