@@ -1,5 +1,5 @@
 import NoteViewerStorage from './storage'
-import NoteViewerDB from './db'
+import NoteViewerDB, {FetchEntry} from './db'
 import {NoteQuery, noteQueryToUserQuery, getNextFetchDetails} from './query'
 import {makeLink, makeUserLink} from './util'
 
@@ -25,6 +25,12 @@ export default class ExtrasPanel {
 			return [`Click Update button above to see stored fetches`]
 		})
 		$updateFetchesButton.addEventListener('click',async()=>{
+			$updateFetchesButton.disabled=true
+			let fetchEntries: FetchEntry[] =[]
+			try {
+				fetchEntries=await this.db.view()
+			} catch {}
+			$updateFetchesButton.disabled=false
 			$fetchesContainer.innerHTML=''
 			const $table=document.createElement('table')
 			{
@@ -39,7 +45,7 @@ export default class ExtrasPanel {
 				}
 			}
 			let n=0
-			for (const fetchEntry of await this.db.view()) {
+			for (const fetchEntry of fetchEntries) {
 				const $row=$table.insertRow()
 				$row.insertCell().append(makeLink(`[${++n}]`,'#mode=search&'+fetchEntry.queryString))
 				const $userCell=$row.insertCell()
@@ -50,6 +56,7 @@ export default class ExtrasPanel {
 				const $deleteButton=document.createElement('button')
 				$deleteButton.textContent=`Delete`
 				$deleteButton.addEventListener('click',async()=>{
+					$deleteButton.disabled=true
 					await this.db.delete(fetchEntry)
 					$updateFetchesButton.click()
 				})
