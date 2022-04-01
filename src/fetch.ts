@@ -1,6 +1,6 @@
 import NoteViewerDB, {FetchEntry} from './db'
 import {Note, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesAndUsers} from './data'
-import {NoteQuery, getNextFetchDetails, toNoteQueryString} from './query'
+import {NoteSearchQuery, getNextFetchDetails, makeNoteQueryString} from './query'
 import NoteFilterPanel from './filter-panel'
 import {NoteMap} from './map'
 import CommandPanel from './command-panel'
@@ -16,13 +16,13 @@ export async function startFetcher(
 	filterPanel: NoteFilterPanel, commandPanel: CommandPanel, map: NoteMap,
 	$limitSelect: HTMLSelectElement, $autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement,
 	moreButtonIntersectionObservers: IntersectionObserver[],
-	query: NoteQuery,
+	query: NoteSearchQuery,
 	clearStore: boolean
 ) {
 	filterPanel.unsubscribe()
 	let noteTable: NoteTable | undefined
 	const [notes,users,mergeNotesAndUsers]=makeNotesAndUsersAndMerger()
-	const queryString=toNoteQueryString(query)
+	const queryString=makeNoteQueryString(query)
 	const fetchEntry: FetchEntry = await(async()=>{
 		if (clearStore) {
 			return await db.clear(queryString)
@@ -196,7 +196,7 @@ function rewriteErrorMessage($container: HTMLElement, ...items: Array<string>): 
 	return $message
 }
 
-function rewriteFetchErrorMessage($container: HTMLElement, query: NoteQuery, responseKindText: string, fetchErrorText: string): void {
+function rewriteFetchErrorMessage($container: HTMLElement, query: NoteSearchQuery, responseKindText: string, fetchErrorText: string): void {
 	// TODO display query details
 	const $message=rewriteErrorMessage($container,`Loading notes ${responseKindText}:`)
 	const $error=document.createElement('pre')

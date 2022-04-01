@@ -4,7 +4,8 @@ import {toDateQuery, toUrlDate} from './query-date'
 
 const defaultLowerDate=Date.parse('2001-01-01 00:00:00Z')/1000
 
-export interface NoteQuery { // fields named like in the API
+export interface NoteSearchQuery { // fields named like in the API
+	mode: 'search'
 	display_name?: string // username
 	user?: number // user id
 	q?: string
@@ -15,7 +16,15 @@ export interface NoteQuery { // fields named like in the API
 	order: 'newest'|'oldest'
 }
 
-function displayNameAndUserToUserQuery(display_name: string|undefined|null, user: number|undefined|null): UserQuery {
+export interface NoteBboxQuery {
+	mode: 'bbox'
+	bbox: string
+	closed: number // defaults to -1 because that's how user's note page would have worked
+}
+
+export type NoteQuery = NoteSearchQuery | NoteBboxQuery
+
+function makeUserQueryFromDisplayNameAndUser(display_name: string|undefined|null, user: number|undefined|null): UserQuery {
 	if (display_name!=null) {
 		return {
 			userType: 'name',
@@ -33,60 +42,77 @@ function displayNameAndUserToUserQuery(display_name: string|undefined|null, user
 	}
 }
 
-export function noteQueryToUserQuery(noteQuery: NoteQuery): UserQuery {
-	return displayNameAndUserToUserQuery(noteQuery.display_name,noteQuery.user)
+export function makeUserQueryFromNoteSearchQuery(query: NoteSearchQuery): UserQuery {
+	return makeUserQueryFromDisplayNameAndUser(query.display_name,query.user)
 }
 
-function makeNoteQueryFromUserQueryAndValues(
+function makeNoteSearchQueryFromUserQueryAndValues(
 	userQuery: UserQuery, textValue: string, fromValue: string, toValue: string, closedValue: string, sortValue: string, orderValue: string
-): NoteQuery | undefined {
-	const noteQuery: NoteQuery = {
-		closed: toNoteQueryClosed(closedValue),
-		sort: toNoteQuerySort(sortValue),
-		order: toNoteQueryOrder(orderValue)
+): NoteSearchQuery | undefined {
+	const noteSearchQuery: NoteSearchQuery = {
+		mode: 'search',
+		closed: toClosed(closedValue),
+		sort: toSort(sortValue),
+		order: toOrder(orderValue)
 	}
 	{
 		if (userQuery.userType=='invalid') return undefined
 		if (userQuery.userType=='name') {
-			noteQuery.display_name=userQuery.username
+			noteSearchQuery.display_name=userQuery.username
 		} else if (userQuery.userType=='id') {
-			noteQuery.user=userQuery.uid
+			noteSearchQuery.user=userQuery.uid
 		}
 	}{
 		const s=textValue.trim()
-		if (s) noteQuery.q=s
+		if (s) noteSearchQuery.q=s
 	}{
 		const dateTimeQuery=toDateQuery(fromValue)
 		if (dateTimeQuery.dateType=='invalid') return undefined
-		if (dateTimeQuery.dateType=='valid') noteQuery.from=dateTimeQuery.date
+		if (dateTimeQuery.dateType=='valid') noteSearchQuery.from=dateTimeQuery.date
 	}{
 		const dateTimeQuery=toDateQuery(toValue)
 		if (dateTimeQuery.dateType=='invalid') return undefined
-		if (dateTimeQuery.dateType=='valid') noteQuery.to=dateTimeQuery.date
+		if (dateTimeQuery.dateType=='valid') noteSearchQuery.to=dateTimeQuery.date
 	}
-	return noteQuery
-	function toNoteQueryClosed(value: string): NoteQuery['closed'] {
+	return noteSearchQuery
+	function toClosed(value: string): NoteSearchQuery['closed'] {
 		const n=Number(value||undefined)
 		if (Number.isInteger(n)) return n
 		return -1
 	}
-	function toNoteQuerySort(value: string): NoteQuery['sort'] {
+	function toSort(value: string): NoteSearchQuery['sort'] {
 		if (value=='updated_at') return value
 		return 'created_at'
 	}
-	function toNoteQueryOrder(value: string): NoteQuery['order'] {
+	function toOrder(value: string): NoteSearchQuery['order'] {
 		if (value=='oldest') return value
 		return 'newest'
 	}
 }
 
-export function makeNoteQueryFromInputValues(
+export function makeNoteSearchQueryFromValues(
 	userValue: string, textValue: string, fromValue: string, toValue: string, closedValue: string, sortValue: string, orderValue: string
-): NoteQuery | undefined {
-	return makeNoteQueryFromUserQueryAndValues(
+): NoteSearchQuery | undefined {
+	return makeNoteSearchQueryFromUserQueryAndValues(
 		toUserQuery(userValue),
 		textValue,fromValue,toValue,closedValue,sortValue,orderValue
 	)
+}
+
+export function makeNoteBboxQueryFromValues(
+	bboxValue: string, closedValue: string
+): NoteBboxQuery | undefined {
+	const noteBboxQuery: NoteBboxQuery = {
+		mode: 'bbox',
+		bbox: bboxValue.trim(), // TODO validate
+		closed: toClosed(closedValue),
+	}
+	return noteBboxQuery
+	function toClosed(value: string): NoteSearchQuery['closed'] {
+		const n=Number(value||undefined)
+		if (Number.isInteger(n)) return n
+		return -1
+	}
 }
 
 export function makeNoteQueryFromHash(queryString: string): NoteQuery | undefined {
@@ -94,40 +120,48 @@ export function makeNoteQueryFromHash(queryString: string): NoteQuery | undefine
 		? queryString.slice(1)
 		: queryString
 	const searchParams=new URLSearchParams(paramString)
-	if (searchParams.get('mode')!='search') return undefined
-	const userQuery=displayNameAndUserToUserQuery(searchParams.get('display_name'),Number(searchParams.get('user')||undefined))
-	return makeNoteQueryFromUserQueryAndValues(
-		userQuery,
-		searchParams.get('q')||'',searchParams.get('from')||'',searchParams.get('to')||'',
-		searchParams.get('closed')||'',searchParams.get('sort')||'',searchParams.get('order')||''
-	)
-}
-
-export function toNoteQueryHash(query: NoteQuery | undefined): string {
-	if (query) {
-		return '#mode=search&'+toNoteQueryString(query)
+	const mode=searchParams.get('mode')
+	if (mode=='search') {
+		const userQuery=makeUserQueryFromDisplayNameAndUser(searchParams.get('display_name'),Number(searchParams.get('user')||undefined))
+		return makeNoteSearchQueryFromUserQueryAndValues(
+			userQuery,
+			searchParams.get('q')||'',searchParams.get('from')||'',searchParams.get('to')||'',
+			searchParams.get('closed')||'',searchParams.get('sort')||'',searchParams.get('order')||''
+		)
+	} else if (mode=='bbox') {
+		return makeNoteBboxQueryFromValues(
+			searchParams.get('bbox')||'',searchParams.get('closed')||''
+		)
 	} else {
-		return ''
+		return undefined
 	}
 }
 
-export function toNoteQueryString(query: NoteQuery): string {
+export function makeNoteQueryString(query: NoteQuery, withMode: boolean = true): string {
 	const parameters:Array<[string,string|number]>=[]
-	if (query.display_name!=null) {
-		parameters.push(['display_name',query.display_name])
-	} else if (query.user!=null) {
-		parameters.push(['user',query.user])
+	if (withMode) parameters.push(['mode',query.mode])
+	if (query.mode=='search') {
+		if (query.display_name!=null) {
+			parameters.push(['display_name',query.display_name])
+		} else if (query.user!=null) {
+			parameters.push(['user',query.user])
+		}
+		if (query.q!=null) {
+			parameters.push(['q',query.q])
+		}
+		parameters.push(
+			['sort',query.sort],
+			['order',query.order],
+			['closed',query.closed]
+		)
+		if (query.from!=null) parameters.push(['from',toUrlDate(query.from)])
+		if (query.to  !=null) parameters.push(['to'  ,toUrlDate(query.to)])
+	} else if (query.mode=='bbox') {
+		parameters.push(
+			['bbox',query.bbox],
+			['closed',query.closed]
+		)
 	}
-	if (query.q!=null) {
-		parameters.push(['q',query.q])
-	}
-	parameters.push(
-		['sort',query.sort],
-		['order',query.order],
-		['closed',query.closed]
-	)
-	if (query.from!=null) parameters.push(['from',toUrlDate(query.from)])
-	if (query.to  !=null) parameters.push(['to'  ,toUrlDate(query.to)])
 	return parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
 }
 
@@ -145,7 +179,7 @@ export interface NoteFetchDetails {
                             from, to - this change for pagination purposes, from needs to be present with a dummy date if to is used
                             limit - this may change in rare circumstances, not part of query proper;
  */
-export function getNextFetchDetails(query: NoteQuery, requestedLimit: number, lastNote?: Note, prevLastNote?: Note, lastLimit?: number): NoteFetchDetails {
+export function getNextFetchDetails(query: NoteSearchQuery, requestedLimit: number, lastNote?: Note, prevLastNote?: Note, lastLimit?: number): NoteFetchDetails {
 	let lowerDate: number | undefined
 	let upperDate: number | undefined
 	let lastDate: number | undefined
@@ -190,7 +224,7 @@ export function getNextFetchDetails(query: NoteQuery, requestedLimit: number, la
 	if (lowerDate!=null) updatedQuery.from=lowerDate
 	if (upperDate!=null) updatedQuery.to=upperDate
 	return {
-		parameters: toNoteQueryString(updatedQuery)+'&limit='+encodeURIComponent(limit),
+		parameters: makeNoteQueryString(updatedQuery,false)+'&limit='+encodeURIComponent(limit),
 		limit
 	}
 	

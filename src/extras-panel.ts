@@ -1,6 +1,6 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB, {FetchEntry} from './db'
-import {NoteQuery, noteQueryToUserQuery, getNextFetchDetails} from './query'
+import {NoteSearchQuery, makeUserQueryFromNoteSearchQuery, getNextFetchDetails} from './query'
 import {makeLink, makeUserLink} from './util'
 
 export default class ExtrasPanel {
@@ -8,7 +8,7 @@ export default class ExtrasPanel {
 		private storage: NoteViewerStorage, private db: NoteViewerDB, 
 		private $container: HTMLElement
 	) {}
-	rewrite(query?: NoteQuery, limit?: number): void {
+	rewrite(query?: NoteSearchQuery, limit?: number): void {
 		this.$container.innerHTML=''
 		const $details=document.createElement('details')
 		{
@@ -73,14 +73,14 @@ export default class ExtrasPanel {
 			return [$clearButton]
 		})
 		if (query!=null && limit!=null) { // TODO don't limit to this user
-			const userQuery=noteQueryToUserQuery(query)
+			const userQuery=makeUserQueryFromNoteSearchQuery(query)
 			if (userQuery.userType=='name' || userQuery.userType=='id') writeBlock(()=>[
 				`API links to queries on `,
 				makeUserLink(userQuery,`this user`),
 				`: `,
-				makeNoteQueryLink(`with specified limit`,query,limit),
+				makeNoteSearchQueryLink(`with specified limit`,query,limit),
 				`, `,
-				makeNoteQueryLink(`with max limit`,query,10000),
+				makeNoteSearchQueryLink(`with max limit`,query,10000),
 				` (may be slow)`
 			])
 		}
@@ -128,7 +128,7 @@ export default class ExtrasPanel {
 			$code.textContent=s
 			return $code
 		}
-		function makeNoteQueryLink(text: string, query: NoteQuery, limit: number): HTMLAnchorElement {
+		function makeNoteSearchQueryLink(text: string, query: NoteSearchQuery, limit: number): HTMLAnchorElement {
 			return makeLink(text,`https://api.openstreetmap.org/api/0.6/notes/search.json?`+getNextFetchDetails(query,limit).parameters)
 		}
 		this.$container.append($details)
