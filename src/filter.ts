@@ -1,5 +1,8 @@
 import {Note, NoteComment} from './data'
 import {ValidUserQuery, toUserQuery} from './query-user'
+import {escapeRegex} from './util'
+
+type Operator = '=' | '!=' | '~='
 
 interface BeginningStatement {
 	type: '^'
@@ -14,7 +17,7 @@ interface AnyStatement {
 }
 
 interface BaseCondition {
-	operator: '=' | '!='
+	operator: Operator
 }
 
 type UserCondition = BaseCondition & ValidUserQuery & {
@@ -40,6 +43,10 @@ interface ConditionsStatement {
 
 type Statement = BeginningStatement | EndStatement | AnyStatement | ConditionsStatement
 
+function isValidOperator(op: string): op is Operator {
+	return (op=='=' || op=='!=' || op=='~=')
+}
+
 export default class NoteFilter {
 	private statements: Statement[] = []
 	constructor(private query: string) {
@@ -55,23 +62,25 @@ export default class NoteFilter {
 			const conditions: Condition[] = []
 			for (const untrimmedTerm of line.split(',')) {
 				const term=untrimmedTerm.trim()
+				const makeRegExp=(symbol: string, rest: string): RegExp => new RegExp(`^${symbol}\\s*([!~]?=)\\s*${rest}$`)
+				const matchTerm=(symbol: string, rest: string): RegExpMatchArray | null => term.match(makeRegExp(symbol,rest))
 				let match
-				if (match=term.match(/^user\s*(!?=)\s*(.+)$/)) {
+				if (match=matchTerm('user','(.+)')) {
 					const [,operator,user]=match
-					if (operator!='=' && operator!='!=') continue // impossible
+					if (!isValidOperator(operator)) continue // impossible
 					const userQuery=toUserQuery(user)
 					if (userQuery.userType=='invalid' || userQuery.userType=='empty') continue // TODO parse error?
 					conditions.push({type:'user',operator,...userQuery})
 					continue
-				} else if (match=term.match(/^action\s*(!?=)\s*(.+)$/)) {
+				} else if (match=matchTerm('action','(.+)')) {
 					const [,operator,action]=match
-					if (operator!='=' && operator!='!=') continue // impossible
+					if (!isValidOperator(operator)) continue // impossible
 					if (action!='opened' && action!='closed' && action!='reopened' && action!='commented' && action!='hidden') continue
 					conditions.push({type:'action',operator,action})
 					continue
-				} else if (match=term.match(/^text\s*(!?=)\s*"([^"]*)"$/)) {
+				} else if (match=matchTerm('text','"([^"]*)"')) {
 					const [,operator,text]=match
-					if (operator!='=' && operator!='!=') continue // impossible
+					if (!isValidOperator(operator)) continue // impossible
 					conditions.push({type:'text',operator,text})
 					continue
 				}
@@ -93,31 +102,69 @@ export default class NoteFilter {
 	isSameQuery(query: string): boolean {
 		return this.query==query
 	}
-	matchNote(note: Note, uidMatcher: (uid: number, matchUser: string) => boolean): boolean {
+	matchNote(note: Note, getUsername: (uid: number) => string|undefined): boolean {
 		// console.log('> match',this.statements,note.comments)
-		const isCommentValueEqualToConditionValue=(condition: Condition, comment: NoteComment): boolean => {
+		const isCommentEqualToUserConditionValue=(condition: UserCondition, comment: NoteComment): boolean => {
+			if (condition.userType=='id') {
+				if (condition.uid==0) {
+					if (comment.uid!=null) return false
+				} else {
+					if (comment.uid!=condition.uid) return false
+				}
+			} else {
+				if (condition.username=='0') {
+					if (comment.uid!=null) return false
+				} else {
+					if (comment.uid==null) return false
+					if (getUsername(comment.uid)!=condition.username) return false
+				}
+			}
+			return true
+		}
+		const getConditionActualValue=(condition: Condition, comment: NoteComment): string | number | undefined => {
 			if (condition.type=='user') {
 				if (condition.userType=='id') {
-					if (condition.uid==0) {
-						if (comment.uid!=null) return false
-					} else {
-						if (comment.uid!=condition.uid) return false
-					}
+					return comment.uid
 				} else {
-					if (condition.username=='0') {
-						if (comment.uid!=null) return false
-					} else {
-						if (comment.uid==null) return false
-						if (!uidMatcher(comment.uid,condition.username)) return false
-					}
+					if (comment.uid==null) return undefined
+					return getUsername(comment.uid)
 				}
-				return true
 			} else if (condition.type=='action') {
-				return comment.action==condition.action
+				return comment.action
 			} else if (condition.type=='text') {
-				return comment.text==condition.text
+				return comment.text
 			}
+		}
+		const getConditionCompareValue=(condition: Condition): string | number | undefined => {
+			if (condition.type=='user') {
+				if (condition.userType=='id') {
+					return condition.uid
+				} else {
+					return condition.username
+				}
+			} else if (condition.type=='action') {
+				return condition.action
+			} else if (condition.type=='text') {
+				return condition.text
+			}
+		}
+		const isOperatorMatches=(operator: Operator, actualValue: string|number|undefined, compareValue: string|number|undefined): boolean => {
+			const str=(v: string|number|undefined): string => String(v??'')
+			if (operator=='=') return actualValue==compareValue
+			if (operator=='!=') return actualValue!=compareValue
+			if (operator=='~=') return !!str(actualValue).match(new RegExp(escapeRegex(str(compareValue)),'i'))
 			return false // shouldn't happen
+		}
+		const isConditionMatches=(condition: Condition, comment: NoteComment): boolean => {
+			if (condition.type=='user' && (condition.operator=='=' || condition.operator=='!=')) {
+				const isEqual=isCommentEqualToUserConditionValue(condition,comment)
+				return condition.operator=='=' ? isEqual : !isEqual
+			}
+			return isOperatorMatches(
+				condition.operator,
+				getConditionActualValue(condition,comment),
+				getConditionCompareValue(condition)
+			)
 		}
 		// const rec=(iStatement: number, iComment: number): boolean => {
 		// 	console.log('>> rec',iStatement,iComment)
@@ -142,13 +189,7 @@ export default class NoteFilter {
 			const comment=note.comments[iComment]
 			if (statement.type=='conditions') {
 				for (const condition of statement.conditions) {
-					let ok=isCommentValueEqualToConditionValue(condition,comment)
-					if (condition.operator=='=') {
-						// ok
-					} else if (condition.operator=='!=') {
-						ok=!ok
-					}
-					if (!ok) return false
+					if (!isConditionMatches(condition,comment)) return false
 				}
 				return rec(iStatement+1,iComment+1)
 			}

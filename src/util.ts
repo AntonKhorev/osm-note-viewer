@@ -19,3 +19,7 @@ export function makeLink(text: string, href: string, title?: string): HTMLAnchor
 	if (title!=null) $link.title=title
 	return $link
 }
+
+export function escapeRegex(text: string) { // https://stackoverflow.com/questions/3561493/is-there-a-regexp-escape-function-in-javascript/3561711
+	return text.replace(/[-\/\\^$*+?.()|[\]{}]/g,'\\$&')
+}

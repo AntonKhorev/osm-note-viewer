@@ -50,12 +50,12 @@ describe("NoteFilter",()=>{
 		103:'Fred',
 		104:'Joe Osmer',
 	}
-	const uidMatcher=(uid,matchUser)=>users[uid]==matchUser
+	const getUsername=uid=>users[uid]
 	const accept=(what,filter,note)=>it("accepts "+what,()=>assertAccept(
-		filter.matchNote(note,uidMatcher)
+		filter.matchNote(note,getUsername)
 	))
 	const reject=(what,filter,note)=>it("rejects "+what,()=>assertReject(
-		filter.matchNote(note,uidMatcher)
+		filter.matchNote(note,getUsername)
 	))
 	context("blank filter",()=>{
 		const filter=new NoteFilter('')
@@ -123,6 +123,13 @@ describe("NoteFilter",()=>{
 		const filter=new NoteFilter('text = "lol"')
 		reject("note with one empty comment",filter,makeNoteWithComments(``))
 		accept("note with a matching comment",filter,makeNoteWithComments(`lol`))
+		reject("note with a non-matching comment",filter,makeNoteWithComments(`kek`))
+	})
+	context("substring match comment filter",()=>{
+		const filter=new NoteFilter('text ~= "street"')
+		reject("note with one empty comment",filter,makeNoteWithComments(``))
+		accept("note with a full matching comment",filter,makeNoteWithComments(`Street`))
+		accept("note with a substring matching comment",filter,makeNoteWithComments(`Main Street`))
 		reject("note with a non-matching comment",filter,makeNoteWithComments(`kek`))
 	})
 })

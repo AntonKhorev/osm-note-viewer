@@ -39,7 +39,7 @@ const syntaxDescription=`<summary>Filter syntax</summary>
 	</dl>
 	</ul>
 <dt>${term('comparison operator')}
-<dd>One of: <kbd>=</kbd> <kbd>!=</kbd>
+<dd>One of: <kbd>=</kbd> <kbd>!=</kbd> <kbd>~=</kbd> (case-insensitive substring match)
 <dt>${term('user descriptor')}
 <dd>OSM username, URL or #id, like in a fetch query input. Additionally you can specify username <kbd>0</kbd> or id <kbd>#0</kbd> to match anonymous users. No user with actual name "0" can exist because it's too short.
 <dt>${term('action descriptor')}

@@ -69,14 +69,14 @@ export default class NoteTable {
 		for (const note of notes) {
 			noteById.set(note.id,note)
 		}
-		const uidMatcher=this.makeUidMatcher(users)
+		const getUsername=(uid:number)=>users[uid]
 		for (const $noteSection of this.$table.querySelectorAll('tbody')) {
 			const noteId=Number($noteSection.dataset.noteId)
 			const note=noteById.get(noteId)
 			const layerId=Number($noteSection.dataset.layerId)
 			if (note==null) continue
 			nFetched++
-			if (this.filter.matchNote(note,uidMatcher)) {
+			if (this.filter.matchNote(note,getUsername)) {
 				nVisible++
 				const marker=this.map.filteredNoteLayer.getLayer(layerId)
 				if (marker) {
@@ -104,9 +104,9 @@ export default class NoteTable {
 	 */
 	addNotes(notes: Note[], users: Users): number {
 		let nUnfilteredNotes=0
-		const uidMatcher=this.makeUidMatcher(users)
+		const getUsername=(uid:number)=>users[uid]
 		for (const note of notes) {
-			const isVisible=this.filter.matchNote(note,uidMatcher)
+			const isVisible=this.filter.matchNote(note,getUsername)
 			if (isVisible) nUnfilteredNotes++
 			const $noteSection=this.writeNote(note,isVisible)
 			let $row=$noteSection.insertRow()
@@ -199,9 +199,6 @@ export default class NoteTable {
 		}
 		this.commandPanel.receiveNoteCounts(nFetched,nVisible)
 		return nUnfilteredNotes
-	}
-	private makeUidMatcher(users: Users) {
-		return (uid:number,username:string)=>users[uid]==username
 	}
 	private writeNote(note: Note, isVisible: boolean): HTMLTableSectionElement {
 		const marker=new NoteMarker(note)
