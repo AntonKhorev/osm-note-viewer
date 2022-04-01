@@ -296,7 +296,9 @@ class NoteMarker extends L.Marker {
 }
 class NoteMap extends L.Map {
     constructor($container) {
-        super($container);
+        super($container, {
+            worldCopyJump: true
+        });
         this.needToFitNotes = false;
         this.addLayer(L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>",
@@ -948,7 +950,7 @@ function toDateQuery(readableDate) {
 }
 
 const defaultLowerDate = Date.parse('2001-01-01 00:00:00Z') / 1000;
-function displayNameAndUserToUserQuery(display_name, user) {
+function makeUserQueryFromDisplayNameAndUser(display_name, user) {
     if (display_name != null) {
         return {
             userType: 'name',
@@ -967,99 +969,120 @@ function displayNameAndUserToUserQuery(display_name, user) {
         };
     }
 }
-function noteQueryToUserQuery(noteQuery) {
-    return displayNameAndUserToUserQuery(noteQuery.display_name, noteQuery.user);
+function makeUserQueryFromNoteSearchQuery(query) {
+    return makeUserQueryFromDisplayNameAndUser(query.display_name, query.user);
 }
-function makeNoteQueryFromUserQueryAndValues(userQuery, textValue, fromValue, toValue, closedValue, sortValue, orderValue) {
-    const noteQuery = {
-        closed: toNoteQueryClosed(closedValue),
-        sort: toNoteQuerySort(sortValue),
-        order: toNoteQueryOrder(orderValue)
+function makeNoteSearchQueryFromUserQueryAndValues(userQuery, textValue, fromValue, toValue, closedValue, sortValue, orderValue) {
+    const noteSearchQuery = {
+        mode: 'search',
+        closed: toClosed(closedValue),
+        sort: toSort(sortValue),
+        order: toOrder(orderValue)
     };
     {
         if (userQuery.userType == 'invalid')
             return undefined;
         if (userQuery.userType == 'name') {
-            noteQuery.display_name = userQuery.username;
+            noteSearchQuery.display_name = userQuery.username;
         }
         else if (userQuery.userType == 'id') {
-            noteQuery.user = userQuery.uid;
+            noteSearchQuery.user = userQuery.uid;
         }
     }
     {
         const s = textValue.trim();
         if (s)
-            noteQuery.q = s;
+            noteSearchQuery.q = s;
     }
     {
         const dateTimeQuery = toDateQuery(fromValue);
         if (dateTimeQuery.dateType == 'invalid')
             return undefined;
         if (dateTimeQuery.dateType == 'valid')
-            noteQuery.from = dateTimeQuery.date;
+            noteSearchQuery.from = dateTimeQuery.date;
     }
     {
         const dateTimeQuery = toDateQuery(toValue);
         if (dateTimeQuery.dateType == 'invalid')
             return undefined;
         if (dateTimeQuery.dateType == 'valid')
-            noteQuery.to = dateTimeQuery.date;
+            noteSearchQuery.to = dateTimeQuery.date;
     }
-    return noteQuery;
-    function toNoteQueryClosed(value) {
+    return noteSearchQuery;
+    function toClosed(value) {
         const n = Number(value || undefined);
         if (Number.isInteger(n))
             return n;
         return -1;
     }
-    function toNoteQuerySort(value) {
+    function toSort(value) {
         if (value == 'updated_at')
             return value;
         return 'created_at';
     }
-    function toNoteQueryOrder(value) {
+    function toOrder(value) {
         if (value == 'oldest')
             return value;
         return 'newest';
     }
 }
-function makeNoteQueryFromInputValues(userValue, textValue, fromValue, toValue, closedValue, sortValue, orderValue) {
-    return makeNoteQueryFromUserQueryAndValues(toUserQuery(userValue), textValue, fromValue, toValue, closedValue, sortValue, orderValue);
+function makeNoteSearchQueryFromValues(userValue, textValue, fromValue, toValue, closedValue, sortValue, orderValue) {
+    return makeNoteSearchQueryFromUserQueryAndValues(toUserQuery(userValue), textValue, fromValue, toValue, closedValue, sortValue, orderValue);
+}
+function makeNoteBboxQueryFromValues(bboxValue, closedValue) {
+    const noteBboxQuery = {
+        mode: 'bbox',
+        bbox: bboxValue.trim(),
+        closed: toClosed(closedValue),
+    };
+    return noteBboxQuery;
+    function toClosed(value) {
+        const n = Number(value || undefined);
+        if (Number.isInteger(n))
+            return n;
+        return -1;
+    }
 }
 function makeNoteQueryFromHash(queryString) {
     const paramString = (queryString[0] == '#')
         ? queryString.slice(1)
         : queryString;
     const searchParams = new URLSearchParams(paramString);
-    if (searchParams.get('mode') != 'search')
-        return undefined;
-    const userQuery = displayNameAndUserToUserQuery(searchParams.get('display_name'), Number(searchParams.get('user') || undefined));
-    return makeNoteQueryFromUserQueryAndValues(userQuery, searchParams.get('q') || '', searchParams.get('from') || '', searchParams.get('to') || '', searchParams.get('closed') || '', searchParams.get('sort') || '', searchParams.get('order') || '');
-}
-function toNoteQueryHash(query) {
-    if (query) {
-        return '#mode=search&' + toNoteQueryString(query);
+    const mode = searchParams.get('mode');
+    if (mode == 'search') {
+        const userQuery = makeUserQueryFromDisplayNameAndUser(searchParams.get('display_name'), Number(searchParams.get('user') || undefined));
+        return makeNoteSearchQueryFromUserQueryAndValues(userQuery, searchParams.get('q') || '', searchParams.get('from') || '', searchParams.get('to') || '', searchParams.get('closed') || '', searchParams.get('sort') || '', searchParams.get('order') || '');
+    }
+    else if (mode == 'bbox') {
+        return makeNoteBboxQueryFromValues(searchParams.get('bbox') || '', searchParams.get('closed') || '');
     }
     else {
-        return '';
+        return undefined;
     }
 }
-function toNoteQueryString(query) {
+function makeNoteQueryString(query, withMode = true) {
     const parameters = [];
-    if (query.display_name != null) {
-        parameters.push(['display_name', query.display_name]);
+    if (withMode)
+        parameters.push(['mode', query.mode]);
+    if (query.mode == 'search') {
+        if (query.display_name != null) {
+            parameters.push(['display_name', query.display_name]);
+        }
+        else if (query.user != null) {
+            parameters.push(['user', query.user]);
+        }
+        if (query.q != null) {
+            parameters.push(['q', query.q]);
+        }
+        parameters.push(['sort', query.sort], ['order', query.order], ['closed', query.closed]);
+        if (query.from != null)
+            parameters.push(['from', toUrlDate(query.from)]);
+        if (query.to != null)
+            parameters.push(['to', toUrlDate(query.to)]);
     }
-    else if (query.user != null) {
-        parameters.push(['user', query.user]);
+    else if (query.mode == 'bbox') {
+        parameters.push(['bbox', query.bbox], ['closed', query.closed]);
     }
-    if (query.q != null) {
-        parameters.push(['q', query.q]);
-    }
-    parameters.push(['sort', query.sort], ['order', query.order], ['closed', query.closed]);
-    if (query.from != null)
-        parameters.push(['from', toUrlDate(query.from)]);
-    if (query.to != null)
-        parameters.push(['to', toUrlDate(query.to)]);
     return parameters.map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
 }
 /**
@@ -1123,7 +1146,7 @@ function getNextFetchDetails(query, requestedLimit, lastNote, prevLastNote, last
     if (upperDate != null)
         updatedQuery.to = upperDate;
     return {
-        parameters: toNoteQueryString(updatedQuery) + '&limit=' + encodeURIComponent(limit),
+        parameters: makeNoteQueryString(updatedQuery, false) + '&limit=' + encodeURIComponent(limit),
         limit
     };
     function getTargetComment(note) {
@@ -1558,11 +1581,11 @@ function getCheckedNoteIds($table) {
 const maxSingleAutoLoadLimit = 200;
 const maxTotalAutoLoadLimit = 1000;
 const maxFullyFilteredFetches = 10;
-async function startFetcher(db, $notesContainer, $moreContainer, filterPanel, commandPanel, map, $limitSelect, $autoLoadCheckbox, $fetchButton, moreButtonIntersectionObservers, query, clearStore) {
+async function startSearchFetcher(db, $notesContainer, $moreContainer, filterPanel, commandPanel, map, $limitSelect, $autoLoadCheckbox, $fetchButton, moreButtonIntersectionObservers, query, clearStore) {
     filterPanel.unsubscribe();
     let noteTable;
     const [notes, users, mergeNotesAndUsers] = makeNotesAndUsersAndMerger();
-    const queryString = toNoteQueryString(query);
+    const queryString = makeNoteQueryString(query);
     const fetchEntry = await (async () => {
         if (clearStore) {
             return await db.clear(queryString);
@@ -1703,6 +1726,111 @@ async function startFetcher(db, $notesContainer, $moreContainer, filterPanel, co
         $moreContainer.append($div);
     }
 }
+async function startBboxFetcher(// TODO cleanup copypaste from above
+db, $notesContainer, $moreContainer, filterPanel, commandPanel, map, $limitSelect, /*$autoLoadCheckbox: HTMLInputElement,*/ $fetchButton, moreButtonIntersectionObservers, query, clearStore) {
+    filterPanel.unsubscribe();
+    let noteTable;
+    const [notes, users, mergeNotesAndUsers] = makeNotesAndUsersAndMerger();
+    const queryString = makeNoteQueryString(query);
+    const fetchEntry = await (async () => {
+        if (clearStore) {
+            return await db.clear(queryString);
+        }
+        else {
+            const [fetchEntry, initialNotes, initialUsers] = await db.load(queryString); // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
+            mergeNotesAndUsers(initialNotes, initialUsers);
+            return fetchEntry;
+        }
+    })();
+    filterPanel.subscribe(noteFilter => noteTable?.updateFilter(notes, users, noteFilter));
+    if (!clearStore) {
+        addNewNotes(notes);
+        if (notes.length > 0) {
+            // lastNote=notes[notes.length-1]
+            rewriteLoadMoreButton();
+        }
+        else {
+            await fetchCycle();
+        }
+    }
+    else {
+        await fetchCycle();
+    }
+    function addNewNotes(newNotes) {
+        if (!noteTable) {
+            noteTable = new NoteTable($notesContainer, commandPanel, map, filterPanel.noteFilter);
+        }
+        noteTable.addNotes(newNotes, users);
+    }
+    async function fetchCycle() {
+        rewriteLoadingButton();
+        const limit = getLimit($limitSelect);
+        // { different
+        const parameters = `bbox=` + encodeURIComponent(query.bbox) + '&closed=' + encodeURIComponent(query.closed) + '&limit=' + encodeURIComponent(limit);
+        const url = `https://api.openstreetmap.org/api/0.6/notes.json?` + parameters;
+        // } different
+        $fetchButton.disabled = true;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                const responseText = await response.text();
+                rewriteFetchErrorMessage($moreContainer, query, `received the following error response`, responseText);
+                return;
+            }
+            const data = await response.json();
+            if (!isNoteFeatureCollection(data)) {
+                rewriteMessage($moreContainer, `Received invalid data`);
+                return;
+            }
+            const [unseenNotes, unseenUsers] = mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data));
+            await db.save(fetchEntry, notes, unseenNotes, users, unseenUsers);
+            if (!noteTable && notes.length <= 0) {
+                rewriteMessage($moreContainer, `No matching notes found`);
+                return;
+            }
+            addNewNotes(unseenNotes);
+            // { different
+            if (notes.length < limit) {
+                rewriteMessage($moreContainer, `Got all ${notes.length} notes in the area`);
+            }
+            else {
+                rewriteMessage($moreContainer, `Got all ${notes.length} requested notes`);
+            }
+            return;
+            // } different
+        }
+        catch (ex) {
+            if (ex instanceof TypeError) {
+                rewriteFetchErrorMessage($moreContainer, query, `failed with the following error before receiving a response`, ex.message);
+            }
+            else {
+                rewriteFetchErrorMessage($moreContainer, query, `failed for unknown reason`, `${ex}`);
+            }
+        }
+        finally {
+            $fetchButton.disabled = false;
+        }
+    }
+    function rewriteLoadMoreButton() {
+        $moreContainer.innerHTML = '';
+        const $div = document.createElement('div');
+        const $button = document.createElement('button');
+        $button.textContent = `Load more notes`;
+        $button.addEventListener('click', fetchCycle);
+        $div.append($button);
+        $moreContainer.append($div);
+        return $button;
+    }
+    function rewriteLoadingButton() {
+        $moreContainer.innerHTML = '';
+        const $div = document.createElement('div');
+        const $button = document.createElement('button');
+        $button.textContent = `Loading notes...`;
+        $button.disabled = true;
+        $div.append($button);
+        $moreContainer.append($div);
+    }
+}
 function makeNotesAndUsersAndMerger() {
     const seenNotes = {};
     const notes = [];
@@ -1762,162 +1890,63 @@ function getLimit($limitSelect) {
 
 class NoteFetchPanel {
     constructor(storage, db, $container, $notesContainer, $moreContainer, $commandContainer, filterPanel, extrasPanel, map) {
-        const $form = document.createElement('form');
-        const $userInput = document.createElement('input');
-        const $textInput = document.createElement('input');
-        const $fromInput = document.createElement('input');
-        const $toInput = document.createElement('input');
-        const $statusSelect = document.createElement('select');
-        const $sortSelect = document.createElement('select');
-        const $orderSelect = document.createElement('select');
-        const $limitSelect = document.createElement('select');
-        const $autoLoadCheckbox = document.createElement('input');
-        const $fetchButton = document.createElement('button');
         const moreButtonIntersectionObservers = [];
-        window.addEventListener('hashchange', ev => {
+        const searchDialog = new NoteSearchFetchDialog();
+        searchDialog.write($container, query => {
+            modifyHistory(query, true);
+            runStartFetcher(query, true);
+        });
+        const bboxDialog = new NoteBboxFetchDialog(map);
+        bboxDialog.write($container, query => {
+            modifyHistory(query, true);
+            runStartFetcher(query, true);
+        });
+        window.addEventListener('hashchange', () => {
             const query = makeNoteQueryFromHash(location.hash);
+            openQueryDialog(query, false);
             modifyHistory(query, false); // in case location was edited manually
             populateInputs(query);
             runStartFetcher(query, false);
         });
         const query = makeNoteQueryFromHash(location.hash);
+        openQueryDialog(query, true);
         modifyHistory(query, false);
         populateInputs(query);
-        {
-            const $fieldset = document.createElement('fieldset');
-            {
-                const $legend = document.createElement('legend');
-                $legend.textContent = `Scope and order`;
-                $fieldset.append($legend);
+        runStartFetcher(query, false);
+        function openQueryDialog(query, initial) {
+            if (!query) {
+                if (initial)
+                    searchDialog.open();
             }
-            {
-                $userInput.type = 'text';
-                $userInput.name = 'user';
-                const $div = document.createElement('div');
-                $div.classList.add('major-input');
-                const $label = document.createElement('label');
-                $label.append(`OSM username, URL or #id: `, $userInput);
-                $div.append($label);
-                $fieldset.append($div);
+            else if (query.mode == 'search') {
+                searchDialog.open();
             }
-            {
-                $textInput.type = 'text';
-                $textInput.name = 'user';
-                const $div = document.createElement('div');
-                $div.classList.add('major-input');
-                const $label = document.createElement('label');
-                $label.append(`Comment text search query: `, $textInput);
-                $div.append($label);
-                $fieldset.append($div);
+            else if (query.mode == 'bbox') {
+                bboxDialog.open();
             }
-            {
-                $fromInput.type = 'text';
-                $fromInput.size = 20;
-                $fromInput.name = 'from';
-                const $fromLabel = document.createElement('label');
-                $fromLabel.append(`from `, $fromInput);
-                $toInput.type = 'text';
-                $toInput.size = 20;
-                $toInput.name = 'to';
-                const $toLabel = document.createElement('label');
-                $toLabel.append(`to `, $toInput);
-                const $div = document.createElement('div');
-                $div.append(`Date range: `, $fromLabel, ` `, $toLabel);
-                $fieldset.append($div);
-            }
-            {
-                const $div = document.createElement('div');
-                $statusSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
-                $sortSelect.append(new Option(`creation`, 'created_at'), new Option(`last update`, 'updated_at'));
-                $orderSelect.append(new Option('newest'), new Option('oldest'));
-                $div.append(span(`Fetch matching `, $statusSelect, ` notes`), ` `, span(`sorted by `, $sortSelect, ` date`), `, `, span($orderSelect, ` first`));
-                $fieldset.append($div);
-                function span(...items) {
-                    const $span = document.createElement('span');
-                    $span.append(...items);
-                    return $span;
+        }
+        function populateInputs(query) {
+            if (!query || query.mode == 'search') {
+                if (query?.display_name) {
+                    searchDialog.$userInput.value = query.display_name;
                 }
-            }
-            $form.append($fieldset);
-        }
-        {
-            const $fieldset = document.createElement('fieldset');
-            // TODO (re)store input values
-            {
-                const $legend = document.createElement('legend');
-                $legend.textContent = `Download mode (can change anytime)`;
-                $fieldset.append($legend);
-            }
-            {
-                const $div = document.createElement('div');
-                $limitSelect.append(new Option('20'), new Option('100'), new Option('500'), new Option('2500'));
-                $div.append(`Download these in batches of `, $limitSelect, ` notes`);
-                $fieldset.append($div);
-            }
-            {
-                $autoLoadCheckbox.type = 'checkbox';
-                $autoLoadCheckbox.checked = true;
-                const $div = document.createElement('div');
-                const $label = document.createElement('label');
-                $label.append($autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`);
-                $div.append($label);
-                $fieldset.append($div);
-            }
-            $form.append($fieldset);
-        }
-        {
-            $fetchButton.textContent = `Fetch notes`;
-            $fetchButton.type = 'submit';
-            const $div = document.createElement('div');
-            $div.classList.add('major-input');
-            $div.append($fetchButton);
-            $form.append($div);
-        }
-        $userInput.addEventListener('input', () => {
-            const userQuery = toUserQuery($userInput.value);
-            if (userQuery.userType == 'invalid') {
-                $userInput.setCustomValidity(userQuery.message);
-            }
-            else {
-                $userInput.setCustomValidity('');
-            }
-        });
-        for (const $input of [$fromInput, $toInput])
-            $input.addEventListener('input', () => {
-                const query = toDateQuery($input.value);
-                if (query.dateType == 'invalid') {
-                    $input.setCustomValidity(query.message);
+                else if (query?.user) {
+                    searchDialog.$userInput.value = '#' + query.user;
                 }
                 else {
-                    $input.setCustomValidity('');
+                    searchDialog.$userInput.value = '';
                 }
-            });
-        $form.addEventListener('submit', (ev) => {
-            ev.preventDefault();
-            const query = makeNoteQueryFromInputValues($userInput.value, $textInput.value, $fromInput.value, $toInput.value, $statusSelect.value, $sortSelect.value, $orderSelect.value);
-            if (!query)
-                return;
-            modifyHistory(query, true);
-            runStartFetcher(query, true);
-        });
-        $container.append($form);
-        runStartFetcher(query, false);
-        function populateInputs(query) {
-            if (query?.display_name) {
-                $userInput.value = query.display_name;
+                searchDialog.$textInput.value = query?.q ?? '';
+                searchDialog.$fromInput.value = toReadableDate(query?.from);
+                searchDialog.$toInput.value = toReadableDate(query?.to);
+                searchDialog.$statusSelect.value = query ? String(query.closed) : '-1';
+                searchDialog.$sortSelect.value = query?.sort ?? 'created_at';
+                searchDialog.$orderSelect.value = query?.order ?? 'newest';
             }
-            else if (query?.user) {
-                $userInput.value = '#' + query.user;
+            if (!query || query.mode == 'bbox') {
+                bboxDialog.$bboxInput.value = query?.bbox ?? '';
+                bboxDialog.$statusSelect.value = query ? String(query.closed) : '-1';
             }
-            else {
-                $userInput.value = '';
-            }
-            $textInput.value = query?.q ?? '';
-            $fromInput.value = toReadableDate(query?.from);
-            $toInput.value = toReadableDate(query?.to);
-            $statusSelect.value = query ? String(query.closed) : '';
-            $sortSelect.value = query?.sort ?? '';
-            $orderSelect.value = query?.order ?? '';
         }
         function resetNoteDependents() {
             while (moreButtonIntersectionObservers.length > 0)
@@ -1928,21 +1957,264 @@ class NoteFetchPanel {
         }
         function runStartFetcher(query, clearStore) {
             resetNoteDependents();
-            if (query) {
-                extrasPanel.rewrite(query, Number($limitSelect.value));
+            if (query?.mode == 'search') {
+                extrasPanel.rewrite(query, Number(searchDialog.$limitSelect.value));
             }
             else {
                 extrasPanel.rewrite();
             }
-            if (query) {
+            if (query?.mode == 'search') {
                 const commandPanel = new CommandPanel($commandContainer, map, storage);
-                startFetcher(db, $notesContainer, $moreContainer, filterPanel, commandPanel, map, $limitSelect, $autoLoadCheckbox, $fetchButton, moreButtonIntersectionObservers, query, clearStore);
+                startSearchFetcher(db, $notesContainer, $moreContainer, filterPanel, commandPanel, map, searchDialog.$limitSelect, searchDialog.$autoLoadCheckbox, searchDialog.$fetchButton, moreButtonIntersectionObservers, query, clearStore);
+            }
+            else if (query?.mode == 'bbox') {
+                if (bboxDialog.$trackMapCheckbox.checked)
+                    map.needToFitNotes = false;
+                const commandPanel = new CommandPanel($commandContainer, map, storage);
+                startBboxFetcher(db, $notesContainer, $moreContainer, filterPanel, commandPanel, map, bboxDialog.$limitSelect, /*bboxDialog.$autoLoadCheckbox,*/ bboxDialog.$fetchButton, moreButtonIntersectionObservers, query, clearStore);
             }
         }
     }
 }
+class NoteFetchDialog {
+    constructor() {
+        this.$details = document.createElement('details');
+        this.$fetchButton = document.createElement('button');
+    }
+    write($container, submitQuery) {
+        const $summary = document.createElement('summary');
+        $summary.textContent = this.title;
+        const $form = document.createElement('form');
+        $form.append(this.makeScopeAndOrderFieldset(), this.makeDownloadModeFieldset(), this.makeFetchButtonDiv());
+        this.addEventListeners();
+        $form.addEventListener('submit', (ev) => {
+            ev.preventDefault();
+            const query = this.constructQuery();
+            if (!query)
+                return;
+            submitQuery(query);
+        });
+        this.$details.addEventListener('toggle', () => {
+            if (!this.$details.open)
+                return;
+            for (const $otherDetails of $container.querySelectorAll('details')) {
+                if ($otherDetails == this.$details)
+                    continue;
+                if (!$otherDetails.open)
+                    continue;
+                $otherDetails.open = false;
+            }
+        });
+        this.$details.append($summary, $form);
+        $container.append(this.$details);
+    }
+    open() {
+        this.$details.open = true;
+    }
+    makeScopeAndOrderFieldset() {
+        const $fieldset = document.createElement('fieldset');
+        const $legend = document.createElement('legend');
+        $legend.textContent = `Scope and order`;
+        $fieldset.append($legend);
+        this.writeScopeAndOrderFieldset($fieldset);
+        return $fieldset;
+    }
+    makeDownloadModeFieldset() {
+        const $fieldset = document.createElement('fieldset');
+        // TODO (re)store input values
+        const $legend = document.createElement('legend');
+        $legend.textContent = `Download mode (can change anytime)`;
+        $fieldset.append($legend);
+        this.writeDownloadModeFieldset($fieldset);
+        return $fieldset;
+    }
+    makeFetchButtonDiv() {
+        this.$fetchButton.textContent = `Fetch notes`;
+        this.$fetchButton.type = 'submit';
+        const $div = document.createElement('div');
+        $div.classList.add('major-input');
+        $div.append(this.$fetchButton);
+        return $div;
+    }
+}
+class NoteSearchFetchDialog extends NoteFetchDialog {
+    constructor() {
+        super(...arguments);
+        this.title = `Search notes for user / text / date range`;
+        this.$userInput = document.createElement('input');
+        this.$textInput = document.createElement('input');
+        this.$fromInput = document.createElement('input');
+        this.$toInput = document.createElement('input');
+        this.$statusSelect = document.createElement('select');
+        this.$sortSelect = document.createElement('select');
+        this.$orderSelect = document.createElement('select');
+        this.$limitSelect = document.createElement('select');
+        this.$autoLoadCheckbox = document.createElement('input');
+    }
+    writeScopeAndOrderFieldset($fieldset) {
+        {
+            this.$userInput.type = 'text';
+            this.$userInput.name = 'user';
+            const $div = document.createElement('div');
+            $div.classList.add('major-input');
+            const $label = document.createElement('label');
+            $label.append(`OSM username, URL or #id: `, this.$userInput);
+            $div.append($label);
+            $fieldset.append($div);
+        }
+        {
+            this.$textInput.type = 'text';
+            this.$textInput.name = 'text';
+            const $div = document.createElement('div');
+            $div.classList.add('major-input');
+            const $label = document.createElement('label');
+            $label.append(`Comment text search query: `, this.$textInput);
+            $div.append($label);
+            $fieldset.append($div);
+        }
+        {
+            this.$fromInput.type = 'text';
+            this.$fromInput.size = 20;
+            this.$fromInput.name = 'from';
+            const $fromLabel = document.createElement('label');
+            $fromLabel.append(`from `, this.$fromInput);
+            this.$toInput.type = 'text';
+            this.$toInput.size = 20;
+            this.$toInput.name = 'to';
+            const $toLabel = document.createElement('label');
+            $toLabel.append(`to `, this.$toInput);
+            const $div = document.createElement('div');
+            $div.append(`Date range: `, $fromLabel, ` `, $toLabel);
+            $fieldset.append($div);
+        }
+        {
+            const $div = document.createElement('div');
+            this.$statusSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
+            this.$sortSelect.append(new Option(`creation`, 'created_at'), new Option(`last update`, 'updated_at'));
+            this.$orderSelect.append(new Option('newest'), new Option('oldest'));
+            $div.append(span(`Fetch matching `, this.$statusSelect, ` notes`), ` `, span(`sorted by `, this.$sortSelect, ` date`), `, `, span(this.$orderSelect, ` first`));
+            $fieldset.append($div);
+            function span(...items) {
+                const $span = document.createElement('span');
+                $span.append(...items);
+                return $span;
+            }
+        }
+    }
+    writeDownloadModeFieldset($fieldset) {
+        {
+            const $div = document.createElement('div');
+            this.$limitSelect.append(new Option('20'), new Option('100'), new Option('500'), new Option('2500'));
+            $div.append(`Download these in batches of `, this.$limitSelect, ` notes`);
+            $fieldset.append($div);
+        }
+        {
+            this.$autoLoadCheckbox.type = 'checkbox';
+            this.$autoLoadCheckbox.checked = true;
+            const $div = document.createElement('div');
+            const $label = document.createElement('label');
+            $label.append(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`);
+            $div.append($label);
+            $fieldset.append($div);
+        }
+    }
+    addEventListeners() {
+        this.$userInput.addEventListener('input', () => {
+            const userQuery = toUserQuery(this.$userInput.value);
+            if (userQuery.userType == 'invalid') {
+                this.$userInput.setCustomValidity(userQuery.message);
+            }
+            else {
+                this.$userInput.setCustomValidity('');
+            }
+        });
+        for (const $input of [this.$fromInput, this.$toInput])
+            $input.addEventListener('input', () => {
+                const query = toDateQuery($input.value);
+                if (query.dateType == 'invalid') {
+                    $input.setCustomValidity(query.message);
+                }
+                else {
+                    $input.setCustomValidity('');
+                }
+            });
+    }
+    constructQuery() {
+        return makeNoteSearchQueryFromValues(this.$userInput.value, this.$textInput.value, this.$fromInput.value, this.$toInput.value, this.$statusSelect.value, this.$sortSelect.value, this.$orderSelect.value);
+    }
+}
+class NoteBboxFetchDialog extends NoteFetchDialog {
+    constructor(map) {
+        super();
+        this.map = map;
+        this.title = `Get notes inside small rectangular area`;
+        this.$bboxInput = document.createElement('input');
+        this.$trackMapCheckbox = document.createElement('input');
+        this.$statusSelect = document.createElement('select');
+        this.$limitSelect = document.createElement('select');
+    }
+    writeScopeAndOrderFieldset($fieldset) {
+        {
+            this.$bboxInput.type = 'text';
+            this.$bboxInput.name = 'bbox';
+            const $div = document.createElement('div');
+            $div.classList.add('major-input');
+            const $label = document.createElement('label');
+            $label.append(`Bounding box (left,bottom,right,top): `, this.$bboxInput);
+            $div.append($label);
+            $fieldset.append($div);
+        }
+        {
+            this.$trackMapCheckbox.type = 'checkbox';
+            this.$trackMapCheckbox.checked = true;
+            const $div = document.createElement('div');
+            const $label = document.createElement('label');
+            $label.append(this.$trackMapCheckbox, ` Update bounding box value with current map area`);
+            $div.append($label);
+            $fieldset.append($div);
+        }
+        {
+            const $div = document.createElement('div');
+            this.$statusSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
+            $div.append(span(`Fetch matching `, this.$statusSelect, ` notes`), ` `, span(`sorted by last update date`), `, `, span(`newest first`));
+            $fieldset.append($div);
+            function span(...items) {
+                const $span = document.createElement('span');
+                $span.append(...items);
+                return $span;
+            }
+        }
+    }
+    writeDownloadModeFieldset($fieldset) {
+        {
+            const $div = document.createElement('div');
+            this.$limitSelect.append(new Option('20'), new Option('100'), new Option('500'), new Option('2500'));
+            $div.append(`Download at most `, this.$limitSelect, ` notes`);
+            $fieldset.append($div);
+        }
+    }
+    addEventListeners() {
+        const copyBounds = () => {
+            if (!this.$trackMapCheckbox.checked)
+                return;
+            const bounds = this.map.getBounds();
+            // (left,bottom,right,top)
+            this.$bboxInput.value = bounds.getWest() + ',' + bounds.getSouth() + ',' + bounds.getEast() + ',' + bounds.getNorth();
+            // TODO validate this.$bboxInput.value
+        };
+        this.map.on('moveend', copyBounds);
+        this.$trackMapCheckbox.addEventListener('input', copyBounds);
+        this.$bboxInput.addEventListener('input', () => {
+            // TODO validate this.$bboxInput.value
+            this.$trackMapCheckbox.checked = false;
+        });
+    }
+    constructQuery() {
+        return makeNoteBboxQueryFromValues(this.$bboxInput.value, this.$statusSelect.value);
+    }
+}
 function modifyHistory(query, push) {
-    const canonicalQueryHash = toNoteQueryHash(query);
+    const canonicalQueryHash = query ? '#' + makeNoteQueryString(query) : '';
     if (canonicalQueryHash != location.hash) {
         const url = canonicalQueryHash || location.pathname + location.search;
         if (push) {
@@ -2238,6 +2510,7 @@ class ExtrasPanel {
             {
                 const $row = $table.insertRow();
                 insertCell().append('fetch');
+                insertCell().append('mode');
                 insertCell().append('user');
                 insertCell().append('last access');
                 function insertCell() {
@@ -2249,9 +2522,10 @@ class ExtrasPanel {
             let n = 0;
             for (const fetchEntry of fetchEntries) {
                 const $row = $table.insertRow();
-                $row.insertCell().append(makeLink(`[${++n}]`, '#mode=search&' + fetchEntry.queryString));
-                const $userCell = $row.insertCell();
+                $row.insertCell().append(makeLink(`[${++n}]`, '#' + fetchEntry.queryString));
                 const searchParams = new URLSearchParams(fetchEntry.queryString);
+                $row.insertCell().append(searchParams.get('mode') ?? '(outdated/invalid)');
+                const $userCell = $row.insertCell();
                 const username = searchParams.get('display_name');
                 if (username)
                     $userCell.append(makeUserLink(username));
@@ -2276,15 +2550,15 @@ class ExtrasPanel {
             return [$clearButton];
         });
         if (query != null && limit != null) { // TODO don't limit to this user
-            const userQuery = noteQueryToUserQuery(query);
+            const userQuery = makeUserQueryFromNoteSearchQuery(query);
             if (userQuery.userType == 'name' || userQuery.userType == 'id')
                 writeBlock(() => [
                     `API links to queries on `,
                     makeUserLink(userQuery, `this user`),
                     `: `,
-                    makeNoteQueryLink(`with specified limit`, query, limit),
+                    makeNoteSearchQueryLink(`with specified limit`, query, limit),
                     `, `,
-                    makeNoteQueryLink(`with max limit`, query, 10000),
+                    makeNoteSearchQueryLink(`with max limit`, query, 10000),
                     ` (may be slow)`
                 ]);
         }
@@ -2299,6 +2573,8 @@ class ExtrasPanel {
             makeLink(`API`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API`),
             ` (`,
             makeLink(`search`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch`),
+            `, `,
+            makeLink(`bbox`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_.2Fapi.2F0.6.2Fnotes`),
             `), `,
             makeLink(`GeoJSON`, `https://wiki.openstreetmap.org/wiki/GeoJSON`),
             ` (output format used for notes/search.json api calls)`
@@ -2332,7 +2608,7 @@ class ExtrasPanel {
             $code.textContent = s;
             return $code;
         }
-        function makeNoteQueryLink(text, query, limit) {
+        function makeNoteSearchQueryLink(text, query, limit) {
             return makeLink(text, `https://api.openstreetmap.org/api/0.6/notes/search.json?` + getNextFetchDetails(query, limit).parameters);
         }
         this.$container.append($details);
