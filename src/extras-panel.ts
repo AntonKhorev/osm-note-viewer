@@ -36,6 +36,7 @@ export default class ExtrasPanel {
 			{
 				const $row=$table.insertRow()
 				insertCell().append('fetch')
+				insertCell().append('mode')
 				insertCell().append('user')
 				insertCell().append('last access')
 				function insertCell() {
@@ -47,9 +48,10 @@ export default class ExtrasPanel {
 			let n=0
 			for (const fetchEntry of fetchEntries) {
 				const $row=$table.insertRow()
-				$row.insertCell().append(makeLink(`[${++n}]`,'#mode=search&'+fetchEntry.queryString))
-				const $userCell=$row.insertCell()
+				$row.insertCell().append(makeLink(`[${++n}]`,'#'+fetchEntry.queryString))
 				const searchParams=new URLSearchParams(fetchEntry.queryString)
+				$row.insertCell().append(searchParams.get('mode')??'(outdated/invalid)')
+				const $userCell=$row.insertCell()
 				const username=searchParams.get('display_name')
 				if (username) $userCell.append(makeUserLink(username))
 				$row.insertCell().append(String(new Date(fetchEntry.accessTimestamp)))
