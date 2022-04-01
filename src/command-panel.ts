@@ -17,12 +17,14 @@ export default class CommandPanel {
 		const centerChar='⌖'
 		const areaChar='▭'
 		{
-			const $div=document.createElement('div')
-			const $label=document.createElement('label')
+			const $commandGroup=makeCommandGroup(
+				'autozoom',
+				`Automatic zoom`
+			)
 			this.$fitModeSelect.append(
-				new Option('all notes','allNotes'),
-				new Option('notes in table view','inViewNotes'),
-				new Option('none','none')
+				new Option('is disabled','none'),
+				new Option('to notes in table view','inViewNotes'),
+				new Option('to all notes','allNotes')
 			)
 			this.$fitModeSelect.addEventListener('change',()=>{
 				if (this.fitMode=='allNotes') {
@@ -31,9 +33,7 @@ export default class CommandPanel {
 					map.fitNoteTrack()
 				}
 			})
-			$label.append(`Automatically zoom/pan to `,this.$fitModeSelect)
-			$div.append($label)
-			$container.append($div)
+			$commandGroup.append(this.$fitModeSelect)
 		}{
 			const $commandGroup=makeCommandGroup(
 				'timestamp',
