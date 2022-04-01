@@ -51,94 +51,60 @@ describe("NoteFilter",()=>{
 		104:'Joe Osmer',
 	}
 	const uidMatcher=(uid,matchUser)=>users[uid]==matchUser
+	const accept=(what,filter,note)=>it("accepts "+what,()=>assertAccept(
+		filter.matchNote(note,uidMatcher)
+	))
+	const reject=(what,filter,note)=>it("rejects "+what,()=>assertReject(
+		filter.matchNote(note,uidMatcher)
+	))
 	context("blank filter",()=>{
 		const filter=new NoteFilter('')
-		it("accepts anonymous note",()=>assertAccept(
-			filter.matchNote(makeNoteWithUsers(0),uidMatcher),
-		))
-		it("accepts user note",()=>assertAccept(
-			filter.matchNote(makeNoteWithUsers(101),uidMatcher),
-		))
+		accept("anonymous note",filter,makeNoteWithUsers(0))
+		accept("user note",filter,makeNoteWithUsers(101))
 	})
 	context("single user filter",()=>{
 		const filter=new NoteFilter('user = Alice')
-		it("rejects anonymous note",()=>assertReject(
-			filter.matchNote(makeNoteWithUsers(0),uidMatcher),
-		))
-		it("accepts matching user note",()=>assertAccept(
-			filter.matchNote(makeNoteWithUsers(101),uidMatcher),
-		))
-		it("rejects non-matching user note",()=>assertReject(
-			filter.matchNote(makeNoteWithUsers(102),uidMatcher),
-		))
-		it("accepts matching multi-user note",()=>assertAccept(
-			filter.matchNote(makeNoteWithUsers(103,101,102),uidMatcher),
-		))
+		reject("anonymous note",filter,makeNoteWithUsers(0))
+		accept("matching user note",filter,makeNoteWithUsers(101))
+		reject("non-matching user note",filter,makeNoteWithUsers(102))
+		accept("matching multi-user note",filter,makeNoteWithUsers(103,101,102))
 	})
 	context("beginning + single user filter",()=>{
 		const filter=new NoteFilter(
 			'^\n'+
 			'user = Fred'
 		)
-		it("accepts matching user note",()=>assertAccept(
-			filter.matchNote(makeNoteWithUsers(103),uidMatcher),
-		))
-		it("rejects matching user note not at beginning",()=>assertReject(
-			filter.matchNote(makeNoteWithUsers(101,103),uidMatcher),
-		))
+		accept("matching user note",filter,makeNoteWithUsers(103))
+		reject("matching user note not at beginning",filter,makeNoteWithUsers(101,103))
 	})
 	context("anonymous user filter",()=>{
 		const filter=new NoteFilter('user = 0')
-		it("accepts anonymous note",()=>assertAccept(
-			filter.matchNote(makeNoteWithUsers(0),uidMatcher),
-		))
-		it("rejects user note",()=>assertReject(
-			filter.matchNote(makeNoteWithUsers(103),uidMatcher),
-		))
+		accept("anonymous note",filter,makeNoteWithUsers(0))
+		reject("user note",filter,makeNoteWithUsers(103))
 	})
 	context("anonymous uid filter",()=>{
 		const filter=new NoteFilter('user = #0')
-		it("accepts anonymous note",()=>assertAccept(
-			filter.matchNote(makeNoteWithUsers(0),uidMatcher),
-		))
-		it("rejects user note",()=>assertReject(
-			filter.matchNote(makeNoteWithUsers(103),uidMatcher),
-		))
+		accept("anonymous note",filter,makeNoteWithUsers(0))
+		reject("user note",filter,makeNoteWithUsers(103))
 	})
 	context("anonymous user filter",()=>{
 		const filter=new NoteFilter('user != 0')
-		it("rejects anonymous note",()=>assertReject(
-			filter.matchNote(makeNoteWithUsers(0),uidMatcher),
-		))
-		it("accepts user note",()=>assertAccept(
-			filter.matchNote(makeNoteWithUsers(103),uidMatcher),
-		))
+		reject("anonymous note",filter,makeNoteWithUsers(0))
+		accept("user note",filter,makeNoteWithUsers(103))
 	})
 	context("single user url filter",()=>{
 		const filter=new NoteFilter('user = https://www.openstreetmap.org/user/Alice')
-		it("rejects anonymous note",()=>assertReject(
-			filter.matchNote(makeNoteWithUsers(0),uidMatcher),
-		))
-		it("accepts matching user note",()=>assertAccept(
-			filter.matchNote(makeNoteWithUsers(101),uidMatcher),
-		))
-		it("rejects non-matching user note",()=>assertReject(
-			filter.matchNote(makeNoteWithUsers(102),uidMatcher),
-		))
+		reject("anonymous note",filter,makeNoteWithUsers(0))
+		accept("matching user note",filter,makeNoteWithUsers(101))
+		reject("non-matching user note",filter,makeNoteWithUsers(102))
 	})
 	context("double inequality user filter",()=>{
 		const filter=new NoteFilter('user != Alice, user != Bob')
-		it("rejects note with one user equal",()=>assertReject(
-			filter.matchNote(makeNoteWithUsers(101),uidMatcher),
-		))
-		it("accepts note with none user equal",()=>assertAccept(
-			filter.matchNote(makeNoteWithUsers(103),uidMatcher),
-		))
+		reject("note with one user equal",filter,makeNoteWithUsers(101))
+		accept("note with none user equal",filter,makeNoteWithUsers(103))
 	})
 	// context("empty comment filter",()=>{
 	// 	const filter=new NoteFilter('text = ""')
-	// 	it("accepts note with one empty comment",()=>assertAccept(
-	// 		filter.matchNote(makeNoteWithComments(``))
-	// 	))
+	// 	accept("note with one empty comment",filter,makeNoteWithComments(``))
 	// })
 })
