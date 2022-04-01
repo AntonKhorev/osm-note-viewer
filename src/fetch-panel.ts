@@ -94,6 +94,7 @@ export default class NoteFetchPanel {
 					clearStore
 				)
 			} else if (query?.mode=='bbox') {
+				if (bboxDialog.$trackMapCheckbox.checked) map.needToFitNotes=false
 				const commandPanel=new CommandPanel($commandContainer,map,storage)
 				startBboxFetcher(
 					db,
@@ -358,13 +359,15 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 		}
 	}
 	protected addEventListeners(): void {
-		this.map.on('moveend',()=>{
+		const copyBounds=()=>{
 			if (!this.$trackMapCheckbox.checked) return
 			const bounds=this.map.getBounds()
 			// (left,bottom,right,top)
 			this.$bboxInput.value=bounds.getWest()+','+bounds.getSouth()+','+bounds.getEast()+','+bounds.getNorth()
 			// TODO validate this.$bboxInput.value
-		})
+		}
+		this.map.on('moveend',copyBounds)
+		this.$trackMapCheckbox.addEventListener('input',copyBounds)
 		this.$bboxInput.addEventListener('input',()=>{
 			// TODO validate this.$bboxInput.value
 			this.$trackMapCheckbox.checked=false
