@@ -22,7 +22,7 @@ export default class NoteFetchPanel {
 			modifyHistory(query,true)
 			runStartFetcher(query,true)
 		})
-		const bboxDialog=new NoteBboxFetchDialog()
+		const bboxDialog=new NoteBboxFetchDialog(map)
 		bboxDialog.write($container,query=>{
 			modifyHistory(query,true)
 			runStartFetcher(query,true)
@@ -301,6 +301,9 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 	$trackMapCheckbox=document.createElement('input')
 	$statusSelect=document.createElement('select')
 	$limitSelect=document.createElement('select')
+	constructor(private map: NoteMap) {
+		super()
+	}
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{
 			this.$bboxInput.type='text'
@@ -355,8 +358,15 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 		}
 	}
 	protected addEventListeners(): void {
-		// TODO add bbox validator
+		this.map.on('moveend',()=>{
+			if (!this.$trackMapCheckbox.checked) return
+			const bounds=this.map.getBounds()
+			// (left,bottom,right,top)
+			this.$bboxInput.value=bounds.getWest()+','+bounds.getSouth()+','+bounds.getEast()+','+bounds.getNorth()
+			// TODO validate this.$bboxInput.value
+		})
 		this.$bboxInput.addEventListener('input',()=>{
+			// TODO validate this.$bboxInput.value
 			this.$trackMapCheckbox.checked=false
 		})
 	}
