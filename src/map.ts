@@ -50,7 +50,9 @@ export class NoteMap extends L.Map {
 	trackLayer: L.FeatureGroup
 	needToFitNotes: boolean = false
 	constructor($container: HTMLElement) {
-		super($container)
+		super($container,{
+			worldCopyJump: true
+		})
 		this.addLayer(L.tileLayer(
 			'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
 			{
