@@ -77,12 +77,15 @@ export class NoteMap extends L.Map {
 		this.trackLayer.clearLayers()
 		this.needToFitNotes=true
 	}
-	fitNotesIfNeeded(): void {
-		if (!this.needToFitNotes) return
+	fitNotes(): void {
 		const bounds=this.noteLayer.getBounds()
 		if (!bounds.isValid()) return
 		this.fitBounds(bounds)
 		this.needToFitNotes=false
+	}
+	fitNotesIfNeeded(): void {
+		if (!this.needToFitNotes) return
+		this.fitNotes()
 	}
 	showNoteTrack(layerIds: number[]): void {
 		const polylineOptions: L.PolylineOptions = {

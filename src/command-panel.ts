@@ -3,7 +3,7 @@ import {NoteMap} from './map'
 import {makeLink} from './util'
 
 export default class CommandPanel {
-	private $trackCheckbox: HTMLInputElement
+	private $fitModeSelect=document.createElement('select')
 	private $loadNotesButton: HTMLButtonElement
 	private $commentTimeSelect: HTMLSelectElement
 	private $commentTimeInput: HTMLInputElement
@@ -19,15 +19,21 @@ export default class CommandPanel {
 		{
 			const $div=document.createElement('div')
 			const $label=document.createElement('label')
-			const $trackCheckbox=document.createElement('input')
-			$trackCheckbox.type='checkbox'
-			$trackCheckbox.addEventListener('change',()=>{
-				if ($trackCheckbox.checked) map.fitNoteTrack()
+			this.$fitModeSelect.append(
+				new Option('all notes','allNotes'),
+				new Option('notes in table view','inViewNotes'),
+				new Option('none','none')
+			)
+			this.$fitModeSelect.addEventListener('change',()=>{
+				if (this.fitMode=='allNotes') {
+					map.fitNotes()
+				} else if (this.fitMode=='inViewNotes') {
+					map.fitNoteTrack()
+				}
 			})
-			$label.append($trackCheckbox,` track visible notes on the map`)
+			$label.append(`Automatically zoom/pan to `,this.$fitModeSelect)
 			$div.append($label)
 			$container.append($div)
-			this.$trackCheckbox=$trackCheckbox
 		}{
 			const $commandGroup=makeCommandGroup(
 				'timestamp',
@@ -258,11 +264,12 @@ export default class CommandPanel {
 		this.checkedCommentText=checkedCommentText
 		this.pickCommentTime()
 	}
-	isTracking(): boolean {
-		return this.$trackCheckbox.checked
+	get fitMode(): 'allNotes' | 'inViewNotes' | undefined {
+		const mode=this.$fitModeSelect.value
+		if (mode=='allNotes' || mode=='inViewNotes') return mode
 	}
-	disableTracking(): void {
-		this.$trackCheckbox.checked=false
+	disableFitting(): void {
+		this.$fitModeSelect.value='none'
 	}
 	private pickCommentTime(): void {
 		const setTime=(time:string):void=>{

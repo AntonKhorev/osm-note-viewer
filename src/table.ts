@@ -185,7 +185,11 @@ export default class NoteTable {
 				iComment++
 			}
 		}
-		this.map.fitNotesIfNeeded()
+		if (this.commandPanel.fitMode=='allNotes') {
+			this.map.fitNotes()
+		} else {
+			this.map.fitNotesIfNeeded()
+		}
 		let nFetched=0
 		let nVisible=0
 		for (const $noteSection of this.$table.querySelectorAll('tbody')) {
@@ -219,7 +223,7 @@ export default class NoteTable {
 		return $noteSection
 	}
 	private noteMarkerClickListener(marker: NoteMarker): void {
-		this.commandPanel.disableTracking()
+		this.commandPanel.disableFitting()
 		this.deactivateAllNotes()
 		const $noteRows=document.getElementById(`note-`+marker.noteId)
 		if (!$noteRows) return
@@ -309,7 +313,7 @@ function makeNoteSectionObserver(
 			if (visibility) visibleLayerIds.push(layerId)
 		}
 		map.showNoteTrack(visibleLayerIds)
-		if (commandPanel.isTracking()) map.fitNoteTrack()
+		if (commandPanel.fitMode=='inViewNotes') map.fitNoteTrack()
 	}
 }
 
