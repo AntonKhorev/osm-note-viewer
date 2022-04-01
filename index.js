@@ -321,14 +321,17 @@ class NoteMap extends L.Map {
         this.trackLayer.clearLayers();
         this.needToFitNotes = true;
     }
-    fitNotesIfNeeded() {
-        if (!this.needToFitNotes)
-            return;
+    fitNotes() {
         const bounds = this.noteLayer.getBounds();
         if (!bounds.isValid())
             return;
         this.fitBounds(bounds);
         this.needToFitNotes = false;
+    }
+    fitNotesIfNeeded() {
+        if (!this.needToFitNotes)
+            return;
+        this.fitNotes();
     }
     showNoteTrack(layerIds) {
         const polylineOptions = {
@@ -413,22 +416,22 @@ function makeLink(text, href, title) {
 
 class CommandPanel {
     constructor($container, map, storage) {
+        this.$fitModeSelect = document.createElement('select');
         this.checkedNoteIds = [];
         const centerChar = '⌖';
         const areaChar = '▭';
         {
-            const $div = document.createElement('div');
-            const $label = document.createElement('label');
-            const $trackCheckbox = document.createElement('input');
-            $trackCheckbox.type = 'checkbox';
-            $trackCheckbox.addEventListener('change', () => {
-                if ($trackCheckbox.checked)
+            const $commandGroup = makeCommandGroup('autozoom', `Automatic zoom`);
+            this.$fitModeSelect.append(new Option('is disabled', 'none'), new Option('to notes in table view', 'inViewNotes'), new Option('to all notes', 'allNotes'));
+            this.$fitModeSelect.addEventListener('change', () => {
+                if (this.fitMode == 'allNotes') {
+                    map.fitNotes();
+                }
+                else if (this.fitMode == 'inViewNotes') {
                     map.fitNoteTrack();
+                }
             });
-            $label.append($trackCheckbox, ` track visible notes on the map`);
-            $div.append($label);
-            $container.append($div);
-            this.$trackCheckbox = $trackCheckbox;
+            $commandGroup.append(this.$fitModeSelect);
         }
         {
             const $commandGroup = makeCommandGroup('timestamp', `Timestamp for historic queries`);
@@ -643,11 +646,13 @@ class CommandPanel {
         this.checkedCommentText = checkedCommentText;
         this.pickCommentTime();
     }
-    isTracking() {
-        return this.$trackCheckbox.checked;
+    get fitMode() {
+        const mode = this.$fitModeSelect.value;
+        if (mode == 'allNotes' || mode == 'inViewNotes')
+            return mode;
     }
-    disableTracking() {
-        this.$trackCheckbox.checked = false;
+    disableFitting() {
+        this.$fitModeSelect.value = 'none';
     }
     pickCommentTime() {
         const setTime = (time) => {
@@ -1372,7 +1377,12 @@ class NoteTable {
                 iComment++;
             }
         }
-        this.map.fitNotesIfNeeded();
+        if (this.commandPanel.fitMode == 'allNotes') {
+            this.map.fitNotes();
+        }
+        else {
+            this.map.fitNotesIfNeeded();
+        }
         let nFetched = 0;
         let nVisible = 0;
         for (const $noteSection of this.$table.querySelectorAll('tbody')) {
@@ -1409,7 +1419,7 @@ class NoteTable {
         return $noteSection;
     }
     noteMarkerClickListener(marker) {
-        this.commandPanel.disableTracking();
+        this.commandPanel.disableFitting();
         this.deactivateAllNotes();
         const $noteRows = document.getElementById(`note-` + marker.noteId);
         if (!$noteRows)
@@ -1506,7 +1516,7 @@ function makeNoteSectionObserver(commandPanel, map, noteSectionLayerIdVisibility
                 visibleLayerIds.push(layerId);
         }
         map.showNoteTrack(visibleLayerIds);
-        if (commandPanel.isTracking())
+        if (commandPanel.fitMode == 'inViewNotes')
             map.fitNoteTrack();
     }
 }
@@ -2263,6 +2273,13 @@ class NoteFilter {
                     conditions.push({ type: 'action', operator, action });
                     continue;
                 }
+                else if (match = term.match(/^text\s*(!?=)\s*"([^"]*)"$/)) {
+                    const [, operator, text] = match;
+                    if (operator != '=' && operator != '!=')
+                        continue; // impossible
+                    conditions.push({ type: 'text', operator, text });
+                    continue;
+                }
                 // TODO parse error?
             }
             if (conditions.length > 0)
@@ -2312,6 +2329,9 @@ class NoteFilter {
             }
             else if (condition.type == 'action') {
                 return comment.action == condition.action;
+            }
+            else if (condition.type == 'text') {
+                return comment.text == condition.text;
             }
             return false; // shouldn't happen
         };
@@ -2389,11 +2409,14 @@ const syntaxDescription = `<summary>Filter syntax</summary>
 <dt>${term('comment condition')}
 <dd>One of:
 	<ul>
-	<li><dl><dt><kbd>user ${term('comparison operator')} ${term('user descriptor')}</kbd>
+	<li><dl><dt><kbd>user </kbd>${term('comparison operator')}<kbd> </kbd>${term('user descriptor')}
 		<dd>comment (not) by a specified user
 	</dl>
-	<li><dl><dt><kbd>user ${term('comparison operator')} ${term('action descriptor')}</kbd>
+	<li><dl><dt><kbd>action </kbd>${term('comparison operator')}<kbd> </kbd>${term('action descriptor')}
 		<dd>comment (not) performing a specified action
+	</dl>
+	<li><dl><dt><kbd>text </kbd>${term('comparison operator')}<kbd> "</kbd>${term('search string')}<kbd>"</kbd>
+		<dd>comment (not) equal to a specified text
 	</dl>
 	</ul>
 <dt>${term('comparison operator')}
@@ -2408,6 +2431,7 @@ const syntaxExamples = [
     [`Notes commented by user A, later commented by user B`, [`user = A`, `*`, `user = B`]],
     [`Notes opened by user A`, [`^`, `user = A`]],
     [`Notes closed by user A that were opened by somebody else`, [`^`, `user != A`, `*`, `user = A, action = closed`]],
+    [`Notes closed without a comment as their last action`, [`action = closed, text = ""`, `$`]],
 ];
 function term(t) {
     return `<em>&lt;${t}&gt;</em>`;
