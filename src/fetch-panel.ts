@@ -122,6 +122,7 @@ abstract class NoteFetchDialog {
 			this.makeDownloadModeFieldset(),
 			this.makeFetchButtonDiv()
 		)
+		this.addEventListeners()
 		$form.addEventListener('submit',(ev)=>{
 			ev.preventDefault()
 			const query=this.constructQuery()
@@ -297,6 +298,7 @@ class NoteSearchFetchDialog extends NoteFetchDialog {
 class NoteBboxFetchDialog extends NoteFetchDialog {
 	title=`Get notes inside small rectangular area`
 	$bboxInput=document.createElement('input')
+	$trackMapCheckbox=document.createElement('input')
 	$statusSelect=document.createElement('select')
 	$limitSelect=document.createElement('select')
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
@@ -307,6 +309,14 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 			$div.classList.add('major-input')
 			const $label=document.createElement('label')
 			$label.append(`Bounding box (left,bottom,right,top): `,this.$bboxInput)
+			$div.append($label)
+			$fieldset.append($div)
+		}{
+			this.$trackMapCheckbox.type='checkbox'
+			this.$trackMapCheckbox.checked=true
+			const $div=document.createElement('div')
+			const $label=document.createElement('label')
+			$label.append(this.$trackMapCheckbox,` Update bounding box value with current map area`)
 			$div.append($label)
 			$fieldset.append($div)
 		}{
@@ -346,6 +356,9 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 	}
 	protected addEventListeners(): void {
 		// TODO add bbox validator
+		this.$bboxInput.addEventListener('input',()=>{
+			this.$trackMapCheckbox.checked=false
+		})
 	}
 	protected constructQuery(): NoteQuery | undefined {
 		return makeNoteBboxQueryFromValues(
