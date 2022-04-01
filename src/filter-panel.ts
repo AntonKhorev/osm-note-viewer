@@ -28,11 +28,14 @@ const syntaxDescription=`<summary>Filter syntax</summary>
 <dt>${term('comment condition')}
 <dd>One of:
 	<ul>
-	<li><dl><dt><kbd>user ${term('comparison operator')} ${term('user descriptor')}</kbd>
+	<li><dl><dt><kbd>user </kbd>${term('comparison operator')}<kbd> </kbd>${term('user descriptor')}
 		<dd>comment (not) by a specified user
 	</dl>
-	<li><dl><dt><kbd>user ${term('comparison operator')} ${term('action descriptor')}</kbd>
+	<li><dl><dt><kbd>action </kbd>${term('comparison operator')}<kbd> </kbd>${term('action descriptor')}
 		<dd>comment (not) performing a specified action
+	</dl>
+	<li><dl><dt><kbd>text </kbd>${term('comparison operator')}<kbd> "</kbd>${term('search string')}<kbd>"</kbd>
+		<dd>comment (not) equal to a specified text
 	</dl>
 	</ul>
 <dt>${term('comparison operator')}
@@ -48,6 +51,7 @@ const syntaxExamples: Array<[string,string[]]> = [
 	[`Notes commented by user A, later commented by user B`,[`user = A`,`*`,`user = B`]],
 	[`Notes opened by user A`,[`^`,`user = A`]],
 	[`Notes closed by user A that were opened by somebody else`,[`^`,`user != A`,`*`,`user = A, action = closed`]],
+	[`Notes closed without a comment as their last action`,[`action = closed, text = ""`,`$`]],
 ]
 
 function term(t:string):string {

@@ -26,7 +26,12 @@ interface ActionCondition extends BaseCondition {
 	action: 'opened' | 'closed' | 'reopened' | 'commented' | 'hidden'
 }
 
-type Condition = UserCondition | ActionCondition
+interface TextCondition extends BaseCondition {
+	type: 'text'
+	text: string
+}
+
+type Condition = UserCondition | ActionCondition | TextCondition
 
 interface ConditionsStatement {
 	type: 'conditions',
@@ -63,6 +68,11 @@ export default class NoteFilter {
 					if (operator!='=' && operator!='!=') continue // impossible
 					if (action!='opened' && action!='closed' && action!='reopened' && action!='commented' && action!='hidden') continue
 					conditions.push({type:'action',operator,action})
+					continue
+				} else if (match=term.match(/^text\s*(!?=)\s*"([^"]*)"$/)) {
+					const [,operator,text]=match
+					if (operator!='=' && operator!='!=') continue // impossible
+					conditions.push({type:'text',operator,text})
 					continue
 				}
 				// TODO parse error?
@@ -104,6 +114,8 @@ export default class NoteFilter {
 				return true
 			} else if (condition.type=='action') {
 				return comment.action==condition.action
+			} else if (condition.type=='text') {
+				return comment.text==condition.text
 			}
 			return false // shouldn't happen
 		}
