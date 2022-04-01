@@ -1,6 +1,6 @@
 import NoteViewerDB, {FetchEntry} from './db'
 import {Note, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesAndUsers} from './data'
-import {NoteSearchQuery, getNextFetchDetails, makeNoteQueryString} from './query'
+import {NoteQuery, NoteSearchQuery, NoteBboxQuery, getNextFetchDetails, makeNoteQueryString} from './query'
 import NoteFilterPanel from './filter-panel'
 import {NoteMap} from './map'
 import CommandPanel from './command-panel'
@@ -10,7 +10,7 @@ const maxSingleAutoLoadLimit=200
 const maxTotalAutoLoadLimit=1000
 const maxFullyFilteredFetches=10
 
-export async function startFetcher(
+export async function startSearchFetcher(
 	db: NoteViewerDB,
 	$notesContainer: HTMLElement, $moreContainer: HTMLElement,
 	filterPanel: NoteFilterPanel, commandPanel: CommandPanel, map: NoteMap,
@@ -149,6 +149,123 @@ export async function startFetcher(
 	}
 }
 
+export async function startBboxFetcher( // TODO cleanup copypaste from above
+	db: NoteViewerDB,
+	$notesContainer: HTMLElement, $moreContainer: HTMLElement,
+	filterPanel: NoteFilterPanel, commandPanel: CommandPanel, map: NoteMap,
+	$limitSelect: HTMLSelectElement, /*$autoLoadCheckbox: HTMLInputElement,*/ $fetchButton: HTMLButtonElement,
+	moreButtonIntersectionObservers: IntersectionObserver[],
+	query: NoteBboxQuery,
+	clearStore: boolean
+) {
+	filterPanel.unsubscribe()
+	let noteTable: NoteTable | undefined
+	const [notes,users,mergeNotesAndUsers]=makeNotesAndUsersAndMerger()
+	const queryString=makeNoteQueryString(query)
+	const fetchEntry: FetchEntry = await(async()=>{
+		if (clearStore) {
+			return await db.clear(queryString)
+		} else {
+			const [fetchEntry,initialNotes,initialUsers]=await db.load(queryString) // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
+			mergeNotesAndUsers(initialNotes,initialUsers)
+			return fetchEntry
+		}
+	})()
+	filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(notes,users,noteFilter))
+	// let lastNote: Note | undefined
+	// let prevLastNote: Note | undefined
+	// let lastLimit: number | undefined
+	let nFullyFilteredFetches=0
+	let holdOffAutoLoad=false
+	if (!clearStore) {
+		addNewNotes(notes)
+		if (notes.length>0) {
+			// lastNote=notes[notes.length-1]
+			rewriteLoadMoreButton()
+		} else {
+			holdOffAutoLoad=true // db was empty; expected to show something => need to fetch; not expected to autoload
+			await fetchCycle()
+		}
+	} else {
+		await fetchCycle()
+	}
+	function addNewNotes(newNotes: Note[]) {
+		if (!noteTable) {
+			noteTable=new NoteTable($notesContainer,commandPanel,map,filterPanel.noteFilter)
+		}
+		const nUnfilteredNotes=noteTable.addNotes(newNotes,users)
+		if (nUnfilteredNotes==0) {
+			nFullyFilteredFetches++
+		} else {
+			nFullyFilteredFetches=0
+		}
+	}
+	async function fetchCycle() {
+		rewriteLoadingButton()
+		const limit=getLimit($limitSelect)
+		// { different
+		const parameters=`bbox=`+encodeURIComponent(query.bbox)+'&closed='+encodeURIComponent(query.closed)+'&limit='+encodeURIComponent(limit)
+		const url=`https://api.openstreetmap.org/api/0.6/notes.json?`+parameters
+		// } different
+		$fetchButton.disabled=true
+		try {
+			const response=await fetch(url)
+			if (!response.ok) {
+				const responseText=await response.text()
+				rewriteFetchErrorMessage($moreContainer,query,`received the following error response`,responseText)
+				return
+			}
+			const data=await response.json()
+			if (!isNoteFeatureCollection(data)) {
+				rewriteMessage($moreContainer,`Received invalid data`)
+				return
+			}
+			const [unseenNotes,unseenUsers]=mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data))
+			await db.save(fetchEntry,notes,unseenNotes,users,unseenUsers)
+			if (!noteTable && notes.length<=0) {
+				rewriteMessage($moreContainer,`No matching notes found`)
+				return
+			}
+			addNewNotes(unseenNotes)
+			// { different
+			if (notes.length<limit) {
+				rewriteMessage($moreContainer,`Got all ${notes.length} notes in the area`)
+			} else {
+				rewriteMessage($moreContainer,`Got all ${notes.length} requested notes`)
+			}
+			return
+			// } different
+		} catch (ex) {
+			if (ex instanceof TypeError) {
+				rewriteFetchErrorMessage($moreContainer,query,`failed with the following error before receiving a response`,ex.message)
+			} else {
+				rewriteFetchErrorMessage($moreContainer,query,`failed for unknown reason`,`${ex}`)
+			}
+		} finally {
+			$fetchButton.disabled=false
+		}
+	}
+	function rewriteLoadMoreButton(): HTMLButtonElement {
+		$moreContainer.innerHTML=''
+		const $div=document.createElement('div')
+		const $button=document.createElement('button')
+		$button.textContent=`Load more notes`
+		$button.addEventListener('click',fetchCycle)
+		$div.append($button)
+		$moreContainer.append($div)
+		return $button
+	}
+	function rewriteLoadingButton(): void {
+		$moreContainer.innerHTML=''
+		const $div=document.createElement('div')
+		const $button=document.createElement('button')
+		$button.textContent=`Loading notes...`
+		$button.disabled=true
+		$div.append($button)
+		$moreContainer.append($div)
+	}
+}
+
 function makeNotesAndUsersAndMerger(): [
 	notes: Note[], users: Users,
 	merger: (newNotes: Note[], newUsers: Users) => [Note[],Users]
@@ -196,7 +313,7 @@ function rewriteErrorMessage($container: HTMLElement, ...items: Array<string>): 
 	return $message
 }
 
-function rewriteFetchErrorMessage($container: HTMLElement, query: NoteSearchQuery, responseKindText: string, fetchErrorText: string): void {
+function rewriteFetchErrorMessage($container: HTMLElement, query: NoteQuery, responseKindText: string, fetchErrorText: string): void {
 	// TODO display query details
 	const $message=rewriteErrorMessage($container,`Loading notes ${responseKindText}:`)
 	const $error=document.createElement('pre')

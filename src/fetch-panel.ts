@@ -7,7 +7,7 @@ import CommandPanel from './command-panel'
 import {NoteQuery, makeNoteSearchQueryFromValues, makeNoteBboxQueryFromValues,makeNoteQueryFromHash, makeNoteQueryString} from './query'
 import {toUserQuery} from './query-user'
 import {toReadableDate, toDateQuery} from './query-date'
-import {startFetcher} from './fetch'
+import {startSearchFetcher, startBboxFetcher} from './fetch'
 
 export default class NoteFetchPanel {
 	constructor(
@@ -84,7 +84,7 @@ export default class NoteFetchPanel {
 			}
 			if (query?.mode=='search') {
 				const commandPanel=new CommandPanel($commandContainer,map,storage)
-				startFetcher(
+				startSearchFetcher(
 					db,
 					$notesContainer,$moreContainer,
 					filterPanel,commandPanel,map,
@@ -94,7 +94,16 @@ export default class NoteFetchPanel {
 					clearStore
 				)
 			} else if (query?.mode=='bbox') {
-				console.log('TODO bbox query',query)
+				const commandPanel=new CommandPanel($commandContainer,map,storage)
+				startBboxFetcher(
+					db,
+					$notesContainer,$moreContainer,
+					filterPanel,commandPanel,map,
+					bboxDialog.$limitSelect,/*bboxDialog.$autoLoadCheckbox,*/bboxDialog.$fetchButton,
+					moreButtonIntersectionObservers,
+					query,
+					clearStore
+				)
 			}
 		}
 	}

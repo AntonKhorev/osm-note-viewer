@@ -95,6 +95,8 @@ export default class ExtrasPanel {
 			makeLink(`API`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API`),
 			` (`,
 			makeLink(`search`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch`),
+			`, `,
+			makeLink(`bbox`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_.2Fapi.2F0.6.2Fnotes`),
 			`), `,
 			makeLink(`GeoJSON`,`https://wiki.openstreetmap.org/wiki/GeoJSON`),
 			` (output format used for notes/search.json api calls)`
