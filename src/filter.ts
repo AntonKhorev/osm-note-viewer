@@ -50,7 +50,9 @@ function isValidOperator(op: string): op is Operator {
 export default class NoteFilter {
 	private statements: Statement[] = []
 	constructor(private query: string) {
+		let lineNumber=0
 		lineLoop: for (const untrimmedLine of query.split('\n')) {
+			lineNumber++
 			const line=untrimmedLine.trim()
 			if (!line) continue
 			for (const c of ['^','$','*'] as const) {
@@ -69,13 +71,17 @@ export default class NoteFilter {
 					const [,operator,user]=match
 					if (!isValidOperator(operator)) continue // impossible
 					const userQuery=toUserQuery(user)
-					if (userQuery.userType=='invalid' || userQuery.userType=='empty') continue // TODO parse error?
+					if (userQuery.userType=='invalid' || userQuery.userType=='empty') {
+						throwError(`Invalid user value "${user}"`)
+					}
 					conditions.push({type:'user',operator,...userQuery})
 					continue
 				} else if (match=matchTerm('action','(.+)')) {
 					const [,operator,action]=match
 					if (!isValidOperator(operator)) continue // impossible
-					if (action!='opened' && action!='closed' && action!='reopened' && action!='commented' && action!='hidden') continue
+					if (action!='opened' && action!='closed' && action!='reopened' && action!='commented' && action!='hidden') {
+						throwError(`Invalid action value "${action}"`)
+					}
 					conditions.push({type:'action',operator,action})
 					continue
 				} else if (match=matchTerm('text','"([^"]*)"')) {
@@ -84,7 +90,10 @@ export default class NoteFilter {
 					conditions.push({type:'text',operator,text})
 					continue
 				}
-				// TODO parse error?
+				throwError(`Syntax error`)
+				function throwError(message: string): never {
+					throw new RangeError(`${message} on line ${lineNumber}: ${line}`)
+				}
 			}
 			if (conditions.length>0) this.statements.push({type:'conditions',conditions})
 		}

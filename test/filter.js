@@ -57,6 +57,15 @@ describe("NoteFilter",()=>{
 	const reject=(what,filter,note)=>it("rejects "+what,()=>assertReject(
 		filter.matchNote(note,getUsername)
 	))
+	it("fails on syntax error",()=>assert.throws(()=>{
+		new NoteFilter('=')
+	}))
+	it("fails on invalid action",()=>assert.throws(()=>{
+		new NoteFilter('action = fail')
+	}))
+	it("fails on invalid user",()=>assert.throws(()=>{
+		new NoteFilter('user = ///')
+	}))
 	context("blank filter",()=>{
 		const filter=new NoteFilter('')
 		accept("anonymous note",filter,makeNoteWithUsers(0))

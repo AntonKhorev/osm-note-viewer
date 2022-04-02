@@ -68,7 +68,7 @@ export default class NoteFilterPanel {
 		const $form=document.createElement('form')
 		const $textarea=document.createElement('textarea')
 		const $button=document.createElement('button')
-		this.noteFilter=new NoteFilter($textarea.value)
+		this.noteFilter=new NoteFilter(``)
 		{
 			const $details=document.createElement('details')
 			$details.innerHTML=syntaxDescription
@@ -106,10 +106,22 @@ export default class NoteFilterPanel {
 		}
 		$textarea.addEventListener('input',()=>{
 			$button.disabled=this.noteFilter.isSameQuery($textarea.value)
+			try {
+				new NoteFilter($textarea.value)
+				$textarea.setCustomValidity('')
+			} catch (ex) {
+				let message=`Syntax error`
+				if (ex instanceof RangeError) message=ex.message
+				$textarea.setCustomValidity(message)
+			}
 		})
 		$form.addEventListener('submit',(ev)=>{
 			ev.preventDefault()
-			this.noteFilter=new NoteFilter($textarea.value)
+			try {
+				this.noteFilter=new NoteFilter($textarea.value)
+			} catch (ex) {
+				return
+			}
 			if (this.callback) this.callback(this.noteFilter)
 			$button.disabled=true
 		})
