@@ -99,6 +99,11 @@ body.flipped .panel.fetch button.flip {
 .panel.command details[open] summary::after {
 	content: ': ';
 }
+.panel input:invalid,
+.panel textarea:invalid {
+	border: solid 2px red;
+	border-radius: 3px;
+}
 .panel .major-input input[type=text],
 .panel .major-input textarea,
 .panel .major-input button {

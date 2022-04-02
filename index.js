@@ -413,6 +413,9 @@ function makeLink(text, href, title) {
         $link.title = title;
     return $link;
 }
+function escapeRegex(text) {
+    return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
 
 class CommandPanel {
     constructor($container, map, storage) {
@@ -1250,7 +1253,7 @@ class NoteTable {
         for (const note of notes) {
             noteById.set(note.id, note);
         }
-        const uidMatcher = this.makeUidMatcher(users);
+        const getUsername = (uid) => users[uid];
         for (const $noteSection of this.$table.querySelectorAll('tbody')) {
             const noteId = Number($noteSection.dataset.noteId);
             const note = noteById.get(noteId);
@@ -1258,7 +1261,7 @@ class NoteTable {
             if (note == null)
                 continue;
             nFetched++;
-            if (this.filter.matchNote(note, uidMatcher)) {
+            if (this.filter.matchNote(note, getUsername)) {
                 nVisible++;
                 const marker = this.map.filteredNoteLayer.getLayer(layerId);
                 if (marker) {
@@ -1288,9 +1291,9 @@ class NoteTable {
      */
     addNotes(notes, users) {
         let nUnfilteredNotes = 0;
-        const uidMatcher = this.makeUidMatcher(users);
+        const getUsername = (uid) => users[uid];
         for (const note of notes) {
-            const isVisible = this.filter.matchNote(note, uidMatcher);
+            const isVisible = this.filter.matchNote(note, getUsername);
             if (isVisible)
                 nUnfilteredNotes++;
             const $noteSection = this.writeNote(note, isVisible);
@@ -1394,9 +1397,6 @@ class NoteTable {
         }
         this.commandPanel.receiveNoteCounts(nFetched, nVisible);
         return nUnfilteredNotes;
-    }
-    makeUidMatcher(users) {
-        return (uid, username) => users[uid] == username;
     }
     writeNote(note, isVisible) {
         const marker = new NoteMarker(note);
@@ -2236,11 +2236,16 @@ function modifyHistory(query, push) {
     }
 }
 
+function isValidOperator(op) {
+    return (op == '=' || op == '!=' || op == '~=');
+}
 class NoteFilter {
     constructor(query) {
         this.query = query;
         this.statements = [];
+        let lineNumber = 0;
         lineLoop: for (const untrimmedLine of query.split('\n')) {
+            lineNumber++;
             const line = untrimmedLine.trim();
             if (!line)
                 continue;
@@ -2253,34 +2258,41 @@ class NoteFilter {
             const conditions = [];
             for (const untrimmedTerm of line.split(',')) {
                 const term = untrimmedTerm.trim();
+                const makeRegExp = (symbol, rest) => new RegExp(`^${symbol}\\s*([!~]?=)\\s*${rest}$`);
+                const matchTerm = (symbol, rest) => term.match(makeRegExp(symbol, rest));
                 let match;
-                if (match = term.match(/^user\s*(!?=)\s*(.+)$/)) {
+                if (match = matchTerm('user', '(.+)')) {
                     const [, operator, user] = match;
-                    if (operator != '=' && operator != '!=')
+                    if (!isValidOperator(operator))
                         continue; // impossible
                     const userQuery = toUserQuery(user);
-                    if (userQuery.userType == 'invalid' || userQuery.userType == 'empty')
-                        continue; // TODO parse error?
+                    if (userQuery.userType == 'invalid' || userQuery.userType == 'empty') {
+                        throwError(`Invalid user value "${user}"`);
+                    }
                     conditions.push({ type: 'user', operator, ...userQuery });
                     continue;
                 }
-                else if (match = term.match(/^action\s*(!?=)\s*(.+)$/)) {
+                else if (match = matchTerm('action', '(.+)')) {
                     const [, operator, action] = match;
-                    if (operator != '=' && operator != '!=')
+                    if (!isValidOperator(operator))
                         continue; // impossible
-                    if (action != 'opened' && action != 'closed' && action != 'reopened' && action != 'commented' && action != 'hidden')
-                        continue;
+                    if (action != 'opened' && action != 'closed' && action != 'reopened' && action != 'commented' && action != 'hidden') {
+                        throwError(`Invalid action value "${action}"`);
+                    }
                     conditions.push({ type: 'action', operator, action });
                     continue;
                 }
-                else if (match = term.match(/^text\s*(!?=)\s*"([^"]*)"$/)) {
+                else if (match = matchTerm('text', '"([^"]*)"')) {
                     const [, operator, text] = match;
-                    if (operator != '=' && operator != '!=')
+                    if (!isValidOperator(operator))
                         continue; // impossible
                     conditions.push({ type: 'text', operator, text });
                     continue;
                 }
-                // TODO parse error?
+                throwError(`Syntax error`);
+                function throwError(message) {
+                    throw new RangeError(`${message} on line ${lineNumber}: ${line}`);
+                }
             }
             if (conditions.length > 0)
                 this.statements.push({ type: 'conditions', conditions });
@@ -2299,41 +2311,83 @@ class NoteFilter {
     isSameQuery(query) {
         return this.query == query;
     }
-    matchNote(note, uidMatcher) {
+    matchNote(note, getUsername) {
         // console.log('> match',this.statements,note.comments)
-        const isCommentValueEqualToConditionValue = (condition, comment) => {
-            if (condition.type == 'user') {
-                if (condition.userType == 'id') {
-                    if (condition.uid == 0) {
-                        if (comment.uid != null)
-                            return false;
-                    }
-                    else {
-                        if (comment.uid != condition.uid)
-                            return false;
-                    }
+        const isCommentEqualToUserConditionValue = (condition, comment) => {
+            if (condition.userType == 'id') {
+                if (condition.uid == 0) {
+                    if (comment.uid != null)
+                        return false;
                 }
                 else {
-                    if (condition.username == '0') {
-                        if (comment.uid != null)
-                            return false;
-                    }
-                    else {
-                        if (comment.uid == null)
-                            return false;
-                        if (!uidMatcher(comment.uid, condition.username))
-                            return false;
-                    }
+                    if (comment.uid != condition.uid)
+                        return false;
                 }
-                return true;
+            }
+            else {
+                if (condition.username == '0') {
+                    if (comment.uid != null)
+                        return false;
+                }
+                else {
+                    if (comment.uid == null)
+                        return false;
+                    if (getUsername(comment.uid) != condition.username)
+                        return false;
+                }
+            }
+            return true;
+        };
+        const getConditionActualValue = (condition, comment) => {
+            if (condition.type == 'user') {
+                if (condition.userType == 'id') {
+                    return comment.uid;
+                }
+                else {
+                    if (comment.uid == null)
+                        return undefined;
+                    return getUsername(comment.uid);
+                }
             }
             else if (condition.type == 'action') {
-                return comment.action == condition.action;
+                return comment.action;
             }
             else if (condition.type == 'text') {
-                return comment.text == condition.text;
+                return comment.text;
             }
+        };
+        const getConditionCompareValue = (condition) => {
+            if (condition.type == 'user') {
+                if (condition.userType == 'id') {
+                    return condition.uid;
+                }
+                else {
+                    return condition.username;
+                }
+            }
+            else if (condition.type == 'action') {
+                return condition.action;
+            }
+            else if (condition.type == 'text') {
+                return condition.text;
+            }
+        };
+        const isOperatorMatches = (operator, actualValue, compareValue) => {
+            const str = (v) => String(v ?? '');
+            if (operator == '=')
+                return actualValue == compareValue;
+            if (operator == '!=')
+                return actualValue != compareValue;
+            if (operator == '~=')
+                return !!str(actualValue).match(new RegExp(escapeRegex(str(compareValue)), 'i'));
             return false; // shouldn't happen
+        };
+        const isConditionMatches = (condition, comment) => {
+            if (condition.type == 'user' && (condition.operator == '=' || condition.operator == '!=')) {
+                const isEqual = isCommentEqualToUserConditionValue(condition, comment);
+                return condition.operator == '=' ? isEqual : !isEqual;
+            }
+            return isOperatorMatches(condition.operator, getConditionActualValue(condition, comment), getConditionCompareValue(condition));
         };
         // const rec=(iStatement: number, iComment: number): boolean => {
         // 	console.log('>> rec',iStatement,iComment)
@@ -2364,12 +2418,7 @@ class NoteFilter {
             const comment = note.comments[iComment];
             if (statement.type == 'conditions') {
                 for (const condition of statement.conditions) {
-                    let ok = isCommentValueEqualToConditionValue(condition, comment);
-                    if (condition.operator == '=') ;
-                    else if (condition.operator == '!=') {
-                        ok = !ok;
-                    }
-                    if (!ok)
+                    if (!isConditionMatches(condition, comment))
                         return false;
                 }
                 return rec(iStatement + 1, iComment + 1);
@@ -2420,7 +2469,7 @@ const syntaxDescription = `<summary>Filter syntax</summary>
 	</dl>
 	</ul>
 <dt>${term('comparison operator')}
-<dd>One of: <kbd>=</kbd> <kbd>!=</kbd>
+<dd>One of: <kbd>=</kbd> <kbd>!=</kbd> <kbd>~=</kbd> (case-insensitive substring match)
 <dt>${term('user descriptor')}
 <dd>OSM username, URL or #id, like in a fetch query input. Additionally you can specify username <kbd>0</kbd> or id <kbd>#0</kbd> to match anonymous users. No user with actual name "0" can exist because it's too short.
 <dt>${term('action descriptor')}
@@ -2441,7 +2490,7 @@ class NoteFilterPanel {
         const $form = document.createElement('form');
         const $textarea = document.createElement('textarea');
         const $button = document.createElement('button');
-        this.noteFilter = new NoteFilter($textarea.value);
+        this.noteFilter = new NoteFilter(``);
         {
             const $details = document.createElement('details');
             $details.innerHTML = syntaxDescription;
@@ -2481,10 +2530,25 @@ class NoteFilterPanel {
         }
         $textarea.addEventListener('input', () => {
             $button.disabled = this.noteFilter.isSameQuery($textarea.value);
+            try {
+                new NoteFilter($textarea.value);
+                $textarea.setCustomValidity('');
+            }
+            catch (ex) {
+                let message = `Syntax error`;
+                if (ex instanceof RangeError)
+                    message = ex.message;
+                $textarea.setCustomValidity(message);
+            }
         });
         $form.addEventListener('submit', (ev) => {
             ev.preventDefault();
-            this.noteFilter = new NoteFilter($textarea.value);
+            try {
+                this.noteFilter = new NoteFilter($textarea.value);
+            }
+            catch (ex) {
+                return;
+            }
             if (this.callback)
                 this.callback(this.noteFilter);
             $button.disabled = true;
