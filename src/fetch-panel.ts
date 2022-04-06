@@ -10,7 +10,7 @@ import {toReadableDate, toDateQuery} from './query-date'
 import {startSearchFetcher, startBboxFetcher} from './fetch'
 
 export default class NoteFetchPanel {
-	constructor(
+	async run(
 		storage: NoteViewerStorage, db: NoteViewerDB,
 		$container: HTMLElement,
 		$notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,

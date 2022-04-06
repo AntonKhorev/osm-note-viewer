@@ -5,6 +5,8 @@ import NoteFetchPanel from './fetch-panel'
 import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
 
+history.scrollRestoration='manual'
+
 main()
 
 async function main() {
@@ -46,7 +48,23 @@ async function main() {
 	writeResetButton($fetchContainer)
 	const extrasPanel=new ExtrasPanel(storage,db,$extrasContainer)
 	const filterPanel=new NoteFilterPanel($filterContainer)
-	new NoteFetchPanel(storage,db,$fetchContainer,$notesContainer,$moreContainer,$commandContainer,filterPanel,extrasPanel,map)
+	const fetchPanel=new NoteFetchPanel()
+	await fetchPanel.run(storage,db,$fetchContainer,$notesContainer,$moreContainer,$commandContainer,filterPanel,extrasPanel,map)
+
+	if (history.state?.scrollPosition!=null) {
+		const scrollPosition=history.state.scrollPosition
+		console.log('have to restore scroll:',scrollPosition) ///
+		setTimeout(()=>{
+			$scrollingPart.scrollTop=scrollPosition
+			// $scrollingPart.scrollTo(0,scrollPosition)
+			console.log('scrolled to:',$scrollingPart.scrollTop) ///
+			$scrollingPart.addEventListener('scroll',()=>{
+				const scrollPosition=$scrollingPart.scrollTop
+				history.replaceState({scrollPosition},'')
+				console.log('saved scroll:',scrollPosition) ///
+			})
+		},1000)
+	}
 }
 
 function writeFlipLayoutButton(storage: NoteViewerStorage, $container: HTMLElement, map: NoteMap): void {
