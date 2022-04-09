@@ -5,12 +5,17 @@ import NoteFetchPanel from './fetch-panel'
 import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
 
+const scrollRestorerEnabled=true
+
 class ScrollRestorer {
 	constructor() {
+		if (!scrollRestorerEnabled) return
 		history.scrollRestoration='manual'
 	}
 	run($scrollingPart: HTMLElement, $resizeObservationTarget: HTMLElement): void {
+		if (!scrollRestorerEnabled) return
 		let nRestoreScrollPositionAttempts=0
+		if (tryToRestoreScrollPosition()) return
 		const resizeObserver=new ResizeObserver(()=>{
 			if (tryToRestoreScrollPosition()) {
 				resizeObserver.disconnect()
