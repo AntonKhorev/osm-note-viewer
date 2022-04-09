@@ -296,6 +296,7 @@ export default class CommandPanel {
 		}
 		function makeMapIcon(type: string): HTMLImageElement {
 			const $img=document.createElement('img')
+			$img.classList.add('icon')
 			$img.src=`map-${type}.svg`
 			$img.width=19
 			$img.height=13
@@ -304,6 +305,7 @@ export default class CommandPanel {
 		}
 		function makeNotesIcon(type: string): HTMLImageElement {
 			const $img=document.createElement('img')
+			$img.classList.add('icon')
 			$img.src=`notes-${type}.svg`
 			$img.width=9
 			$img.height=13
