@@ -16,7 +16,6 @@ export default class CommandPanel {
 	private checkedCommentTime?: string
 	private checkedCommentText?: string
 	constructor($container: HTMLElement, map: NoteMap, storage: NoteViewerStorage) {
-		const selectedChar=`☑`
 		{
 			const $commandGroup=makeCommandGroup(
 				'autozoom',
@@ -150,7 +149,7 @@ export default class CommandPanel {
 				`JOSM (or another editor) Remote Control`
 			)
 			const $loadNotesButton=this.makeRequiringSelectedNotesButton()
-			$loadNotesButton.textContent=`Load ${selectedChar}`
+			$loadNotesButton.append(`Load `,makeNotesIcon('selected'))
 			$loadNotesButton.addEventListener('click',async()=>{
 				for (const {id} of this.checkedNotes) {
 					const noteUrl=`https://www.openstreetmap.org/note/`+encodeURIComponent(id)
@@ -178,7 +177,7 @@ export default class CommandPanel {
 				'https://wiki.openstreetmap.org/wiki/GPX'
 			)
 			const $exportNotesButton=this.makeRequiringSelectedNotesButton()
-			$exportNotesButton.textContent=`Export ${selectedChar}`
+			$exportNotesButton.append(`Export `,makeNotesIcon('selected'))
 			$exportNotesButton.addEventListener('click',()=>{
 				const e=makeEscapeTag(escapeXml)
 				let gpx=e`<?xml version="1.0" encoding="UTF-8" ?>\n`
@@ -270,7 +269,7 @@ export default class CommandPanel {
 			)
 		}{
 			const $commandGroup=makeCommandGroup('legend',`Legend`)
-			$commandGroup.append(makeMapIcon('center'),` = map center, `,makeMapIcon('area'),` = map area, ${selectedChar} = selected notes`)
+			$commandGroup.append(makeMapIcon('center'),` = map center, `,makeMapIcon('area'),` = map area, `,makeNotesIcon('selected'),` = selected notes`)
 		}
 		function makeCommandGroup(name: string, title: string, linkHref?: string, linkTitle?: string): HTMLDetailsElement {
 			const storageKey='commands-'+name
@@ -301,6 +300,14 @@ export default class CommandPanel {
 			$img.width=19
 			$img.height=13
 			$img.alt=`map ${type}`
+			return $img
+		}
+		function makeNotesIcon(type: string): HTMLImageElement {
+			const $img=document.createElement('img')
+			$img.src=`notes-${type}.svg`
+			$img.width=9
+			$img.height=13
+			$img.alt=`${type} notes`
 			return $img
 		}
 	}

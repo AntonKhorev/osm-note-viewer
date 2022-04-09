@@ -10,7 +10,7 @@ for (const name of [
 	'icon','icon-open','icon-closed',
 	'flip-ver','flip-hor','reset',
 	'crosshair',
-	'map-center','map-area'
+	'map-center','map-area','notes-selected'
 ]) {
 	await fs.copy(`src/${name}.svg`,`dist/${name}.svg`)
 }
