@@ -17,7 +17,8 @@ export default class CommandPanel {
 	private checkedCommentText?: string
 	constructor($container: HTMLElement, map: NoteMap, storage: NoteViewerStorage) {
 		const centerChar='⌖'
-		const areaChar='▭'
+		const areaChar='🗺'
+		const selectedChar=`☑`
 		{
 			const $commandGroup=makeCommandGroup(
 				'autozoom',
@@ -151,7 +152,7 @@ export default class CommandPanel {
 				`JOSM (or another editor) Remote Control`
 			)
 			const $loadNotesButton=this.makeRequiringSelectedNotesButton()
-			$loadNotesButton.textContent=`Load selected notes`
+			$loadNotesButton.textContent=`Load ${selectedChar}`
 			$loadNotesButton.addEventListener('click',async()=>{
 				for (const {id} of this.checkedNotes) {
 					const noteUrl=`https://www.openstreetmap.org/note/`+encodeURIComponent(id)
@@ -179,7 +180,7 @@ export default class CommandPanel {
 				'https://wiki.openstreetmap.org/wiki/GPX'
 			)
 			const $exportNotesButton=this.makeRequiringSelectedNotesButton()
-			$exportNotesButton.textContent=`Export selected notes`
+			$exportNotesButton.textContent=`Export ${selectedChar}`
 			$exportNotesButton.addEventListener('click',()=>{
 				const e=makeEscapeTag(escapeXml)
 				let gpx=e`<?xml version="1.0" encoding="UTF-8" ?>\n`
@@ -271,7 +272,7 @@ export default class CommandPanel {
 			)
 		}{
 			const $commandGroup=makeCommandGroup('legend',`Legend`)
-			$commandGroup.append(`${centerChar} = map center, ${areaChar} = map area`)
+			$commandGroup.append(`${centerChar} = map center, ${areaChar} = map area, ${selectedChar} = selected notes`)
 		}
 		function makeCommandGroup(name: string, title: string, linkHref?: string, linkTitle?: string): HTMLDetailsElement {
 			const storageKey='commands-'+name
