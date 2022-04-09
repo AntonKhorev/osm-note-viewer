@@ -22,6 +22,8 @@ class ScrollRestorer {
 	}
 	run($resizeObservationTarget: HTMLElement): void {
 		if (!scrollRestorerEnabled) return
+		// requestAnimationFrame and setTimeout(...,0) don't work very well: https://stackoverflow.com/a/38029067
+		// ResizeObserver works better: https://stackoverflow.com/a/66172042
 		this.rememberScrollPosition=false
 		let nRestoreScrollPositionAttempts=0
 		const tryToRestoreScrollPosition: ()=>boolean = ()=>{
@@ -90,14 +92,13 @@ async function main() {
 	writeResetButton($fetchContainer)
 	const extrasPanel=new ExtrasPanel(storage,db,$extrasContainer)
 	const filterPanel=new NoteFilterPanel($filterContainer)
-	const fetchPanel=new NoteFetchPanel()
-	scrollRestorer.run($notesContainer)
-	await fetchPanel.run(
+	const fetchPanel=new NoteFetchPanel(
 		storage,db,
 		$fetchContainer,$notesContainer,$moreContainer,$commandContainer,
 		filterPanel,extrasPanel,map,
 		()=>scrollRestorer.run($notesContainer)
 	)
+	scrollRestorer.run($notesContainer)
 }
 
 function writeFlipLayoutButton(storage: NoteViewerStorage, $container: HTMLElement, map: NoteMap): void {
