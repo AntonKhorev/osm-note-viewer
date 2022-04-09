@@ -16,8 +16,6 @@ export default class CommandPanel {
 	private checkedCommentTime?: string
 	private checkedCommentText?: string
 	constructor($container: HTMLElement, map: NoteMap, storage: NoteViewerStorage) {
-		const centerChar='⌖'
-		const areaChar='🗺'
 		const selectedChar=`☑`
 		{
 			const $commandGroup=makeCommandGroup(
@@ -95,18 +93,18 @@ export default class CommandPanel {
 			}
 			{
 				const $button=document.createElement('button')
-				$button.textContent=`Load ${areaChar} without relations`
+				$button.append(`Load `,makeMapIcon('area'),` without relations`)
 				$button.addEventListener('click',()=>buttonClickListener(false,false))
 				$overpassButtons.push($button)
 			}{
 				const $button=document.createElement('button')
-				$button.textContent=`Load ${areaChar} with relations`
+				$button.append(`Load `,makeMapIcon('area'),` with relations`)
 				$button.title=`May fetch large unwanted relations like routes.`
 				$button.addEventListener('click',()=>buttonClickListener(true,false))
 				$overpassButtons.push($button)
 			}{
 				const $button=document.createElement('button')
-				$button.textContent=`Load around ${centerChar}`
+				$button.append(`Load around `,makeMapIcon('center'))
 				$button.addEventListener('click',()=>buttonClickListener(false,true))
 				$overpassButtons.push($button)
 			}
@@ -120,7 +118,7 @@ export default class CommandPanel {
 				'https://wiki.openstreetmap.org/wiki/Overpass_API'
 			)
 			const $button=document.createElement('button')
-			$button.textContent=`Find closest node to ${centerChar}`
+			$button.append(`Find closest node to `,makeMapIcon('center'))
 			$button.addEventListener('click',async()=>{
 				$button.disabled=true
 				try {
@@ -162,7 +160,7 @@ export default class CommandPanel {
 				}
 			})
 			const $loadMapButton=document.createElement('button')
-			$loadMapButton.textContent=`Load ${areaChar}`
+			$loadMapButton.append(`Load `,makeMapIcon('area'))
 			$loadMapButton.addEventListener('click',()=>{
 				const bounds=map.getBounds()
 				const rcUrl=`http://127.0.0.1:8111/load_and_zoom`+
@@ -228,7 +226,7 @@ export default class CommandPanel {
 				`Yandex.Panoramas (Яндекс.Панорамы)`
 			)
 			const $yandexPanoramasButton=document.createElement('button')
-			$yandexPanoramasButton.textContent=`Open ${centerChar}`
+			$yandexPanoramasButton.append(`Open `,makeMapIcon('center'))
 			$yandexPanoramasButton.addEventListener('click',()=>{
 				const center=map.getCenter()
 				const coords=center.lng+','+center.lat
@@ -246,7 +244,7 @@ export default class CommandPanel {
 				'https://wiki.openstreetmap.org/wiki/Mapillary'
 			)
 			const $mapillaryButton=document.createElement('button')
-			$mapillaryButton.textContent=`Open ${centerChar}`
+			$mapillaryButton.append(`Open `,makeMapIcon('center'))
 			$mapillaryButton.addEventListener('click',()=>{
 				const center=map.getCenter()
 				const url=`https://www.mapillary.com/app/`+
@@ -272,7 +270,7 @@ export default class CommandPanel {
 			)
 		}{
 			const $commandGroup=makeCommandGroup('legend',`Legend`)
-			$commandGroup.append(`${centerChar} = map center, ${areaChar} = map area, ${selectedChar} = selected notes`)
+			$commandGroup.append(makeMapIcon('center'),` = map center, `,makeMapIcon('area'),` = map area, ${selectedChar} = selected notes`)
 		}
 		function makeCommandGroup(name: string, title: string, linkHref?: string, linkTitle?: string): HTMLDetailsElement {
 			const storageKey='commands-'+name
@@ -296,6 +294,14 @@ export default class CommandPanel {
 			})
 			$container.append($commandGroup)
 			return $commandGroup
+		}
+		function makeMapIcon(type: string): HTMLImageElement {
+			const $img=document.createElement('img')
+			$img.src=`map-${type}.svg`
+			$img.width=19
+			$img.height=13
+			$img.alt=`map ${type}`
+			return $img
 		}
 	}
 	receiveNoteCounts(nFetched: number, nVisible: number) {

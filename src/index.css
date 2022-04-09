@@ -101,6 +101,9 @@ body.flipped .panel.fetch button.flip {
 	width: 1ex;
 	display: inline-block;
 }
+.panel.command button img {
+	vertical-align: middle;
+}
 .panel input:invalid,
 .panel textarea:invalid {
 	border: solid 2px red;
