@@ -14,7 +14,7 @@ export default class NoteFetchPanel {
 		storage: NoteViewerStorage, db: NoteViewerDB,
 		$container: HTMLElement,
 		$notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
-		filterPanel: NoteFilterPanel, extrasPanel: ExtrasPanel, map: NoteMap
+		filterPanel: NoteFilterPanel, extrasPanel: ExtrasPanel, map: NoteMap, restoreScrollPosition: ()=>void
 	) {
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
 		const searchDialog=new NoteSearchFetchDialog()
@@ -33,6 +33,7 @@ export default class NoteFetchPanel {
 			modifyHistory(query,false) // in case location was edited manually
 			populateInputs(query)
 			runStartFetcher(query,false)
+			restoreScrollPosition()
 		})
 		const query=makeNoteQueryFromHash(location.hash)
 		openQueryDialog(query,true)

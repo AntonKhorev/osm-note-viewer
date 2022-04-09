@@ -8,40 +8,45 @@ import ExtrasPanel from './extras-panel'
 const scrollRestorerEnabled=true
 
 class ScrollRestorer {
-	constructor() {
+	private rememberScrollPosition=false
+	constructor(private $scrollingPart: HTMLElement) {
 		if (!scrollRestorerEnabled) return
 		history.scrollRestoration='manual'
-	}
-	run($scrollingPart: HTMLElement, $resizeObservationTarget: HTMLElement): void {
-		if (!scrollRestorerEnabled) return
-		let nRestoreScrollPositionAttempts=0
-		if (tryToRestoreScrollPosition()) return
-		const resizeObserver=new ResizeObserver(()=>{
-			if (tryToRestoreScrollPosition()) {
-				resizeObserver.disconnect()
-			}
+		$scrollingPart.addEventListener('scroll',()=>{
+			if (!this.rememberScrollPosition) return
+			const scrollPosition=$scrollingPart.scrollTop
+			history.replaceState({scrollPosition},'')
+			// TODO save more panel open/closed state... actually all panels open/closed states - Firefox does that, Chrome doesn't
+			// ... or save some other kind of position relative to notes table instead of scroll
 		})
-		resizeObserver.observe($resizeObservationTarget) // observing $scrollingPart won't work because its size doesn't change
-		function tryToRestoreScrollPosition(): boolean {
+	}
+	run($resizeObservationTarget: HTMLElement): void {
+		if (!scrollRestorerEnabled) return
+		this.rememberScrollPosition=false
+		let nRestoreScrollPositionAttempts=0
+		const tryToRestoreScrollPosition: ()=>boolean = ()=>{
 			if (++nRestoreScrollPositionAttempts>10) return true
 			if (!history.state) return true
 			const needToScrollTo=history.state.scrollPosition
 			if (typeof needToScrollTo != 'number') return true
-			const canScrollTo=$scrollingPart.scrollHeight-$scrollingPart.clientHeight
+			const canScrollTo=this.$scrollingPart.scrollHeight-this.$scrollingPart.clientHeight
 			if (needToScrollTo>canScrollTo) return false
-			$scrollingPart.scrollTop=needToScrollTo
-			$scrollingPart.addEventListener('scroll',()=>{
-				const scrollPosition=$scrollingPart.scrollTop
-				history.replaceState({scrollPosition},'')
-				// TODO save more panel open/closed state... actually all panels open/closed states - Firefox does that, Chrome doesn't
-				// ... or save some other kind of position relative to notes table instead of scroll
-			})
+			this.$scrollingPart.scrollTop=needToScrollTo
 			return true
 		}
+		if (tryToRestoreScrollPosition()) {
+			this.rememberScrollPosition=true
+			return
+		}
+		const resizeObserver=new ResizeObserver(()=>{
+			if (tryToRestoreScrollPosition()) {
+				resizeObserver.disconnect()
+				this.rememberScrollPosition=true
+			}
+		})
+		resizeObserver.observe($resizeObservationTarget) // observing $scrollingPart won't work because its size doesn't change
 	}
 }
-
-const scrollRestorer=new ScrollRestorer()
 
 main()
 
@@ -62,6 +67,7 @@ async function main() {
 	const $stickyPart=document.createElement('div')
 	$stickyPart.classList.add('sticky')
 	$textSide.append($scrollingPart,$stickyPart)
+	const scrollRestorer=new ScrollRestorer($scrollingPart)
 
 	const $fetchContainer=document.createElement('div')
 	$fetchContainer.classList.add('panel','fetch')
@@ -85,8 +91,13 @@ async function main() {
 	const extrasPanel=new ExtrasPanel(storage,db,$extrasContainer)
 	const filterPanel=new NoteFilterPanel($filterContainer)
 	const fetchPanel=new NoteFetchPanel()
-	scrollRestorer.run($scrollingPart,$notesContainer)
-	await fetchPanel.run(storage,db,$fetchContainer,$notesContainer,$moreContainer,$commandContainer,filterPanel,extrasPanel,map)
+	scrollRestorer.run($notesContainer)
+	await fetchPanel.run(
+		storage,db,
+		$fetchContainer,$notesContainer,$moreContainer,$commandContainer,
+		filterPanel,extrasPanel,map,
+		()=>scrollRestorer.run($notesContainer)
+	)
 }
 
 function writeFlipLayoutButton(storage: NoteViewerStorage, $container: HTMLElement, map: NoteMap): void {
