@@ -55,32 +55,38 @@ async function main() {
 	}
 
 	logHeight('initial')
+	
+	let nRestoreScrollPositionAttempts=0
+
+	const resizeObserver=new ResizeObserver(()=>{
+		// logHeight('>> from observer')
+		if (tryToRestoreScrollPosition()) {
+			resizeObserver.disconnect()
+		}
+	})
+	// resizeObserver.observe($scrollingPart)
+	resizeObserver.observe($notesContainer)
 
 	await fetchPanel.run(storage,db,$fetchContainer,$notesContainer,$moreContainer,$commandContainer,filterPanel,extrasPanel,map)
 
-	let nRestoreScrollPositionAttempts=0
-	tryToRestoreScrollPosition()
-
-	function tryToRestoreScrollPosition() { // https://stackoverflow.com/a/38029067 + checking how far can actually scroll
-		if (++nRestoreScrollPositionAttempts>10) return
+	function tryToRestoreScrollPosition(): boolean {
+		if (++nRestoreScrollPositionAttempts>10) return true
 		logHeight('try '+nRestoreScrollPositionAttempts)
-		if (!history.state) return
+		if (!history.state) return true
 		const needToScrollTo=history.state.scrollPosition
-		if (typeof needToScrollTo != 'number') return
+		if (typeof needToScrollTo != 'number') return true
 		const canScrollTo=$scrollingPart.scrollHeight-$scrollingPart.clientHeight
-		if (needToScrollTo>canScrollTo) {
-			// setTimeout(tryToRestoreScrollPosition,1000)
-			window.requestAnimationFrame(tryToRestoreScrollPosition)
-			// window.requestAnimationFrame(()=>setTimeout(tryToRestoreScrollPosition,10))
-			return
-		}
+		if (needToScrollTo>canScrollTo) return false
 		$scrollingPart.scrollTop=needToScrollTo
 		console.log('scrolled to:',$scrollingPart.scrollTop) ///
 		$scrollingPart.addEventListener('scroll',()=>{
 			const scrollPosition=$scrollingPart.scrollTop
 			history.replaceState({scrollPosition},'')
 			console.log('saved scroll:',scrollPosition) ///
+			// TODO save more panel open/closed state... actually all panels open/closed states - Firefox does that, Chrome doesn't
+			// ... or save some other kind of position relative to notes table instead of scroll
 		})
+		return true
 	}
 }
 
