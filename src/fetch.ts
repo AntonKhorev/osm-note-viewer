@@ -32,7 +32,7 @@ export async function startSearchFetcher(
 			return fetchEntry
 		}
 	})()
-	filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(notes,users,noteFilter))
+	filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(noteFilter))
 	let lastNote: Note | undefined
 	let prevLastNote: Note | undefined
 	let lastLimit: number | undefined
@@ -171,7 +171,7 @@ export async function startBboxFetcher( // TODO cleanup copypaste from above
 			return fetchEntry
 		}
 	})()
-	filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(notes,users,noteFilter))
+	filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(noteFilter))
 	// let lastNote: Note | undefined
 	// let prevLastNote: Note | undefined
 	// let lastLimit: number | undefined

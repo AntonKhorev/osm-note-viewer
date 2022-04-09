@@ -17,6 +17,8 @@ export default class NoteTable {
 	private currentLayerId: number | undefined
 	private noteSectionLayerIdVisibility=new Map<number,boolean>()
 	private $lastClickedNoteSection: HTMLTableSectionElement | undefined
+	private notesById = new Map<number,Note>() // in the future these might be windowed to limit the amount of stuff on one page
+	private usersById = new Map<number,string>()
 	constructor($container: HTMLElement, private commandPanel: CommandPanel, private map: NoteMap, private filter: NoteFilter) {
 		const that=this
 		this.wrappedNoteMarkerClickListener=function(){
@@ -59,20 +61,16 @@ export default class NoteTable {
 			if (title) $cell.title=title
 			return $cell
 		}
-		commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table))
+		commandPanel.receiveCheckedNotes(this.getCheckedNotes())
 	}
-	updateFilter(notes: Note[], users: Users, filter: NoteFilter): void {
+	updateFilter(filter: NoteFilter): void {
 		let nFetched=0
 		let nVisible=0
 		this.filter=filter
-		const noteById=new Map<number,Note>()
-		for (const note of notes) {
-			noteById.set(note.id,note)
-		}
-		const getUsername=(uid:number)=>users[uid]
+		const getUsername=(uid:number)=>this.usersById.get(uid)
 		for (const $noteSection of this.$table.querySelectorAll('tbody')) {
 			const noteId=Number($noteSection.dataset.noteId)
-			const note=noteById.get(noteId)
+			const note=this.notesById.get(noteId)
 			const layerId=Number($noteSection.dataset.layerId)
 			if (note==null) continue
 			nFetched++
@@ -97,12 +95,20 @@ export default class NoteTable {
 			}
 		}
 		this.commandPanel.receiveNoteCounts(nFetched,nVisible)
-		this.commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table))
+		this.commandPanel.receiveCheckedNotes(this.getCheckedNotes())
 	}
 	/**
 	 * @returns number of added notes that passed through the filter
 	 */
 	addNotes(notes: Note[], users: Users): number {
+		// remember notes and users
+		for (const note of notes) {
+			this.notesById.set(note.id,note)
+		}
+		for (const [uid,username] of Object.entries(users)) {
+			this.usersById.set(Number(uid),username)
+		}
+		// output table
 		let nUnfilteredNotes=0
 		const getUsername=(uid:number)=>users[uid]
 		for (const note of notes) {
@@ -240,7 +246,7 @@ export default class NoteTable {
 			}
 			this.$lastClickedNoteSection=$clickedNoteSection
 		}
-		this.commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table))
+		this.commandPanel.receiveCheckedNotes(this.getCheckedNotes())
 	}
 	private commentRadioClickListener($radio: HTMLInputElement, ev: MouseEvent) {
 		ev.stopPropagation()
@@ -286,6 +292,19 @@ export default class NoteTable {
 			this.currentLayerId=layerId
 			this.map.panTo(marker.getLatLng())
 		}
+	}
+	getCheckedNotes(): Note[] {
+		const checkedNotes: Note[] = []
+		const $checkedBoxes=this.$table.querySelectorAll('.note-checkbox :checked')
+		for (const $checkbox of $checkedBoxes) {
+			const $noteSection=$checkbox.closest('tbody')
+			if (!$noteSection) continue
+			const noteId=Number($noteSection.dataset.noteId)
+			const note=this.notesById.get(noteId)
+			if (!note) continue
+			checkedNotes.push(note)
+		}
+		return checkedNotes
 	}
 }
 
@@ -366,17 +385,4 @@ function *getTableSectionRange(
 			return
 		}
 	}
-}
-
-function getCheckedNoteIds($table: HTMLTableElement): number[] {
-	const checkedNoteIds: number[] = []
-	const $checkedBoxes=$table.querySelectorAll('.note-checkbox :checked')
-	for (const $checkbox of $checkedBoxes) {
-		const $noteSection=$checkbox.closest('tbody')
-		if (!$noteSection) continue
-		const noteId=Number($noteSection.dataset.noteId)
-		if (!Number.isInteger(noteId)) continue
-		checkedNoteIds.push(noteId)
-	}
-	return checkedNoteIds
 }

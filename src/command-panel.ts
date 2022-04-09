@@ -1,16 +1,18 @@
+import type {Note} from './data'
 import NoteViewerStorage from './storage'
 import {NoteMap} from './map'
-import {makeLink} from './util'
+import {toReadableDate, toUrlDate} from './query-date'
+import {makeLink, escapeXml, makeEscapeTag} from './util'
 
 export default class CommandPanel {
 	private $fitModeSelect=document.createElement('select')
-	private $loadNotesButton: HTMLButtonElement
+	private $buttonsRequiringSelectedNotes: HTMLButtonElement[] = []
 	private $commentTimeSelect: HTMLSelectElement
 	private $commentTimeInput: HTMLInputElement
 	private $fetchedNoteCount: HTMLSpanElement
 	private $visibleNoteCount: HTMLSpanElement
 	private $checkedNoteCount: HTMLSpanElement
-	private checkedNoteIds: number[] = []
+	private checkedNotes: Note[] = []
 	private checkedCommentTime?: string
 	private checkedCommentText?: string
 	constructor($container: HTMLElement, map: NoteMap, storage: NoteViewerStorage) {
@@ -148,12 +150,11 @@ export default class CommandPanel {
 				'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl',
 				`JOSM (or another editor) Remote Control`
 			)
-			const $loadNotesButton=document.createElement('button')
-			$loadNotesButton.disabled=true
+			const $loadNotesButton=this.makeRequiringSelectedNotesButton()
 			$loadNotesButton.textContent=`Load selected notes`
 			$loadNotesButton.addEventListener('click',async()=>{
-				for (const noteId of this.checkedNoteIds) {
-					const noteUrl=`https://www.openstreetmap.org/note/`+encodeURIComponent(noteId)
+				for (const {id} of this.checkedNotes) {
+					const noteUrl=`https://www.openstreetmap.org/note/`+encodeURIComponent(id)
 					const rcUrl=`http://127.0.0.1:8111/import?url=`+encodeURIComponent(noteUrl)
 					const success=await openRcUrl($loadNotesButton,rcUrl)
 					if (!success) break
@@ -171,7 +172,53 @@ export default class CommandPanel {
 				openRcUrl($loadMapButton,rcUrl)
 			})
 			$commandGroup.append($loadNotesButton,` `,$loadMapButton)
-			this.$loadNotesButton=$loadNotesButton
+		}{
+			const $commandGroup=makeCommandGroup(
+				'gpx',
+				`GPX`,
+				'https://wiki.openstreetmap.org/wiki/GPX'
+			)
+			const $exportNotesButton=this.makeRequiringSelectedNotesButton()
+			$exportNotesButton.textContent=`Export selected notes`
+			$exportNotesButton.addEventListener('click',()=>{
+				const e=makeEscapeTag(escapeXml)
+				let gpx=e`<?xml version="1.0" encoding="UTF-8" ?>\n`
+				gpx+=e`<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">\n`
+				// TODO <name>selected notes of user A</name>
+				for (const note of this.checkedNotes) {
+					const firstComment=note.comments[0]
+					gpx+=e`<wpt lat="${note.lat}" lon="${note.lon}">\n`
+					if (firstComment) gpx+=e`<time>${toUrlDate(firstComment.date)}</time>\n`
+					gpx+=e`<name>${note.id}</name>\n`
+					if (firstComment) {
+						gpx+=`<desc>`
+						let first=true
+						for (const comment of note.comments) {
+							if (first) {
+								first=false
+							} else {
+								gpx+=`\n`
+							}
+							if (comment.uid) {
+								gpx+=e`user #${comment.uid}`
+								// TODO actual username
+							} else {
+								gpx+=`anonymous user`
+							}
+							gpx+=e` ${comment.action} at ${toReadableDate(comment.date)}`
+							if (comment.text) gpx+=e`: ${comment.text}`
+						}
+						gpx+=`</desc>\n`
+					}
+					const noteUrl=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.id)
+					gpx+=e`<link href="${noteUrl}" />\n`
+					gpx+=e`<type>${note.status}</type>\n`
+					gpx+=`</wpt>\n`
+				}
+				gpx+=`</gpx>\n`
+				console.log(gpx)
+			})
+			$commandGroup.append($exportNotesButton)
 		}{
 			const $commandGroup=makeCommandGroup(
 				'yandex-panoramas',
@@ -254,10 +301,12 @@ export default class CommandPanel {
 		this.$fetchedNoteCount.textContent=String(nFetched)
 		this.$visibleNoteCount.textContent=String(nVisible)
 	}
-	receiveCheckedNoteIds(checkedNoteIds: number[]): void {
-		this.$checkedNoteCount.textContent=String(checkedNoteIds.length)
-		this.checkedNoteIds=checkedNoteIds
-		this.$loadNotesButton.disabled=checkedNoteIds.length<=0
+	receiveCheckedNotes(checkedNotes: Note[]): void {
+		this.$checkedNoteCount.textContent=String(checkedNotes.length)
+		this.checkedNotes=checkedNotes
+		for (const $button of this.$buttonsRequiringSelectedNotes) {
+			$button.disabled=checkedNotes.length<=0
+		}
 	}
 	receiveCheckedComment(checkedCommentTime?: string, checkedCommentText?: string): void {
 		this.checkedCommentTime=checkedCommentTime
@@ -293,6 +342,12 @@ export default class CommandPanel {
 		// query+=`[bbox:${bounds.toBBoxString()}];\n` // nope, different format
 		query+=`;\n`
 		return query
+	}
+	private makeRequiringSelectedNotesButton(): HTMLButtonElement {
+		const $button=document.createElement('button')
+		$button.disabled=true
+		this.$buttonsRequiringSelectedNotes.push($button)
+		return $button
 	}
 }
 
