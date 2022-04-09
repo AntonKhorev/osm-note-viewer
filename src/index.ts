@@ -49,21 +49,38 @@ async function main() {
 	const extrasPanel=new ExtrasPanel(storage,db,$extrasContainer)
 	const filterPanel=new NoteFilterPanel($filterContainer)
 	const fetchPanel=new NoteFetchPanel()
+
+	function logHeight(type: string): void {
+		console.log(`> ${type} content height = ${$scrollingPart.scrollHeight} ; window height = ${$scrollingPart.clientHeight} ; able to scroll to = ${$scrollingPart.scrollHeight-$scrollingPart.clientHeight}`)
+	}
+
+	logHeight('initial')
+
 	await fetchPanel.run(storage,db,$fetchContainer,$notesContainer,$moreContainer,$commandContainer,filterPanel,extrasPanel,map)
 
-	if (history.state?.scrollPosition!=null) {
-		const scrollPosition=history.state.scrollPosition
-		console.log('have to restore scroll:',scrollPosition) ///
-		setTimeout(()=>{
-			$scrollingPart.scrollTop=scrollPosition
-			// $scrollingPart.scrollTo(0,scrollPosition)
-			console.log('scrolled to:',$scrollingPart.scrollTop) ///
-			$scrollingPart.addEventListener('scroll',()=>{
-				const scrollPosition=$scrollingPart.scrollTop
-				history.replaceState({scrollPosition},'')
-				console.log('saved scroll:',scrollPosition) ///
-			})
-		},1000)
+	let nRestoreScrollPositionAttempts=0
+	tryToRestoreScrollPosition()
+
+	function tryToRestoreScrollPosition() { // https://stackoverflow.com/a/38029067 + checking how far can actually scroll
+		if (++nRestoreScrollPositionAttempts>10) return
+		logHeight('try '+nRestoreScrollPositionAttempts)
+		if (!history.state) return
+		const needToScrollTo=history.state.scrollPosition
+		if (typeof needToScrollTo != 'number') return
+		const canScrollTo=$scrollingPart.scrollHeight-$scrollingPart.clientHeight
+		if (needToScrollTo>canScrollTo) {
+			// setTimeout(tryToRestoreScrollPosition,1000)
+			window.requestAnimationFrame(tryToRestoreScrollPosition)
+			// window.requestAnimationFrame(()=>setTimeout(tryToRestoreScrollPosition,10))
+			return
+		}
+		$scrollingPart.scrollTop=needToScrollTo
+		console.log('scrolled to:',$scrollingPart.scrollTop) ///
+		$scrollingPart.addEventListener('scroll',()=>{
+			const scrollPosition=$scrollingPart.scrollTop
+			history.replaceState({scrollPosition},'')
+			console.log('saved scroll:',scrollPosition) ///
+		})
 	}
 }
 
