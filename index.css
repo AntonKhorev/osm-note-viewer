@@ -97,7 +97,15 @@ body.flipped .panel.fetch button.flip {
 	content: '−';
 }
 .panel.command details[open] summary::after {
-	content: ': ';
+	content: ':';
+	width: 1ex;
+	display: inline-block;
+}
+.panel.command .icon {
+	vertical-align: middle;
+}
+.panel.command button[disabled] .icon {
+	opacity: .5;
 }
 .panel input:invalid,
 .panel textarea:invalid {

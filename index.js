@@ -392,6 +392,124 @@ function* noteCommentsToStates(comments) {
     }
 }
 
+function toReadableDate(date) {
+    if (date == null)
+        return '';
+    const pad = (n) => ('0' + n).slice(-2);
+    const dateObject = new Date(date * 1000);
+    const dateString = dateObject.getUTCFullYear() +
+        '-' +
+        pad(dateObject.getUTCMonth() + 1) +
+        '-' +
+        pad(dateObject.getUTCDate()) +
+        ' ' +
+        pad(dateObject.getUTCHours()) +
+        ':' +
+        pad(dateObject.getUTCMinutes()) +
+        ':' +
+        pad(dateObject.getUTCSeconds());
+    return dateString;
+}
+function toUrlDate(date) {
+    const pad = (n) => ('0' + n).slice(-2);
+    const dateObject = new Date(date * 1000);
+    const dateString = dateObject.getUTCFullYear() +
+        pad(dateObject.getUTCMonth() + 1) +
+        pad(dateObject.getUTCDate()) +
+        'T' +
+        pad(dateObject.getUTCHours()) +
+        pad(dateObject.getUTCMinutes()) +
+        pad(dateObject.getUTCSeconds()) +
+        'Z';
+    return dateString;
+}
+function toDateQuery(readableDate) {
+    let s = readableDate.trim();
+    let m = '';
+    let r = '';
+    {
+        if (s == '')
+            return empty();
+        const match = s.match(/^((\d\d\d\d)-?)(.*)/);
+        if (!match)
+            return invalid();
+        next(match);
+    }
+    {
+        if (s == '')
+            return complete();
+        const match = s.match(/^((\d\d)-?)(.*)/);
+        if (!match)
+            return invalid();
+        r += '-';
+        next(match);
+    }
+    {
+        if (s == '')
+            return complete();
+        const match = s.match(/^((\d\d)[T ]?)(.*)/);
+        if (!match)
+            return invalid();
+        r += '-';
+        next(match);
+    }
+    {
+        if (s == '')
+            return complete();
+        const match = s.match(/^((\d\d):?)(.*)/);
+        if (!match)
+            return invalid();
+        r += ' ';
+        next(match);
+    }
+    {
+        if (s == '')
+            return complete();
+        const match = s.match(/^((\d\d):?)(.*)/);
+        if (!match)
+            return invalid();
+        r += ':';
+        next(match);
+    }
+    {
+        if (s == '')
+            return complete();
+        const match = s.match(/^((\d\d)Z?)$/);
+        if (!match)
+            return invalid();
+        r += ':';
+        next(match);
+    }
+    return complete();
+    function next(match) {
+        m += match[1];
+        r += match[2];
+        s = match[3];
+    }
+    function empty() {
+        return {
+            dateType: 'empty'
+        };
+    }
+    function invalid() {
+        let message = `invalid date string`;
+        if (m != '')
+            message += ` after ${m}`;
+        return {
+            dateType: 'invalid',
+            message
+        };
+    }
+    function complete() {
+        const completionTemplate = '2000-01-01 00:00:00Z';
+        const completedReadableDate = r + completionTemplate.slice(r.length);
+        return {
+            dateType: 'valid',
+            date: Date.parse(completedReadableDate) / 1000
+        };
+    }
+}
+
 function makeUserLink(user, text) {
     const fromId = (id) => `https://api.openstreetmap.org/api/0.6/user/${encodeURIComponent(id)}`;
     const fromName = (name) => `https://www.openstreetmap.org/user/${encodeURIComponent(name)}`;
@@ -416,13 +534,30 @@ function makeLink(text, href, title) {
 function escapeRegex(text) {
     return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 }
+function escapeXml(text) {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/"/g, '&quot;')
+        .replace(/\t/g, '&#x9;')
+        .replace(/\n/g, '&#xA;')
+        .replace(/\r/g, '&#xD;');
+}
+function makeEscapeTag(escapeFn) {
+    return function (strings, ...values) {
+        let result = strings[0];
+        for (let i = 0; i < values.length; i++) {
+            result += escapeFn(String(values[i])) + strings[i + 1];
+        }
+        return result;
+    };
+}
 
 class CommandPanel {
     constructor($container, map, storage) {
         this.$fitModeSelect = document.createElement('select');
-        this.checkedNoteIds = [];
-        const centerChar = '⌖';
-        const areaChar = '▭';
+        this.$buttonsRequiringSelectedNotes = [];
+        this.checkedNotes = [];
         {
             const $commandGroup = makeCommandGroup('autozoom', `Automatic zoom`);
             this.$fitModeSelect.append(new Option('is disabled', 'none'), new Option('to notes in table view', 'inViewNotes'), new Option('to all notes', 'allNotes'));
@@ -486,20 +621,20 @@ class CommandPanel {
             };
             {
                 const $button = document.createElement('button');
-                $button.textContent = `Load ${areaChar} without relations`;
+                $button.append(`Load `, makeMapIcon('area'), ` without relations`);
                 $button.addEventListener('click', () => buttonClickListener(false, false));
                 $overpassButtons.push($button);
             }
             {
                 const $button = document.createElement('button');
-                $button.textContent = `Load ${areaChar} with relations`;
+                $button.append(`Load `, makeMapIcon('area'), ` with relations`);
                 $button.title = `May fetch large unwanted relations like routes.`;
                 $button.addEventListener('click', () => buttonClickListener(true, false));
                 $overpassButtons.push($button);
             }
             {
                 const $button = document.createElement('button');
-                $button.textContent = `Load around ${centerChar}`;
+                $button.append(`Load around `, makeMapIcon('center'));
                 $button.addEventListener('click', () => buttonClickListener(false, true));
                 $overpassButtons.push($button);
             }
@@ -510,7 +645,7 @@ class CommandPanel {
         {
             const $commandGroup = makeCommandGroup('overpass', `Overpass`, 'https://wiki.openstreetmap.org/wiki/Overpass_API');
             const $button = document.createElement('button');
-            $button.textContent = `Find closest node to ${centerChar}`;
+            $button.append(`Find closest node to `, makeMapIcon('center'));
             $button.addEventListener('click', async () => {
                 $button.disabled = true;
                 try {
@@ -539,12 +674,11 @@ class CommandPanel {
         }
         {
             const $commandGroup = makeCommandGroup('rc', `RC`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl', `JOSM (or another editor) Remote Control`);
-            const $loadNotesButton = document.createElement('button');
-            $loadNotesButton.disabled = true;
-            $loadNotesButton.textContent = `Load selected notes`;
+            const $loadNotesButton = this.makeRequiringSelectedNotesButton();
+            $loadNotesButton.append(`Load `, makeNotesIcon('selected'));
             $loadNotesButton.addEventListener('click', async () => {
-                for (const noteId of this.checkedNoteIds) {
-                    const noteUrl = `https://www.openstreetmap.org/note/` + encodeURIComponent(noteId);
+                for (const { id } of this.checkedNotes) {
+                    const noteUrl = `https://www.openstreetmap.org/note/` + encodeURIComponent(id);
                     const rcUrl = `http://127.0.0.1:8111/import?url=` + encodeURIComponent(noteUrl);
                     const success = await openRcUrl($loadNotesButton, rcUrl);
                     if (!success)
@@ -552,7 +686,7 @@ class CommandPanel {
                 }
             });
             const $loadMapButton = document.createElement('button');
-            $loadMapButton.textContent = `Load ${areaChar}`;
+            $loadMapButton.append(`Load `, makeMapIcon('area'));
             $loadMapButton.addEventListener('click', () => {
                 const bounds = map.getBounds();
                 const rcUrl = `http://127.0.0.1:8111/load_and_zoom` +
@@ -563,12 +697,64 @@ class CommandPanel {
                 openRcUrl($loadMapButton, rcUrl);
             });
             $commandGroup.append($loadNotesButton, ` `, $loadMapButton);
-            this.$loadNotesButton = $loadNotesButton;
+        }
+        {
+            const $commandGroup = makeCommandGroup('gpx', `GPX`, 'https://wiki.openstreetmap.org/wiki/GPX');
+            const $exportNotesButton = this.makeRequiringSelectedNotesButton();
+            $exportNotesButton.append(`Export `, makeNotesIcon('selected'));
+            $exportNotesButton.addEventListener('click', () => {
+                const e = makeEscapeTag(escapeXml);
+                let gpx = e `<?xml version="1.0" encoding="UTF-8" ?>\n`;
+                gpx += e `<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">\n`;
+                // TODO <name>selected notes of user A</name>
+                for (const note of this.checkedNotes) {
+                    const firstComment = note.comments[0];
+                    gpx += e `<wpt lat="${note.lat}" lon="${note.lon}">\n`;
+                    if (firstComment)
+                        gpx += e `<time>${toUrlDate(firstComment.date)}</time>\n`;
+                    gpx += e `<name>${note.id}</name>\n`;
+                    if (firstComment) {
+                        gpx += `<desc>`;
+                        let first = true;
+                        for (const comment of note.comments) {
+                            if (first) {
+                                first = false;
+                            }
+                            else {
+                                gpx += `\n`;
+                            }
+                            if (comment.uid) {
+                                gpx += e `user #${comment.uid}`;
+                                // TODO actual username
+                            }
+                            else {
+                                gpx += `anonymous user`;
+                            }
+                            gpx += e ` ${comment.action} at ${toReadableDate(comment.date)}`;
+                            if (comment.text)
+                                gpx += e `: ${comment.text}`;
+                        }
+                        gpx += `</desc>\n`;
+                    }
+                    const noteUrl = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
+                    gpx += e `<link href="${noteUrl}" />\n`;
+                    gpx += e `<type>${note.status}</type>\n`;
+                    gpx += `</wpt>\n`;
+                }
+                gpx += `</gpx>\n`;
+                const file = new File([gpx], 'notes.gpx');
+                const $a = document.createElement('a');
+                $a.href = URL.createObjectURL(file);
+                $a.download = 'notes.gpx';
+                $a.click();
+                URL.revokeObjectURL($a.href);
+            });
+            $commandGroup.append($exportNotesButton);
         }
         {
             const $commandGroup = makeCommandGroup('yandex-panoramas', `Y.Panoramas`, 'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B', `Yandex.Panoramas (Яндекс.Панорамы)`);
             const $yandexPanoramasButton = document.createElement('button');
-            $yandexPanoramasButton.textContent = `Open ${centerChar}`;
+            $yandexPanoramasButton.append(`Open `, makeMapIcon('center'));
             $yandexPanoramasButton.addEventListener('click', () => {
                 const center = map.getCenter();
                 const coords = center.lng + ',' + center.lat;
@@ -583,7 +769,7 @@ class CommandPanel {
         {
             const $commandGroup = makeCommandGroup('mapillary', `Mapillary`, 'https://wiki.openstreetmap.org/wiki/Mapillary');
             const $mapillaryButton = document.createElement('button');
-            $mapillaryButton.textContent = `Open ${centerChar}`;
+            $mapillaryButton.append(`Open `, makeMapIcon('center'));
             $mapillaryButton.addEventListener('click', () => {
                 const center = map.getCenter();
                 const url = `https://www.mapillary.com/app/` +
@@ -607,7 +793,7 @@ class CommandPanel {
         }
         {
             const $commandGroup = makeCommandGroup('legend', `Legend`);
-            $commandGroup.append(`${centerChar} = map center, ${areaChar} = map area`);
+            $commandGroup.append(makeMapIcon('center'), ` = map center, `, makeMapIcon('area'), ` = map area, `, makeNotesIcon('selected'), ` = selected notes`);
         }
         function makeCommandGroup(name, title, linkHref, linkTitle) {
             const storageKey = 'commands-' + name;
@@ -634,15 +820,35 @@ class CommandPanel {
             $container.append($commandGroup);
             return $commandGroup;
         }
+        function makeMapIcon(type) {
+            const $img = document.createElement('img');
+            $img.classList.add('icon');
+            $img.src = `map-${type}.svg`;
+            $img.width = 19;
+            $img.height = 13;
+            $img.alt = `map ${type}`;
+            return $img;
+        }
+        function makeNotesIcon(type) {
+            const $img = document.createElement('img');
+            $img.classList.add('icon');
+            $img.src = `notes-${type}.svg`;
+            $img.width = 9;
+            $img.height = 13;
+            $img.alt = `${type} notes`;
+            return $img;
+        }
     }
     receiveNoteCounts(nFetched, nVisible) {
         this.$fetchedNoteCount.textContent = String(nFetched);
         this.$visibleNoteCount.textContent = String(nVisible);
     }
-    receiveCheckedNoteIds(checkedNoteIds) {
-        this.$checkedNoteCount.textContent = String(checkedNoteIds.length);
-        this.checkedNoteIds = checkedNoteIds;
-        this.$loadNotesButton.disabled = checkedNoteIds.length <= 0;
+    receiveCheckedNotes(checkedNotes) {
+        this.$checkedNoteCount.textContent = String(checkedNotes.length);
+        this.checkedNotes = checkedNotes;
+        for (const $button of this.$buttonsRequiringSelectedNotes) {
+            $button.disabled = checkedNotes.length <= 0;
+        }
     }
     receiveCheckedComment(checkedCommentTime, checkedCommentText) {
         this.checkedCommentTime = checkedCommentTime;
@@ -680,6 +886,12 @@ class CommandPanel {
         // query+=`[bbox:${bounds.toBBoxString()}];\n` // nope, different format
         query += `;\n`;
         return query;
+    }
+    makeRequiringSelectedNotesButton() {
+        const $button = document.createElement('button');
+        $button.disabled = true;
+        this.$buttonsRequiringSelectedNotes.push($button);
+        return $button;
     }
 }
 async function openRcUrl($button, rcUrl) {
@@ -837,124 +1049,6 @@ function toUserQuery(value) {
         userType: 'name',
         username: s
     };
-}
-
-function toReadableDate(date) {
-    if (date == null)
-        return '';
-    const pad = (n) => ('0' + n).slice(-2);
-    const dateObject = new Date(date * 1000);
-    const dateString = dateObject.getUTCFullYear() +
-        '-' +
-        pad(dateObject.getUTCMonth() + 1) +
-        '-' +
-        pad(dateObject.getUTCDate()) +
-        ' ' +
-        pad(dateObject.getUTCHours()) +
-        ':' +
-        pad(dateObject.getUTCMinutes()) +
-        ':' +
-        pad(dateObject.getUTCSeconds());
-    return dateString;
-}
-function toUrlDate(date) {
-    const pad = (n) => ('0' + n).slice(-2);
-    const dateObject = new Date(date * 1000);
-    const dateString = dateObject.getUTCFullYear() +
-        pad(dateObject.getUTCMonth() + 1) +
-        pad(dateObject.getUTCDate()) +
-        'T' +
-        pad(dateObject.getUTCHours()) +
-        pad(dateObject.getUTCMinutes()) +
-        pad(dateObject.getUTCSeconds()) +
-        'Z';
-    return dateString;
-}
-function toDateQuery(readableDate) {
-    let s = readableDate.trim();
-    let m = '';
-    let r = '';
-    {
-        if (s == '')
-            return empty();
-        const match = s.match(/^((\d\d\d\d)-?)(.*)/);
-        if (!match)
-            return invalid();
-        next(match);
-    }
-    {
-        if (s == '')
-            return complete();
-        const match = s.match(/^((\d\d)-?)(.*)/);
-        if (!match)
-            return invalid();
-        r += '-';
-        next(match);
-    }
-    {
-        if (s == '')
-            return complete();
-        const match = s.match(/^((\d\d)[T ]?)(.*)/);
-        if (!match)
-            return invalid();
-        r += '-';
-        next(match);
-    }
-    {
-        if (s == '')
-            return complete();
-        const match = s.match(/^((\d\d):?)(.*)/);
-        if (!match)
-            return invalid();
-        r += ' ';
-        next(match);
-    }
-    {
-        if (s == '')
-            return complete();
-        const match = s.match(/^((\d\d):?)(.*)/);
-        if (!match)
-            return invalid();
-        r += ':';
-        next(match);
-    }
-    {
-        if (s == '')
-            return complete();
-        const match = s.match(/^((\d\d)Z?)$/);
-        if (!match)
-            return invalid();
-        r += ':';
-        next(match);
-    }
-    return complete();
-    function next(match) {
-        m += match[1];
-        r += match[2];
-        s = match[3];
-    }
-    function empty() {
-        return {
-            dateType: 'empty'
-        };
-    }
-    function invalid() {
-        let message = `invalid date string`;
-        if (m != '')
-            message += ` after ${m}`;
-        return {
-            dateType: 'invalid',
-            message
-        };
-    }
-    function complete() {
-        const completionTemplate = '2000-01-01 00:00:00Z';
-        const completedReadableDate = r + completionTemplate.slice(r.length);
-        return {
-            dateType: 'valid',
-            date: Date.parse(completedReadableDate) / 1000
-        };
-    }
 }
 
 const defaultLowerDate = Date.parse('2001-01-01 00:00:00Z') / 1000;
@@ -1208,6 +1302,8 @@ class NoteTable {
         this.map = map;
         this.filter = filter;
         this.noteSectionLayerIdVisibility = new Map();
+        this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
+        this.usersById = new Map();
         const that = this;
         this.wrappedNoteMarkerClickListener = function () {
             that.noteMarkerClickListener(this);
@@ -1243,20 +1339,16 @@ class NoteTable {
                 $cell.title = title;
             return $cell;
         }
-        commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table));
+        commandPanel.receiveCheckedNotes(this.getCheckedNotes());
     }
-    updateFilter(notes, users, filter) {
+    updateFilter(filter) {
         let nFetched = 0;
         let nVisible = 0;
         this.filter = filter;
-        const noteById = new Map();
-        for (const note of notes) {
-            noteById.set(note.id, note);
-        }
-        const getUsername = (uid) => users[uid];
+        const getUsername = (uid) => this.usersById.get(uid);
         for (const $noteSection of this.$table.querySelectorAll('tbody')) {
             const noteId = Number($noteSection.dataset.noteId);
-            const note = noteById.get(noteId);
+            const note = this.notesById.get(noteId);
             const layerId = Number($noteSection.dataset.layerId);
             if (note == null)
                 continue;
@@ -1284,12 +1376,20 @@ class NoteTable {
             }
         }
         this.commandPanel.receiveNoteCounts(nFetched, nVisible);
-        this.commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table));
+        this.commandPanel.receiveCheckedNotes(this.getCheckedNotes());
     }
     /**
      * @returns number of added notes that passed through the filter
      */
     addNotes(notes, users) {
+        // remember notes and users
+        for (const note of notes) {
+            this.notesById.set(note.id, note);
+        }
+        for (const [uid, username] of Object.entries(users)) {
+            this.usersById.set(Number(uid), username);
+        }
+        // output table
         let nUnfilteredNotes = 0;
         const getUsername = (uid) => users[uid];
         for (const note of notes) {
@@ -1441,7 +1541,7 @@ class NoteTable {
             }
             this.$lastClickedNoteSection = $clickedNoteSection;
         }
-        this.commandPanel.receiveCheckedNoteIds(getCheckedNoteIds(this.$table));
+        this.commandPanel.receiveCheckedNotes(this.getCheckedNotes());
     }
     commentRadioClickListener($radio, ev) {
         ev.stopPropagation();
@@ -1493,6 +1593,21 @@ class NoteTable {
             this.currentLayerId = layerId;
             this.map.panTo(marker.getLatLng());
         }
+    }
+    getCheckedNotes() {
+        const checkedNotes = [];
+        const $checkedBoxes = this.$table.querySelectorAll('.note-checkbox :checked');
+        for (const $checkbox of $checkedBoxes) {
+            const $noteSection = $checkbox.closest('tbody');
+            if (!$noteSection)
+                continue;
+            const noteId = Number($noteSection.dataset.noteId);
+            const note = this.notesById.get(noteId);
+            if (!note)
+                continue;
+            checkedNotes.push(note);
+        }
+        return checkedNotes;
     }
 }
 function makeNoteSectionObserver(commandPanel, map, noteSectionLayerIdVisibility) {
@@ -1573,20 +1688,6 @@ function* getTableSectionRange($table, $lastClickedSection, $currentClickedSecti
         }
     }
 }
-function getCheckedNoteIds($table) {
-    const checkedNoteIds = [];
-    const $checkedBoxes = $table.querySelectorAll('.note-checkbox :checked');
-    for (const $checkbox of $checkedBoxes) {
-        const $noteSection = $checkbox.closest('tbody');
-        if (!$noteSection)
-            continue;
-        const noteId = Number($noteSection.dataset.noteId);
-        if (!Number.isInteger(noteId))
-            continue;
-        checkedNoteIds.push(noteId);
-    }
-    return checkedNoteIds;
-}
 
 const maxSingleAutoLoadLimit = 200;
 const maxTotalAutoLoadLimit = 1000;
@@ -1606,7 +1707,7 @@ async function startSearchFetcher(db, $notesContainer, $moreContainer, filterPan
             return fetchEntry;
         }
     })();
-    filterPanel.subscribe(noteFilter => noteTable?.updateFilter(notes, users, noteFilter));
+    filterPanel.subscribe(noteFilter => noteTable?.updateFilter(noteFilter));
     let lastNote;
     let prevLastNote;
     let lastLimit;
@@ -1752,7 +1853,7 @@ db, $notesContainer, $moreContainer, filterPanel, commandPanel, map, $limitSelec
             return fetchEntry;
         }
     })();
-    filterPanel.subscribe(noteFilter => noteTable?.updateFilter(notes, users, noteFilter));
+    filterPanel.subscribe(noteFilter => noteTable?.updateFilter(noteFilter));
     if (!clearStore) {
         addNewNotes(notes);
         if (notes.length > 0) {
