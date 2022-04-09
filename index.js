@@ -1899,7 +1899,7 @@ function getLimit($limitSelect) {
 }
 
 class NoteFetchPanel {
-    constructor(storage, db, $container, $notesContainer, $moreContainer, $commandContainer, filterPanel, extrasPanel, map) {
+    constructor(storage, db, $container, $notesContainer, $moreContainer, $commandContainer, filterPanel, extrasPanel, map, restoreScrollPosition) {
         const moreButtonIntersectionObservers = [];
         const searchDialog = new NoteSearchFetchDialog();
         searchDialog.write($container, query => {
@@ -1917,6 +1917,7 @@ class NoteFetchPanel {
             modifyHistory(query, false); // in case location was edited manually
             populateInputs(query);
             runStartFetcher(query, false);
+            restoreScrollPosition();
         });
         const query = makeNoteQueryFromHash(location.hash);
         openQueryDialog(query, true);
@@ -2703,6 +2704,52 @@ class ExtrasPanel {
     }
 }
 
+class ScrollRestorer {
+    constructor($scrollingPart) {
+        this.$scrollingPart = $scrollingPart;
+        this.rememberScrollPosition = false;
+        history.scrollRestoration = 'manual';
+        $scrollingPart.addEventListener('scroll', () => {
+            if (!this.rememberScrollPosition)
+                return;
+            const scrollPosition = $scrollingPart.scrollTop;
+            history.replaceState({ scrollPosition }, '');
+            // TODO save more panel open/closed state... actually all panels open/closed states - Firefox does that, Chrome doesn't
+            // ... or save some other kind of position relative to notes table instead of scroll
+        });
+    }
+    run($resizeObservationTarget) {
+        // requestAnimationFrame and setTimeout(...,0) don't work very well: https://stackoverflow.com/a/38029067
+        // ResizeObserver works better: https://stackoverflow.com/a/66172042
+        this.rememberScrollPosition = false;
+        let nRestoreScrollPositionAttempts = 0;
+        const tryToRestoreScrollPosition = () => {
+            if (++nRestoreScrollPositionAttempts > 10)
+                return true;
+            if (!history.state)
+                return true;
+            const needToScrollTo = history.state.scrollPosition;
+            if (typeof needToScrollTo != 'number')
+                return true;
+            const canScrollTo = this.$scrollingPart.scrollHeight - this.$scrollingPart.clientHeight;
+            if (needToScrollTo > canScrollTo)
+                return false;
+            this.$scrollingPart.scrollTop = needToScrollTo;
+            return true;
+        };
+        if (tryToRestoreScrollPosition()) {
+            this.rememberScrollPosition = true;
+            return;
+        }
+        const resizeObserver = new ResizeObserver(() => {
+            if (tryToRestoreScrollPosition()) {
+                resizeObserver.disconnect();
+                this.rememberScrollPosition = true;
+            }
+        });
+        resizeObserver.observe($resizeObservationTarget); // observing $scrollingPart won't work because its size doesn't change
+    }
+}
 main();
 async function main() {
     const storage = new NoteViewerStorage('osm-note-viewer-');
@@ -2720,6 +2767,7 @@ async function main() {
     const $stickyPart = document.createElement('div');
     $stickyPart.classList.add('sticky');
     $textSide.append($scrollingPart, $stickyPart);
+    const scrollRestorer = new ScrollRestorer($scrollingPart);
     const $fetchContainer = document.createElement('div');
     $fetchContainer.classList.add('panel', 'fetch');
     const $filterContainer = document.createElement('div');
@@ -2739,7 +2787,8 @@ async function main() {
     writeResetButton($fetchContainer);
     const extrasPanel = new ExtrasPanel(storage, db, $extrasContainer);
     const filterPanel = new NoteFilterPanel($filterContainer);
-    new NoteFetchPanel(storage, db, $fetchContainer, $notesContainer, $moreContainer, $commandContainer, filterPanel, extrasPanel, map);
+    new NoteFetchPanel(storage, db, $fetchContainer, $notesContainer, $moreContainer, $commandContainer, filterPanel, extrasPanel, map, () => scrollRestorer.run($notesContainer));
+    scrollRestorer.run($notesContainer);
 }
 function writeFlipLayoutButton(storage, $container, map) {
     const $button = document.createElement('button');
