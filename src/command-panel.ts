@@ -214,7 +214,12 @@ export default class CommandPanel {
 					gpx+=`</wpt>\n`
 				}
 				gpx+=`</gpx>\n`
-				console.log(gpx)
+				const file=new File([gpx],'notes.gpx')
+				const $a=document.createElement('a')
+				$a.href=URL.createObjectURL(file)
+				$a.download='notes.gpx'
+				$a.click()
+				URL.revokeObjectURL($a.href)
 			})
 			$commandGroup.append($exportNotesButton)
 		}{
