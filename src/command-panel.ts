@@ -2,7 +2,7 @@ import type {Note} from './data'
 import NoteViewerStorage from './storage'
 import {NoteMap} from './map'
 import {toReadableDate, toUrlDate} from './query-date'
-import {makeLink, escapeXml, makeEscapeTag} from './util'
+import {makeLink, makeLabel, escapeXml, makeEscapeTag} from './util'
 
 export default class CommandPanel {
 	private $fitModeSelect=document.createElement('select')
@@ -177,6 +177,11 @@ export default class CommandPanel {
 				`GPX`,
 				'https://wiki.openstreetmap.org/wiki/GPX'
 			)
+			const $connectSelect=document.createElement('select')
+			$connectSelect.append(
+				new Option(`without connections`,'no'),
+				new Option(`connected by route`,'rte')
+			)
 			const $commentsSelect=document.createElement('select')
 			$commentsSelect.append(
 				new Option(`first comment`,'first'),
@@ -227,6 +232,16 @@ export default class CommandPanel {
 					gpx+=e`<type>${note.status}</type>\n`
 					gpx+=e`</wpt>\n`
 				}
+				if ($connectSelect.value=='rte') {
+					gpx+=`<rte>\n`
+					for (const note of this.checkedNotes) {
+						const firstComment=note.comments[0]
+						gpx+=e`<rtept lat="${note.lat}" lon="${note.lon}">\n`
+						if (firstComment) gpx+=e`<time>${toUrlDate(firstComment.date)}</time>\n`
+						gpx+=e`</rtept>\n`
+					}
+					gpx+=`</rte>\n`
+				}
 				gpx+=`</gpx>\n`
 				const file=new File([gpx],'notes.gpx')
 				const $a=document.createElement('a')
@@ -235,7 +250,11 @@ export default class CommandPanel {
 				$a.click()
 				URL.revokeObjectURL($a.href)
 			})
-			$commandGroup.append($exportNotesButton,` with `,$commentsSelect,` in waypoint descriptions`)
+			$commandGroup.append(
+				$exportNotesButton,` `,
+				makeLabel('inline')(` as waypoints `,$connectSelect),` `,
+				makeLabel('inline')(` with `,$commentsSelect,` in descriptions`),
+			)
 		}{
 			const $commandGroup=makeCommandGroup(
 				'yandex-panoramas',

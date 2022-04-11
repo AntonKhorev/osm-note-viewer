@@ -8,6 +8,7 @@ import {NoteQuery, makeNoteSearchQueryFromValues, makeNoteBboxQueryFromValues,ma
 import {toUserQuery} from './query-user'
 import {toReadableDate, toDateQuery} from './query-date'
 import {startSearchFetcher, startBboxFetcher} from './fetch'
+import {makeDiv,makeLabel} from './util'
 
 export default class NoteFetchPanel {
 	constructor(
@@ -165,10 +166,7 @@ abstract class NoteFetchDialog {
 	private makeFetchButtonDiv(): HTMLDivElement {
 		this.$fetchButton.textContent=`Fetch notes`
 		this.$fetchButton.type='submit'
-		const $div=document.createElement('div')
-		$div.classList.add('major-input')
-		$div.append(this.$fetchButton)
-		return $div
+		return makeDiv('major-input')(this.$fetchButton)
 	}
 	protected abstract writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void
 	protected abstract writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void
@@ -191,37 +189,28 @@ class NoteSearchFetchDialog extends NoteFetchDialog {
 		{
 			this.$userInput.type='text'
 			this.$userInput.name='user'
-			const $div=document.createElement('div')
-			$div.classList.add('major-input')
-			const $label=document.createElement('label')
-			$label.append(`OSM username, URL or #id: `,this.$userInput)
-			$div.append($label)
-			$fieldset.append($div)
+			$fieldset.append(makeDiv('major-input')(makeLabel()(
+				`OSM username, URL or #id: `,this.$userInput
+			)))
 		}{
 			this.$textInput.type='text'
 			this.$textInput.name='text'
-			const $div=document.createElement('div')
-			$div.classList.add('major-input')
-			const $label=document.createElement('label')
-			$label.append(`Comment text search query: `,this.$textInput)
-			$div.append($label)
-			$fieldset.append($div)
+			$fieldset.append(makeDiv('major-input')(makeLabel()(
+				`Comment text search query: `,this.$textInput
+			)))
 		}{
 			this.$fromInput.type='text'
 			this.$fromInput.size=20
 			this.$fromInput.name='from'
-			const $fromLabel=document.createElement('label')
-			$fromLabel.append(`from `,this.$fromInput)
 			this.$toInput.type='text'
 			this.$toInput.size=20
 			this.$toInput.name='to'
-			const $toLabel=document.createElement('label')
-			$toLabel.append(`to `,this.$toInput)
-			const $div=document.createElement('div')
-			$div.append(`Date range: `,$fromLabel,` `,$toLabel)
-			$fieldset.append($div)
+			$fieldset.append(makeDiv()(
+				`Date range: `,
+				makeLabel()(`from `,this.$fromInput),` `,
+				makeLabel()(`to `,this.$toInput)
+			))
 		}{
-			const $div=document.createElement('div')
 			this.$statusSelect.append(
 				new Option(`both open and closed`,'-1'),
 				new Option(`open and recently closed`,'7'),
@@ -235,40 +224,32 @@ class NoteSearchFetchDialog extends NoteFetchDialog {
 				new Option('newest'),
 				new Option('oldest')
 			)
-			$div.append(
-				span(`Fetch matching `,this.$statusSelect,` notes`),` `,
-				span(`sorted by `,this.$sortSelect,` date`),`, `,
-				span(this.$orderSelect,` first`)
-			)
-			$fieldset.append($div)
-			function span(...items: Array<string|HTMLElement>): HTMLSpanElement {
-				const $span=document.createElement('span')
-				$span.append(...items)
-				return $span
-			}
+			$fieldset.append(makeDiv()(
+				`Fetch `,
+				makeLabel('inline')(this.$statusSelect,` matching notes`),` `,
+				makeLabel('inline')(`sorted by `,this.$sortSelect,` date`),`, `,
+				makeLabel('inline')(this.$orderSelect,` first`)
+			))
 		}
 	}
 	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
 		{
-			const $div=document.createElement('div')
 			this.$limitSelect.append(
 				new Option('20'),
 				new Option('100'),
 				new Option('500'),
 				new Option('2500')
 			)
-			$div.append(
-				`Download these in batches of `,this.$limitSelect,` notes`
-			)
-			$fieldset.append($div)
+			$fieldset.append(makeDiv()(
+				`Download these `,
+				makeLabel()(`in batches of `,this.$limitSelect,` notes`)
+			))
 		}{
 			this.$autoLoadCheckbox.type='checkbox'
 			this.$autoLoadCheckbox.checked=true
-			const $div=document.createElement('div')
-			const $label=document.createElement('label')
-			$label.append(this.$autoLoadCheckbox,` Automatically load more notes when scrolled to the end of the table`)
-			$div.append($label)
-			$fieldset.append($div)
+			$fieldset.append(makeDiv()(makeLabel()(
+				this.$autoLoadCheckbox,` Automatically load more notes when scrolled to the end of the table`
+			)))
 		}
 	}
 	protected addEventListeners(): void {
@@ -310,53 +291,41 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 		{
 			this.$bboxInput.type='text'
 			this.$bboxInput.name='bbox'
-			const $div=document.createElement('div')
-			$div.classList.add('major-input')
-			const $label=document.createElement('label')
-			$label.append(`Bounding box (left,bottom,right,top): `,this.$bboxInput)
-			$div.append($label)
-			$fieldset.append($div)
+			$fieldset.append(makeDiv('major-input')(makeLabel()(
+				`Bounding box (left,bottom,right,top): `,this.$bboxInput
+			)))
 		}{
 			this.$trackMapCheckbox.type='checkbox'
 			this.$trackMapCheckbox.checked=true
-			const $div=document.createElement('div')
-			const $label=document.createElement('label')
-			$label.append(this.$trackMapCheckbox,` Update bounding box value with current map area`)
-			$div.append($label)
-			$fieldset.append($div)
+			$fieldset.append(makeDiv()(makeLabel()(
+				this.$trackMapCheckbox,` Update bounding box value with current map area`
+			)))
 		}{
-			const $div=document.createElement('div')
 			this.$statusSelect.append(
 				new Option(`both open and closed`,'-1'),
 				new Option(`open and recently closed`,'7'),
 				new Option(`only open`,'0'),
 			)
-			$div.append(
-				span(`Fetch matching `,this.$statusSelect,` notes`),` `,
-				span(`sorted by last update date`),`, `,
-				span(`newest first`)
-			)
-			$fieldset.append($div)
-			function span(...items: Array<string|HTMLElement>): HTMLSpanElement {
-				const $span=document.createElement('span')
-				$span.append(...items)
-				return $span
-			}
+			$fieldset.append(makeDiv()(
+				`Fetch `,
+				makeLabel('inline')(this.$statusSelect,` matching notes`),` `,
+				`sorted by last update date `,
+				`newest first`
+			))
 		}
 	}
 	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
 		{
-			const $div=document.createElement('div')
 			this.$limitSelect.append(
 				new Option('20'),
 				new Option('100'),
 				new Option('500'),
 				new Option('2500')
 			)
-			$div.append(
-				`Download at most `,this.$limitSelect,` notes`
-			)
-			$fieldset.append($div)
+			$fieldset.append(makeDiv()(
+				`Download `,
+				makeLabel()(`at most `,this.$limitSelect,` notes`)
+			))
 		}
 	}
 	protected addEventListeners(): void {
