@@ -177,6 +177,11 @@ export default class CommandPanel {
 				`GPX`,
 				'https://wiki.openstreetmap.org/wiki/GPX'
 			)
+			const $commentsSelect=document.createElement('select')
+			$commentsSelect.append(
+				new Option(`first comment`,'first'),
+				new Option(`all comments`,'all')
+			)
 			const $exportNotesButton=this.makeRequiringSelectedNotesButton()
 			$exportNotesButton.append(`Export `,makeNotesIcon('selected'))
 			$exportNotesButton.addEventListener('click',()=>{
@@ -196,7 +201,7 @@ export default class CommandPanel {
 							if (first) {
 								first=false
 							} else {
-								gpx+=`\n`
+								gpx+=`&#xA;\n` // JOSM wants this kind of double newline, otherwise no space between comments is rendered
 							}
 							if (comment.uid) {
 								const username=this.checkedNoteUsers.get(comment.uid)
@@ -208,8 +213,10 @@ export default class CommandPanel {
 							} else {
 								gpx+=`anonymous user`
 							}
-							gpx+=e` ${comment.action} at ${toReadableDate(comment.date)}`
+							if ($commentsSelect.value=='all') gpx+=e` ${comment.action}`
+							gpx+=` at ${toReadableDate(comment.date)}`
 							if (comment.text) gpx+=e`: ${comment.text}`
+							if ($commentsSelect.value!='all') break
 						}
 						gpx+=`</desc>\n`
 					}
@@ -228,7 +235,7 @@ export default class CommandPanel {
 				$a.click()
 				URL.revokeObjectURL($a.href)
 			})
-			$commandGroup.append($exportNotesButton)
+			$commandGroup.append($exportNotesButton,` with `,$commentsSelect,` in waypoint descriptions`)
 		}{
 			const $commandGroup=makeCommandGroup(
 				'yandex-panoramas',
