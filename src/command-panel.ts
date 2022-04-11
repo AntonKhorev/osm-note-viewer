@@ -180,7 +180,8 @@ export default class CommandPanel {
 			const $connectSelect=document.createElement('select')
 			$connectSelect.append(
 				new Option(`without connections`,'no'),
-				new Option(`connected by route`,'rte')
+				new Option(`connected by route`,'rte'),
+				new Option(`connected by track`,'trk')
 			)
 			const $commentsSelect=document.createElement('select')
 			$commentsSelect.append(
@@ -189,17 +190,26 @@ export default class CommandPanel {
 			)
 			const $exportNotesButton=this.makeRequiringSelectedNotesButton()
 			$exportNotesButton.append(`Export `,makeNotesIcon('selected'))
+			const e=makeEscapeTag(escapeXml)
+			const getPoints=(pointTag: string, getDetails: (note: Note) => string = ()=>''): string => {
+				let gpx=''
+				for (const note of this.checkedNotes) {
+					const firstComment=note.comments[0]
+					gpx+=e`<${pointTag} lat="${note.lat}" lon="${note.lon}">\n`
+					if (firstComment) gpx+=e`<time>${toUrlDate(firstComment.date)}</time>\n`
+					gpx+=getDetails(note)
+					gpx+=e`</${pointTag}>\n`
+				}
+				return gpx
+			}
 			$exportNotesButton.addEventListener('click',()=>{
-				const e=makeEscapeTag(escapeXml)
 				let gpx=e`<?xml version="1.0" encoding="UTF-8" ?>\n`
 				gpx+=e`<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">\n`
 				// TODO <name>selected notes of user A</name>
-				for (const note of this.checkedNotes) {
-					const firstComment=note.comments[0]
-					gpx+=e`<wpt lat="${note.lat}" lon="${note.lon}">\n`
-					if (firstComment) gpx+=e`<time>${toUrlDate(firstComment.date)}</time>\n`
+				gpx+=getPoints('wpt',note=>{
+					let gpx=''
 					gpx+=e`<name>${note.id}</name>\n`
-					if (firstComment) {
+					if (note.comments.length>0) {
 						gpx+=`<desc>`
 						let first=true
 						for (const comment of note.comments) {
@@ -230,17 +240,17 @@ export default class CommandPanel {
 					gpx+=e`<text>note #${note.id} on osm</text>\n`
 					gpx+=e`</link>\n`
 					gpx+=e`<type>${note.status}</type>\n`
-					gpx+=e`</wpt>\n`
-				}
+					return gpx
+				})
 				if ($connectSelect.value=='rte') {
 					gpx+=`<rte>\n`
-					for (const note of this.checkedNotes) {
-						const firstComment=note.comments[0]
-						gpx+=e`<rtept lat="${note.lat}" lon="${note.lon}">\n`
-						if (firstComment) gpx+=e`<time>${toUrlDate(firstComment.date)}</time>\n`
-						gpx+=e`</rtept>\n`
-					}
+					gpx+=getPoints('rtept')
 					gpx+=`</rte>\n`
+				}
+				if ($connectSelect.value=='trk') {
+					gpx+=`<trk><trkseg>\n`
+					gpx+=getPoints('trkpt')
+					gpx+=`</trkseg></trk>\n`
 				}
 				gpx+=`</gpx>\n`
 				const file=new File([gpx],'notes.gpx')
