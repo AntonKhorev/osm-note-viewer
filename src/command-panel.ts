@@ -214,9 +214,11 @@ export default class CommandPanel {
 						gpx+=`</desc>\n`
 					}
 					const noteUrl=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.id)
-					gpx+=e`<link href="${noteUrl}" />\n`
+					gpx+=e`<link href="${noteUrl}">\n`
+					gpx+=e`<text>note #${note.id} on osm</text>\n`
+					gpx+=e`</link>\n`
 					gpx+=e`<type>${note.status}</type>\n`
-					gpx+=`</wpt>\n`
+					gpx+=e`</wpt>\n`
 				}
 				gpx+=`</gpx>\n`
 				const file=new File([gpx],'notes.gpx')
