@@ -11,9 +11,11 @@ export default class NoteTable {
 	private wrappedNoteSectionMouseoutListener: (this: HTMLElement) => void 
 	private wrappedNoteSectionClickListener: (this: HTMLElement) => void
 	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
+	private wrappedAllNotesCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedCommentRadioClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private noteRowObserver: IntersectionObserver
-	private $table: HTMLTableElement
+	private $table = document.createElement('table')
+	private $selectAllCheckbox = document.createElement('input')
 	private currentLayerId: number | undefined
 	private noteSectionLayerIdVisibility=new Map<number,boolean>()
 	private $lastClickedNoteSection: HTMLTableSectionElement | undefined
@@ -37,17 +39,24 @@ export default class NoteTable {
 		this.wrappedNoteCheckboxClickListener=function(ev: MouseEvent){
 			that.noteCheckboxClickListener(this,ev)
 		}
+		this.wrappedAllNotesCheckboxClickListener=function(ev: MouseEvent){
+			that.allNotesCheckboxClickListener(this,ev)
+		}
 		this.wrappedCommentRadioClickListener=function(ev: MouseEvent){
 			that.commentRadioClickListener(this,ev)
 		}
 		this.noteRowObserver=makeNoteSectionObserver(commandPanel,map,this.noteSectionLayerIdVisibility)
-		this.$table=document.createElement('table')
 		$container.append(this.$table)
 		{
 			const $header=this.$table.createTHead()
 			const $row=$header.insertRow()
+			const $checkboxCell=makeHeaderCell('')
+			this.$selectAllCheckbox.type='checkbox'
+			this.$selectAllCheckbox.title=`check/uncheck all`
+			this.$selectAllCheckbox.addEventListener('click',this.wrappedAllNotesCheckboxClickListener)
+			$checkboxCell.append(this.$selectAllCheckbox)
 			$row.append(
-				makeHeaderCell(''),
+				$checkboxCell,
 				makeHeaderCell('id'),
 				makeHeaderCell('date'),
 				makeHeaderCell('user'),
@@ -61,7 +70,7 @@ export default class NoteTable {
 			if (title) $cell.title=title
 			return $cell
 		}
-		commandPanel.receiveCheckedNotes(...this.getCheckedNotesAndUsers())
+		this.updateCheckboxDependents()
 	}
 	updateFilter(filter: NoteFilter): void {
 		let nFetched=0
@@ -95,7 +104,7 @@ export default class NoteTable {
 			}
 		}
 		this.commandPanel.receiveNoteCounts(nFetched,nVisible)
-		this.commandPanel.receiveCheckedNotes(...this.getCheckedNotesAndUsers())
+		this.updateCheckboxDependents()
 	}
 	/**
 	 * @returns number of added notes that passed through the filter
@@ -246,7 +255,15 @@ export default class NoteTable {
 			}
 			this.$lastClickedNoteSection=$clickedNoteSection
 		}
-		this.commandPanel.receiveCheckedNotes(...this.getCheckedNotesAndUsers())
+		this.updateCheckboxDependents()
+	}
+	private allNotesCheckboxClickListener($allCheckbox: HTMLInputElement, ev: MouseEvent) {
+		for (const $noteSection of this.listVisibleNoteSections()) {
+			const $checkbox=$noteSection.querySelector('.note-checkbox input')
+			if (!($checkbox instanceof HTMLInputElement)) continue
+			$checkbox.checked=$allCheckbox.checked
+		}
+		this.updateCheckboxDependents()
 	}
 	private commentRadioClickListener($radio: HTMLInputElement, ev: MouseEvent) {
 		ev.stopPropagation()
@@ -293,13 +310,17 @@ export default class NoteTable {
 			this.map.panTo(marker.getLatLng())
 		}
 	}
-	getCheckedNotesAndUsers(): [ReadonlyArray<Note>, ReadonlyMap<number,string>] {
+	private updateCheckboxDependents(): void {
 		const checkedNotes: Note[] = []
 		const checkedNoteUsers: Map<number,string> = new Map()
-		const $checkedBoxes=this.$table.querySelectorAll('.note-checkbox :checked')
-		for (const $checkbox of $checkedBoxes) {
-			const $noteSection=$checkbox.closest('tbody')
-			if (!$noteSection) continue
+		let hasUnchecked=false
+		for (const $noteSection of this.listVisibleNoteSections()) {
+			const $checkbox=$noteSection.querySelector('.note-checkbox input')
+			if (!($checkbox instanceof HTMLInputElement)) continue
+			if (!$checkbox.checked) {
+				hasUnchecked=true
+				continue
+			}
 			const noteId=Number($noteSection.dataset.noteId)
 			const note=this.notesById.get(noteId)
 			if (!note) continue
@@ -311,7 +332,13 @@ export default class NoteTable {
 				checkedNoteUsers.set(comment.uid,username)
 			}
 		}
-		return [checkedNotes,checkedNoteUsers]
+		let hasChecked=checkedNotes.length>0
+		this.$selectAllCheckbox.indeterminate=hasChecked && hasUnchecked
+		this.$selectAllCheckbox.checked=hasChecked && !hasUnchecked
+		this.commandPanel.receiveCheckedNotes(checkedNotes,checkedNoteUsers)
+	}
+	private listVisibleNoteSections(): NodeListOf<HTMLTableSectionElement> {
+		return this.$table.querySelectorAll('tbody:not(.hidden)')
 	}
 }
 
