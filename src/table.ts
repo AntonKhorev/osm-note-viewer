@@ -232,6 +232,12 @@ export default class NoteTable {
 		$noteSection.addEventListener('click',this.wrappedNoteSectionClickListener)
 		this.noteSectionLayerIdVisibility.set(layerId,false)
 		this.noteRowObserver.observe($noteSection)
+		if (isVisible) {
+			if (this.$selectAllCheckbox.checked) {
+				this.$selectAllCheckbox.checked=false
+				this.$selectAllCheckbox.indeterminate=true
+			}
+		}
 		return $noteSection
 	}
 	private noteMarkerClickListener(marker: NoteMarker): void {
