@@ -12,7 +12,8 @@ export default class CommandPanel {
 	private $fetchedNoteCount: HTMLSpanElement
 	private $visibleNoteCount: HTMLSpanElement
 	private $checkedNoteCount: HTMLSpanElement
-	private checkedNotes: Note[] = []
+	private checkedNotes: ReadonlyArray<Note> = []
+	private checkedNoteUsers: ReadonlyMap<number,string> = new Map()
 	private checkedCommentTime?: string
 	private checkedCommentText?: string
 	constructor($container: HTMLElement, map: NoteMap, storage: NoteViewerStorage) {
@@ -198,8 +199,12 @@ export default class CommandPanel {
 								gpx+=`\n`
 							}
 							if (comment.uid) {
-								gpx+=e`user #${comment.uid}`
-								// TODO actual username
+								const username=this.checkedNoteUsers.get(comment.uid)
+								if (username!=null) {
+									gpx+=e`${username}`
+								} else {
+									gpx+=e`user #${comment.uid}`
+								}
 							} else {
 								gpx+=`anonymous user`
 							}
@@ -322,9 +327,10 @@ export default class CommandPanel {
 		this.$fetchedNoteCount.textContent=String(nFetched)
 		this.$visibleNoteCount.textContent=String(nVisible)
 	}
-	receiveCheckedNotes(checkedNotes: Note[]): void {
+	receiveCheckedNotes(checkedNotes: ReadonlyArray<Note>, checkedNoteUsers: ReadonlyMap<number,string>): void {
 		this.$checkedNoteCount.textContent=String(checkedNotes.length)
 		this.checkedNotes=checkedNotes
+		this.checkedNoteUsers=checkedNoteUsers
 		for (const $button of this.$buttonsRequiringSelectedNotes) {
 			$button.disabled=checkedNotes.length<=0
 		}

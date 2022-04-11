@@ -61,7 +61,7 @@ export default class NoteTable {
 			if (title) $cell.title=title
 			return $cell
 		}
-		commandPanel.receiveCheckedNotes(this.getCheckedNotes())
+		commandPanel.receiveCheckedNotes(...this.getCheckedNotesAndUsers())
 	}
 	updateFilter(filter: NoteFilter): void {
 		let nFetched=0
@@ -95,7 +95,7 @@ export default class NoteTable {
 			}
 		}
 		this.commandPanel.receiveNoteCounts(nFetched,nVisible)
-		this.commandPanel.receiveCheckedNotes(this.getCheckedNotes())
+		this.commandPanel.receiveCheckedNotes(...this.getCheckedNotesAndUsers())
 	}
 	/**
 	 * @returns number of added notes that passed through the filter
@@ -246,7 +246,7 @@ export default class NoteTable {
 			}
 			this.$lastClickedNoteSection=$clickedNoteSection
 		}
-		this.commandPanel.receiveCheckedNotes(this.getCheckedNotes())
+		this.commandPanel.receiveCheckedNotes(...this.getCheckedNotesAndUsers())
 	}
 	private commentRadioClickListener($radio: HTMLInputElement, ev: MouseEvent) {
 		ev.stopPropagation()
@@ -293,8 +293,9 @@ export default class NoteTable {
 			this.map.panTo(marker.getLatLng())
 		}
 	}
-	getCheckedNotes(): Note[] {
+	getCheckedNotesAndUsers(): [ReadonlyArray<Note>, ReadonlyMap<number,string>] {
 		const checkedNotes: Note[] = []
+		const checkedNoteUsers: Map<number,string> = new Map()
 		const $checkedBoxes=this.$table.querySelectorAll('.note-checkbox :checked')
 		for (const $checkbox of $checkedBoxes) {
 			const $noteSection=$checkbox.closest('tbody')
@@ -303,8 +304,14 @@ export default class NoteTable {
 			const note=this.notesById.get(noteId)
 			if (!note) continue
 			checkedNotes.push(note)
+			for (const comment of note.comments) {
+				if (comment.uid==null) continue
+				const username=this.usersById.get(comment.uid)
+				if (username==null) continue
+				checkedNoteUsers.set(comment.uid,username)
+			}
 		}
-		return checkedNotes
+		return [checkedNotes,checkedNoteUsers]
 	}
 }
 
