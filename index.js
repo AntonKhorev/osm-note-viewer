@@ -531,6 +531,18 @@ function makeLink(text, href, title) {
         $link.title = title;
     return $link;
 }
+const makeDiv = (...classes) => (...items) => {
+    const $div = document.createElement('div');
+    $div.classList.add(...classes);
+    $div.append(...items);
+    return $div;
+};
+const makeLabel = (...classes) => (...items) => {
+    const $label = document.createElement('label');
+    $label.classList.add(...classes);
+    $label.append(...items);
+    return $label;
+};
 function escapeRegex(text) {
     return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 }
@@ -558,6 +570,7 @@ class CommandPanel {
         this.$fitModeSelect = document.createElement('select');
         this.$buttonsRequiringSelectedNotes = [];
         this.checkedNotes = [];
+        this.checkedNoteUsers = new Map();
         {
             const $commandGroup = makeCommandGroup('autozoom', `Automatic zoom`);
             this.$fitModeSelect.append(new Option('is disabled', 'none'), new Option('to notes in table view', 'inViewNotes'), new Option('to all notes', 'allNotes'));
@@ -700,20 +713,33 @@ class CommandPanel {
         }
         {
             const $commandGroup = makeCommandGroup('gpx', `GPX`, 'https://wiki.openstreetmap.org/wiki/GPX');
+            const $connectSelect = document.createElement('select');
+            $connectSelect.append(new Option(`without connections`, 'no'), new Option(`connected by route`, 'rte'), new Option(`connected by track`, 'trk'));
+            const $commentsSelect = document.createElement('select');
+            $commentsSelect.append(new Option(`first comment`, 'first'), new Option(`all comments`, 'all'));
             const $exportNotesButton = this.makeRequiringSelectedNotesButton();
             $exportNotesButton.append(`Export `, makeNotesIcon('selected'));
+            const e = makeEscapeTag(escapeXml);
+            const getPoints = (pointTag, getDetails = () => '') => {
+                let gpx = '';
+                for (const note of this.checkedNotes) {
+                    const firstComment = note.comments[0];
+                    gpx += e `<${pointTag} lat="${note.lat}" lon="${note.lon}">\n`;
+                    if (firstComment)
+                        gpx += e `<time>${toUrlDate(firstComment.date)}</time>\n`;
+                    gpx += getDetails(note);
+                    gpx += e `</${pointTag}>\n`;
+                }
+                return gpx;
+            };
             $exportNotesButton.addEventListener('click', () => {
-                const e = makeEscapeTag(escapeXml);
                 let gpx = e `<?xml version="1.0" encoding="UTF-8" ?>\n`;
                 gpx += e `<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">\n`;
                 // TODO <name>selected notes of user A</name>
-                for (const note of this.checkedNotes) {
-                    const firstComment = note.comments[0];
-                    gpx += e `<wpt lat="${note.lat}" lon="${note.lon}">\n`;
-                    if (firstComment)
-                        gpx += e `<time>${toUrlDate(firstComment.date)}</time>\n`;
+                gpx += getPoints('wpt', note => {
+                    let gpx = '';
                     gpx += e `<name>${note.id}</name>\n`;
-                    if (firstComment) {
+                    if (note.comments.length > 0) {
                         gpx += `<desc>`;
                         let first = true;
                         for (const comment of note.comments) {
@@ -721,25 +747,46 @@ class CommandPanel {
                                 first = false;
                             }
                             else {
-                                gpx += `\n`;
+                                gpx += `&#xA;\n`; // JOSM wants this kind of double newline, otherwise no space between comments is rendered
                             }
                             if (comment.uid) {
-                                gpx += e `user #${comment.uid}`;
-                                // TODO actual username
+                                const username = this.checkedNoteUsers.get(comment.uid);
+                                if (username != null) {
+                                    gpx += e `${username}`;
+                                }
+                                else {
+                                    gpx += e `user #${comment.uid}`;
+                                }
                             }
                             else {
                                 gpx += `anonymous user`;
                             }
-                            gpx += e ` ${comment.action} at ${toReadableDate(comment.date)}`;
+                            if ($commentsSelect.value == 'all')
+                                gpx += e ` ${comment.action}`;
+                            gpx += ` at ${toReadableDate(comment.date)}`;
                             if (comment.text)
                                 gpx += e `: ${comment.text}`;
+                            if ($commentsSelect.value != 'all')
+                                break;
                         }
                         gpx += `</desc>\n`;
                     }
                     const noteUrl = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
-                    gpx += e `<link href="${noteUrl}" />\n`;
+                    gpx += e `<link href="${noteUrl}">\n`;
+                    gpx += e `<text>note #${note.id} on osm</text>\n`;
+                    gpx += e `</link>\n`;
                     gpx += e `<type>${note.status}</type>\n`;
-                    gpx += `</wpt>\n`;
+                    return gpx;
+                });
+                if ($connectSelect.value == 'rte') {
+                    gpx += `<rte>\n`;
+                    gpx += getPoints('rtept');
+                    gpx += `</rte>\n`;
+                }
+                if ($connectSelect.value == 'trk') {
+                    gpx += `<trk><trkseg>\n`;
+                    gpx += getPoints('trkpt');
+                    gpx += `</trkseg></trk>\n`;
                 }
                 gpx += `</gpx>\n`;
                 const file = new File([gpx], 'notes.gpx');
@@ -749,7 +796,7 @@ class CommandPanel {
                 $a.click();
                 URL.revokeObjectURL($a.href);
             });
-            $commandGroup.append($exportNotesButton);
+            $commandGroup.append($exportNotesButton, ` `, makeLabel('inline')(` as waypoints `, $connectSelect), ` `, makeLabel('inline')(` with `, $commentsSelect, ` in descriptions`));
         }
         {
             const $commandGroup = makeCommandGroup('yandex-panoramas', `Y.Panoramas`, 'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B', `Yandex.Panoramas (Яндекс.Панорамы)`);
@@ -843,9 +890,10 @@ class CommandPanel {
         this.$fetchedNoteCount.textContent = String(nFetched);
         this.$visibleNoteCount.textContent = String(nVisible);
     }
-    receiveCheckedNotes(checkedNotes) {
+    receiveCheckedNotes(checkedNotes, checkedNoteUsers) {
         this.$checkedNoteCount.textContent = String(checkedNotes.length);
         this.checkedNotes = checkedNotes;
+        this.checkedNoteUsers = checkedNoteUsers;
         for (const $button of this.$buttonsRequiringSelectedNotes) {
             $button.disabled = checkedNotes.length <= 0;
         }
@@ -1301,6 +1349,8 @@ class NoteTable {
         this.commandPanel = commandPanel;
         this.map = map;
         this.filter = filter;
+        this.$table = document.createElement('table');
+        this.$selectAllCheckbox = document.createElement('input');
         this.noteSectionLayerIdVisibility = new Map();
         this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
         this.usersById = new Map();
@@ -1321,16 +1371,23 @@ class NoteTable {
         this.wrappedNoteCheckboxClickListener = function (ev) {
             that.noteCheckboxClickListener(this, ev);
         };
+        this.wrappedAllNotesCheckboxClickListener = function (ev) {
+            that.allNotesCheckboxClickListener(this, ev);
+        };
         this.wrappedCommentRadioClickListener = function (ev) {
             that.commentRadioClickListener(this, ev);
         };
         this.noteRowObserver = makeNoteSectionObserver(commandPanel, map, this.noteSectionLayerIdVisibility);
-        this.$table = document.createElement('table');
         $container.append(this.$table);
         {
             const $header = this.$table.createTHead();
             const $row = $header.insertRow();
-            $row.append(makeHeaderCell(''), makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), makeHeaderCell('?', `Action performed along with adding the comment. Also a radio button. Click to select comment for Overpass turbo commands.`), makeHeaderCell('comment'));
+            const $checkboxCell = makeHeaderCell('');
+            this.$selectAllCheckbox.type = 'checkbox';
+            this.$selectAllCheckbox.title = `check/uncheck all`;
+            this.$selectAllCheckbox.addEventListener('click', this.wrappedAllNotesCheckboxClickListener);
+            $checkboxCell.append(this.$selectAllCheckbox);
+            $row.append($checkboxCell, makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), makeHeaderCell('?', `Action performed along with adding the comment. Also a radio button. Click to select comment for Overpass turbo commands.`), makeHeaderCell('comment'));
         }
         function makeHeaderCell(text, title) {
             const $cell = document.createElement('th');
@@ -1339,7 +1396,7 @@ class NoteTable {
                 $cell.title = title;
             return $cell;
         }
-        commandPanel.receiveCheckedNotes(this.getCheckedNotes());
+        this.updateCheckboxDependents();
     }
     updateFilter(filter) {
         let nFetched = 0;
@@ -1376,7 +1433,7 @@ class NoteTable {
             }
         }
         this.commandPanel.receiveNoteCounts(nFetched, nVisible);
-        this.commandPanel.receiveCheckedNotes(this.getCheckedNotes());
+        this.updateCheckboxDependents();
     }
     /**
      * @returns number of added notes that passed through the filter
@@ -1516,6 +1573,12 @@ class NoteTable {
         $noteSection.addEventListener('click', this.wrappedNoteSectionClickListener);
         this.noteSectionLayerIdVisibility.set(layerId, false);
         this.noteRowObserver.observe($noteSection);
+        if (isVisible) {
+            if (this.$selectAllCheckbox.checked) {
+                this.$selectAllCheckbox.checked = false;
+                this.$selectAllCheckbox.indeterminate = true;
+            }
+        }
         return $noteSection;
     }
     noteMarkerClickListener(marker) {
@@ -1533,15 +1596,24 @@ class NoteTable {
         const $clickedNoteSection = $checkbox.closest('tbody');
         if ($clickedNoteSection) {
             if (ev.shiftKey && this.$lastClickedNoteSection) {
-                for (const $section of getTableSectionRange(this.$table, this.$lastClickedNoteSection, $clickedNoteSection)) {
-                    const $checkbox = $section.querySelector('.note-checkbox input');
-                    if ($checkbox instanceof HTMLInputElement)
-                        $checkbox.checked = $checkbox.checked;
+                for (const $section of this.listVisibleNoteSectionsInRange(this.$lastClickedNoteSection, $clickedNoteSection)) {
+                    const $checkboxInRange = $section.querySelector('.note-checkbox input');
+                    if ($checkboxInRange instanceof HTMLInputElement)
+                        $checkboxInRange.checked = $checkbox.checked;
                 }
             }
             this.$lastClickedNoteSection = $clickedNoteSection;
         }
-        this.commandPanel.receiveCheckedNotes(this.getCheckedNotes());
+        this.updateCheckboxDependents();
+    }
+    allNotesCheckboxClickListener($allCheckbox, ev) {
+        for (const $noteSection of this.listVisibleNoteSections()) {
+            const $checkbox = $noteSection.querySelector('.note-checkbox input');
+            if (!($checkbox instanceof HTMLInputElement))
+                continue;
+            $checkbox.checked = $allCheckbox.checked;
+        }
+        this.updateCheckboxDependents();
     }
     commentRadioClickListener($radio, ev) {
         ev.stopPropagation();
@@ -1594,20 +1666,70 @@ class NoteTable {
             this.map.panTo(marker.getLatLng());
         }
     }
-    getCheckedNotes() {
+    updateCheckboxDependents() {
         const checkedNotes = [];
-        const $checkedBoxes = this.$table.querySelectorAll('.note-checkbox :checked');
-        for (const $checkbox of $checkedBoxes) {
-            const $noteSection = $checkbox.closest('tbody');
-            if (!$noteSection)
+        const checkedNoteUsers = new Map();
+        let hasUnchecked = false;
+        for (const $noteSection of this.listVisibleNoteSections()) {
+            const $checkbox = $noteSection.querySelector('.note-checkbox input');
+            if (!($checkbox instanceof HTMLInputElement))
                 continue;
+            if (!$checkbox.checked) {
+                hasUnchecked = true;
+                continue;
+            }
             const noteId = Number($noteSection.dataset.noteId);
             const note = this.notesById.get(noteId);
             if (!note)
                 continue;
             checkedNotes.push(note);
+            for (const comment of note.comments) {
+                if (comment.uid == null)
+                    continue;
+                const username = this.usersById.get(comment.uid);
+                if (username == null)
+                    continue;
+                checkedNoteUsers.set(comment.uid, username);
+            }
         }
-        return checkedNotes;
+        let hasChecked = checkedNotes.length > 0;
+        this.$selectAllCheckbox.indeterminate = hasChecked && hasUnchecked;
+        this.$selectAllCheckbox.checked = hasChecked && !hasUnchecked;
+        this.commandPanel.receiveCheckedNotes(checkedNotes, checkedNoteUsers);
+    }
+    listVisibleNoteSections() {
+        return this.$table.querySelectorAll('tbody:not(.hidden)');
+    }
+    /**
+     * range including $fromSection but excluding $toSection
+     * excludes $toSection if equals to $fromSection
+     */
+    *listVisibleNoteSectionsInRange($fromSection, $toSection) {
+        const $sections = this.listVisibleNoteSections();
+        let i = 0;
+        let $guardSection;
+        for (; i < $sections.length; i++) {
+            const $section = $sections[i];
+            if ($section == $fromSection) {
+                $guardSection = $toSection;
+                break;
+            }
+            if ($section == $toSection) {
+                $guardSection = $fromSection;
+                break;
+            }
+        }
+        if (!$guardSection)
+            return;
+        for (; i < $sections.length; i++) {
+            const $section = $sections[i];
+            if ($section != $toSection) {
+                yield $section;
+            }
+            if ($section == $guardSection) {
+                return;
+            }
+        }
     }
 }
 function makeNoteSectionObserver(commandPanel, map, noteSectionLayerIdVisibility) {
@@ -1655,37 +1777,6 @@ function getActionClass(action) {
     }
     else {
         return 'other';
-    }
-}
-/**
- * range including $lastClickedSection but excluding $currentClickedSection
- * excludes $currentClickedSection if equals to $lastClickedSection
- */
-function* getTableSectionRange($table, $lastClickedSection, $currentClickedSection) {
-    const $sections = $table.tBodies;
-    let i = 0;
-    let $guardSection;
-    for (; i < $sections.length; i++) {
-        const $section = $sections[i];
-        if ($section == $lastClickedSection) {
-            $guardSection = $currentClickedSection;
-            break;
-        }
-        if ($section == $currentClickedSection) {
-            $guardSection = $lastClickedSection;
-            break;
-        }
-    }
-    if (!$guardSection)
-        return;
-    for (; i < $sections.length; i++) {
-        const $section = $sections[i];
-        if ($section != $currentClickedSection) {
-            yield $section;
-        }
-        if ($section == $guardSection) {
-            return;
-        }
     }
 }
 
@@ -2143,10 +2234,7 @@ class NoteFetchDialog {
     makeFetchButtonDiv() {
         this.$fetchButton.textContent = `Fetch notes`;
         this.$fetchButton.type = 'submit';
-        const $div = document.createElement('div');
-        $div.classList.add('major-input');
-        $div.append(this.$fetchButton);
-        return $div;
+        return makeDiv('major-input')(this.$fetchButton);
     }
 }
 class NoteSearchFetchDialog extends NoteFetchDialog {
@@ -2167,67 +2255,38 @@ class NoteSearchFetchDialog extends NoteFetchDialog {
         {
             this.$userInput.type = 'text';
             this.$userInput.name = 'user';
-            const $div = document.createElement('div');
-            $div.classList.add('major-input');
-            const $label = document.createElement('label');
-            $label.append(`OSM username, URL or #id: `, this.$userInput);
-            $div.append($label);
-            $fieldset.append($div);
+            $fieldset.append(makeDiv('major-input')(makeLabel()(`OSM username, URL or #id: `, this.$userInput)));
         }
         {
             this.$textInput.type = 'text';
             this.$textInput.name = 'text';
-            const $div = document.createElement('div');
-            $div.classList.add('major-input');
-            const $label = document.createElement('label');
-            $label.append(`Comment text search query: `, this.$textInput);
-            $div.append($label);
-            $fieldset.append($div);
+            $fieldset.append(makeDiv('major-input')(makeLabel()(`Comment text search query: `, this.$textInput)));
         }
         {
             this.$fromInput.type = 'text';
             this.$fromInput.size = 20;
             this.$fromInput.name = 'from';
-            const $fromLabel = document.createElement('label');
-            $fromLabel.append(`from `, this.$fromInput);
             this.$toInput.type = 'text';
             this.$toInput.size = 20;
             this.$toInput.name = 'to';
-            const $toLabel = document.createElement('label');
-            $toLabel.append(`to `, this.$toInput);
-            const $div = document.createElement('div');
-            $div.append(`Date range: `, $fromLabel, ` `, $toLabel);
-            $fieldset.append($div);
+            $fieldset.append(makeDiv()(`Date range: `, makeLabel()(`from `, this.$fromInput), ` `, makeLabel()(`to `, this.$toInput)));
         }
         {
-            const $div = document.createElement('div');
             this.$statusSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
             this.$sortSelect.append(new Option(`creation`, 'created_at'), new Option(`last update`, 'updated_at'));
             this.$orderSelect.append(new Option('newest'), new Option('oldest'));
-            $div.append(span(`Fetch matching `, this.$statusSelect, ` notes`), ` `, span(`sorted by `, this.$sortSelect, ` date`), `, `, span(this.$orderSelect, ` first`));
-            $fieldset.append($div);
-            function span(...items) {
-                const $span = document.createElement('span');
-                $span.append(...items);
-                return $span;
-            }
+            $fieldset.append(makeDiv()(`Fetch `, makeLabel('inline')(this.$statusSelect, ` matching notes`), ` `, makeLabel('inline')(`sorted by `, this.$sortSelect, ` date`), `, `, makeLabel('inline')(this.$orderSelect, ` first`)));
         }
     }
     writeDownloadModeFieldset($fieldset) {
         {
-            const $div = document.createElement('div');
             this.$limitSelect.append(new Option('20'), new Option('100'), new Option('500'), new Option('2500'));
-            $div.append(`Download these in batches of `, this.$limitSelect, ` notes`);
-            $fieldset.append($div);
+            $fieldset.append(makeDiv()(`Download these `, makeLabel()(`in batches of `, this.$limitSelect, ` notes`)));
         }
         {
             this.$autoLoadCheckbox.type = 'checkbox';
             this.$autoLoadCheckbox.checked = true;
-            const $div = document.createElement('div');
-            const $label = document.createElement('label');
-            $label.append(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`);
-            $div.append($label);
-            $fieldset.append($div);
+            $fieldset.append(makeDiv()(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
         }
     }
     addEventListeners() {
@@ -2269,40 +2328,22 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
         {
             this.$bboxInput.type = 'text';
             this.$bboxInput.name = 'bbox';
-            const $div = document.createElement('div');
-            $div.classList.add('major-input');
-            const $label = document.createElement('label');
-            $label.append(`Bounding box (left,bottom,right,top): `, this.$bboxInput);
-            $div.append($label);
-            $fieldset.append($div);
+            $fieldset.append(makeDiv('major-input')(makeLabel()(`Bounding box (left,bottom,right,top): `, this.$bboxInput)));
         }
         {
             this.$trackMapCheckbox.type = 'checkbox';
             this.$trackMapCheckbox.checked = true;
-            const $div = document.createElement('div');
-            const $label = document.createElement('label');
-            $label.append(this.$trackMapCheckbox, ` Update bounding box value with current map area`);
-            $div.append($label);
-            $fieldset.append($div);
+            $fieldset.append(makeDiv()(makeLabel()(this.$trackMapCheckbox, ` Update bounding box value with current map area`)));
         }
         {
-            const $div = document.createElement('div');
             this.$statusSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
-            $div.append(span(`Fetch matching `, this.$statusSelect, ` notes`), ` `, span(`sorted by last update date`), `, `, span(`newest first`));
-            $fieldset.append($div);
-            function span(...items) {
-                const $span = document.createElement('span');
-                $span.append(...items);
-                return $span;
-            }
+            $fieldset.append(makeDiv()(`Fetch `, makeLabel('inline')(this.$statusSelect, ` matching notes`), ` `, `sorted by last update date `, `newest first`));
         }
     }
     writeDownloadModeFieldset($fieldset) {
         {
-            const $div = document.createElement('div');
             this.$limitSelect.append(new Option('20'), new Option('100'), new Option('500'), new Option('2500'));
-            $div.append(`Download at most `, this.$limitSelect, ` notes`);
-            $fieldset.append($div);
+            $fieldset.append(makeDiv()(`Download `, makeLabel()(`at most `, this.$limitSelect, ` notes`)));
         }
     }
     addEventListeners() {

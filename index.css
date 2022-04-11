@@ -39,7 +39,7 @@ body.flipped #text {
 .panel div {
 	margin: .5rem 0;
 }
-.panel div span {
+.panel label.inline {
 	white-space: nowrap;
 }
 .panel.fetch {
