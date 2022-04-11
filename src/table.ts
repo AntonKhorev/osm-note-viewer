@@ -255,8 +255,8 @@ export default class NoteTable {
 		if ($clickedNoteSection) {
 			if (ev.shiftKey && this.$lastClickedNoteSection) {
 				for (const $section of getTableSectionRange(this.$table,this.$lastClickedNoteSection,$clickedNoteSection)) {
-					const $checkbox=$section.querySelector('.note-checkbox input')
-					if ($checkbox instanceof HTMLInputElement) $checkbox.checked=$checkbox.checked
+					const $checkboxInRange=$section.querySelector('.note-checkbox input')
+					if ($checkboxInRange instanceof HTMLInputElement) $checkboxInRange.checked=$checkbox.checked
 				}
 			}
 			this.$lastClickedNoteSection=$clickedNoteSection
