@@ -254,7 +254,7 @@ export default class NoteTable {
 		const $clickedNoteSection=$checkbox.closest('tbody')
 		if ($clickedNoteSection) {
 			if (ev.shiftKey && this.$lastClickedNoteSection) {
-				for (const $section of getTableSectionRange(this.$table,this.$lastClickedNoteSection,$clickedNoteSection)) {
+				for (const $section of this.listVisibleNoteSectionsInRange(this.$lastClickedNoteSection,$clickedNoteSection)) {
 					const $checkboxInRange=$section.querySelector('.note-checkbox input')
 					if ($checkboxInRange instanceof HTMLInputElement) $checkboxInRange.checked=$checkbox.checked
 				}
@@ -346,6 +346,38 @@ export default class NoteTable {
 	private listVisibleNoteSections(): NodeListOf<HTMLTableSectionElement> {
 		return this.$table.querySelectorAll('tbody:not(.hidden)')
 	}
+	/**
+	 * range including $fromSection but excluding $toSection
+	 * excludes $toSection if equals to $fromSection
+	 */
+	private *listVisibleNoteSectionsInRange(
+		$fromSection: HTMLTableSectionElement, $toSection: HTMLTableSectionElement
+	): Iterable<HTMLTableSectionElement> {
+		const $sections=this.listVisibleNoteSections()
+		let i=0
+		let $guardSection: HTMLTableSectionElement | undefined
+		for (;i<$sections.length;i++) {
+			const $section=$sections[i]
+			if ($section==$fromSection) {
+				$guardSection=$toSection
+				break
+			}
+			if ($section==$toSection) {
+				$guardSection=$fromSection
+				break
+			}
+		}
+		if (!$guardSection) return
+		for (;i<$sections.length;i++) {
+			const $section=$sections[i]
+			if ($section!=$toSection) {
+				yield $section
+			}
+			if ($section==$guardSection) {
+				return
+			}
+		}
+	}
 }
 
 function makeNoteSectionObserver(
@@ -390,39 +422,5 @@ function getActionClass(action: NoteComment['action']): string {
 		return 'closed'
 	} else {
 		return 'other'
-	}
-}
-
-/**
- * range including $lastClickedSection but excluding $currentClickedSection
- * excludes $currentClickedSection if equals to $lastClickedSection
- */
-function *getTableSectionRange(
-	$table: HTMLTableElement,
-	$lastClickedSection: HTMLTableSectionElement, $currentClickedSection: HTMLTableSectionElement
-): Iterable<HTMLTableSectionElement> {
-	const $sections=$table.tBodies
-	let i=0
-	let $guardSection: HTMLTableSectionElement | undefined
-	for (;i<$sections.length;i++) {
-		const $section=$sections[i]
-		if ($section==$lastClickedSection) {
-			$guardSection=$currentClickedSection
-			break
-		}
-		if ($section==$currentClickedSection) {
-			$guardSection=$lastClickedSection
-			break
-		}
-	}
-	if (!$guardSection) return
-	for (;i<$sections.length;i++) {
-		const $section=$sections[i]
-		if ($section!=$currentClickedSection) {
-			yield $section
-		}
-		if ($section==$guardSection) {
-			return
-		}
 	}
 }
