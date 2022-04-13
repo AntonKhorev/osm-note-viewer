@@ -188,6 +188,12 @@ export default class CommandPanel {
 				new Option(`first comment`,'first'),
 				new Option(`all comments`,'all')
 			)
+			const $dataTypeSelect=document.createElement('select')
+			$dataTypeSelect.append(
+				new Option('text/xml'),
+				new Option('application/gpx+xml'),
+				new Option('text/plain')
+			)
 			const $exportNotesButton=this.makeRequiringSelectedNotesButton()
 			$exportNotesButton.append(`Export `,makeNotesIcon('selected'))
 			const e=makeEscapeTag(escapeXml)
@@ -202,7 +208,7 @@ export default class CommandPanel {
 				}
 				return gpx
 			}
-			$exportNotesButton.addEventListener('click',()=>{
+			const getGpx=(): string => {
 				let gpx=e`<?xml version="1.0" encoding="UTF-8" ?>\n`
 				gpx+=e`<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">\n`
 				// TODO <name>selected notes of user A</name>
@@ -253,6 +259,10 @@ export default class CommandPanel {
 					gpx+=`</trkseg></trk>\n`
 				}
 				gpx+=`</gpx>\n`
+				return gpx
+			}
+			$exportNotesButton.addEventListener('click',()=>{
+				const gpx=getGpx()
 				const file=new File([gpx],'notes.gpx')
 				const $a=document.createElement('a')
 				$a.href=URL.createObjectURL(file)
@@ -260,10 +270,17 @@ export default class CommandPanel {
 				$a.click()
 				URL.revokeObjectURL($a.href)
 			})
+			$exportNotesButton.draggable=true
+			$exportNotesButton.addEventListener('dragstart',ev=>{
+				const gpx=getGpx()
+				if (!ev.dataTransfer) return
+				ev.dataTransfer.setData($dataTypeSelect.value,gpx)
+			})
 			$commandGroup.append(
 				$exportNotesButton,` `,
 				makeLabel('inline')(` as waypoints `,$connectSelect),` `,
-				makeLabel('inline')(` with `,$commentsSelect,` in descriptions`),
+				makeLabel('inline')(` with `,$commentsSelect,` in descriptions`),`, `,
+				makeLabel('inline')(`set `,$dataTypeSelect,` type in drag and drop events`)
 			)
 		}{
 			const $commandGroup=makeCommandGroup(
