@@ -717,6 +717,8 @@ class CommandPanel {
             $connectSelect.append(new Option(`without connections`, 'no'), new Option(`connected by route`, 'rte'), new Option(`connected by track`, 'trk'));
             const $commentsSelect = document.createElement('select');
             $commentsSelect.append(new Option(`first comment`, 'first'), new Option(`all comments`, 'all'));
+            const $dataTypeSelect = document.createElement('select');
+            $dataTypeSelect.append(new Option('text/xml'), new Option('application/gpx+xml'), new Option('text/plain'));
             const $exportNotesButton = this.makeRequiringSelectedNotesButton();
             $exportNotesButton.append(`Export `, makeNotesIcon('selected'));
             const e = makeEscapeTag(escapeXml);
@@ -732,7 +734,7 @@ class CommandPanel {
                 }
                 return gpx;
             };
-            $exportNotesButton.addEventListener('click', () => {
+            const getGpx = () => {
                 let gpx = e `<?xml version="1.0" encoding="UTF-8" ?>\n`;
                 gpx += e `<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">\n`;
                 // TODO <name>selected notes of user A</name>
@@ -789,6 +791,10 @@ class CommandPanel {
                     gpx += `</trkseg></trk>\n`;
                 }
                 gpx += `</gpx>\n`;
+                return gpx;
+            };
+            $exportNotesButton.addEventListener('click', () => {
+                const gpx = getGpx();
                 const file = new File([gpx], 'notes.gpx');
                 const $a = document.createElement('a');
                 $a.href = URL.createObjectURL(file);
@@ -796,7 +802,14 @@ class CommandPanel {
                 $a.click();
                 URL.revokeObjectURL($a.href);
             });
-            $commandGroup.append($exportNotesButton, ` `, makeLabel('inline')(` as waypoints `, $connectSelect), ` `, makeLabel('inline')(` with `, $commentsSelect, ` in descriptions`));
+            $exportNotesButton.draggable = true;
+            $exportNotesButton.addEventListener('dragstart', ev => {
+                const gpx = getGpx();
+                if (!ev.dataTransfer)
+                    return;
+                ev.dataTransfer.setData($dataTypeSelect.value, gpx);
+            });
+            $commandGroup.append($exportNotesButton, ` `, makeLabel('inline')(` as waypoints `, $connectSelect), ` `, makeLabel('inline')(` with `, $commentsSelect, ` in descriptions`), `, `, makeLabel('inline')(`set `, $dataTypeSelect, ` type in drag and drop events`));
         }
         {
             const $commandGroup = makeCommandGroup('yandex-panoramas', `Y.Panoramas`, 'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B', `Yandex.Panoramas (Яндекс.Панорамы)`);
