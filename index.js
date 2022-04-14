@@ -712,6 +712,20 @@ class CommandPanel {
             $commandGroup.append($loadNotesButton, ` `, $loadMapButton);
         }
         {
+            const $commandGroup = makeCommandGroup('id', `iD`, 'https://wiki.openstreetmap.org/wiki/ID');
+            // limited to what hashchange() lets you do here https://github.com/openstreetmap/iD/blob/develop/modules/behavior/hash.js
+            // which is zooming/panning
+            const $zoomButton = document.createElement('button');
+            $zoomButton.append(`Open `, makeMapIcon('center'));
+            $zoomButton.addEventListener('click', () => {
+                const e = makeEscapeTag(encodeURIComponent);
+                const center = map.getCenter();
+                const url = e `https://www.openstreetmap.org/id#map=${map.getZoom()}/${center.lat}/${center.lng}`;
+                open(url, 'id');
+            });
+            $commandGroup.append($zoomButton);
+        }
+        {
             const $commandGroup = makeCommandGroup('gpx', `GPX`, 'https://wiki.openstreetmap.org/wiki/GPX');
             const $connectSelect = document.createElement('select');
             $connectSelect.append(new Option(`without connections`, 'no'), new Option(`connected by route`, 'rte'), new Option(`connected by track`, 'trk'));
@@ -2837,6 +2851,10 @@ class ExtrasPanel {
             ` (not implemented in `,
             makeLink(`CGIMap`, `https://wiki.openstreetmap.org/wiki/Cgimap`),
             `)`
+        ]);
+        writeBlock(() => [
+            `Other documentation: `,
+            makeLink(`gpx format`, `https://www.topografix.com/GPX/1/1/`)
         ]);
         writeBlock(() => [
             makeLink(`Source code`, `https://github.com/AntonKhorev/osm-note-viewer`)
