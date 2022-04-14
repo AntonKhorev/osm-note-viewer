@@ -119,6 +119,10 @@ export default class ExtrasPanel {
 			`)`
 		])
 		writeBlock(()=>[
+			`Other documentation: `,
+			makeLink(`gpx format`,`https://www.topografix.com/GPX/1/1/`)
+		])
+		writeBlock(()=>[
 			makeLink(`Source code`,`https://github.com/AntonKhorev/osm-note-viewer`)
 		])
 		function writeBlock(makeBlockContents: ()=>Array<Node|string>): HTMLElement {
