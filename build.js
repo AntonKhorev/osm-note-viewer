@@ -6,13 +6,10 @@ import typescript from '@rollup/plugin-typescript'
 await fs.remove('dist')
 await fs.copy('src/index.html','dist/index.html')
 await fs.copy('src/index.css','dist/index.css')
-for (const name of [
-	'icon','icon-open','icon-closed',
-	'flip-ver','flip-hor','reset',
-	'crosshair',
-	'map-center','map-area','notes-selected'
-]) {
-	await fs.copy(`src/${name}.svg`,`dist/${name}.svg`)
+for (const svgDirEntry of await fs.readdir('src/svg',{withFileTypes:true})) {
+	if (svgDirEntry.isDirectory()) continue
+	const filename=svgDirEntry.name
+	await fs.copy(`src/svg/${filename}`,`dist/${filename}`)
 }
 
 // compile and bundle scripts
