@@ -212,7 +212,7 @@ body.flipped .notes td.note-user {
 	width: 16px;
 	height: 16px;
 	vertical-align: text-top;
-	background: url("icon.svg");
+	background: url("note-status.svg");
 }
 .notes td.note-action .icon input {
 	position: absolute;
@@ -228,10 +228,10 @@ body.flipped .notes td.note-user {
 	opacity: .7;
 }
 .notes td.note-action .icon.open {
-	background: url("icon-open.svg");
+	background: url("note-status-open.svg");
 }
 .notes td.note-action .icon.closed {
-	background: url("icon-closed.svg");
+	background: url("note-status-closed.svg");
 }
 .notes td.note-comment {
 	white-space: pre-wrap;
