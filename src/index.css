@@ -109,14 +109,15 @@ body.flipped .panel.fetch button.flip {
 	vertical-align: bottom;
 	border: none;
 	padding: 0;
-	background: red;
 	margin: 0;
 	width: var(--info-size);
 	height: var(--info-size);
+	background: url("info.svg") no-repeat;
 }
 .panel.command details.tool button.info.open {
 	margin-bottom: calc(-1px - var(--gap));
 	height: calc(var(--info-size) + var(--gap) + 1px);
+	background: url("info-tip.svg") no-repeat;
 }
 .panel.command details.info {
 	width: calc(100% + 1rem);

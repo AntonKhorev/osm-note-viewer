@@ -406,7 +406,7 @@ export default class CommandPanel {
 				$infoDetails.append($infoSummary,...getInfo())
 				const $infoButton=document.createElement('button')
 				$infoButton.classList.add('info')
-				$infoButton.textContent='(i)'
+				$infoButton.title=`tool info`
 				const updateInfoButton=()=>{
 					if ($infoDetails.open) {
 						$infoButton.classList.add('open')
