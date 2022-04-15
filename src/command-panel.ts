@@ -149,12 +149,13 @@ export default class CommandPanel {
 				'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl',
 				`JOSM (or another editor) Remote Control`
 			)
+			const e=makeEscapeTag(encodeURIComponent)
 			const $loadNotesButton=this.makeRequiringSelectedNotesButton()
 			$loadNotesButton.append(`Load `,makeNotesIcon('selected'))
 			$loadNotesButton.addEventListener('click',async()=>{
 				for (const {id} of this.checkedNotes) {
-					const noteUrl=`https://www.openstreetmap.org/note/`+encodeURIComponent(id)
-					const rcUrl=`http://127.0.0.1:8111/import?url=`+encodeURIComponent(noteUrl)
+					const noteUrl=e`https://www.openstreetmap.org/note/${id}`
+					const rcUrl=e`http://127.0.0.1:8111/import?url=${noteUrl}`
 					const success=await openRcUrl($loadNotesButton,rcUrl)
 					if (!success) break
 				}
@@ -163,11 +164,10 @@ export default class CommandPanel {
 			$loadMapButton.append(`Load `,makeMapIcon('area'))
 			$loadMapButton.addEventListener('click',()=>{
 				const bounds=map.getBounds()
-				const rcUrl=`http://127.0.0.1:8111/load_and_zoom`+
-					`?left=`+encodeURIComponent(bounds.getWest())+
-					`&right=`+encodeURIComponent(bounds.getEast())+
-					`&top=`+encodeURIComponent(bounds.getNorth())+
-					`&bottom=`+encodeURIComponent(bounds.getSouth())
+				const rcUrl=e`http://127.0.0.1:8111/load_and_zoom`+
+					`?left=${bounds.getWest()}&right=${bounds.getEast()}`+
+					`&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`
+
 				openRcUrl($loadMapButton,rcUrl)
 			})
 			$commandGroup.append($loadNotesButton,` `,$loadMapButton)
@@ -309,12 +309,10 @@ export default class CommandPanel {
 			const $yandexPanoramasButton=document.createElement('button')
 			$yandexPanoramasButton.append(`Open `,makeMapIcon('center'))
 			$yandexPanoramasButton.addEventListener('click',()=>{
+				const e=makeEscapeTag(encodeURIComponent)
 				const center=map.getCenter()
 				const coords=center.lng+','+center.lat
-				const url=`https://yandex.ru/maps/`+
-					`?ll=`+encodeURIComponent(coords)+ // required if 'z' argument is present
-					`&panorama%5Bpoint%5D=`+encodeURIComponent(coords)+
-					`&z=`+encodeURIComponent(map.getZoom())
+				const url=e`https://yandex.ru/maps/?ll=${coords}&panorama%5Bpoint%5D=${coords}&z=${map.getZoom()}` // 'll' is required if 'z' argument is present
 				open(url,'yandex')
 			})
 			$commandGroup.append($yandexPanoramasButton)
@@ -327,12 +325,9 @@ export default class CommandPanel {
 			const $mapillaryButton=document.createElement('button')
 			$mapillaryButton.append(`Open `,makeMapIcon('center'))
 			$mapillaryButton.addEventListener('click',()=>{
+				const e=makeEscapeTag(encodeURIComponent)
 				const center=map.getCenter()
-				const url=`https://www.mapillary.com/app/`+
-					`?lat=`+encodeURIComponent(center.lat)+
-					`&lng=`+encodeURIComponent(center.lng)+
-					`&z=`+encodeURIComponent(map.getZoom())+
-					`&focus=photo`
+				const url=e`https://www.mapillary.com/app/?lat=${center.lat}&lng=${center.lng}&z=${map.getZoom()}&focus=photo`
 				open(url,'mapillary')
 			})
 			$commandGroup.append($mapillaryButton)
