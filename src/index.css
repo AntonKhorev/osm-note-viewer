@@ -70,9 +70,10 @@ body.flipped .panel.fetch button.flip {
 	background: url("flip-hor.svg");
 }
 .panel.command {
+	--gap: 8px;  /* used in info tips */
 	display: flex;
-	gap: .5em;
 	flex-wrap: wrap;
+	gap: var(--gap);
 }
 .panel.command div,
 .panel.command details.tool {
@@ -100,6 +101,22 @@ body.flipped .panel.fetch button.flip {
 	content: ':';
 	width: 1ex;
 	display: inline-block;
+}
+.panel.command details.tool button.info {
+	--info-size: 20px;
+	display: inline-block;
+	position: relative;
+	vertical-align: bottom;
+	border: none;
+	padding: 0;
+	background: red;
+	margin: 0;
+	width: var(--info-size);
+	height: var(--info-size);
+}
+.panel.command details.tool button.info.open {
+	margin-bottom: calc(-1px - var(--gap));
+	height: calc(var(--info-size) + var(--gap) + 1px);
 }
 .panel.command details.info {
 	width: calc(100% + 1rem);

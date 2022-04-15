@@ -405,9 +405,21 @@ export default class CommandPanel {
 				$infoSummary.textContent=`${name} info`
 				$infoDetails.append($infoSummary,...getInfo())
 				const $infoButton=document.createElement('button')
+				$infoButton.classList.add('info')
 				$infoButton.textContent='(i)'
+				const updateInfoButton=()=>{
+					if ($infoDetails.open) {
+						$infoButton.classList.add('open')
+					} else {
+						$infoButton.classList.remove('open')
+					}
+				}
+				updateInfoButton()
 				$infoButton.addEventListener('click',()=>{
 					$infoDetails.open=!$infoDetails.open
+				})
+				$infoDetails.addEventListener('toggle',()=>{
+					updateInfoButton()
 				})
 				$toolDetails.addEventListener('toggle',()=>{
 					if ($toolDetails.open) return
