@@ -41,9 +41,9 @@ Get notes with [`/api/0.6/notes`][api-bbox] call, which is what happens if you e
 
 | parameter | note-viewer UI | notes |
 | --------- | -------------- | ----- |
-| bbox | *Bounding box* | If *Update bounding box value with current map area* is checked, current map area bounds are copied into this field. Expect *The maximum bbox size is ..., and your request was too large* error if the bounding box is too large.
-| limit | *Download at most ... notes* | No progressive downloading with *Load more* because it requires date ranges, and this api call doesn't have them.
-| closed | *Fetch ... matching notes* | Same as in the search call. Also there's no sorting and ordering because this api call doesn't have the required parameters.
+| `bbox` | *Bounding box* | If *Update bounding box value with current map area* is checked, current map area bounds are copied into this field. Expect *The maximum bbox size is ..., and your request was too large* error if the bounding box is too large.
+| `limit` | *Download at most ... notes* | No progressive downloading with *Load more* because it requires date ranges, and this api call doesn't have them.
+| `closed` | *Fetch ... matching notes* | Same as in the search call. Also there's no sorting and ordering because this api call doesn't have the required parameters.
 
 Alternative tools:
 
@@ -59,6 +59,12 @@ The remote control tools are available in *RC* section of the tools panel below 
 
 - *Load selected notes* button requires *Import data from URL*.
 - *Load map area* button requires *Load data from API*. This operation may fail silently if the permission is not granted.
+
+### OSM Smart Menu
+
+note-viewer can be added to [OSM Smart Menu](https://wiki.openstreetmap.org/wiki/OSM_Smart_Menu) browser plugin using a [URL template](https://wiki.openstreetmap.org/wiki/OSM_Smart_Menu#Advanced_method_to_add_new_links). The following template enables switching to note-viewer from any webpage recognized by OSM Smart Menu that contains an osm username:
+
+    https://antonkhorev.github.io/osm-note-viewer/#mode=search&display_name={osm_user_name}
 
 [api-search]: https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch
 [api-bbox]: https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_.2Fapi.2F0.6.2Fnotes
