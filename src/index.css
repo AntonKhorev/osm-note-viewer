@@ -117,7 +117,7 @@ body.flipped .panel.fetch button.flip {
 .panel.command details.tool button.info.open {
 	margin-bottom: calc(-1px - var(--gap));
 	height: calc(var(--info-size) + var(--gap) + 1px);
-	background: url("info-tip.svg") no-repeat;
+	background: url("info.svg") no-repeat, url("info-tip.svg") no-repeat;
 }
 .panel.command details.info {
 	width: calc(100% + 1rem);
