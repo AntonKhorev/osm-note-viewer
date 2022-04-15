@@ -75,14 +75,14 @@ body.flipped .panel.fetch button.flip {
 	flex-wrap: wrap;
 }
 .panel.command div,
-.panel.command details {
+.panel.command details.tool {
 	margin: 0;
 	line-height: 1.4em;
 }
-.panel.command details summary {
+.panel.command details.tool summary {
 	display: inline;
 }
-.panel.command details summary::before {
+.panel.command details.tool summary::before {
 	content: '+';
 	display: inline-block;
 	width: 1em;
@@ -90,16 +90,31 @@ body.flipped .panel.fetch button.flip {
 	line-height: 1em;
 	text-align: center;
 }
-.panel.command details summary:hover::before {
+.panel.command details.tool summary:hover::before {
 	background: yellow;
 }
-.panel.command details[open] summary::before {
+.panel.command details.tool[open] summary::before {
 	content: '−';
 }
-.panel.command details[open] summary::after {
+.panel.command details.tool[open] summary::after {
 	content: ':';
 	width: 1ex;
 	display: inline-block;
+}
+.panel.command details.info {
+	width: calc(100% + 1rem);
+	display: none;
+	margin: 0 -.5rem;
+	border-top: solid 1px #AAA;
+	border-bottom: solid 1px #AAA;
+	padding: .5rem;
+	background: #DDD;
+}
+.panel.command details.info[open] {
+	display: block;
+}
+.panel.command details.info summary {
+	display: none;
 }
 .panel.command .icon {
 	vertical-align: middle;

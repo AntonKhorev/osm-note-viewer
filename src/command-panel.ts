@@ -383,29 +383,40 @@ export default class CommandPanel {
 	]]
 	constructor($container: HTMLElement, map: NoteMap, storage: NoteViewerStorage) {
 		for (const [id,name,title,getTool,getInfo] of CommandPanel.commandGroups) {
-			{
-				const storageKey='commands-'+id
-				const $commandGroup=document.createElement('details')
-				$commandGroup.open=!!storage.getItem(storageKey)
-				const $summary=document.createElement('summary')
-				$summary.textContent=name
-				if (title) $summary.title=title
-				$commandGroup.addEventListener('toggle',()=>{
-					if ($commandGroup.open) {
-						storage.setItem(storageKey,'1')
-					} else {
-						storage.removeItem(storageKey)
-					}
-				})
-				$commandGroup.append($summary,...getTool(this,map))
-				$container.append($commandGroup)
-			}
+			const storageKey='commands-'+id
+			const $toolDetails=document.createElement('details')
+			$toolDetails.classList.add('tool')
+			$toolDetails.open=!!storage.getItem(storageKey)
+			const $toolSummary=document.createElement('summary')
+			$toolSummary.textContent=name
+			if (title) $toolSummary.title=title
+			$toolDetails.addEventListener('toggle',()=>{
+				if ($toolDetails.open) {
+					storage.setItem(storageKey,'1')
+				} else {
+					storage.removeItem(storageKey)
+				}
+			})
+			$toolDetails.append($toolSummary,...getTool(this,map))
 			if (getInfo) {
-				const $commandGroupInfo=document.createElement('details')
-				const $summary=document.createElement('summary')
-				$summary.textContent=`${name} info`
-				$commandGroupInfo.append($summary,...getInfo())
-				$container.append($commandGroupInfo)
+				const $infoDetails=document.createElement('details')
+				$infoDetails.classList.add('info')
+				const $infoSummary=document.createElement('summary')
+				$infoSummary.textContent=`${name} info`
+				$infoDetails.append($infoSummary,...getInfo())
+				const $infoButton=document.createElement('button')
+				$infoButton.textContent='(i)'
+				$infoButton.addEventListener('click',()=>{
+					$infoDetails.open=!$infoDetails.open
+				})
+				$toolDetails.addEventListener('toggle',()=>{
+					if ($toolDetails.open) return
+					$infoDetails.open=false
+				})
+				$toolDetails.append(` `,$infoButton)
+				$container.append($toolDetails,$infoDetails)
+			} else {
+				$container.append($toolDetails)
 			}
 		}
 	}
