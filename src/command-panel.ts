@@ -351,12 +351,26 @@ export default class CommandPanel {
 				makeLabel('inline')(` with `,$commentsSelect,` in descriptions`),`, `,
 				makeLabel('inline')(`set `,$dataTypeSelect,` type in drag and drop events`)
 			]
-		},
-		()=>[
-			`Exports in `,
-			makeLink(`GPX`,'https://wiki.openstreetmap.org/wiki/GPX'),
-			` format.`
-		]
+		},()=>[p(
+			`Export selected notes in `,makeLink(`GPX`,'https://wiki.openstreetmap.org/wiki/GPX'),` (GPS exchange) format. `,
+			`During the export, each selected note is treated as a waypoint with its name set to note id, description set to comments and link pointing to note's page on the OSM website. `,
+			`This allows OSM notes to be used in applications that can't show them directly. `,
+			`Also it allows a particular selection of notes to be shown if an application can't filter them. `,
+			`One example of such app is `,makeLink(`iD editor`,'https://wiki.openstreetmap.org/wiki/ID'),`. `,
+			`Unfortunately iD doesn't fully understand the gpx format and can't show links associated with waypoints. `,
+			`You'll have to enable the notes layer in iD and compare its note marker with waypoint markers from the gpx file.`
+		),p(
+			`By default only the `,dfn(`first comment`),` is added to waypoint descriptions. `,
+			`This is because some apps such as iD and especially `,makeLink(`JOSM`,`https://wiki.openstreetmap.org/wiki/JOSM`),` try to render the entire description in one line next to the waypoint marker, cluttering the map.`
+		),p(
+			`It's possible to pretend that note waypoints are connected by a `,makeLink(`route`,`https://www.topografix.com/GPX/1/1/#type_rteType`),` by using the `,dfn(`connected by route`),` option. `,
+			`This may help to go from a note to the next one in an app by visually following the route line. `,
+			`There's also the `,dfn(`connected by track`),` option in case the app makes it easier to work with `,makeLink(`tracks`,`https://www.topografix.com/GPX/1/1/#type_trkType`),` than with the routes.`
+		),p(
+			`Instead of clicking the `,em(`Export`),` button, you can drag it and drop into a place that accepts data sent by `,makeLink(`Drag and Drop API`,`https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`),`. `,
+			`Not many places actually do, and those who do often can handle only plaintext. `,
+			`That's why there's a type selector, with which plaintext format can be forced on transmitted data.`
+		)]
 	],[
 		'yandex-panoramas',
 		`Y.Panoramas`,
@@ -372,10 +386,11 @@ export default class CommandPanel {
 				open(url,'yandex')
 			})
 			return [$viewButton]
-		},
-		()=>[
-			makeLink(`Yandex.Panoramas`,'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B')
-		]
+		},()=>[p(
+			`Open a map location in `,makeLink(`Yandex.Panoramas`,'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B'),` street view. `,
+			`Could be useful to find out if an object mentioned in a note existed at a certain point of time. `,
+			`Yandex.Panoramas have a year selector in the upper right corner. Use it to get a photo made close to the date of interest.`
+		)]
 	],[
 		'mapillary',
 		`Mapillary`,,
@@ -389,10 +404,10 @@ export default class CommandPanel {
 				open(url,'mapillary')
 			})
 			return [$viewButton]
-		},
-		()=>[
-			makeLink(`Mapillary`,'https://wiki.openstreetmap.org/wiki/Mapillary')
-		]
+		},()=>[p(
+			`Open a map location in `,makeLink(`Mapillary`,'https://wiki.openstreetmap.org/wiki/Mapillary'),`. `,
+			`Not yet fully implemented. The idea is to jump straight to the best available photo, but in order to do that, Mapillary API has to be queried for available photos. That's impossible to do without an API key.`
+		)]
 	],[
 		'counts',
 		`Note counts`,,
