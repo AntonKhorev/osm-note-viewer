@@ -70,19 +70,20 @@ body.flipped .panel.fetch button.flip {
 	background: url("flip-hor.svg");
 }
 .panel.command {
+	--gap: 8px;  /* used in info tips */
 	display: flex;
-	gap: .5em;
 	flex-wrap: wrap;
+	gap: var(--gap);
 }
 .panel.command div,
-.panel.command details {
+.panel.command details.tool {
 	margin: 0;
 	line-height: 1.4em;
 }
-.panel.command details summary {
+.panel.command details.tool summary {
 	display: inline;
 }
-.panel.command details summary::before {
+.panel.command details.tool summary::before {
 	content: '+';
 	display: inline-block;
 	width: 1em;
@@ -90,16 +91,57 @@ body.flipped .panel.fetch button.flip {
 	line-height: 1em;
 	text-align: center;
 }
-.panel.command details summary:hover::before {
+.panel.command details.tool summary:hover::before {
 	background: yellow;
 }
-.panel.command details[open] summary::before {
+.panel.command details.tool[open] summary::before {
 	content: '−';
 }
-.panel.command details[open] summary::after {
+.panel.command details.tool[open] summary::after {
 	content: ':';
 	width: 1ex;
 	display: inline-block;
+}
+.panel.command details.tool button.info {
+	--info-size: 20px;
+	display: inline-block;
+	position: relative;
+	vertical-align: bottom;
+	border: none;
+	padding: 0;
+	margin: 0;
+	width: var(--info-size);
+	height: var(--info-size);
+	background: url("info.svg") no-repeat;
+}
+.panel.command details.tool button.info:hover {
+	background: url("info-hover.svg") no-repeat, url("info.svg") no-repeat;
+}
+.panel.command details.tool button.info.open {
+	margin-bottom: calc(-1px - var(--gap));
+	height: calc(var(--info-size) + var(--gap) + 1px);
+	background: url("info-tip.svg") no-repeat, url("info.svg") no-repeat;
+}
+.panel.command details.tool button.info.open:hover {
+	background: url("info-tip.svg") no-repeat, url("info-close-hover.svg") no-repeat, url("info.svg") no-repeat;
+}
+.panel.command details.info {
+	width: calc(100% + 1rem);
+	display: none;
+	margin: 0 -.5rem;
+	border-top: solid 1px #AAA;
+	border-bottom: solid 1px #AAA;
+	padding: 0 .5rem;
+	background: #DDD;
+}
+.panel.command details.info p {
+	margin: .5rem 0;
+}
+.panel.command details.info[open] {
+	display: block;
+}
+.panel.command details.info summary {
+	display: none;
 }
 .panel.command .icon {
 	vertical-align: middle;
@@ -180,7 +222,7 @@ body.flipped .notes td.note-user {
 	width: 16px;
 	height: 16px;
 	vertical-align: text-top;
-	background: url("icon.svg");
+	background: url("note-status.svg");
 }
 .notes td.note-action .icon input {
 	position: absolute;
@@ -196,10 +238,10 @@ body.flipped .notes td.note-user {
 	opacity: .7;
 }
 .notes td.note-action .icon.open {
-	background: url("icon-open.svg");
+	background: url("note-status-open.svg");
 }
 .notes td.note-action .icon.closed {
-	background: url("icon-closed.svg");
+	background: url("note-status-closed.svg");
 }
 .notes td.note-comment {
 	white-space: pre-wrap;

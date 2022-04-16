@@ -531,18 +531,16 @@ function makeLink(text, href, title) {
         $link.title = title;
     return $link;
 }
-const makeDiv = (...classes) => (...items) => {
-    const $div = document.createElement('div');
-    $div.classList.add(...classes);
-    $div.append(...items);
-    return $div;
-};
-const makeLabel = (...classes) => (...items) => {
-    const $label = document.createElement('label');
-    $label.classList.add(...classes);
-    $label.append(...items);
-    return $label;
-};
+function makeElement(tag) {
+    return (...classes) => (...items) => {
+        const $element = document.createElement(tag);
+        $element.classList.add(...classes);
+        $element.append(...items);
+        return $element;
+    };
+}
+const makeDiv = makeElement('div');
+const makeLabel = makeElement('label');
 function escapeRegex(text) {
     return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 }
@@ -565,352 +563,76 @@ function makeEscapeTag(escapeFn) {
     };
 }
 
+const p = (...ss) => makeElement('p')()(...ss);
+const em = (s) => makeElement('em')()(s);
+const dfn = (s) => makeElement('dfn')()(s);
 class CommandPanel {
     constructor($container, map, storage) {
+        this.$container = $container;
+        // { TODO register callbacks from command groups instead
         this.$fitModeSelect = document.createElement('select');
+        this.$commentTimeSelect = document.createElement('select');
+        this.$commentTimeInput = document.createElement('input');
+        this.$fetchedNoteCount = document.createElement('span');
+        this.$visibleNoteCount = document.createElement('span');
+        this.$checkedNoteCount = document.createElement('span');
+        // }
         this.$buttonsRequiringSelectedNotes = [];
         this.checkedNotes = [];
         this.checkedNoteUsers = new Map();
-        {
-            const $commandGroup = makeCommandGroup('autozoom', `Automatic zoom`);
-            this.$fitModeSelect.append(new Option('is disabled', 'none'), new Option('to notes in table view', 'inViewNotes'), new Option('to all notes', 'allNotes'));
-            this.$fitModeSelect.addEventListener('change', () => {
-                if (this.fitMode == 'allNotes') {
-                    map.fitNotes();
-                }
-                else if (this.fitMode == 'inViewNotes') {
-                    map.fitNoteTrack();
-                }
-            });
-            $commandGroup.append(this.$fitModeSelect);
-        }
-        {
-            const $commandGroup = makeCommandGroup('timestamp', `Timestamp for historic queries`);
-            const $commentTimeSelectLabel = document.createElement('label');
-            const $commentTimeSelect = document.createElement('select');
-            $commentTimeSelect.append(new Option('from comment text', 'text'), new Option('of comment', 'comment'));
-            $commentTimeSelectLabel.append(`pick time `, $commentTimeSelect);
-            $commentTimeSelectLabel.title = `"from comment text" looks for time inside the comment text. Useful for MAPS.ME-generated comments. Falls back to the comment time if no time detected in the text.`;
-            this.$commentTimeSelect = $commentTimeSelect;
-            const $commentTimeInputLabel = document.createElement('label');
-            const $commentTimeInput = document.createElement('input');
-            // $commentTimeInput.type='datetime-local'
-            // $commentTimeInput.step='1'
-            $commentTimeInput.type = 'text';
-            $commentTimeInput.size = 20;
-            // $commentTimeInput.readOnly=true
-            $commentTimeInputLabel.append(`picked `, $commentTimeInput);
-            $commentTimeInputLabel.title = `In whatever format Overpass understands. No standard datetime input for now because they're being difficult with UTC and 24-hour format.`;
-            this.$commentTimeInput = $commentTimeInput;
-            $commentTimeSelect.addEventListener('input', () => this.pickCommentTime());
-            const $clearButton = document.createElement('button');
-            $clearButton.textContent = 'Clear';
-            $clearButton.addEventListener('click', () => {
-                $commentTimeInput.value = '';
-            });
-            $commandGroup.append($commentTimeSelectLabel, ` — `, $commentTimeInputLabel, ` `, $clearButton);
-        }
-        {
-            const $commandGroup = makeCommandGroup('overpass-turbo', `Overpass turbo`, 'https://wiki.openstreetmap.org/wiki/Overpass_turbo');
-            const $overpassButtons = [];
-            const buttonClickListener = (withRelations, onlyAround) => {
-                const center = map.getCenter();
-                let query = this.getOverpassQueryPreamble(map);
-                if (withRelations) {
-                    query += `nwr`;
-                }
-                else {
-                    query += `nw`;
-                }
-                if (onlyAround) {
-                    const radius = 10;
-                    query += `(around:${radius},${center.lat},${center.lng})`;
-                }
-                query += `;\n`;
-                query += `out meta geom;`;
-                const location = `${center.lat};${center.lng};${map.getZoom()}`;
-                const url = `https://overpass-turbo.eu/?C=${encodeURIComponent(location)}&Q=${encodeURIComponent(query)}`;
-                open(url, 'overpass-turbo');
-            };
-            {
-                const $button = document.createElement('button');
-                $button.append(`Load `, makeMapIcon('area'), ` without relations`);
-                $button.addEventListener('click', () => buttonClickListener(false, false));
-                $overpassButtons.push($button);
-            }
-            {
-                const $button = document.createElement('button');
-                $button.append(`Load `, makeMapIcon('area'), ` with relations`);
-                $button.title = `May fetch large unwanted relations like routes.`;
-                $button.addEventListener('click', () => buttonClickListener(true, false));
-                $overpassButtons.push($button);
-            }
-            {
-                const $button = document.createElement('button');
-                $button.append(`Load around `, makeMapIcon('center'));
-                $button.addEventListener('click', () => buttonClickListener(false, true));
-                $overpassButtons.push($button);
-            }
-            for (const $button of $overpassButtons) {
-                $commandGroup.append(` `, $button);
-            }
-        }
-        {
-            const $commandGroup = makeCommandGroup('overpass', `Overpass`, 'https://wiki.openstreetmap.org/wiki/Overpass_API');
-            const $button = document.createElement('button');
-            $button.append(`Find closest node to `, makeMapIcon('center'));
-            $button.addEventListener('click', async () => {
-                $button.disabled = true;
-                try {
-                    const radius = 10;
-                    const center = map.getCenter();
-                    let query = this.getOverpassQueryPreamble(map);
-                    query += `node(around:${radius},${center.lat},${center.lng});\n`;
-                    query += `out skel;`;
-                    const doc = await makeOverpassQuery($button, query);
-                    if (!doc)
-                        return;
-                    const closestNodeId = getClosestNodeId(doc, center.lat, center.lng);
-                    if (!closestNodeId) {
-                        $button.classList.add('error');
-                        $button.title = `Could not find nodes nearby`;
-                        return;
-                    }
-                    const url = `https://www.openstreetmap.org/node/` + encodeURIComponent(closestNodeId);
-                    open(url);
-                }
-                finally {
-                    $button.disabled = false;
-                }
-            });
-            $commandGroup.append($button);
-        }
-        {
-            const $commandGroup = makeCommandGroup('rc', `RC`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl', `JOSM (or another editor) Remote Control`);
-            const $loadNotesButton = this.makeRequiringSelectedNotesButton();
-            $loadNotesButton.append(`Load `, makeNotesIcon('selected'));
-            $loadNotesButton.addEventListener('click', async () => {
-                for (const { id } of this.checkedNotes) {
-                    const noteUrl = `https://www.openstreetmap.org/note/` + encodeURIComponent(id);
-                    const rcUrl = `http://127.0.0.1:8111/import?url=` + encodeURIComponent(noteUrl);
-                    const success = await openRcUrl($loadNotesButton, rcUrl);
-                    if (!success)
-                        break;
-                }
-            });
-            const $loadMapButton = document.createElement('button');
-            $loadMapButton.append(`Load `, makeMapIcon('area'));
-            $loadMapButton.addEventListener('click', () => {
-                const bounds = map.getBounds();
-                const rcUrl = `http://127.0.0.1:8111/load_and_zoom` +
-                    `?left=` + encodeURIComponent(bounds.getWest()) +
-                    `&right=` + encodeURIComponent(bounds.getEast()) +
-                    `&top=` + encodeURIComponent(bounds.getNorth()) +
-                    `&bottom=` + encodeURIComponent(bounds.getSouth());
-                openRcUrl($loadMapButton, rcUrl);
-            });
-            $commandGroup.append($loadNotesButton, ` `, $loadMapButton);
-        }
-        {
-            const $commandGroup = makeCommandGroup('id', `iD`, 'https://wiki.openstreetmap.org/wiki/ID');
-            // limited to what hashchange() lets you do here https://github.com/openstreetmap/iD/blob/develop/modules/behavior/hash.js
-            // which is zooming/panning
-            const $zoomButton = document.createElement('button');
-            $zoomButton.append(`Open `, makeMapIcon('center'));
-            $zoomButton.addEventListener('click', () => {
-                const e = makeEscapeTag(encodeURIComponent);
-                const center = map.getCenter();
-                const url = e `https://www.openstreetmap.org/id#map=${map.getZoom()}/${center.lat}/${center.lng}`;
-                open(url, 'id');
-            });
-            $commandGroup.append($zoomButton);
-        }
-        {
-            const $commandGroup = makeCommandGroup('gpx', `GPX`, 'https://wiki.openstreetmap.org/wiki/GPX');
-            const $connectSelect = document.createElement('select');
-            $connectSelect.append(new Option(`without connections`, 'no'), new Option(`connected by route`, 'rte'), new Option(`connected by track`, 'trk'));
-            const $commentsSelect = document.createElement('select');
-            $commentsSelect.append(new Option(`first comment`, 'first'), new Option(`all comments`, 'all'));
-            const $dataTypeSelect = document.createElement('select');
-            $dataTypeSelect.append(new Option('text/xml'), new Option('application/gpx+xml'), new Option('text/plain'));
-            const $exportNotesButton = this.makeRequiringSelectedNotesButton();
-            $exportNotesButton.append(`Export `, makeNotesIcon('selected'));
-            const e = makeEscapeTag(escapeXml);
-            const getPoints = (pointTag, getDetails = () => '') => {
-                let gpx = '';
-                for (const note of this.checkedNotes) {
-                    const firstComment = note.comments[0];
-                    gpx += e `<${pointTag} lat="${note.lat}" lon="${note.lon}">\n`;
-                    if (firstComment)
-                        gpx += e `<time>${toUrlDate(firstComment.date)}</time>\n`;
-                    gpx += getDetails(note);
-                    gpx += e `</${pointTag}>\n`;
-                }
-                return gpx;
-            };
-            const getGpx = () => {
-                let gpx = e `<?xml version="1.0" encoding="UTF-8" ?>\n`;
-                gpx += e `<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">\n`;
-                // TODO <name>selected notes of user A</name>
-                gpx += getPoints('wpt', note => {
-                    let gpx = '';
-                    gpx += e `<name>${note.id}</name>\n`;
-                    if (note.comments.length > 0) {
-                        gpx += `<desc>`;
-                        let first = true;
-                        for (const comment of note.comments) {
-                            if (first) {
-                                first = false;
-                            }
-                            else {
-                                gpx += `&#xA;\n`; // JOSM wants this kind of double newline, otherwise no space between comments is rendered
-                            }
-                            if (comment.uid) {
-                                const username = this.checkedNoteUsers.get(comment.uid);
-                                if (username != null) {
-                                    gpx += e `${username}`;
-                                }
-                                else {
-                                    gpx += e `user #${comment.uid}`;
-                                }
-                            }
-                            else {
-                                gpx += `anonymous user`;
-                            }
-                            if ($commentsSelect.value == 'all')
-                                gpx += e ` ${comment.action}`;
-                            gpx += ` at ${toReadableDate(comment.date)}`;
-                            if (comment.text)
-                                gpx += e `: ${comment.text}`;
-                            if ($commentsSelect.value != 'all')
-                                break;
-                        }
-                        gpx += `</desc>\n`;
-                    }
-                    const noteUrl = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
-                    gpx += e `<link href="${noteUrl}">\n`;
-                    gpx += e `<text>note #${note.id} on osm</text>\n`;
-                    gpx += e `</link>\n`;
-                    gpx += e `<type>${note.status}</type>\n`;
-                    return gpx;
-                });
-                if ($connectSelect.value == 'rte') {
-                    gpx += `<rte>\n`;
-                    gpx += getPoints('rtept');
-                    gpx += `</rte>\n`;
-                }
-                if ($connectSelect.value == 'trk') {
-                    gpx += `<trk><trkseg>\n`;
-                    gpx += getPoints('trkpt');
-                    gpx += `</trkseg></trk>\n`;
-                }
-                gpx += `</gpx>\n`;
-                return gpx;
-            };
-            $exportNotesButton.addEventListener('click', () => {
-                const gpx = getGpx();
-                const file = new File([gpx], 'notes.gpx');
-                const $a = document.createElement('a');
-                $a.href = URL.createObjectURL(file);
-                $a.download = 'notes.gpx';
-                $a.click();
-                URL.revokeObjectURL($a.href);
-            });
-            $exportNotesButton.draggable = true;
-            $exportNotesButton.addEventListener('dragstart', ev => {
-                const gpx = getGpx();
-                if (!ev.dataTransfer)
-                    return;
-                ev.dataTransfer.setData($dataTypeSelect.value, gpx);
-            });
-            $commandGroup.append($exportNotesButton, ` `, makeLabel('inline')(` as waypoints `, $connectSelect), ` `, makeLabel('inline')(` with `, $commentsSelect, ` in descriptions`), `, `, makeLabel('inline')(`set `, $dataTypeSelect, ` type in drag and drop events`));
-        }
-        {
-            const $commandGroup = makeCommandGroup('yandex-panoramas', `Y.Panoramas`, 'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B', `Yandex.Panoramas (Яндекс.Панорамы)`);
-            const $yandexPanoramasButton = document.createElement('button');
-            $yandexPanoramasButton.append(`Open `, makeMapIcon('center'));
-            $yandexPanoramasButton.addEventListener('click', () => {
-                const center = map.getCenter();
-                const coords = center.lng + ',' + center.lat;
-                const url = `https://yandex.ru/maps/` +
-                    `?ll=` + encodeURIComponent(coords) + // required if 'z' argument is present
-                    `&panorama%5Bpoint%5D=` + encodeURIComponent(coords) +
-                    `&z=` + encodeURIComponent(map.getZoom());
-                open(url, 'yandex');
-            });
-            $commandGroup.append($yandexPanoramasButton);
-        }
-        {
-            const $commandGroup = makeCommandGroup('mapillary', `Mapillary`, 'https://wiki.openstreetmap.org/wiki/Mapillary');
-            const $mapillaryButton = document.createElement('button');
-            $mapillaryButton.append(`Open `, makeMapIcon('center'));
-            $mapillaryButton.addEventListener('click', () => {
-                const center = map.getCenter();
-                const url = `https://www.mapillary.com/app/` +
-                    `?lat=` + encodeURIComponent(center.lat) +
-                    `&lng=` + encodeURIComponent(center.lng) +
-                    `&z=` + encodeURIComponent(map.getZoom()) +
-                    `&focus=photo`;
-                open(url, 'mapillary');
-            });
-            $commandGroup.append($mapillaryButton);
-        }
-        {
-            const $commandGroup = makeCommandGroup('counts', `Note counts`);
-            this.$fetchedNoteCount = document.createElement('span');
-            this.$fetchedNoteCount.textContent = '0';
-            this.$visibleNoteCount = document.createElement('span');
-            this.$visibleNoteCount.textContent = '0';
-            this.$checkedNoteCount = document.createElement('span');
-            this.$checkedNoteCount.textContent = '0';
-            $commandGroup.append(this.$fetchedNoteCount, ` fetched, `, this.$visibleNoteCount, ` visible, `, this.$checkedNoteCount, ` selected`);
-        }
-        {
-            const $commandGroup = makeCommandGroup('legend', `Legend`);
-            $commandGroup.append(makeMapIcon('center'), ` = map center, `, makeMapIcon('area'), ` = map area, `, makeNotesIcon('selected'), ` = selected notes`);
-        }
-        function makeCommandGroup(name, title, linkHref, linkTitle) {
-            const storageKey = 'commands-' + name;
-            const $commandGroup = document.createElement('details');
-            $commandGroup.open = !!storage.getItem(storageKey);
-            const $summary = document.createElement('summary');
-            if (linkHref == null) {
-                $summary.textContent = title;
-            }
-            else {
-                const $a = makeLink(title, linkHref, linkTitle);
-                $a.target = '_blank';
-                $summary.append($a);
-            }
-            $commandGroup.append($summary);
-            $commandGroup.addEventListener('toggle', () => {
-                if ($commandGroup.open) {
+        for (const [id, name, title, getTool, getInfo] of CommandPanel.commandGroups) {
+            const storageKey = 'commands-' + id;
+            const $toolDetails = document.createElement('details');
+            $toolDetails.classList.add('tool');
+            $toolDetails.open = !!storage.getItem(storageKey);
+            const $toolSummary = document.createElement('summary');
+            $toolSummary.textContent = name;
+            if (title)
+                $toolSummary.title = title;
+            $toolDetails.addEventListener('toggle', () => {
+                if ($toolDetails.open) {
                     storage.setItem(storageKey, '1');
                 }
                 else {
                     storage.removeItem(storageKey);
                 }
             });
-            $container.append($commandGroup);
-            return $commandGroup;
-        }
-        function makeMapIcon(type) {
-            const $img = document.createElement('img');
-            $img.classList.add('icon');
-            $img.src = `map-${type}.svg`;
-            $img.width = 19;
-            $img.height = 13;
-            $img.alt = `map ${type}`;
-            return $img;
-        }
-        function makeNotesIcon(type) {
-            const $img = document.createElement('img');
-            $img.classList.add('icon');
-            $img.src = `notes-${type}.svg`;
-            $img.width = 9;
-            $img.height = 13;
-            $img.alt = `${type} notes`;
-            return $img;
+            $toolDetails.append($toolSummary, ...getTool(this, map));
+            if (getInfo) {
+                const $infoDetails = document.createElement('details');
+                $infoDetails.classList.add('info');
+                const $infoSummary = document.createElement('summary');
+                $infoSummary.textContent = `${name} info`;
+                $infoDetails.append($infoSummary, ...getInfo());
+                const $infoButton = document.createElement('button');
+                $infoButton.classList.add('info');
+                $infoButton.title = `tool info`;
+                const updateInfoButton = () => {
+                    if ($infoDetails.open) {
+                        $infoButton.classList.add('open');
+                    }
+                    else {
+                        $infoButton.classList.remove('open');
+                    }
+                };
+                updateInfoButton();
+                $infoButton.addEventListener('click', () => {
+                    $infoDetails.open = !$infoDetails.open;
+                });
+                $infoDetails.addEventListener('toggle', () => {
+                    updateInfoButton();
+                });
+                $toolDetails.addEventListener('toggle', () => {
+                    if ($toolDetails.open)
+                        return;
+                    $infoDetails.open = false;
+                });
+                $toolDetails.append(` `, $infoButton);
+                $container.append($toolDetails, $infoDetails);
+            }
+            else {
+                $container.append($toolDetails);
+            }
         }
     }
     receiveNoteCounts(nFetched, nVisible) {
@@ -968,6 +690,368 @@ class CommandPanel {
         this.$buttonsRequiringSelectedNotes.push($button);
         return $button;
     }
+}
+CommandPanel.commandGroups = [[
+        'autozoom',
+        `Automatic zoom`,
+        `Pan and zoom the map to visible notes`,
+        (cp, map) => {
+            cp.$fitModeSelect.append(new Option('is disabled', 'none'), new Option('to notes in table view', 'inViewNotes'), new Option('to all notes', 'allNotes'));
+            cp.$fitModeSelect.addEventListener('change', () => {
+                if (cp.fitMode == 'allNotes') {
+                    map.fitNotes();
+                }
+                else if (cp.fitMode == 'inViewNotes') {
+                    map.fitNoteTrack();
+                }
+            });
+            return [cp.$fitModeSelect];
+        }, () => [p(`Pan and zoom the map to notes in the table. `, `Can be used as `, em(`zoom to data`), ` for notes layer if `, dfn(`to all notes`), ` is selected. `), p(dfn(`To notes in table view`), ` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `, `This option is convenient to use when `, em(`Track between notes`), ` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`)]
+    ], [
+        'timestamp',
+        `Timestamp for historic queries`, ,
+        (cp, map) => {
+            const $commentTimeSelectLabel = document.createElement('label');
+            cp.$commentTimeSelect.append(new Option('from comment text', 'text'), new Option('of comment', 'comment'));
+            $commentTimeSelectLabel.append(`pick time `, cp.$commentTimeSelect);
+            $commentTimeSelectLabel.title = `"from comment text" looks for time inside the comment text. Useful for MAPS.ME-generated comments. Falls back to the comment time if no time detected in the text.`;
+            cp.$commentTimeSelect = cp.$commentTimeSelect;
+            const $commentTimeInputLabel = document.createElement('label');
+            // cp.$commentTimeInput.type='datetime-local'
+            // cp.$commentTimeInput.step='1'
+            cp.$commentTimeInput.type = 'text';
+            cp.$commentTimeInput.size = 20;
+            // cp.$commentTimeInput.readOnly=true
+            $commentTimeInputLabel.append(`picked `, cp.$commentTimeInput);
+            $commentTimeInputLabel.title = `In whatever format Overpass understands. No standard datetime input for now because they're being difficult with UTC and 24-hour format.`;
+            cp.$commentTimeSelect.addEventListener('input', () => cp.pickCommentTime());
+            const $clearButton = document.createElement('button');
+            $clearButton.textContent = 'Clear';
+            $clearButton.addEventListener('click', () => {
+                cp.$commentTimeInput.value = '';
+            });
+            return [$commentTimeSelectLabel, ` — `, $commentTimeInputLabel, ` `, $clearButton];
+        }, () => [p(`Allows to select a timestamp for use with `, em(`Overpass`), ` and `, em(`Overpass turbo`), ` commands. `, `You can either enter the timestamp in ISO format manually or pick it from the comment. `, `If present, a `, makeLink(`date setting`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL#date`), ` is added to Overpass queries. `, `The idea is to allow for examining the OSM data at the moment some note was opened/commented/closed to evaluate if this action was correct.`), p(`Entering the timestamp manually is likely not what you want. `, `Picking from a comment is done by clicking a note status icon in `, em(`?`), ` table column. `, `When `, dfn(`from comment text`), ` is selected, the comment text is examined for timestamps first. This is to handle comments generated by `, makeLink(`MAPS.ME`, `https://wiki.openstreetmap.org/wiki/MAPS.ME`), ` that include OSM data timestamp. `, `If that fails or when `, dfn(`of comment`), ` is selected, the comment timestamp is used instead. `, `This is a part of older UI that forced users to select a comment before being able to perform Overpass queries. It's likely to change soon by being replaced with clickable dates.`)]
+    ], [
+        'overpass-turbo',
+        `Overpass turbo`, ,
+        (cp, map) => {
+            const $overpassButtons = [];
+            const buttonClickListener = (withRelations, onlyAround) => {
+                const center = map.getCenter();
+                let query = cp.getOverpassQueryPreamble(map);
+                if (withRelations) {
+                    query += `nwr`;
+                }
+                else {
+                    query += `nw`;
+                }
+                if (onlyAround) {
+                    const radius = 10;
+                    query += `(around:${radius},${center.lat},${center.lng})`;
+                }
+                query += `;\n`;
+                query += `out meta geom;`;
+                const location = `${center.lat};${center.lng};${map.getZoom()}`;
+                const url = `https://overpass-turbo.eu/?C=${encodeURIComponent(location)}&Q=${encodeURIComponent(query)}`;
+                open(url, 'overpass-turbo');
+            };
+            {
+                const $button = document.createElement('button');
+                $button.append(`Load `, makeMapIcon('area'), ` without relations`);
+                $button.addEventListener('click', () => buttonClickListener(false, false));
+                $overpassButtons.push($button);
+            }
+            {
+                const $button = document.createElement('button');
+                $button.append(`Load `, makeMapIcon('area'), ` with relations`);
+                $button.title = `May fetch large unwanted relations like routes.`;
+                $button.addEventListener('click', () => buttonClickListener(true, false));
+                $overpassButtons.push($button);
+            }
+            {
+                const $button = document.createElement('button');
+                $button.append(`Load around `, makeMapIcon('center'));
+                $button.addEventListener('click', () => buttonClickListener(false, true));
+                $overpassButtons.push($button);
+            }
+            const result = [];
+            for (const $button of $overpassButtons) {
+                result.push(` `, $button);
+            }
+            return result;
+        }, () => [p(`Some Overpass queries to run from `, makeLink(`Overpass turbo`, 'https://wiki.openstreetmap.org/wiki/Overpass_turbo'), `, web UI for Overpass API. `, `Useful to inspect historic data at the time a particular note comment was made.`)]
+    ], [
+        'overpass',
+        `Overpass`, ,
+        (cp, map) => {
+            const $button = document.createElement('button');
+            $button.append(`Find closest node to `, makeMapIcon('center'));
+            $button.addEventListener('click', async () => {
+                $button.disabled = true;
+                try {
+                    const radius = 10;
+                    const center = map.getCenter();
+                    let query = cp.getOverpassQueryPreamble(map);
+                    query += `node(around:${radius},${center.lat},${center.lng});\n`;
+                    query += `out skel;`;
+                    const doc = await makeOverpassQuery($button, query);
+                    if (!doc)
+                        return;
+                    const closestNodeId = getClosestNodeId(doc, center.lat, center.lng);
+                    if (!closestNodeId) {
+                        $button.classList.add('error');
+                        $button.title = `Could not find nodes nearby`;
+                        return;
+                    }
+                    const url = `https://www.openstreetmap.org/node/` + encodeURIComponent(closestNodeId);
+                    open(url);
+                }
+                finally {
+                    $button.disabled = false;
+                }
+            });
+            return [$button];
+        }, () => [p(`Query `, makeLink(`Overpass API`, 'https://wiki.openstreetmap.org/wiki/Overpass_API'), ` without going through Overpass turbo. `, `Since there's no UI, something has to be done with the response. Currently the only possible result is an OSM element, which is opened on the OSM website.`)]
+    ], [
+        'rc',
+        `RC`,
+        `JOSM (or another editor) Remote Control`,
+        (cp, map) => {
+            const e = makeEscapeTag(encodeURIComponent);
+            const $loadNotesButton = cp.makeRequiringSelectedNotesButton();
+            $loadNotesButton.append(`Load `, makeNotesIcon('selected'));
+            $loadNotesButton.addEventListener('click', async () => {
+                for (const { id } of cp.checkedNotes) {
+                    const noteUrl = e `https://www.openstreetmap.org/note/${id}`;
+                    const rcUrl = e `http://127.0.0.1:8111/import?url=${noteUrl}`;
+                    const success = await openRcUrl($loadNotesButton, rcUrl);
+                    if (!success)
+                        break;
+                }
+            });
+            const $loadMapButton = document.createElement('button');
+            $loadMapButton.append(`Load `, makeMapIcon('area'));
+            $loadMapButton.addEventListener('click', () => {
+                const bounds = map.getBounds();
+                const rcUrl = e `http://127.0.0.1:8111/load_and_zoom` +
+                    `?left=${bounds.getWest()}&right=${bounds.getEast()}` +
+                    `&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`;
+                openRcUrl($loadMapButton, rcUrl);
+            });
+            return [$loadNotesButton, ` `, $loadMapButton];
+        }, () => [p(`Load note/map data to an editor with `, makeLink(`remote control`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl'), `.`)]
+    ], [
+        'id',
+        `iD`, ,
+        (cp, map) => {
+            // limited to what hashchange() lets you do here https://github.com/openstreetmap/iD/blob/develop/modules/behavior/hash.js
+            // which is zooming/panning
+            const $zoomButton = document.createElement('button');
+            $zoomButton.append(`Open `, makeMapIcon('center'));
+            $zoomButton.addEventListener('click', () => {
+                const e = makeEscapeTag(encodeURIComponent);
+                const center = map.getCenter();
+                const url = e `https://www.openstreetmap.org/id#map=${map.getZoom()}/${center.lat}/${center.lng}`;
+                open(url, 'id');
+            });
+            return [$zoomButton];
+        }, () => [p(`Follow your notes by zooming from one place to another in one `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), ` window. `, `It could be faster to do first here in note-viewer than in iD directly because note-viewer won't try to download more data during panning. `, `After zooming in note-viewer, click the `, em(`Open`), ` button to open this location in iD. `, `When you go back to note-viewer, zoom to another place and click the `, em(`Open`), ` button for the second time, the already opened iD instance zooms to that place. `, `Your edits are not lost between such zooms.`), p(`Technical details: this is an attempt to make something like `, em(`remote control`), ` in iD editor. `, `Convincing iD to load notes has proven to be tricky. `, `Your best chance of seeing the selected notes is importing them as a `, em(`gpx`), ` file. `, `See `, makeLink(`this diary post`, `https://www.openstreetmap.org/user/Anton%20Khorev/diary/398991`), ` for further explanations.`), p(`Zooming/panning is easier to do, and that's what is currently implemented. `, `It's not without quirks however. You'll notice that the iD window opened from here doesn't have the OSM website header. `, `This is because the editor is opened at `, makeLink(`/id`, `https://www.openstreetmap.org/id`), ` url instead of `, makeLink(`/edit`, `https://www.openstreetmap.org/edit`), `. `, `It has to be done because otherwise iD won't listen to `, em(`#map`), ` changes in the webpage location.`)]
+    ], [
+        'gpx',
+        `GPX`, ,
+        (cp, map) => {
+            const $connectSelect = document.createElement('select');
+            $connectSelect.append(new Option(`without connections`, 'no'), new Option(`connected by route`, 'rte'), new Option(`connected by track`, 'trk'));
+            const $commentsSelect = document.createElement('select');
+            $commentsSelect.append(new Option(`first comment`, 'first'), new Option(`all comments`, 'all'));
+            const $dataTypeSelect = document.createElement('select');
+            $dataTypeSelect.append(new Option('text/xml'), new Option('application/gpx+xml'), new Option('text/plain'));
+            const $exportNotesButton = cp.makeRequiringSelectedNotesButton();
+            $exportNotesButton.append(`Export `, makeNotesIcon('selected'));
+            const e = makeEscapeTag(escapeXml);
+            const getPoints = (pointTag, getDetails = () => '') => {
+                let gpx = '';
+                for (const note of cp.checkedNotes) {
+                    const firstComment = note.comments[0];
+                    gpx += e `<${pointTag} lat="${note.lat}" lon="${note.lon}">\n`;
+                    if (firstComment)
+                        gpx += e `<time>${toUrlDate(firstComment.date)}</time>\n`;
+                    gpx += getDetails(note);
+                    gpx += e `</${pointTag}>\n`;
+                }
+                return gpx;
+            };
+            const getGpx = () => {
+                let gpx = e `<?xml version="1.0" encoding="UTF-8" ?>\n`;
+                gpx += e `<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">\n`;
+                // TODO <name>selected notes of user A</name>
+                gpx += getPoints('wpt', note => {
+                    let gpx = '';
+                    gpx += e `<name>${note.id}</name>\n`;
+                    if (note.comments.length > 0) {
+                        gpx += `<desc>`;
+                        let first = true;
+                        for (const comment of note.comments) {
+                            if (first) {
+                                first = false;
+                            }
+                            else {
+                                gpx += `&#xA;\n`; // JOSM wants this kind of double newline, otherwise no space between comments is rendered
+                            }
+                            if (comment.uid) {
+                                const username = cp.checkedNoteUsers.get(comment.uid);
+                                if (username != null) {
+                                    gpx += e `${username}`;
+                                }
+                                else {
+                                    gpx += e `user #${comment.uid}`;
+                                }
+                            }
+                            else {
+                                gpx += `anonymous user`;
+                            }
+                            if ($commentsSelect.value == 'all')
+                                gpx += e ` ${comment.action}`;
+                            gpx += ` at ${toReadableDate(comment.date)}`;
+                            if (comment.text)
+                                gpx += e `: ${comment.text}`;
+                            if ($commentsSelect.value != 'all')
+                                break;
+                        }
+                        gpx += `</desc>\n`;
+                    }
+                    const noteUrl = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
+                    gpx += e `<link href="${noteUrl}">\n`;
+                    gpx += e `<text>note #${note.id} on osm</text>\n`;
+                    gpx += e `</link>\n`;
+                    gpx += e `<type>${note.status}</type>\n`;
+                    return gpx;
+                });
+                if ($connectSelect.value == 'rte') {
+                    gpx += `<rte>\n`;
+                    gpx += getPoints('rtept');
+                    gpx += `</rte>\n`;
+                }
+                if ($connectSelect.value == 'trk') {
+                    gpx += `<trk><trkseg>\n`;
+                    gpx += getPoints('trkpt');
+                    gpx += `</trkseg></trk>\n`;
+                }
+                gpx += `</gpx>\n`;
+                return gpx;
+            };
+            $exportNotesButton.addEventListener('click', () => {
+                const gpx = getGpx();
+                const file = new File([gpx], 'notes.gpx');
+                const $a = document.createElement('a');
+                $a.href = URL.createObjectURL(file);
+                $a.download = 'notes.gpx';
+                $a.click();
+                URL.revokeObjectURL($a.href);
+            });
+            $exportNotesButton.draggable = true;
+            $exportNotesButton.addEventListener('dragstart', ev => {
+                const gpx = getGpx();
+                if (!ev.dataTransfer)
+                    return;
+                ev.dataTransfer.setData($dataTypeSelect.value, gpx);
+            });
+            return [
+                $exportNotesButton, ` `,
+                makeLabel('inline')(` as waypoints `, $connectSelect), ` `,
+                makeLabel('inline')(` with `, $commentsSelect, ` in descriptions`), `, `,
+                makeLabel('inline')(`set `, $dataTypeSelect, ` type in drag and drop events`)
+            ];
+        }, () => [p(`Export selected notes in `, makeLink(`GPX`, 'https://wiki.openstreetmap.org/wiki/GPX'), ` (GPS exchange) format. `, `During the export, each selected note is treated as a waypoint with its name set to note id, description set to comments and link pointing to note's page on the OSM website. `, `This allows OSM notes to be used in applications that can't show them directly. `, `Also it allows a particular selection of notes to be shown if an application can't filter them. `, `One example of such app is `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), `. `, `Unfortunately iD doesn't fully understand the gpx format and can't show links associated with waypoints. `, `You'll have to enable the notes layer in iD and compare its note marker with waypoint markers from the gpx file.`), p(`By default only the `, dfn(`first comment`), ` is added to waypoint descriptions. `, `This is because some apps such as iD and especially `, makeLink(`JOSM`, `https://wiki.openstreetmap.org/wiki/JOSM`), ` try to render the entire description in one line next to the waypoint marker, cluttering the map.`), p(`It's possible to pretend that note waypoints are connected by a `, makeLink(`route`, `https://www.topografix.com/GPX/1/1/#type_rteType`), ` by using the `, dfn(`connected by route`), ` option. `, `This may help to go from a note to the next one in an app by visually following the route line. `, `There's also the `, dfn(`connected by track`), ` option in case the app makes it easier to work with `, makeLink(`tracks`, `https://www.topografix.com/GPX/1/1/#type_trkType`), ` than with the routes.`), p(`Instead of clicking the `, em(`Export`), ` button, you can drag it and drop into a place that accepts data sent by `, makeLink(`Drag and Drop API`, `https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`), `. `, `Not many places actually do, and those who do often can handle only plaintext. `, `That's why there's a type selector, with which plaintext format can be forced on transmitted data.`)]
+    ], [
+        'yandex-panoramas',
+        `Y.Panoramas`,
+        `Yandex.Panoramas (Яндекс.Панорамы)`,
+        (cp, map) => {
+            const $viewButton = document.createElement('button');
+            $viewButton.append(`Open `, makeMapIcon('center'));
+            $viewButton.addEventListener('click', () => {
+                const e = makeEscapeTag(encodeURIComponent);
+                const center = map.getCenter();
+                const coords = center.lng + ',' + center.lat;
+                const url = e `https://yandex.ru/maps/?ll=${coords}&panorama%5Bpoint%5D=${coords}&z=${map.getZoom()}`; // 'll' is required if 'z' argument is present
+                open(url, 'yandex');
+            });
+            return [$viewButton];
+        }, () => [p(`Open a map location in `, makeLink(`Yandex.Panoramas`, 'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B'), ` street view. `, `Could be useful to find out if an object mentioned in a note existed at a certain point of time. `, `Yandex.Panoramas have a year selector in the upper right corner. Use it to get a photo made close to the date of interest.`)]
+    ], [
+        'mapillary',
+        `Mapillary`, ,
+        (cp, map) => {
+            const $viewButton = document.createElement('button');
+            $viewButton.append(`Open `, makeMapIcon('center'));
+            $viewButton.addEventListener('click', () => {
+                const e = makeEscapeTag(encodeURIComponent);
+                const center = map.getCenter();
+                const url = e `https://www.mapillary.com/app/?lat=${center.lat}&lng=${center.lng}&z=${map.getZoom()}&focus=photo`;
+                open(url, 'mapillary');
+            });
+            return [$viewButton];
+        }, () => [p(`Open a map location in `, makeLink(`Mapillary`, 'https://wiki.openstreetmap.org/wiki/Mapillary'), `. `, `Not yet fully implemented. The idea is to jump straight to the best available photo, but in order to do that, Mapillary API has to be queried for available photos. That's impossible to do without an API key.`)]
+    ], [
+        'counts',
+        `Note counts`, ,
+        (cp, map) => {
+            cp.$fetchedNoteCount.textContent = '0';
+            cp.$visibleNoteCount.textContent = '0';
+            cp.$checkedNoteCount.textContent = '0';
+            return [
+                cp.$fetchedNoteCount, ` fetched, `,
+                cp.$visibleNoteCount, ` visible, `,
+                cp.$checkedNoteCount, ` selected`
+            ];
+        }
+    ], [
+        'legend',
+        `Legend`,
+        `What do icons in command panel mean`,
+        (cp, map) => [
+            makeMapIcon('center'), ` = map center, `, makeMapIcon('area'), ` = map area, `, makeNotesIcon('selected'), ` = selected notes`
+        ]
+    ], [
+        'settings',
+        `⚙️`,
+        `Settings`,
+        (cp, map) => {
+            const $openAllButton = document.createElement('button');
+            $openAllButton.textContent = `+ open all tools`;
+            $openAllButton.addEventListener('click', () => foldTools(true));
+            const $closeAllButton = document.createElement('button');
+            $closeAllButton.textContent = `− close all tools`;
+            $closeAllButton.addEventListener('click', () => foldTools(false));
+            return [$openAllButton, ` `, $closeAllButton];
+            function foldTools(open) {
+                for (const $tool of cp.$container.querySelectorAll('details.tool')) {
+                    if (!($tool instanceof HTMLDetailsElement))
+                        continue;
+                    $tool.open = open;
+                }
+            }
+        }
+    ]];
+function makeMapIcon(type) {
+    const $img = document.createElement('img');
+    $img.classList.add('icon');
+    $img.src = `map-${type}.svg`;
+    $img.width = 19;
+    $img.height = 13;
+    $img.alt = `map ${type}`;
+    return $img;
+}
+function makeNotesIcon(type) {
+    const $img = document.createElement('img');
+    $img.classList.add('icon');
+    $img.src = `notes-${type}.svg`;
+    $img.width = 9;
+    $img.height = 13;
+    $img.alt = `${type} notes`;
+    return $img;
 }
 async function openRcUrl($button, rcUrl) {
     try {
@@ -2854,6 +2938,7 @@ class ExtrasPanel {
         ]);
         writeBlock(() => [
             `Other documentation: `,
+            makeLink(`overpass queries`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`), `, `,
             makeLink(`gpx format`, `https://www.topografix.com/GPX/1/1/`)
         ]);
         writeBlock(() => [
