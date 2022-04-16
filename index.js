@@ -573,9 +573,9 @@ class CommandPanel {
         this.$fitModeSelect = document.createElement('select');
         this.$commentTimeSelect = document.createElement('select');
         this.$commentTimeInput = document.createElement('input');
-        this.$fetchedNoteCount = document.createElement('span');
-        this.$visibleNoteCount = document.createElement('span');
-        this.$checkedNoteCount = document.createElement('span');
+        this.$fetchedNoteCount = document.createElement('output');
+        this.$visibleNoteCount = document.createElement('output');
+        this.$checkedNoteCount = document.createElement('output');
         // }
         this.$buttonsRequiringSelectedNotes = [];
         this.checkedNotes = [];
@@ -2733,6 +2733,7 @@ const syntaxExamples = [
     [`Notes commented by user A`, [`user = A`]],
     [`Notes commented by user A, later commented by user B`, [`user = A`, `*`, `user = B`]],
     [`Notes opened by user A`, [`^`, `user = A`]],
+    [`Notes opened by an anonymous user`, [`^`, `user = 0`]],
     [`Notes closed by user A that were opened by somebody else`, [`^`, `user != A`, `*`, `user = A, action = closed`]],
     [`Notes closed without a comment as their last action`, [`action = closed, text = ""`, `$`]],
 ];
