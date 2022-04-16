@@ -50,6 +50,7 @@ const syntaxExamples: Array<[string,string[]]> = [
 	[`Notes commented by user A`,[`user = A`]],
 	[`Notes commented by user A, later commented by user B`,[`user = A`,`*`,`user = B`]],
 	[`Notes opened by user A`,[`^`,`user = A`]],
+	[`Notes opened by an anonymous user`,[`^`,`user = 0`]],
 	[`Notes closed by user A that were opened by somebody else`,[`^`,`user != A`,`*`,`user = A, action = closed`]],
 	[`Notes closed without a comment as their last action`,[`action = closed, text = ""`,`$`]],
 ]
