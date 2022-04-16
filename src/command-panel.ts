@@ -21,9 +21,9 @@ export default class CommandPanel {
 	private $fitModeSelect=document.createElement('select')
 	private $commentTimeSelect=document.createElement('select')
 	private $commentTimeInput=document.createElement('input')
-	private $fetchedNoteCount=document.createElement('span')
-	private $visibleNoteCount=document.createElement('span')
-	private $checkedNoteCount=document.createElement('span')
+	private $fetchedNoteCount=document.createElement('output')
+	private $visibleNoteCount=document.createElement('output')
+	private $checkedNoteCount=document.createElement('output')
 	// }
 	private $buttonsRequiringSelectedNotes: HTMLButtonElement[] = []
 	private checkedNotes: ReadonlyArray<Note> = []
