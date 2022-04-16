@@ -428,8 +428,27 @@ export default class CommandPanel {
 		(cp,map)=>[
 			makeMapIcon('center'),` = map center, `,makeMapIcon('area'),` = map area, `,makeNotesIcon('selected'),` = selected notes`
 		]
+	],[
+		'settings',
+		`⚙️`,
+		`Settings`,
+		(cp,map)=>{
+			const $openAllButton=document.createElement('button')
+			$openAllButton.textContent=`+ open all tools`
+			$openAllButton.addEventListener('click',()=>foldTools(true))
+			const $closeAllButton=document.createElement('button')
+			$closeAllButton.textContent=`− close all tools`
+			$closeAllButton.addEventListener('click',()=>foldTools(false))
+			return [$openAllButton,` `,$closeAllButton]
+			function foldTools(open: boolean): void {
+				for (const $tool of cp.$container.querySelectorAll('details.tool')) {
+					if (!($tool instanceof HTMLDetailsElement)) continue
+					$tool.open=open
+				}
+			}
+		}
 	]]
-	constructor($container: HTMLElement, map: NoteMap, storage: NoteViewerStorage) {
+	constructor(private $container: HTMLElement, map: NoteMap, storage: NoteViewerStorage) {
 		for (const [id,name,title,getTool,getInfo] of CommandPanel.commandGroups) {
 			const storageKey='commands-'+id
 			const $toolDetails=document.createElement('details')
