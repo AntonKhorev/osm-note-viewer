@@ -2453,7 +2453,7 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
     }
     writeDownloadModeFieldset($fieldset) {
         {
-            this.$limitSelect.append(new Option('20'), new Option('100'), new Option('500'), new Option('2500'));
+            this.$limitSelect.append(new Option('20'), new Option('100'), new Option('500'), new Option('2500'), new Option('10000'));
             $fieldset.append(makeDiv()(`Download `, makeLabel()(`at most `, this.$limitSelect, ` notes`)));
         }
     }
