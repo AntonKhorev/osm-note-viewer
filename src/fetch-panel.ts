@@ -320,7 +320,8 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 				new Option('20'),
 				new Option('100'),
 				new Option('500'),
-				new Option('2500')
+				new Option('2500'),
+				new Option('10000')
 			)
 			$fieldset.append(makeDiv()(
 				`Download `,
