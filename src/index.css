@@ -131,8 +131,11 @@ body.flipped .panel.fetch button.flip {
 	margin: 0 -.5rem;
 	border-top: solid 1px #AAA;
 	border-bottom: solid 1px #AAA;
-	padding: .5rem;
+	padding: 0 .5rem;
 	background: #DDD;
+}
+.panel.command details.info p {
+	margin: .5rem 0;
 }
 .panel.command details.info[open] {
 	display: block;

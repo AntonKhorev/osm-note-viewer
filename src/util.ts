@@ -20,19 +20,17 @@ export function makeLink(text: string, href: string, title?: string): HTMLAnchor
 	return $link
 }
 
-export const makeDiv=(...classes: string[])=>(...items: Array<string|HTMLElement>)=>{
-	const $div=document.createElement('div')
-	$div.classList.add(...classes)
-	$div.append(...items)
-	return $div
+export function makeElement<K extends keyof HTMLElementTagNameMap>(tag: K): ((...classes: string[])=>(...items: Array<string|HTMLElement>)=>HTMLElementTagNameMap[K]) {
+	return (...classes)=>(...items)=>{
+		const $element=document.createElement(tag)
+		$element.classList.add(...classes)
+		$element.append(...items)
+		return $element
+	}
 }
 
-export const makeLabel=(...classes: string[])=>(...items: Array<string|HTMLElement>)=>{
-	const $label=document.createElement('label')
-	$label.classList.add(...classes)
-	$label.append(...items)
-	return $label
-}
+export const makeDiv=makeElement('div')
+export const makeLabel=makeElement('label')
 
 export function escapeRegex(text: string) { // https://stackoverflow.com/questions/3561493/is-there-a-regexp-escape-function-in-javascript/3561711
 	return text.replace(/[-\/\\^$*+?.()|[\]{}]/g,'\\$&')

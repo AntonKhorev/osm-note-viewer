@@ -120,6 +120,7 @@ export default class ExtrasPanel {
 		])
 		writeBlock(()=>[
 			`Other documentation: `,
+			makeLink(`overpass queries`,`https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`),`, `,
 			makeLink(`gpx format`,`https://www.topografix.com/GPX/1/1/`)
 		])
 		writeBlock(()=>[
