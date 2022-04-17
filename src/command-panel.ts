@@ -201,7 +201,6 @@ export default class CommandPanel {
 				const rcUrl=e`http://127.0.0.1:8111/load_and_zoom`+
 					`?left=${bounds.getWest()}&right=${bounds.getEast()}`+
 					`&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`
-
 				openRcUrl($loadMapButton,rcUrl)
 			})
 			return [$loadNotesButton,` `,$loadMapButton]

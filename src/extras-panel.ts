@@ -120,8 +120,9 @@ export default class ExtrasPanel {
 		])
 		writeBlock(()=>[
 			`Other documentation: `,
-			makeLink(`overpass queries`,`https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`),`, `,
-			makeLink(`gpx format`,`https://www.topografix.com/GPX/1/1/`)
+			makeLink(`Overpass queries`,`https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`),`, `,
+			makeLink(`GPX format`,`https://www.topografix.com/GPX/1/1/`),`, `,
+			makeLink(`Nominatim search`,`https://nominatim.org/release-docs/develop/api/Search/`)
 		])
 		writeBlock(()=>[
 			makeLink(`Source code`,`https://github.com/AntonKhorev/osm-note-viewer`)

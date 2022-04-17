@@ -8,7 +8,7 @@ import {NoteQuery, makeNoteSearchQueryFromValues, makeNoteBboxQueryFromValues,ma
 import {toUserQuery} from './query-user'
 import {toReadableDate, toDateQuery} from './query-date'
 import {startSearchFetcher, startBboxFetcher} from './fetch'
-import {makeDiv,makeLabel} from './util'
+import {makeDiv, makeLabel, makeEscapeTag} from './util'
 
 export default class NoteFetchPanel {
 	constructor(
@@ -279,6 +279,7 @@ class NoteSearchFetchDialog extends NoteFetchDialog {
 }
 
 class NoteBboxFetchDialog extends NoteFetchDialog {
+	private $nominatimForm=document.createElement('form')
 	title=`Get notes inside small rectangular area`
 	$bboxInput=document.createElement('input')
 	$trackMapCheckbox=document.createElement('input')
@@ -287,19 +288,90 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 	constructor(private map: NoteMap) {
 		super()
 	}
+	write($container: HTMLElement, submitQuery: (query: NoteQuery) => void) {
+		super.write($container,submitQuery)
+		$container.append(this.$nominatimForm) // TODO provide with another method
+	}
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{
 			this.$bboxInput.type='text'
 			this.$bboxInput.name='bbox'
 			$fieldset.append(makeDiv('major-input')(makeLabel()(
-				`Bounding box (left,bottom,right,top): `,this.$bboxInput
+				`Bounding box (`,
+				tip(`left`,`western-most (min) longitude`),`, `,
+				tip(`bottom`,`southern-most (min) latitude`),`, `,
+				tip(`right`,`eastern-most (max) longitude`),`, `,
+				tip(`top`,`northern-most (max) latitude`),
+				`): `,this.$bboxInput
 			)))
+			function tip(text: string, title: string) {
+				const $span=document.createElement('span')
+				$span.textContent=text
+				$span.title=title
+				return $span
+			}
 		}{
 			this.$trackMapCheckbox.type='checkbox'
 			this.$trackMapCheckbox.checked=true
 			$fieldset.append(makeDiv()(makeLabel()(
 				this.$trackMapCheckbox,` Update bounding box value with current map area`
 			)))
+		}{
+			const $nominatimInput=document.createElement('input')
+			const $nominatimButton=document.createElement('button')
+			this.$nominatimForm.id='nominatim-form'
+			this.$nominatimForm.addEventListener('submit',async(ev)=>{
+				ev.preventDefault()
+				$nominatimButton.disabled=true
+				$nominatimButton.classList.remove('error')
+				try {
+					// TODO cache; will need bbox, osm type, osm id
+					// TODO use preferred area: viewbox=<x1>,<y1>,<x2>,<y2>
+					const e=makeEscapeTag(encodeURIComponent)
+					const url=e`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${$nominatimInput.value}`
+					const response=await fetch(url)
+					if (!response.ok) {
+						throw new TypeError('Nominatim error: unsuccessful response')
+					}
+					const data=await response.json()
+					if (!Array.isArray(data)) throw new TypeError('Nominatim error: invalid data')
+					if (data.length<=0) {
+						throw new TypeError('Nominatim failed to find the place')
+					}
+					const placeData=data[0]
+					const bbox=placeData?.boundingbox
+					if (!Array.isArray(bbox) && bbox.length!=4) throw new TypeError('Nominatim error: invalid bbox data')
+					const [minLat,maxLat,minLon,maxLon]=bbox
+					// if (
+					// 	!Number.isFinite(minLat) || !Number.isFinite(maxLat) ||
+					// 	!Number.isFinite(minLon) || !Number.isFinite(maxLon)
+					// ) {
+					// 	throw new TypeError('Nominatim error: invalid coordinate data') // actually they are strings
+					// }
+					this.$bboxInput.value=`${minLon},${minLat},${maxLon},${maxLat}`
+					this.$trackMapCheckbox.checked=false
+					this.map.fitBounds([[minLat,minLon],[maxLat,maxLon]])
+				} catch (ex) {
+					$nominatimButton.classList.add('error')
+					if (ex instanceof TypeError) {
+						$nominatimButton.title=ex.message
+					} else {
+						$nominatimButton.title=`unknown error ${ex}`
+					}
+				} finally {
+					$nominatimButton.disabled=false
+				}
+			})
+			$nominatimInput.type='text'
+			$nominatimInput.name='place'
+			$nominatimInput.setAttribute('form','nominatim-form')
+			$nominatimButton.textContent='Get bbox from Nominatim'
+			$nominatimButton.setAttribute('form','nominatim-form')
+			$fieldset.append(makeDiv('major-input')(makeLabel()(
+				//`Or get bounding box by place name from `,makeLink(`Nominatim`,'https://wiki.openstreetmap.org/wiki/Nominatim'),`: `, // TODO inconvenient to have links inside form, better do info panels
+				`Or get bounding box by place name: `,
+				$nominatimInput
+			),$nominatimButton))
 		}{
 			this.$statusSelect.append(
 				new Option(`both open and closed`,'-1'),
