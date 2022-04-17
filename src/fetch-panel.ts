@@ -280,6 +280,8 @@ class NoteSearchFetchDialog extends NoteFetchDialog {
 
 class NoteBboxFetchDialog extends NoteFetchDialog {
 	private $nominatimForm=document.createElement('form')
+	private $nominatimInput=document.createElement('input')
+	private $nominatimButton=document.createElement('button')
 	title=`Get notes inside small rectangular area`
 	$bboxInput=document.createElement('input')
 	$trackMapCheckbox=document.createElement('input')
@@ -317,61 +319,17 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 				this.$trackMapCheckbox,` Update bounding box value with current map area`
 			)))
 		}{
-			const $nominatimInput=document.createElement('input')
-			const $nominatimButton=document.createElement('button')
 			this.$nominatimForm.id='nominatim-form'
-			this.$nominatimForm.addEventListener('submit',async(ev)=>{
-				ev.preventDefault()
-				$nominatimButton.disabled=true
-				$nominatimButton.classList.remove('error')
-				try {
-					// TODO cache; will need bbox, osm type, osm id
-					// TODO use preferred area: viewbox=<x1>,<y1>,<x2>,<y2>
-					const e=makeEscapeTag(encodeURIComponent)
-					const url=e`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${$nominatimInput.value}`
-					const response=await fetch(url)
-					if (!response.ok) {
-						throw new TypeError('Nominatim error: unsuccessful response')
-					}
-					const data=await response.json()
-					if (!Array.isArray(data)) throw new TypeError('Nominatim error: invalid data')
-					if (data.length<=0) {
-						throw new TypeError('Nominatim failed to find the place')
-					}
-					const placeData=data[0]
-					const bbox=placeData?.boundingbox
-					if (!Array.isArray(bbox) && bbox.length!=4) throw new TypeError('Nominatim error: invalid bbox data')
-					const [minLat,maxLat,minLon,maxLon]=bbox
-					// if (
-					// 	!Number.isFinite(minLat) || !Number.isFinite(maxLat) ||
-					// 	!Number.isFinite(minLon) || !Number.isFinite(maxLon)
-					// ) {
-					// 	throw new TypeError('Nominatim error: invalid coordinate data') // actually they are strings
-					// }
-					this.$bboxInput.value=`${minLon},${minLat},${maxLon},${maxLat}`
-					this.$trackMapCheckbox.checked=false
-					this.map.fitBounds([[minLat,minLon],[maxLat,maxLon]])
-				} catch (ex) {
-					$nominatimButton.classList.add('error')
-					if (ex instanceof TypeError) {
-						$nominatimButton.title=ex.message
-					} else {
-						$nominatimButton.title=`unknown error ${ex}`
-					}
-				} finally {
-					$nominatimButton.disabled=false
-				}
-			})
-			$nominatimInput.type='text'
-			$nominatimInput.name='place'
-			$nominatimInput.setAttribute('form','nominatim-form')
-			$nominatimButton.textContent='Get bbox from Nominatim'
-			$nominatimButton.setAttribute('form','nominatim-form')
+			this.$nominatimInput.type='text'
+			this.$nominatimInput.name='place'
+			this.$nominatimInput.setAttribute('form','nominatim-form')
+			this.$nominatimButton.textContent='Get bbox from Nominatim'
+			this.$nominatimButton.setAttribute('form','nominatim-form')
 			$fieldset.append(makeDiv('major-input')(makeLabel()(
 				//`Or get bounding box by place name from `,makeLink(`Nominatim`,'https://wiki.openstreetmap.org/wiki/Nominatim'),`: `, // TODO inconvenient to have links inside form, better do info panels
 				`Or get bounding box by place name: `,
-				$nominatimInput
-			),$nominatimButton))
+				this.$nominatimInput
+			),this.$nominatimButton))
 		}{
 			this.$statusSelect.append(
 				new Option(`both open and closed`,'-1'),
@@ -414,6 +372,43 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 		this.$bboxInput.addEventListener('input',()=>{
 			// TODO validate this.$bboxInput.value
 			this.$trackMapCheckbox.checked=false
+		})
+		this.$nominatimForm.addEventListener('submit',async(ev)=>{
+			ev.preventDefault()
+			this.$nominatimButton.disabled=true
+			this.$nominatimButton.classList.remove('error')
+			try {
+				// TODO cache; will need bbox, osm type, osm id
+				const e=makeEscapeTag(encodeURIComponent)
+				const bounds=this.map.getBounds()
+				const viewbox=bounds.getWest()+','+bounds.getSouth()+','+bounds.getEast()+','+bounds.getNorth()
+				const url=e`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${this.$nominatimInput.value}&viewbox=${viewbox}`
+				const response=await fetch(url)
+				if (!response.ok) {
+					throw new TypeError('Nominatim error: unsuccessful response')
+				}
+				const data=await response.json()
+				if (!Array.isArray(data)) throw new TypeError('Nominatim error: invalid data')
+				if (data.length<=0) {
+					throw new TypeError('Nominatim failed to find the place')
+				}
+				const placeData=data[0]
+				const bbox=placeData?.boundingbox
+				if (!Array.isArray(bbox) && bbox.length!=4) throw new TypeError('Nominatim error: invalid bbox data')
+				const [minLat,maxLat,minLon,maxLon]=bbox
+				this.$bboxInput.value=`${minLon},${minLat},${maxLon},${maxLat}`
+				this.$trackMapCheckbox.checked=false
+				this.map.fitBounds([[minLat,minLon],[maxLat,maxLon]])
+			} catch (ex) {
+				this.$nominatimButton.classList.add('error')
+				if (ex instanceof TypeError) {
+					this.$nominatimButton.title=ex.message
+				} else {
+					this.$nominatimButton.title=`unknown error ${ex}`
+				}
+			} finally {
+				this.$nominatimButton.disabled=false
+			}
 		})
 	}
 	protected constructQuery(): NoteQuery | undefined {
