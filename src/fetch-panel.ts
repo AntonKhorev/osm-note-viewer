@@ -141,6 +141,7 @@ abstract class NoteFetchDialog {
 			}
 		})
 		this.$details.append($summary,$form)
+		this.writeExtraForms()
 		$container.append(this.$details)
 	}
 	open(): void {
@@ -170,6 +171,7 @@ abstract class NoteFetchDialog {
 	}
 	protected abstract writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void
 	protected abstract writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void
+	protected writeExtraForms(): void {}
 	protected abstract addEventListeners(): void
 	protected abstract constructQuery(): NoteQuery | undefined
 }
@@ -290,9 +292,8 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 	constructor(private map: NoteMap) {
 		super()
 	}
-	write($container: HTMLElement, submitQuery: (query: NoteQuery) => void) {
-		super.write($container,submitQuery)
-		$container.append(this.$nominatimForm) // TODO provide with another method
+	protected writeExtraForms() {
+		this.$details.append(this.$nominatimForm)
 	}
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{
@@ -379,6 +380,7 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 			this.$nominatimButton.classList.remove('error')
 			try {
 				// TODO cache; will need bbox, osm type, osm id
+				// overpass-turbo looks for first non-node result, actually type and i are not guaranteed
 				const e=makeEscapeTag(encodeURIComponent)
 				const bounds=this.map.getBounds()
 				const viewbox=bounds.getWest()+','+bounds.getSouth()+','+bounds.getEast()+','+bounds.getNorth()
