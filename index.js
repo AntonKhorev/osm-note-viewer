@@ -2429,22 +2429,46 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
     constructor(map) {
         super();
         this.map = map;
+        this.$nominatimForm = document.createElement('form');
+        this.$nominatimInput = document.createElement('input');
+        this.$nominatimButton = document.createElement('button');
         this.title = `Get notes inside small rectangular area`;
         this.$bboxInput = document.createElement('input');
         this.$trackMapCheckbox = document.createElement('input');
         this.$statusSelect = document.createElement('select');
         this.$limitSelect = document.createElement('select');
     }
+    write($container, submitQuery) {
+        super.write($container, submitQuery);
+        $container.append(this.$nominatimForm); // TODO provide with another method
+    }
     writeScopeAndOrderFieldset($fieldset) {
         {
             this.$bboxInput.type = 'text';
             this.$bboxInput.name = 'bbox';
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`Bounding box (left,bottom,right,top): `, this.$bboxInput)));
+            $fieldset.append(makeDiv('major-input')(makeLabel()(`Bounding box (`, tip(`left`, `western-most (min) longitude`), `, `, tip(`bottom`, `southern-most (min) latitude`), `, `, tip(`right`, `eastern-most (max) longitude`), `, `, tip(`top`, `northern-most (max) latitude`), `): `, this.$bboxInput)));
+            function tip(text, title) {
+                const $span = document.createElement('span');
+                $span.textContent = text;
+                $span.title = title;
+                return $span;
+            }
         }
         {
             this.$trackMapCheckbox.type = 'checkbox';
             this.$trackMapCheckbox.checked = true;
             $fieldset.append(makeDiv()(makeLabel()(this.$trackMapCheckbox, ` Update bounding box value with current map area`)));
+        }
+        {
+            this.$nominatimForm.id = 'nominatim-form';
+            this.$nominatimInput.type = 'text';
+            this.$nominatimInput.name = 'place';
+            this.$nominatimInput.setAttribute('form', 'nominatim-form');
+            this.$nominatimButton.textContent = 'Get bbox from Nominatim';
+            this.$nominatimButton.setAttribute('form', 'nominatim-form');
+            $fieldset.append(makeDiv('major-input')(makeLabel()(
+            //`Or get bounding box by place name from `,makeLink(`Nominatim`,'https://wiki.openstreetmap.org/wiki/Nominatim'),`: `, // TODO inconvenient to have links inside form, better do info panels
+            `Or get bounding box by place name: `, this.$nominatimInput), this.$nominatimButton));
         }
         {
             this.$statusSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
@@ -2471,6 +2495,48 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
         this.$bboxInput.addEventListener('input', () => {
             // TODO validate this.$bboxInput.value
             this.$trackMapCheckbox.checked = false;
+        });
+        this.$nominatimForm.addEventListener('submit', async (ev) => {
+            ev.preventDefault();
+            this.$nominatimButton.disabled = true;
+            this.$nominatimButton.classList.remove('error');
+            try {
+                // TODO cache; will need bbox, osm type, osm id
+                const e = makeEscapeTag(encodeURIComponent);
+                const bounds = this.map.getBounds();
+                const viewbox = bounds.getWest() + ',' + bounds.getSouth() + ',' + bounds.getEast() + ',' + bounds.getNorth();
+                const url = e `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${this.$nominatimInput.value}&viewbox=${viewbox}`;
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new TypeError('Nominatim error: unsuccessful response');
+                }
+                const data = await response.json();
+                if (!Array.isArray(data))
+                    throw new TypeError('Nominatim error: invalid data');
+                if (data.length <= 0) {
+                    throw new TypeError('Nominatim failed to find the place');
+                }
+                const placeData = data[0];
+                const bbox = placeData?.boundingbox;
+                if (!Array.isArray(bbox) && bbox.length != 4)
+                    throw new TypeError('Nominatim error: invalid bbox data');
+                const [minLat, maxLat, minLon, maxLon] = bbox;
+                this.$bboxInput.value = `${minLon},${minLat},${maxLon},${maxLat}`;
+                this.$trackMapCheckbox.checked = false;
+                this.map.fitBounds([[minLat, minLon], [maxLat, maxLon]]);
+            }
+            catch (ex) {
+                this.$nominatimButton.classList.add('error');
+                if (ex instanceof TypeError) {
+                    this.$nominatimButton.title = ex.message;
+                }
+                else {
+                    this.$nominatimButton.title = `unknown error ${ex}`;
+                }
+            }
+            finally {
+                this.$nominatimButton.disabled = false;
+            }
         });
     }
     constructQuery() {
@@ -2939,8 +3005,9 @@ class ExtrasPanel {
         ]);
         writeBlock(() => [
             `Other documentation: `,
-            makeLink(`overpass queries`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`), `, `,
-            makeLink(`gpx format`, `https://www.topografix.com/GPX/1/1/`)
+            makeLink(`Overpass queries`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`), `, `,
+            makeLink(`GPX format`, `https://www.topografix.com/GPX/1/1/`), `, `,
+            makeLink(`Nominatim search`, `https://nominatim.org/release-docs/develop/api/Search/`)
         ]);
         writeBlock(() => [
             makeLink(`Source code`, `https://github.com/AntonKhorev/osm-note-viewer`)
