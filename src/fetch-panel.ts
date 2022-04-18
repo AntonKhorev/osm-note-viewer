@@ -337,11 +337,11 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 			this.$nominatimInput.classList.add('no-invalid-indication') // because it's inside another form that doesn't require it, don't indicate that it's invalid
 			this.$nominatimInput.name='place'
 			this.$nominatimInput.setAttribute('form','nominatim-form')
-			this.$nominatimButton.textContent='Get bbox from Nominatim'
+			this.$nominatimButton.textContent='Get'
 			this.$nominatimButton.setAttribute('form','nominatim-form')
-			$fieldset.append(makeDiv('major-input')(makeLabel()(
+			$fieldset.append(makeDiv('text-button-input')(makeLabel()(
 				//`Or get bounding box by place name from `,makeLink(`Nominatim`,'https://wiki.openstreetmap.org/wiki/Nominatim'),`: `, // TODO inconvenient to have links inside form, better do info panels
-				`Or get bounding box by place name: `,
+				`Or get bounding box by place name from Nominatim: `,
 				this.$nominatimInput
 			),this.$nominatimButton))
 		}{

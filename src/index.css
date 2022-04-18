@@ -167,6 +167,22 @@ body.flipped .panel.fetch button.flip {
 .panel .major-input button {
 	padding: .3rem;
 }
+.panel .text-button-input {
+	position: relative;
+}
+.panel .text-button-input input[type=text] {
+	display: block;
+	box-sizing: border-box;
+	width: calc(100% - 5rem);
+}
+.panel .text-button-input button {
+	display: block;
+	box-sizing: border-box;
+	width: 4.5rem;
+	position: absolute;
+	bottom: 0;
+	right: 0;
+}
 .panel button.error {
 	color: red;
 	box-shadow: 0px 0px 0px 1px red;
