@@ -282,12 +282,11 @@ body.flipped .notes td.note-user {
 	margin-bottom: var(--comment-img-gap-size);
 }
 .notes td.note-comment a.image.float img {
-	display: none;
+	display: block;
 	max-width: 100%;
 	max-height: 25vh;
 }
-.notes table.with-images td.note-comment a.image.float,
-.notes table.with-images td.note-comment a.image.float img {
+.notes table.with-images td.note-comment a.image.float {
 	display: block;
 }
 .more div {

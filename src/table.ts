@@ -226,7 +226,7 @@ export default class NoteTable {
 			if (!($a instanceof HTMLAnchorElement)) continue
 			const $img=$a.firstChild
 			if (!($img instanceof HTMLImageElement)) continue
-			$img.src=showImages?$a.href:''
+			if (showImages && !$img.src) $img.src=$a.href // don't remove src when showImages is disabled, otherwise will reload all images when src is set back
 		}
 	}
 	private writeNote(note: Note, isVisible: boolean): HTMLTableSectionElement {
@@ -473,9 +473,8 @@ function processCommentText($cell: HTMLElement, commentText: string, showImages:
 			const $inlineLink=makeLink(item.href,item.href)
 			$inlineLink.classList.add('image','inline')
 			result.push($inlineLink)
-			const $img=document.createElement('img') // TODO have image load checkbox in download section
-			$img.loading='lazy' // this + display:none is not enough to surely stop accessing the image link
-			// $img.setAttribute('loading','lazy')
+			const $img=document.createElement('img')
+			$img.loading='lazy' // this + display:none is not enough to surely stop the browser from accessing the image link
 			if (showImages) $img.src=item.href // therefore only set the link if user agreed to loading
 			$img.alt=`attached photo`
 			const $floatLink=document.createElement('a')
