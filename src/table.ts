@@ -3,7 +3,7 @@ import {NoteMap, NoteMarker} from './map'
 import CommandPanel from './command-panel'
 import NoteFilter from './filter'
 import {toReadableDate} from './query-date'
-import {makeUserLink} from './util'
+import {escapeRegex, makeEscapeTag, makeLink, makeUserLink} from './util'
 
 export default class NoteTable {
 	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
@@ -168,7 +168,6 @@ export default class NoteTable {
 						$cell.append($unknownDateTime)
 					}
 				}{
-				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-user')
 					if (comment.uid!=null) {
@@ -195,7 +194,7 @@ export default class NoteTable {
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-comment')
-					$cell.textContent=comment.text
+					$cell.append(...processCommentText(comment.text))
 				}
 				iComment++
 			}
@@ -423,4 +422,31 @@ function getActionClass(action: NoteComment['action']): string {
 	} else {
 		return 'other'
 	}
+}
+
+function processCommentText(text: string): Array<string|HTMLElement> {
+	const e=makeEscapeTag(escapeRegex)
+	const result: Array<string|HTMLElement> = []
+	const images: Array<HTMLImageElement> = []
+	const sep='https://'
+	let first=true
+	for (const part of text.split(sep)) {
+		if (first) {
+			first=false
+			result.push(part)
+			continue
+		}
+		const match=part.match(new RegExp(e`^(${'westnordost.de/p/'}[0-9]+${'.jpg'})(.*)$`))
+		if (match) {
+			const [,urlPart,rest]=match
+			const url=sep+urlPart
+			result.push(makeLink(url,url),rest)
+			const $img=document.createElement('img')
+			$img.src=url
+			images.push($img)
+			continue
+		}
+		result.push(sep+part)
+	}
+	return [...images,...result]
 }
