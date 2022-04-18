@@ -1,9 +1,6 @@
 import NoteViewerDB, {FetchEntry} from './db'
 import {Note, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesAndUsers} from './data'
 import {NoteQuery, NoteSearchQuery, NoteBboxQuery, getNextFetchDetails, makeNoteQueryString} from './query'
-import NoteFilterPanel from './filter-panel'
-import {NoteMap} from './map'
-import CommandPanel from './command-panel'
 import NoteTable from './table'
 
 const maxSingleAutoLoadLimit=200
@@ -12,15 +9,12 @@ const maxFullyFilteredFetches=10
 
 export async function startSearchFetcher(
 	db: NoteViewerDB,
-	$notesContainer: HTMLElement, $moreContainer: HTMLElement,
-	filterPanel: NoteFilterPanel, commandPanel: CommandPanel, map: NoteMap,
+	noteTable: NoteTable, $moreContainer: HTMLElement,
 	$limitSelect: HTMLSelectElement, $autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement,
 	moreButtonIntersectionObservers: IntersectionObserver[],
 	query: NoteSearchQuery,
 	clearStore: boolean
 ) {
-	filterPanel.unsubscribe()
-	let noteTable: NoteTable | undefined
 	const [notes,users,mergeNotesAndUsers]=makeNotesAndUsersAndMerger()
 	const queryString=makeNoteQueryString(query)
 	const fetchEntry: FetchEntry = await(async()=>{
@@ -32,7 +26,6 @@ export async function startSearchFetcher(
 			return fetchEntry
 		}
 	})()
-	filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(noteFilter))
 	let lastNote: Note | undefined
 	let prevLastNote: Note | undefined
 	let lastLimit: number | undefined
@@ -51,9 +44,6 @@ export async function startSearchFetcher(
 		await fetchCycle()
 	}
 	function addNewNotes(newNotes: Note[]) {
-		if (!noteTable) {
-			noteTable=new NoteTable($notesContainer,commandPanel,map,filterPanel.noteFilter)
-		}
 		const nUnfilteredNotes=noteTable.addNotes(newNotes,users)
 		if (nUnfilteredNotes==0) {
 			nFullyFilteredFetches++
@@ -151,15 +141,12 @@ export async function startSearchFetcher(
 
 export async function startBboxFetcher( // TODO cleanup copypaste from above
 	db: NoteViewerDB,
-	$notesContainer: HTMLElement, $moreContainer: HTMLElement,
-	filterPanel: NoteFilterPanel, commandPanel: CommandPanel, map: NoteMap,
+	noteTable: NoteTable, $moreContainer: HTMLElement,
 	$limitSelect: HTMLSelectElement, /*$autoLoadCheckbox: HTMLInputElement,*/ $fetchButton: HTMLButtonElement,
 	moreButtonIntersectionObservers: IntersectionObserver[],
 	query: NoteBboxQuery,
 	clearStore: boolean
 ) {
-	filterPanel.unsubscribe()
-	let noteTable: NoteTable | undefined
 	const [notes,users,mergeNotesAndUsers]=makeNotesAndUsersAndMerger()
 	const queryString=makeNoteQueryString(query)
 	const fetchEntry: FetchEntry = await(async()=>{
@@ -171,7 +158,6 @@ export async function startBboxFetcher( // TODO cleanup copypaste from above
 			return fetchEntry
 		}
 	})()
-	filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(noteFilter))
 	// let lastNote: Note | undefined
 	// let prevLastNote: Note | undefined
 	// let lastLimit: number | undefined
@@ -190,9 +176,6 @@ export async function startBboxFetcher( // TODO cleanup copypaste from above
 		await fetchCycle()
 	}
 	function addNewNotes(newNotes: Note[]) {
-		if (!noteTable) {
-			noteTable=new NoteTable($notesContainer,commandPanel,map,filterPanel.noteFilter)
-		}
 		const nUnfilteredNotes=noteTable.addNotes(newNotes,users)
 		if (nUnfilteredNotes==0) {
 			nFullyFilteredFetches++

@@ -22,7 +22,11 @@ export default class NoteTable {
 	private $lastClickedNoteSection: HTMLTableSectionElement | undefined
 	private notesById = new Map<number,Note>() // in the future these might be windowed to limit the amount of stuff on one page
 	private usersById = new Map<number,string>()
-	constructor($container: HTMLElement, private commandPanel: CommandPanel, private map: NoteMap, private filter: NoteFilter) {
+	constructor(
+		$container: HTMLElement, 
+		private commandPanel: CommandPanel, private map: NoteMap, private filter: NoteFilter, 
+		private showImages: boolean
+	) {
 		const that=this
 		this.wrappedNoteMarkerClickListener=function(){
 			that.noteMarkerClickListener(this)
@@ -195,7 +199,7 @@ export default class NoteTable {
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-comment')
-					processCommentText($cell,comment.text)
+					processCommentText($cell,comment.text,this.showImages)
 				}
 				iComment++
 			}
@@ -214,6 +218,16 @@ export default class NoteTable {
 		}
 		this.commandPanel.receiveNoteCounts(nFetched,nVisible)
 		return nUnfilteredNotes
+	}
+	setShowImages(showImages: boolean) {
+		this.showImages=showImages
+		this.$table.classList.toggle('with-images',showImages)
+		for (const $a of this.$table.querySelectorAll('td.note-comment a.image.float')) {
+			if (!($a instanceof HTMLAnchorElement)) continue
+			const $img=$a.firstChild
+			if (!($img instanceof HTMLImageElement)) continue
+			$img.src=showImages?$a.href:''
+		}
 	}
 	private writeNote(note: Note, isVisible: boolean): HTMLTableSectionElement {
 		const marker=new NoteMarker(note)
@@ -450,7 +464,7 @@ function imageCommentHoverListener(this: HTMLElement, ev: MouseEvent): void {
 	}
 }
 
-function processCommentText($cell: HTMLElement, commentText: string): void {
+function processCommentText($cell: HTMLElement, commentText: string, showImages: boolean): void {
 	const result: Array<string|HTMLElement> = []
 	const images: Array<HTMLAnchorElement> = []
 	let iImage=0
@@ -460,9 +474,9 @@ function processCommentText($cell: HTMLElement, commentText: string): void {
 			$inlineLink.classList.add('image','inline')
 			result.push($inlineLink)
 			const $img=document.createElement('img') // TODO have image load checkbox in download section
-			// $img.loading='lazy'
-			$img.setAttribute('loading','lazy') // TODO still can't be sure... will have to do IntersectionOvserver
-			$img.src=item.href
+			$img.loading='lazy' // this + display:none is not enough to surely stop accessing the image link
+			// $img.setAttribute('loading','lazy')
+			if (showImages) $img.src=item.href // therefore only set the link if user agreed to loading
 			$img.alt=`attached photo`
 			const $floatLink=document.createElement('a')
 			$floatLink.classList.add('image','float')

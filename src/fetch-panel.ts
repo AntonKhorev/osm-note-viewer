@@ -1,6 +1,7 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
 import {NoteMap} from './map'
+import NoteTable from './table'
 import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
 import CommandPanel from './command-panel'
@@ -18,6 +19,7 @@ export default class NoteFetchPanel {
 		$notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
 		filterPanel: NoteFilterPanel, extrasPanel: ExtrasPanel, map: NoteMap, restoreScrollPosition: ()=>void
 	) {
+		let noteTable: NoteTable | undefined
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
 		const $showImagesCheckboxes: HTMLInputElement[] = []
 		const searchDialog=new NoteSearchFetchDialog()
@@ -89,12 +91,15 @@ export default class NoteFetchPanel {
 			} else {
 				extrasPanel.rewrite()
 			}
+			if (query?.mode!='search' && query?.mode!='bbox') return
+			filterPanel.unsubscribe()
+			const commandPanel=new CommandPanel($commandContainer,map,storage)
+			noteTable=new NoteTable($notesContainer,commandPanel,map,filterPanel.noteFilter,$showImagesCheckboxes[0]?.checked)
+			filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(noteFilter))
 			if (query?.mode=='search') {
-				const commandPanel=new CommandPanel($commandContainer,map,storage)
 				startSearchFetcher(
 					db,
-					$notesContainer,$moreContainer,
-					filterPanel,commandPanel,map,
+					noteTable,$moreContainer,
 					searchDialog.$limitSelect,searchDialog.$autoLoadCheckbox,searchDialog.$fetchButton,
 					moreButtonIntersectionObservers,
 					query,
@@ -102,11 +107,9 @@ export default class NoteFetchPanel {
 				)
 			} else if (query?.mode=='bbox') {
 				if (bboxDialog.$trackMapCheckbox.checked) map.needToFitNotes=false
-				const commandPanel=new CommandPanel($commandContainer,map,storage)
 				startBboxFetcher(
 					db,
-					$notesContainer,$moreContainer,
-					filterPanel,commandPanel,map,
+					noteTable,$moreContainer,
 					bboxDialog.$limitSelect,/*bboxDialog.$autoLoadCheckbox,*/bboxDialog.$fetchButton,
 					moreButtonIntersectionObservers,
 					query,
@@ -119,7 +122,7 @@ export default class NoteFetchPanel {
 			for (const $showImagesCheckbox of $showImagesCheckboxes) {
 				$showImagesCheckbox.checked=state
 			}
-			$notesContainer.classList.toggle('with-images',state)
+			noteTable?.setShowImages(state)
 		}
 	}
 }
