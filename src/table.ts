@@ -431,7 +431,7 @@ function processCommentText(commentText: string): Array<string|HTMLElement> {
 	for (const item of getCommentItems(commentText)) {
 		if (item.type=='image') {
 			result.push(makeLink(item.href,item.href))
-			const $img=document.createElement('img')
+			const $img=document.createElement('img') // TODO have image load checkbox in download section
 			$img.src=item.href
 			$img.alt=`attached photo`
 			images.push($img)

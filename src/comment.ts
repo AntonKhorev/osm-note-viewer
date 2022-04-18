@@ -27,15 +27,11 @@ export default function getCommentItems(commentText: string): CommentItem[] {
 	let first=true
 	for (const part of commentText.split(sep)) {
 		if (first) {
-			// TODO what if it starts with link?
 			first=false
-			result.push({
-				type: 'text',
-				text: part
-			})
+			pushText(part)
 			continue
 		}
-		const match=part.match(new RegExp(e`^(${'westnordost.de/p/'}[0-9]+${'.jpg'})(.*)$`))
+		const match=part.match(new RegExp(e`^(${'westnordost.de/p/'}[0-9]+${'.jpg'})(.*)$`,'s'))
 		if (match) {
 			const [,hrefPart,rest]=match
 			const href=sep+hrefPart
@@ -44,13 +40,17 @@ export default function getCommentItems(commentText: string): CommentItem[] {
 				text: href,
 				href
 			})
+			pushText(rest)
 			continue
 		}
-		// TODO what if it ends with a link?
-		result.push({
-			type: 'text',
-			text: sep+part
-		})
+		pushText(sep+part)
 	}
 	return result
+	function pushText(text: string) {
+		if (text=='') return
+		result.push({
+			type: 'text',
+			text
+		})
+	}
 }
