@@ -427,14 +427,18 @@ function getActionClass(action: NoteComment['action']): string {
 
 function processCommentText(commentText: string): Array<string|HTMLElement> {
 	const result: Array<string|HTMLElement> = []
-	const images: Array<HTMLImageElement> = []
+	const images: Array<HTMLAnchorElement> = []
 	for (const item of getCommentItems(commentText)) {
 		if (item.type=='image') {
 			result.push(makeLink(item.href,item.href))
 			const $img=document.createElement('img') // TODO have image load checkbox in download section
 			$img.src=item.href
 			$img.alt=`attached photo`
-			images.push($img)
+			const $a=document.createElement('a')
+			$a.classList.add('img')
+			$a.href=item.href
+			$a.append($img)
+			images.push($a)
 		} else {
 			result.push(item.text)
 		}

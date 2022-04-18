@@ -268,9 +268,18 @@ body.flipped .notes td.note-user {
 	content: "no comment";
 	color: gray;
 }
-.notes td.note-comment img {
+.notes td.note-comment a.img {
+	--comment-img-gap-size: 2px;
 	float: right;
 	max-width: 25%;
+	margin-left: var(--comment-img-gap-size);
+}
+.notes td.note-comment a.img:hover {
+	outline: solid orange var(--comment-img-gap-size);
+}
+.notes td.note-comment a.img img {
+	display: block;
+	max-width: 100%;
 	max-height: 25vh;
 }
 .more div {
