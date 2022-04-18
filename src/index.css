@@ -149,8 +149,8 @@ body.flipped .panel.fetch button.flip {
 .panel.command button[disabled] .icon {
 	opacity: .5;
 }
-.panel input:invalid,
-.panel textarea:invalid {
+.panel input:invalid:not(.no-invalid-indication),
+.panel textarea:invalid:not(.no-invalid-indication) {
 	border: solid 2px red;
 	border-radius: 3px;
 }

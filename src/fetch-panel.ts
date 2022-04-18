@@ -333,6 +333,8 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 		}{
 			this.$nominatimForm.id='nominatim-form'
 			this.$nominatimInput.type='text'
+			this.$nominatimInput.required=true
+			this.$nominatimInput.classList.add('no-invalid-indication') // because it's inside another form that doesn't require it, don't indicate that it's invalid
 			this.$nominatimInput.name='place'
 			this.$nominatimInput.setAttribute('form','nominatim-form')
 			this.$nominatimButton.textContent='Get bbox from Nominatim'
@@ -372,17 +374,26 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 		}
 	}
 	protected addEventListeners(): void {
+		const validateBounds=():boolean=>{
+			const splitValue=this.$bboxInput.value.split(',')
+			if (splitValue.length!=4) {
+				this.$bboxInput.setCustomValidity(`must contain four comma-separated values`)
+				return false
+			}
+			this.$bboxInput.setCustomValidity('')
+			return true
+		}
 		const copyBounds=()=>{
 			if (!this.$trackMapCheckbox.checked) return
 			const bounds=this.map.getBounds()
 			// (left,bottom,right,top)
 			this.$bboxInput.value=bounds.getWest()+','+bounds.getSouth()+','+bounds.getEast()+','+bounds.getNorth()
-			// TODO validate this.$bboxInput.value
+			validateBounds()
 		}
 		this.map.on('moveend',copyBounds)
 		this.$trackMapCheckbox.addEventListener('input',copyBounds)
 		this.$bboxInput.addEventListener('input',()=>{
-			// TODO validate this.$bboxInput.value
+			if (!validateBounds()) return
 			this.$trackMapCheckbox.checked=false
 		})
 		this.$nominatimForm.addEventListener('submit',async(ev)=>{
