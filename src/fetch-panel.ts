@@ -293,7 +293,7 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 			}
 			return response.json()
 		},
-		...makeDumbCache()
+		...makeDumbCache() // TODO real cache in db
 	)
 	title=`Get notes inside small rectangular area`
 	$bboxInput=document.createElement('input')
