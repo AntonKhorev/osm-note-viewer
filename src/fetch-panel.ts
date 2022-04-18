@@ -8,7 +8,8 @@ import {NoteQuery, makeNoteSearchQueryFromValues, makeNoteBboxQueryFromValues,ma
 import {toUserQuery} from './query-user'
 import {toReadableDate, toDateQuery} from './query-date'
 import {startSearchFetcher, startBboxFetcher} from './fetch'
-import {makeDiv, makeLabel, makeEscapeTag} from './util'
+import {makeDiv, makeLabel} from './util'
+import {NominatimBbox, NominatimBboxFetcher} from './nominatim'
 
 export default class NoteFetchPanel {
 	constructor(
@@ -284,6 +285,16 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 	private $nominatimForm=document.createElement('form')
 	private $nominatimInput=document.createElement('input')
 	private $nominatimButton=document.createElement('button')
+	private nominatimBboxFetcher=new NominatimBboxFetcher(
+		async(url)=>{
+			const response=await fetch(url)
+			if (!response.ok) {
+				throw new TypeError('Nominatim error: unsuccessful response')
+			}
+			return response.json()
+		},
+		...makeDumbCache()
+	)
 	title=`Get notes inside small rectangular area`
 	$bboxInput=document.createElement('input')
 	$trackMapCheckbox=document.createElement('input')
@@ -379,28 +390,16 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 			this.$nominatimButton.disabled=true
 			this.$nominatimButton.classList.remove('error')
 			try {
-				// TODO cache; will need bbox, osm type, osm id
-				// overpass-turbo looks for first non-node result, actually type and i are not guaranteed
-				const e=makeEscapeTag(encodeURIComponent)
 				const bounds=this.map.getBounds()
-				const viewbox=bounds.getWest()+','+bounds.getSouth()+','+bounds.getEast()+','+bounds.getNorth()
-				const url=e`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${this.$nominatimInput.value}&viewbox=${viewbox}`
-				const response=await fetch(url)
-				if (!response.ok) {
-					throw new TypeError('Nominatim error: unsuccessful response')
-				}
-				const data=await response.json()
-				if (!Array.isArray(data)) throw new TypeError('Nominatim error: invalid data')
-				if (data.length<=0) {
-					throw new TypeError('Nominatim failed to find the place')
-				}
-				const placeData=data[0]
-				const bbox=placeData?.boundingbox
-				if (!Array.isArray(bbox) && bbox.length!=4) throw new TypeError('Nominatim error: invalid bbox data')
+				const bbox=await this.nominatimBboxFetcher.fetch(
+					Date.now(),
+					this.$nominatimInput.value,
+					bounds.getWest(),bounds.getSouth(),bounds.getEast(),bounds.getNorth()
+				)
 				const [minLat,maxLat,minLon,maxLon]=bbox
 				this.$bboxInput.value=`${minLon},${minLat},${maxLon},${maxLat}`
 				this.$trackMapCheckbox.checked=false
-				this.map.fitBounds([[minLat,minLon],[maxLat,maxLon]])
+				this.map.fitBounds([[Number(minLat),Number(minLon)],[Number(maxLat),Number(maxLon)]])
 			} catch (ex) {
 				this.$nominatimButton.classList.add('error')
 				if (ex instanceof TypeError) {
@@ -418,6 +417,17 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 			this.$bboxInput.value,this.$statusSelect.value
 		)
 	}
+}
+
+function makeDumbCache(): [
+	fetchFromCache: (timestamp:number,url:string)=>Promise<any>,
+	storeToCache: (timestamp:number,url:string,bbox:NominatimBbox)=>Promise<any>
+] {
+	const cache: Map<string,NominatimBbox> = new Map()
+	return [
+		async(timestamp,url)=>cache.get(url),
+		async(timestamp,url,bbox)=>cache.set(url,bbox)
+	]
 }
 
 function modifyHistory(query: NoteQuery | undefined, push: boolean): void {

@@ -52,7 +52,7 @@ export default class NoteViewerDB {
 	}
 	clear(queryString: string): Promise<FetchEntry> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
-		const timestamp=Date.now()
+		const timestamp=Date.now() // TODO receive all .now() from outside, probably as first arg
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction(['fetches','notes','users'],'readwrite')
 			cleanupOutdatedFetches(timestamp,tx)
