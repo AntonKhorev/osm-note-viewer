@@ -149,8 +149,8 @@ body.flipped .panel.fetch button.flip {
 .panel.command button[disabled] .icon {
 	opacity: .5;
 }
-.panel input:invalid,
-.panel textarea:invalid {
+.panel input:invalid:not(.no-invalid-indication),
+.panel textarea:invalid:not(.no-invalid-indication) {
 	border: solid 2px red;
 	border-radius: 3px;
 }
@@ -166,6 +166,22 @@ body.flipped .panel.fetch button.flip {
 }
 .panel .major-input button {
 	padding: .3rem;
+}
+.panel .text-button-input {
+	position: relative;
+}
+.panel .text-button-input input[type=text] {
+	display: block;
+	box-sizing: border-box;
+	width: calc(100% - 5rem);
+}
+.panel .text-button-input button {
+	display: block;
+	box-sizing: border-box;
+	width: 4.5rem;
+	position: absolute;
+	bottom: 0;
+	right: 0;
 }
 .panel button.error {
 	color: red;
