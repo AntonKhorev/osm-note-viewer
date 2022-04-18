@@ -279,14 +279,16 @@ body.flipped .notes td.note-user {
 	float: right;
 	max-width: 25%;
 	margin-left: var(--comment-img-gap-size);
-}
-.notes.with-images td.note-comment a.image.float {
-	display: block;
+	margin-bottom: var(--comment-img-gap-size);
 }
 .notes td.note-comment a.image.float img {
-	display: block;
+	display: none;
 	max-width: 100%;
 	max-height: 25vh;
+}
+.notes.with-images td.note-comment a.image.float,
+.notes.with-images td.note-comment a.image.float img {
+	display: block;
 }
 .more div {
 	padding: 1em;

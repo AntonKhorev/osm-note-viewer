@@ -460,6 +460,8 @@ function processCommentText($cell: HTMLElement, commentText: string): void {
 			$inlineLink.classList.add('image','inline')
 			result.push($inlineLink)
 			const $img=document.createElement('img') // TODO have image load checkbox in download section
+			// $img.loading='lazy'
+			$img.setAttribute('loading','lazy') // TODO still can't be sure... will have to do IntersectionOvserver
 			$img.src=item.href
 			$img.alt=`attached photo`
 			const $floatLink=document.createElement('a')
