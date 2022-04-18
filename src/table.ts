@@ -1,9 +1,10 @@
 import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
+import getCommentItems from './comment'
 import CommandPanel from './command-panel'
 import NoteFilter from './filter'
 import {toReadableDate} from './query-date'
-import {escapeRegex, makeEscapeTag, makeLink, makeUserLink} from './util'
+import {makeLink, makeUserLink} from './util'
 
 export default class NoteTable {
 	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
@@ -424,29 +425,19 @@ function getActionClass(action: NoteComment['action']): string {
 	}
 }
 
-function processCommentText(text: string): Array<string|HTMLElement> {
-	const e=makeEscapeTag(escapeRegex)
+function processCommentText(commentText: string): Array<string|HTMLElement> {
 	const result: Array<string|HTMLElement> = []
 	const images: Array<HTMLImageElement> = []
-	const sep='https://'
-	let first=true
-	for (const part of text.split(sep)) {
-		if (first) {
-			first=false
-			result.push(part)
-			continue
-		}
-		const match=part.match(new RegExp(e`^(${'westnordost.de/p/'}[0-9]+${'.jpg'})(.*)$`))
-		if (match) {
-			const [,urlPart,rest]=match
-			const url=sep+urlPart
-			result.push(makeLink(url,url),rest)
+	for (const item of getCommentItems(commentText)) {
+		if (item.type=='image') {
+			result.push(makeLink(item.href,item.href))
 			const $img=document.createElement('img')
-			$img.src=url
+			$img.src=item.href
+			$img.alt=`attached photo`
 			images.push($img)
-			continue
+		} else {
+			result.push(item.text)
 		}
-		result.push(sep+part)
 	}
 	return [...images,...result]
 }
