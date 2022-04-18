@@ -446,11 +446,7 @@ function imageCommentHoverListener(this: HTMLElement, ev: MouseEvent): void {
 		return ev.target.closest('a')
 	}
 	function modifyTwinLink($a: Element) {
-		if (ev.type=='mouseover') {
-			$a.classList.add('active')
-		} else {
-			$a.classList.remove('active')
-		}
+		$a.classList.toggle('active',ev.type=='mouseover')
 	}
 }
 

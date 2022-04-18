@@ -275,9 +275,13 @@ body.flipped .notes td.note-user {
 	outline: var(--comment-link-outline)
 }
 .notes td.note-comment a.image.float {
+	display: none;
 	float: right;
 	max-width: 25%;
 	margin-left: var(--comment-img-gap-size);
+}
+.notes.with-images td.note-comment a.image.float {
+	display: block;
 }
 .notes td.note-comment a.image.float img {
 	display: block;

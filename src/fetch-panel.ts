@@ -19,16 +19,20 @@ export default class NoteFetchPanel {
 		filterPanel: NoteFilterPanel, extrasPanel: ExtrasPanel, map: NoteMap, restoreScrollPosition: ()=>void
 	) {
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
+		const $showImagesCheckboxes: HTMLInputElement[] = []
 		const searchDialog=new NoteSearchFetchDialog()
-		searchDialog.write($container,query=>{
+		searchDialog.write($container,$showImagesCheckboxes,query=>{
 			modifyHistory(query,true)
 			runStartFetcher(query,true)
 		})
 		const bboxDialog=new NoteBboxFetchDialog(map)
-		bboxDialog.write($container,query=>{
+		bboxDialog.write($container,$showImagesCheckboxes,query=>{
 			modifyHistory(query,true)
 			runStartFetcher(query,true)
 		})
+		for (const $showImagesCheckbox of $showImagesCheckboxes) {
+			$showImagesCheckbox.addEventListener('input',showImagesCheckboxInputListener)
+		}
 		window.addEventListener('hashchange',()=>{
 			const query=makeNoteQueryFromHash(location.hash)
 			openQueryDialog(query,false)
@@ -110,6 +114,13 @@ export default class NoteFetchPanel {
 				)
 			}
 		}
+		function showImagesCheckboxInputListener(this: HTMLInputElement) {
+			const state=this.checked
+			for (const $showImagesCheckbox of $showImagesCheckboxes) {
+				$showImagesCheckbox.checked=state
+			}
+			$notesContainer.classList.toggle('with-images',state)
+		}
 	}
 }
 
@@ -117,13 +128,23 @@ abstract class NoteFetchDialog {
 	abstract title: string
 	$details=document.createElement('details')
 	$fetchButton=document.createElement('button')
-	write($container: HTMLElement, submitQuery: (query: NoteQuery) => void) {
+	write($container: HTMLElement, $showImagesCheckboxes: HTMLInputElement[], submitQuery: (query: NoteQuery) => void) {
 		const $summary=document.createElement('summary')
 		$summary.textContent=this.title
 		const $form=document.createElement('form')
+		const $scopeFieldset=this.makeScopeAndOrderFieldset()
+		const $downloadFieldset=this.makeDownloadModeFieldset()
+		const $showImagesCheckbox=document.createElement('input')
+		$showImagesCheckbox.type='checkbox'
+		$showImagesCheckboxes.push($showImagesCheckbox)
+		$downloadFieldset.append(
+			makeDiv()(makeLabel()(
+				$showImagesCheckbox,` Show images from StreetComplete`
+			))
+		)
 		$form.append(
-			this.makeScopeAndOrderFieldset(),
-			this.makeDownloadModeFieldset(),
+			$scopeFieldset,
+			$downloadFieldset,
 			this.makeFetchButtonDiv()
 		)
 		this.addEventListeners()
