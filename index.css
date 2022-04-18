@@ -260,6 +260,8 @@ body.flipped .notes td.note-user {
 	background: url("note-status-closed.svg");
 }
 .notes td.note-comment {
+	--comment-img-gap-size: 2px;
+	--comment-link-outline: solid orange var(--comment-img-gap-size);
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 	width: 100%;
@@ -267,6 +269,25 @@ body.flipped .notes td.note-user {
 .notes td.note-comment:empty::before {
 	content: "no comment";
 	color: gray;
+}
+.notes td.note-comment a.image:hover,
+.notes td.note-comment a.image.active {
+	outline: var(--comment-link-outline)
+}
+.notes td.note-comment a.image.float {
+	display: none;
+	float: right;
+	max-width: 25%;
+	margin-left: var(--comment-img-gap-size);
+	margin-bottom: var(--comment-img-gap-size);
+}
+.notes td.note-comment a.image.float img {
+	display: block;
+	max-width: 100%;
+	max-height: 25vh;
+}
+.notes table.with-images td.note-comment a.image.float {
+	display: block;
 }
 .more div {
 	padding: 1em;

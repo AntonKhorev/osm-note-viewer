@@ -392,6 +392,95 @@ function* noteCommentsToStates(comments) {
     }
 }
 
+function makeUserLink(user, text) {
+    const fromId = (id) => `https://api.openstreetmap.org/api/0.6/user/${encodeURIComponent(id)}`;
+    const fromName = (name) => `https://www.openstreetmap.org/user/${encodeURIComponent(name)}`;
+    if (typeof user == 'string') {
+        return makeLink(text ?? user, fromName(user));
+    }
+    else if (user.userType == 'id') {
+        return makeLink(text ?? '#' + user.uid, fromId(user.uid));
+    }
+    else {
+        return makeLink(text ?? user.username, fromName(user.username));
+    }
+}
+function makeLink(text, href, title) {
+    const $link = document.createElement('a');
+    $link.href = href;
+    $link.textContent = text;
+    if (title != null)
+        $link.title = title;
+    return $link;
+}
+function makeElement(tag) {
+    return (...classes) => (...items) => {
+        const $element = document.createElement(tag);
+        $element.classList.add(...classes);
+        $element.append(...items);
+        return $element;
+    };
+}
+const makeDiv = makeElement('div');
+const makeLabel = makeElement('label');
+function escapeRegex(text) {
+    return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+function escapeXml(text) {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/"/g, '&quot;')
+        .replace(/\t/g, '&#x9;')
+        .replace(/\n/g, '&#xA;')
+        .replace(/\r/g, '&#xD;');
+}
+function makeEscapeTag(escapeFn) {
+    return function (strings, ...values) {
+        let result = strings[0];
+        for (let i = 0; i < values.length; i++) {
+            result += escapeFn(String(values[i])) + strings[i + 1];
+        }
+        return result;
+    };
+}
+
+function getCommentItems(commentText) {
+    const e = makeEscapeTag(escapeRegex);
+    const result = [];
+    const sep = 'https://';
+    let first = true;
+    for (const part of commentText.split(sep)) {
+        if (first) {
+            first = false;
+            pushText(part);
+            continue;
+        }
+        const match = part.match(new RegExp(e `^(${'westnordost.de/p/'}[0-9]+${'.jpg'})(.*)$`, 's'));
+        if (match) {
+            const [, hrefPart, rest] = match;
+            const href = sep + hrefPart;
+            result.push({
+                type: 'image',
+                text: href,
+                href
+            });
+            pushText(rest);
+            continue;
+        }
+        pushText(sep + part);
+    }
+    return result;
+    function pushText(text) {
+        if (text == '')
+            return;
+        result.push({
+            type: 'text',
+            text
+        });
+    }
+}
+
 function toReadableDate(date) {
     if (date == null)
         return '';
@@ -510,57 +599,512 @@ function toDateQuery(readableDate) {
     }
 }
 
-function makeUserLink(user, text) {
-    const fromId = (id) => `https://api.openstreetmap.org/api/0.6/user/${encodeURIComponent(id)}`;
-    const fromName = (name) => `https://www.openstreetmap.org/user/${encodeURIComponent(name)}`;
-    if (typeof user == 'string') {
-        return makeLink(text ?? user, fromName(user));
+class NoteTable {
+    constructor($container, commandPanel, map, filter, showImages) {
+        this.commandPanel = commandPanel;
+        this.map = map;
+        this.filter = filter;
+        this.showImages = showImages;
+        this.$table = document.createElement('table');
+        this.$selectAllCheckbox = document.createElement('input');
+        this.noteSectionLayerIdVisibility = new Map();
+        this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
+        this.usersById = new Map();
+        const that = this;
+        this.wrappedNoteMarkerClickListener = function () {
+            that.noteMarkerClickListener(this);
+        };
+        this.wrappedNoteSectionMouseoverListener = function () {
+            that.deactivateAllNotes();
+            that.activateNote(this);
+        };
+        this.wrappedNoteSectionMouseoutListener = function () {
+            that.deactivateNote(this);
+        };
+        this.wrappedNoteSectionClickListener = function () {
+            that.focusMapOnNote(this);
+        };
+        this.wrappedNoteCheckboxClickListener = function (ev) {
+            that.noteCheckboxClickListener(this, ev);
+        };
+        this.wrappedAllNotesCheckboxClickListener = function (ev) {
+            that.allNotesCheckboxClickListener(this, ev);
+        };
+        this.wrappedCommentRadioClickListener = function (ev) {
+            that.commentRadioClickListener(this, ev);
+        };
+        this.noteRowObserver = makeNoteSectionObserver(commandPanel, map, this.noteSectionLayerIdVisibility);
+        $container.append(this.$table);
+        {
+            const $header = this.$table.createTHead();
+            const $row = $header.insertRow();
+            const $checkboxCell = makeHeaderCell('');
+            this.$selectAllCheckbox.type = 'checkbox';
+            this.$selectAllCheckbox.title = `check/uncheck all`;
+            this.$selectAllCheckbox.addEventListener('click', this.wrappedAllNotesCheckboxClickListener);
+            $checkboxCell.append(this.$selectAllCheckbox);
+            $row.append($checkboxCell, makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), makeHeaderCell('?', `Action performed along with adding the comment. Also a radio button. Click to select comment for Overpass turbo commands.`), makeHeaderCell('comment'));
+        }
+        function makeHeaderCell(text, title) {
+            const $cell = document.createElement('th');
+            $cell.textContent = text;
+            if (title)
+                $cell.title = title;
+            return $cell;
+        }
+        this.updateCheckboxDependents();
     }
-    else if (user.userType == 'id') {
-        return makeLink(text ?? '#' + user.uid, fromId(user.uid));
+    updateFilter(filter) {
+        let nFetched = 0;
+        let nVisible = 0;
+        this.filter = filter;
+        const getUsername = (uid) => this.usersById.get(uid);
+        for (const $noteSection of this.$table.querySelectorAll('tbody')) {
+            const noteId = Number($noteSection.dataset.noteId);
+            const note = this.notesById.get(noteId);
+            const layerId = Number($noteSection.dataset.layerId);
+            if (note == null)
+                continue;
+            nFetched++;
+            if (this.filter.matchNote(note, getUsername)) {
+                nVisible++;
+                const marker = this.map.filteredNoteLayer.getLayer(layerId);
+                if (marker) {
+                    this.map.filteredNoteLayer.removeLayer(marker);
+                    this.map.noteLayer.addLayer(marker);
+                }
+                $noteSection.classList.remove('hidden');
+            }
+            else {
+                this.deactivateNote($noteSection);
+                const marker = this.map.noteLayer.getLayer(layerId);
+                if (marker) {
+                    this.map.noteLayer.removeLayer(marker);
+                    this.map.filteredNoteLayer.addLayer(marker);
+                }
+                $noteSection.classList.add('hidden');
+                const $checkbox = $noteSection.querySelector('.note-checkbox input');
+                if ($checkbox instanceof HTMLInputElement)
+                    $checkbox.checked = false;
+            }
+        }
+        this.commandPanel.receiveNoteCounts(nFetched, nVisible);
+        this.updateCheckboxDependents();
+    }
+    /**
+     * @returns number of added notes that passed through the filter
+     */
+    addNotes(notes, users) {
+        // remember notes and users
+        for (const note of notes) {
+            this.notesById.set(note.id, note);
+        }
+        for (const [uid, username] of Object.entries(users)) {
+            this.usersById.set(Number(uid), username);
+        }
+        // output table
+        let nUnfilteredNotes = 0;
+        const getUsername = (uid) => users[uid];
+        for (const note of notes) {
+            const isVisible = this.filter.matchNote(note, getUsername);
+            if (isVisible)
+                nUnfilteredNotes++;
+            const $noteSection = this.writeNote(note, isVisible);
+            let $row = $noteSection.insertRow();
+            const nComments = note.comments.length;
+            {
+                const $cell = $row.insertCell();
+                $cell.classList.add('note-checkbox');
+                if (nComments > 1)
+                    $cell.rowSpan = nComments;
+                const $checkbox = document.createElement('input');
+                $checkbox.type = 'checkbox';
+                $checkbox.title = `shift+click to check/uncheck a range`;
+                $checkbox.addEventListener('click', this.wrappedNoteCheckboxClickListener);
+                $cell.append($checkbox);
+            }
+            {
+                const $cell = $row.insertCell();
+                if (nComments > 1)
+                    $cell.rowSpan = nComments;
+                const $a = document.createElement('a');
+                $a.href = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
+                $a.textContent = `${note.id}`;
+                $cell.append($a);
+            }
+            let iComment = 0;
+            for (const comment of note.comments) {
+                {
+                    if (iComment > 0) {
+                        $row = $noteSection.insertRow();
+                    }
+                }
+                {
+                    const $cell = $row.insertCell();
+                    $cell.classList.add('note-date');
+                    const readableDate = toReadableDate(comment.date);
+                    const [readableDateWithoutTime] = readableDate.split(' ', 1);
+                    if (readableDate && readableDateWithoutTime) {
+                        const $time = document.createElement('time');
+                        $time.textContent = readableDateWithoutTime;
+                        $time.dateTime = `${readableDate}Z`;
+                        $time.title = `${readableDate} UTC`;
+                        $cell.append($time);
+                    }
+                    else {
+                        const $unknownDateTime = document.createElement('span');
+                        $unknownDateTime.textContent = `?`;
+                        $unknownDateTime.title = String(comment.date);
+                        $cell.append($unknownDateTime);
+                    }
+                }
+                {
+                    const $cell = $row.insertCell();
+                    $cell.classList.add('note-user');
+                    if (comment.uid != null) {
+                        const username = users[comment.uid];
+                        if (username != null) {
+                            $cell.append(makeUserLink(username));
+                        }
+                        else {
+                            $cell.append(`#${comment.uid}`);
+                        }
+                    }
+                }
+                {
+                    const $cell = $row.insertCell();
+                    $cell.classList.add('note-action');
+                    const $span = document.createElement('span');
+                    $span.classList.add('icon', getActionClass(comment.action));
+                    $span.title = comment.action;
+                    const $radio = document.createElement('input');
+                    $radio.type = 'radio';
+                    $radio.name = 'comment';
+                    $radio.value = `${note.id}-${iComment}`;
+                    $radio.addEventListener('click', this.wrappedCommentRadioClickListener);
+                    $span.append($radio);
+                    $cell.append($span);
+                }
+                {
+                    const $cell = $row.insertCell();
+                    $cell.classList.add('note-comment');
+                    processCommentText($cell, comment.text, this.showImages);
+                }
+                iComment++;
+            }
+        }
+        if (this.commandPanel.fitMode == 'allNotes') {
+            this.map.fitNotes();
+        }
+        else {
+            this.map.fitNotesIfNeeded();
+        }
+        let nFetched = 0;
+        let nVisible = 0;
+        for (const $noteSection of this.$table.querySelectorAll('tbody')) {
+            if (!$noteSection.dataset.noteId)
+                continue;
+            nFetched++;
+            if (!$noteSection.classList.contains('hidden'))
+                nVisible++;
+        }
+        this.commandPanel.receiveNoteCounts(nFetched, nVisible);
+        return nUnfilteredNotes;
+    }
+    setShowImages(showImages) {
+        this.showImages = showImages;
+        this.$table.classList.toggle('with-images', showImages);
+        for (const $a of this.$table.querySelectorAll('td.note-comment a.image.float')) {
+            if (!($a instanceof HTMLAnchorElement))
+                continue;
+            const $img = $a.firstChild;
+            if (!($img instanceof HTMLImageElement))
+                continue;
+            if (showImages && !$img.src)
+                $img.src = $a.href; // don't remove src when showImages is disabled, otherwise will reload all images when src is set back
+        }
+    }
+    writeNote(note, isVisible) {
+        const marker = new NoteMarker(note);
+        const parentLayer = (isVisible ? this.map.noteLayer : this.map.filteredNoteLayer);
+        marker.addTo(parentLayer);
+        marker.on('click', this.wrappedNoteMarkerClickListener);
+        const layerId = this.map.noteLayer.getLayerId(marker);
+        const $noteSection = this.$table.createTBody();
+        if (!isVisible)
+            $noteSection.classList.add('hidden');
+        $noteSection.id = `note-${note.id}`;
+        $noteSection.classList.add(getStatusClass(note.status));
+        $noteSection.dataset.layerId = String(layerId);
+        $noteSection.dataset.noteId = String(note.id);
+        $noteSection.addEventListener('mouseover', this.wrappedNoteSectionMouseoverListener);
+        $noteSection.addEventListener('mouseout', this.wrappedNoteSectionMouseoutListener);
+        $noteSection.addEventListener('click', this.wrappedNoteSectionClickListener);
+        this.noteSectionLayerIdVisibility.set(layerId, false);
+        this.noteRowObserver.observe($noteSection);
+        if (isVisible) {
+            if (this.$selectAllCheckbox.checked) {
+                this.$selectAllCheckbox.checked = false;
+                this.$selectAllCheckbox.indeterminate = true;
+            }
+        }
+        return $noteSection;
+    }
+    noteMarkerClickListener(marker) {
+        this.commandPanel.disableFitting();
+        this.deactivateAllNotes();
+        const $noteRows = document.getElementById(`note-` + marker.noteId);
+        if (!$noteRows)
+            return;
+        $noteRows.scrollIntoView({ block: 'nearest' });
+        this.activateNote($noteRows);
+        this.focusMapOnNote($noteRows);
+    }
+    noteCheckboxClickListener($checkbox, ev) {
+        ev.stopPropagation();
+        const $clickedNoteSection = $checkbox.closest('tbody');
+        if ($clickedNoteSection) {
+            if (ev.shiftKey && this.$lastClickedNoteSection) {
+                for (const $section of this.listVisibleNoteSectionsInRange(this.$lastClickedNoteSection, $clickedNoteSection)) {
+                    const $checkboxInRange = $section.querySelector('.note-checkbox input');
+                    if ($checkboxInRange instanceof HTMLInputElement)
+                        $checkboxInRange.checked = $checkbox.checked;
+                }
+            }
+            this.$lastClickedNoteSection = $clickedNoteSection;
+        }
+        this.updateCheckboxDependents();
+    }
+    allNotesCheckboxClickListener($allCheckbox, ev) {
+        for (const $noteSection of this.listVisibleNoteSections()) {
+            const $checkbox = $noteSection.querySelector('.note-checkbox input');
+            if (!($checkbox instanceof HTMLInputElement))
+                continue;
+            $checkbox.checked = $allCheckbox.checked;
+        }
+        this.updateCheckboxDependents();
+    }
+    commentRadioClickListener($radio, ev) {
+        ev.stopPropagation();
+        const $clickedRow = $radio.closest('tr');
+        if (!$clickedRow)
+            return;
+        const $time = $clickedRow.querySelector('time');
+        if (!$time)
+            return;
+        const $text = $clickedRow.querySelector('td.note-comment');
+        this.commandPanel.receiveCheckedComment($time.dateTime, $text?.textContent ?? undefined);
+    }
+    deactivateAllNotes() {
+        for (const $noteRows of this.$table.querySelectorAll('tbody.active')) {
+            this.deactivateNote($noteRows);
+        }
+    }
+    deactivateNote($noteSection) {
+        this.currentLayerId = undefined;
+        $noteSection.classList.remove('active');
+        const layerId = Number($noteSection.dataset.layerId);
+        const marker = this.map.noteLayer.getLayer(layerId);
+        if (!(marker instanceof L.Marker))
+            return;
+        marker.setZIndexOffset(0);
+        marker.setOpacity(0.5);
+    }
+    activateNote($noteSection) {
+        const layerId = Number($noteSection.dataset.layerId);
+        const marker = this.map.noteLayer.getLayer(layerId);
+        if (!(marker instanceof L.Marker))
+            return;
+        marker.setOpacity(1);
+        marker.setZIndexOffset(1000);
+        $noteSection.classList.add('active');
+    }
+    focusMapOnNote($noteSection) {
+        const layerId = Number($noteSection.dataset.layerId);
+        const marker = this.map.noteLayer.getLayer(layerId);
+        if (!(marker instanceof L.Marker))
+            return;
+        if (layerId == this.currentLayerId) {
+            const z1 = this.map.getZoom();
+            const z2 = this.map.getMaxZoom();
+            const nextZoom = Math.min(z2, z1 + Math.ceil((z2 - z1) / 2));
+            this.map.flyTo(marker.getLatLng(), nextZoom);
+        }
+        else {
+            this.currentLayerId = layerId;
+            this.map.panTo(marker.getLatLng());
+        }
+    }
+    updateCheckboxDependents() {
+        const checkedNotes = [];
+        const checkedNoteUsers = new Map();
+        let hasUnchecked = false;
+        for (const $noteSection of this.listVisibleNoteSections()) {
+            const $checkbox = $noteSection.querySelector('.note-checkbox input');
+            if (!($checkbox instanceof HTMLInputElement))
+                continue;
+            if (!$checkbox.checked) {
+                hasUnchecked = true;
+                continue;
+            }
+            const noteId = Number($noteSection.dataset.noteId);
+            const note = this.notesById.get(noteId);
+            if (!note)
+                continue;
+            checkedNotes.push(note);
+            for (const comment of note.comments) {
+                if (comment.uid == null)
+                    continue;
+                const username = this.usersById.get(comment.uid);
+                if (username == null)
+                    continue;
+                checkedNoteUsers.set(comment.uid, username);
+            }
+        }
+        let hasChecked = checkedNotes.length > 0;
+        this.$selectAllCheckbox.indeterminate = hasChecked && hasUnchecked;
+        this.$selectAllCheckbox.checked = hasChecked && !hasUnchecked;
+        this.commandPanel.receiveCheckedNotes(checkedNotes, checkedNoteUsers);
+    }
+    listVisibleNoteSections() {
+        return this.$table.querySelectorAll('tbody:not(.hidden)');
+    }
+    /**
+     * range including $fromSection but excluding $toSection
+     * excludes $toSection if equals to $fromSection
+     */
+    *listVisibleNoteSectionsInRange($fromSection, $toSection) {
+        const $sections = this.listVisibleNoteSections();
+        let i = 0;
+        let $guardSection;
+        for (; i < $sections.length; i++) {
+            const $section = $sections[i];
+            if ($section == $fromSection) {
+                $guardSection = $toSection;
+                break;
+            }
+            if ($section == $toSection) {
+                $guardSection = $fromSection;
+                break;
+            }
+        }
+        if (!$guardSection)
+            return;
+        for (; i < $sections.length; i++) {
+            const $section = $sections[i];
+            if ($section != $toSection) {
+                yield $section;
+            }
+            if ($section == $guardSection) {
+                return;
+            }
+        }
+    }
+}
+function makeNoteSectionObserver(commandPanel, map, noteSectionLayerIdVisibility) {
+    let noteSectionVisibilityTimeoutId;
+    return new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+            if (!(entry.target instanceof HTMLElement))
+                continue;
+            const layerId = entry.target.dataset.layerId;
+            if (layerId == null)
+                continue;
+            noteSectionLayerIdVisibility.set(Number(layerId), entry.isIntersecting);
+        }
+        clearTimeout(noteSectionVisibilityTimeoutId);
+        noteSectionVisibilityTimeoutId = setTimeout(noteSectionVisibilityHandler);
+    });
+    function noteSectionVisibilityHandler() {
+        const visibleLayerIds = [];
+        for (const [layerId, visibility] of noteSectionLayerIdVisibility) {
+            if (visibility)
+                visibleLayerIds.push(layerId);
+        }
+        map.showNoteTrack(visibleLayerIds);
+        if (commandPanel.fitMode == 'inViewNotes')
+            map.fitNoteTrack();
+    }
+}
+function getStatusClass(status) {
+    if (status == 'open') {
+        return 'open';
+    }
+    else if (status == 'closed' || status == 'hidden') {
+        return 'closed';
     }
     else {
-        return makeLink(text ?? user.username, fromName(user.username));
+        return 'other';
     }
 }
-function makeLink(text, href, title) {
-    const $link = document.createElement('a');
-    $link.href = href;
-    $link.textContent = text;
-    if (title != null)
-        $link.title = title;
-    return $link;
+function getActionClass(action) {
+    if (action == 'opened' || action == 'reopened') {
+        return 'open';
+    }
+    else if (action == 'closed' || action == 'hidden') {
+        return 'closed';
+    }
+    else {
+        return 'other';
+    }
 }
-function makeElement(tag) {
-    return (...classes) => (...items) => {
-        const $element = document.createElement(tag);
-        $element.classList.add(...classes);
-        $element.append(...items);
-        return $element;
-    };
-}
-const makeDiv = makeElement('div');
-const makeLabel = makeElement('label');
-function escapeRegex(text) {
-    return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-}
-function escapeXml(text) {
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/"/g, '&quot;')
-        .replace(/\t/g, '&#x9;')
-        .replace(/\n/g, '&#xA;')
-        .replace(/\r/g, '&#xD;');
-}
-function makeEscapeTag(escapeFn) {
-    return function (strings, ...values) {
-        let result = strings[0];
-        for (let i = 0; i < values.length; i++) {
-            result += escapeFn(String(values[i])) + strings[i + 1];
+function imageCommentHoverListener(ev) {
+    const $targetLink = getTargetLink();
+    if (!$targetLink)
+        return;
+    const $floats = this.querySelectorAll('a.image.float');
+    const $inlines = this.querySelectorAll('a.image.inline');
+    for (let i = 0; i < $floats.length && i < $inlines.length; i++) {
+        if ($floats[i] == $targetLink) {
+            modifyTwinLink($inlines[i]);
+            return;
         }
-        return result;
-    };
+        if ($inlines[i] == $targetLink) {
+            modifyTwinLink($floats[i]);
+            return;
+        }
+    }
+    function getTargetLink() {
+        if (ev.target instanceof HTMLAnchorElement)
+            return ev.target;
+        if (!(ev.target instanceof HTMLElement))
+            return null;
+        return ev.target.closest('a');
+    }
+    function modifyTwinLink($a) {
+        $a.classList.toggle('active', ev.type == 'mouseover');
+    }
+}
+function processCommentText($cell, commentText, showImages) {
+    const result = [];
+    const images = [];
+    let iImage = 0;
+    for (const item of getCommentItems(commentText)) {
+        if (item.type == 'image') {
+            const $inlineLink = makeLink(item.href, item.href);
+            $inlineLink.classList.add('image', 'inline');
+            result.push($inlineLink);
+            const $img = document.createElement('img');
+            $img.loading = 'lazy'; // this + display:none is not enough to surely stop the browser from accessing the image link
+            if (showImages)
+                $img.src = item.href; // therefore only set the link if user agreed to loading
+            $img.alt = `attached photo`;
+            const $floatLink = document.createElement('a');
+            $floatLink.classList.add('image', 'float');
+            $floatLink.href = item.href;
+            $floatLink.append($img);
+            images.push($floatLink);
+            if (!iImage) {
+                $cell.addEventListener('mouseover', imageCommentHoverListener);
+                $cell.addEventListener('mouseout', imageCommentHoverListener);
+            }
+            iImage++;
+        }
+        else {
+            result.push(item.text);
+        }
+    }
+    $cell.append(...images, ...result);
 }
 
 const p = (...ss) => makeElement('p')()(...ss);
@@ -1455,448 +1999,10 @@ function transformFeatureCollectionToNotesAndUsers(data) {
     }
 }
 
-class NoteTable {
-    constructor($container, commandPanel, map, filter) {
-        this.commandPanel = commandPanel;
-        this.map = map;
-        this.filter = filter;
-        this.$table = document.createElement('table');
-        this.$selectAllCheckbox = document.createElement('input');
-        this.noteSectionLayerIdVisibility = new Map();
-        this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
-        this.usersById = new Map();
-        const that = this;
-        this.wrappedNoteMarkerClickListener = function () {
-            that.noteMarkerClickListener(this);
-        };
-        this.wrappedNoteSectionMouseoverListener = function () {
-            that.deactivateAllNotes();
-            that.activateNote(this);
-        };
-        this.wrappedNoteSectionMouseoutListener = function () {
-            that.deactivateNote(this);
-        };
-        this.wrappedNoteSectionClickListener = function () {
-            that.focusMapOnNote(this);
-        };
-        this.wrappedNoteCheckboxClickListener = function (ev) {
-            that.noteCheckboxClickListener(this, ev);
-        };
-        this.wrappedAllNotesCheckboxClickListener = function (ev) {
-            that.allNotesCheckboxClickListener(this, ev);
-        };
-        this.wrappedCommentRadioClickListener = function (ev) {
-            that.commentRadioClickListener(this, ev);
-        };
-        this.noteRowObserver = makeNoteSectionObserver(commandPanel, map, this.noteSectionLayerIdVisibility);
-        $container.append(this.$table);
-        {
-            const $header = this.$table.createTHead();
-            const $row = $header.insertRow();
-            const $checkboxCell = makeHeaderCell('');
-            this.$selectAllCheckbox.type = 'checkbox';
-            this.$selectAllCheckbox.title = `check/uncheck all`;
-            this.$selectAllCheckbox.addEventListener('click', this.wrappedAllNotesCheckboxClickListener);
-            $checkboxCell.append(this.$selectAllCheckbox);
-            $row.append($checkboxCell, makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), makeHeaderCell('?', `Action performed along with adding the comment. Also a radio button. Click to select comment for Overpass turbo commands.`), makeHeaderCell('comment'));
-        }
-        function makeHeaderCell(text, title) {
-            const $cell = document.createElement('th');
-            $cell.textContent = text;
-            if (title)
-                $cell.title = title;
-            return $cell;
-        }
-        this.updateCheckboxDependents();
-    }
-    updateFilter(filter) {
-        let nFetched = 0;
-        let nVisible = 0;
-        this.filter = filter;
-        const getUsername = (uid) => this.usersById.get(uid);
-        for (const $noteSection of this.$table.querySelectorAll('tbody')) {
-            const noteId = Number($noteSection.dataset.noteId);
-            const note = this.notesById.get(noteId);
-            const layerId = Number($noteSection.dataset.layerId);
-            if (note == null)
-                continue;
-            nFetched++;
-            if (this.filter.matchNote(note, getUsername)) {
-                nVisible++;
-                const marker = this.map.filteredNoteLayer.getLayer(layerId);
-                if (marker) {
-                    this.map.filteredNoteLayer.removeLayer(marker);
-                    this.map.noteLayer.addLayer(marker);
-                }
-                $noteSection.classList.remove('hidden');
-            }
-            else {
-                this.deactivateNote($noteSection);
-                const marker = this.map.noteLayer.getLayer(layerId);
-                if (marker) {
-                    this.map.noteLayer.removeLayer(marker);
-                    this.map.filteredNoteLayer.addLayer(marker);
-                }
-                $noteSection.classList.add('hidden');
-                const $checkbox = $noteSection.querySelector('.note-checkbox input');
-                if ($checkbox instanceof HTMLInputElement)
-                    $checkbox.checked = false;
-            }
-        }
-        this.commandPanel.receiveNoteCounts(nFetched, nVisible);
-        this.updateCheckboxDependents();
-    }
-    /**
-     * @returns number of added notes that passed through the filter
-     */
-    addNotes(notes, users) {
-        // remember notes and users
-        for (const note of notes) {
-            this.notesById.set(note.id, note);
-        }
-        for (const [uid, username] of Object.entries(users)) {
-            this.usersById.set(Number(uid), username);
-        }
-        // output table
-        let nUnfilteredNotes = 0;
-        const getUsername = (uid) => users[uid];
-        for (const note of notes) {
-            const isVisible = this.filter.matchNote(note, getUsername);
-            if (isVisible)
-                nUnfilteredNotes++;
-            const $noteSection = this.writeNote(note, isVisible);
-            let $row = $noteSection.insertRow();
-            const nComments = note.comments.length;
-            {
-                const $cell = $row.insertCell();
-                $cell.classList.add('note-checkbox');
-                if (nComments > 1)
-                    $cell.rowSpan = nComments;
-                const $checkbox = document.createElement('input');
-                $checkbox.type = 'checkbox';
-                $checkbox.title = `shift+click to check/uncheck a range`;
-                $checkbox.addEventListener('click', this.wrappedNoteCheckboxClickListener);
-                $cell.append($checkbox);
-            }
-            {
-                const $cell = $row.insertCell();
-                if (nComments > 1)
-                    $cell.rowSpan = nComments;
-                const $a = document.createElement('a');
-                $a.href = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
-                $a.textContent = `${note.id}`;
-                $cell.append($a);
-            }
-            let iComment = 0;
-            for (const comment of note.comments) {
-                {
-                    if (iComment > 0) {
-                        $row = $noteSection.insertRow();
-                    }
-                }
-                {
-                    const $cell = $row.insertCell();
-                    $cell.classList.add('note-date');
-                    const readableDate = toReadableDate(comment.date);
-                    const [readableDateWithoutTime] = readableDate.split(' ', 1);
-                    if (readableDate && readableDateWithoutTime) {
-                        const $time = document.createElement('time');
-                        $time.textContent = readableDateWithoutTime;
-                        $time.dateTime = `${readableDate}Z`;
-                        $time.title = `${readableDate} UTC`;
-                        $cell.append($time);
-                    }
-                    else {
-                        const $unknownDateTime = document.createElement('span');
-                        $unknownDateTime.textContent = `?`;
-                        $unknownDateTime.title = String(comment.date);
-                        $cell.append($unknownDateTime);
-                    }
-                }
-                {
-                    const $cell = $row.insertCell();
-                    $cell.classList.add('note-user');
-                    if (comment.uid != null) {
-                        const username = users[comment.uid];
-                        if (username != null) {
-                            $cell.append(makeUserLink(username));
-                        }
-                        else {
-                            $cell.append(`#${comment.uid}`);
-                        }
-                    }
-                }
-                {
-                    const $cell = $row.insertCell();
-                    $cell.classList.add('note-action');
-                    const $span = document.createElement('span');
-                    $span.classList.add('icon', getActionClass(comment.action));
-                    $span.title = comment.action;
-                    const $radio = document.createElement('input');
-                    $radio.type = 'radio';
-                    $radio.name = 'comment';
-                    $radio.value = `${note.id}-${iComment}`;
-                    $radio.addEventListener('click', this.wrappedCommentRadioClickListener);
-                    $span.append($radio);
-                    $cell.append($span);
-                }
-                {
-                    const $cell = $row.insertCell();
-                    $cell.classList.add('note-comment');
-                    $cell.textContent = comment.text;
-                }
-                iComment++;
-            }
-        }
-        if (this.commandPanel.fitMode == 'allNotes') {
-            this.map.fitNotes();
-        }
-        else {
-            this.map.fitNotesIfNeeded();
-        }
-        let nFetched = 0;
-        let nVisible = 0;
-        for (const $noteSection of this.$table.querySelectorAll('tbody')) {
-            if (!$noteSection.dataset.noteId)
-                continue;
-            nFetched++;
-            if (!$noteSection.classList.contains('hidden'))
-                nVisible++;
-        }
-        this.commandPanel.receiveNoteCounts(nFetched, nVisible);
-        return nUnfilteredNotes;
-    }
-    writeNote(note, isVisible) {
-        const marker = new NoteMarker(note);
-        const parentLayer = (isVisible ? this.map.noteLayer : this.map.filteredNoteLayer);
-        marker.addTo(parentLayer);
-        marker.on('click', this.wrappedNoteMarkerClickListener);
-        const layerId = this.map.noteLayer.getLayerId(marker);
-        const $noteSection = this.$table.createTBody();
-        if (!isVisible)
-            $noteSection.classList.add('hidden');
-        $noteSection.id = `note-${note.id}`;
-        $noteSection.classList.add(getStatusClass(note.status));
-        $noteSection.dataset.layerId = String(layerId);
-        $noteSection.dataset.noteId = String(note.id);
-        $noteSection.addEventListener('mouseover', this.wrappedNoteSectionMouseoverListener);
-        $noteSection.addEventListener('mouseout', this.wrappedNoteSectionMouseoutListener);
-        $noteSection.addEventListener('click', this.wrappedNoteSectionClickListener);
-        this.noteSectionLayerIdVisibility.set(layerId, false);
-        this.noteRowObserver.observe($noteSection);
-        if (isVisible) {
-            if (this.$selectAllCheckbox.checked) {
-                this.$selectAllCheckbox.checked = false;
-                this.$selectAllCheckbox.indeterminate = true;
-            }
-        }
-        return $noteSection;
-    }
-    noteMarkerClickListener(marker) {
-        this.commandPanel.disableFitting();
-        this.deactivateAllNotes();
-        const $noteRows = document.getElementById(`note-` + marker.noteId);
-        if (!$noteRows)
-            return;
-        $noteRows.scrollIntoView({ block: 'nearest' });
-        this.activateNote($noteRows);
-        this.focusMapOnNote($noteRows);
-    }
-    noteCheckboxClickListener($checkbox, ev) {
-        ev.stopPropagation();
-        const $clickedNoteSection = $checkbox.closest('tbody');
-        if ($clickedNoteSection) {
-            if (ev.shiftKey && this.$lastClickedNoteSection) {
-                for (const $section of this.listVisibleNoteSectionsInRange(this.$lastClickedNoteSection, $clickedNoteSection)) {
-                    const $checkboxInRange = $section.querySelector('.note-checkbox input');
-                    if ($checkboxInRange instanceof HTMLInputElement)
-                        $checkboxInRange.checked = $checkbox.checked;
-                }
-            }
-            this.$lastClickedNoteSection = $clickedNoteSection;
-        }
-        this.updateCheckboxDependents();
-    }
-    allNotesCheckboxClickListener($allCheckbox, ev) {
-        for (const $noteSection of this.listVisibleNoteSections()) {
-            const $checkbox = $noteSection.querySelector('.note-checkbox input');
-            if (!($checkbox instanceof HTMLInputElement))
-                continue;
-            $checkbox.checked = $allCheckbox.checked;
-        }
-        this.updateCheckboxDependents();
-    }
-    commentRadioClickListener($radio, ev) {
-        ev.stopPropagation();
-        const $clickedRow = $radio.closest('tr');
-        if (!$clickedRow)
-            return;
-        const $time = $clickedRow.querySelector('time');
-        if (!$time)
-            return;
-        const $text = $clickedRow.querySelector('td.note-comment');
-        this.commandPanel.receiveCheckedComment($time.dateTime, $text?.textContent ?? undefined);
-    }
-    deactivateAllNotes() {
-        for (const $noteRows of this.$table.querySelectorAll('tbody.active')) {
-            this.deactivateNote($noteRows);
-        }
-    }
-    deactivateNote($noteSection) {
-        this.currentLayerId = undefined;
-        $noteSection.classList.remove('active');
-        const layerId = Number($noteSection.dataset.layerId);
-        const marker = this.map.noteLayer.getLayer(layerId);
-        if (!(marker instanceof L.Marker))
-            return;
-        marker.setZIndexOffset(0);
-        marker.setOpacity(0.5);
-    }
-    activateNote($noteSection) {
-        const layerId = Number($noteSection.dataset.layerId);
-        const marker = this.map.noteLayer.getLayer(layerId);
-        if (!(marker instanceof L.Marker))
-            return;
-        marker.setOpacity(1);
-        marker.setZIndexOffset(1000);
-        $noteSection.classList.add('active');
-    }
-    focusMapOnNote($noteSection) {
-        const layerId = Number($noteSection.dataset.layerId);
-        const marker = this.map.noteLayer.getLayer(layerId);
-        if (!(marker instanceof L.Marker))
-            return;
-        if (layerId == this.currentLayerId) {
-            const z1 = this.map.getZoom();
-            const z2 = this.map.getMaxZoom();
-            const nextZoom = Math.min(z2, z1 + Math.ceil((z2 - z1) / 2));
-            this.map.flyTo(marker.getLatLng(), nextZoom);
-        }
-        else {
-            this.currentLayerId = layerId;
-            this.map.panTo(marker.getLatLng());
-        }
-    }
-    updateCheckboxDependents() {
-        const checkedNotes = [];
-        const checkedNoteUsers = new Map();
-        let hasUnchecked = false;
-        for (const $noteSection of this.listVisibleNoteSections()) {
-            const $checkbox = $noteSection.querySelector('.note-checkbox input');
-            if (!($checkbox instanceof HTMLInputElement))
-                continue;
-            if (!$checkbox.checked) {
-                hasUnchecked = true;
-                continue;
-            }
-            const noteId = Number($noteSection.dataset.noteId);
-            const note = this.notesById.get(noteId);
-            if (!note)
-                continue;
-            checkedNotes.push(note);
-            for (const comment of note.comments) {
-                if (comment.uid == null)
-                    continue;
-                const username = this.usersById.get(comment.uid);
-                if (username == null)
-                    continue;
-                checkedNoteUsers.set(comment.uid, username);
-            }
-        }
-        let hasChecked = checkedNotes.length > 0;
-        this.$selectAllCheckbox.indeterminate = hasChecked && hasUnchecked;
-        this.$selectAllCheckbox.checked = hasChecked && !hasUnchecked;
-        this.commandPanel.receiveCheckedNotes(checkedNotes, checkedNoteUsers);
-    }
-    listVisibleNoteSections() {
-        return this.$table.querySelectorAll('tbody:not(.hidden)');
-    }
-    /**
-     * range including $fromSection but excluding $toSection
-     * excludes $toSection if equals to $fromSection
-     */
-    *listVisibleNoteSectionsInRange($fromSection, $toSection) {
-        const $sections = this.listVisibleNoteSections();
-        let i = 0;
-        let $guardSection;
-        for (; i < $sections.length; i++) {
-            const $section = $sections[i];
-            if ($section == $fromSection) {
-                $guardSection = $toSection;
-                break;
-            }
-            if ($section == $toSection) {
-                $guardSection = $fromSection;
-                break;
-            }
-        }
-        if (!$guardSection)
-            return;
-        for (; i < $sections.length; i++) {
-            const $section = $sections[i];
-            if ($section != $toSection) {
-                yield $section;
-            }
-            if ($section == $guardSection) {
-                return;
-            }
-        }
-    }
-}
-function makeNoteSectionObserver(commandPanel, map, noteSectionLayerIdVisibility) {
-    let noteSectionVisibilityTimeoutId;
-    return new IntersectionObserver((entries) => {
-        for (const entry of entries) {
-            if (!(entry.target instanceof HTMLElement))
-                continue;
-            const layerId = entry.target.dataset.layerId;
-            if (layerId == null)
-                continue;
-            noteSectionLayerIdVisibility.set(Number(layerId), entry.isIntersecting);
-        }
-        clearTimeout(noteSectionVisibilityTimeoutId);
-        noteSectionVisibilityTimeoutId = setTimeout(noteSectionVisibilityHandler);
-    });
-    function noteSectionVisibilityHandler() {
-        const visibleLayerIds = [];
-        for (const [layerId, visibility] of noteSectionLayerIdVisibility) {
-            if (visibility)
-                visibleLayerIds.push(layerId);
-        }
-        map.showNoteTrack(visibleLayerIds);
-        if (commandPanel.fitMode == 'inViewNotes')
-            map.fitNoteTrack();
-    }
-}
-function getStatusClass(status) {
-    if (status == 'open') {
-        return 'open';
-    }
-    else if (status == 'closed' || status == 'hidden') {
-        return 'closed';
-    }
-    else {
-        return 'other';
-    }
-}
-function getActionClass(action) {
-    if (action == 'opened' || action == 'reopened') {
-        return 'open';
-    }
-    else if (action == 'closed' || action == 'hidden') {
-        return 'closed';
-    }
-    else {
-        return 'other';
-    }
-}
-
 const maxSingleAutoLoadLimit = 200;
 const maxTotalAutoLoadLimit = 1000;
 const maxFullyFilteredFetches = 10;
-async function startSearchFetcher(db, $notesContainer, $moreContainer, filterPanel, commandPanel, map, $limitSelect, $autoLoadCheckbox, $fetchButton, moreButtonIntersectionObservers, query, clearStore) {
-    filterPanel.unsubscribe();
-    let noteTable;
+async function startSearchFetcher(db, noteTable, $moreContainer, $limitSelect, $autoLoadCheckbox, $fetchButton, moreButtonIntersectionObservers, query, clearStore) {
     const [notes, users, mergeNotesAndUsers] = makeNotesAndUsersAndMerger();
     const queryString = makeNoteQueryString(query);
     const fetchEntry = await (async () => {
@@ -1909,7 +2015,6 @@ async function startSearchFetcher(db, $notesContainer, $moreContainer, filterPan
             return fetchEntry;
         }
     })();
-    filterPanel.subscribe(noteFilter => noteTable?.updateFilter(noteFilter));
     let lastNote;
     let prevLastNote;
     let lastLimit;
@@ -1930,9 +2035,6 @@ async function startSearchFetcher(db, $notesContainer, $moreContainer, filterPan
         await fetchCycle();
     }
     function addNewNotes(newNotes) {
-        if (!noteTable) {
-            noteTable = new NoteTable($notesContainer, commandPanel, map, filterPanel.noteFilter);
-        }
         const nUnfilteredNotes = noteTable.addNotes(newNotes, users);
         if (nUnfilteredNotes == 0) {
             nFullyFilteredFetches++;
@@ -2040,9 +2142,7 @@ async function startSearchFetcher(db, $notesContainer, $moreContainer, filterPan
     }
 }
 async function startBboxFetcher(// TODO cleanup copypaste from above
-db, $notesContainer, $moreContainer, filterPanel, commandPanel, map, $limitSelect, /*$autoLoadCheckbox: HTMLInputElement,*/ $fetchButton, moreButtonIntersectionObservers, query, clearStore) {
-    filterPanel.unsubscribe();
-    let noteTable;
+db, noteTable, $moreContainer, $limitSelect, /*$autoLoadCheckbox: HTMLInputElement,*/ $fetchButton, moreButtonIntersectionObservers, query, clearStore) {
     const [notes, users, mergeNotesAndUsers] = makeNotesAndUsersAndMerger();
     const queryString = makeNoteQueryString(query);
     const fetchEntry = await (async () => {
@@ -2055,7 +2155,6 @@ db, $notesContainer, $moreContainer, filterPanel, commandPanel, map, $limitSelec
             return fetchEntry;
         }
     })();
-    filterPanel.subscribe(noteFilter => noteTable?.updateFilter(noteFilter));
     if (!clearStore) {
         addNewNotes(notes);
         if (notes.length > 0) {
@@ -2070,9 +2169,6 @@ db, $notesContainer, $moreContainer, filterPanel, commandPanel, map, $limitSelec
         await fetchCycle();
     }
     function addNewNotes(newNotes) {
-        if (!noteTable) {
-            noteTable = new NoteTable($notesContainer, commandPanel, map, filterPanel.noteFilter);
-        }
         noteTable.addNotes(newNotes, users);
     }
     async function fetchCycle() {
@@ -2246,17 +2342,22 @@ class NominatimBboxFetcher {
 
 class NoteFetchPanel {
     constructor(storage, db, $container, $notesContainer, $moreContainer, $commandContainer, filterPanel, extrasPanel, map, restoreScrollPosition) {
+        let noteTable;
         const moreButtonIntersectionObservers = [];
+        const $showImagesCheckboxes = [];
         const searchDialog = new NoteSearchFetchDialog();
-        searchDialog.write($container, query => {
+        searchDialog.write($container, $showImagesCheckboxes, query => {
             modifyHistory(query, true);
             runStartFetcher(query, true);
         });
         const bboxDialog = new NoteBboxFetchDialog(map);
-        bboxDialog.write($container, query => {
+        bboxDialog.write($container, $showImagesCheckboxes, query => {
             modifyHistory(query, true);
             runStartFetcher(query, true);
         });
+        for (const $showImagesCheckbox of $showImagesCheckboxes) {
+            $showImagesCheckbox.addEventListener('input', showImagesCheckboxInputListener);
+        }
         window.addEventListener('hashchange', () => {
             const query = makeNoteQueryFromHash(location.hash);
             openQueryDialog(query, false);
@@ -2320,16 +2421,27 @@ class NoteFetchPanel {
             else {
                 extrasPanel.rewrite();
             }
+            if (query?.mode != 'search' && query?.mode != 'bbox')
+                return;
+            filterPanel.unsubscribe();
+            const commandPanel = new CommandPanel($commandContainer, map, storage);
+            noteTable = new NoteTable($notesContainer, commandPanel, map, filterPanel.noteFilter, $showImagesCheckboxes[0]?.checked);
+            filterPanel.subscribe(noteFilter => noteTable?.updateFilter(noteFilter));
             if (query?.mode == 'search') {
-                const commandPanel = new CommandPanel($commandContainer, map, storage);
-                startSearchFetcher(db, $notesContainer, $moreContainer, filterPanel, commandPanel, map, searchDialog.$limitSelect, searchDialog.$autoLoadCheckbox, searchDialog.$fetchButton, moreButtonIntersectionObservers, query, clearStore);
+                startSearchFetcher(db, noteTable, $moreContainer, searchDialog.$limitSelect, searchDialog.$autoLoadCheckbox, searchDialog.$fetchButton, moreButtonIntersectionObservers, query, clearStore);
             }
             else if (query?.mode == 'bbox') {
                 if (bboxDialog.$trackMapCheckbox.checked)
                     map.needToFitNotes = false;
-                const commandPanel = new CommandPanel($commandContainer, map, storage);
-                startBboxFetcher(db, $notesContainer, $moreContainer, filterPanel, commandPanel, map, bboxDialog.$limitSelect, /*bboxDialog.$autoLoadCheckbox,*/ bboxDialog.$fetchButton, moreButtonIntersectionObservers, query, clearStore);
+                startBboxFetcher(db, noteTable, $moreContainer, bboxDialog.$limitSelect, /*bboxDialog.$autoLoadCheckbox,*/ bboxDialog.$fetchButton, moreButtonIntersectionObservers, query, clearStore);
             }
+        }
+        function showImagesCheckboxInputListener() {
+            const state = this.checked;
+            for (const $showImagesCheckbox of $showImagesCheckboxes) {
+                $showImagesCheckbox.checked = state;
+            }
+            noteTable?.setShowImages(state);
         }
     }
 }
@@ -2338,11 +2450,17 @@ class NoteFetchDialog {
         this.$details = document.createElement('details');
         this.$fetchButton = document.createElement('button');
     }
-    write($container, submitQuery) {
+    write($container, $showImagesCheckboxes, submitQuery) {
         const $summary = document.createElement('summary');
         $summary.textContent = this.title;
         const $form = document.createElement('form');
-        $form.append(this.makeScopeAndOrderFieldset(), this.makeDownloadModeFieldset(), this.makeFetchButtonDiv());
+        const $scopeFieldset = this.makeScopeAndOrderFieldset();
+        const $downloadFieldset = this.makeDownloadModeFieldset();
+        const $showImagesCheckbox = document.createElement('input');
+        $showImagesCheckbox.type = 'checkbox';
+        $showImagesCheckboxes.push($showImagesCheckbox);
+        $downloadFieldset.append(makeDiv()(makeLabel()($showImagesCheckbox, ` Show images from StreetComplete`)));
+        $form.append($scopeFieldset, $downloadFieldset, this.makeFetchButtonDiv());
         this.addEventListeners();
         $form.addEventListener('submit', (ev) => {
             ev.preventDefault();
