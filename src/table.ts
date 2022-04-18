@@ -195,7 +195,7 @@ export default class NoteTable {
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-comment')
-					$cell.append(...processCommentText(comment.text))
+					processCommentText($cell,comment.text)
 				}
 				iComment++
 			}
@@ -425,13 +425,43 @@ function getActionClass(action: NoteComment['action']): string {
 	}
 }
 
-function processCommentText(commentText: string): Array<string|HTMLElement> {
+function imageCommentHoverListener(this: HTMLElement, ev: MouseEvent): void {
+	const $targetLink=getTargetLink()
+	if (!$targetLink) return
+	const $floats=this.querySelectorAll('a.image.float')
+	const $inlines=this.querySelectorAll('a.image.inline')
+	for (let i=0;i<$floats.length&&i<$inlines.length;i++) {
+		if ($floats[i]==$targetLink) {
+			modifyTwinLink($inlines[i])
+			return
+		}
+		if ($inlines[i]==$targetLink) {
+			modifyTwinLink($floats[i])
+			return
+		}
+	}
+	function getTargetLink() {
+		if (ev.target instanceof HTMLAnchorElement) return ev.target
+		if (!(ev.target instanceof HTMLElement)) return null
+		return ev.target.closest('a')
+	}
+	function modifyTwinLink($a: Element) {
+		if (ev.type=='mouseover') {
+			$a.classList.add('active')
+		} else {
+			$a.classList.remove('active')
+		}
+	}
+}
+
+function processCommentText($cell: HTMLElement, commentText: string): void {
 	const result: Array<string|HTMLElement> = []
 	const images: Array<HTMLAnchorElement> = []
+	let iImage=0
 	for (const item of getCommentItems(commentText)) {
 		if (item.type=='image') {
 			const $inlineLink=makeLink(item.href,item.href)
-			$inlineLink.classList.add('image')
+			$inlineLink.classList.add('image','inline')
 			result.push($inlineLink)
 			const $img=document.createElement('img') // TODO have image load checkbox in download section
 			$img.src=item.href
@@ -441,9 +471,14 @@ function processCommentText(commentText: string): Array<string|HTMLElement> {
 			$floatLink.href=item.href
 			$floatLink.append($img)
 			images.push($floatLink)
+			if (!iImage) {
+				$cell.addEventListener('mouseover',imageCommentHoverListener)
+				$cell.addEventListener('mouseout',imageCommentHoverListener)
+			}
+			iImage++
 		} else {
 			result.push(item.text)
 		}
 	}
-	return [...images,...result]
+	$cell.append(...images,...result)
 }

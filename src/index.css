@@ -270,7 +270,8 @@ body.flipped .notes td.note-user {
 	content: "no comment";
 	color: gray;
 }
-.notes td.note-comment a.image:hover {
+.notes td.note-comment a.image:hover,
+.notes td.note-comment a.image.active {
 	outline: var(--comment-link-outline)
 }
 .notes td.note-comment a.image.float {
