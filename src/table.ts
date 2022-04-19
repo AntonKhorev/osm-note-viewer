@@ -292,13 +292,15 @@ export default class NoteTable {
 		this.commandPanel.receiveCheckedComment($time.dateTime,$text?.textContent??undefined)
 	}
 	private focusOnNote($noteSection: HTMLTableSectionElement): void {
-		const needToZoom=$noteSection.classList.contains('active-click')
 		this.activateNote('click',$noteSection)
 		this.noteSectionVisibilityObserver.haltMapFitting() // otherwise scrollIntoView() may ruin note pan/zoom - it may cause observer to fire after exiting this function
 		$noteSection.scrollIntoView({block:'nearest'})
 		const layerId=Number($noteSection.dataset.layerId)
 		const marker=this.map.noteLayer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
+		const markerPt=this.map.latLngToContainerPoint(marker.getLatLng())
+		const centerPt=this.map.latLngToContainerPoint(this.map.getCenter()) // instead could have gotten container width/2, height/2
+		const needToZoom = (markerPt.x-centerPt.x)**2+(markerPt.y-centerPt.y)**2 < 100
 		if (needToZoom) {
 			const z1=this.map.getZoom()
 			const z2=this.map.getMaxZoom()
