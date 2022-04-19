@@ -1,7 +1,7 @@
 import getCommentItems from './comment'
 import {makeLink} from './util'
 
-export default function makeWriteCommentText(pingNoteSection: ($noteSection: HTMLElement)=>void) {
+export default function makeWriteCommentText(pingNoteSection: ($noteSection: HTMLTableSectionElement)=>void) {
 	return function writeCommentText($cell: HTMLElement, commentText: string, showImages: boolean): void {
 		const result: Array<string|HTMLElement> = []
 		const images: Array<HTMLAnchorElement> = []
@@ -44,7 +44,7 @@ export default function makeWriteCommentText(pingNoteSection: ($noteSection: HTM
 		ev.preventDefault()
 		ev.stopPropagation()
 		const $noteSection=document.getElementById(`note-`+this.dataset.noteId)
-		if (!($noteSection instanceof HTMLElement)) return
+		if (!($noteSection instanceof HTMLTableSectionElement)) return
 		if ($noteSection.classList.contains('hidden')) return
 		pingNoteSection($noteSection)
 	}

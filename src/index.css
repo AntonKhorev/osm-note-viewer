@@ -204,8 +204,11 @@ body.flipped .panel.fetch button.flip {
 .notes tbody.closed {
 	box-shadow: -2px 0px 0px 0px green, 2px 0px 0px 0px green;
 }
-.notes tbody.active {
+.notes tbody.active-hover {
 	background: #DEF;
+}
+.notes tbody.active-click {
+	background: #FC8;
 }
 .notes td {
 	vertical-align: top;

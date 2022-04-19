@@ -8,21 +8,20 @@ import {makeUserLink} from './util'
 
 export default class NoteTable {
 	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
-	private wrappedNoteSectionMouseoverListener: (this: HTMLElement) => void
-	private wrappedNoteSectionMouseoutListener: (this: HTMLElement) => void 
-	private wrappedNoteSectionClickListener: (this: HTMLElement) => void
+	private wrappedNoteSectionMouseoverListener: (this: HTMLTableSectionElement) => void
+	private wrappedNoteSectionMouseoutListener: (this: HTMLTableSectionElement) => void 
+	private wrappedNoteSectionClickListener: (this: HTMLTableSectionElement) => void
 	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedAllNotesCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedCommentRadioClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
-	private noteRowObserver: IntersectionObserver
+	private noteSectionVisibilityObserver: NoteSectionVisibilityObserver
 	private $table = document.createElement('table')
 	private $selectAllCheckbox = document.createElement('input')
-	private currentLayerId: number | undefined
 	private noteSectionLayerIdVisibility=new Map<number,boolean>()
 	private $lastClickedNoteSection: HTMLTableSectionElement | undefined
 	private notesById = new Map<number,Note>() // in the future these might be windowed to limit the amount of stuff on one page
 	private usersById = new Map<number,string>()
-	private writeCommentText=makeWriteCommentText($noteSection=>this.fullyFocusOnNote($noteSection))
+	private writeCommentText=makeWriteCommentText($noteSection=>this.focusOnNote($noteSection))
 	constructor(
 		$container: HTMLElement, 
 		private commandPanel: CommandPanel, private map: NoteMap, private filter: NoteFilter, 
@@ -33,14 +32,13 @@ export default class NoteTable {
 			that.noteMarkerClickListener(this)
 		}
 		this.wrappedNoteSectionMouseoverListener=function(){
-			that.deactivateAllNotes()
-			that.activateNote(this)
+			that.activateNote('hover',this)
 		}
 		this.wrappedNoteSectionMouseoutListener=function(){
-			that.deactivateNote(this)
+			that.deactivateNote('hover',this)
 		}
 		this.wrappedNoteSectionClickListener=function(){
-			that.focusMapOnNote(this)
+			that.focusOnNote(this)
 		}
 		this.wrappedNoteCheckboxClickListener=function(ev: MouseEvent){
 			that.noteCheckboxClickListener(this,ev)
@@ -51,7 +49,7 @@ export default class NoteTable {
 		this.wrappedCommentRadioClickListener=function(ev: MouseEvent){
 			that.commentRadioClickListener(this,ev)
 		}
-		this.noteRowObserver=makeNoteSectionObserver(commandPanel,map,this.noteSectionLayerIdVisibility)
+		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver(commandPanel,map,this.noteSectionLayerIdVisibility)
 		this.$table.classList.toggle('with-images',showImages)
 		$container.append(this.$table)
 		{
@@ -99,7 +97,8 @@ export default class NoteTable {
 				}
 				$noteSection.classList.remove('hidden')
 			} else {
-				this.deactivateNote($noteSection)
+				this.deactivateNote('click',$noteSection)
+				this.deactivateNote('hover',$noteSection)
 				const marker=this.map.noteLayer.getLayer(layerId)
 				if (marker) {
 					this.map.noteLayer.removeLayer(marker)
@@ -247,7 +246,7 @@ export default class NoteTable {
 		$noteSection.addEventListener('mouseout',this.wrappedNoteSectionMouseoutListener)
 		$noteSection.addEventListener('click',this.wrappedNoteSectionClickListener)
 		this.noteSectionLayerIdVisibility.set(layerId,false)
-		this.noteRowObserver.observe($noteSection)
+		this.noteSectionVisibilityObserver.observe($noteSection)
 		if (isVisible) {
 			if (this.$selectAllCheckbox.checked) {
 				this.$selectAllCheckbox.checked=false
@@ -258,8 +257,8 @@ export default class NoteTable {
 	}
 	private noteMarkerClickListener(marker: NoteMarker): void {
 		const $noteSection=document.getElementById(`note-`+marker.noteId)
-		if (!$noteSection) return
-		this.fullyFocusOnNote($noteSection)
+		if (!($noteSection instanceof HTMLTableSectionElement)) return
+		this.focusOnNote($noteSection)
 	}
 	private noteCheckboxClickListener($checkbox: HTMLInputElement, ev: MouseEvent): void { // need 'click' handler rather than 'change' to stop click propagation
 		ev.stopPropagation()
@@ -292,48 +291,49 @@ export default class NoteTable {
 		const $text=$clickedRow.querySelector('td.note-comment')
 		this.commandPanel.receiveCheckedComment($time.dateTime,$text?.textContent??undefined)
 	}
-	private fullyFocusOnNote($noteSection: HTMLElement): void { // TODO HTMLTableSectionElement
-		this.commandPanel.disableFitting()
-		this.deactivateAllNotes()
+	private focusOnNote($noteSection: HTMLTableSectionElement): void {
+		const needToZoom=$noteSection.classList.contains('active-click')
+		this.activateNote('click',$noteSection)
+		this.noteSectionVisibilityObserver.haltMapFitting() // otherwise scrollIntoView() may ruin note pan/zoom - it may cause observer to fire after exiting this function
 		$noteSection.scrollIntoView({block:'nearest'})
-		this.activateNote($noteSection)
-		this.focusMapOnNote($noteSection)
-	}
-	private deactivateAllNotes(): void {
-		for (const $noteSection of this.$table.querySelectorAll<HTMLElement>('tbody.active')) {
-			this.deactivateNote($noteSection)
-		}
-	}
-	private deactivateNote($noteSection: HTMLElement): void {
-		this.currentLayerId=undefined
-		$noteSection.classList.remove('active')
 		const layerId=Number($noteSection.dataset.layerId)
 		const marker=this.map.noteLayer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
-		marker.setZIndexOffset(0)
-		marker.setOpacity(0.5)
-	}
-	private activateNote($noteSection: HTMLElement): void {
-		const layerId=Number($noteSection.dataset.layerId)
-		const marker=this.map.noteLayer.getLayer(layerId)
-		if (!(marker instanceof L.Marker)) return
-		marker.setOpacity(1)
-		marker.setZIndexOffset(1000)
-		$noteSection.classList.add('active')
-	}
-	private focusMapOnNote($noteSection: HTMLElement): void {
-		const layerId=Number($noteSection.dataset.layerId)
-		const marker=this.map.noteLayer.getLayer(layerId)
-		if (!(marker instanceof L.Marker)) return
-		if (layerId==this.currentLayerId) {
+		if (needToZoom) {
 			const z1=this.map.getZoom()
 			const z2=this.map.getMaxZoom()
 			const nextZoom=Math.min(z2,z1+Math.ceil((z2-z1)/2))
 			this.map.flyTo(marker.getLatLng(),nextZoom)
 		} else {
-			this.currentLayerId=layerId
 			this.map.panTo(marker.getLatLng())
 		}
+	}
+	private deactivateNote(type: 'hover'|'click', $noteSection: HTMLTableSectionElement): void {
+		$noteSection.classList.remove('active-'+type)
+		const layerId=Number($noteSection.dataset.layerId)
+		const marker=this.map.noteLayer.getLayer(layerId)
+		if (!(marker instanceof L.Marker)) return
+		if ($noteSection.classList.contains('active-hover') || $noteSection.classList.contains('active-click')) return
+		marker.setZIndexOffset(0)
+		marker.setOpacity(0.5)
+	}
+	private activateNote(type: 'hover'|'click', $noteSection: HTMLTableSectionElement): void {
+		let alreadyActive=false
+		for (const $otherNoteSection of this.$table.querySelectorAll('tbody.active-'+type)) {
+			if (!($otherNoteSection instanceof HTMLTableSectionElement)) continue
+			if ($otherNoteSection==$noteSection) {
+				alreadyActive=true
+				continue
+			}
+			this.deactivateNote(type,$otherNoteSection)
+		}
+		if (alreadyActive) return
+		const layerId=Number($noteSection.dataset.layerId)
+		const marker=this.map.noteLayer.getLayer(layerId)
+		if (!(marker instanceof L.Marker)) return
+		marker.setOpacity(1)
+		marker.setZIndexOffset(1000)
+		$noteSection.classList.add('active-'+type)
 	}
 	private updateCheckboxDependents(): void {
 		const checkedNotes: Note[] = []
@@ -399,28 +399,44 @@ export default class NoteTable {
 	}
 }
 
-function makeNoteSectionObserver(
-	commandPanel: CommandPanel, map: NoteMap,
-	noteSectionLayerIdVisibility: Map<number,boolean>
-): IntersectionObserver {
-	let noteSectionVisibilityTimeoutId: number | undefined
-	return new IntersectionObserver((entries)=>{
-		for (const entry of entries) {
-			if (!(entry.target instanceof HTMLElement)) continue
-			const layerId=entry.target.dataset.layerId
-			if (layerId==null) continue
-			noteSectionLayerIdVisibility.set(Number(layerId),entry.isIntersecting)
+class NoteSectionVisibilityObserver {
+	private intersectionObserver: IntersectionObserver
+	private visibilityTimeoutId: number | undefined
+	private haltingTimeoutId: number | undefined
+	private isMapFittingHalted: boolean = false
+	constructor(
+		commandPanel: CommandPanel, map: NoteMap,
+		noteSectionLayerIdVisibility: Map<number,boolean>
+	) {
+		const noteSectionVisibilityHandler=()=>{
+			const visibleLayerIds:number[]=[]
+			for (const [layerId,visibility] of noteSectionLayerIdVisibility) {
+				if (visibility) visibleLayerIds.push(layerId)
+			}
+			map.showNoteTrack(visibleLayerIds)
+			if (!this.isMapFittingHalted && commandPanel.fitMode=='inViewNotes') map.fitNoteTrack()
 		}
-		clearTimeout(noteSectionVisibilityTimeoutId)
-		noteSectionVisibilityTimeoutId=setTimeout(noteSectionVisibilityHandler)
-	})
-	function noteSectionVisibilityHandler(): void {
-		const visibleLayerIds:number[]=[]
-		for (const [layerId,visibility] of noteSectionLayerIdVisibility) {
-			if (visibility) visibleLayerIds.push(layerId)
-		}
-		map.showNoteTrack(visibleLayerIds)
-		if (commandPanel.fitMode=='inViewNotes') map.fitNoteTrack()
+		this.intersectionObserver=new IntersectionObserver((entries)=>{
+			for (const entry of entries) {
+				if (!(entry.target instanceof HTMLElement)) continue
+				const layerId=entry.target.dataset.layerId
+				if (layerId==null) continue
+				noteSectionLayerIdVisibility.set(Number(layerId),entry.isIntersecting)
+			}
+			clearTimeout(this.visibilityTimeoutId)
+			this.visibilityTimeoutId=setTimeout(noteSectionVisibilityHandler)
+		})
+	}
+	observe($noteSection: HTMLTableSectionElement): void {
+		this.intersectionObserver.observe($noteSection)
+	}
+	haltMapFitting(): void {
+		clearTimeout(this.visibilityTimeoutId)
+		clearTimeout(this.haltingTimeoutId)
+		this.isMapFittingHalted=true
+		this.haltingTimeoutId=setTimeout(()=>{
+			this.isMapFittingHalted=false
+		},100)
 	}
 }
 
