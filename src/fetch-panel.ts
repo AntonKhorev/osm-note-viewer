@@ -142,7 +142,7 @@ abstract class NoteFetchDialog {
 		$showImagesCheckboxes.push($showImagesCheckbox)
 		$downloadFieldset.append(
 			makeDiv()(makeLabel()(
-				$showImagesCheckbox,` Show images from StreetComplete`
+				$showImagesCheckbox,` Load and show images from StreetComplete`
 			))
 		)
 		$form.append(

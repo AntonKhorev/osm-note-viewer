@@ -51,6 +51,7 @@ export default class NoteTable {
 			that.commentRadioClickListener(this,ev)
 		}
 		this.noteRowObserver=makeNoteSectionObserver(commandPanel,map,this.noteSectionLayerIdVisibility)
+		this.$table.classList.toggle('with-images',showImages)
 		$container.append(this.$table)
 		{
 			const $header=this.$table.createTHead()
@@ -477,6 +478,7 @@ function processCommentText($cell: HTMLElement, commentText: string, showImages:
 			$img.loading='lazy' // this + display:none is not enough to surely stop the browser from accessing the image link
 			if (showImages) $img.src=item.href // therefore only set the link if user agreed to loading
 			$img.alt=`attached photo`
+			$img.addEventListener('error',imageErrorHandler)
 			const $floatLink=document.createElement('a')
 			$floatLink.classList.add('image','float')
 			$floatLink.href=item.href
@@ -492,4 +494,8 @@ function processCommentText($cell: HTMLElement, commentText: string, showImages:
 		}
 	}
 	$cell.append(...images,...result)
+}
+
+function imageErrorHandler(this: HTMLImageElement) {
+	this.removeAttribute('alt') // render broken image icon
 }
