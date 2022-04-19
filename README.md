@@ -2,7 +2,7 @@
 
 View [OpenStreetMap](https://www.openstreetmap.org/) [notes](https://wiki.openstreetmap.org/wiki/Notes) on a map and in a table with all their comments. Originally an alternative to OpenStreetMap user's notes page: `https://www.openstreetmap.org/user/`**`username`**`/notes`. Now more generally a web UI for [OSM notes API](https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API) [search][api-search] and [bounding box][api-bbox] calls. The fetched notes can be filtered further by an expression matching a sequence of actions performed on a note, such as being opened by user A and later commented by user B. Can run as a static files served from any web server or from a local filesystem.
 
-Try it out [here](https://antonkhorev.github.io/osm-note-viewer/).
+Try it out [here][github-host].
 
 ## Features
 
@@ -66,5 +66,12 @@ note-viewer can be added to [OSM Smart Menu](https://wiki.openstreetmap.org/wiki
 
     https://antonkhorev.github.io/osm-note-viewer/#mode=search&display_name={osm_user_name}
 
+## Installation
+
+If you don't want to run note-viewer from github, you can run if off any server that can serve static files, including a local filesystem (`file:///`). The files that are [served by github][github-host] are in the [`gh-pages` branch of the repository](https://github.com/AntonKhorev/osm-note-viewer/tree/gh-pages). You can download all of them [here](https://github.com/AntonKhorev/osm-note-viewer/archive/refs/heads/gh-pages.zip).
+
+To build from source you need [Node.js](https://nodejs.org/). v14 is enough, may also work on earlier versions because Node.js is used only for building and testing. Run `npm install` and `npm run build` to get the build in `dist` directory.
+
+[github-host]: https://antonkhorev.github.io/osm-note-viewer/
 [api-search]: https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch
 [api-bbox]: https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_.2Fapi.2F0.6.2Fnotes

@@ -4,6 +4,7 @@
   "description": "View OSM notes of an user",
   "type": "module",
   "scripts": {
+    "build": "node build.js",
     "test": "node build-test.js && mocha"
   },
   "author": "Anton Khorev",
