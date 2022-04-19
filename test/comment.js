@@ -25,4 +25,14 @@ describe("getCommentItems",()=>{
 			{type:'image',text:`https://westnordost.de/p/456.jpg`,href:`https://westnordost.de/p/456.jpg`},
 		])
 	})
+	it("parses osm.org link",()=>{
+		const result=run(
+			`Unable to answer "What’s the surface of the sidewalk here?" for https://osm.org/way/123456 via StreetComplete 42.0`
+		)
+		assert.deepEqual(result,[
+			{type:'text',text:`Unable to answer "What’s the surface of the sidewalk here?" for `},
+			{type:'link',text:`https://osm.org/way/123456`,href:`https://www.openstreetmap.org/way/123456`},
+			{type:'text',text:` via StreetComplete 42.0`},
+		])
+	})
 })

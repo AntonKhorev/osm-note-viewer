@@ -489,6 +489,8 @@ function processCommentText($cell: HTMLElement, commentText: string, showImages:
 				$cell.addEventListener('mouseout',imageCommentHoverListener)
 			}
 			iImage++
+		} else if (item.type=='link') {
+			result.push(makeLink(item.text,item.href))
 		} else {
 			result.push(item.text)
 		}

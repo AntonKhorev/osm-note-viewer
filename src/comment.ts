@@ -31,8 +31,8 @@ export default function getCommentItems(commentText: string): CommentItem[] {
 			pushText(part)
 			continue
 		}
-		const match=part.match(new RegExp(e`^(${'westnordost.de/p/'}[0-9]+${'.jpg'})(.*)$`,'s'))
-		if (match) {
+		let match: RegExpMatchArray | null = null
+		if (match=part.match(new RegExp(e`^(${'westnordost.de/p/'}[0-9]+${'.jpg'})(.*)$`,'s'))) {
 			const [,hrefPart,rest]=match
 			const href=sep+hrefPart
 			result.push({
@@ -41,9 +41,17 @@ export default function getCommentItems(commentText: string): CommentItem[] {
 				href
 			})
 			pushText(rest)
-			continue
+		} else if (match=part.match(new RegExp(e`^(${'osm.org/'}(node|way|relation)${'/'}([0-9]+))(.*)$`,'s'))) {
+			const [,originalHrefPart,osmType,osmId,rest]=match
+			result.push({
+				type: 'link',
+				text: sep+originalHrefPart,
+				href: `https://www.openstreetmap.org/${osmType}/${osmId}`
+			})
+			pushText(rest)
+		} else {
+			pushText(sep+part)
 		}
-		pushText(sep+part)
 	}
 	return result
 	function pushText(text: string) {
