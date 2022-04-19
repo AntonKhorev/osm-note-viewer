@@ -289,6 +289,9 @@ body.flipped .notes td.note-user {
 .notes table.with-images td.note-comment a.image.float {
 	display: block;
 }
+.notes td.note-comment a.other-note {
+	text-decoration-style: dotted;
+}
 .more div {
 	padding: 1em;
 }

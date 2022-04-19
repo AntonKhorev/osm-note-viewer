@@ -18,7 +18,12 @@ interface LinkCommentItem extends BaseCommentItem {
 	href: string
 }
 
-type CommentItem = TextCommentItem | ImageCommentItem | LinkCommentItem
+interface NoteCommentItem extends BaseCommentItem {
+	type: 'note'
+	id: number
+}
+
+type CommentItem = TextCommentItem | ImageCommentItem | LinkCommentItem | NoteCommentItem
 
 export default function getCommentItems(commentText: string): CommentItem[] {
 	const e=makeEscapeTag(escapeRegex)
@@ -47,6 +52,14 @@ export default function getCommentItems(commentText: string): CommentItem[] {
 				type: 'link',
 				text: sep+originalHrefPart,
 				href: `https://www.openstreetmap.org/${osmType}/${osmId}`
+			})
+			pushText(rest)
+		} else if (match=part.match(new RegExp(e`^(${'www.openstreetmap.org/note/'}([0-9]+))(.*)$`,'s'))) {
+			const [,originalHrefPart,osmId,rest]=match
+			result.push({
+				type: 'note',
+				text: sep+originalHrefPart,
+				id: Number(osmId)
 			})
 			pushText(rest)
 		} else {

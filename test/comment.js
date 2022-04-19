@@ -35,4 +35,15 @@ describe("getCommentItems",()=>{
 			{type:'text',text:` via StreetComplete 42.0`},
 		])
 	})
+	it("parses note link",()=>{
+		const result=run(
+			`Note en double (https://www.openstreetmap.org/note/32123).`,
+			`Si vous voulez l'ajouter ...`
+		)
+		assert.deepEqual(result,[
+			{type:'text',text:`Note en double (`},
+			{type:'note',text:`https://www.openstreetmap.org/note/32123`,id:32123},
+			{type:'text',text:`).\nSi vous voulez l'ajouter ...`},
+		])
+	})
 })

@@ -1,10 +1,10 @@
 import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
-import getCommentItems from './comment'
+import makeWriteCommentText from './table-comment'
 import CommandPanel from './command-panel'
 import NoteFilter from './filter'
 import {toReadableDate} from './query-date'
-import {makeLink, makeUserLink} from './util'
+import {makeUserLink} from './util'
 
 export default class NoteTable {
 	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
@@ -22,6 +22,7 @@ export default class NoteTable {
 	private $lastClickedNoteSection: HTMLTableSectionElement | undefined
 	private notesById = new Map<number,Note>() // in the future these might be windowed to limit the amount of stuff on one page
 	private usersById = new Map<number,string>()
+	private writeCommentText=makeWriteCommentText($noteSection=>this.fullyFocusOnNote($noteSection))
 	constructor(
 		$container: HTMLElement, 
 		private commandPanel: CommandPanel, private map: NoteMap, private filter: NoteFilter, 
@@ -200,7 +201,7 @@ export default class NoteTable {
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-comment')
-					processCommentText($cell,comment.text,this.showImages)
+					this.writeCommentText($cell,comment.text,this.showImages)
 				}
 				iComment++
 			}
@@ -256,13 +257,9 @@ export default class NoteTable {
 		return $noteSection
 	}
 	private noteMarkerClickListener(marker: NoteMarker): void {
-		this.commandPanel.disableFitting()
-		this.deactivateAllNotes()
-		const $noteRows=document.getElementById(`note-`+marker.noteId)
-		if (!$noteRows) return
-		$noteRows.scrollIntoView({block:'nearest'})
-		this.activateNote($noteRows)
-		this.focusMapOnNote($noteRows)
+		const $noteSection=document.getElementById(`note-`+marker.noteId)
+		if (!$noteSection) return
+		this.fullyFocusOnNote($noteSection)
 	}
 	private noteCheckboxClickListener($checkbox: HTMLInputElement, ev: MouseEvent): void { // need 'click' handler rather than 'change' to stop click propagation
 		ev.stopPropagation()
@@ -295,9 +292,16 @@ export default class NoteTable {
 		const $text=$clickedRow.querySelector('td.note-comment')
 		this.commandPanel.receiveCheckedComment($time.dateTime,$text?.textContent??undefined)
 	}
+	private fullyFocusOnNote($noteSection: HTMLElement): void { // TODO HTMLTableSectionElement
+		this.commandPanel.disableFitting()
+		this.deactivateAllNotes()
+		$noteSection.scrollIntoView({block:'nearest'})
+		this.activateNote($noteSection)
+		this.focusMapOnNote($noteSection)
+	}
 	private deactivateAllNotes(): void {
-		for (const $noteRows of this.$table.querySelectorAll<HTMLElement>('tbody.active')) {
-			this.deactivateNote($noteRows)
+		for (const $noteSection of this.$table.querySelectorAll<HTMLElement>('tbody.active')) {
+			this.deactivateNote($noteSection)
 		}
 	}
 	private deactivateNote($noteSection: HTMLElement): void {
@@ -438,66 +442,4 @@ function getActionClass(action: NoteComment['action']): string {
 	} else {
 		return 'other'
 	}
-}
-
-function imageCommentHoverListener(this: HTMLElement, ev: MouseEvent): void {
-	const $targetLink=getTargetLink()
-	if (!$targetLink) return
-	const $floats=this.querySelectorAll('a.image.float')
-	const $inlines=this.querySelectorAll('a.image.inline')
-	for (let i=0;i<$floats.length&&i<$inlines.length;i++) {
-		if ($floats[i]==$targetLink) {
-			modifyTwinLink($inlines[i])
-			return
-		}
-		if ($inlines[i]==$targetLink) {
-			modifyTwinLink($floats[i])
-			return
-		}
-	}
-	function getTargetLink() {
-		if (ev.target instanceof HTMLAnchorElement) return ev.target
-		if (!(ev.target instanceof HTMLElement)) return null
-		return ev.target.closest('a')
-	}
-	function modifyTwinLink($a: Element) {
-		$a.classList.toggle('active',ev.type=='mouseover')
-	}
-}
-
-function processCommentText($cell: HTMLElement, commentText: string, showImages: boolean): void {
-	const result: Array<string|HTMLElement> = []
-	const images: Array<HTMLAnchorElement> = []
-	let iImage=0
-	for (const item of getCommentItems(commentText)) {
-		if (item.type=='image') {
-			const $inlineLink=makeLink(item.href,item.href)
-			$inlineLink.classList.add('image','inline')
-			result.push($inlineLink)
-			const $img=document.createElement('img')
-			$img.loading='lazy' // this + display:none is not enough to surely stop the browser from accessing the image link
-			if (showImages) $img.src=item.href // therefore only set the link if user agreed to loading
-			$img.alt=`attached photo`
-			$img.addEventListener('error',imageErrorHandler)
-			const $floatLink=document.createElement('a')
-			$floatLink.classList.add('image','float')
-			$floatLink.href=item.href
-			$floatLink.append($img)
-			images.push($floatLink)
-			if (!iImage) {
-				$cell.addEventListener('mouseover',imageCommentHoverListener)
-				$cell.addEventListener('mouseout',imageCommentHoverListener)
-			}
-			iImage++
-		} else if (item.type=='link') {
-			result.push(makeLink(item.text,item.href))
-		} else {
-			result.push(item.text)
-		}
-	}
-	$cell.append(...images,...result)
-}
-
-function imageErrorHandler(this: HTMLImageElement) {
-	this.removeAttribute('alt') // render broken image icon
 }
