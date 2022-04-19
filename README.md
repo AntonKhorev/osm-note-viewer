@@ -70,6 +70,8 @@ note-viewer can be added to [OSM Smart Menu](https://wiki.openstreetmap.org/wiki
 
 If you don't want to run note-viewer from github, you can run if off any server that can serve static files, including a local filesystem (`file:///`). The files that are [served by github][github-host] are in the [`gh-pages` branch of the repository](https://github.com/AntonKhorev/osm-note-viewer/tree/gh-pages). You can download all of them [here](https://github.com/AntonKhorev/osm-note-viewer/archive/refs/heads/gh-pages.zip).
 
+Note-viewer won't run entirely locally because the whole point of it is to access [OSM API](https://wiki.openstreetmap.org/wiki/API_v0.6). Some optional functions access [Nominatim](https://wiki.openstreetmap.org/wiki/Nominatim), [Overpass](https://wiki.openstreetmap.org/wiki/Overpass_API) and other services. To render the map, [Leaflet](https://leafletjs.com/) is served from its default CDN. The map requires access to [OSM tile server](https://wiki.openstreetmap.org/wiki/Tile_servers).
+
 To build from source you need [Node.js](https://nodejs.org/). v14 is enough, may also work on earlier versions because Node.js is used only for building and testing. Run `npm install` and `npm run build` to get the build in `dist` directory.
 
 [github-host]: https://antonkhorev.github.io/osm-note-viewer/
