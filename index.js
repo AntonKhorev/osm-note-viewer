@@ -634,6 +634,7 @@ class NoteTable {
             that.commentRadioClickListener(this, ev);
         };
         this.noteRowObserver = makeNoteSectionObserver(commandPanel, map, this.noteSectionLayerIdVisibility);
+        this.$table.classList.toggle('with-images', showImages);
         $container.append(this.$table);
         {
             const $header = this.$table.createTHead();
@@ -1089,6 +1090,7 @@ function processCommentText($cell, commentText, showImages) {
             if (showImages)
                 $img.src = item.href; // therefore only set the link if user agreed to loading
             $img.alt = `attached photo`;
+            $img.addEventListener('error', imageErrorHandler);
             const $floatLink = document.createElement('a');
             $floatLink.classList.add('image', 'float');
             $floatLink.href = item.href;
@@ -1105,6 +1107,9 @@ function processCommentText($cell, commentText, showImages) {
         }
     }
     $cell.append(...images, ...result);
+}
+function imageErrorHandler() {
+    this.removeAttribute('alt'); // render broken image icon
 }
 
 const p = (...ss) => makeElement('p')()(...ss);
@@ -2459,7 +2464,7 @@ class NoteFetchDialog {
         const $showImagesCheckbox = document.createElement('input');
         $showImagesCheckbox.type = 'checkbox';
         $showImagesCheckboxes.push($showImagesCheckbox);
-        $downloadFieldset.append(makeDiv()(makeLabel()($showImagesCheckbox, ` Show images from StreetComplete`)));
+        $downloadFieldset.append(makeDiv()(makeLabel()($showImagesCheckbox, ` Load and show images from StreetComplete`)));
         $form.append($scopeFieldset, $downloadFieldset, this.makeFetchButtonDiv());
         this.addEventListeners();
         $form.addEventListener('submit', (ev) => {
