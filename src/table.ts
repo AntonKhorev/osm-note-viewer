@@ -317,10 +317,10 @@ export default class NoteTable {
 		if (!(marker instanceof L.Marker)) return
 		const markerPt=this.map.latLngToContainerPoint(marker.getLatLng())
 		const centerPt=this.map.latLngToContainerPoint(this.map.getCenter()) // instead could have gotten container width/2, height/2
-		const needToZoom = (markerPt.x-centerPt.x)**2+(markerPt.y-centerPt.y)**2 < 100
-		if (needToZoom) {
-			const z1=this.map.getZoom()
-			const z2=this.map.getMaxZoom()
+		const markerIsCloseEnoughToCenter = (markerPt.x-centerPt.x)**2+(markerPt.y-centerPt.y)**2 < 100
+		const z1=this.map.getZoom()
+		const z2=this.map.getMaxZoom()
+		if (markerIsCloseEnoughToCenter && z1<z2) {
 			const nextZoom=Math.min(z2,z1+Math.ceil((z2-z1)/2))
 			this.map.flyTo(marker.getLatLng(),nextZoom,{duration:.5}) // default duration is too long despite docs saying it's 0.25
 		} else {
