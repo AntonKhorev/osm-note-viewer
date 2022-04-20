@@ -33,7 +33,11 @@ export default class NoteTable {
 			['mouseenter',   function(){ that.noteSectionMouseEnterListener(this) }],
 			['mouseleave',   function(){ that.noteSectionMouseLeaveListener(this) }],
 			['mousemove',    function(){ that.noteSectionMouseMoveListener(this) }],
-			['click',        function(){ that.focusOnNote(this) }],
+			['click',        function(){
+				const selection=getSelection()
+				if (selection?.type=="Range") return
+				that.focusOnNote(this)
+			}],
 			['animationend', function(){ that.deactivateNote('click',this) }],
 		]
 		this.wrappedNoteCheckboxClickListener=function(ev: MouseEvent){
