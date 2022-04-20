@@ -36,6 +36,7 @@ export default class NoteTable {
 				that.deactivateNote('hover',this)
 			}],
 			['mousemove',function(){
+				$clickReadyNoteSection=undefined // ideally should be reset by 'selectstart' event, however Chrome fires it even if no mouse drag has happened
 				if (!this.classList.contains('active-click')) return
 				resetActiveClickFade(this)
 			}],
@@ -45,9 +46,9 @@ export default class NoteTable {
 			['mousedown',function(){
 				$clickReadyNoteSection=this
 			}],
-			['selectstart',function(){
-				$clickReadyNoteSection=undefined
-			}],
+			// ['selectstart',function(){
+			// 	$clickReadyNoteSection=undefined // Chrome is too eager to fire this event, have to cancel click from 'mousemove' instead
+			// }],
 			['mouseup',function(){
 				if ($clickReadyNoteSection==this) that.focusOnNote(this)
 				$clickReadyNoteSection=undefined
