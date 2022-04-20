@@ -8,9 +8,7 @@ import {makeUserLink} from './util'
 
 export default class NoteTable {
 	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
-	private wrappedNoteSectionMouseoverListener: (this: HTMLTableSectionElement) => void
-	private wrappedNoteSectionMouseoutListener: (this: HTMLTableSectionElement) => void 
-	private wrappedNoteSectionClickListener: (this: HTMLTableSectionElement) => void
+	private wrappedNoteSectionListeners: Array<[event: string, listener: (this:HTMLTableSectionElement)=>void]>
 	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedAllNotesCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedCommentRadioClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
@@ -31,15 +29,13 @@ export default class NoteTable {
 		this.wrappedNoteMarkerClickListener=function(){
 			that.noteMarkerClickListener(this)
 		}
-		this.wrappedNoteSectionMouseoverListener=function(){
-			that.activateNote('hover',this)
-		}
-		this.wrappedNoteSectionMouseoutListener=function(){
-			that.deactivateNote('hover',this)
-		}
-		this.wrappedNoteSectionClickListener=function(){
-			that.focusOnNote(this)
-		}
+		this.wrappedNoteSectionListeners=[
+			['mouseenter',   function(){ that.noteSectionMouseEnterListener(this) }],
+			['mouseleave',   function(){ that.noteSectionMouseLeaveListener(this) }],
+			['mousemove',    function(){ that.noteSectionMouseMoveListener(this) }],
+			['click',        function(){ that.focusOnNote(this) }],
+			['animationend', function(){ that.deactivateNote('click',this) }],
+		]
 		this.wrappedNoteCheckboxClickListener=function(ev: MouseEvent){
 			that.noteCheckboxClickListener(this,ev)
 		}
@@ -242,9 +238,9 @@ export default class NoteTable {
 		$noteSection.classList.add(getStatusClass(note.status))
 		$noteSection.dataset.layerId=String(layerId)
 		$noteSection.dataset.noteId=String(note.id)
-		$noteSection.addEventListener('mouseover',this.wrappedNoteSectionMouseoverListener)
-		$noteSection.addEventListener('mouseout',this.wrappedNoteSectionMouseoutListener)
-		$noteSection.addEventListener('click',this.wrappedNoteSectionClickListener)
+		for (const [event,listener] of this.wrappedNoteSectionListeners) {
+			$noteSection.addEventListener(event,listener)
+		}
 		this.noteSectionLayerIdVisibility.set(layerId,false)
 		this.noteSectionVisibilityObserver.observe($noteSection)
 		if (isVisible) {
@@ -254,6 +250,18 @@ export default class NoteTable {
 			}
 		}
 		return $noteSection
+	}
+	private noteSectionMouseEnterListener($noteSection: HTMLTableSectionElement): void {
+		if ($noteSection.classList.contains('active-click')) return
+		this.activateNote('hover',$noteSection)
+	}
+	private noteSectionMouseLeaveListener($noteSection: HTMLTableSectionElement): void {
+		// if ($noteSection.classList.contains('active-click')) return
+		this.deactivateNote('hover',$noteSection)
+	}
+	private noteSectionMouseMoveListener($noteSection: HTMLTableSectionElement): void {
+		if (!$noteSection.classList.contains('active-click')) return
+		resetActiveClickFade($noteSection)
 	}
 	private noteMarkerClickListener(marker: NoteMarker): void {
 		const $noteSection=document.getElementById(`note-`+marker.noteId)
@@ -312,10 +320,10 @@ export default class NoteTable {
 	}
 	private deactivateNote(type: 'hover'|'click', $noteSection: HTMLTableSectionElement): void {
 		$noteSection.classList.remove('active-'+type)
+		if ($noteSection.classList.contains('active-hover') || $noteSection.classList.contains('active-click')) return
 		const layerId=Number($noteSection.dataset.layerId)
 		const marker=this.map.noteLayer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
-		if ($noteSection.classList.contains('active-hover') || $noteSection.classList.contains('active-click')) return
 		marker.setZIndexOffset(0)
 		marker.setOpacity(0.5)
 	}
@@ -325,9 +333,10 @@ export default class NoteTable {
 			if (!($otherNoteSection instanceof HTMLTableSectionElement)) continue
 			if ($otherNoteSection==$noteSection) {
 				alreadyActive=true
-				continue
+				if (type=='click') resetActiveClickFade($noteSection)
+			} else {
+				this.deactivateNote(type,$otherNoteSection)
 			}
-			this.deactivateNote(type,$otherNoteSection)
 		}
 		if (alreadyActive) return
 		const layerId=Number($noteSection.dataset.layerId)
@@ -459,5 +468,18 @@ function getActionClass(action: NoteComment['action']): string {
 		return 'closed'
 	} else {
 		return 'other'
+	}
+}
+
+function resetActiveClickFade($noteSection: HTMLTableSectionElement): void {
+	const animation=getActiveClickFadeAnimation($noteSection)
+	if (!animation) return
+	animation.currentTime=0
+}
+function getActiveClickFadeAnimation($noteSection: HTMLTableSectionElement): CSSAnimation | undefined {
+	if (typeof CSSAnimation == 'undefined') return // experimental technology, implemented in latest browser versions
+	for (const animation of $noteSection.getAnimations()) {
+		if (!(animation instanceof CSSAnimation)) continue
+		if (animation.animationName=='active-click-fade') return animation
 	}
 }

@@ -207,8 +207,13 @@ body.flipped .panel.fetch button.flip {
 .notes tbody.active-hover {
 	background: #DEF;
 }
+@keyframes active-click-fade {
+	from { background: #FC8; }
+	to { background: transparent; }
+}
 .notes tbody.active-click {
-	background: #FC8;
+	animation-name: active-click-fade;
+	animation-duration: 3s;
 }
 .notes td {
 	vertical-align: top;
