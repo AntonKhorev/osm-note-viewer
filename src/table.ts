@@ -7,11 +7,11 @@ import {toReadableDate} from './query-date'
 import {makeUserLink} from './util'
 
 export default class NoteTable {
-	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
 	private wrappedNoteSectionListeners: Array<[event: string, listener: (this:HTMLTableSectionElement)=>void]>
 	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedAllNotesCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedCommentRadioClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
+	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
 	private noteSectionVisibilityObserver: NoteSectionVisibilityObserver
 	private $table = document.createElement('table')
 	private $selectAllCheckbox = document.createElement('input')
@@ -26,19 +26,32 @@ export default class NoteTable {
 		private showImages: boolean
 	) {
 		const that=this
-		this.wrappedNoteMarkerClickListener=function(){
-			that.noteMarkerClickListener(this)
-		}
+		let $clickReadyNoteSection: HTMLTableSectionElement | undefined
 		this.wrappedNoteSectionListeners=[
-			['mouseenter',   function(){ that.noteSectionMouseEnterListener(this) }],
-			['mouseleave',   function(){ that.noteSectionMouseLeaveListener(this) }],
-			['mousemove',    function(){ that.noteSectionMouseMoveListener(this) }],
-			['click',        function(){
-				const selection=getSelection()
-				if (selection?.type=="Range") return
-				that.focusOnNote(this)
+			['mouseenter',function(){
+				if (this.classList.contains('active-click')) return
+				that.activateNote('hover',this)
 			}],
-			['animationend', function(){ that.deactivateNote('click',this) }],
+			['mouseleave',function(){
+				that.deactivateNote('hover',this)
+			}],
+			['mousemove',function(){
+				if (!this.classList.contains('active-click')) return
+				resetActiveClickFade(this)
+			}],
+			['animationend',function(){
+				that.deactivateNote('click',this)
+			}],
+			['mousedown',function(){
+				$clickReadyNoteSection=this
+			}],
+			['selectstart',function(){
+				$clickReadyNoteSection=undefined
+			}],
+			['mouseup',function(){
+				if ($clickReadyNoteSection==this) that.focusOnNote(this)
+				$clickReadyNoteSection=undefined
+			}]
 		]
 		this.wrappedNoteCheckboxClickListener=function(ev: MouseEvent){
 			that.noteCheckboxClickListener(this,ev)
@@ -48,6 +61,9 @@ export default class NoteTable {
 		}
 		this.wrappedCommentRadioClickListener=function(ev: MouseEvent){
 			that.commentRadioClickListener(this,ev)
+		}
+		this.wrappedNoteMarkerClickListener=function(){
+			that.noteMarkerClickListener(this)
 		}
 		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver(commandPanel,map,this.noteSectionLayerIdVisibility)
 		this.$table.classList.toggle('with-images',showImages)
@@ -254,18 +270,6 @@ export default class NoteTable {
 			}
 		}
 		return $noteSection
-	}
-	private noteSectionMouseEnterListener($noteSection: HTMLTableSectionElement): void {
-		if ($noteSection.classList.contains('active-click')) return
-		this.activateNote('hover',$noteSection)
-	}
-	private noteSectionMouseLeaveListener($noteSection: HTMLTableSectionElement): void {
-		// if ($noteSection.classList.contains('active-click')) return
-		this.deactivateNote('hover',$noteSection)
-	}
-	private noteSectionMouseMoveListener($noteSection: HTMLTableSectionElement): void {
-		if (!$noteSection.classList.contains('active-click')) return
-		resetActiveClickFade($noteSection)
 	}
 	private noteMarkerClickListener(marker: NoteMarker): void {
 		const $noteSection=document.getElementById(`note-`+marker.noteId)
