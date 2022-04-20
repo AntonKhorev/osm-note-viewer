@@ -204,8 +204,16 @@ body.flipped .panel.fetch button.flip {
 .notes tbody.closed {
 	box-shadow: -2px 0px 0px 0px green, 2px 0px 0px 0px green;
 }
-.notes tbody.active {
+.notes tbody.active-hover {
 	background: #DEF;
+}
+@keyframes active-click-fade {
+	from { background: #FC8; }
+	to { background: transparent; }
+}
+.notes tbody.active-click {
+	animation-name: active-click-fade;
+	animation-duration: 3s;
 }
 .notes td {
 	vertical-align: top;
@@ -288,6 +296,9 @@ body.flipped .notes td.note-user {
 }
 .notes table.with-images td.note-comment a.image.float {
 	display: block;
+}
+.notes td.note-comment a.other-note {
+	text-decoration-style: dotted;
 }
 .more div {
 	padding: 1em;

@@ -456,8 +456,8 @@ function getCommentItems(commentText) {
             pushText(part);
             continue;
         }
-        const match = part.match(new RegExp(e `^(${'westnordost.de/p/'}[0-9]+${'.jpg'})(.*)$`, 's'));
-        if (match) {
+        let match = null;
+        if (match = part.match(new RegExp(e `^(${'westnordost.de/p/'}[0-9]+${'.jpg'})(.*)$`, 's'))) {
             const [, hrefPart, rest] = match;
             const href = sep + hrefPart;
             result.push({
@@ -466,9 +466,28 @@ function getCommentItems(commentText) {
                 href
             });
             pushText(rest);
-            continue;
         }
-        pushText(sep + part);
+        else if (match = part.match(new RegExp(e `^(${'osm.org/'}(node|way|relation)${'/'}([0-9]+))(.*)$`, 's'))) {
+            const [, originalHrefPart, osmType, osmId, rest] = match;
+            result.push({
+                type: 'link',
+                text: sep + originalHrefPart,
+                href: `https://www.openstreetmap.org/${osmType}/${osmId}`
+            });
+            pushText(rest);
+        }
+        else if (match = part.match(new RegExp(e `^(${'www.openstreetmap.org/note/'}([0-9]+))(.*)$`, 's'))) {
+            const [, originalHrefPart, osmId, rest] = match;
+            result.push({
+                type: 'note',
+                text: sep + originalHrefPart,
+                id: Number(osmId)
+            });
+            pushText(rest);
+        }
+        else {
+            pushText(sep + part);
+        }
     }
     return result;
     function pushText(text) {
@@ -479,6 +498,91 @@ function getCommentItems(commentText) {
             text
         });
     }
+}
+
+function makeWriteCommentText(pingNoteSection) {
+    return function writeCommentText($cell, commentText, showImages) {
+        const result = [];
+        const images = [];
+        let iImage = 0;
+        for (const item of getCommentItems(commentText)) {
+            if (item.type == 'image') {
+                const $inlineLink = makeLink(item.href, item.href);
+                $inlineLink.classList.add('image', 'inline');
+                result.push($inlineLink);
+                const $img = document.createElement('img');
+                $img.loading = 'lazy'; // this + display:none is not enough to surely stop the browser from accessing the image link
+                if (showImages)
+                    $img.src = item.href; // therefore only set the link if user agreed to loading
+                $img.alt = `attached photo`;
+                $img.addEventListener('error', imageErrorHandler);
+                const $floatLink = document.createElement('a');
+                $floatLink.classList.add('image', 'float');
+                $floatLink.href = item.href;
+                $floatLink.append($img);
+                images.push($floatLink);
+                if (!iImage) {
+                    $cell.addEventListener('mouseover', imageCommentHoverListener);
+                    $cell.addEventListener('mouseout', imageCommentHoverListener);
+                }
+                iImage++;
+            }
+            else if (item.type == 'note') {
+                const $a = makeLink(item.text, `https://www.openstreetmap.org/note/` + item.id);
+                $a.classList.add('other-note');
+                $a.dataset.noteId = String(item.id);
+                $a.addEventListener('click', noteClickListener);
+                result.push($a);
+            }
+            else if (item.type == 'link') {
+                result.push(makeLink(item.text, item.href));
+            }
+            else {
+                result.push(item.text);
+            }
+        }
+        $cell.append(...images, ...result);
+    };
+    function noteClickListener(ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const $noteSection = document.getElementById(`note-` + this.dataset.noteId);
+        if (!($noteSection instanceof HTMLTableSectionElement))
+            return;
+        if ($noteSection.classList.contains('hidden'))
+            return;
+        pingNoteSection($noteSection);
+    }
+}
+function imageCommentHoverListener(ev) {
+    const $targetLink = getTargetLink();
+    if (!$targetLink)
+        return;
+    const $floats = this.querySelectorAll('a.image.float');
+    const $inlines = this.querySelectorAll('a.image.inline');
+    for (let i = 0; i < $floats.length && i < $inlines.length; i++) {
+        if ($floats[i] == $targetLink) {
+            modifyTwinLink($inlines[i]);
+            return;
+        }
+        if ($inlines[i] == $targetLink) {
+            modifyTwinLink($floats[i]);
+            return;
+        }
+    }
+    function getTargetLink() {
+        if (ev.target instanceof HTMLAnchorElement)
+            return ev.target;
+        if (!(ev.target instanceof HTMLElement))
+            return null;
+        return ev.target.closest('a');
+    }
+    function modifyTwinLink($a) {
+        $a.classList.toggle('active', ev.type == 'mouseover');
+    }
+}
+function imageErrorHandler() {
+    this.removeAttribute('alt'); // render broken image icon
 }
 
 function toReadableDate(date) {
@@ -610,20 +714,39 @@ class NoteTable {
         this.noteSectionLayerIdVisibility = new Map();
         this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
         this.usersById = new Map();
+        this.writeCommentText = makeWriteCommentText($noteSection => this.focusOnNote($noteSection));
         const that = this;
-        this.wrappedNoteMarkerClickListener = function () {
-            that.noteMarkerClickListener(this);
-        };
-        this.wrappedNoteSectionMouseoverListener = function () {
-            that.deactivateAllNotes();
-            that.activateNote(this);
-        };
-        this.wrappedNoteSectionMouseoutListener = function () {
-            that.deactivateNote(this);
-        };
-        this.wrappedNoteSectionClickListener = function () {
-            that.focusMapOnNote(this);
-        };
+        let $clickReadyNoteSection;
+        this.wrappedNoteSectionListeners = [
+            ['mouseenter', function () {
+                    if (this.classList.contains('active-click'))
+                        return;
+                    that.activateNote('hover', this);
+                }],
+            ['mouseleave', function () {
+                    that.deactivateNote('hover', this);
+                }],
+            ['mousemove', function () {
+                    $clickReadyNoteSection = undefined; // ideally should be reset by 'selectstart' event, however Chrome fires it even if no mouse drag has happened
+                    if (!this.classList.contains('active-click'))
+                        return;
+                    resetActiveClickFade(this);
+                }],
+            ['animationend', function () {
+                    that.deactivateNote('click', this);
+                }],
+            ['mousedown', function () {
+                    $clickReadyNoteSection = this;
+                }],
+            // ['selectstart',function(){
+            // 	$clickReadyNoteSection=undefined // Chrome is too eager to fire this event, have to cancel click from 'mousemove' instead
+            // }],
+            ['mouseup', function () {
+                    if ($clickReadyNoteSection == this)
+                        that.focusOnNote(this);
+                    $clickReadyNoteSection = undefined;
+                }]
+        ];
         this.wrappedNoteCheckboxClickListener = function (ev) {
             that.noteCheckboxClickListener(this, ev);
         };
@@ -633,7 +756,10 @@ class NoteTable {
         this.wrappedCommentRadioClickListener = function (ev) {
             that.commentRadioClickListener(this, ev);
         };
-        this.noteRowObserver = makeNoteSectionObserver(commandPanel, map, this.noteSectionLayerIdVisibility);
+        this.wrappedNoteMarkerClickListener = function () {
+            that.noteMarkerClickListener(this);
+        };
+        this.noteSectionVisibilityObserver = new NoteSectionVisibilityObserver(commandPanel, map, this.noteSectionLayerIdVisibility);
         this.$table.classList.toggle('with-images', showImages);
         $container.append(this.$table);
         {
@@ -677,7 +803,8 @@ class NoteTable {
                 $noteSection.classList.remove('hidden');
             }
             else {
-                this.deactivateNote($noteSection);
+                this.deactivateNote('click', $noteSection);
+                this.deactivateNote('hover', $noteSection);
                 const marker = this.map.noteLayer.getLayer(layerId);
                 if (marker) {
                     this.map.noteLayer.removeLayer(marker);
@@ -789,7 +916,7 @@ class NoteTable {
                 {
                     const $cell = $row.insertCell();
                     $cell.classList.add('note-comment');
-                    processCommentText($cell, comment.text, this.showImages);
+                    this.writeCommentText($cell, comment.text, this.showImages);
                 }
                 iComment++;
             }
@@ -838,11 +965,11 @@ class NoteTable {
         $noteSection.classList.add(getStatusClass(note.status));
         $noteSection.dataset.layerId = String(layerId);
         $noteSection.dataset.noteId = String(note.id);
-        $noteSection.addEventListener('mouseover', this.wrappedNoteSectionMouseoverListener);
-        $noteSection.addEventListener('mouseout', this.wrappedNoteSectionMouseoutListener);
-        $noteSection.addEventListener('click', this.wrappedNoteSectionClickListener);
+        for (const [event, listener] of this.wrappedNoteSectionListeners) {
+            $noteSection.addEventListener(event, listener);
+        }
         this.noteSectionLayerIdVisibility.set(layerId, false);
-        this.noteRowObserver.observe($noteSection);
+        this.noteSectionVisibilityObserver.observe($noteSection);
         if (isVisible) {
             if (this.$selectAllCheckbox.checked) {
                 this.$selectAllCheckbox.checked = false;
@@ -852,14 +979,10 @@ class NoteTable {
         return $noteSection;
     }
     noteMarkerClickListener(marker) {
-        this.commandPanel.disableFitting();
-        this.deactivateAllNotes();
-        const $noteRows = document.getElementById(`note-` + marker.noteId);
-        if (!$noteRows)
+        const $noteSection = document.getElementById(`note-` + marker.noteId);
+        if (!($noteSection instanceof HTMLTableSectionElement))
             return;
-        $noteRows.scrollIntoView({ block: 'nearest' });
-        this.activateNote($noteRows);
-        this.focusMapOnNote($noteRows);
+        this.focusOnNote($noteSection);
     }
     noteCheckboxClickListener($checkbox, ev) {
         ev.stopPropagation();
@@ -896,14 +1019,31 @@ class NoteTable {
         const $text = $clickedRow.querySelector('td.note-comment');
         this.commandPanel.receiveCheckedComment($time.dateTime, $text?.textContent ?? undefined);
     }
-    deactivateAllNotes() {
-        for (const $noteRows of this.$table.querySelectorAll('tbody.active')) {
-            this.deactivateNote($noteRows);
+    focusOnNote($noteSection) {
+        this.activateNote('click', $noteSection);
+        this.noteSectionVisibilityObserver.haltMapFitting(); // otherwise scrollIntoView() may ruin note pan/zoom - it may cause observer to fire after exiting this function
+        $noteSection.scrollIntoView({ block: 'nearest' });
+        const layerId = Number($noteSection.dataset.layerId);
+        const marker = this.map.noteLayer.getLayer(layerId);
+        if (!(marker instanceof L.Marker))
+            return;
+        const markerPt = this.map.latLngToContainerPoint(marker.getLatLng());
+        const centerPt = this.map.latLngToContainerPoint(this.map.getCenter()); // instead could have gotten container width/2, height/2
+        const needToZoom = (markerPt.x - centerPt.x) ** 2 + (markerPt.y - centerPt.y) ** 2 < 100;
+        if (needToZoom) {
+            const z1 = this.map.getZoom();
+            const z2 = this.map.getMaxZoom();
+            const nextZoom = Math.min(z2, z1 + Math.ceil((z2 - z1) / 2));
+            this.map.flyTo(marker.getLatLng(), nextZoom, { duration: .5 }); // default duration is too long despite docs saying it's 0.25
+        }
+        else {
+            this.map.panTo(marker.getLatLng());
         }
     }
-    deactivateNote($noteSection) {
-        this.currentLayerId = undefined;
-        $noteSection.classList.remove('active');
+    deactivateNote(type, $noteSection) {
+        $noteSection.classList.remove('active-' + type);
+        if ($noteSection.classList.contains('active-hover') || $noteSection.classList.contains('active-click'))
+            return;
         const layerId = Number($noteSection.dataset.layerId);
         const marker = this.map.noteLayer.getLayer(layerId);
         if (!(marker instanceof L.Marker))
@@ -911,30 +1051,29 @@ class NoteTable {
         marker.setZIndexOffset(0);
         marker.setOpacity(0.5);
     }
-    activateNote($noteSection) {
+    activateNote(type, $noteSection) {
+        let alreadyActive = false;
+        for (const $otherNoteSection of this.$table.querySelectorAll('tbody.active-' + type)) {
+            if (!($otherNoteSection instanceof HTMLTableSectionElement))
+                continue;
+            if ($otherNoteSection == $noteSection) {
+                alreadyActive = true;
+                if (type == 'click')
+                    resetActiveClickFade($noteSection);
+            }
+            else {
+                this.deactivateNote(type, $otherNoteSection);
+            }
+        }
+        if (alreadyActive)
+            return;
         const layerId = Number($noteSection.dataset.layerId);
         const marker = this.map.noteLayer.getLayer(layerId);
         if (!(marker instanceof L.Marker))
             return;
         marker.setOpacity(1);
         marker.setZIndexOffset(1000);
-        $noteSection.classList.add('active');
-    }
-    focusMapOnNote($noteSection) {
-        const layerId = Number($noteSection.dataset.layerId);
-        const marker = this.map.noteLayer.getLayer(layerId);
-        if (!(marker instanceof L.Marker))
-            return;
-        if (layerId == this.currentLayerId) {
-            const z1 = this.map.getZoom();
-            const z2 = this.map.getMaxZoom();
-            const nextZoom = Math.min(z2, z1 + Math.ceil((z2 - z1) / 2));
-            this.map.flyTo(marker.getLatLng(), nextZoom);
-        }
-        else {
-            this.currentLayerId = layerId;
-            this.map.panTo(marker.getLatLng());
-        }
+        $noteSection.classList.add('active-' + type);
     }
     updateCheckboxDependents() {
         const checkedNotes = [];
@@ -1002,29 +1141,42 @@ class NoteTable {
         }
     }
 }
-function makeNoteSectionObserver(commandPanel, map, noteSectionLayerIdVisibility) {
-    let noteSectionVisibilityTimeoutId;
-    return new IntersectionObserver((entries) => {
-        for (const entry of entries) {
-            if (!(entry.target instanceof HTMLElement))
-                continue;
-            const layerId = entry.target.dataset.layerId;
-            if (layerId == null)
-                continue;
-            noteSectionLayerIdVisibility.set(Number(layerId), entry.isIntersecting);
-        }
-        clearTimeout(noteSectionVisibilityTimeoutId);
-        noteSectionVisibilityTimeoutId = setTimeout(noteSectionVisibilityHandler);
-    });
-    function noteSectionVisibilityHandler() {
-        const visibleLayerIds = [];
-        for (const [layerId, visibility] of noteSectionLayerIdVisibility) {
-            if (visibility)
-                visibleLayerIds.push(layerId);
-        }
-        map.showNoteTrack(visibleLayerIds);
-        if (commandPanel.fitMode == 'inViewNotes')
-            map.fitNoteTrack();
+class NoteSectionVisibilityObserver {
+    constructor(commandPanel, map, noteSectionLayerIdVisibility) {
+        this.isMapFittingHalted = false;
+        const noteSectionVisibilityHandler = () => {
+            const visibleLayerIds = [];
+            for (const [layerId, visibility] of noteSectionLayerIdVisibility) {
+                if (visibility)
+                    visibleLayerIds.push(layerId);
+            }
+            map.showNoteTrack(visibleLayerIds);
+            if (!this.isMapFittingHalted && commandPanel.fitMode == 'inViewNotes')
+                map.fitNoteTrack();
+        };
+        this.intersectionObserver = new IntersectionObserver((entries) => {
+            for (const entry of entries) {
+                if (!(entry.target instanceof HTMLElement))
+                    continue;
+                const layerId = entry.target.dataset.layerId;
+                if (layerId == null)
+                    continue;
+                noteSectionLayerIdVisibility.set(Number(layerId), entry.isIntersecting);
+            }
+            clearTimeout(this.visibilityTimeoutId);
+            this.visibilityTimeoutId = setTimeout(noteSectionVisibilityHandler);
+        });
+    }
+    observe($noteSection) {
+        this.intersectionObserver.observe($noteSection);
+    }
+    haltMapFitting() {
+        clearTimeout(this.visibilityTimeoutId);
+        clearTimeout(this.haltingTimeoutId);
+        this.isMapFittingHalted = true;
+        this.haltingTimeoutId = setTimeout(() => {
+            this.isMapFittingHalted = false;
+        }, 100);
     }
 }
 function getStatusClass(status) {
@@ -1049,67 +1201,21 @@ function getActionClass(action) {
         return 'other';
     }
 }
-function imageCommentHoverListener(ev) {
-    const $targetLink = getTargetLink();
-    if (!$targetLink)
+function resetActiveClickFade($noteSection) {
+    const animation = getActiveClickFadeAnimation($noteSection);
+    if (!animation)
         return;
-    const $floats = this.querySelectorAll('a.image.float');
-    const $inlines = this.querySelectorAll('a.image.inline');
-    for (let i = 0; i < $floats.length && i < $inlines.length; i++) {
-        if ($floats[i] == $targetLink) {
-            modifyTwinLink($inlines[i]);
-            return;
-        }
-        if ($inlines[i] == $targetLink) {
-            modifyTwinLink($floats[i]);
-            return;
-        }
-    }
-    function getTargetLink() {
-        if (ev.target instanceof HTMLAnchorElement)
-            return ev.target;
-        if (!(ev.target instanceof HTMLElement))
-            return null;
-        return ev.target.closest('a');
-    }
-    function modifyTwinLink($a) {
-        $a.classList.toggle('active', ev.type == 'mouseover');
-    }
+    animation.currentTime = 0;
 }
-function processCommentText($cell, commentText, showImages) {
-    const result = [];
-    const images = [];
-    let iImage = 0;
-    for (const item of getCommentItems(commentText)) {
-        if (item.type == 'image') {
-            const $inlineLink = makeLink(item.href, item.href);
-            $inlineLink.classList.add('image', 'inline');
-            result.push($inlineLink);
-            const $img = document.createElement('img');
-            $img.loading = 'lazy'; // this + display:none is not enough to surely stop the browser from accessing the image link
-            if (showImages)
-                $img.src = item.href; // therefore only set the link if user agreed to loading
-            $img.alt = `attached photo`;
-            $img.addEventListener('error', imageErrorHandler);
-            const $floatLink = document.createElement('a');
-            $floatLink.classList.add('image', 'float');
-            $floatLink.href = item.href;
-            $floatLink.append($img);
-            images.push($floatLink);
-            if (!iImage) {
-                $cell.addEventListener('mouseover', imageCommentHoverListener);
-                $cell.addEventListener('mouseout', imageCommentHoverListener);
-            }
-            iImage++;
-        }
-        else {
-            result.push(item.text);
-        }
+function getActiveClickFadeAnimation($noteSection) {
+    if (typeof CSSAnimation == 'undefined')
+        return; // experimental technology, implemented in latest browser versions
+    for (const animation of $noteSection.getAnimations()) {
+        if (!(animation instanceof CSSAnimation))
+            continue;
+        if (animation.animationName == 'active-click-fade')
+            return animation;
     }
-    $cell.append(...images, ...result);
-}
-function imageErrorHandler() {
-    this.removeAttribute('alt'); // render broken image icon
 }
 
 const p = (...ss) => makeElement('p')()(...ss);
