@@ -321,7 +321,7 @@ export default class NoteTable {
 			const z1=this.map.getZoom()
 			const z2=this.map.getMaxZoom()
 			const nextZoom=Math.min(z2,z1+Math.ceil((z2-z1)/2))
-			this.map.flyTo(marker.getLatLng(),nextZoom)
+			this.map.flyTo(marker.getLatLng(),nextZoom,{duration:.5}) // default duration is too long despite docs saying it's 0.25
 		} else {
 			this.map.panTo(marker.getLatLng())
 		}
