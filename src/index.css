@@ -114,6 +114,9 @@ body.flipped .panel.fetch button.flip {
 	height: var(--info-size);
 	background: url("info.svg") no-repeat;
 }
+.panel.command details.tool button.info:not(.open) {
+	cursor: help;
+}
 .panel.command details.tool button.info:hover {
 	background: url("info-hover.svg") no-repeat, url("info.svg") no-repeat;
 }
