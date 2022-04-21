@@ -500,8 +500,20 @@ function getCommentItems(commentText) {
     }
 }
 
-function makeWriteCommentText(pingNoteSection) {
-    return function writeCommentText($cell, commentText, showImages) {
+class NoteTableCommentWriter {
+    constructor(pingNoteSection) {
+        this.wrappedNoteLinkClickListener = function (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            const $noteSection = document.getElementById(`note-` + this.dataset.noteId);
+            if (!($noteSection instanceof HTMLTableSectionElement))
+                return;
+            if ($noteSection.classList.contains('hidden'))
+                return;
+            pingNoteSection($noteSection);
+        };
+    }
+    writeCommentText($cell, commentText, showImages) {
         const result = [];
         const images = [];
         let iImage = 0;
@@ -531,7 +543,8 @@ function makeWriteCommentText(pingNoteSection) {
                 const $a = makeLink(item.text, `https://www.openstreetmap.org/note/` + item.id);
                 $a.classList.add('other-note');
                 $a.dataset.noteId = String(item.id);
-                $a.addEventListener('click', noteClickListener);
+                // updateNoteLink($a) // handleNotesUpdate() is going to be run anyway
+                $a.addEventListener('click', this.wrappedNoteLinkClickListener);
                 result.push($a);
             }
             else if (item.type == 'link') {
@@ -542,16 +555,39 @@ function makeWriteCommentText(pingNoteSection) {
             }
         }
         $cell.append(...images, ...result);
-    };
-    function noteClickListener(ev) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        const $noteSection = document.getElementById(`note-` + this.dataset.noteId);
-        if (!($noteSection instanceof HTMLTableSectionElement))
-            return;
-        if ($noteSection.classList.contains('hidden'))
-            return;
-        pingNoteSection($noteSection);
+    }
+    handleShowImagesUpdate($table, showImages) {
+        for (const $a of $table.querySelectorAll('td.note-comment a.image.float')) {
+            if (!($a instanceof HTMLAnchorElement))
+                continue;
+            const $img = $a.firstChild;
+            if (!($img instanceof HTMLImageElement))
+                continue;
+            if (showImages && !$img.src)
+                $img.src = $a.href; // don't remove src when showImages is disabled, otherwise will reload all images when src is set back
+        }
+    }
+    handleNotesUpdate($table) {
+        for (const $a of $table.querySelectorAll('td.note-comment a.other-note')) {
+            if (!($a instanceof HTMLAnchorElement))
+                continue;
+            updateNoteLink($a);
+        }
+    }
+}
+function updateNoteLink($a) {
+    const $noteSection = document.getElementById(`note-` + $a.dataset.noteId);
+    if (!($noteSection instanceof HTMLTableSectionElement)) {
+        $a.classList.add('absent');
+        $a.title = `The note is not downloaded`;
+    }
+    else if ($noteSection.classList.contains('hidden')) {
+        $a.classList.add('absent');
+        $a.title = `The note is filtered out`;
+    }
+    else {
+        $a.classList.remove('absent');
+        $a.title = '';
     }
 }
 function imageCommentHoverListener(ev) {
@@ -714,7 +750,7 @@ class NoteTable {
         this.noteSectionLayerIdVisibility = new Map();
         this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
         this.usersById = new Map();
-        this.writeCommentText = makeWriteCommentText($noteSection => this.focusOnNote($noteSection));
+        this.commentWriter = new NoteTableCommentWriter($noteSection => this.focusOnNote($noteSection));
         const that = this;
         let $clickReadyNoteSection;
         this.wrappedNoteSectionListeners = [
@@ -741,9 +777,9 @@ class NoteTable {
             // ['selectstart',function(){
             // 	$clickReadyNoteSection=undefined // Chrome is too eager to fire this event, have to cancel click from 'mousemove' instead
             // }],
-            ['mouseup', function () {
+            ['click', function () {
                     if ($clickReadyNoteSection == this)
-                        that.focusOnNote(this);
+                        that.focusOnNote(this, true);
                     $clickReadyNoteSection = undefined;
                 }]
         ];
@@ -818,6 +854,7 @@ class NoteTable {
         }
         this.commandPanel.receiveNoteCounts(nFetched, nVisible);
         this.updateCheckboxDependents();
+        this.commentWriter.handleNotesUpdate(this.$table);
     }
     /**
      * @returns number of added notes that passed through the filter
@@ -916,7 +953,7 @@ class NoteTable {
                 {
                     const $cell = $row.insertCell();
                     $cell.classList.add('note-comment');
-                    this.writeCommentText($cell, comment.text, this.showImages);
+                    this.commentWriter.writeCommentText($cell, comment.text, this.showImages);
                 }
                 iComment++;
             }
@@ -937,20 +974,13 @@ class NoteTable {
                 nVisible++;
         }
         this.commandPanel.receiveNoteCounts(nFetched, nVisible);
+        this.commentWriter.handleNotesUpdate(this.$table);
         return nUnfilteredNotes;
     }
     setShowImages(showImages) {
         this.showImages = showImages;
         this.$table.classList.toggle('with-images', showImages);
-        for (const $a of this.$table.querySelectorAll('td.note-comment a.image.float')) {
-            if (!($a instanceof HTMLAnchorElement))
-                continue;
-            const $img = $a.firstChild;
-            if (!($img instanceof HTMLImageElement))
-                continue;
-            if (showImages && !$img.src)
-                $img.src = $a.href; // don't remove src when showImages is disabled, otherwise will reload all images when src is set back
-        }
+        this.commentWriter.handleShowImagesUpdate(this.$table, showImages);
     }
     writeNote(note, isVisible) {
         const marker = new NoteMarker(note);
@@ -1019,20 +1049,21 @@ class NoteTable {
         const $text = $clickedRow.querySelector('td.note-comment');
         this.commandPanel.receiveCheckedComment($time.dateTime, $text?.textContent ?? undefined);
     }
-    focusOnNote($noteSection) {
+    focusOnNote($noteSection, isSectionClicked = false) {
         this.activateNote('click', $noteSection);
         this.noteSectionVisibilityObserver.haltMapFitting(); // otherwise scrollIntoView() may ruin note pan/zoom - it may cause observer to fire after exiting this function
-        $noteSection.scrollIntoView({ block: 'nearest' });
+        if (!isSectionClicked)
+            $noteSection.scrollIntoView({ block: 'nearest' });
         const layerId = Number($noteSection.dataset.layerId);
         const marker = this.map.noteLayer.getLayer(layerId);
         if (!(marker instanceof L.Marker))
             return;
         const markerPt = this.map.latLngToContainerPoint(marker.getLatLng());
         const centerPt = this.map.latLngToContainerPoint(this.map.getCenter()); // instead could have gotten container width/2, height/2
-        const needToZoom = (markerPt.x - centerPt.x) ** 2 + (markerPt.y - centerPt.y) ** 2 < 100;
-        if (needToZoom) {
-            const z1 = this.map.getZoom();
-            const z2 = this.map.getMaxZoom();
+        const markerIsCloseEnoughToCenter = (markerPt.x - centerPt.x) ** 2 + (markerPt.y - centerPt.y) ** 2 < 100;
+        const z1 = this.map.getZoom();
+        const z2 = this.map.getMaxZoom();
+        if (markerIsCloseEnoughToCenter && z1 < z2) {
             const nextZoom = Math.min(z2, z1 + Math.ceil((z2 - z1) / 2));
             this.map.flyTo(marker.getLatLng(), nextZoom, { duration: .5 }); // default duration is too long despite docs saying it's 0.25
         }

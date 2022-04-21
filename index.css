@@ -300,6 +300,12 @@ body.flipped .notes td.note-user {
 .notes td.note-comment a.other-note {
 	text-decoration-style: dotted;
 }
+.notes td.note-comment a.other-note.absent {
+	text-decoration-color: #A00;
+}
+.notes td.note-comment a.other-note.absent:active {
+	cursor: not-allowed;
+}
 .more div {
 	padding: 1em;
 }
