@@ -31,7 +31,12 @@ describe("getCommentItems",()=>{
 		)
 		assert.deepEqual(result,[
 			{type:'text',text:`Unable to answer "What’s the surface of the sidewalk here?" for `},
-			{type:'link',link:'osm',osm:'element',text:`https://osm.org/way/123456`,href:`https://www.openstreetmap.org/way/123456`},
+			{
+				type:'link',link:'osm',osm:'element',
+				text:`https://osm.org/way/123456`,
+				href:`https://www.openstreetmap.org/way/123456`,
+				map:undefined
+			},
 			{type:'text',text:` via StreetComplete 42.0`},
 		])
 	})
@@ -42,8 +47,70 @@ describe("getCommentItems",()=>{
 		)
 		assert.deepEqual(result,[
 			{type:'text',text:`Note en double (`},
-			{type:'link',link:'osm',osm:'note',text:`https://www.openstreetmap.org/note/32123`,href:`https://www.openstreetmap.org/note/32123`,id:32123},
+			{
+				type:'link',link:'osm',osm:'note',
+				text:`https://www.openstreetmap.org/note/32123`,
+				href:`https://www.openstreetmap.org/note/32123`,
+				id:32123,map:undefined
+			},
 			{type:'text',text:`).\nSi vous voulez l'ajouter ...`},
+		])
+	})
+	it("parses osm root link with map parameter",()=>{
+		const result=run(
+			`https://www.openstreetmap.org/#map=11/59.9444/30.2914&layers=N`
+		)
+		assert.deepEqual(result,[
+			{
+				type:'link',link:'osm',osm:'root',
+				text:`https://www.openstreetmap.org/#map=11/59.9444/30.2914&layers=N`,
+				href:`https://www.openstreetmap.org/#map=11/59.9444/30.2914&layers=N`,
+				map: [11,59.9444,30.2914]
+			}
+		])
+	})
+	it("parses timestamped mapsme comment",()=>{
+		const result=run(
+			`"Cheap rides - buses baratos"`,
+			`POI name: Bus Whatever Name`,
+			`POI types: highway-bus_stop`,
+			`OSM data version: 2021-05-24T07:43:34Z`,
+			` #mapsme`
+		)
+		assert.deepEqual(result,[
+			{type:'text',text:`"Cheap rides - buses baratos"\nPOI name: Bus Whatever Name\nPOI types: highway-bus_stop\nOSM data version: `},
+			{type:'date',text:`2021-05-24T07:43:34Z`},
+			{type:'text',text:`\n #mapsme`},
+		])
+	})
+	it("parses timestamp followed by link",()=>{
+		const result=run(
+			`2021-06-24T07:43:34Z + https://www.openstreetmap.org/`
+		)
+		assert.deepEqual(result,[
+			{type:'date',text:`2021-06-24T07:43:34Z`},
+			{type:'text',text:` + `},
+			{
+				type:'link',link:'osm',osm:'root',
+				text:`https://www.openstreetmap.org/`,
+				href:`https://www.openstreetmap.org/`,
+				map:undefined
+			},
+		])
+	})
+	it("parses link followed by timestamp",()=>{
+		const result=run(
+			`https://www.openstreetmap.org/ + 2021-07-24T07:43:34Z`
+		)
+		assert.deepEqual(result,[
+			{
+				type:'link',link:'osm',osm:'root',
+				text:`https://www.openstreetmap.org/`,
+				href:`https://www.openstreetmap.org/`,
+				map:undefined
+			},
+			{type:'text',text:` + `},
+			{type:'date',text:`2021-07-24T07:43:34Z`},
 		])
 	})
 })

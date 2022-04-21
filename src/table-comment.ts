@@ -45,6 +45,8 @@ export default class NoteTableCommentWriter {
 				$a.addEventListener('click',this.wrappedNoteLinkClickListener)
 				result.push($a)
 			} else if (item.type=='link') {
+				// TODO zoom map
+				// TODO render element
 				result.push(makeLink(item.text,item.href))
 			} else {
 				result.push(item.text)
