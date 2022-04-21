@@ -50,7 +50,7 @@ export default class NoteTable {
 			// 	$clickReadyNoteSection=undefined // Chrome is too eager to fire this event, have to cancel click from 'mousemove' instead
 			// }],
 			['click',function(){ // need 'click' and not 'mouseup' event because elements inside may listen to click and choose to cancel it
-				if ($clickReadyNoteSection==this) that.focusOnNote(this)
+				if ($clickReadyNoteSection==this) that.focusOnNote(this,true)
 				$clickReadyNoteSection=undefined
 			}]
 		]
@@ -305,10 +305,10 @@ export default class NoteTable {
 		const $text=$clickedRow.querySelector('td.note-comment')
 		this.commandPanel.receiveCheckedComment($time.dateTime,$text?.textContent??undefined)
 	}
-	private focusOnNote($noteSection: HTMLTableSectionElement): void {
+	private focusOnNote($noteSection: HTMLTableSectionElement, isSectionClicked: boolean = false): void {
 		this.activateNote('click',$noteSection)
 		this.noteSectionVisibilityObserver.haltMapFitting() // otherwise scrollIntoView() may ruin note pan/zoom - it may cause observer to fire after exiting this function
-		$noteSection.scrollIntoView({block:'nearest'})
+		if (!isSectionClicked) $noteSection.scrollIntoView({block:'nearest'})
 		const layerId=Number($noteSection.dataset.layerId)
 		const marker=this.map.noteLayer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
