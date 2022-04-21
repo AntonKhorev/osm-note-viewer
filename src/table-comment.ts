@@ -41,6 +41,7 @@ export default class NoteTableCommentWriter {
 				const $a=makeLink(item.text,`https://www.openstreetmap.org/note/`+item.id)
 				$a.classList.add('other-note')
 				$a.dataset.noteId=String(item.id)
+				// updateNoteLink($a) // handleNotesUpdate() is going to be run anyway
 				$a.addEventListener('click',this.wrappedNoteLinkClickListener)
 				result.push($a)
 			} else if (item.type=='link') {
@@ -58,6 +59,26 @@ export default class NoteTableCommentWriter {
 			if (!($img instanceof HTMLImageElement)) continue
 			if (showImages && !$img.src) $img.src=$a.href // don't remove src when showImages is disabled, otherwise will reload all images when src is set back
 		}
+	}
+	handleNotesUpdate($table: HTMLTableElement): void {
+		for (const $a of $table.querySelectorAll('td.note-comment a.other-note')) {
+			if (!($a instanceof HTMLAnchorElement)) continue
+			updateNoteLink($a)
+		}
+	}
+}
+
+function updateNoteLink($a: HTMLAnchorElement): void {
+	const $noteSection=document.getElementById(`note-`+$a.dataset.noteId)
+	if (!($noteSection instanceof HTMLTableSectionElement)) {
+		$a.classList.add('absent')
+		$a.title=`The note is not downloaded`
+	} else if ($noteSection.classList.contains('hidden')) {
+		$a.classList.add('absent')
+		$a.title=`The note is filtered out`
+	} else {
+		$a.classList.remove('absent')
+		$a.title=''
 	}
 }
 

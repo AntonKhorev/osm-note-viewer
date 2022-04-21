@@ -128,6 +128,7 @@ export default class NoteTable {
 		}
 		this.commandPanel.receiveNoteCounts(nFetched,nVisible)
 		this.updateCheckboxDependents()
+		this.commentWriter.handleNotesUpdate(this.$table)
 	}
 	/**
 	 * @returns number of added notes that passed through the filter
@@ -235,6 +236,7 @@ export default class NoteTable {
 			if (!$noteSection.classList.contains('hidden')) nVisible++
 		}
 		this.commandPanel.receiveNoteCounts(nFetched,nVisible)
+		this.commentWriter.handleNotesUpdate(this.$table)
 		return nUnfilteredNotes
 	}
 	setShowImages(showImages: boolean) {
