@@ -240,12 +240,7 @@ export default class NoteTable {
 	setShowImages(showImages: boolean) {
 		this.showImages=showImages
 		this.$table.classList.toggle('with-images',showImages)
-		for (const $a of this.$table.querySelectorAll('td.note-comment a.image.float')) {
-			if (!($a instanceof HTMLAnchorElement)) continue
-			const $img=$a.firstChild
-			if (!($img instanceof HTMLImageElement)) continue
-			if (showImages && !$img.src) $img.src=$a.href // don't remove src when showImages is disabled, otherwise will reload all images when src is set back
-		}
+		this.commentWriter.handleShowImagesUpdate(this.$table,showImages)
 	}
 	private writeNote(note: Note, isVisible: boolean): HTMLTableSectionElement {
 		const marker=new NoteMarker(note)

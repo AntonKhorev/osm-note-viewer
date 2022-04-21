@@ -51,6 +51,14 @@ export default class NoteTableCommentWriter {
 		}
 		$cell.append(...images,...result)
 	}
+	handleShowImagesUpdate($table: HTMLTableElement, showImages: boolean): void {
+		for (const $a of $table.querySelectorAll('td.note-comment a.image.float')) {
+			if (!($a instanceof HTMLAnchorElement)) continue
+			const $img=$a.firstChild
+			if (!($img instanceof HTMLImageElement)) continue
+			if (showImages && !$img.src) $img.src=$a.href // don't remove src when showImages is disabled, otherwise will reload all images when src is set back
+		}
+	}
 }
 
 function imageCommentHoverListener(this: HTMLElement, ev: MouseEvent): void {
