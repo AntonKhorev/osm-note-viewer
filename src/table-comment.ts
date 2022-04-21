@@ -1,8 +1,19 @@
 import getCommentItems from './comment'
 import {makeLink} from './util'
 
-export default function makeWriteCommentText(pingNoteSection: ($noteSection: HTMLTableSectionElement)=>void) {
-	return function writeCommentText($cell: HTMLElement, commentText: string, showImages: boolean): void {
+export default class NoteTableCommentWriter {
+	wrappedNoteLinkClickListener: (this: HTMLAnchorElement, ev: MouseEvent)=>void
+	constructor(pingNoteSection: ($noteSection: HTMLTableSectionElement)=>void) {
+		this.wrappedNoteLinkClickListener=function(this: HTMLAnchorElement, ev: MouseEvent){
+			ev.preventDefault()
+			ev.stopPropagation()
+			const $noteSection=document.getElementById(`note-`+this.dataset.noteId)
+			if (!($noteSection instanceof HTMLTableSectionElement)) return
+			if ($noteSection.classList.contains('hidden')) return
+			pingNoteSection($noteSection)
+		}
+	}
+	writeCommentText($cell: HTMLElement, commentText: string, showImages: boolean): void {
 		const result: Array<string|HTMLElement> = []
 		const images: Array<HTMLAnchorElement> = []
 		let iImage=0
@@ -30,7 +41,7 @@ export default function makeWriteCommentText(pingNoteSection: ($noteSection: HTM
 				const $a=makeLink(item.text,`https://www.openstreetmap.org/note/`+item.id)
 				$a.classList.add('other-note')
 				$a.dataset.noteId=String(item.id)
-				$a.addEventListener('click',noteClickListener)
+				$a.addEventListener('click',this.wrappedNoteLinkClickListener)
 				result.push($a)
 			} else if (item.type=='link') {
 				result.push(makeLink(item.text,item.href))
@@ -39,14 +50,6 @@ export default function makeWriteCommentText(pingNoteSection: ($noteSection: HTM
 			}
 		}
 		$cell.append(...images,...result)
-	}
-	function noteClickListener(this: HTMLAnchorElement, ev: MouseEvent) {
-		ev.preventDefault()
-		ev.stopPropagation()
-		const $noteSection=document.getElementById(`note-`+this.dataset.noteId)
-		if (!($noteSection instanceof HTMLTableSectionElement)) return
-		if ($noteSection.classList.contains('hidden')) return
-		pingNoteSection($noteSection)
 	}
 }
 

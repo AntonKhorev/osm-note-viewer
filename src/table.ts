@@ -1,6 +1,6 @@
 import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
-import makeWriteCommentText from './table-comment'
+import NoteTableCommentWriter from './table-comment'
 import CommandPanel from './command-panel'
 import NoteFilter from './filter'
 import {toReadableDate} from './query-date'
@@ -19,7 +19,7 @@ export default class NoteTable {
 	private $lastClickedNoteSection: HTMLTableSectionElement | undefined
 	private notesById = new Map<number,Note>() // in the future these might be windowed to limit the amount of stuff on one page
 	private usersById = new Map<number,string>()
-	private writeCommentText=makeWriteCommentText($noteSection=>this.focusOnNote($noteSection))
+	private commentWriter=new NoteTableCommentWriter($noteSection=>this.focusOnNote($noteSection))
 	constructor(
 		$container: HTMLElement, 
 		private commandPanel: CommandPanel, private map: NoteMap, private filter: NoteFilter, 
@@ -217,7 +217,7 @@ export default class NoteTable {
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-comment')
-					this.writeCommentText($cell,comment.text,this.showImages)
+					this.commentWriter.writeCommentText($cell,comment.text,this.showImages)
 				}
 				iComment++
 			}
