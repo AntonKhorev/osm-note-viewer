@@ -18,7 +18,7 @@ export default class NoteTableCommentWriter {
 		const images: Array<HTMLAnchorElement> = []
 		let iImage=0
 		for (const item of getCommentItems(commentText)) {
-			if (item.type=='image') {
+			if (item.type=='link' && item.link=='image') {
 				const $inlineLink=makeLink(item.href,item.href)
 				$inlineLink.classList.add('image','inline')
 				result.push($inlineLink)
@@ -37,8 +37,8 @@ export default class NoteTableCommentWriter {
 					$cell.addEventListener('mouseout',imageCommentHoverListener)
 				}
 				iImage++
-			} else if (item.type=='note') {
-				const $a=makeLink(item.text,`https://www.openstreetmap.org/note/`+item.id)
+			} else if (item.type=='link' && item.link=='osm' && item.osm=='note') {
+				const $a=makeLink(item.text,item.href)
 				$a.classList.add('other-note')
 				$a.dataset.noteId=String(item.id)
 				// updateNoteLink($a) // handleNotesUpdate() is going to be run anyway

@@ -20,9 +20,9 @@ describe("getCommentItems",()=>{
 		)
 		assert.deepEqual(result,[
 			{type:'text',text:`Some thing\n\nvia StreetComplete 40.0\n\nAttached photo(s):\n`},
-			{type:'image',text:`https://westnordost.de/p/123.jpg`,href:`https://westnordost.de/p/123.jpg`},
+			{type:'link',link:'image',text:`https://westnordost.de/p/123.jpg`,href:`https://westnordost.de/p/123.jpg`},
 			{type:'text',text:`\n`},
-			{type:'image',text:`https://westnordost.de/p/456.jpg`,href:`https://westnordost.de/p/456.jpg`},
+			{type:'link',link:'image',text:`https://westnordost.de/p/456.jpg`,href:`https://westnordost.de/p/456.jpg`},
 		])
 	})
 	it("parses osm.org link",()=>{
@@ -31,7 +31,7 @@ describe("getCommentItems",()=>{
 		)
 		assert.deepEqual(result,[
 			{type:'text',text:`Unable to answer "What’s the surface of the sidewalk here?" for `},
-			{type:'link',text:`https://osm.org/way/123456`,href:`https://www.openstreetmap.org/way/123456`},
+			{type:'link',link:'osm',osm:'element',text:`https://osm.org/way/123456`,href:`https://www.openstreetmap.org/way/123456`},
 			{type:'text',text:` via StreetComplete 42.0`},
 		])
 	})
@@ -42,7 +42,7 @@ describe("getCommentItems",()=>{
 		)
 		assert.deepEqual(result,[
 			{type:'text',text:`Note en double (`},
-			{type:'note',text:`https://www.openstreetmap.org/note/32123`,id:32123},
+			{type:'link',link:'osm',osm:'note',text:`https://www.openstreetmap.org/note/32123`,href:`https://www.openstreetmap.org/note/32123`,id:32123},
 			{type:'text',text:`).\nSi vous voulez l'ajouter ...`},
 		])
 	})

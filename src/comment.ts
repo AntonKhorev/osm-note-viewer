@@ -3,27 +3,32 @@ import {escapeRegex, makeEscapeTag} from './util'
 interface BaseCommentItem {
 	text: string
 }
-
 interface TextCommentItem extends BaseCommentItem {
 	type: 'text'
 }
-
-interface ImageCommentItem extends BaseCommentItem {
-	type: 'image'
-	href: string
+interface DateCommentItem extends BaseCommentItem {
+	type: 'date'
 }
-
 interface LinkCommentItem extends BaseCommentItem {
 	type: 'link'
 	href: string
 }
-
-interface NoteCommentItem extends BaseCommentItem {
-	type: 'note'
+interface ImageCommentItem extends LinkCommentItem {
+	link: 'image'
+}
+interface OsmCommentItem extends LinkCommentItem {
+	link: 'osm'
+	map?: [zoom: number, lat: number, lon: number]
+}
+interface OsmElementCommentItem extends OsmCommentItem {
+	osm: 'element'
+}
+interface OsmNoteCommentItem extends OsmCommentItem {
+	osm: 'note'
 	id: number
 }
 
-type CommentItem = TextCommentItem | ImageCommentItem | LinkCommentItem | NoteCommentItem
+type CommentItem = TextCommentItem | ImageCommentItem | OsmElementCommentItem | OsmNoteCommentItem
 
 export default function getCommentItems(commentText: string): CommentItem[] {
 	const e=makeEscapeTag(escapeRegex)
@@ -41,7 +46,8 @@ export default function getCommentItems(commentText: string): CommentItem[] {
 			const [,hrefPart,rest]=match
 			const href=sep+hrefPart
 			result.push({
-				type: 'image',
+				type: 'link',
+				link: 'image',
 				text: href,
 				href
 			})
@@ -50,15 +56,21 @@ export default function getCommentItems(commentText: string): CommentItem[] {
 			const [,originalHrefPart,osmType,osmId,rest]=match
 			result.push({
 				type: 'link',
+				link: 'osm',
+				osm: 'element',
 				text: sep+originalHrefPart,
 				href: `https://www.openstreetmap.org/${osmType}/${osmId}`
 			})
 			pushText(rest)
 		} else if (match=part.match(new RegExp(e`^(${'www.openstreetmap.org/note/'}([0-9]+))(.*)$`,'s'))) {
-			const [,originalHrefPart,osmId,rest]=match
+			const [,hrefPart,osmId,rest]=match
+			const href=sep+hrefPart
 			result.push({
-				type: 'note',
-				text: sep+originalHrefPart,
+				type: 'link',
+				link: 'osm',
+				osm: 'note',
+				text: href,
+				href,
 				id: Number(osmId)
 			})
 			pushText(rest)
