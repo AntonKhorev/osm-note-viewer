@@ -49,7 +49,7 @@ export default class NoteTable {
 			// ['selectstart',function(){
 			// 	$clickReadyNoteSection=undefined // Chrome is too eager to fire this event, have to cancel click from 'mousemove' instead
 			// }],
-			['mouseup',function(){
+			['click',function(){ // need 'click' and not 'mouseup' event because elements inside may listen to click and choose to cancel it
 				if ($clickReadyNoteSection==this) that.focusOnNote(this)
 				$clickReadyNoteSection=undefined
 			}]
