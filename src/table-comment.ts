@@ -3,25 +3,25 @@ import {NoteMap} from './map'
 import {makeLink} from './util'
 
 export default class NoteTableCommentWriter {
-	wrappedNoteLinkClickListener: (this: HTMLAnchorElement, ev: MouseEvent)=>void
 	wrappedOsmLinkClickListener:  (this: HTMLAnchorElement, ev: MouseEvent)=>void
 	constructor(private $table: HTMLTableElement, map: NoteMap, pingNoteSection: ($noteSection: HTMLTableSectionElement)=>void) {
-		this.wrappedNoteLinkClickListener=function(this: HTMLAnchorElement, ev: MouseEvent){
-			ev.preventDefault()
-			ev.stopPropagation()
-			const $noteSection=document.getElementById(`note-`+this.dataset.noteId)
-			if (!($noteSection instanceof HTMLTableSectionElement)) return
-			if ($noteSection.classList.contains('hidden')) return
-			pingNoteSection($noteSection)
-		}
 		this.wrappedOsmLinkClickListener=function(this: HTMLAnchorElement, ev: MouseEvent){
 			ev.preventDefault()
 			ev.stopPropagation()
+			if (handleNote(this.dataset.noteId)) return
 			const zoom=this.dataset.zoom
 			const lat=this.dataset.lat
 			const lon=this.dataset.lon
 			if (zoom && lat && lon) {
 				map.flyTo([Number(lat),Number(lon)],Number(zoom),{duration:.5}) // TODO encapsulate leaflet map in NoteMap to hide its quirks
+			}
+			function handleNote(noteId: string|undefined): boolean {
+				if (!noteId) return false
+				const $noteSection=document.getElementById(`note-`+noteId)
+				if (!($noteSection instanceof HTMLTableSectionElement)) return false
+				if ($noteSection.classList.contains('hidden')) return false
+				pingNoteSection($noteSection)
+				return true
 			}
 		}
 	}
@@ -49,21 +49,18 @@ export default class NoteTableCommentWriter {
 					$cell.addEventListener('mouseout',imageCommentHoverListener)
 				}
 				iImage++
-			} else if (item.type=='link' && item.link=='osm' && item.osm=='note') {
-				const $a=makeLink(item.text,item.href)
-				$a.classList.add('osm','other-note')
-				$a.dataset.noteId=String(item.id)
-				// updateNoteLink($a) // handleNotesUpdate() is going to be run anyway
-				$a.addEventListener('click',this.wrappedNoteLinkClickListener)
-				result.push($a)
+
 			} else if (item.type=='link' && item.link=='osm') {
 				const $a=makeLink(item.text,item.href)
 				$a.classList.add('osm')
-				if (item.map) {
-					[$a.dataset.zoom,$a.dataset.lat,$a.dataset.lon]=item.map
+				if (item.map) [$a.dataset.zoom,$a.dataset.lat,$a.dataset.lon]=item.map
+				if (item.osm=='note') {
+					$a.classList.add('other-note')
+					$a.dataset.noteId=String(item.id)
+					// updateNoteLink($a) // handleNotesUpdate() is going to be run anyway
 				}
-				$a.addEventListener('click',this.wrappedOsmLinkClickListener)
 				// TODO render element
+				$a.addEventListener('click',this.wrappedOsmLinkClickListener)
 				result.push($a)
 			} else {
 				result.push(item.text)
