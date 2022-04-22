@@ -1,7 +1,7 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB, {FetchEntry} from './db'
 import {NoteSearchQuery, makeUserQueryFromNoteSearchQuery, getNextFetchDetails} from './query'
-import {makeLink, makeUserLink} from './util'
+import {makeLink, makeUserIdLink, makeUserNameLink} from './util'
 
 export default class ExtrasPanel {
 	constructor(
@@ -53,7 +53,7 @@ export default class ExtrasPanel {
 				$row.insertCell().append(searchParams.get('mode')??'(outdated/invalid)')
 				const $userCell=$row.insertCell()
 				const username=searchParams.get('display_name')
-				if (username) $userCell.append(makeUserLink(username))
+				if (username) $userCell.append(makeUserNameLink(username))
 				$row.insertCell().append(String(new Date(fetchEntry.accessTimestamp)))
 				const $deleteButton=document.createElement('button')
 				$deleteButton.textContent=`Delete`
@@ -76,15 +76,20 @@ export default class ExtrasPanel {
 		})
 		if (query!=null && limit!=null) { // TODO don't limit to this user
 			const userQuery=makeUserQueryFromNoteSearchQuery(query)
-			if (userQuery.userType=='name' || userQuery.userType=='id') writeBlock(()=>[
+			const $userLink=makeUserLink()
+			if ($userLink) writeBlock(()=>[
 				`API links to queries on `,
-				makeUserLink(userQuery,`this user`),
+				$userLink,
 				`: `,
 				makeNoteSearchQueryLink(`with specified limit`,query,limit),
 				`, `,
 				makeNoteSearchQueryLink(`with max limit`,query,10000),
 				` (may be slow)`
 			])
+			function makeUserLink(): HTMLElement|undefined {
+				if (userQuery.userType=='name') return makeUserNameLink(userQuery.username,`this user`)
+				if (userQuery.userType=='id') return makeUserIdLink(userQuery.uid,`this user`)
+			}
 		}
 		writeBlock(()=>[
 			`User query have whitespace trimmed, then the remaining part starting with `,makeCode(`#`),` is treated as a user id; containing `,makeCode(`/`),`is treated as a URL, anything else as a username. `,

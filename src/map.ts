@@ -80,6 +80,7 @@ export class NoteMap {
 		this.leafletMap.invalidateSize()
 	}
 	clearNotes(): void {
+		this.elementLayer.clearLayers()
 		this.noteLayer.clearLayers()
 		this.filteredNoteLayer.clearLayers()
 		this.trackLayer.clearLayers()

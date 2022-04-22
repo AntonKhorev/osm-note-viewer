@@ -1,10 +1,10 @@
 import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
-import NoteTableCommentWriter from './table-comment'
+import NoteTableCommentWriter, {makeDate} from './table-comment'
 import CommandPanel from './command-panel'
 import NoteFilter from './filter'
 import {toReadableDate} from './query-date'
-import {makeUserLink} from './util'
+import {makeUserNameLink} from './util'
 
 export default class NoteTable {
 	private wrappedNoteSectionListeners: Array<[event: string, listener: (this:HTMLTableSectionElement)=>void]>
@@ -178,27 +178,14 @@ export default class NoteTable {
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-date')
-					const readableDate=toReadableDate(comment.date)
-					const [readableDateWithoutTime]=readableDate.split(' ',1)
-					if (readableDate && readableDateWithoutTime) {
-						const $time=document.createElement('time')
-						$time.textContent=readableDateWithoutTime
-						$time.dateTime=`${readableDate}Z`
-						$time.title=`${readableDate} UTC`
-						$cell.append($time)
-					} else {
-						const $unknownDateTime=document.createElement('span')
-						$unknownDateTime.textContent=`?`
-						$unknownDateTime.title=String(comment.date)
-						$cell.append($unknownDateTime)
-					}
+					$cell.append(makeDate(toReadableDate(comment.date),String(comment.date)))
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-user')
 					if (comment.uid!=null) {
 						const username=users[comment.uid]
 						if (username!=null) {
-							$cell.append(makeUserLink(username))
+							$cell.append(makeUserNameLink(username))
 						} else {
 							$cell.append(`#${comment.uid}`)
 						}

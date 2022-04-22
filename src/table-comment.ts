@@ -1,6 +1,6 @@
 import getCommentItems from './comment'
 import {NoteMap} from './map'
-import {makeLink, makeEscapeTag} from './util'
+import {makeLink, makeUserLink, makeDiv, makeElement, makeEscapeTag} from './util'
 
 export default class NoteTableCommentWriter {
 	wrappedOsmLinkClickListener:  (this: HTMLAnchorElement, ev: MouseEvent)=>void
@@ -91,6 +91,22 @@ export default class NoteTableCommentWriter {
 			if (!($a instanceof HTMLAnchorElement)) continue
 			updateNoteLink($a)
 		}
+	}
+}
+
+export function makeDate(readableDate: string, fallbackDate: string): HTMLElement {
+	const [readableDateWithoutTime]=readableDate.split(' ',1)
+	if (readableDate && readableDateWithoutTime) {
+		const $time=document.createElement('time')
+		$time.textContent=readableDateWithoutTime
+		$time.dateTime=`${readableDate}Z`
+		$time.title=`${readableDate} UTC`
+		return $time
+	} else {
+		const $unknownDateTime=document.createElement('span')
+		$unknownDateTime.textContent=`?`
+		$unknownDateTime.title=fallbackDate
+		return $unknownDateTime
 	}
 }
 
@@ -194,6 +210,17 @@ async function downloadAndShowElement($a: HTMLAnchorElement, map: NoteMap, eleme
 		map.elementLayer.clearLayers()
 		if (isOsmNodeElement(element)) {
 			const elementGeometry=L.circleMarker([element.lat,element.lon])
+			elementGeometry.bindPopup(()=>{
+				const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
+				const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
+				return makeDiv()(
+					h(`Node: ${getNodeName(element)}`),
+					h(`Version #${element.version}`),
+					p(`Edited on `,getElementDate(element),` by `,getElementUser(element),` · Changeset #${element.changeset}`)
+				)
+				// TODO what if too many tags?
+				// TODO what if tag value too long?
+			})
 			map.elementLayer.addLayer(elementGeometry)
 			map.panTo([element.lat,element.lon])
 		} else {
@@ -210,4 +237,21 @@ async function downloadAndShowElement($a: HTMLAnchorElement, map: NoteMap, eleme
 			$a.title=`unknown error ${ex}`
 		}
 	}
+}
+
+function getNodeName(node: OsmNodeElement): string {
+	if (node.tags?.name) {
+		return `${node.tags.name} (${node.id})`
+	} else {
+		return String(node.id)
+	}
+}
+
+function getElementDate(element: OsmElement): HTMLElement {
+	const readableDate=element.timestamp.replace('T',' ').replace('Z','')
+	return makeDate(readableDate,element.timestamp)
+}
+
+function getElementUser(element: OsmElement): HTMLElement {
+	return makeUserLink(element.uid,element.user)
 }
