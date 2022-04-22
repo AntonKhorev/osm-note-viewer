@@ -409,12 +409,12 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 		}
 		const copyBounds=()=>{
 			if (!this.$trackMapCheckbox.checked) return
-			const bounds=this.map.getBounds()
+			const bounds=this.map.bounds
 			// (left,bottom,right,top)
 			this.$bboxInput.value=bounds.getWest()+','+bounds.getSouth()+','+bounds.getEast()+','+bounds.getNorth()
 			validateBounds()
 		}
-		this.map.on('moveend',copyBounds)
+		this.map.onMoveEnd(copyBounds)
 		this.$trackMapCheckbox.addEventListener('input',copyBounds)
 		this.$bboxInput.addEventListener('input',()=>{
 			if (!validateBounds()) return
@@ -425,7 +425,7 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 			this.$nominatimButton.disabled=true
 			this.$nominatimButton.classList.remove('error')
 			try {
-				const bounds=this.map.getBounds()
+				const bounds=this.map.bounds
 				const bbox=await this.nominatimBboxFetcher.fetch(
 					Date.now(),
 					this.$nominatimInput.value,

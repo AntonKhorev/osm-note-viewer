@@ -1,3 +1,4 @@
+import { LatLngBounds } from 'leaflet'
 import type {Note, NoteComment} from './data'
 
 export class NoteMarker extends L.Marker {
@@ -44,32 +45,36 @@ export class NoteMarker extends L.Marker {
 	}
 }
 
-export class NoteMap extends L.Map {
+export class NoteMap {
+	private leafletMap: L.Map
 	noteLayer: L.FeatureGroup
 	filteredNoteLayer: L.FeatureGroup
 	trackLayer: L.FeatureGroup
 	needToFitNotes: boolean = false
 	constructor($container: HTMLElement) {
-		super($container,{
+		this.leafletMap=L.map($container,{
 			worldCopyJump: true
 		})
-		this.addLayer(L.tileLayer(
+		this.leafletMap.addLayer(L.tileLayer(
 			'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
 			{
 				attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>",
 				maxZoom: 19
 			}
 		)).fitWorld()
-		this.noteLayer=L.featureGroup().addTo(this)
+		this.noteLayer=L.featureGroup().addTo(this.leafletMap)
 		this.filteredNoteLayer=L.featureGroup()
-		this.trackLayer=L.featureGroup().addTo(this)
-		const crosshairLayer=new CrosshairLayer().addTo(this)
+		this.trackLayer=L.featureGroup().addTo(this.leafletMap)
+		const crosshairLayer=new CrosshairLayer().addTo(this.leafletMap)
 		const layersControl=L.control.layers()
 		layersControl.addOverlay(this.noteLayer,`Notes`)
 		layersControl.addOverlay(this.filteredNoteLayer,`Filtered notes`)
 		layersControl.addOverlay(this.trackLayer,`Track between notes`)
 		layersControl.addOverlay(crosshairLayer,`Crosshair`)
-		layersControl.addTo(this)
+		layersControl.addTo(this.leafletMap)
+	}
+	invalidateSize(): void {
+		this.leafletMap.invalidateSize()
 	}
 	clearNotes(): void {
 		this.noteLayer.clearLayers()
@@ -80,7 +85,7 @@ export class NoteMap extends L.Map {
 	fitNotes(): void {
 		const bounds=this.noteLayer.getBounds()
 		if (!bounds.isValid()) return
-		this.fitBounds(bounds)
+		this.leafletMap.fitBounds(bounds)
 		this.needToFitNotes=false
 	}
 	fitNotesIfNeeded(): void {
@@ -111,7 +116,39 @@ export class NoteMap extends L.Map {
 		L.polyline(polylineCoords,polylineOptions).addTo(this.trackLayer)
 	}
 	fitNoteTrack(): void {
-		this.fitBounds(this.trackLayer.getBounds())
+		this.leafletMap.fitBounds(this.trackLayer.getBounds())
+	}
+	fitBounds(bounds: L.LatLngBoundsExpression): void {
+		this.leafletMap.fitBounds(bounds)
+	}
+	panTo(latlng: L.LatLngExpression): void {
+		this.leafletMap.panTo(latlng)
+	}
+	panAndZoomTo(latlng: L.LatLngExpression, zoom: number): void {
+		this.leafletMap.flyTo(latlng,zoom,{duration:.5}) // default duration is too long despite docs saying it's 0.25
+	}
+	isCloseEnoughToCenter(latlng: L.LatLngExpression): boolean {
+		const inputPt=this.leafletMap.latLngToContainerPoint(latlng)
+		const centerPt=this.leafletMap.latLngToContainerPoint(this.leafletMap.getCenter()) // instead could have gotten container width/2, height/2
+		return (inputPt.x-centerPt.x)**2+(inputPt.y-centerPt.y)**2 < 100
+	}
+	get zoom(): number {
+		return this.leafletMap.getZoom()
+	}
+	get maxZoom(): number {
+		return this.leafletMap.getMaxZoom()
+	}
+	get lat(): number {
+		return this.leafletMap.getCenter().lat
+	}
+	get lon(): number {
+		return this.leafletMap.getCenter().lng
+	}
+	get bounds(): LatLngBounds {
+		return this.leafletMap.getBounds()
+	}
+	onMoveEnd(fn: L.LeafletEventHandlerFn) {
+		this.leafletMap.on('moveend',fn)
 	}
 }
 

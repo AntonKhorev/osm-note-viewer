@@ -13,7 +13,7 @@ export default class NoteTableCommentWriter {
 			const lat=this.dataset.lat
 			const lon=this.dataset.lon
 			if (zoom && lat && lon) {
-				map.flyTo([Number(lat),Number(lon)],Number(zoom),{duration:.5}) // TODO encapsulate leaflet map in NoteMap to hide its quirks
+				map.panAndZoomTo([Number(lat),Number(lon)],Number(zoom))
 			}
 			function handleNote(noteId: string|undefined): boolean {
 				if (!noteId) return false

@@ -100,7 +100,6 @@ export default class CommandPanel {
 		(cp,map)=>{
 			const $overpassButtons: HTMLButtonElement[] = []
 			const buttonClickListener=(withRelations: boolean, onlyAround: boolean)=>{
-				const center=map.getCenter()
 				let query=cp.getOverpassQueryPreamble(map)
 				if (withRelations) {
 					query+=`nwr`
@@ -109,11 +108,11 @@ export default class CommandPanel {
 				}
 				if (onlyAround) {
 					const radius=10
-					query+=`(around:${radius},${center.lat},${center.lng})`
+					query+=`(around:${radius},${map.lat},${map.lon})`
 				}
 				query+=`;\n`
 				query+=`out meta geom;`
-				const location=`${center.lat};${center.lng};${map.getZoom()}`
+				const location=`${map.lat};${map.lon};${map.zoom}`
 				const url=`https://overpass-turbo.eu/?C=${encodeURIComponent(location)}&Q=${encodeURIComponent(query)}`
 				open(url,'overpass-turbo')
 			}
@@ -155,13 +154,12 @@ export default class CommandPanel {
 				$button.disabled=true
 				try {
 					const radius=10
-					const center=map.getCenter()
 					let query=cp.getOverpassQueryPreamble(map)
-					query+=`node(around:${radius},${center.lat},${center.lng});\n`
+					query+=`node(around:${radius},${map.lat},${map.lon});\n`
 					query+=`out skel;`
 					const doc=await makeOverpassQuery($button,query)
 					if (!doc) return
-					const closestNodeId=getClosestNodeId(doc,center.lat,center.lng)
+					const closestNodeId=getClosestNodeId(doc,map.lat,map.lon)
 					if (!closestNodeId) {
 						$button.classList.add('error')
 						$button.title=`Could not find nodes nearby`
@@ -197,7 +195,7 @@ export default class CommandPanel {
 			const $loadMapButton=document.createElement('button')
 			$loadMapButton.append(`Load `,makeMapIcon('area'))
 			$loadMapButton.addEventListener('click',()=>{
-				const bounds=map.getBounds()
+				const bounds=map.bounds
 				const rcUrl=e`http://127.0.0.1:8111/load_and_zoom`+
 					`?left=${bounds.getWest()}&right=${bounds.getEast()}`+
 					`&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`
@@ -219,8 +217,7 @@ export default class CommandPanel {
 			$zoomButton.append(`Open `,makeMapIcon('center'))
 			$zoomButton.addEventListener('click',()=>{
 				const e=makeEscapeTag(encodeURIComponent)
-				const center=map.getCenter()
-				const url=e`https://www.openstreetmap.org/id#map=${map.getZoom()}/${center.lat}/${center.lng}`
+				const url=e`https://www.openstreetmap.org/id#map=${map.zoom}/${map.lat}/${map.lon}`
 				open(url,'id')
 			})
 			return [$zoomButton]
@@ -379,9 +376,8 @@ export default class CommandPanel {
 			$viewButton.append(`Open `,makeMapIcon('center'))
 			$viewButton.addEventListener('click',()=>{
 				const e=makeEscapeTag(encodeURIComponent)
-				const center=map.getCenter()
-				const coords=center.lng+','+center.lat
-				const url=e`https://yandex.ru/maps/?ll=${coords}&panorama%5Bpoint%5D=${coords}&z=${map.getZoom()}` // 'll' is required if 'z' argument is present
+				const coords=map.lon+','+map.lat
+				const url=e`https://yandex.ru/maps/?ll=${coords}&panorama%5Bpoint%5D=${coords}&z=${map.zoom}` // 'll' is required if 'z' argument is present
 				open(url,'yandex')
 			})
 			return [$viewButton]
@@ -398,8 +394,7 @@ export default class CommandPanel {
 			$viewButton.append(`Open `,makeMapIcon('center'))
 			$viewButton.addEventListener('click',()=>{
 				const e=makeEscapeTag(encodeURIComponent)
-				const center=map.getCenter()
-				const url=e`https://www.mapillary.com/app/?lat=${center.lat}&lng=${center.lng}&z=${map.getZoom()}&focus=photo`
+				const url=e`https://www.mapillary.com/app/?lat=${map.lat}&lng=${map.lon}&z=${map.zoom}&focus=photo`
 				open(url,'mapillary')
 			})
 			return [$viewButton]
@@ -537,7 +532,7 @@ export default class CommandPanel {
 	}
 	private getOverpassQueryPreamble(map: NoteMap): string {
 		const time=this.$commentTimeInput.value
-		const bounds=map.getBounds()
+		const bounds=map.bounds
 		let query=''
 		if (time) query+=`[date:"${time}"]\n`
 		query+=`[bbox:${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}]\n`
