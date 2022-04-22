@@ -35,7 +35,7 @@ describe("getCommentItems",()=>{
 				type:'link',link:'osm',osm:'element',
 				text:`https://osm.org/way/123456`,
 				href:`https://www.openstreetmap.org/way/123456`,
-				map:undefined
+				element:'way',id:123456,map:undefined
 			},
 			{type:'text',text:` via StreetComplete 42.0`},
 		])
@@ -107,7 +107,7 @@ describe("getCommentItems",()=>{
 				type:'link',link:'osm',osm:'element',
 				text:`https://www.openstreetmap.org/node/1`,
 				href:`https://www.openstreetmap.org/node/1`,
-				map:undefined
+				element:'node',id:1,map:undefined
 			},
 		])
 	})
@@ -120,7 +120,7 @@ describe("getCommentItems",()=>{
 				type:'link',link:'osm',osm:'element',
 				text:`https://www.openstreetmap.org/node/1`,
 				href:`https://www.openstreetmap.org/node/1`,
-				map:undefined
+				element:'node',id:1,map:undefined
 			},
 			{type:'text',text:` + `},
 			{type:'date',text:`2021-07-24T07:43:34Z`},

@@ -1,26 +1,33 @@
 import getCommentItems from './comment'
 import {NoteMap} from './map'
-import {makeLink} from './util'
+import {makeLink, makeEscapeTag} from './util'
 
 export default class NoteTableCommentWriter {
 	wrappedOsmLinkClickListener:  (this: HTMLAnchorElement, ev: MouseEvent)=>void
 	constructor(private $table: HTMLTableElement, map: NoteMap, pingNoteSection: ($noteSection: HTMLTableSectionElement)=>void) {
 		this.wrappedOsmLinkClickListener=function(this: HTMLAnchorElement, ev: MouseEvent){
+			const $a=this
 			ev.preventDefault()
 			ev.stopPropagation()
-			if (handleNote(this.dataset.noteId)) return
-			const zoom=this.dataset.zoom
-			const lat=this.dataset.lat
-			const lon=this.dataset.lon
-			if (zoom && lat && lon) {
-				map.panAndZoomTo([Number(lat),Number(lon)],Number(zoom))
-			}
+			if (handleNote($a.dataset.noteId)) return
+			if (handleElement($a.dataset.elementType,$a.dataset.elementId)) return
+			handleMap($a.dataset.zoom,$a.dataset.lat,$a.dataset.lon)
 			function handleNote(noteId: string|undefined): boolean {
 				if (!noteId) return false
 				const $noteSection=document.getElementById(`note-`+noteId)
 				if (!($noteSection instanceof HTMLTableSectionElement)) return false
 				if ($noteSection.classList.contains('hidden')) return false
 				pingNoteSection($noteSection)
+				return true
+			}
+			function handleElement(elementType: string|undefined, elementId: string|undefined): boolean {
+				if (!elementType || !elementId) return false
+				downloadAndShowElement($a,map,elementType,elementId)
+				return true
+			}
+			function handleMap(zoom: string|undefined, lat: string|undefined, lon: string|undefined): boolean {
+				if (!(zoom && lat && lon)) return false
+				map.panAndZoomTo([Number(lat),Number(lon)],Number(zoom))
 				return true
 			}
 		}
@@ -59,7 +66,10 @@ export default class NoteTableCommentWriter {
 					$a.dataset.noteId=String(item.id)
 					// updateNoteLink($a) // handleNotesUpdate() is going to be run anyway
 				}
-				// TODO render element
+				if (item.osm=='element') {
+					$a.dataset.elementType=item.element
+					$a.dataset.elementId=String(item.id)
+				}
 				$a.addEventListener('click',this.wrappedOsmLinkClickListener)
 				result.push($a)
 			} else {
@@ -125,4 +135,71 @@ function imageCommentHoverListener(this: HTMLElement, ev: MouseEvent): void {
 
 function imageErrorHandler(this: HTMLImageElement) {
 	this.removeAttribute('alt') // render broken image icon
+}
+
+interface OsmElement { // visible osm element
+	type: 'node'|'way'|'relation'
+	id: number
+	timestamp: string
+	version: number
+	changeset: number
+	user?: string
+	uid: number
+	tags?: {[key:string]:string}
+}
+
+interface OsmNodeElement extends OsmElement {
+	type: 'node'
+	lat: number // must have lat and lon because visible
+	lon: number
+}
+
+function isOsmElement(e: any): e is OsmElement {
+	if (!e) return false
+	if (e.type!='node' && e.type!='way' && e.type!='relation') return false
+	if (!Number.isInteger(e.id)) return false
+	if (typeof e.timestamp != 'string') return false
+	if (!Number.isInteger(e.version)) return false
+	if (!Number.isInteger(e.changeset)) return false
+	if (e.user!=null && (typeof e.user != 'string')) return false
+	if (!Number.isInteger(e.uid)) return false
+	return true
+}
+
+function isOsmNodeElement(e: any): e is OsmNodeElement {
+	if (e.type!='node') return false
+	if (typeof e.lat != 'number') return false
+	if (typeof e.lon != 'number') return false
+	return isOsmElement(e)
+}
+
+async function downloadAndShowElement($a: HTMLAnchorElement, map: NoteMap, elementType: string, elementId: string) {
+	try {
+		// TODO cancel already running response
+		const e=makeEscapeTag(encodeURIComponent)
+		const url=e`https://api.openstreetmap.org/api/0.6/${elementType}/${elementId}.json`
+		const response=await fetch(url)
+		if (!response.ok) {
+			if (response.status==404) {
+				throw new TypeError(`element doesn't exist`)
+			} else if (response.status==410) {
+				throw new TypeError(`element was deleted`)
+			} else {
+				throw new TypeError(`OSM API error: unsuccessful response`)
+			}
+		}
+		const data=await response.json()
+		const element=data?.elements[0]
+		if (!isOsmElement(element)) throw new TypeError(`OSM API error: invalid response data`)
+		console.log('fetched element',element)
+		$a.classList.remove('absent')
+		$a.title=''
+	} catch (ex) {
+		$a.classList.add('absent')
+		if (ex instanceof TypeError) {
+			$a.title=ex.message
+		} else {
+			$a.title=`unknown error ${ex}`
+		}
+	}
 }

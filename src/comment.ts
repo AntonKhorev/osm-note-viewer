@@ -23,6 +23,8 @@ interface OsmRootCommentItem extends OsmCommentItem {
 }
 interface OsmElementCommentItem extends OsmCommentItem {
 	osm: 'element'
+	element: 'node'|'way'|'relation'
+	id: number
 }
 interface OsmNoteCommentItem extends OsmCommentItem {
 	osm: 'note'
@@ -39,7 +41,7 @@ export default function getCommentItems(commentText: string): CommentItem[] {
 			`(?<image>westnordost\.de/p/[0-9]+\.jpg)`+
 		'|'+
 			`(?<osm>(?:www\\.)?(?:osm|openstreetmap)\\.org/`+
-				`(?<path>(?<type>node|way|relation|note)/(?<id>[0-9]+))?`+
+				`(?<path>(?<osmType>node|way|relation|note)/(?<id>[0-9]+))?`+
 				`(?<hash>#[-0-9a-zA-Z/.=&]+)?`+ // only need hash at root or at recognized path
 			`)`+
 		`))`+
@@ -109,17 +111,19 @@ function getMatchItem(groups: {[key:string]:string}): CommentItem {
 				href: rewriteOsmHref(groups.path,groups.hash),
 				map: getMap(groups.hash)
 			}
-			if (groups.type && groups.id) {
-				if (groups.type=='note') {
+			if (groups.osmType && groups.id) {
+				if (groups.osmType=='note') {
 					return {
 						...osmItem,
 						osm: 'note',
 						id: Number(groups.id)
 					}
-				} else {
+				} else if (groups.osmType=='node' || groups.osmType=='way' || groups.osmType=='relation') {
 					return {
 						...osmItem,
-						osm: 'element'
+						osm: 'element',
+						element: groups.osmType,
+						id: Number(groups.id)
 					}
 				}
 			} else if (osmItem.map) { // only make root links if they have map hash, otherwise they may not even be a root links
