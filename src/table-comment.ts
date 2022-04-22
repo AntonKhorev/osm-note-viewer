@@ -190,6 +190,7 @@ function isOsmNodeElement(e: any): e is OsmNodeElement {
 }
 
 async function downloadAndShowElement($a: HTMLAnchorElement, map: NoteMap, elementType: string, elementId: string) {
+	$a.classList.add('loading')
 	try {
 		// TODO cancel already running response
 		const e=makeEscapeTag(encodeURIComponent)
@@ -213,13 +214,17 @@ async function downloadAndShowElement($a: HTMLAnchorElement, map: NoteMap, eleme
 			elementGeometry.bindPopup(()=>{
 				const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
 				const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
-				return makeDiv()(
+				const $popup=makeDiv('osm-element-popup-contents')(
 					h(`Node: ${getNodeName(element)}`),
 					h(`Version #${element.version}`),
-					p(`Edited on `,getElementDate(element),` by `,getElementUser(element),` · Changeset #${element.changeset}`)
+					p(
+						`Edited on `,getElementDate(element),
+						` by `,getElementUser(element),
+						` · Changeset #`,makeLink(String(element.changeset),e`https://www.openstreetmap.org/changeset/${element.changeset}`)
+					)
 				)
-				// TODO what if too many tags?
-				// TODO what if tag value too long?
+				if (element.tags) $popup.append(getElementTags(element.tags))
+				return $popup
 			})
 			map.elementLayer.addLayer(elementGeometry)
 			map.panTo([element.lat,element.lon])
@@ -236,6 +241,8 @@ async function downloadAndShowElement($a: HTMLAnchorElement, map: NoteMap, eleme
 		} else {
 			$a.title=`unknown error ${ex}`
 		}
+	} finally {
+		$a.classList.remove('loading')
 	}
 }
 
@@ -254,4 +261,38 @@ function getElementDate(element: OsmElement): HTMLElement {
 
 function getElementUser(element: OsmElement): HTMLElement {
 	return makeUserLink(element.uid,element.user)
+}
+
+function getElementTags(tags: {[key:string]:string}): HTMLElement {
+	const tagBatchSize=10
+	const tagList=Object.entries(tags)
+	let i=0
+	let $button: HTMLButtonElement|undefined
+	const $figure=document.createElement('figure')
+	const $figcaption=document.createElement('figcaption')
+	$figcaption.textContent=`Tags`
+	const $table=document.createElement('table')
+	$figure.append($figcaption,$table)
+	writeTagBatch()
+	return $figure
+	function writeTagBatch() {
+		for (let j=0;i<tagList.length&&j<tagBatchSize;i++,j++) {
+			const [k,v]=tagList[i]
+			const $row=$table.insertRow()
+			$row.insertCell().textContent=k
+			$row.insertCell().textContent=v // TODO what if tag value too long?
+		}
+		if (i<tagList.length) {
+			if (!$button) {
+				$button=document.createElement('button')
+				$figure.append($button)
+				$button.onclick=writeTagBatch
+			}
+			const nTagsLeft=tagList.length-i
+			const nTagsToShowNext=Math.min(nTagsLeft,tagBatchSize)
+			$button.textContent=`Show ${nTagsToShowNext} / ${nTagsLeft} more tags`
+		} else {
+			$button?.remove()
+		}
+	}
 }

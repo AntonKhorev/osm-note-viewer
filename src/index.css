@@ -303,6 +303,9 @@ body.flipped .notes td.note-user {
 .notes td.note-comment a.osm {
 	text-decoration-style: dotted; /* TODO this is how all comment links should look because there shouldn't be any regular links */
 }
+.notes td.note-comment a.loading {
+	cursor: progress;
+}
 .notes td.note-comment a.absent {
 	text-decoration-color: #A00;
 }
@@ -353,4 +356,33 @@ body.flipped .notes td.note-user {
 	height: 15px;
 	width: 15px;
 	background: url("crosshair.svg");
+}
+#map .osm-element-popup-contents {
+	--block-gap: .5em;
+}
+#map .osm-element-popup-contents p,
+#map .osm-element-popup-contents figure {
+	margin: var(--block-gap) 0;
+}
+#map .osm-element-popup-contents figure figcaption {
+	font-weight: bold;
+}
+#map .osm-element-popup-contents figure table {
+	border: solid 1px #CCC;
+	border-spacing: 0;
+	border-radius: .25rem;
+	width: 100%;
+}
+#map .osm-element-popup-contents figure tr:not(:first-child) td {
+	border-top: solid 1px #CCC;
+}
+#map .osm-element-popup-contents figure tr td:first-child {
+	background: #F8F8FF;
+	border-right: solid 1px #CCC;
+}
+#map .osm-element-popup-contents figure button {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	margin: var(--block-gap) 0;
 }
