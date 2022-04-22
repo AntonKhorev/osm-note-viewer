@@ -116,7 +116,8 @@ export class NoteMap {
 		L.polyline(polylineCoords,polylineOptions).addTo(this.trackLayer)
 	}
 	fitNoteTrack(): void {
-		this.leafletMap.fitBounds(this.trackLayer.getBounds())
+		const bounds=this.trackLayer.getBounds() // invalid if track is empty; track is empty when no notes are in table view
+		if (bounds.isValid()) this.leafletMap.fitBounds(bounds)
 	}
 	fitBounds(bounds: L.LatLngBoundsExpression): void {
 		this.leafletMap.fitBounds(bounds)
