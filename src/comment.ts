@@ -40,27 +40,45 @@ export default function getCommentItems(commentText: string): CommentItem[] {
 		'|'+
 			`(?<osm>(?:www\\.)?(?:osm|openstreetmap)\\.org/`+
 				`(?<path>(?<type>node|way|relation|note)/(?<id>[0-9]+))?`+
-				`(?<hash>#[0-9a-zA-Z/.=&]+)?`+
+				`(?<hash>#[0-9a-zA-Z/.=&]+)?`+ // only need hash at root or at recognized path
 			`)`+
 		`))`+
 	`)`,'sy')
-	const result: CommentItem[] = []
+	const items: CommentItem[] = []
 	let idx=0
 	while (true) {
 		idx=matchRegExp.lastIndex
 		const match=matchRegExp.exec(commentText)
 		if (!match || !match.groups) break
-		pushText(match.groups.before)
-		result.push(getMatchItem(match.groups))
+		pushTextItem(match.groups.before)
+		items.push(getMatchItem(match.groups))
 	}
-	pushText(commentText.slice(idx))
-	return result
-	function pushText(text: string) {
+	pushTextItem(commentText.slice(idx))
+	return collapseTextItems(items)
+	function pushTextItem(text: string) {
 		if (text=='') return
-		result.push({
+		items.push({
 			type: 'text',
 			text
 		})
+	}
+	function collapseTextItems(inputItems: CommentItem[]): CommentItem[] {
+		const outputItems: CommentItem[] = []
+		let tailTextItem: TextCommentItem|undefined
+		for (const item of inputItems) {
+			if (item.type=='text') {
+				if (tailTextItem) {
+					tailTextItem.text+=item.text
+				} else {
+					outputItems.push(item)
+					tailTextItem=item
+				}
+			} else {
+				outputItems.push(item)
+				tailTextItem=undefined
+			}
+		}
+		return outputItems
 	}
 }
 
@@ -104,7 +122,7 @@ function getMatchItem(groups: {[key:string]:string}): CommentItem {
 						osm: 'element'
 					}
 				}
-			} else {
+			} else if (osmItem.map) { // only make root links if they have map hash, otherwise they may not even be a root links
 				return {
 					...osmItem,
 					osm: 'root'

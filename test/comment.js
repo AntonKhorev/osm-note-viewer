@@ -85,32 +85,40 @@ describe("getCommentItems",()=>{
 	})
 	it("parses timestamp followed by link",()=>{
 		const result=run(
-			`2021-06-24T07:43:34Z + https://www.openstreetmap.org/`
+			`2021-06-24T07:43:34Z + https://www.openstreetmap.org/node/1`
 		)
 		assert.deepEqual(result,[
 			{type:'date',text:`2021-06-24T07:43:34Z`},
 			{type:'text',text:` + `},
 			{
-				type:'link',link:'osm',osm:'root',
-				text:`https://www.openstreetmap.org/`,
-				href:`https://www.openstreetmap.org/`,
+				type:'link',link:'osm',osm:'element',
+				text:`https://www.openstreetmap.org/node/1`,
+				href:`https://www.openstreetmap.org/node/1`,
 				map:undefined
 			},
 		])
 	})
 	it("parses link followed by timestamp",()=>{
 		const result=run(
-			`https://www.openstreetmap.org/ + 2021-07-24T07:43:34Z`
+			`https://www.openstreetmap.org/node/1 + 2021-07-24T07:43:34Z`
 		)
 		assert.deepEqual(result,[
 			{
-				type:'link',link:'osm',osm:'root',
-				text:`https://www.openstreetmap.org/`,
-				href:`https://www.openstreetmap.org/`,
+				type:'link',link:'osm',osm:'element',
+				text:`https://www.openstreetmap.org/node/1`,
+				href:`https://www.openstreetmap.org/node/1`,
 				map:undefined
 			},
 			{type:'text',text:` + `},
 			{type:'date',text:`2021-07-24T07:43:34Z`},
+		])
+	})
+	it("treats wiki links as text",()=>{
+		const result=run(
+			`Mayroón ring  mga online channels ang mga boluntaryong lokal sa OSM : https://osm.org/wiki/PH`
+		)
+		assert.deepEqual(result,[
+			{type:'text',text:`Mayroón ring  mga online channels ang mga boluntaryong lokal sa OSM : https://osm.org/wiki/PH`},
 		])
 	})
 })
