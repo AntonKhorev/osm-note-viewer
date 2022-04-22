@@ -191,10 +191,18 @@ async function downloadAndShowElement($a: HTMLAnchorElement, map: NoteMap, eleme
 		const data=await response.json()
 		const element=data?.elements[0]
 		if (!isOsmElement(element)) throw new TypeError(`OSM API error: invalid response data`)
-		console.log('fetched element',element)
+		map.elementLayer.clearLayers()
+		if (isOsmNodeElement(element)) {
+			const elementGeometry=L.circleMarker([element.lat,element.lon])
+			map.elementLayer.addLayer(elementGeometry)
+			map.panTo([element.lat,element.lon])
+		} else {
+			console.log('fetched element',element)
+		}
 		$a.classList.remove('absent')
 		$a.title=''
 	} catch (ex) {
+		map.elementLayer.clearLayers()
 		$a.classList.add('absent')
 		if (ex instanceof TypeError) {
 			$a.title=ex.message

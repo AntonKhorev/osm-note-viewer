@@ -47,6 +47,7 @@ export class NoteMarker extends L.Marker {
 
 export class NoteMap {
 	private leafletMap: L.Map
+	elementLayer: L.FeatureGroup
 	noteLayer: L.FeatureGroup
 	filteredNoteLayer: L.FeatureGroup
 	trackLayer: L.FeatureGroup
@@ -62,11 +63,13 @@ export class NoteMap {
 				maxZoom: 19
 			}
 		)).fitWorld()
+		this.elementLayer=L.featureGroup().addTo(this.leafletMap)
 		this.noteLayer=L.featureGroup().addTo(this.leafletMap)
 		this.filteredNoteLayer=L.featureGroup()
 		this.trackLayer=L.featureGroup().addTo(this.leafletMap)
 		const crosshairLayer=new CrosshairLayer().addTo(this.leafletMap)
 		const layersControl=L.control.layers()
+		layersControl.addOverlay(this.elementLayer,`OSM elements`)
 		layersControl.addOverlay(this.noteLayer,`Notes`)
 		layersControl.addOverlay(this.filteredNoteLayer,`Filtered notes`)
 		layersControl.addOverlay(this.trackLayer,`Track between notes`)
