@@ -65,7 +65,20 @@ describe("getCommentItems",()=>{
 				type:'link',link:'osm',osm:'root',
 				text:`https://www.openstreetmap.org/#map=11/59.9444/30.2914&layers=N`,
 				href:`https://www.openstreetmap.org/#map=11/59.9444/30.2914&layers=N`,
-				map: [11,59.9444,30.2914]
+				map:['11','59.9444','30.2914']
+			}
+		])
+	})
+	it("parses osm root link with map parameter with negative coord",()=>{
+		const result=run(
+			`https://www.openstreetmap.org/#map=15/-17.5344/177.6847`
+		)
+		assert.deepEqual(result,[
+			{
+				type:'link',link:'osm',osm:'root',
+				text:`https://www.openstreetmap.org/#map=15/-17.5344/177.6847`,
+				href:`https://www.openstreetmap.org/#map=15/-17.5344/177.6847`,
+				map:['15','-17.5344','177.6847']
 			}
 		])
 	})

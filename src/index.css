@@ -300,8 +300,8 @@ body.flipped .notes td.note-user {
 .notes table.with-images td.note-comment a.image.float {
 	display: block;
 }
-.notes td.note-comment a.other-note {
-	text-decoration-style: dotted;
+.notes td.note-comment a.osm {
+	text-decoration-style: dotted; /* TODO this is how all comment links should look because there shouldn't be any regular links */
 }
 .notes td.note-comment a.other-note.absent {
 	text-decoration-color: #A00;

@@ -16,7 +16,7 @@ interface ImageCommentItem extends LinkCommentItem {
 }
 interface OsmCommentItem extends LinkCommentItem {
 	link: 'osm'
-	map: [zoom: number, lat: number, lon: number] | undefined
+	map: [zoom: string, lat: string, lon: string] | undefined
 }
 interface OsmRootCommentItem extends OsmCommentItem {
 	osm: 'root'
@@ -40,7 +40,7 @@ export default function getCommentItems(commentText: string): CommentItem[] {
 		'|'+
 			`(?<osm>(?:www\\.)?(?:osm|openstreetmap)\\.org/`+
 				`(?<path>(?<type>node|way|relation|note)/(?<id>[0-9]+))?`+
-				`(?<hash>#[0-9a-zA-Z/.=&]+)?`+ // only need hash at root or at recognized path
+				`(?<hash>#[-0-9a-zA-Z/.=&]+)?`+ // only need hash at root or at recognized path
 			`)`+
 		`))`+
 	`)`,'sy')
@@ -148,8 +148,8 @@ function getMap(hash: string|undefined): OsmCommentItem['map'] {
 	const params=new URLSearchParams(hash.slice(1))
 	const map=params.get('map')
 	if (!map) return
-	const match=map.match(new RegExp('([0-9.]+)/([0-9.]+)/([0-9.]+)'))
+	const match=map.match(new RegExp('([0-9.]+)/(-?[0-9.]+)/(-?[0-9.]+)'))
 	if (!match) return
 	const [,zoom,lat,lon]=match
-	return [Number(zoom),Number(lat),Number(lon)]
+	return [zoom,lat,lon]
 }

@@ -19,12 +19,13 @@ export default class NoteTable {
 	private $lastClickedNoteSection: HTMLTableSectionElement | undefined
 	private notesById = new Map<number,Note>() // in the future these might be windowed to limit the amount of stuff on one page
 	private usersById = new Map<number,string>()
-	private commentWriter=new NoteTableCommentWriter($noteSection=>this.focusOnNote($noteSection))
+	private commentWriter: NoteTableCommentWriter
 	constructor(
 		$container: HTMLElement, 
 		private commandPanel: CommandPanel, private map: NoteMap, private filter: NoteFilter, 
 		private showImages: boolean
 	) {
+		this.commentWriter=new NoteTableCommentWriter(this.$table,this.map,$noteSection=>this.focusOnNote($noteSection))
 		const that=this
 		let $clickReadyNoteSection: HTMLTableSectionElement | undefined
 		this.wrappedNoteSectionListeners=[
@@ -128,7 +129,7 @@ export default class NoteTable {
 		}
 		this.commandPanel.receiveNoteCounts(nFetched,nVisible)
 		this.updateCheckboxDependents()
-		this.commentWriter.handleNotesUpdate(this.$table)
+		this.commentWriter.handleNotesUpdate()
 	}
 	/**
 	 * @returns number of added notes that passed through the filter
@@ -236,13 +237,13 @@ export default class NoteTable {
 			if (!$noteSection.classList.contains('hidden')) nVisible++
 		}
 		this.commandPanel.receiveNoteCounts(nFetched,nVisible)
-		this.commentWriter.handleNotesUpdate(this.$table)
+		this.commentWriter.handleNotesUpdate()
 		return nUnfilteredNotes
 	}
 	setShowImages(showImages: boolean) {
 		this.showImages=showImages
 		this.$table.classList.toggle('with-images',showImages)
-		this.commentWriter.handleShowImagesUpdate(this.$table,showImages)
+		this.commentWriter.handleShowImagesUpdate(showImages)
 	}
 	private writeNote(note: Note, isVisible: boolean): HTMLTableSectionElement {
 		const marker=new NoteMarker(note)

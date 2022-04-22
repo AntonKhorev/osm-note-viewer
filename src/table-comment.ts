@@ -1,9 +1,11 @@
 import getCommentItems from './comment'
+import {NoteMap} from './map'
 import {makeLink} from './util'
 
 export default class NoteTableCommentWriter {
 	wrappedNoteLinkClickListener: (this: HTMLAnchorElement, ev: MouseEvent)=>void
-	constructor(pingNoteSection: ($noteSection: HTMLTableSectionElement)=>void) {
+	wrappedOsmLinkClickListener:  (this: HTMLAnchorElement, ev: MouseEvent)=>void
+	constructor(private $table: HTMLTableElement, map: NoteMap, pingNoteSection: ($noteSection: HTMLTableSectionElement)=>void) {
 		this.wrappedNoteLinkClickListener=function(this: HTMLAnchorElement, ev: MouseEvent){
 			ev.preventDefault()
 			ev.stopPropagation()
@@ -11,6 +13,16 @@ export default class NoteTableCommentWriter {
 			if (!($noteSection instanceof HTMLTableSectionElement)) return
 			if ($noteSection.classList.contains('hidden')) return
 			pingNoteSection($noteSection)
+		}
+		this.wrappedOsmLinkClickListener=function(this: HTMLAnchorElement, ev: MouseEvent){
+			ev.preventDefault()
+			ev.stopPropagation()
+			const zoom=this.dataset.zoom
+			const lat=this.dataset.lat
+			const lon=this.dataset.lon
+			if (zoom && lat && lon) {
+				map.flyTo([Number(lat),Number(lon)],Number(zoom),{duration:.5}) // TODO encapsulate leaflet map in NoteMap to hide its quirks
+			}
 		}
 	}
 	writeCommentText($cell: HTMLElement, commentText: string, showImages: boolean): void {
@@ -39,31 +51,36 @@ export default class NoteTableCommentWriter {
 				iImage++
 			} else if (item.type=='link' && item.link=='osm' && item.osm=='note') {
 				const $a=makeLink(item.text,item.href)
-				$a.classList.add('other-note')
+				$a.classList.add('osm','other-note')
 				$a.dataset.noteId=String(item.id)
 				// updateNoteLink($a) // handleNotesUpdate() is going to be run anyway
 				$a.addEventListener('click',this.wrappedNoteLinkClickListener)
 				result.push($a)
-			} else if (item.type=='link') {
-				// TODO zoom map
+			} else if (item.type=='link' && item.link=='osm') {
+				const $a=makeLink(item.text,item.href)
+				$a.classList.add('osm')
+				if (item.map) {
+					[$a.dataset.zoom,$a.dataset.lat,$a.dataset.lon]=item.map
+				}
+				$a.addEventListener('click',this.wrappedOsmLinkClickListener)
 				// TODO render element
-				result.push(makeLink(item.text,item.href))
+				result.push($a)
 			} else {
 				result.push(item.text)
 			}
 		}
 		$cell.append(...images,...result)
 	}
-	handleShowImagesUpdate($table: HTMLTableElement, showImages: boolean): void {
-		for (const $a of $table.querySelectorAll('td.note-comment a.image.float')) {
+	handleShowImagesUpdate(showImages: boolean): void {
+		for (const $a of this.$table.querySelectorAll('td.note-comment a.image.float')) {
 			if (!($a instanceof HTMLAnchorElement)) continue
 			const $img=$a.firstChild
 			if (!($img instanceof HTMLImageElement)) continue
 			if (showImages && !$img.src) $img.src=$a.href // don't remove src when showImages is disabled, otherwise will reload all images when src is set back
 		}
 	}
-	handleNotesUpdate($table: HTMLTableElement): void {
-		for (const $a of $table.querySelectorAll('td.note-comment a.other-note')) {
+	handleNotesUpdate(): void {
+		for (const $a of this.$table.querySelectorAll('td.note-comment a.other-note')) {
 			if (!($a instanceof HTMLAnchorElement)) continue
 			updateNoteLink($a)
 		}
