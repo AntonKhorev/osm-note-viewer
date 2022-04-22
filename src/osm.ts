@@ -66,7 +66,7 @@ export default async function downloadAndShowElement(
 				const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
 				const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
 				const $popup=makeDiv('osm-element-popup-contents')(
-					h(`Node: ${getNodeName(element)}`),
+					h(`Node: `,makeLink(getNodeName(element),e`https://www.openstreetmap.org/${elementType}/${elementId}`)),
 					h(`Version #${element.version}`),
 					p(
 						`Edited on `,getElementDate(element,makeDate),
