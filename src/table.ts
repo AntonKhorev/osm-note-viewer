@@ -178,7 +178,7 @@ export default class NoteTable {
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-date')
-					$cell.append(makeDate(toReadableDate(comment.date),String(comment.date)))
+					$cell.append(makeDate(toReadableDate(comment.date)))
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-user')

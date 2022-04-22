@@ -1,6 +1,8 @@
 import type {Note} from './data'
 import NoteViewerStorage from './storage'
 import {NoteMap} from './map'
+import {makeDate} from './table-comment'
+import downloadAndShowElement from './osm'
 import {toReadableDate, toUrlDate} from './query-date'
 import {makeElement, makeLink, makeLabel, escapeXml, makeEscapeTag} from './util'
 
@@ -150,8 +152,11 @@ export default class CommandPanel {
 		(cp,map)=>{
 			const $button=document.createElement('button')
 			$button.append(`Find closest node to `,makeMapIcon('center'))
+			const $a=document.createElement('a')
+			$a.innerText=`link`
 			$button.addEventListener('click',async()=>{
 				$button.disabled=true
+				$a.removeAttribute('href')
 				try {
 					const radius=10
 					let query=cp.getOverpassQueryPreamble(map)
@@ -166,12 +171,13 @@ export default class CommandPanel {
 						return
 					}
 					const url=`https://www.openstreetmap.org/node/`+encodeURIComponent(closestNodeId)
-					open(url)
+					$a.href=url
+					downloadAndShowElement($a,map,makeDate,'node',closestNodeId)
 				} finally {
 					$button.disabled=false
 				}
 			})
-			return [$button]
+			return [$button,` `,$a]
 		},()=>[p(
 			`Query `,makeLink(`Overpass API`,'https://wiki.openstreetmap.org/wiki/Overpass_API'),` without going through Overpass turbo. `,
 			`Since there's no UI, something has to be done with the response. Currently the only possible result is an OSM element, which is opened on the OSM website.`
