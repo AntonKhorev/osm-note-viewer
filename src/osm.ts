@@ -24,11 +24,11 @@ interface OsmWayElement extends OsmElementBase {
 
 interface OsmRelationElement extends OsmElementBase {
 	type: 'relation'
-	members: [
+	members: {
 		type: OsmElement['type'],
 		ref: number,
 		role: string
-	][]
+	}[]
 }
 
 type OsmElement = OsmNodeElement | OsmWayElement | OsmRelationElement
@@ -103,23 +103,49 @@ export default async function downloadAndShowElement(
 		if (!element) throw new TypeError(`OSM API error: requested element not found in response data`)
 		if (isOsmNodeElement(element)) {
 			addElementGeometryToMap(map,makeDate,element,
-				L.circleMarker([element.lat,element.lon])
+				makeNodeGeometry(element)
 			)
 		} else if (isOsmWayElement(element)) {
+			addElementGeometryToMap(map,makeDate,element,
+				makeWayGeometry(element)
+			)
+		} else if (isOsmRelationElement(element)) {
+			addElementGeometryToMap(map,makeDate,element,
+				makeRelationGeometry(element)
+			)
+		} else {
+			throw new TypeError(`OSM API error: requested element has unknown type`) // shouldn't happen
+		}
+		$a.classList.remove('absent')
+		$a.title=''
+		function makeNodeGeometry(node: OsmNodeElement): L.Layer {
+			return L.circleMarker([node.lat,node.lon])
+		}
+		function makeWayGeometry(way: OsmWayElement): L.Layer {
 			const coords: L.LatLngExpression[] = []
-			for (const id of element.nodes) {
+			for (const id of way.nodes) {
 				const node=elements.node[id]
 				if (!node) throw new TypeError(`OSM API error: referenced element not found in response data`)
 				coords.push([node.lat,node.lon])
 			}
-			addElementGeometryToMap(map,makeDate,element,
-				L.polyline(coords)
-			)
-		} else {
-			console.log('fetched element',element)
+			return L.polyline(coords)
 		}
-		$a.classList.remove('absent')
-		$a.title=''
+		function makeRelationGeometry(relation: OsmRelationElement): L.Layer {
+			const geometry=L.featureGroup()
+			for (const member of relation.members) {
+				if (member.type=='node') {
+					const node=elements.node[member.ref]
+					if (!node) throw new TypeError(`OSM API error: referenced element not found in response data`)
+					geometry.addLayer(makeNodeGeometry(node))
+				} else if (member.type=='way') {
+					const way=elements.way[member.ref]
+					if (!way) throw new TypeError(`OSM API error: referenced element not found in response data`)
+					geometry.addLayer(makeWayGeometry(way))
+				}
+				// TODO indicate that there might be relations, their data may be incomplete
+			}
+			return geometry
+		}
 	} catch (ex) {
 		map.elementLayer.clearLayers()
 		$a.classList.add('absent')
