@@ -4,6 +4,7 @@ import {NoteMap} from './map'
 import NoteFetchPanel from './fetch-panel'
 import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
+import {makeDiv} from './util'
 
 const scrollRestorerEnabled=true
 
@@ -56,43 +57,25 @@ async function main() {
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
 
+	const $fetchContainer=makeDiv('panel','fetch')()
+	const $filterContainer=makeDiv('panel','fetch')()
+	const $extrasContainer=makeDiv('panel')()
+	const $notesContainer=makeDiv('notes')()
+	const $moreContainer=makeDiv('more')()
+	const $commandContainer=makeDiv('panel','command')()
+	const $mapContainer=makeDiv('map')()
+
+	const $scrollingPart=makeDiv('scrolling')($fetchContainer,$filterContainer,$extrasContainer,$notesContainer,$moreContainer)
+	const $stickyPart=makeDiv('sticky')($commandContainer)
+
+	const $textSide=makeDiv('text-side')($scrollingPart,$stickyPart)
+	const $graphicSide=makeDiv('graphic-side')($mapContainer)
 	const flipped=!!storage.getItem('flipped')
 	if (flipped) document.body.classList.add('flipped')
-	const $textSide=document.createElement('div')
-	$textSide.classList.add('text-side')
-	const $graphicSide=document.createElement('div')
-	$graphicSide.classList.add('graphic-side')
 	document.body.append($textSide,$graphicSide)
 
-	const $scrollingPart=document.createElement('div')
-	$scrollingPart.classList.add('scrolling')
-	const $stickyPart=document.createElement('div')
-	$stickyPart.classList.add('sticky')
-	$textSide.append($scrollingPart,$stickyPart)
 	const scrollRestorer=new ScrollRestorer($scrollingPart)
-
-	const $fetchContainer=document.createElement('div')
-	$fetchContainer.classList.add('panel','fetch')
-	const $filterContainer=document.createElement('div')
-	$filterContainer.classList.add('panel','fetch')
-	const $extrasContainer=document.createElement('div')
-	$extrasContainer.classList.add('panel')
-	const $notesContainer=document.createElement('div')
-	$notesContainer.classList.add('notes')
-	const $moreContainer=document.createElement('div')
-	$moreContainer.classList.add('more')
-	const $commandContainer=document.createElement('div')
-	$commandContainer.classList.add('panel','command')
-	
-	$scrollingPart.append($fetchContainer,$filterContainer,$extrasContainer,$notesContainer,$moreContainer)
-	$stickyPart.append($commandContainer)
-
-	const $mapContainer=document.createElement('div')
-	$mapContainer.classList.add('map')
-	$graphicSide.append($mapContainer)
-
 	const map=new NoteMap($mapContainer)
-
 	writeFlipLayoutButton(storage,$fetchContainer,map)
 	writeResetButton($fetchContainer)
 	const extrasPanel=new ExtrasPanel(storage,db,$extrasContainer)
