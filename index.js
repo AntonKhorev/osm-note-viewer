@@ -444,6 +444,149 @@ function* noteCommentsToStates(comments) {
     }
 }
 
+function makeUserLink(uid, username, text) {
+    if (username)
+        return makeUserNameLink(username, text);
+    return makeUserIdLink(uid, text);
+}
+function makeUserNameLink(username, text) {
+    const fromName = (name) => `https://www.openstreetmap.org/user/${encodeURIComponent(name)}`;
+    return makeLink(text ?? username, fromName(username));
+}
+function makeUserIdLink(uid, text) {
+    const fromId = (id) => `https://api.openstreetmap.org/api/0.6/user/${encodeURIComponent(id)}`;
+    return makeLink(text ?? '#' + uid, fromId(uid));
+}
+function makeLink(text, href, title) {
+    const $link = document.createElement('a');
+    $link.href = href;
+    $link.textContent = text;
+    if (title != null)
+        $link.title = title;
+    return $link;
+}
+function makeElement(tag) {
+    return (...classes) => (...items) => {
+        const $element = document.createElement(tag);
+        $element.classList.add(...classes);
+        $element.append(...items);
+        return $element;
+    };
+}
+const makeDiv = makeElement('div');
+const makeLabel = makeElement('label');
+function escapeRegex(text) {
+    return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+function escapeXml(text) {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/"/g, '&quot;')
+        .replace(/\t/g, '&#x9;')
+        .replace(/\n/g, '&#xA;')
+        .replace(/\r/g, '&#xD;');
+}
+function makeEscapeTag(escapeFn) {
+    return function (strings, ...values) {
+        let result = strings[0];
+        for (let i = 0; i < values.length; i++) {
+            result += escapeFn(String(values[i])) + strings[i + 1];
+        }
+        return result;
+    };
+}
+function resetFadeAnimation($element, animationName) {
+    const animation = getFadeAnimation($element, animationName);
+    if (!animation)
+        return;
+    animation.currentTime = 0;
+}
+function getFadeAnimation($element, animationName) {
+    if (typeof CSSAnimation == 'undefined')
+        return; // experimental technology, implemented in latest browser versions
+    for (const animation of $element.getAnimations()) {
+        if (!(animation instanceof CSSAnimation))
+            continue;
+        if (animation.animationName == animationName)
+            return animation;
+    }
+}
+
+class PhotoDialog {
+    constructor($dialog) {
+        this.$dialog = $dialog;
+        this.fallbackMode = (window.HTMLDialogElement == null);
+    }
+    close() {
+        const $dialog = this.$dialog;
+        $dialog.close();
+        this.url = undefined;
+    }
+    toggle(url) {
+        const $dialog = this.$dialog;
+        if (this.fallbackMode) {
+            open(url, 'photo');
+            return;
+        }
+        this.$dialog.innerHTML = '';
+        if (url == this.url) {
+            this.close();
+            return;
+        }
+        const $figure = document.createElement('figure');
+        const $backdrop = document.createElement('div');
+        $backdrop.classList.add('backdrop');
+        $backdrop.style.backgroundImage = `url(${url})`;
+        const $img = document.createElement('img');
+        $img.src = url;
+        $img.alt = 'attached photo';
+        $figure.append($backdrop, $img);
+        const $closeButton = document.createElement('button');
+        $closeButton.title = `Close photo`;
+        $dialog.append($figure, $closeButton);
+        $figure.addEventListener('click', (ev) => {
+            if ($figure.classList.contains('zoomed')) {
+                $figure.classList.remove('zoomed');
+            }
+            else {
+                const clamp = (num) => Math.min(Math.max(num, 0), 1);
+                let xScrollFraction = (ev.offsetX >= $figure.offsetWidth / 2 ? 1 : 0);
+                let yScrollFraction = (ev.offsetY >= $figure.offsetHeight / 2 ? 1 : 0);
+                if (ev.target == $img) {
+                    xScrollFraction = clamp(ev.offsetX / $img.offsetWidth);
+                    yScrollFraction = clamp(ev.offsetY / $img.offsetHeight);
+                }
+                $figure.classList.add('zoomed');
+                const xMaxScrollDistance = $figure.scrollWidth - $figure.clientWidth;
+                const yMaxScrollDistance = $figure.scrollHeight - $figure.clientHeight;
+                if (xMaxScrollDistance > 0)
+                    $figure.scrollLeft = Math.round(xScrollFraction * xMaxScrollDistance);
+                if (yMaxScrollDistance > 0)
+                    $figure.scrollTop = Math.round(yScrollFraction * yMaxScrollDistance);
+            }
+        });
+        $figure.addEventListener('mousemove', (ev) => {
+            $closeButton.classList.toggle('right-position', ev.offsetX >= $figure.offsetWidth / 2);
+            $closeButton.classList.toggle('bottom-position', ev.offsetY >= $figure.offsetHeight / 2);
+            if ($closeButton.classList.contains('fading')) {
+                resetFadeAnimation($closeButton, 'photo-button-fade');
+            }
+            else {
+                $closeButton.classList.add('fading');
+            }
+        });
+        $closeButton.addEventListener('click', () => {
+            this.close();
+        });
+        $closeButton.addEventListener('animationend', () => {
+            $closeButton.classList.remove('fading');
+        });
+        $dialog.show();
+        this.url = url;
+    }
+}
+
 function getCommentItems(commentText) {
     const matchRegExp = new RegExp(`(?<before>.*?)(?<text>` +
         `(?<date>\\d\\d\\d\\d-\\d\\d-\\d\\d[T ]\\d\\d:\\d\\d:\\d\\dZ)` +
@@ -577,59 +720,6 @@ function getMap(hash) {
         return;
     const [, zoom, lat, lon] = match;
     return [zoom, lat, lon];
-}
-
-function makeUserLink(uid, username, text) {
-    if (username)
-        return makeUserNameLink(username, text);
-    return makeUserIdLink(uid, text);
-}
-function makeUserNameLink(username, text) {
-    const fromName = (name) => `https://www.openstreetmap.org/user/${encodeURIComponent(name)}`;
-    return makeLink(text ?? username, fromName(username));
-}
-function makeUserIdLink(uid, text) {
-    const fromId = (id) => `https://api.openstreetmap.org/api/0.6/user/${encodeURIComponent(id)}`;
-    return makeLink(text ?? '#' + uid, fromId(uid));
-}
-function makeLink(text, href, title) {
-    const $link = document.createElement('a');
-    $link.href = href;
-    $link.textContent = text;
-    if (title != null)
-        $link.title = title;
-    return $link;
-}
-function makeElement(tag) {
-    return (...classes) => (...items) => {
-        const $element = document.createElement(tag);
-        $element.classList.add(...classes);
-        $element.append(...items);
-        return $element;
-    };
-}
-const makeDiv = makeElement('div');
-const makeLabel = makeElement('label');
-function escapeRegex(text) {
-    return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-}
-function escapeXml(text) {
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/"/g, '&quot;')
-        .replace(/\t/g, '&#x9;')
-        .replace(/\n/g, '&#xA;')
-        .replace(/\r/g, '&#xD;');
-}
-function makeEscapeTag(escapeFn) {
-    return function (strings, ...values) {
-        let result = strings[0];
-        for (let i = 0; i < values.length; i++) {
-            result += escapeFn(String(values[i])) + strings[i + 1];
-        }
-        return result;
-    };
 }
 
 function isOsmElementBase(e) {
@@ -803,7 +893,8 @@ function addElementGeometryToMap(map, makeDate, element, elementGeometry) {
     elementGeometry.bindPopup(() => {
         const p = (...s) => makeElement('p')()(...s);
         const h = (...s) => p(makeElement('strong')()(...s));
-        const $popup = makeDiv('osm-element-popup-contents')(h(capitalize(element.type) + `: `, makeLink(getElementName(element), e `https://www.openstreetmap.org/${element.type}/${element.id}`)), h(`Version #${element.version}`), p(`Edited on `, getElementDate(element, makeDate), ` by `, getElementUser(element), ` · Changeset #`, makeLink(String(element.changeset), e `https://www.openstreetmap.org/changeset/${element.changeset}`)));
+        const elementHref = e `https://www.openstreetmap.org/${element.type}/${element.id}`;
+        const $popup = makeDiv('osm-element-popup-contents')(h(capitalize(element.type) + `: `, makeLink(getElementName(element), elementHref)), h(`Version #${element.version} · `, makeLink(`View History`, elementHref + '/history')), p(`Edited on `, getElementDate(element, makeDate), ` by `, getElementUser(element), ` · Changeset #`, makeLink(String(element.changeset), e `https://www.openstreetmap.org/changeset/${element.changeset}`)));
         if (element.tags)
             $popup.append(getElementTags(element.tags));
         return $popup;
@@ -864,7 +955,7 @@ function getElementTags(tags) {
 }
 
 class NoteTableCommentWriter {
-    constructor($table, map, pingNoteSection) {
+    constructor($table, map, photoDialog, pingNoteSection) {
         this.$table = $table;
         this.wrappedOsmLinkClickListener = function (ev) {
             const $a = this;
@@ -901,6 +992,12 @@ class NoteTableCommentWriter {
                 return true;
             }
         };
+        this.wrappedImageLinkClickListener = function (ev) {
+            const $a = this;
+            ev.preventDefault();
+            ev.stopPropagation();
+            photoDialog.toggle($a.href);
+        };
     }
     writeCommentText($cell, commentText, showImages) {
         const result = [];
@@ -910,6 +1007,7 @@ class NoteTableCommentWriter {
             if (item.type == 'link' && item.link == 'image') {
                 const $inlineLink = makeLink(item.href, item.href);
                 $inlineLink.classList.add('image', 'inline');
+                $inlineLink.addEventListener('click', this.wrappedImageLinkClickListener);
                 result.push($inlineLink);
                 const $img = document.createElement('img');
                 $img.loading = 'lazy'; // this + display:none is not enough to surely stop the browser from accessing the image link
@@ -921,6 +1019,7 @@ class NoteTableCommentWriter {
                 $floatLink.classList.add('image', 'float');
                 $floatLink.href = item.href;
                 $floatLink.append($img);
+                $floatLink.addEventListener('click', this.wrappedImageLinkClickListener);
                 images.push($floatLink);
                 if (!iImage) {
                     $cell.addEventListener('mouseover', imageCommentHoverListener);
@@ -1151,7 +1250,7 @@ function toDateQuery(readableDate) {
 }
 
 class NoteTable {
-    constructor($container, commandPanel, map, filter, showImages) {
+    constructor($container, commandPanel, map, filter, photoDialog, showImages) {
         this.commandPanel = commandPanel;
         this.map = map;
         this.filter = filter;
@@ -1161,7 +1260,7 @@ class NoteTable {
         this.noteSectionLayerIdVisibility = new Map();
         this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
         this.usersById = new Map();
-        this.commentWriter = new NoteTableCommentWriter(this.$table, this.map, $noteSection => this.focusOnNote($noteSection));
+        this.commentWriter = new NoteTableCommentWriter(this.$table, this.map, photoDialog, $noteSection => this.focusOnNote($noteSection));
         const that = this;
         let $clickReadyNoteSection;
         this.wrappedNoteSectionListeners = [
@@ -1177,7 +1276,7 @@ class NoteTable {
                     $clickReadyNoteSection = undefined; // ideally should be reset by 'selectstart' event, however Chrome fires it even if no mouse drag has happened
                     if (!this.classList.contains('active-click'))
                         return;
-                    resetActiveClickFade(this);
+                    resetFadeAnimation(this, 'active-click-fade');
                 }],
             ['animationend', function () {
                     that.deactivateNote('click', this);
@@ -1484,7 +1583,7 @@ class NoteTable {
             if ($otherNoteSection == $noteSection) {
                 alreadyActive = true;
                 if (type == 'click')
-                    resetActiveClickFade($noteSection);
+                    resetFadeAnimation($noteSection, 'active-click-fade');
             }
             else {
                 this.deactivateNote(type, $otherNoteSection);
@@ -1624,22 +1723,6 @@ function getActionClass(action) {
     }
     else {
         return 'other';
-    }
-}
-function resetActiveClickFade($noteSection) {
-    const animation = getActiveClickFadeAnimation($noteSection);
-    if (!animation)
-        return;
-    animation.currentTime = 0;
-}
-function getActiveClickFadeAnimation($noteSection) {
-    if (typeof CSSAnimation == 'undefined')
-        return; // experimental technology, implemented in latest browser versions
-    for (const animation of $noteSection.getAnimations()) {
-        if (!(animation instanceof CSSAnimation))
-            continue;
-        if (animation.animationName == 'active-click-fade')
-            return animation;
     }
 }
 
@@ -2876,7 +2959,7 @@ class NominatimBboxFetcher {
 }
 
 class NoteFetchPanel {
-    constructor(storage, db, $container, $notesContainer, $moreContainer, $commandContainer, filterPanel, extrasPanel, map, restoreScrollPosition) {
+    constructor(storage, db, $container, $notesContainer, $moreContainer, $commandContainer, filterPanel, extrasPanel, map, photoDialog, restoreScrollPosition) {
         let noteTable;
         const moreButtonIntersectionObservers = [];
         const $showImagesCheckboxes = [];
@@ -2960,7 +3043,7 @@ class NoteFetchPanel {
                 return;
             filterPanel.unsubscribe();
             const commandPanel = new CommandPanel($commandContainer, map, storage);
-            noteTable = new NoteTable($notesContainer, commandPanel, map, filterPanel.noteFilter, $showImagesCheckboxes[0]?.checked);
+            noteTable = new NoteTable($notesContainer, commandPanel, map, filterPanel.noteFilter, photoDialog, $showImagesCheckboxes[0]?.checked);
             filterPanel.subscribe(noteFilter => noteTable?.updateFilter(noteFilter));
             if (query?.mode == 'search') {
                 startSearchFetcher(db, noteTable, $moreContainer, searchDialog.$limitSelect, searchDialog.$autoLoadCheckbox, searchDialog.$fetchButton, moreButtonIntersectionObservers, query, clearStore);
@@ -3794,40 +3877,31 @@ main();
 async function main() {
     const storage = new NoteViewerStorage('osm-note-viewer-');
     const db = await NoteViewerDB.open();
+    const $fetchContainer = makeDiv('panel', 'fetch')();
+    const $filterContainer = makeDiv('panel', 'fetch')();
+    const $extrasContainer = makeDiv('panel')();
+    const $notesContainer = makeDiv('notes')();
+    const $moreContainer = makeDiv('more')();
+    const $commandContainer = makeDiv('panel', 'command')();
+    const $mapContainer = makeDiv('map')();
+    const $photoDialog = document.createElement('dialog');
+    $photoDialog.classList.add('photo');
+    const $scrollingPart = makeDiv('scrolling')($fetchContainer, $filterContainer, $extrasContainer, $notesContainer, $moreContainer);
+    const $stickyPart = makeDiv('sticky')($commandContainer);
+    const $textSide = makeDiv('text-side')($scrollingPart, $stickyPart);
+    const $graphicSide = makeDiv('graphic-side')($mapContainer, $photoDialog);
     const flipped = !!storage.getItem('flipped');
     if (flipped)
         document.body.classList.add('flipped');
-    const $textSide = document.createElement('div');
-    $textSide.id = 'text';
-    const $mapSide = document.createElement('div');
-    $mapSide.id = 'map';
-    document.body.append($textSide, $mapSide);
-    const $scrollingPart = document.createElement('div');
-    $scrollingPart.classList.add('scrolling');
-    const $stickyPart = document.createElement('div');
-    $stickyPart.classList.add('sticky');
-    $textSide.append($scrollingPart, $stickyPart);
+    document.body.append($textSide, $graphicSide);
     const scrollRestorer = new ScrollRestorer($scrollingPart);
-    const $fetchContainer = document.createElement('div');
-    $fetchContainer.classList.add('panel', 'fetch');
-    const $filterContainer = document.createElement('div');
-    $filterContainer.classList.add('panel', 'fetch');
-    const $extrasContainer = document.createElement('div');
-    $extrasContainer.classList.add('panel');
-    const $notesContainer = document.createElement('div');
-    $notesContainer.classList.add('notes');
-    const $moreContainer = document.createElement('div');
-    $moreContainer.classList.add('more');
-    const $commandContainer = document.createElement('div');
-    $commandContainer.classList.add('panel', 'command');
-    $scrollingPart.append($fetchContainer, $filterContainer, $extrasContainer, $notesContainer, $moreContainer);
-    $stickyPart.append($commandContainer);
-    const map = new NoteMap($mapSide);
+    const map = new NoteMap($mapContainer);
+    const photoDialog = new PhotoDialog($photoDialog);
     writeFlipLayoutButton(storage, $fetchContainer, map);
     writeResetButton($fetchContainer);
     const extrasPanel = new ExtrasPanel(storage, db, $extrasContainer);
     const filterPanel = new NoteFilterPanel($filterContainer);
-    new NoteFetchPanel(storage, db, $fetchContainer, $notesContainer, $moreContainer, $commandContainer, filterPanel, extrasPanel, map, () => scrollRestorer.run($notesContainer));
+    new NoteFetchPanel(storage, db, $fetchContainer, $notesContainer, $moreContainer, $commandContainer, filterPanel, extrasPanel, map, photoDialog, () => scrollRestorer.run($notesContainer));
     scrollRestorer.run($notesContainer);
 }
 function writeFlipLayoutButton(storage, $container, map) {

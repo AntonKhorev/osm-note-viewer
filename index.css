@@ -1,28 +1,29 @@
-#text,
-#map {
+.text-side,
+.graphic-side {
 	position: fixed;
 	height: 50%;
 	width: 100%;
 }
-body.flipped #map,
-body.flipped #text {
+body.flipped .graphic-side,
+body.flipped .text-side {
 	height: 100%;
 	width: 50%;
 }
-#text {
+.text-side {
 	top: 0;
 	left: 0;
+	z-index: 1; /* be above photo with blurry backdrop */
 }
-#map {
+.graphic-side {
 	bottom: 0;
 	right: 0;
 }
 
-#text {
+.text-side {
 	display: flex;
 	flex-direction: column;
 }
-#text .scrolling {
+.text-side .scrolling {
 	overflow-y: scroll;
 	flex-grow: 1;
 }
@@ -281,6 +282,10 @@ body.flipped .notes td.note-user {
 	content: "no comment";
 	color: gray;
 }
+.notes td.note-comment a {
+	text-decoration-style: dotted;
+	text-decoration-thickness: 1px;
+}
 .notes td.note-comment a.image:hover,
 .notes td.note-comment a.image.active {
 	outline: var(--comment-link-outline)
@@ -299,9 +304,6 @@ body.flipped .notes td.note-user {
 }
 .notes table.with-images td.note-comment a.image.float {
 	display: block;
-}
-.notes td.note-comment a.osm {
-	text-decoration-style: dotted; /* TODO this is how all comment links should look because there shouldn't be any regular links */
 }
 .notes td.note-comment a.loading {
 	cursor: progress;
@@ -339,10 +341,15 @@ body.flipped .notes td.note-user {
 	white-space: pre-wrap;
 }
 
-#map .note-track {
+.map {
+	width: 100%;
+	height: 100%;
+	isolation: isolate;
+}
+.map .note-track {
 	vector-effect: non-scaling-stroke;
 }
-#map .crosshair-overlay {
+.map .crosshair-overlay {
 	position: absolute;
 	z-index: 500;
 	width: 100%;
@@ -352,37 +359,117 @@ body.flipped .notes td.note-user {
 	justify-content: center;
 	pointer-events: none;
 }
-#map .crosshair-overlay .crosshair {
+.map .crosshair-overlay .crosshair {
 	height: 15px;
 	width: 15px;
 	background: url("crosshair.svg");
 }
-#map .osm-element-popup-contents {
+.map .osm-element-popup-contents {
 	--block-gap: .5em;
 }
-#map .osm-element-popup-contents p,
-#map .osm-element-popup-contents figure {
+.map .osm-element-popup-contents p,
+.map .osm-element-popup-contents figure {
 	margin: var(--block-gap) 0;
 }
-#map .osm-element-popup-contents figure figcaption {
+.map .osm-element-popup-contents figure figcaption {
 	font-weight: bold;
 }
-#map .osm-element-popup-contents figure table {
+.map .osm-element-popup-contents figure table {
 	border: solid 1px #CCC;
 	border-spacing: 0;
 	border-radius: .25rem;
 	width: 100%;
 }
-#map .osm-element-popup-contents figure tr:not(:first-child) td {
+.map .osm-element-popup-contents figure tr:not(:first-child) td {
 	border-top: solid 1px #CCC;
 }
-#map .osm-element-popup-contents figure tr td:first-child {
+.map .osm-element-popup-contents figure tr td:first-child {
 	background: #F8F8FF;
 	border-right: solid 1px #CCC;
 }
-#map .osm-element-popup-contents figure button {
+.map .osm-element-popup-contents figure button {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
 	margin: var(--block-gap) 0;
+}
+
+.photo {
+	position: absolute;
+	inset: 0;
+	padding: 0;
+	border: 0;
+	width: 100%;
+	height: 100%;
+}
+.photo figure {
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+	margin: 0;
+	padding: 0;
+	cursor: zoom-in;
+}
+.photo figure:not(.zoomed) {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.photo figure.zoomed {
+	overflow: scroll;
+	cursor: zoom-out;
+}
+.photo figure .backdrop {
+	position: absolute;
+	inset: 0;
+	background-color: #888;
+	background-size: cover;
+	background-position: center;
+	filter: saturate(.5) brightness(.8) blur(10px);
+}
+.photo figure.zoomed .backdrop {
+	display: none;
+}
+.photo figure img {
+	position: relative;
+	display: block;
+}
+.photo figure:not(.zoomed) img {
+	max-width: 100%;
+	max-height: 100%;
+}
+.photo button { /* copypaste from reset button */
+	--position-offset: 2rem;
+	display: none;
+	position: absolute;
+	top: var(--position-offset);
+	left: var(--position-offset);
+	width: 2rem;
+	height: 2rem;
+	box-sizing: border-box;
+	border: none;
+	background: url("reset.svg");
+}
+.photo button.right-position {
+	left: unset;
+	right: var(--position-offset);
+}
+.photo button.bottom-position {
+	top: unset;
+	bottom: var(--position-offset);
+}
+@keyframes photo-button-fade {
+	from { opacity: 1; }
+	to { opacity: 0; }
+}
+.photo button.fading {
+	display: block;
+	animation-name: photo-button-fade;
+	animation-duration: 3s;
+}
+.photo button:hover,
+.photo button:focus {
+	outline: auto;
+	opacity: 1;
+	animation: none;
 }
