@@ -294,28 +294,34 @@ class NoteMarker extends L.Marker {
         this.noteId = note.id;
     }
 }
-class NoteMap extends L.Map {
+class NoteMap {
     constructor($container) {
-        super($container, {
+        this.needToFitNotes = false;
+        this.leafletMap = L.map($container, {
             worldCopyJump: true
         });
-        this.needToFitNotes = false;
-        this.addLayer(L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        this.leafletMap.addLayer(L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>",
             maxZoom: 19
         })).fitWorld();
-        this.noteLayer = L.featureGroup().addTo(this);
+        this.elementLayer = L.featureGroup().addTo(this.leafletMap);
+        this.noteLayer = L.featureGroup().addTo(this.leafletMap);
         this.filteredNoteLayer = L.featureGroup();
-        this.trackLayer = L.featureGroup().addTo(this);
-        const crosshairLayer = new CrosshairLayer().addTo(this);
+        this.trackLayer = L.featureGroup().addTo(this.leafletMap);
+        const crosshairLayer = new CrosshairLayer().addTo(this.leafletMap);
         const layersControl = L.control.layers();
+        layersControl.addOverlay(this.elementLayer, `OSM elements`);
         layersControl.addOverlay(this.noteLayer, `Notes`);
         layersControl.addOverlay(this.filteredNoteLayer, `Filtered notes`);
         layersControl.addOverlay(this.trackLayer, `Track between notes`);
         layersControl.addOverlay(crosshairLayer, `Crosshair`);
-        layersControl.addTo(this);
+        layersControl.addTo(this.leafletMap);
+    }
+    invalidateSize() {
+        this.leafletMap.invalidateSize();
     }
     clearNotes() {
+        this.elementLayer.clearLayers();
         this.noteLayer.clearLayers();
         this.filteredNoteLayer.clearLayers();
         this.trackLayer.clearLayers();
@@ -325,7 +331,7 @@ class NoteMap extends L.Map {
         const bounds = this.noteLayer.getBounds();
         if (!bounds.isValid())
             return;
-        this.fitBounds(bounds);
+        this.leafletMap.fitBounds(bounds);
         this.needToFitNotes = false;
     }
     fitNotesIfNeeded() {
@@ -358,7 +364,53 @@ class NoteMap extends L.Map {
         L.polyline(polylineCoords, polylineOptions).addTo(this.trackLayer);
     }
     fitNoteTrack() {
-        this.fitBounds(this.trackLayer.getBounds());
+        const bounds = this.trackLayer.getBounds(); // invalid if track is empty; track is empty when no notes are in table view
+        if (bounds.isValid())
+            this.leafletMap.fitBounds(bounds);
+    }
+    addOsmElement(geometry) {
+        this.elementLayer.clearLayers();
+        this.elementLayer.addLayer(geometry);
+        if (geometry instanceof L.CircleMarker) {
+            this.leafletMap.panTo(geometry.getLatLng());
+        }
+        else {
+            const bounds = this.elementLayer.getBounds();
+            if (bounds.isValid())
+                this.leafletMap.fitBounds(bounds);
+        }
+    }
+    fitBounds(bounds) {
+        this.leafletMap.fitBounds(bounds);
+    }
+    panTo(latlng) {
+        this.leafletMap.panTo(latlng);
+    }
+    panAndZoomTo(latlng, zoom) {
+        this.leafletMap.flyTo(latlng, zoom, { duration: .5 }); // default duration is too long despite docs saying it's 0.25
+    }
+    isCloseEnoughToCenter(latlng) {
+        const inputPt = this.leafletMap.latLngToContainerPoint(latlng);
+        const centerPt = this.leafletMap.latLngToContainerPoint(this.leafletMap.getCenter()); // instead could have gotten container width/2, height/2
+        return (inputPt.x - centerPt.x) ** 2 + (inputPt.y - centerPt.y) ** 2 < 100;
+    }
+    get zoom() {
+        return this.leafletMap.getZoom();
+    }
+    get maxZoom() {
+        return this.leafletMap.getMaxZoom();
+    }
+    get lat() {
+        return this.leafletMap.getCenter().lat;
+    }
+    get lon() {
+        return this.leafletMap.getCenter().lng;
+    }
+    get bounds() {
+        return this.leafletMap.getBounds();
+    }
+    onMoveEnd(fn) {
+        this.leafletMap.on('moveend', fn);
     }
 }
 class CrosshairLayer extends L.Layer {
@@ -392,18 +444,153 @@ function* noteCommentsToStates(comments) {
     }
 }
 
-function makeUserLink(user, text) {
-    const fromId = (id) => `https://api.openstreetmap.org/api/0.6/user/${encodeURIComponent(id)}`;
+function getCommentItems(commentText) {
+    const matchRegExp = new RegExp(`(?<before>.*?)(?<text>` +
+        `(?<date>\\d\\d\\d\\d-\\d\\d-\\d\\d[T ]\\d\\d:\\d\\d:\\d\\dZ)` +
+        `|` +
+        `(?<link>https?://(?:` +
+        `(?<image>westnordost\.de/p/[0-9]+\.jpg)` +
+        '|' +
+        `(?<osm>(?:www\\.)?(?:osm|openstreetmap)\\.org/` +
+        `(?<path>(?<osmType>node|way|relation|note)/(?<id>[0-9]+))?` +
+        `(?<hash>#[-0-9a-zA-Z/.=&]+)?` + // only need hash at root or at recognized path
+        `)` +
+        `))` +
+        `)`, 'sy');
+    const items = [];
+    let idx = 0;
+    while (true) {
+        idx = matchRegExp.lastIndex;
+        const match = matchRegExp.exec(commentText);
+        if (!match || !match.groups)
+            break;
+        pushTextItem(match.groups.before);
+        items.push(getMatchItem(match.groups));
+    }
+    pushTextItem(commentText.slice(idx));
+    return collapseTextItems(items);
+    function pushTextItem(text) {
+        if (text == '')
+            return;
+        items.push({
+            type: 'text',
+            text
+        });
+    }
+    function collapseTextItems(inputItems) {
+        const outputItems = [];
+        let tailTextItem;
+        for (const item of inputItems) {
+            if (item.type == 'text') {
+                if (tailTextItem) {
+                    tailTextItem.text += item.text;
+                }
+                else {
+                    outputItems.push(item);
+                    tailTextItem = item;
+                }
+            }
+            else {
+                outputItems.push(item);
+                tailTextItem = undefined;
+            }
+        }
+        return outputItems;
+    }
+}
+function getMatchItem(groups) {
+    const baseItem = {
+        text: groups.text
+    };
+    if (groups.date) {
+        return {
+            ...baseItem,
+            type: 'date',
+        };
+    }
+    else if (groups.link) {
+        const linkItem = {
+            ...baseItem,
+            type: 'link',
+            href: groups.link
+        };
+        if (groups.image) {
+            return {
+                ...linkItem,
+                link: 'image'
+            };
+        }
+        else if (groups.osm) {
+            const osmItem = {
+                ...linkItem,
+                link: 'osm',
+                href: rewriteOsmHref(groups.path, groups.hash),
+                map: getMap(groups.hash)
+            };
+            if (groups.osmType && groups.id) {
+                if (groups.osmType == 'note') {
+                    return {
+                        ...osmItem,
+                        osm: 'note',
+                        id: Number(groups.id)
+                    };
+                }
+                else if (groups.osmType == 'node' || groups.osmType == 'way' || groups.osmType == 'relation') {
+                    return {
+                        ...osmItem,
+                        osm: 'element',
+                        element: groups.osmType,
+                        id: Number(groups.id)
+                    };
+                }
+            }
+            else if (osmItem.map) { // only make root links if they have map hash, otherwise they may not even be a root links
+                return {
+                    ...osmItem,
+                    osm: 'root'
+                };
+            }
+        }
+    }
+    return {
+        ...baseItem,
+        type: 'text'
+    };
+}
+function rewriteOsmHref(path, hash) {
+    let href = `https://www.openstreetmap.org/`; // changes osm.org and other redirected paths to canonical
+    if (path)
+        href += path;
+    if (hash)
+        href += hash;
+    return href;
+}
+function getMap(hash) {
+    if (!hash)
+        return;
+    const params = new URLSearchParams(hash.slice(1));
+    const map = params.get('map');
+    if (!map)
+        return;
+    const match = map.match(new RegExp('([0-9.]+)/(-?[0-9.]+)/(-?[0-9.]+)'));
+    if (!match)
+        return;
+    const [, zoom, lat, lon] = match;
+    return [zoom, lat, lon];
+}
+
+function makeUserLink(uid, username, text) {
+    if (username)
+        return makeUserNameLink(username, text);
+    return makeUserIdLink(uid, text);
+}
+function makeUserNameLink(username, text) {
     const fromName = (name) => `https://www.openstreetmap.org/user/${encodeURIComponent(name)}`;
-    if (typeof user == 'string') {
-        return makeLink(text ?? user, fromName(user));
-    }
-    else if (user.userType == 'id') {
-        return makeLink(text ?? '#' + user.uid, fromId(user.uid));
-    }
-    else {
-        return makeLink(text ?? user.username, fromName(user.username));
-    }
+    return makeLink(text ?? username, fromName(username));
+}
+function makeUserIdLink(uid, text) {
+    const fromId = (id) => `https://api.openstreetmap.org/api/0.6/user/${encodeURIComponent(id)}`;
+    return makeLink(text ?? '#' + uid, fromId(uid));
 }
 function makeLink(text, href, title) {
     const $link = document.createElement('a');
@@ -445,72 +632,274 @@ function makeEscapeTag(escapeFn) {
     };
 }
 
-function getCommentItems(commentText) {
-    const e = makeEscapeTag(escapeRegex);
-    const result = [];
-    const sep = 'https://';
-    let first = true;
-    for (const part of commentText.split(sep)) {
-        if (first) {
-            first = false;
-            pushText(part);
-            continue;
+function isOsmElementBase(e) {
+    if (!e)
+        return false;
+    if (e.type != 'node' && e.type != 'way' && e.type != 'relation')
+        return false;
+    if (!Number.isInteger(e.id))
+        return false;
+    if (typeof e.timestamp != 'string')
+        return false;
+    if (!Number.isInteger(e.version))
+        return false;
+    if (!Number.isInteger(e.changeset))
+        return false;
+    if (e.user != null && (typeof e.user != 'string'))
+        return false;
+    if (!Number.isInteger(e.uid))
+        return false;
+    return true;
+}
+function isOsmNodeElement(e) {
+    if (!isOsmElementBase(e))
+        return false;
+    if (e.type != 'node')
+        return false;
+    if (typeof e.lat != 'number')
+        return false;
+    if (typeof e.lon != 'number')
+        return false;
+    return true;
+}
+function isOsmWayElement(e) {
+    if (!isOsmElementBase(e))
+        return false;
+    if (e.type != 'way')
+        return false;
+    const nodes = e.nodes;
+    if (!Array.isArray(nodes))
+        return false;
+    if (!nodes.every(v => Number.isInteger(v)))
+        return false;
+    return true;
+}
+function isOsmRelationElement(e) {
+    if (!isOsmElementBase(e))
+        return false;
+    if (e.type != 'relation')
+        return false;
+    const members = e.members;
+    if (!Array.isArray(members))
+        return false;
+    if (!members.every(m => (m &&
+        (m.type == 'node' || m.type == 'way' || m.type == 'relation') &&
+        Number.isInteger(m.ref) &&
+        (typeof m.role == 'string'))))
+        return false;
+    return true;
+}
+const e = makeEscapeTag(encodeURIComponent);
+async function downloadAndShowElement($a, map, makeDate, elementType, elementId) {
+    $a.classList.add('loading');
+    try {
+        // TODO cancel already running response
+        const fullBit = (elementType == 'node' ? '' : '/full');
+        const url = e `https://api.openstreetmap.org/api/0.6/${elementType}/${elementId}` + `${fullBit}.json`;
+        const response = await fetch(url);
+        if (!response.ok) {
+            if (response.status == 404) {
+                throw new TypeError(`element doesn't exist`);
+            }
+            else if (response.status == 410) {
+                throw new TypeError(`element was deleted`);
+            }
+            else {
+                throw new TypeError(`OSM API error: unsuccessful response`);
+            }
         }
-        let match = null;
-        if (match = part.match(new RegExp(e `^(${'westnordost.de/p/'}[0-9]+${'.jpg'})(.*)$`, 's'))) {
-            const [, hrefPart, rest] = match;
-            const href = sep + hrefPart;
-            result.push({
-                type: 'image',
-                text: href,
-                href
-            });
-            pushText(rest);
+        const data = await response.json();
+        const elements = getElementsFromOsmApiResponse(data);
+        const element = elements[elementType][elementId];
+        if (!element)
+            throw new TypeError(`OSM API error: requested element not found in response data`);
+        if (isOsmNodeElement(element)) {
+            addElementGeometryToMap(map, makeDate, element, makeNodeGeometry(element));
         }
-        else if (match = part.match(new RegExp(e `^(${'osm.org/'}(node|way|relation)${'/'}([0-9]+))(.*)$`, 's'))) {
-            const [, originalHrefPart, osmType, osmId, rest] = match;
-            result.push({
-                type: 'link',
-                text: sep + originalHrefPart,
-                href: `https://www.openstreetmap.org/${osmType}/${osmId}`
-            });
-            pushText(rest);
+        else if (isOsmWayElement(element)) {
+            addElementGeometryToMap(map, makeDate, element, makeWayGeometry(element));
         }
-        else if (match = part.match(new RegExp(e `^(${'www.openstreetmap.org/note/'}([0-9]+))(.*)$`, 's'))) {
-            const [, originalHrefPart, osmId, rest] = match;
-            result.push({
-                type: 'note',
-                text: sep + originalHrefPart,
-                id: Number(osmId)
-            });
-            pushText(rest);
+        else if (isOsmRelationElement(element)) {
+            addElementGeometryToMap(map, makeDate, element, makeRelationGeometry(element));
         }
         else {
-            pushText(sep + part);
+            throw new TypeError(`OSM API error: requested element has unknown type`); // shouldn't happen
+        }
+        $a.classList.remove('absent');
+        $a.title = '';
+        function makeNodeGeometry(node) {
+            return L.circleMarker([node.lat, node.lon]);
+        }
+        function makeWayGeometry(way) {
+            const coords = [];
+            for (const id of way.nodes) {
+                const node = elements.node[id];
+                if (!node)
+                    throw new TypeError(`OSM API error: referenced element not found in response data`);
+                coords.push([node.lat, node.lon]);
+            }
+            return L.polyline(coords);
+        }
+        function makeRelationGeometry(relation) {
+            const geometry = L.featureGroup();
+            for (const member of relation.members) {
+                if (member.type == 'node') {
+                    const node = elements.node[member.ref];
+                    if (!node)
+                        throw new TypeError(`OSM API error: referenced element not found in response data`);
+                    geometry.addLayer(makeNodeGeometry(node));
+                }
+                else if (member.type == 'way') {
+                    const way = elements.way[member.ref];
+                    if (!way)
+                        throw new TypeError(`OSM API error: referenced element not found in response data`);
+                    geometry.addLayer(makeWayGeometry(way));
+                }
+                // TODO indicate that there might be relations, their data may be incomplete
+            }
+            return geometry;
         }
     }
-    return result;
-    function pushText(text) {
-        if (text == '')
-            return;
-        result.push({
-            type: 'text',
-            text
-        });
+    catch (ex) {
+        map.elementLayer.clearLayers();
+        $a.classList.add('absent');
+        if (ex instanceof TypeError) {
+            $a.title = ex.message;
+        }
+        else {
+            $a.title = `unknown error ${ex}`;
+        }
+    }
+    finally {
+        $a.classList.remove('loading');
+    }
+}
+function getElementsFromOsmApiResponse(data) {
+    const node = {};
+    const way = {};
+    const relation = {};
+    if (!data)
+        throw new TypeError(`OSM API error: invalid response data`);
+    const elementArray = data.elements;
+    if (!Array.isArray(elementArray))
+        throw new TypeError(`OSM API error: invalid response data`);
+    for (const element of elementArray) {
+        if (isOsmNodeElement(element)) {
+            node[element.id] = element;
+        }
+        else if (isOsmWayElement(element)) {
+            way[element.id] = element;
+        }
+        else if (isOsmRelationElement(element)) {
+            relation[element.id] = element;
+        }
+        else {
+            throw new TypeError(`OSM API error: invalid element in response data`);
+        }
+    }
+    return { node, way, relation };
+}
+function addElementGeometryToMap(map, makeDate, element, elementGeometry) {
+    elementGeometry.bindPopup(() => {
+        const p = (...s) => makeElement('p')()(...s);
+        const h = (...s) => p(makeElement('strong')()(...s));
+        const $popup = makeDiv('osm-element-popup-contents')(h(capitalize(element.type) + `: `, makeLink(getElementName(element), e `https://www.openstreetmap.org/${element.type}/${element.id}`)), h(`Version #${element.version}`), p(`Edited on `, getElementDate(element, makeDate), ` by `, getElementUser(element), ` · Changeset #`, makeLink(String(element.changeset), e `https://www.openstreetmap.org/changeset/${element.changeset}`)));
+        if (element.tags)
+            $popup.append(getElementTags(element.tags));
+        return $popup;
+    });
+    map.addOsmElement(elementGeometry);
+}
+function capitalize(s) {
+    return s[0].toUpperCase() + s.slice(1);
+}
+function getElementName(element) {
+    if (element.tags?.name) {
+        return `${element.tags.name} (${element.id})`;
+    }
+    else {
+        return String(element.id);
+    }
+}
+function getElementDate(element, makeDate) {
+    const readableDate = element.timestamp.replace('T', ' ').replace('Z', '');
+    return makeDate(readableDate);
+}
+function getElementUser(element) {
+    return makeUserLink(element.uid, element.user);
+}
+function getElementTags(tags) {
+    const tagBatchSize = 10;
+    const tagList = Object.entries(tags);
+    let i = 0;
+    let $button;
+    const $figure = document.createElement('figure');
+    const $figcaption = document.createElement('figcaption');
+    $figcaption.textContent = `Tags`;
+    const $table = document.createElement('table');
+    $figure.append($figcaption, $table);
+    writeTagBatch();
+    return $figure;
+    function writeTagBatch() {
+        for (let j = 0; i < tagList.length && j < tagBatchSize; i++, j++) {
+            const [k, v] = tagList[i];
+            const $row = $table.insertRow();
+            $row.insertCell().textContent = k;
+            $row.insertCell().textContent = v; // TODO what if tag value too long?
+        }
+        if (i < tagList.length) {
+            if (!$button) {
+                $button = document.createElement('button');
+                $figure.append($button);
+                $button.onclick = writeTagBatch;
+            }
+            const nTagsLeft = tagList.length - i;
+            const nTagsToShowNext = Math.min(nTagsLeft, tagBatchSize);
+            $button.textContent = `Show ${nTagsToShowNext} / ${nTagsLeft} more tags`;
+        }
+        else {
+            $button?.remove();
+        }
     }
 }
 
 class NoteTableCommentWriter {
-    constructor(pingNoteSection) {
-        this.wrappedNoteLinkClickListener = function (ev) {
+    constructor($table, map, pingNoteSection) {
+        this.$table = $table;
+        this.wrappedOsmLinkClickListener = function (ev) {
+            const $a = this;
             ev.preventDefault();
             ev.stopPropagation();
-            const $noteSection = document.getElementById(`note-` + this.dataset.noteId);
-            if (!($noteSection instanceof HTMLTableSectionElement))
+            if (handleNote($a.dataset.noteId))
                 return;
-            if ($noteSection.classList.contains('hidden'))
+            if (handleElement($a.dataset.elementType, $a.dataset.elementId))
                 return;
-            pingNoteSection($noteSection);
+            handleMap($a.dataset.zoom, $a.dataset.lat, $a.dataset.lon);
+            function handleNote(noteId) {
+                if (!noteId)
+                    return false;
+                const $noteSection = document.getElementById(`note-` + noteId);
+                if (!($noteSection instanceof HTMLTableSectionElement))
+                    return false;
+                if ($noteSection.classList.contains('hidden'))
+                    return false;
+                pingNoteSection($noteSection);
+                return true;
+            }
+            function handleElement(elementType, elementId) {
+                if (!elementId)
+                    return false;
+                if (elementType != 'node' && elementType != 'way' && elementType != 'relation')
+                    return false;
+                downloadAndShowElement($a, map, makeDate, elementType, elementId);
+                return true;
+            }
+            function handleMap(zoom, lat, lon) {
+                if (!(zoom && lat && lon))
+                    return false;
+                map.panAndZoomTo([Number(lat), Number(lon)], Number(zoom));
+                return true;
+            }
         };
     }
     writeCommentText($cell, commentText, showImages) {
@@ -518,7 +907,7 @@ class NoteTableCommentWriter {
         const images = [];
         let iImage = 0;
         for (const item of getCommentItems(commentText)) {
-            if (item.type == 'image') {
+            if (item.type == 'link' && item.link == 'image') {
                 const $inlineLink = makeLink(item.href, item.href);
                 $inlineLink.classList.add('image', 'inline');
                 result.push($inlineLink);
@@ -539,16 +928,22 @@ class NoteTableCommentWriter {
                 }
                 iImage++;
             }
-            else if (item.type == 'note') {
-                const $a = makeLink(item.text, `https://www.openstreetmap.org/note/` + item.id);
-                $a.classList.add('other-note');
-                $a.dataset.noteId = String(item.id);
-                // updateNoteLink($a) // handleNotesUpdate() is going to be run anyway
-                $a.addEventListener('click', this.wrappedNoteLinkClickListener);
+            else if (item.type == 'link' && item.link == 'osm') {
+                const $a = makeLink(item.text, item.href);
+                $a.classList.add('osm');
+                if (item.map)
+                    [$a.dataset.zoom, $a.dataset.lat, $a.dataset.lon] = item.map;
+                if (item.osm == 'note') {
+                    $a.classList.add('other-note');
+                    $a.dataset.noteId = String(item.id);
+                    // updateNoteLink($a) // handleNotesUpdate() is going to be run anyway
+                }
+                if (item.osm == 'element') {
+                    $a.dataset.elementType = item.element;
+                    $a.dataset.elementId = String(item.id);
+                }
+                $a.addEventListener('click', this.wrappedOsmLinkClickListener);
                 result.push($a);
-            }
-            else if (item.type == 'link') {
-                result.push(makeLink(item.text, item.href));
             }
             else {
                 result.push(item.text);
@@ -556,8 +951,8 @@ class NoteTableCommentWriter {
         }
         $cell.append(...images, ...result);
     }
-    handleShowImagesUpdate($table, showImages) {
-        for (const $a of $table.querySelectorAll('td.note-comment a.image.float')) {
+    handleShowImagesUpdate(showImages) {
+        for (const $a of this.$table.querySelectorAll('td.note-comment a.image.float')) {
             if (!($a instanceof HTMLAnchorElement))
                 continue;
             const $img = $a.firstChild;
@@ -567,12 +962,28 @@ class NoteTableCommentWriter {
                 $img.src = $a.href; // don't remove src when showImages is disabled, otherwise will reload all images when src is set back
         }
     }
-    handleNotesUpdate($table) {
-        for (const $a of $table.querySelectorAll('td.note-comment a.other-note')) {
+    handleNotesUpdate() {
+        for (const $a of this.$table.querySelectorAll('td.note-comment a.other-note')) {
             if (!($a instanceof HTMLAnchorElement))
                 continue;
             updateNoteLink($a);
         }
+    }
+}
+function makeDate(readableDate) {
+    const [readableDateWithoutTime] = readableDate.split(' ', 1);
+    if (readableDate && readableDateWithoutTime) {
+        const $time = document.createElement('time');
+        $time.textContent = readableDateWithoutTime;
+        $time.dateTime = `${readableDate}Z`;
+        $time.title = `${readableDate} UTC`;
+        return $time;
+        // TODO handler to update overpass timestamp
+    }
+    else {
+        const $unknownDateTime = document.createElement('span');
+        $unknownDateTime.textContent = `?`;
+        return $unknownDateTime;
     }
 }
 function updateNoteLink($a) {
@@ -750,7 +1161,7 @@ class NoteTable {
         this.noteSectionLayerIdVisibility = new Map();
         this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
         this.usersById = new Map();
-        this.commentWriter = new NoteTableCommentWriter($noteSection => this.focusOnNote($noteSection));
+        this.commentWriter = new NoteTableCommentWriter(this.$table, this.map, $noteSection => this.focusOnNote($noteSection));
         const that = this;
         let $clickReadyNoteSection;
         this.wrappedNoteSectionListeners = [
@@ -854,7 +1265,7 @@ class NoteTable {
         }
         this.commandPanel.receiveNoteCounts(nFetched, nVisible);
         this.updateCheckboxDependents();
-        this.commentWriter.handleNotesUpdate(this.$table);
+        this.commentWriter.handleNotesUpdate();
     }
     /**
      * @returns number of added notes that passed through the filter
@@ -907,21 +1318,7 @@ class NoteTable {
                 {
                     const $cell = $row.insertCell();
                     $cell.classList.add('note-date');
-                    const readableDate = toReadableDate(comment.date);
-                    const [readableDateWithoutTime] = readableDate.split(' ', 1);
-                    if (readableDate && readableDateWithoutTime) {
-                        const $time = document.createElement('time');
-                        $time.textContent = readableDateWithoutTime;
-                        $time.dateTime = `${readableDate}Z`;
-                        $time.title = `${readableDate} UTC`;
-                        $cell.append($time);
-                    }
-                    else {
-                        const $unknownDateTime = document.createElement('span');
-                        $unknownDateTime.textContent = `?`;
-                        $unknownDateTime.title = String(comment.date);
-                        $cell.append($unknownDateTime);
-                    }
+                    $cell.append(makeDate(toReadableDate(comment.date)));
                 }
                 {
                     const $cell = $row.insertCell();
@@ -929,7 +1326,7 @@ class NoteTable {
                     if (comment.uid != null) {
                         const username = users[comment.uid];
                         if (username != null) {
-                            $cell.append(makeUserLink(username));
+                            $cell.append(makeUserNameLink(username));
                         }
                         else {
                             $cell.append(`#${comment.uid}`);
@@ -974,13 +1371,13 @@ class NoteTable {
                 nVisible++;
         }
         this.commandPanel.receiveNoteCounts(nFetched, nVisible);
-        this.commentWriter.handleNotesUpdate(this.$table);
+        this.commentWriter.handleNotesUpdate();
         return nUnfilteredNotes;
     }
     setShowImages(showImages) {
         this.showImages = showImages;
         this.$table.classList.toggle('with-images', showImages);
-        this.commentWriter.handleShowImagesUpdate(this.$table, showImages);
+        this.commentWriter.handleShowImagesUpdate(showImages);
     }
     writeNote(note, isVisible) {
         const marker = new NoteMarker(note);
@@ -1058,14 +1455,11 @@ class NoteTable {
         const marker = this.map.noteLayer.getLayer(layerId);
         if (!(marker instanceof L.Marker))
             return;
-        const markerPt = this.map.latLngToContainerPoint(marker.getLatLng());
-        const centerPt = this.map.latLngToContainerPoint(this.map.getCenter()); // instead could have gotten container width/2, height/2
-        const markerIsCloseEnoughToCenter = (markerPt.x - centerPt.x) ** 2 + (markerPt.y - centerPt.y) ** 2 < 100;
-        const z1 = this.map.getZoom();
-        const z2 = this.map.getMaxZoom();
-        if (markerIsCloseEnoughToCenter && z1 < z2) {
+        const z1 = this.map.zoom;
+        const z2 = this.map.maxZoom;
+        if (this.map.isCloseEnoughToCenter(marker.getLatLng()) && z1 < z2) {
             const nextZoom = Math.min(z2, z1 + Math.ceil((z2 - z1) / 2));
-            this.map.flyTo(marker.getLatLng(), nextZoom, { duration: .5 }); // default duration is too long despite docs saying it's 0.25
+            this.map.panAndZoomTo(marker.getLatLng(), nextZoom);
         }
         else {
             this.map.panTo(marker.getLatLng());
@@ -1361,7 +1755,7 @@ class CommandPanel {
     }
     getOverpassQueryPreamble(map) {
         const time = this.$commentTimeInput.value;
-        const bounds = map.getBounds();
+        const bounds = map.bounds;
         let query = '';
         if (time)
             query += `[date:"${time}"]\n`;
@@ -1424,7 +1818,6 @@ CommandPanel.commandGroups = [[
         (cp, map) => {
             const $overpassButtons = [];
             const buttonClickListener = (withRelations, onlyAround) => {
-                const center = map.getCenter();
                 let query = cp.getOverpassQueryPreamble(map);
                 if (withRelations) {
                     query += `nwr`;
@@ -1434,11 +1827,11 @@ CommandPanel.commandGroups = [[
                 }
                 if (onlyAround) {
                     const radius = 10;
-                    query += `(around:${radius},${center.lat},${center.lng})`;
+                    query += `(around:${radius},${map.lat},${map.lon})`;
                 }
                 query += `;\n`;
                 query += `out meta geom;`;
-                const location = `${center.lat};${center.lng};${map.getZoom()}`;
+                const location = `${map.lat};${map.lon};${map.zoom}`;
                 const url = `https://overpass-turbo.eu/?C=${encodeURIComponent(location)}&Q=${encodeURIComponent(query)}`;
                 open(url, 'overpass-turbo');
             };
@@ -1473,32 +1866,35 @@ CommandPanel.commandGroups = [[
         (cp, map) => {
             const $button = document.createElement('button');
             $button.append(`Find closest node to `, makeMapIcon('center'));
+            const $a = document.createElement('a');
+            $a.innerText = `link`;
             $button.addEventListener('click', async () => {
                 $button.disabled = true;
+                $a.removeAttribute('href');
                 try {
                     const radius = 10;
-                    const center = map.getCenter();
                     let query = cp.getOverpassQueryPreamble(map);
-                    query += `node(around:${radius},${center.lat},${center.lng});\n`;
+                    query += `node(around:${radius},${map.lat},${map.lon});\n`;
                     query += `out skel;`;
                     const doc = await makeOverpassQuery($button, query);
                     if (!doc)
                         return;
-                    const closestNodeId = getClosestNodeId(doc, center.lat, center.lng);
+                    const closestNodeId = getClosestNodeId(doc, map.lat, map.lon);
                     if (!closestNodeId) {
                         $button.classList.add('error');
                         $button.title = `Could not find nodes nearby`;
                         return;
                     }
                     const url = `https://www.openstreetmap.org/node/` + encodeURIComponent(closestNodeId);
-                    open(url);
+                    $a.href = url;
+                    downloadAndShowElement($a, map, makeDate, 'node', closestNodeId);
                 }
                 finally {
                     $button.disabled = false;
                 }
             });
-            return [$button];
-        }, () => [p(`Query `, makeLink(`Overpass API`, 'https://wiki.openstreetmap.org/wiki/Overpass_API'), ` without going through Overpass turbo. `, `Since there's no UI, something has to be done with the response. Currently the only possible result is an OSM element, which is opened on the OSM website.`)]
+            return [$button, ` `, $a];
+        }, () => [p(`Query `, makeLink(`Overpass API`, 'https://wiki.openstreetmap.org/wiki/Overpass_API'), ` without going through Overpass turbo. `, `Shows results on the map. Also gives link to the element page on the OSM website.`)]
     ], [
         'rc',
         `RC`,
@@ -1519,7 +1915,7 @@ CommandPanel.commandGroups = [[
             const $loadMapButton = document.createElement('button');
             $loadMapButton.append(`Load `, makeMapIcon('area'));
             $loadMapButton.addEventListener('click', () => {
-                const bounds = map.getBounds();
+                const bounds = map.bounds;
                 const rcUrl = e `http://127.0.0.1:8111/load_and_zoom` +
                     `?left=${bounds.getWest()}&right=${bounds.getEast()}` +
                     `&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`;
@@ -1537,8 +1933,7 @@ CommandPanel.commandGroups = [[
             $zoomButton.append(`Open `, makeMapIcon('center'));
             $zoomButton.addEventListener('click', () => {
                 const e = makeEscapeTag(encodeURIComponent);
-                const center = map.getCenter();
-                const url = e `https://www.openstreetmap.org/id#map=${map.getZoom()}/${center.lat}/${center.lng}`;
+                const url = e `https://www.openstreetmap.org/id#map=${map.zoom}/${map.lat}/${map.lon}`;
                 open(url, 'id');
             });
             return [$zoomButton];
@@ -1659,9 +2054,8 @@ CommandPanel.commandGroups = [[
             $viewButton.append(`Open `, makeMapIcon('center'));
             $viewButton.addEventListener('click', () => {
                 const e = makeEscapeTag(encodeURIComponent);
-                const center = map.getCenter();
-                const coords = center.lng + ',' + center.lat;
-                const url = e `https://yandex.ru/maps/?ll=${coords}&panorama%5Bpoint%5D=${coords}&z=${map.getZoom()}`; // 'll' is required if 'z' argument is present
+                const coords = map.lon + ',' + map.lat;
+                const url = e `https://yandex.ru/maps/?ll=${coords}&panorama%5Bpoint%5D=${coords}&z=${map.zoom}`; // 'll' is required if 'z' argument is present
                 open(url, 'yandex');
             });
             return [$viewButton];
@@ -1674,8 +2068,7 @@ CommandPanel.commandGroups = [[
             $viewButton.append(`Open `, makeMapIcon('center'));
             $viewButton.addEventListener('click', () => {
                 const e = makeEscapeTag(encodeURIComponent);
-                const center = map.getCenter();
-                const url = e `https://www.mapillary.com/app/?lat=${center.lat}&lng=${center.lng}&z=${map.getZoom()}&focus=photo`;
+                const url = e `https://www.mapillary.com/app/?lat=${map.lat}&lng=${map.lon}&z=${map.zoom}&focus=photo`;
                 open(url, 'mapillary');
             });
             return [$viewButton];
@@ -2808,12 +3201,12 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
         const copyBounds = () => {
             if (!this.$trackMapCheckbox.checked)
                 return;
-            const bounds = this.map.getBounds();
+            const bounds = this.map.bounds;
             // (left,bottom,right,top)
             this.$bboxInput.value = bounds.getWest() + ',' + bounds.getSouth() + ',' + bounds.getEast() + ',' + bounds.getNorth();
             validateBounds();
         };
-        this.map.on('moveend', copyBounds);
+        this.map.onMoveEnd(copyBounds);
         this.$trackMapCheckbox.addEventListener('input', copyBounds);
         this.$bboxInput.addEventListener('input', () => {
             if (!validateBounds())
@@ -2825,7 +3218,7 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
             this.$nominatimButton.disabled = true;
             this.$nominatimButton.classList.remove('error');
             try {
-                const bounds = this.map.getBounds();
+                const bounds = this.map.bounds;
                 const bbox = await this.nominatimBboxFetcher.fetch(Date.now(), this.$nominatimInput.value, bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth());
                 const [minLat, maxLat, minLon, maxLon] = bbox;
                 this.$bboxInput.value = `${minLon},${minLat},${maxLon},${maxLat}`;
@@ -3251,7 +3644,7 @@ class ExtrasPanel {
                 const $userCell = $row.insertCell();
                 const username = searchParams.get('display_name');
                 if (username)
-                    $userCell.append(makeUserLink(username));
+                    $userCell.append(makeUserNameLink(username));
                 $row.insertCell().append(String(new Date(fetchEntry.accessTimestamp)));
                 const $deleteButton = document.createElement('button');
                 $deleteButton.textContent = `Delete`;
@@ -3274,16 +3667,23 @@ class ExtrasPanel {
         });
         if (query != null && limit != null) { // TODO don't limit to this user
             const userQuery = makeUserQueryFromNoteSearchQuery(query);
-            if (userQuery.userType == 'name' || userQuery.userType == 'id')
+            const $userLink = makeUserLink();
+            if ($userLink)
                 writeBlock(() => [
                     `API links to queries on `,
-                    makeUserLink(userQuery, `this user`),
+                    $userLink,
                     `: `,
                     makeNoteSearchQueryLink(`with specified limit`, query, limit),
                     `, `,
                     makeNoteSearchQueryLink(`with max limit`, query, 10000),
                     ` (may be slow)`
                 ]);
+            function makeUserLink() {
+                if (userQuery.userType == 'name')
+                    return makeUserNameLink(userQuery.username, `this user`);
+                if (userQuery.userType == 'id')
+                    return makeUserIdLink(userQuery.uid, `this user`);
+            }
         }
         writeBlock(() => [
             `User query have whitespace trimmed, then the remaining part starting with `, makeCode(`#`), ` is treated as a user id; containing `, makeCode(`/`), `is treated as a URL, anything else as a username. `,
