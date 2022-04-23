@@ -283,6 +283,7 @@ body.flipped .notes td.note-user {
 }
 .notes td.note-comment a {
 	text-decoration-style: dotted;
+	text-decoration-thickness: 1px;
 }
 .notes td.note-comment a.image:hover,
 .notes td.note-comment a.image.active {
