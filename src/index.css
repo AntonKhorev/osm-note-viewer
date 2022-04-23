@@ -342,6 +342,7 @@ body.flipped .notes td.note-user {
 .map {
 	width: 100%;
 	height: 100%;
+	isolation: isolate;
 }
 .map .note-track {
 	vector-effect: non-scaling-stroke;
@@ -389,4 +390,19 @@ body.flipped .notes td.note-user {
 	box-sizing: border-box;
 	width: 100%;
 	margin: var(--block-gap) 0;
+}
+
+.photo {
+	position: absolute;
+	inset: 0;
+	padding: 0;
+	border: 0;
+	width: 100%;
+	height: 100%;
+}
+.photo iframe {
+	border: none;
+	display: block;
+	width: 100%;
+	height: 100%;
 }

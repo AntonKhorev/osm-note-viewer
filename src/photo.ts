@@ -1,15 +1,38 @@
+// simple HTMLDialogElement interface to shut up TypeScript
+// https://gist.github.com/jbmoelker/226594f195b97bf61436
+interface HTMLDialogElementHack extends HTMLDialogElement {
+	open: boolean
+	returnValue: string
+	close(): void
+	show(): void
+	showModal(): void
+}
+
 export default class PhotoDialog {
 	private url: string|undefined
-	constructor($dialog: HTMLDialogElement) {
-		// TODO detect if HTMLDialogElement is defined - if not, replace everything with dummy functions
+	private fallbackMode: boolean
+	constructor(private $dialog: HTMLDialogElement) {
+		this.fallbackMode=((window as any).HTMLDialogElement == null)
 	}
 	toggle(url: string) {
-		console.log('toggle photo',url) ///
+		const $dialog = <HTMLDialogElementHack>this.$dialog
+		if (this.fallbackMode) {
+			return open(url,'photo')
+		}
+		this.$dialog.innerHTML=''
 		if (url==this.url) {
-			// TODO close dialog
+			$dialog.close()
 			this.url=undefined
 		} else {
-			// TODO open dialog and show photo
+			const $iFrame=document.createElement('iframe')
+			$iFrame.src=url
+
+			// const $img=document.createElement('img')
+			// $img.src=url
+			// $img.alt='attached photo'
+
+			$dialog.append($iFrame)
+			$dialog.show()
 			this.url=url
 		}
 	}
