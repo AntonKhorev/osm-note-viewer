@@ -16,15 +16,16 @@ export default class PhotoDialog {
 	constructor(private $dialog: HTMLDialogElement) {
 		this.fallbackMode=((window as any).HTMLDialogElement == null)
 	}
-	close() {
+	close(): void {
 		const $dialog = <HTMLDialogElementHack>this.$dialog
 		$dialog.close()
 		this.url=undefined
 	}
-	toggle(url: string) {
+	toggle(url: string): void {
 		const $dialog = <HTMLDialogElementHack>this.$dialog
 		if (this.fallbackMode) {
-			return open(url,'photo')
+			open(url,'photo')
+			return
 		}
 		this.$dialog.innerHTML=''
 		if (url==this.url) {
@@ -47,8 +48,13 @@ export default class PhotoDialog {
 			if ($figure.classList.contains('zoomed')) {
 				$figure.classList.remove('zoomed')
 			} else {
-				const xScrollFraction=ev.offsetX/$figure.offsetWidth
-				const yScrollFraction=ev.offsetY/$figure.offsetHeight
+				const clamp=(num:number)=>Math.min(Math.max(num,0),1)
+				let xScrollFraction=(ev.offsetX>=$figure.offsetWidth /2 ? 1 : 0)
+				let yScrollFraction=(ev.offsetY>=$figure.offsetHeight/2 ? 1 : 0)
+				if (ev.target==$img) {
+					xScrollFraction=clamp(ev.offsetX/$img.offsetWidth)
+					yScrollFraction=clamp(ev.offsetY/$img.offsetHeight)
+				}
 				$figure.classList.add('zoomed')
 				const xMaxScrollDistance=$figure.scrollWidth -$figure.clientWidth
 				const yMaxScrollDistance=$figure.scrollHeight-$figure.clientHeight
