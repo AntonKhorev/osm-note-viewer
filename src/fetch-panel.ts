@@ -1,6 +1,7 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
 import {NoteMap} from './map'
+import PhotoDialog from './photo'
 import NoteTable from './table'
 import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
@@ -17,7 +18,7 @@ export default class NoteFetchPanel {
 		storage: NoteViewerStorage, db: NoteViewerDB,
 		$container: HTMLElement,
 		$notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
-		filterPanel: NoteFilterPanel, extrasPanel: ExtrasPanel, map: NoteMap, restoreScrollPosition: ()=>void
+		filterPanel: NoteFilterPanel, extrasPanel: ExtrasPanel, map: NoteMap, photoDialog: PhotoDialog, restoreScrollPosition: ()=>void
 	) {
 		let noteTable: NoteTable | undefined
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
@@ -94,7 +95,10 @@ export default class NoteFetchPanel {
 			if (query?.mode!='search' && query?.mode!='bbox') return
 			filterPanel.unsubscribe()
 			const commandPanel=new CommandPanel($commandContainer,map,storage)
-			noteTable=new NoteTable($notesContainer,commandPanel,map,filterPanel.noteFilter,$showImagesCheckboxes[0]?.checked)
+			noteTable=new NoteTable(
+				$notesContainer,commandPanel,map,filterPanel.noteFilter,
+				photoDialog,$showImagesCheckboxes[0]?.checked
+			)
 			filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(noteFilter))
 			if (query?.mode=='search') {
 				startSearchFetcher(

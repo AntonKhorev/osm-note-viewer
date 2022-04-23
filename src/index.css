@@ -281,6 +281,9 @@ body.flipped .notes td.note-user {
 	content: "no comment";
 	color: gray;
 }
+.notes td.note-comment a {
+	text-decoration-style: dotted;
+}
 .notes td.note-comment a.image:hover,
 .notes td.note-comment a.image.active {
 	outline: var(--comment-link-outline)
@@ -299,9 +302,6 @@ body.flipped .notes td.note-user {
 }
 .notes table.with-images td.note-comment a.image.float {
 	display: block;
-}
-.notes td.note-comment a.osm {
-	text-decoration-style: dotted; /* TODO this is how all comment links should look because there shouldn't be any regular links */
 }
 .notes td.note-comment a.loading {
 	cursor: progress;

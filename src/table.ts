@@ -1,5 +1,6 @@
 import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
+import PhotoDialog from './photo'
 import NoteTableCommentWriter, {makeDate} from './table-comment'
 import CommandPanel from './command-panel'
 import NoteFilter from './filter'
@@ -22,10 +23,10 @@ export default class NoteTable {
 	private commentWriter: NoteTableCommentWriter
 	constructor(
 		$container: HTMLElement, 
-		private commandPanel: CommandPanel, private map: NoteMap, private filter: NoteFilter, 
-		private showImages: boolean
+		private commandPanel: CommandPanel, private map: NoteMap, private filter: NoteFilter,
+		photoDialog: PhotoDialog, private showImages: boolean
 	) {
-		this.commentWriter=new NoteTableCommentWriter(this.$table,this.map,$noteSection=>this.focusOnNote($noteSection))
+		this.commentWriter=new NoteTableCommentWriter(this.$table,this.map,photoDialog,$noteSection=>this.focusOnNote($noteSection))
 		const that=this
 		let $clickReadyNoteSection: HTMLTableSectionElement | undefined
 		this.wrappedNoteSectionListeners=[

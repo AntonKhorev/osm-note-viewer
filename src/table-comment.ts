@@ -1,11 +1,13 @@
 import getCommentItems from './comment'
 import {NoteMap} from './map'
+import PhotoDialog from './photo'
 import downloadAndShowElement from './osm'
 import {makeLink} from './util'
 
 export default class NoteTableCommentWriter {
 	wrappedOsmLinkClickListener:  (this: HTMLAnchorElement, ev: MouseEvent)=>void
-	constructor(private $table: HTMLTableElement, map: NoteMap, pingNoteSection: ($noteSection: HTMLTableSectionElement)=>void) {
+	wrappedImageLinkClickListener:  (this: HTMLAnchorElement, ev: MouseEvent)=>void
+	constructor(private $table: HTMLTableElement, map: NoteMap, photoDialog: PhotoDialog, pingNoteSection: ($noteSection: HTMLTableSectionElement)=>void) {
 		this.wrappedOsmLinkClickListener=function(this: HTMLAnchorElement, ev: MouseEvent){
 			const $a=this
 			ev.preventDefault()
@@ -33,6 +35,12 @@ export default class NoteTableCommentWriter {
 				return true
 			}
 		}
+		this.wrappedImageLinkClickListener=function(this: HTMLAnchorElement, ev: MouseEvent){
+			const $a=this
+			ev.preventDefault()
+			ev.stopPropagation()
+			photoDialog.toggle($a.href)
+		}
 	}
 	writeCommentText($cell: HTMLElement, commentText: string, showImages: boolean): void {
 		const result: Array<string|HTMLElement> = []
@@ -42,6 +50,7 @@ export default class NoteTableCommentWriter {
 			if (item.type=='link' && item.link=='image') {
 				const $inlineLink=makeLink(item.href,item.href)
 				$inlineLink.classList.add('image','inline')
+				$inlineLink.addEventListener('click',this.wrappedImageLinkClickListener)
 				result.push($inlineLink)
 				const $img=document.createElement('img')
 				$img.loading='lazy' // this + display:none is not enough to surely stop the browser from accessing the image link
@@ -52,6 +61,7 @@ export default class NoteTableCommentWriter {
 				$floatLink.classList.add('image','float')
 				$floatLink.href=item.href
 				$floatLink.append($img)
+				$floatLink.addEventListener('click',this.wrappedImageLinkClickListener)
 				images.push($floatLink)
 				if (!iImage) {
 					$cell.addEventListener('mouseover',imageCommentHoverListener)
