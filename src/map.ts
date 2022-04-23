@@ -123,6 +123,16 @@ export class NoteMap {
 		const bounds=this.trackLayer.getBounds() // invalid if track is empty; track is empty when no notes are in table view
 		if (bounds.isValid()) this.leafletMap.fitBounds(bounds)
 	}
+	addOsmElement(geometry: L.Layer): void {
+		this.elementLayer.clearLayers()
+		this.elementLayer.addLayer(geometry)
+		if (geometry instanceof L.CircleMarker) {
+			this.leafletMap.panTo(geometry.getLatLng())
+		} else {
+			const bounds=this.elementLayer.getBounds()
+			if (bounds.isValid()) this.leafletMap.fitBounds(bounds)
+		}
+	}
 	fitBounds(bounds: L.LatLngBoundsExpression): void {
 		this.leafletMap.fitBounds(bounds)
 	}

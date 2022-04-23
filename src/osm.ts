@@ -1,8 +1,7 @@
 import {NoteMap} from './map'
 import {makeLink, makeUserLink, makeDiv, makeElement, makeEscapeTag} from './util'
 
-interface OsmElement { // visible osm element
-	type: 'node'|'way'|'relation'
+interface OsmElementBase { // visible osm element
 	id: number
 	timestamp: string
 	version: number
@@ -12,13 +11,29 @@ interface OsmElement { // visible osm element
 	tags?: {[key:string]:string}
 }
 
-interface OsmNodeElement extends OsmElement {
+interface OsmNodeElement extends OsmElementBase {
 	type: 'node'
 	lat: number // must have lat and lon because visible
 	lon: number
 }
 
-function isOsmElement(e: any): e is OsmElement {
+interface OsmWayElement extends OsmElementBase {
+	type: 'way'
+	nodes: number[]
+}
+
+interface OsmRelationElement extends OsmElementBase {
+	type: 'relation'
+	members: [
+		type: OsmElement['type'],
+		ref: number,
+		role: string
+	][]
+}
+
+type OsmElement = OsmNodeElement | OsmWayElement | OsmRelationElement
+
+function isOsmElementBase(e: any): boolean {
 	if (!e) return false
 	if (e.type!='node' && e.type!='way' && e.type!='relation') return false
 	if (!Number.isInteger(e.id)) return false
@@ -31,21 +46,47 @@ function isOsmElement(e: any): e is OsmElement {
 }
 
 function isOsmNodeElement(e: any): e is OsmNodeElement {
+	if (!isOsmElementBase(e)) return false
 	if (e.type!='node') return false
 	if (typeof e.lat != 'number') return false
 	if (typeof e.lon != 'number') return false
-	return isOsmElement(e)
+	return true
 }
+
+function isOsmWayElement(e: any): e is OsmWayElement {
+	if (!isOsmElementBase(e)) return false
+	if (e.type!='way') return false
+	const nodes=e.nodes
+	if (!Array.isArray(nodes)) return false
+	if (!nodes.every(v=>Number.isInteger(v))) return false
+	return true
+}
+
+function isOsmRelationElement(e: any): e is OsmRelationElement {
+	if (!isOsmElementBase(e)) return false
+	if (e.type!='relation') return false
+	const members=e.members
+	if (!Array.isArray(members)) return false
+	if (!members.every(m=>(
+		m &&
+		(m.type=='node' || m.type=='way' || m.type=='relation') &&
+		Number.isInteger(m.ref) &&
+		(typeof m.role == 'string')
+	))) return false
+	return true
+}
+
+const e=makeEscapeTag(encodeURIComponent)
 
 export default async function downloadAndShowElement(
 	$a: HTMLAnchorElement, map: NoteMap, makeDate: (readableDate:string)=>HTMLElement,
-	elementType: string, elementId: string
+	elementType: OsmElement['type'], elementId: string
 ) {
 	$a.classList.add('loading')
 	try {
 		// TODO cancel already running response
-		const e=makeEscapeTag(encodeURIComponent)
-		const url=e`https://api.openstreetmap.org/api/0.6/${elementType}/${elementId}.json`
+		const fullBit=(elementType=='node' ? '' : '/full')
+		const url=e`https://api.openstreetmap.org/api/0.6/${elementType}/${elementId}`+`${fullBit}.json`
 		const response=await fetch(url)
 		if (!response.ok) {
 			if (response.status==404) {
@@ -57,28 +98,23 @@ export default async function downloadAndShowElement(
 			}
 		}
 		const data=await response.json()
-		const element=data?.elements[0]
-		if (!isOsmElement(element)) throw new TypeError(`OSM API error: invalid response data`)
-		map.elementLayer.clearLayers()
+		const elements=getElementsFromOsmApiResponse(data)
+		const element=elements[elementType][elementId]
+		if (!element) throw new TypeError(`OSM API error: requested element not found in response data`)
 		if (isOsmNodeElement(element)) {
-			const elementGeometry=L.circleMarker([element.lat,element.lon])
-			elementGeometry.bindPopup(()=>{
-				const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
-				const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
-				const $popup=makeDiv('osm-element-popup-contents')(
-					h(`Node: `,makeLink(getNodeName(element),e`https://www.openstreetmap.org/${elementType}/${elementId}`)),
-					h(`Version #${element.version}`),
-					p(
-						`Edited on `,getElementDate(element,makeDate),
-						` by `,getElementUser(element),
-						` · Changeset #`,makeLink(String(element.changeset),e`https://www.openstreetmap.org/changeset/${element.changeset}`)
-					)
-				)
-				if (element.tags) $popup.append(getElementTags(element.tags))
-				return $popup
-			})
-			map.elementLayer.addLayer(elementGeometry)
-			map.panTo([element.lat,element.lon])
+			addElementGeometryToMap(map,makeDate,element,
+				L.circleMarker([element.lat,element.lon])
+			)
+		} else if (isOsmWayElement(element)) {
+			const coords: L.LatLngExpression[] = []
+			for (const id of element.nodes) {
+				const node=elements.node[id]
+				if (!node) throw new TypeError(`OSM API error: referenced element not found in response data`)
+				coords.push([node.lat,node.lon])
+			}
+			addElementGeometryToMap(map,makeDate,element,
+				L.polyline(coords)
+			)
 		} else {
 			console.log('fetched element',element)
 		}
@@ -97,11 +133,59 @@ export default async function downloadAndShowElement(
 	}
 }
 
-function getNodeName(node: OsmNodeElement): string {
-	if (node.tags?.name) {
-		return `${node.tags.name} (${node.id})`
+function getElementsFromOsmApiResponse(data: any): {
+	node: {[id:string]: OsmNodeElement},
+	way: {[id:string]: OsmWayElement},
+	relation: {[id:string]: OsmRelationElement}
+} {
+	const node: {[id:string]: OsmNodeElement} = {}
+	const way: {[id:string]: OsmWayElement} = {}
+	const relation: {[id:string]: OsmRelationElement} = {}
+	if (!data) throw new TypeError(`OSM API error: invalid response data`)
+	const elementArray=data.elements
+	if (!Array.isArray(elementArray)) throw new TypeError(`OSM API error: invalid response data`)
+	for (const element of elementArray) {
+		if (isOsmNodeElement(element)) {
+			node[element.id]=element
+		} else if (isOsmWayElement(element)) {
+			way[element.id]=element
+		} else if (isOsmRelationElement(element)) {
+			relation[element.id]=element
+		} else {
+			throw new TypeError(`OSM API error: invalid element in response data`)
+		}
+	}
+	return {node,way,relation}
+}
+
+function addElementGeometryToMap(map: NoteMap, makeDate: (readableDate:string)=>HTMLElement, element: OsmElement, elementGeometry: L.Layer) {
+	elementGeometry.bindPopup(()=>{
+		const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
+		const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
+		const $popup=makeDiv('osm-element-popup-contents')(
+			h(capitalize(element.type)+`: `,makeLink(getElementName(element),e`https://www.openstreetmap.org/${element.type}/${element.id}`)),
+			h(`Version #${element.version}`),
+			p(
+				`Edited on `,getElementDate(element,makeDate),
+				` by `,getElementUser(element),
+				` · Changeset #`,makeLink(String(element.changeset),e`https://www.openstreetmap.org/changeset/${element.changeset}`)
+			)
+		)
+		if (element.tags) $popup.append(getElementTags(element.tags))
+		return $popup
+	})
+	map.addOsmElement(elementGeometry)
+}
+
+function capitalize(s: string): string {
+	return s[0].toUpperCase()+s.slice(1)
+}
+
+function getElementName(element: OsmElement): string {
+	if (element.tags?.name) {
+		return `${element.tags.name} (${element.id})`
 	} else {
-		return String(node.id)
+		return String(element.id)
 	}
 }
 

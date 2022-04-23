@@ -22,7 +22,8 @@ export default class NoteTableCommentWriter {
 				return true
 			}
 			function handleElement(elementType: string|undefined, elementId: string|undefined): boolean {
-				if (!elementType || !elementId) return false
+				if (!elementId) return false
+				if (elementType!='node' && elementType!='way' && elementType!='relation') return false
 				downloadAndShowElement($a,map,makeDate,elementType,elementId)
 				return true
 			}
