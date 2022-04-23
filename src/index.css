@@ -1,28 +1,28 @@
-#text,
-#map {
+.text-side,
+.graphic-side {
 	position: fixed;
 	height: 50%;
 	width: 100%;
 }
-body.flipped #map,
-body.flipped #text {
+body.flipped .graphic-side,
+body.flipped .text-side {
 	height: 100%;
 	width: 50%;
 }
-#text {
+.text-side {
 	top: 0;
 	left: 0;
 }
-#map {
+.graphic-side {
 	bottom: 0;
 	right: 0;
 }
 
-#text {
+.text-side {
 	display: flex;
 	flex-direction: column;
 }
-#text .scrolling {
+.text-side .scrolling {
 	overflow-y: scroll;
 	flex-grow: 1;
 }
@@ -339,10 +339,14 @@ body.flipped .notes td.note-user {
 	white-space: pre-wrap;
 }
 
-#map .note-track {
+.map {
+	width: 100%;
+	height: 100%;
+}
+.map .note-track {
 	vector-effect: non-scaling-stroke;
 }
-#map .crosshair-overlay {
+.map .crosshair-overlay {
 	position: absolute;
 	z-index: 500;
 	width: 100%;
@@ -352,35 +356,35 @@ body.flipped .notes td.note-user {
 	justify-content: center;
 	pointer-events: none;
 }
-#map .crosshair-overlay .crosshair {
+.map .crosshair-overlay .crosshair {
 	height: 15px;
 	width: 15px;
 	background: url("crosshair.svg");
 }
-#map .osm-element-popup-contents {
+.map .osm-element-popup-contents {
 	--block-gap: .5em;
 }
-#map .osm-element-popup-contents p,
-#map .osm-element-popup-contents figure {
+.map .osm-element-popup-contents p,
+.map .osm-element-popup-contents figure {
 	margin: var(--block-gap) 0;
 }
-#map .osm-element-popup-contents figure figcaption {
+.map .osm-element-popup-contents figure figcaption {
 	font-weight: bold;
 }
-#map .osm-element-popup-contents figure table {
+.map .osm-element-popup-contents figure table {
 	border: solid 1px #CCC;
 	border-spacing: 0;
 	border-radius: .25rem;
 	width: 100%;
 }
-#map .osm-element-popup-contents figure tr:not(:first-child) td {
+.map .osm-element-popup-contents figure tr:not(:first-child) td {
 	border-top: solid 1px #CCC;
 }
-#map .osm-element-popup-contents figure tr td:first-child {
+.map .osm-element-popup-contents figure tr td:first-child {
 	background: #F8F8FF;
 	border-right: solid 1px #CCC;
 }
-#map .osm-element-popup-contents figure button {
+.map .osm-element-popup-contents figure button {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;

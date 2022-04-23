@@ -59,10 +59,10 @@ async function main() {
 	const flipped=!!storage.getItem('flipped')
 	if (flipped) document.body.classList.add('flipped')
 	const $textSide=document.createElement('div')
-	$textSide.id='text'
-	const $mapSide=document.createElement('div')
-	$mapSide.id='map'
-	document.body.append($textSide,$mapSide)
+	$textSide.classList.add('text-side')
+	const $graphicSide=document.createElement('div')
+	$graphicSide.classList.add('graphic-side')
+	document.body.append($textSide,$graphicSide)
 
 	const $scrollingPart=document.createElement('div')
 	$scrollingPart.classList.add('scrolling')
@@ -87,7 +87,12 @@ async function main() {
 	$scrollingPart.append($fetchContainer,$filterContainer,$extrasContainer,$notesContainer,$moreContainer)
 	$stickyPart.append($commandContainer)
 
-	const map=new NoteMap($mapSide)
+	const $mapContainer=document.createElement('div')
+	$mapContainer.classList.add('map')
+	$graphicSide.append($mapContainer)
+
+	const map=new NoteMap($mapContainer)
+
 	writeFlipLayoutButton(storage,$fetchContainer,map)
 	writeResetButton($fetchContainer)
 	const extrasPanel=new ExtrasPanel(storage,db,$extrasContainer)
