@@ -24,16 +24,20 @@ export default class PhotoDialog {
 			$dialog.close()
 			this.url=undefined
 		} else {
-			const $iFrame=document.createElement('iframe')
-			$iFrame.src=url
-
-			// const $img=document.createElement('img')
-			// $img.src=url
-			// $img.alt='attached photo'
-
-			$dialog.append($iFrame)
+			const $figure=document.createElement('figure')
+			$figure.addEventListener('click',figureClickListener)
+			// TODO close button
+			const $img=document.createElement('img')
+			$img.src=url
+			$img.alt='attached photo'
+			$figure.append($img)
+			$dialog.append($figure)
 			$dialog.show()
 			this.url=url
 		}
 	}
+}
+
+function figureClickListener(this: HTMLElement): void {
+	this.classList.toggle('zoomed')
 }
