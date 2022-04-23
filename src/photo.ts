@@ -43,8 +43,18 @@ export default class PhotoDialog {
 		$closeButton.title=`Close photo`
 		$dialog.append($figure,$closeButton)
 
-		$figure.addEventListener('click',()=>{
-			$figure.classList.toggle('zoomed')
+		$figure.addEventListener('click',(ev)=>{
+			if ($figure.classList.contains('zoomed')) {
+				$figure.classList.remove('zoomed')
+			} else {
+				const xScrollFraction=ev.offsetX/$figure.offsetWidth
+				const yScrollFraction=ev.offsetY/$figure.offsetHeight
+				$figure.classList.add('zoomed')
+				const xMaxScrollDistance=$figure.scrollWidth -$figure.clientWidth
+				const yMaxScrollDistance=$figure.scrollHeight-$figure.clientHeight
+				if (xMaxScrollDistance>0) $figure.scrollLeft=Math.round(xScrollFraction*xMaxScrollDistance)
+				if (yMaxScrollDistance>0) $figure.scrollTop =Math.round(yScrollFraction*yMaxScrollDistance)
+			}
 		})
 		$figure.addEventListener('mousemove',(ev)=>{
 			$closeButton.classList.toggle('right-position',ev.offsetX>=$figure.offsetWidth/2)

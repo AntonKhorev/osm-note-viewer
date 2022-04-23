@@ -403,15 +403,17 @@ body.flipped .notes td.note-user {
 	height: 100%;
 }
 .photo figure {
-	display: flex;
-	align-items: center;
-	justify-content: center;
 	width: 100%;
 	height: 100%;
 	overflow: hidden;
 	margin: 0;
 	padding: 0;
 	cursor: zoom-in;
+}
+.photo figure:not(.zoomed) {
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 .photo figure.zoomed {
 	overflow: scroll;
