@@ -12,6 +12,7 @@ body.flipped .text-side {
 .text-side {
 	top: 0;
 	left: 0;
+	z-index: 1; /* be above photo with blurry backdrop */
 }
 .graphic-side {
 	bottom: 0;
@@ -416,7 +417,19 @@ body.flipped .notes td.note-user {
 	overflow: scroll;
 	cursor: zoom-out;
 }
+.photo figure .backdrop {
+	position: absolute;
+	inset: 0;
+	background-color: #888;
+	background-size: cover;
+	background-position: center;
+	filter: saturate(.5) brightness(.8) blur(10px);
+}
+.photo figure.zoomed .backdrop {
+	display: none;
+}
 .photo figure img {
+	position: relative;
 	display: block;
 }
 .photo figure:not(.zoomed) img {

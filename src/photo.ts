@@ -27,10 +27,13 @@ export default class PhotoDialog {
 			const $figure=document.createElement('figure')
 			$figure.addEventListener('click',figureClickListener)
 			// TODO close button
+			const $backdrop=document.createElement('div')
+			$backdrop.classList.add('backdrop')
+			$backdrop.style.backgroundImage=`url(${url})`
 			const $img=document.createElement('img')
 			$img.src=url
 			$img.alt='attached photo'
-			$figure.append($img)
+			$figure.append($backdrop,$img)
 			$dialog.append($figure)
 			$dialog.show()
 			this.url=url
