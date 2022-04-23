@@ -20,17 +20,20 @@ export default class NoteTableCommentWriter {
 				const $noteSection=document.getElementById(`note-`+noteId)
 				if (!($noteSection instanceof HTMLTableSectionElement)) return false
 				if ($noteSection.classList.contains('hidden')) return false
+				photoDialog.close()
 				pingNoteSection($noteSection)
 				return true
 			}
 			function handleElement(elementType: string|undefined, elementId: string|undefined): boolean {
 				if (!elementId) return false
 				if (elementType!='node' && elementType!='way' && elementType!='relation') return false
+				photoDialog.close()
 				downloadAndShowElement($a,map,makeDate,elementType,elementId)
 				return true
 			}
 			function handleMap(zoom: string|undefined, lat: string|undefined, lon: string|undefined): boolean {
 				if (!(zoom && lat && lon)) return false
+				photoDialog.close()
 				map.panAndZoomTo([Number(lat),Number(lon)],Number(zoom))
 				return true
 			}
