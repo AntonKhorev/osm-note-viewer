@@ -188,9 +188,10 @@ function addElementGeometryToMap(map: NoteMap, makeDate: (readableDate:string)=>
 	elementGeometry.bindPopup(()=>{
 		const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
 		const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
+		const elementHref=e`https://www.openstreetmap.org/${element.type}/${element.id}`
 		const $popup=makeDiv('osm-element-popup-contents')(
-			h(capitalize(element.type)+`: `,makeLink(getElementName(element),e`https://www.openstreetmap.org/${element.type}/${element.id}`)),
-			h(`Version #${element.version}`),
+			h(capitalize(element.type)+`: `,makeLink(getElementName(element),elementHref)),
+			h(`Version #${element.version} · `,makeLink(`View History`,elementHref+'/history')),
 			p(
 				`Edited on `,getElementDate(element,makeDate),
 				` by `,getElementUser(element),
