@@ -974,6 +974,7 @@ class NoteTableCommentWriter {
                     return false;
                 if ($noteSection.classList.contains('hidden'))
                     return false;
+                photoDialog.close();
                 pingNoteSection($noteSection);
                 return true;
             }
@@ -982,12 +983,14 @@ class NoteTableCommentWriter {
                     return false;
                 if (elementType != 'node' && elementType != 'way' && elementType != 'relation')
                     return false;
+                photoDialog.close();
                 downloadAndShowElement($a, map, makeDate, elementType, elementId);
                 return true;
             }
             function handleMap(zoom, lat, lon) {
                 if (!(zoom && lat && lon))
                     return false;
+                photoDialog.close();
                 map.panAndZoomTo([Number(lat), Number(lon)], Number(zoom));
                 return true;
             }
@@ -1288,8 +1291,10 @@ class NoteTable {
             // 	$clickReadyNoteSection=undefined // Chrome is too eager to fire this event, have to cancel click from 'mousemove' instead
             // }],
             ['click', function () {
-                    if ($clickReadyNoteSection == this)
+                    if ($clickReadyNoteSection == this) {
+                        photoDialog.close();
                         that.focusOnNote(this, true);
+                    }
                     $clickReadyNoteSection = undefined;
                 }]
         ];
