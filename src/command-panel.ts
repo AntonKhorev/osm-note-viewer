@@ -180,7 +180,7 @@ export default class CommandPanel {
 			return [$button,` `,$a]
 		},()=>[p(
 			`Query `,makeLink(`Overpass API`,'https://wiki.openstreetmap.org/wiki/Overpass_API'),` without going through Overpass turbo. `,
-			`Since there's no UI, something has to be done with the response. Currently the only possible result is an OSM element, which is opened on the OSM website.`
+			`Shows results on the map. Also gives link to the element page on the OSM website.`
 		)]
 	],[
 		'rc',
