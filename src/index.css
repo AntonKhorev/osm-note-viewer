@@ -465,6 +465,9 @@ body.flipped .notes td.note-user {
 	animation-name: photo-button-fade;
 	animation-duration: 3s;
 }
-.photo button:hover {
+.photo button:hover,
+.photo button:focus {
 	outline: auto;
+	opacity: 1;
+	animation: none;
 }
