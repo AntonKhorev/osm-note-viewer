@@ -5,7 +5,7 @@ import NoteTableCommentWriter, {makeDate} from './table-comment'
 import CommandPanel from './command-panel'
 import NoteFilter from './filter'
 import {toReadableDate} from './query-date'
-import {makeUserNameLink} from './util'
+import {makeUserNameLink, resetFadeAnimation} from './util'
 
 export default class NoteTable {
 	private wrappedNoteSectionListeners: Array<[event: string, listener: (this:HTMLTableSectionElement)=>void]>
@@ -40,7 +40,7 @@ export default class NoteTable {
 			['mousemove',function(){
 				$clickReadyNoteSection=undefined // ideally should be reset by 'selectstart' event, however Chrome fires it even if no mouse drag has happened
 				if (!this.classList.contains('active-click')) return
-				resetActiveClickFade(this)
+				resetFadeAnimation(this,'active-click-fade')
 			}],
 			['animationend',function(){
 				that.deactivateNote('click',this)
@@ -325,7 +325,7 @@ export default class NoteTable {
 			if (!($otherNoteSection instanceof HTMLTableSectionElement)) continue
 			if ($otherNoteSection==$noteSection) {
 				alreadyActive=true
-				if (type=='click') resetActiveClickFade($noteSection)
+				if (type=='click') resetFadeAnimation($noteSection,'active-click-fade')
 			} else {
 				this.deactivateNote(type,$otherNoteSection)
 			}
@@ -460,18 +460,5 @@ function getActionClass(action: NoteComment['action']): string {
 		return 'closed'
 	} else {
 		return 'other'
-	}
-}
-
-function resetActiveClickFade($noteSection: HTMLTableSectionElement): void {
-	const animation=getActiveClickFadeAnimation($noteSection)
-	if (!animation) return
-	animation.currentTime=0
-}
-function getActiveClickFadeAnimation($noteSection: HTMLTableSectionElement): CSSAnimation | undefined {
-	if (typeof CSSAnimation == 'undefined') return // experimental technology, implemented in latest browser versions
-	for (const animation of $noteSection.getAnimations()) {
-		if (!(animation instanceof CSSAnimation)) continue
-		if (animation.animationName=='active-click-fade') return animation
 	}
 }

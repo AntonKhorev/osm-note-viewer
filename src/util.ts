@@ -1,5 +1,3 @@
-import {ValidUserQuery} from './query-user'
-
 export function makeUserLink(uid: number, username?: string, text?: string): HTMLElement {
 	if (username) return makeUserNameLink(username,text)
 	return makeUserIdLink(uid,text)
@@ -56,5 +54,18 @@ export function makeEscapeTag(escapeFn: (text: string) => string): (strings: Tem
 			result+=escapeFn(String(values[i]))+strings[i+1]
 		}
 		return result
+	}
+}
+
+export function resetFadeAnimation($element: HTMLElement, animationName: string): void {
+	const animation=getFadeAnimation($element,animationName)
+	if (!animation) return
+	animation.currentTime=0
+}
+function getFadeAnimation($element: HTMLElement, animationName: string): CSSAnimation | undefined {
+	if (typeof CSSAnimation == 'undefined') return // experimental technology, implemented in latest browser versions
+	for (const animation of $element.getAnimations()) {
+		if (!(animation instanceof CSSAnimation)) continue
+		if (animation.animationName==animationName) return animation
 	}
 }
