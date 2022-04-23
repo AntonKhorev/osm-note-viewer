@@ -437,15 +437,24 @@ body.flipped .notes td.note-user {
 	max-height: 100%;
 }
 .photo button { /* copypaste from reset button */
+	--position-offset: 2rem;
 	display: none;
 	position: absolute;
-	top: 2rem;
-	right: 2rem;
+	top: var(--position-offset);
+	left: var(--position-offset);
 	width: 2rem;
 	height: 2rem;
 	box-sizing: border-box;
 	border: none;
 	background: url("reset.svg");
+}
+.photo button.right-position {
+	left: unset;
+	right: var(--position-offset);
+}
+.photo button.bottom-position {
+	top: unset;
+	bottom: var(--position-offset);
 }
 @keyframes photo-button-fade {
 	from { opacity: 1; }

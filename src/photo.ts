@@ -47,6 +47,8 @@ export default class PhotoDialog {
 			$figure.classList.toggle('zoomed')
 		})
 		$figure.addEventListener('mousemove',(ev)=>{
+			$closeButton.classList.toggle('right-position',ev.offsetX>=$figure.offsetWidth/2)
+			$closeButton.classList.toggle('bottom-position',ev.offsetY>=$figure.offsetHeight/2)
 			if ($closeButton.classList.contains('fading')) {
 				resetFadeAnimation($closeButton,'photo-button-fade')
 			} else {
