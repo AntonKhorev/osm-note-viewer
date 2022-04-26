@@ -242,6 +242,13 @@ body.flipped .notes td.note-user {
 	content: "anonymous";
 	color: gray;
 }
+.notes td.note-date time,
+.notes td.note-comment time,
+.map .osm-element-popup-contents time {
+	text-decoration: underline dotted 1px;
+	color: #004;
+	cursor: pointer;
+}
 .notes td.note-action .icon {
 	position: relative;
 	display: inline-block;
@@ -251,19 +258,6 @@ body.flipped .notes td.note-user {
 	height: 16px;
 	vertical-align: text-top;
 	background: url("note-status.svg");
-}
-.notes td.note-action .icon input {
-	position: absolute;
-	margin: 0;
-	padding: 0;
-	width: 16px;
-	height: 16px;
-	top: 0;
-	left: 0;
-	opacity: 0;
-}
-.notes td.note-action .icon input:checked {
-	opacity: .7;
 }
 .notes td.note-action .icon.open {
 	background: url("note-status-open.svg");

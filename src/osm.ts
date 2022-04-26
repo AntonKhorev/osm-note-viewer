@@ -79,7 +79,7 @@ function isOsmRelationElement(e: any): e is OsmRelationElement {
 const e=makeEscapeTag(encodeURIComponent)
 
 export default async function downloadAndShowElement(
-	$a: HTMLAnchorElement, map: NoteMap, makeDate: (readableDate:string)=>HTMLElement,
+	$a: HTMLAnchorElement, map: NoteMap, outputDate: (readableDate:string)=>HTMLElement,
 	elementType: OsmElement['type'], elementId: string
 ) {
 	$a.classList.add('loading')
@@ -102,15 +102,15 @@ export default async function downloadAndShowElement(
 		const element=elements[elementType][elementId]
 		if (!element) throw new TypeError(`OSM API error: requested element not found in response data`)
 		if (isOsmNodeElement(element)) {
-			addElementGeometryToMap(map,makeDate,element,
+			addElementGeometryToMap(map,outputDate,element,
 				makeNodeGeometry(element)
 			)
 		} else if (isOsmWayElement(element)) {
-			addElementGeometryToMap(map,makeDate,element,
+			addElementGeometryToMap(map,outputDate,element,
 				makeWayGeometry(element)
 			)
 		} else if (isOsmRelationElement(element)) {
-			addElementGeometryToMap(map,makeDate,element,
+			addElementGeometryToMap(map,outputDate,element,
 				makeRelationGeometry(element)
 			)
 		} else {
@@ -184,7 +184,7 @@ function getElementsFromOsmApiResponse(data: any): {
 	return {node,way,relation}
 }
 
-function addElementGeometryToMap(map: NoteMap, makeDate: (readableDate:string)=>HTMLElement, element: OsmElement, elementGeometry: L.Layer) {
+function addElementGeometryToMap(map: NoteMap, outputDate: (readableDate:string)=>HTMLElement, element: OsmElement, elementGeometry: L.Layer) {
 	elementGeometry.bindPopup(()=>{
 		const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
 		const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
@@ -193,7 +193,7 @@ function addElementGeometryToMap(map: NoteMap, makeDate: (readableDate:string)=>
 			h(capitalize(element.type)+`: `,makeLink(getElementName(element),elementHref)),
 			h(`Version #${element.version} · `,makeLink(`View History`,elementHref+'/history')),
 			p(
-				`Edited on `,getElementDate(element,makeDate),
+				`Edited on `,getElementDate(element,outputDate),
 				` by `,getElementUser(element),
 				` · Changeset #`,makeLink(String(element.changeset),e`https://www.openstreetmap.org/changeset/${element.changeset}`)
 			)
@@ -216,9 +216,9 @@ function getElementName(element: OsmElement): string {
 	}
 }
 
-function getElementDate(element: OsmElement, makeDate: (readableDate:string)=>HTMLElement): HTMLElement {
-	const readableDate=element.timestamp.replace('T',' ').replace('Z','')
-	return makeDate(readableDate)
+function getElementDate(element: OsmElement, outputDate: (readableDate:string)=>HTMLElement): HTMLElement {
+	const readableDate=element.timestamp.replace('T',' ').replace('Z','') // TODO replace date output fn with active element fn
+	return outputDate(readableDate)
 }
 
 function getElementUser(element: OsmElement): HTMLElement {

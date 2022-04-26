@@ -7,7 +7,12 @@ import {makeLink} from './util'
 export default class NoteTableCommentWriter {
 	wrappedOsmLinkClickListener:  (this: HTMLAnchorElement, ev: MouseEvent)=>void
 	wrappedImageLinkClickListener:  (this: HTMLAnchorElement, ev: MouseEvent)=>void
-	constructor(private $table: HTMLTableElement, map: NoteMap, photoDialog: PhotoDialog, pingNoteSection: ($noteSection: HTMLTableSectionElement)=>void) {
+	constructor(
+		private $table: HTMLTableElement, map: NoteMap, photoDialog: PhotoDialog,
+		pingNoteSection: ($noteSection: HTMLTableSectionElement)=>void,
+		private activeTimeElementClickListener: (this: HTMLTimeElement,ev: MouseEvent) => void
+	) {
+		const that=this
 		this.wrappedOsmLinkClickListener=function(this: HTMLAnchorElement, ev: MouseEvent){
 			const $a=this
 			ev.preventDefault()
@@ -28,7 +33,11 @@ export default class NoteTableCommentWriter {
 				if (!elementId) return false
 				if (elementType!='node' && elementType!='way' && elementType!='relation') return false
 				photoDialog.close()
-				downloadAndShowElement($a,map,makeDate,elementType,elementId)
+				downloadAndShowElement(
+					$a,map,
+					(readableDate)=>makeDateOutput(readableDate,that.activeTimeElementClickListener),
+					elementType,elementId
+				)
 				return true
 			}
 			function handleMap(zoom: string|undefined, lat: string|undefined, lon: string|undefined): boolean {
@@ -71,7 +80,6 @@ export default class NoteTableCommentWriter {
 					$cell.addEventListener('mouseout',imageCommentHoverListener)
 				}
 				iImage++
-
 			} else if (item.type=='link' && item.link=='osm') {
 				const $a=makeLink(item.text,item.href)
 				$a.classList.add('osm')
@@ -87,6 +95,10 @@ export default class NoteTableCommentWriter {
 				}
 				$a.addEventListener('click',this.wrappedOsmLinkClickListener)
 				result.push($a)
+			} else if (item.type=='date') {
+				const $time=makeActiveTimeElement(item.text,item.text)
+				$time.addEventListener('click',this.activeTimeElementClickListener)
+				result.push($time)
 			} else {
 				result.push(item.text)
 			}
@@ -109,20 +121,25 @@ export default class NoteTableCommentWriter {
 	}
 }
 
-export function makeDate(readableDate: string): HTMLElement {
+export function makeDateOutput(readableDate: string, activeTimeElementClickListener: (this: HTMLTimeElement, ev: MouseEvent) => void): HTMLElement {
 	const [readableDateWithoutTime]=readableDate.split(' ',1)
 	if (readableDate && readableDateWithoutTime) {
-		const $time=document.createElement('time')
-		$time.textContent=readableDateWithoutTime
-		$time.dateTime=`${readableDate}Z`
-		$time.title=`${readableDate} UTC`
+		const $time=makeActiveTimeElement(readableDateWithoutTime,`${readableDate}Z`,`${readableDate} UTC`)
+		$time.addEventListener('click',activeTimeElementClickListener)
 		return $time
-		// TODO handler to update overpass timestamp
 	} else {
 		const $unknownDateTime=document.createElement('span')
 		$unknownDateTime.textContent=`?`
 		return $unknownDateTime
 	}
+}
+
+function makeActiveTimeElement(text: string, dateTime: string, title?: string): HTMLTimeElement {
+	const $time=document.createElement('time')
+	$time.textContent=text
+	$time.dateTime=dateTime
+	if (title) $time.title=title
+	return $time
 }
 
 function updateNoteLink($a: HTMLAnchorElement): void {

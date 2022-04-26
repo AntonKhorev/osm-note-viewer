@@ -1,7 +1,7 @@
 import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
 import PhotoDialog from './photo'
-import NoteTableCommentWriter, {makeDate} from './table-comment'
+import NoteTableCommentWriter, {makeDateOutput} from './table-comment'
 import ToolPanel from './tool-panel'
 import NoteFilter from './filter'
 import {toReadableDate} from './query-date'
@@ -11,8 +11,8 @@ export default class NoteTable {
 	private wrappedNoteSectionListeners: Array<[event: string, listener: (this:HTMLTableSectionElement)=>void]>
 	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedAllNotesCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
-	private wrappedCommentRadioClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
+	private wrappedActiveTimeElementClickListener: (this: HTMLTimeElement, ev: MouseEvent) => void
 	private noteSectionVisibilityObserver: NoteSectionVisibilityObserver
 	private $table = document.createElement('table')
 	private $selectAllCheckbox = document.createElement('input')
@@ -26,7 +26,6 @@ export default class NoteTable {
 		private toolPanel: ToolPanel, private map: NoteMap, private filter: NoteFilter,
 		photoDialog: PhotoDialog, private showImages: boolean
 	) {
-		this.commentWriter=new NoteTableCommentWriter(this.$table,this.map,photoDialog,$noteSection=>this.focusOnNote($noteSection))
 		const that=this
 		let $clickReadyNoteSection: HTMLTableSectionElement | undefined
 		this.wrappedNoteSectionListeners=[
@@ -65,13 +64,19 @@ export default class NoteTable {
 		this.wrappedAllNotesCheckboxClickListener=function(ev: MouseEvent){
 			that.allNotesCheckboxClickListener(this,ev)
 		}
-		this.wrappedCommentRadioClickListener=function(ev: MouseEvent){
-			that.commentRadioClickListener(this,ev)
-		}
 		this.wrappedNoteMarkerClickListener=function(){
 			that.noteMarkerClickListener(this)
 		}
+		this.wrappedActiveTimeElementClickListener=function(ev: MouseEvent){
+			ev.stopPropagation()
+			toolPanel.receiveTimestamp(this.dateTime)
+		}
 		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver(toolPanel,map,this.noteSectionLayerIdVisibility)
+		this.commentWriter=new NoteTableCommentWriter(
+			this.$table,this.map,photoDialog,
+			$noteSection=>this.focusOnNote($noteSection),
+			this.wrappedActiveTimeElementClickListener
+		)
 		this.$table.classList.toggle('with-images',showImages)
 		$container.append(this.$table)
 		{
@@ -182,7 +187,7 @@ export default class NoteTable {
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-date')
-					$cell.append(makeDate(toReadableDate(comment.date)))
+					$cell.append(makeDateOutput(toReadableDate(comment.date),this.wrappedActiveTimeElementClickListener))
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-user')
@@ -197,16 +202,10 @@ export default class NoteTable {
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-action')
-					const $span=document.createElement('span')
-					$span.classList.add('icon',getActionClass(comment.action))
-					$span.title=comment.action
-					const $radio=document.createElement('input')
-					$radio.type='radio'
-					$radio.name='comment'
-					$radio.value=`${note.id}-${iComment}`
-					$radio.addEventListener('click',this.wrappedCommentRadioClickListener)
-					$span.append($radio)
-					$cell.append($span)
+					const $icon=document.createElement('span')
+					$icon.title=comment.action
+					$icon.classList.add('icon',getActionClass(comment.action))
+					$cell.append($icon)
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-comment')
@@ -287,15 +286,6 @@ export default class NoteTable {
 			$checkbox.checked=$allCheckbox.checked
 		}
 		this.updateCheckboxDependents()
-	}
-	private commentRadioClickListener($radio: HTMLInputElement, ev: MouseEvent) {
-		ev.stopPropagation()
-		const $clickedRow=$radio.closest('tr')
-		if (!$clickedRow) return
-		const $time=$clickedRow.querySelector('time')
-		if (!$time) return
-		const $text=$clickedRow.querySelector('td.note-comment')
-		this.toolPanel.receiveCheckedComment($time.dateTime,$text?.textContent??undefined)
 	}
 	private focusOnNote($noteSection: HTMLTableSectionElement, isSectionClicked: boolean = false): void {
 		this.activateNote('click',$noteSection)

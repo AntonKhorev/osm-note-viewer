@@ -8,40 +8,42 @@ const dfn=(s: string)=>makeElement('dfn')()(s)
 export type ToolFitMode = 'allNotes' | 'inViewNotes' | undefined
 
 export interface ToolCallbacks {
-	onFitModeChange(fitMode: ToolFitMode): void
+	onFitModeChange(fromTool: Tool, fitMode: ToolFitMode): void
+	onTimestampChange(fromTool: Tool, timestamp: string): void
 }
 
-abstract class Tool {
+export abstract class Tool {
 	constructor(public id: string, public name: string, public title?: string ) {}
 	abstract getTool(callbacks: ToolCallbacks, map: NoteMap): Array<string|HTMLElement>
 	getInfo(): Array<string|HTMLElement>|undefined { return undefined }
+	onTimestampChange(timestamp: string): void {}
 }
 
 class AutozoomTool extends Tool {
-	private $fitModeSelect=document.createElement('select')
 	constructor() {super(
 		'autozoom',
 		`Automatic zoom`,
 		`Pan and zoom the map to visible notes`
 	)}
 	getTool(callbacks: ToolCallbacks, map: NoteMap): Array<string|HTMLElement> {
-		this.$fitModeSelect.append(
+		const $fitModeSelect=document.createElement('select')
+		$fitModeSelect.append(
 			new Option('is disabled','none'),
 			new Option('to notes in table view','inViewNotes'),
 			new Option('to all notes','allNotes')
 		)
-		this.$fitModeSelect.addEventListener('change',()=>{
-			if (this.$fitModeSelect.value=='allNotes') {
-				callbacks.onFitModeChange(this.$fitModeSelect.value)
+		$fitModeSelect.addEventListener('change',()=>{
+			if ($fitModeSelect.value=='allNotes') {
+				callbacks.onFitModeChange(this,$fitModeSelect.value)
 				map.fitNotes()
-			} else if (this.$fitModeSelect.value=='inViewNotes') {
-				callbacks.onFitModeChange(this.$fitModeSelect.value)
+			} else if ($fitModeSelect.value=='inViewNotes') {
+				callbacks.onFitModeChange(this,$fitModeSelect.value)
 				map.fitNoteTrack()
 			} else {
-				callbacks.onFitModeChange(undefined)
+				callbacks.onFitModeChange(this,undefined)
 			}
 		})
-		return [this.$fitModeSelect]
+		return [$fitModeSelect]
 	}
 	getInfo() {
 		return [p(
@@ -54,49 +56,49 @@ class AutozoomTool extends Tool {
 	}
 }
 
-export const toolMakerSequence: Array<()=>Tool> = [()=>new AutozoomTool()]
-
-/*
-	static commandGroups: CommandGroup[] = [[
+class TimestampTool extends Tool {
+	private $timestampInput=document.createElement('input')
+	constructor() {super(
 		'timestamp',
-		`Timestamp for historic queries`,,
-		(cp,map)=>{
-			const $commentTimeSelectLabel=document.createElement('label')
-			cp.$commentTimeSelect.append(
-				new Option('from comment text','text'),
-				new Option('of comment','comment'),
-			)
-			$commentTimeSelectLabel.append(`pick time `,cp.$commentTimeSelect)
-			$commentTimeSelectLabel.title=`"from comment text" looks for time inside the comment text. Useful for MAPS.ME-generated comments. Falls back to the comment time if no time detected in the text.`
-			cp.$commentTimeSelect=cp.$commentTimeSelect
-			const $commentTimeInputLabel=document.createElement('label')
-			// cp.$commentTimeInput.type='datetime-local'
-			// cp.$commentTimeInput.step='1'
-			cp.$commentTimeInput.type='text'
-			cp.$commentTimeInput.size=20
-			// cp.$commentTimeInput.readOnly=true
-			$commentTimeInputLabel.append(`picked `,cp.$commentTimeInput)
-			$commentTimeInputLabel.title=`In whatever format Overpass understands. No standard datetime input for now because they're being difficult with UTC and 24-hour format.`
-			cp.$commentTimeSelect.addEventListener('input',()=>cp.pickCommentTime())
-			const $clearButton=document.createElement('button')
-			$clearButton.textContent='Clear'
-			$clearButton.addEventListener('click',()=>{
-				cp.$commentTimeInput.value=''
-			})
-			return [$commentTimeSelectLabel,` — `,$commentTimeInputLabel, ` `,$clearButton]
-		},()=>[p(
+		`Timestamp for historic queries`
+	)}
+	getTool(callbacks: ToolCallbacks, map: NoteMap): Array<string|HTMLElement> {
+		// this.$timestampInput.type='datetime-local' // no standard datetime input for now because they're being difficult with UTC and 24-hour format.
+		// this.$timestampInput.step='1'
+		this.$timestampInput.type='text'
+		this.$timestampInput.size=20
+		this.$timestampInput.addEventListener('input',()=>{
+			callbacks.onTimestampChange(this,this.$timestampInput.value)
+		})
+		const $clearButton=document.createElement('button')
+		$clearButton.textContent='Clear'
+		$clearButton.addEventListener('click',()=>{
+			this.$timestampInput.value=''
+			callbacks.onTimestampChange(this,'')
+		})
+		return [this.$timestampInput,` `,$clearButton]
+	}
+	onTimestampChange(timestamp: string): void {
+		this.$timestampInput.value=timestamp
+	}
+	getInfo() {
+		return [p(
 			`Allows to select a timestamp for use with `,em(`Overpass`),` and `,em(`Overpass turbo`),` commands. `,
-			`You can either enter the timestamp in ISO format manually or pick it from the comment. `,
+			`You can either enter the timestamp in ISO format (or anything else that Overpass understands) manually here click on a date of/in a note comment. `,
 			`If present, a `,makeLink(`date setting`,`https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL#date`),` is added to Overpass queries. `,
 			`The idea is to allow for examining the OSM data at the moment some note was opened/commented/closed to evaluate if this action was correct.`
 		),p(
-			`Entering the timestamp manually is likely not what you want. `,
-			`Picking from a comment is done by clicking a note status icon in `,em(`?`),` table column. `,
-			`When `,dfn(`from comment text`),` is selected, the comment text is examined for timestamps first. This is to handle comments generated by `,makeLink(`MAPS.ME`,`https://wiki.openstreetmap.org/wiki/MAPS.ME`),` that include OSM data timestamp. `,
-			`If that fails or when `,dfn(`of comment`),` is selected, the comment timestamp is used instead. `,
-			`This is a part of older UI that forced users to select a comment before being able to perform Overpass queries. It's likely to change soon by being replaced with clickable dates.`
+			`Timestamps inside note comments are usually generated by apps like `,makeLink(`MAPS.ME`,`https://wiki.openstreetmap.org/wiki/MAPS.ME`),` to indicate their OSM data version.`
 		)]
-	],[
+	}
+}
+
+export const toolMakerSequence: Array<()=>Tool> = [
+	()=>new AutozoomTool(), ()=>new TimestampTool()
+]
+
+/*
+	static commandGroups: CommandGroup[] = [[
 		'overpass-turbo',
 		`Overpass turbo`,,
 		(cp,map)=>{

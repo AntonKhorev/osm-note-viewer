@@ -1,15 +1,30 @@
 import type {Note} from './data'
 import NoteViewerStorage from './storage'
 import {NoteMap} from './map'
-import {makeDate} from './table-comment'
 import downloadAndShowElement from './osm'
 import {toReadableDate, toUrlDate} from './query-date'
-import {ToolFitMode, ToolCallbacks, toolMakerSequence} from './tools'
+import {Tool, ToolFitMode, ToolCallbacks, toolMakerSequence} from './tools'
+
+class ToolBroadcaster {
+	constructor(private readonly tools: Tool[]) {}
+	private sources: Set<Tool> = new Set()
+	broadcastTimestampChange(fromTool: Tool|null, timestamp: string): void {
+		if (fromTool) {
+			if (this.sources.has(fromTool)) return
+			this.sources.add(fromTool)
+		}
+		for (const tool of this.tools) {
+			if (this.sources.has(tool)) continue
+			tool.onTimestampChange(timestamp)
+		}
+		if (fromTool) {
+			this.sources.delete(fromTool)
+		}
+	}
+}
 
 export default class ToolPanel {
 	// { TODO inputs to remove
-	$commentTimeSelect=document.createElement('select')
-	$commentTimeInput=document.createElement('input')
 	$fetchedNoteCount=document.createElement('output')
 	$visibleNoteCount=document.createElement('output')
 	$checkedNoteCount=document.createElement('output')
@@ -17,17 +32,23 @@ export default class ToolPanel {
 	private $buttonsRequiringSelectedNotes: HTMLButtonElement[] = []
 	private checkedNotes: ReadonlyArray<Note> = []
 	private checkedNoteUsers: ReadonlyMap<number,string> = new Map()
-	private checkedCommentTime?: string
-	private checkedCommentText?: string
 	// { tool callbacks rewrite
+	private toolBroadcaster: ToolBroadcaster
 	#fitMode: ToolFitMode
+	#timestamp: string = ''
 	// }
 	constructor(private $container: HTMLElement, map: NoteMap, storage: NoteViewerStorage) {
+		const tools: Tool[] = []
 		const toolCallbacks: ToolCallbacks = {
-			onFitModeChange: (fitMode)=>this.#fitMode=fitMode
+			onFitModeChange: (fromTool,fitMode)=>this.#fitMode=fitMode,
+			onTimestampChange: (fromTool,timestamp)=>{
+				this.#timestamp=timestamp
+				this.toolBroadcaster.broadcastTimestampChange(fromTool,timestamp)
+			}
 		}
 		for (const makeTool of toolMakerSequence) {
 			const tool=makeTool()
+			tools.push(tool)
 			const storageKey='commands-'+tool.id
 			const $toolDetails=document.createElement('details')
 			$toolDetails.classList.add('tool')
@@ -77,6 +98,7 @@ export default class ToolPanel {
 				$container.append($toolDetails)
 			}
 		}
+		this.toolBroadcaster=new ToolBroadcaster(tools)
 	}
 	receiveNoteCounts(nFetched: number, nVisible: number) { // TODO receive one object with all/visible/selected notes
 		this.$fetchedNoteCount.textContent=String(nFetched)
@@ -90,26 +112,12 @@ export default class ToolPanel {
 			$button.disabled=checkedNotes.length<=0
 		}
 	}
-	receiveCheckedComment(checkedCommentTime?: string, checkedCommentText?: string): void {
-		this.checkedCommentTime=checkedCommentTime
-		this.checkedCommentText=checkedCommentText
-		this.pickCommentTime()
+	receiveTimestamp(timestamp: string): void {
+		this.#timestamp=timestamp
+		this.toolBroadcaster.broadcastTimestampChange(null,timestamp)
 	}
-	private pickCommentTime(): void {
-		const setTime=(time:string):void=>{
-			this.$commentTimeInput.value=time
-		}
-		if (this.$commentTimeSelect.value=='text' && this.checkedCommentText!=null) {
-			const match=this.checkedCommentText.match(/\d\d\d\d-\d\d-\d\d[T ]\d\d:\d\d:\d\dZ/)
-			if (match) {
-				const [time]=match
-				return setTime(time)
-			}
-		}
-		setTime(this.checkedCommentTime??'')
-	}
-	private getOverpassQueryPreamble(map: NoteMap): string {
-		const time=this.$commentTimeInput.value
+	private getOverpassQueryPreamble(map: NoteMap): string { // TODO move to tools
+		const time=this.#timestamp
 		const bounds=map.bounds
 		let query=''
 		if (time) query+=`[date:"${time}"]\n`
