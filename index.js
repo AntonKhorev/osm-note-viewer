@@ -519,22 +519,26 @@ class PhotoDialog {
         this.fallbackMode = (window.HTMLDialogElement == null);
     }
     close() {
+        if (this.fallbackMode) {
+            return;
+        }
         const $dialog = this.$dialog;
         $dialog.close();
         this.url = undefined;
     }
     toggle(url) {
-        const $dialog = this.$dialog;
         if (this.fallbackMode) {
             open(url, 'photo');
             return;
         }
+        const $dialog = this.$dialog;
         this.$dialog.innerHTML = '';
         if (url == this.url) {
             this.close();
             return;
         }
         const $figure = document.createElement('figure');
+        $figure.tabIndex = 0;
         const $backdrop = document.createElement('div');
         $backdrop.classList.add('backdrop');
         $backdrop.style.backgroundImage = `url(${url})`;
@@ -545,6 +549,12 @@ class PhotoDialog {
         const $closeButton = document.createElement('button');
         $closeButton.title = `Close photo`;
         $dialog.append($figure, $closeButton);
+        $figure.addEventListener('keydown', (ev) => {
+            if (ev.key == 'Enter' || ev.key == ' ') {
+                ev.stopPropagation();
+                $figure.classList.toggle('zoomed');
+            }
+        });
         $figure.addEventListener('click', (ev) => {
             if ($figure.classList.contains('zoomed')) {
                 $figure.classList.remove('zoomed');
@@ -582,7 +592,14 @@ class PhotoDialog {
         $closeButton.addEventListener('animationend', () => {
             $closeButton.classList.remove('fading');
         });
+        $dialog.addEventListener('keydown', (ev) => {
+            if (ev.key == 'Escape') {
+                ev.stopPropagation();
+                this.close();
+            }
+        });
         $dialog.show();
+        $figure.focus();
         this.url = url;
     }
 }
@@ -3037,6 +3054,7 @@ class NoteFetchPanel {
             $commandContainer.innerHTML = ``;
         }
         function runStartFetcher(query, clearStore) {
+            photoDialog.close();
             resetNoteDependents();
             if (query?.mode == 'search') {
                 extrasPanel.rewrite(query, Number(searchDialog.$limitSelect.value));
