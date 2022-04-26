@@ -4,12 +4,7 @@ import {NoteMap} from './map'
 import {makeDate} from './table-comment'
 import downloadAndShowElement from './osm'
 import {toReadableDate, toUrlDate} from './query-date'
-import {makeElement, makeLink, makeLabel, escapeXml, makeEscapeTag} from './util'
 import {ToolFitMode, ToolCallbacks, toolMakerSequence} from './tools'
-
-const p=(...ss: Array<string|HTMLElement>)=>makeElement('p')()(...ss)
-const em=(s: string)=>makeElement('em')()(s)
-const dfn=(s: string)=>makeElement('dfn')()(s)
 
 export default class CommandPanel {
 	// { TODO inputs to remove
@@ -48,13 +43,13 @@ export default class CommandPanel {
 				}
 			})
 			$toolDetails.append($toolSummary,...tool.getTool(toolCallbacks,map))
-			if (/*getInfo*/ false) {
-				/*
+			const infoElements=tool.getInfo()
+			if (infoElements) {
 				const $infoDetails=document.createElement('details')
 				$infoDetails.classList.add('info')
 				const $infoSummary=document.createElement('summary')
 				$infoSummary.textContent=`${name} info`
-				$infoDetails.append($infoSummary,...getInfo())
+				$infoDetails.append($infoSummary,...infoElements)
 				const $infoButton=document.createElement('button')
 				$infoButton.classList.add('info')
 				$infoButton.title=`tool info`
@@ -78,7 +73,6 @@ export default class CommandPanel {
 				})
 				$toolDetails.append(` `,$infoButton)
 				$container.append($toolDetails,$infoDetails)
-				*/
 			} else {
 				$container.append($toolDetails)
 			}

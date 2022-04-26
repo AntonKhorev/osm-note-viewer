@@ -1,4 +1,9 @@
 import {NoteMap} from './map'
+import {makeElement, makeLink, makeLabel, escapeXml, makeEscapeTag} from './util'
+
+const p=(...ss: Array<string|HTMLElement>)=>makeElement('p')()(...ss)
+const em=(s: string)=>makeElement('em')()(s)
+const dfn=(s: string)=>makeElement('dfn')()(s)
 
 export type ToolFitMode = 'allNotes' | 'inViewNotes' | undefined
 
@@ -9,7 +14,7 @@ export interface ToolCallbacks {
 abstract class Tool {
 	constructor(public id: string, public name: string, public title?: string ) {}
 	abstract getTool(callbacks: ToolCallbacks, map: NoteMap): Array<string|HTMLElement>
-	getInfo(): Array<string|HTMLElement> { return [] }
+	getInfo(): Array<string|HTMLElement>|undefined { return undefined }
 }
 
 class AutozoomTool extends Tool {
@@ -38,37 +43,21 @@ class AutozoomTool extends Tool {
 		})
 		return [this.$fitModeSelect]
 	}
-}
-
-export const toolMakerSequence: Array<()=>Tool> = [()=>new AutozoomTool()]
-
-/*
-	static commandGroups: CommandGroup[] = [[
-		'autozoom',
-		`Automatic zoom`,
-		`Pan and zoom the map to visible notes`,
-		(cp,map)=>{
-			cp.$fitModeSelect.append(
-				new Option('is disabled','none'),
-				new Option('to notes in table view','inViewNotes'),
-				new Option('to all notes','allNotes')
-			)
-			cp.$fitModeSelect.addEventListener('change',()=>{
-				if (cp.fitMode=='allNotes') {
-					map.fitNotes()
-				} else if (cp.fitMode=='inViewNotes') {
-					map.fitNoteTrack()
-				}
-			})
-			return [cp.$fitModeSelect]
-		},()=>[p(
+	getInfo() {
+		return [p(
 			`Pan and zoom the map to notes in the table. `,
 			`Can be used as `,em(`zoom to data`),` for notes layer if `,dfn(`to all notes`),` is selected. `,
 		),p(
 			dfn(`To notes in table view`),` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `,
 			`This option is convenient to use when `,em(`Track between notes`),` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`
 		)]
-	],[
+	}
+}
+
+export const toolMakerSequence: Array<()=>Tool> = [()=>new AutozoomTool()]
+
+/*
+	static commandGroups: CommandGroup[] = [[
 		'timestamp',
 		`Timestamp for historic queries`,,
 		(cp,map)=>{
