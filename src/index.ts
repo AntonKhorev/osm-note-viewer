@@ -63,13 +63,13 @@ async function main() {
 	const $extrasContainer=makeDiv('panel')()
 	const $notesContainer=makeDiv('notes')()
 	const $moreContainer=makeDiv('more')()
-	const $commandContainer=makeDiv('panel','command')()
+	const $toolContainer=makeDiv('panel','command')()
 	const $mapContainer=makeDiv('map')()
 	const $photoDialog=document.createElement('dialog')
 	$photoDialog.classList.add('photo')
 
 	const $scrollingPart=makeDiv('scrolling')($fetchContainer,$filterContainer,$extrasContainer,$notesContainer,$moreContainer)
-	const $stickyPart=makeDiv('sticky')($commandContainer)
+	const $stickyPart=makeDiv('sticky')($toolContainer)
 
 	const $textSide=makeDiv('text-side')($scrollingPart,$stickyPart)
 	const $graphicSide=makeDiv('graphic-side')($mapContainer,$photoDialog)
@@ -86,7 +86,7 @@ async function main() {
 	const filterPanel=new NoteFilterPanel($filterContainer)
 	const fetchPanel=new NoteFetchPanel(
 		storage,db,
-		$fetchContainer,$notesContainer,$moreContainer,$commandContainer,
+		$fetchContainer,$notesContainer,$moreContainer,$toolContainer,
 		filterPanel,extrasPanel,map,photoDialog,
 		()=>scrollRestorer.run($notesContainer)
 	)

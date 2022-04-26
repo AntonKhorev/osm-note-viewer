@@ -2,7 +2,7 @@ import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
 import PhotoDialog from './photo'
 import NoteTableCommentWriter, {makeDate} from './table-comment'
-import CommandPanel from './command-panel'
+import ToolPanel from './tool-panel'
 import NoteFilter from './filter'
 import {toReadableDate} from './query-date'
 import {makeUserNameLink, resetFadeAnimation} from './util'
@@ -23,7 +23,7 @@ export default class NoteTable {
 	private commentWriter: NoteTableCommentWriter
 	constructor(
 		$container: HTMLElement, 
-		private commandPanel: CommandPanel, private map: NoteMap, private filter: NoteFilter,
+		private toolPanel: ToolPanel, private map: NoteMap, private filter: NoteFilter,
 		photoDialog: PhotoDialog, private showImages: boolean
 	) {
 		this.commentWriter=new NoteTableCommentWriter(this.$table,this.map,photoDialog,$noteSection=>this.focusOnNote($noteSection))
@@ -71,7 +71,7 @@ export default class NoteTable {
 		this.wrappedNoteMarkerClickListener=function(){
 			that.noteMarkerClickListener(this)
 		}
-		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver(commandPanel,map,this.noteSectionLayerIdVisibility)
+		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver(toolPanel,map,this.noteSectionLayerIdVisibility)
 		this.$table.classList.toggle('with-images',showImages)
 		$container.append(this.$table)
 		{
@@ -131,7 +131,7 @@ export default class NoteTable {
 				if ($checkbox instanceof HTMLInputElement) $checkbox.checked=false
 			}
 		}
-		this.commandPanel.receiveNoteCounts(nFetched,nVisible)
+		this.toolPanel.receiveNoteCounts(nFetched,nVisible)
 		this.updateCheckboxDependents()
 		this.commentWriter.handleNotesUpdate()
 	}
@@ -215,7 +215,7 @@ export default class NoteTable {
 				iComment++
 			}
 		}
-		if (this.commandPanel.fitMode=='allNotes') {
+		if (this.toolPanel.fitMode=='allNotes') {
 			this.map.fitNotes()
 		} else {
 			this.map.fitNotesIfNeeded()
@@ -227,7 +227,7 @@ export default class NoteTable {
 			nFetched++
 			if (!$noteSection.classList.contains('hidden')) nVisible++
 		}
-		this.commandPanel.receiveNoteCounts(nFetched,nVisible)
+		this.toolPanel.receiveNoteCounts(nFetched,nVisible)
 		this.commentWriter.handleNotesUpdate()
 		return nUnfilteredNotes
 	}
@@ -295,7 +295,7 @@ export default class NoteTable {
 		const $time=$clickedRow.querySelector('time')
 		if (!$time) return
 		const $text=$clickedRow.querySelector('td.note-comment')
-		this.commandPanel.receiveCheckedComment($time.dateTime,$text?.textContent??undefined)
+		this.toolPanel.receiveCheckedComment($time.dateTime,$text?.textContent??undefined)
 	}
 	private focusOnNote($noteSection: HTMLTableSectionElement, isSectionClicked: boolean = false): void {
 		this.activateNote('click',$noteSection)
@@ -366,7 +366,7 @@ export default class NoteTable {
 		let hasChecked=checkedNotes.length>0
 		this.$selectAllCheckbox.indeterminate=hasChecked && hasUnchecked
 		this.$selectAllCheckbox.checked=hasChecked && !hasUnchecked
-		this.commandPanel.receiveCheckedNotes(checkedNotes,checkedNoteUsers)
+		this.toolPanel.receiveCheckedNotes(checkedNotes,checkedNoteUsers)
 	}
 	private listVisibleNoteSections(): NodeListOf<HTMLTableSectionElement> {
 		return this.$table.querySelectorAll('tbody:not(.hidden)')
@@ -411,7 +411,7 @@ class NoteSectionVisibilityObserver {
 	private haltingTimeoutId: number | undefined
 	private isMapFittingHalted: boolean = false
 	constructor(
-		commandPanel: CommandPanel, map: NoteMap,
+		toolPanel: ToolPanel, map: NoteMap,
 		noteSectionLayerIdVisibility: Map<number,boolean>
 	) {
 		const noteSectionVisibilityHandler=()=>{
@@ -420,7 +420,7 @@ class NoteSectionVisibilityObserver {
 				if (visibility) visibleLayerIds.push(layerId)
 			}
 			map.showNoteTrack(visibleLayerIds)
-			if (!this.isMapFittingHalted && commandPanel.fitMode=='inViewNotes') map.fitNoteTrack()
+			if (!this.isMapFittingHalted && toolPanel.fitMode=='inViewNotes') map.fitNoteTrack()
 		}
 		this.intersectionObserver=new IntersectionObserver((entries)=>{
 			for (const entry of entries) {

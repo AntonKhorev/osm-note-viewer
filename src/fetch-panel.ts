@@ -5,7 +5,7 @@ import PhotoDialog from './photo'
 import NoteTable from './table'
 import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
-import CommandPanel from './command-panel'
+import ToolPanel from './tool-panel'
 import {NoteQuery, makeNoteSearchQueryFromValues, makeNoteBboxQueryFromValues,makeNoteQueryFromHash, makeNoteQueryString} from './query'
 import {toUserQuery} from './query-user'
 import {toReadableDate, toDateQuery} from './query-date'
@@ -17,7 +17,7 @@ export default class NoteFetchPanel {
 	constructor(
 		storage: NoteViewerStorage, db: NoteViewerDB,
 		$container: HTMLElement,
-		$notesContainer: HTMLElement, $moreContainer: HTMLElement, $commandContainer: HTMLElement,
+		$notesContainer: HTMLElement, $moreContainer: HTMLElement, $toolContainer: HTMLElement,
 		filterPanel: NoteFilterPanel, extrasPanel: ExtrasPanel, map: NoteMap, photoDialog: PhotoDialog, restoreScrollPosition: ()=>void
 	) {
 		let noteTable: NoteTable | undefined
@@ -83,7 +83,7 @@ export default class NoteFetchPanel {
 			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
 			map.clearNotes()
 			$notesContainer.innerHTML=``
-			$commandContainer.innerHTML=``
+			$toolContainer.innerHTML=``
 		}
 		function runStartFetcher(query: NoteQuery | undefined, clearStore: boolean): void {
 			photoDialog.close()
@@ -95,9 +95,9 @@ export default class NoteFetchPanel {
 			}
 			if (query?.mode!='search' && query?.mode!='bbox') return
 			filterPanel.unsubscribe()
-			const commandPanel=new CommandPanel($commandContainer,map,storage)
+			const toolPanel=new ToolPanel($toolContainer,map,storage)
 			noteTable=new NoteTable(
-				$notesContainer,commandPanel,map,filterPanel.noteFilter,
+				$notesContainer,toolPanel,map,filterPanel.noteFilter,
 				photoDialog,$showImagesCheckboxes[0]?.checked
 			)
 			filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(noteFilter))

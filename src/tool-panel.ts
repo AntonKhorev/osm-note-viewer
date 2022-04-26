@@ -6,7 +6,7 @@ import downloadAndShowElement from './osm'
 import {toReadableDate, toUrlDate} from './query-date'
 import {ToolFitMode, ToolCallbacks, toolMakerSequence} from './tools'
 
-export default class CommandPanel {
+export default class ToolPanel {
 	// { TODO inputs to remove
 	$commentTimeSelect=document.createElement('select')
 	$commentTimeInput=document.createElement('input')
