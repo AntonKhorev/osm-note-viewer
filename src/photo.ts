@@ -36,6 +36,7 @@ export default class PhotoDialog {
 			return
 		}
 		const $figure=document.createElement('figure')
+		$figure.tabIndex=0
 		const $backdrop=document.createElement('div')
 		$backdrop.classList.add('backdrop')
 		$backdrop.style.backgroundImage=`url(${url})`
@@ -47,6 +48,12 @@ export default class PhotoDialog {
 		$closeButton.title=`Close photo`
 		$dialog.append($figure,$closeButton)
 
+		$figure.addEventListener('keydown',(ev)=>{ // probably can't make it a button
+			if (ev.key=='Enter' || ev.key==' ') {
+				ev.stopPropagation()
+				$figure.classList.toggle('zoomed')
+			}
+		})
 		$figure.addEventListener('click',(ev)=>{
 			if ($figure.classList.contains('zoomed')) {
 				$figure.classList.remove('zoomed')
@@ -80,8 +87,15 @@ export default class PhotoDialog {
 		$closeButton.addEventListener('animationend',()=>{
 			$closeButton.classList.remove('fading')
 		})
+		$dialog.addEventListener('keydown',(ev)=>{
+			if (ev.key=='Escape') {
+				ev.stopPropagation()
+				this.close()
+			}
+		})
 
 		$dialog.show()
+		$figure.focus()
 		this.url=url
 	}
 }

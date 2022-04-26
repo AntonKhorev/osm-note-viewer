@@ -440,7 +440,7 @@ body.flipped .notes td.note-user {
 }
 .photo button { /* copypaste from reset button */
 	--position-offset: 2rem;
-	display: none;
+	display: block;
 	position: absolute;
 	top: var(--position-offset);
 	left: var(--position-offset);
@@ -449,6 +449,7 @@ body.flipped .notes td.note-user {
 	box-sizing: border-box;
 	border: none;
 	background: url("reset.svg");
+	opacity: 0;
 }
 .photo button.right-position {
 	left: unset;
@@ -463,7 +464,6 @@ body.flipped .notes td.note-user {
 	to { opacity: 0; }
 }
 .photo button.fading {
-	display: block;
 	animation-name: photo-button-fade;
 	animation-duration: 3s;
 }
