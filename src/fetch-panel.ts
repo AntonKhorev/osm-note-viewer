@@ -86,6 +86,7 @@ export default class NoteFetchPanel {
 			$commandContainer.innerHTML=``
 		}
 		function runStartFetcher(query: NoteQuery | undefined, clearStore: boolean): void {
+			photoDialog.close()
 			resetNoteDependents()
 			if (query?.mode=='search') {
 				extrasPanel.rewrite(query,Number(searchDialog.$limitSelect.value))
