@@ -17,16 +17,19 @@ export default class PhotoDialog {
 		this.fallbackMode=((window as any).HTMLDialogElement == null)
 	}
 	close(): void {
+		if (this.fallbackMode) {
+			return
+		}
 		const $dialog = <HTMLDialogElementHack>this.$dialog
 		$dialog.close()
 		this.url=undefined
 	}
 	toggle(url: string): void {
-		const $dialog = <HTMLDialogElementHack>this.$dialog
 		if (this.fallbackMode) {
 			open(url,'photo')
 			return
 		}
+		const $dialog = <HTMLDialogElementHack>this.$dialog
 		this.$dialog.innerHTML=''
 		if (url==this.url) {
 			this.close()
