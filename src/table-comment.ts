@@ -10,7 +10,7 @@ export default class NoteTableCommentWriter {
 	constructor(
 		private $table: HTMLTableElement, map: NoteMap, photoDialog: PhotoDialog,
 		pingNoteSection: ($noteSection: HTMLTableSectionElement)=>void,
-		private activeTimeElementClickListener: (this: HTMLTimeElement,ev: MouseEvent) => void
+		private activeTimeElementClickListener: (this: HTMLTimeElement, ev: MouseEvent) => void
 	) {
 		const that=this
 		this.wrappedOsmLinkClickListener=function(this: HTMLAnchorElement, ev: MouseEvent){

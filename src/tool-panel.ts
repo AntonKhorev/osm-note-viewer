@@ -1,7 +1,6 @@
 import type {Note} from './data'
 import NoteViewerStorage from './storage'
 import {NoteMap} from './map'
-import downloadAndShowElement from './osm'
 import {toReadableDate, toUrlDate} from './query-date'
 import {Tool, ToolFitMode, ToolCallbacks, toolMakerSequence} from './tools'
 
@@ -154,51 +153,4 @@ async function openRcUrl($button: HTMLButtonElement, rcUrl: string): Promise<boo
 		$button.classList.remove('error')
 		$button.title=''
 	}
-}
-
-async function makeOverpassQuery($button: HTMLButtonElement, query: string): Promise<Document|undefined> {
-	try {
-		const response=await fetch(`https://www.overpass-api.de/api/interpreter`,{
-			method: 'POST',
-			body: new URLSearchParams({data:query})
-		})
-		const text=await response.text()
-		if (!response.ok) {
-			setError(`receiving the following message: ${text}`)
-			return
-		}
-		clearError()
-		return new DOMParser().parseFromString(text,'text/xml')
-	} catch (ex) {
-		if (ex instanceof TypeError) {
-			setError(`with the following error before receiving a response: ${ex.message}`)
-		} else {
-			setError(`for unknown reason`)
-		}
-	}
-	function setError(reason: string) {
-		$button.classList.add('error')
-		$button.title=`Overpass query failed ${reason}`
-	}
-	function clearError() {
-		$button.classList.remove('error')
-		$button.title=''
-	}
-}
-
-function getClosestNodeId(doc: Document, centerLat: number, centerLon: number): string | undefined {
-	let closestNodeId: string | undefined
-	let closestNodeDistanceSquared=Infinity
-	for (const node of doc.querySelectorAll('node')) {
-		const lat=Number(node.getAttribute('lat'))
-		const lon=Number(node.getAttribute('lon'))
-		const id=node.getAttribute('id')
-		if (!Number.isFinite(lat) || !Number.isFinite(lon) || !id) continue
-		const distanceSquared=(lat-centerLat)**2+(lon-centerLon)**2
-		if (distanceSquared<closestNodeDistanceSquared) {
-			closestNodeDistanceSquared=distanceSquared
-			closestNodeId=id
-		}
-	}
-	return closestNodeId
 }
