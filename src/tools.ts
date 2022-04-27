@@ -18,7 +18,7 @@ export abstract class Tool {
 	constructor(public id: string, public name: string, public title?: string ) {}
 	abstract getTool(callbacks: ToolCallbacks, map: NoteMap): Array<string|HTMLElement>
 	getInfo(): Array<string|HTMLElement>|undefined { return undefined }
-	onTimestampChange(timestamp: string): void {}
+	onTimestampChange(timestamp: string): boolean { return false }
 }
 
 class AutozoomTool extends Tool {
@@ -86,15 +86,17 @@ class TimestampTool extends Tool {
 		})
 		return [this.$timestampInput,` `,$clearButton]
 	}
-	onTimestampChange(timestamp: string): void {
+	onTimestampChange(timestamp: string): boolean {
 		this.$timestampInput.value=timestamp
+		return true
 	}
 }
 
 abstract class OverpassTool extends Tool {
 	protected timestamp: string = ''
-	onTimestampChange(timestamp: string): void {
+	onTimestampChange(timestamp: string): boolean {
 		this.timestamp=timestamp
+		return true
 	}
 	protected getOverpassQueryPreamble(map: NoteMap): string {
 		const bounds=map.bounds

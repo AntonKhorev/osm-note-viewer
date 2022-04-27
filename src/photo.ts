@@ -1,4 +1,4 @@
-import {resetFadeAnimation} from './util'
+import {startOrResetFadeAnimation} from './util'
 
 // simple HTMLDialogElement interface to shut up TypeScript
 // https://gist.github.com/jbmoelker/226594f195b97bf61436
@@ -75,11 +75,7 @@ export default class PhotoDialog {
 		$figure.addEventListener('mousemove',(ev)=>{
 			$closeButton.classList.toggle('right-position',ev.offsetX>=$figure.offsetWidth/2)
 			$closeButton.classList.toggle('bottom-position',ev.offsetY>=$figure.offsetHeight/2)
-			if ($closeButton.classList.contains('fading')) {
-				resetFadeAnimation($closeButton,'photo-button-fade')
-			} else {
-				$closeButton.classList.add('fading')
-			}
+			startOrResetFadeAnimation($closeButton,'photo-button-fade','fading')
 		})
 		$closeButton.addEventListener('click',()=>{
 			this.close()

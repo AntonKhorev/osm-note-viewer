@@ -57,6 +57,13 @@ export function makeEscapeTag(escapeFn: (text: string) => string): (strings: Tem
 	}
 }
 
+export function startOrResetFadeAnimation($element: HTMLElement, animationName: string, animationClass: string): void {
+	if ($element.classList.contains(animationClass)) {
+		resetFadeAnimation($element,animationName)
+	} else {
+		$element.classList.add(animationClass)
+	}
+}
 export function resetFadeAnimation($element: HTMLElement, animationName: string): void {
 	const animation=getFadeAnimation($element,animationName)
 	if (!animation) return

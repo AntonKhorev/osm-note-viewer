@@ -81,6 +81,24 @@ body.flipped .panel.fetch button.flip {
 	margin: 0;
 	line-height: 1.4em;
 }
+.panel.command details.tool {
+	outline: none;
+}
+@keyframes tool-ping-fade {
+	from {
+		outline-color: #28F;
+		outline-width: calc(var(--gap)/2);
+	}
+	to {
+		outline-color: #FFF;
+		outline-width: 0;
+	}
+}
+.panel.command details.tool.ping {
+	animation-name: tool-ping-fade;
+	animation-duration: 1s;
+	outline-style: solid;
+}
 .panel.command details.tool summary {
 	display: inline;
 }

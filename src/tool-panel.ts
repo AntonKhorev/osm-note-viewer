@@ -3,18 +3,20 @@ import NoteViewerStorage from './storage'
 import {NoteMap} from './map'
 import {toReadableDate, toUrlDate} from './query-date'
 import {Tool, ToolFitMode, ToolCallbacks, toolMakerSequence} from './tools'
+import {startOrResetFadeAnimation} from './util'
 
 class ToolBroadcaster {
-	constructor(private readonly tools: Tool[]) {}
+	constructor(private readonly tools: [tool:Tool,$tool:HTMLElement][]) {}
 	private sources: Set<Tool> = new Set()
 	broadcastTimestampChange(fromTool: Tool|null, timestamp: string): void {
 		if (fromTool) {
 			if (this.sources.has(fromTool)) return
 			this.sources.add(fromTool)
 		}
-		for (const tool of this.tools) {
+		for (const [tool,$tool] of this.tools) {
 			if (this.sources.has(tool)) continue
-			tool.onTimestampChange(timestamp)
+			const reacted=tool.onTimestampChange(timestamp)
+			if (reacted) startOrResetFadeAnimation($tool,'tool-ping-fade','ping')
 		}
 		if (fromTool) {
 			this.sources.delete(fromTool)
@@ -36,7 +38,7 @@ export default class ToolPanel {
 	#fitMode: ToolFitMode
 	// }
 	constructor(private $container: HTMLElement, map: NoteMap, storage: NoteViewerStorage) {
-		const tools: Tool[] = []
+		const tools: [tool:Tool,$tool:HTMLElement][] = []
 		const toolCallbacks: ToolCallbacks = {
 			onFitModeChange: (fromTool,fitMode)=>this.#fitMode=fitMode,
 			onTimestampChange: (fromTool,timestamp)=>{
@@ -45,7 +47,6 @@ export default class ToolPanel {
 		}
 		for (const makeTool of toolMakerSequence) {
 			const tool=makeTool()
-			tools.push(tool)
 			const storageKey='commands-'+tool.id
 			const $toolDetails=document.createElement('details')
 			$toolDetails.classList.add('tool')
@@ -61,6 +62,7 @@ export default class ToolPanel {
 				}
 			})
 			$toolDetails.append($toolSummary,...tool.getTool(toolCallbacks,map))
+			$toolDetails.addEventListener('animationend',toolAnimationEndListener)
 			const infoElements=tool.getInfo()
 			if (infoElements) {
 				const $infoDetails=document.createElement('details')
@@ -94,6 +96,7 @@ export default class ToolPanel {
 			} else {
 				$container.append($toolDetails)
 			}
+			tools.push([tool,$toolDetails])
 		}
 		this.toolBroadcaster=new ToolBroadcaster(tools)
 	}
@@ -123,6 +126,10 @@ export default class ToolPanel {
 		return this.#fitMode
 	}
 	// }
+}
+
+function toolAnimationEndListener(this: HTMLElement) {
+	this.classList.remove('ping')
 }
 
 function makeNotesIcon(type: string): HTMLImageElement {
