@@ -191,7 +191,11 @@ function addElementGeometryToMap(map: NoteMap, outputDate: (readableDate:string)
 		const elementHref=e`https://www.openstreetmap.org/${element.type}/${element.id}`
 		const $popup=makeDiv('osm-element-popup-contents')(
 			h(capitalize(element.type)+`: `,makeLink(getElementName(element),elementHref)),
-			h(`Version #${element.version} · `,makeLink(`View History`,elementHref+'/history')),
+			h(
+				`Version #${element.version} · `,
+				makeLink(`View History`,elementHref+'/history'),` · `,
+				makeLink(`Edit`,e`https://www.openstreetmap.org/edit?${element.type}=${element.id}`)
+			),
 			p(
 				`Edited on `,getElementDate(element,outputDate),
 				` by `,getElementUser(element),
