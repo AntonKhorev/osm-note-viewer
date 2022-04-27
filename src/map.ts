@@ -52,6 +52,7 @@ export class NoteMap {
 	filteredNoteLayer: L.FeatureGroup
 	trackLayer: L.FeatureGroup
 	needToFitNotes: boolean = false
+	private queuedPopupLayerId: number|undefined
 	constructor($container: HTMLElement) {
 		this.leafletMap=L.map($container,{
 			worldCopyJump: true
@@ -75,6 +76,13 @@ export class NoteMap {
 		layersControl.addOverlay(this.trackLayer,`Track between notes`)
 		layersControl.addOverlay(crosshairLayer,`Crosshair`)
 		layersControl.addTo(this.leafletMap)
+		this.onMoveEnd(()=>{
+			if (!this.queuedPopupLayerId) return
+			const layerId=this.queuedPopupLayerId
+			this.queuedPopupLayerId=undefined
+			const geometry=this.elementLayer.getLayer(layerId)
+			if (geometry) geometry.openPopup()
+		})
 	}
 	invalidateSize(): void {
 		this.leafletMap.invalidateSize()
@@ -124,13 +132,22 @@ export class NoteMap {
 		if (bounds.isValid()) this.leafletMap.fitBounds(bounds)
 	}
 	addOsmElement(geometry: L.Layer): void {
+		// TODO zoom on second click, like with notes
 		this.elementLayer.clearLayers()
 		this.elementLayer.addLayer(geometry)
+		const layerId=this.elementLayer.getLayerId(geometry)
+		// geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
 		if (geometry instanceof L.CircleMarker) {
+			this.queuedPopupLayerId=layerId
 			this.leafletMap.panTo(geometry.getLatLng())
 		} else {
 			const bounds=this.elementLayer.getBounds()
-			if (bounds.isValid()) this.leafletMap.fitBounds(bounds)
+			if (bounds.isValid()) {
+				this.queuedPopupLayerId=layerId
+				this.leafletMap.fitBounds(bounds)
+			} else {
+				geometry.openPopup()
+			}
 		}
 	}
 	fitBounds(bounds: L.LatLngBoundsExpression): void {
