@@ -6,31 +6,22 @@ import {Tool, ToolFitMode, ToolCallbacks, toolMakerSequence} from './tools'
 import {startOrResetFadeAnimation} from './util'
 
 class ToolBroadcaster {
-	constructor(private readonly tools: [tool:Tool,$tool:HTMLElement][]) {}
 	private sources: Set<Tool> = new Set()
+	constructor(private readonly tools: [tool:Tool,$tool:HTMLElement][]) {}
 	broadcastTimestampChange(fromTool: Tool|null, timestamp: string): void {
-		if (fromTool) {
-			if (this.sources.has(fromTool)) return
-			this.sources.add(fromTool)
-		}
-		for (const [tool,$tool] of this.tools) {
-			if (this.sources.has(tool)) continue
-			const reacted=tool.onTimestampChange(timestamp)
-			if (reacted) startOrResetFadeAnimation($tool,'tool-ping-fade','ping')
-		}
-		if (fromTool) {
-			this.sources.delete(fromTool)
-		}
+		this.broadcast(fromTool,tool=>tool.onTimestampChange(timestamp))
 	}
-	// TODO remove copypaste
 	broadcastSelectedNotesChange(fromTool: Tool|null, selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): void {
+		this.broadcast(fromTool,tool=>tool.onSelectedNotesChange(selectedNotes,selectedNoteUsers))
+	}
+	private broadcast(fromTool: Tool|null, sendMessageToTool: (tool:Tool)=>boolean) {
 		if (fromTool) {
 			if (this.sources.has(fromTool)) return
 			this.sources.add(fromTool)
 		}
 		for (const [tool,$tool] of this.tools) {
 			if (this.sources.has(tool)) continue
-			const reacted=tool.onSelectedNotesChange(selectedNotes,selectedNoteUsers)
+			const reacted=sendMessageToTool(tool)
 			if (reacted) startOrResetFadeAnimation($tool,'tool-ping-fade','ping')
 		}
 		if (fromTool) {
