@@ -35,14 +35,12 @@ export default class ToolPanel {
 	// { tool callbacks rewrite
 	private toolBroadcaster: ToolBroadcaster
 	#fitMode: ToolFitMode
-	#timestamp: string = ''
 	// }
 	constructor(private $container: HTMLElement, map: NoteMap, storage: NoteViewerStorage) {
 		const tools: Tool[] = []
 		const toolCallbacks: ToolCallbacks = {
 			onFitModeChange: (fromTool,fitMode)=>this.#fitMode=fitMode,
 			onTimestampChange: (fromTool,timestamp)=>{
-				this.#timestamp=timestamp
 				this.toolBroadcaster.broadcastTimestampChange(fromTool,timestamp)
 			}
 		}
@@ -113,18 +111,7 @@ export default class ToolPanel {
 		}
 	}
 	receiveTimestamp(timestamp: string): void {
-		this.#timestamp=timestamp
 		this.toolBroadcaster.broadcastTimestampChange(null,timestamp)
-	}
-	private getOverpassQueryPreamble(map: NoteMap): string { // TODO move to tools
-		const time=this.#timestamp
-		const bounds=map.bounds
-		let query=''
-		if (time) query+=`[date:"${time}"]\n`
-		query+=`[bbox:${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}]\n`
-		// query+=`[bbox:${bounds.toBBoxString()}];\n` // nope, different format
-		query+=`;\n`
-		return query
 	}
 	private makeRequiringSelectedNotesButton(): HTMLButtonElement {
 		const $button=document.createElement('button')
@@ -137,16 +124,6 @@ export default class ToolPanel {
 		return this.#fitMode
 	}
 	// }
-}
-
-function makeMapIcon(type: string): HTMLImageElement {
-	const $img=document.createElement('img')
-	$img.classList.add('icon')
-	$img.src=`map-${type}.svg`
-	$img.width=19
-	$img.height=13
-	$img.alt=`map ${type}`
-	return $img
 }
 
 function makeNotesIcon(type: string): HTMLImageElement {
