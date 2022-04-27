@@ -16,6 +16,7 @@ export type ToolFitMode = 'allNotes' | 'inViewNotes' | undefined
 export interface ToolCallbacks {
 	onFitModeChange(fromTool: Tool, fitMode: ToolFitMode): void
 	onTimestampChange(fromTool: Tool, timestamp: string): void
+	onToolOpenToggle(fromTool: Tool, setToOpen: boolean): void
 }
 
 export abstract class Tool {
@@ -529,43 +530,43 @@ class CountTool extends Tool {
 	}
 }
 
+class LegendTool extends Tool {
+	constructor() {super(
+		'legend',
+		`Legend`,
+		`What do icons in command panel mean`
+	)}
+	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+		return [
+			makeMapIcon('center'),` = map center, `,makeMapIcon('area'),` = map area, `,makeNotesIcon('selected'),` = selected notes`
+		]
+	}
+}
+
+class SettingsTool extends Tool {
+	constructor() {super(
+		'settings',
+		`⚙️`,
+		`Settings`
+	)}
+	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+		const $openAllButton=document.createElement('button')
+		$openAllButton.textContent=`+ open all tools`
+		$openAllButton.addEventListener('click',()=>callbacks.onToolOpenToggle(this,true))
+		const $closeAllButton=document.createElement('button')
+		$closeAllButton.textContent=`− close all tools`
+		$closeAllButton.addEventListener('click',()=>callbacks.onToolOpenToggle(this,false))
+		return [$openAllButton,` `,$closeAllButton]
+	}
+}
+
 export const toolMakerSequence: Array<()=>Tool> = [
 	()=>new AutozoomTool,
 	()=>new TimestampTool, ()=>new OverpassTurboTool, ()=>new OverpassDirectTool,
 	()=>new RcTool, ()=>new IdTool,
 	()=>new GpxTool, ()=>new YandexPanoramasTool, ()=>new MapillaryTool,
-	()=>new CountTool
+	()=>new CountTool, ()=>new LegendTool, ()=>new SettingsTool
 ]
-
-/*
-	static commandGroups: CommandGroup[] = [[
-		'legend',
-		`Legend`,
-		`What do icons in command panel mean`,
-		(cp,map)=>[
-			makeMapIcon('center'),` = map center, `,makeMapIcon('area'),` = map area, `,makeNotesIcon('selected'),` = selected notes`
-		]
-	],[
-		'settings',
-		`⚙️`,
-		`Settings`,
-		(cp,map)=>{
-			const $openAllButton=document.createElement('button')
-			$openAllButton.textContent=`+ open all tools`
-			$openAllButton.addEventListener('click',()=>foldTools(true))
-			const $closeAllButton=document.createElement('button')
-			$closeAllButton.textContent=`− close all tools`
-			$closeAllButton.addEventListener('click',()=>foldTools(false))
-			return [$openAllButton,` `,$closeAllButton]
-			function foldTools(open: boolean): void {
-				for (const $tool of cp.$container.querySelectorAll('details.tool')) {
-					if (!($tool instanceof HTMLDetailsElement)) continue
-					$tool.open=open
-				}
-			}
-		}
-	]]
-*/
 
 function makeMapIcon(type: string): HTMLImageElement {
 	const $img=document.createElement('img')

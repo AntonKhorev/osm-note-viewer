@@ -33,17 +33,17 @@ class ToolBroadcaster {
 }
 
 export default class ToolPanel {
-	private $buttonsRequiringSelectedNotes: HTMLButtonElement[] = []
-	// { tool callbacks rewrite
 	private toolBroadcaster: ToolBroadcaster
 	#fitMode: ToolFitMode
-	// }
-	constructor(private $container: HTMLElement, map: NoteMap, storage: NoteViewerStorage) {
-		const tools: [tool:Tool,$tool:HTMLElement][] = []
+	constructor($container: HTMLElement, map: NoteMap, storage: NoteViewerStorage) {
+		const tools: [tool:Tool,$tool:HTMLDetailsElement][] = []
 		const toolCallbacks: ToolCallbacks = {
 			onFitModeChange: (fromTool,fitMode)=>this.#fitMode=fitMode,
 			onTimestampChange: (fromTool,timestamp)=>{
 				this.toolBroadcaster.broadcastTimestampChange(fromTool,timestamp)
+			},
+			onToolOpenToggle: (fromTool: Tool, setToOpen: boolean)=>{
+				for (const [,$tool] of tools) $tool.open=setToOpen
 			}
 		}
 		for (const makeTool of toolMakerSequence) {
@@ -110,11 +110,9 @@ export default class ToolPanel {
 	receiveTimestamp(timestamp: string): void {
 		this.toolBroadcaster.broadcastTimestampChange(null,timestamp)
 	}
-	// { tool callbacks rewrite
 	get fitMode(): ToolFitMode {
 		return this.#fitMode
 	}
-	// }
 }
 
 function toolAnimationEndListener(this: HTMLElement) {
