@@ -86,7 +86,7 @@ body.flipped .panel.fetch button.flip {
 }
 @keyframes tool-ping-fade {
 	from {
-		outline-color: #28F;
+		outline-color: #9CF;
 		outline-width: calc(var(--gap)/2);
 	}
 	to {
