@@ -276,43 +276,48 @@ class RcTool extends Tool {
 	}
 }
 
+class IdTool extends Tool {
+	constructor() {super(
+		'id',
+		`iD`
+	)}
+	getInfo() {return[p(
+		`Follow your notes by zooming from one place to another in one `,makeLink(`iD editor`,'https://wiki.openstreetmap.org/wiki/ID'),` window. `,
+		`It could be faster to do first here in note-viewer than in iD directly because note-viewer won't try to download more data during panning. `,
+		`After zooming in note-viewer, click the `,em(`Open`),` button to open this location in iD. `,
+		`When you go back to note-viewer, zoom to another place and click the `,em(`Open`),` button for the second time, the already opened iD instance zooms to that place. `,
+		`Your edits are not lost between such zooms.`
+	),p(
+		`Technical details: this is an attempt to make something like `,em(`remote control`),` in iD editor. `,
+		`Convincing iD to load notes has proven to be tricky. `,
+		`Your best chance of seeing the selected notes is importing them as a `,em(`gpx`),` file. `,
+		`See `,makeLink(`this diary post`,`https://www.openstreetmap.org/user/Anton%20Khorev/diary/398991`),` for further explanations.`,
+	),p(
+		`Zooming/panning is easier to do, and that's what is currently implemented. `,
+		`It's not without quirks however. You'll notice that the iD window opened from here doesn't have the OSM website header. `,
+		`This is because the editor is opened at `,makeLink(`/id`,`https://www.openstreetmap.org/id`),` url instead of `,makeLink(`/edit`,`https://www.openstreetmap.org/edit`),`. `,
+		`It has to be done because otherwise iD won't listen to `,em(`#map`),` changes in the webpage location.`
+	)]}
+	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+		// limited to what hashchange() lets you do here https://github.com/openstreetmap/iD/blob/develop/modules/behavior/hash.js
+		// which is zooming/panning
+		const $zoomButton=document.createElement('button')
+		$zoomButton.append(`Open `,makeMapIcon('center'))
+		$zoomButton.addEventListener('click',()=>{
+			const e=makeEscapeTag(encodeURIComponent)
+			const url=e`https://www.openstreetmap.org/id#map=${map.zoom}/${map.lat}/${map.lon}`
+			open(url,'id')
+		})
+		return [$zoomButton]
+	}
+}
+
 export const toolMakerSequence: Array<()=>Tool> = [
-	()=>new AutozoomTool, ()=>new TimestampTool, ()=>new OverpassTurboTool, ()=>new OverpassDirectTool, ()=>new RcTool
+	()=>new AutozoomTool, ()=>new TimestampTool, ()=>new OverpassTurboTool, ()=>new OverpassDirectTool, ()=>new RcTool, ()=>new IdTool
 ]
 
 /*
 	static commandGroups: CommandGroup[] = [[
-		'id',
-		`iD`,,
-		(cp,map)=>{
-			// limited to what hashchange() lets you do here https://github.com/openstreetmap/iD/blob/develop/modules/behavior/hash.js
-			// which is zooming/panning
-			const $zoomButton=document.createElement('button')
-			$zoomButton.append(`Open `,makeMapIcon('center'))
-			$zoomButton.addEventListener('click',()=>{
-				const e=makeEscapeTag(encodeURIComponent)
-				const url=e`https://www.openstreetmap.org/id#map=${map.zoom}/${map.lat}/${map.lon}`
-				open(url,'id')
-			})
-			return [$zoomButton]
-		},()=>[p(
-			`Follow your notes by zooming from one place to another in one `,makeLink(`iD editor`,'https://wiki.openstreetmap.org/wiki/ID'),` window. `,
-			`It could be faster to do first here in note-viewer than in iD directly because note-viewer won't try to download more data during panning. `,
-			`After zooming in note-viewer, click the `,em(`Open`),` button to open this location in iD. `,
-			`When you go back to note-viewer, zoom to another place and click the `,em(`Open`),` button for the second time, the already opened iD instance zooms to that place. `,
-			`Your edits are not lost between such zooms.`
-		),p(
-			`Technical details: this is an attempt to make something like `,em(`remote control`),` in iD editor. `,
-			`Convincing iD to load notes has proven to be tricky. `,
-			`Your best chance of seeing the selected notes is importing them as a `,em(`gpx`),` file. `,
-			`See `,makeLink(`this diary post`,`https://www.openstreetmap.org/user/Anton%20Khorev/diary/398991`),` for further explanations.`,
-		),p(
-			`Zooming/panning is easier to do, and that's what is currently implemented. `,
-			`It's not without quirks however. You'll notice that the iD window opened from here doesn't have the OSM website header. `,
-			`This is because the editor is opened at `,makeLink(`/id`,`https://www.openstreetmap.org/id`),` url instead of `,makeLink(`/edit`,`https://www.openstreetmap.org/edit`),`. `,
-			`It has to be done because otherwise iD won't listen to `,em(`#map`),` changes in the webpage location.`
-		)]
-	],[
 		'gpx',
 		`GPX`,,
 		(cp,map)=>{
