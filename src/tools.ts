@@ -2,6 +2,7 @@ import type {Note} from './data'
 import {NoteMap} from './map'
 import {makeDateOutput} from './table-comment'
 import downloadAndShowElement from './osm'
+import {toReadableDate, toUrlDate} from './query-date'
 import {makeElement, makeLink, makeLabel, escapeXml, makeEscapeTag} from './util'
 
 const p=(...ss: Array<string|HTMLElement>)=>makeElement('p')()(...ss)
@@ -189,7 +190,7 @@ class OverpassTurboTool extends OverpassTool {
 class OverpassDirectTool extends OverpassTool {
 	constructor() {super(
 		'overpass',
-		`Overpass`,
+		`Overpass`
 	)}
 	getInfo() {return[p(
 		`Query `,makeLink(`Overpass API`,'https://wiki.openstreetmap.org/wiki/Overpass_API'),` without going through Overpass turbo. `,
@@ -240,7 +241,7 @@ class RcTool extends Tool {
 	constructor() {super(
 		'rc',
 		`RC`,
-		`JOSM (or another editor) Remote Control`,
+		`JOSM (or another editor) Remote Control`
 	)}
 	getInfo() {return[p(
 		`Load note/map data to an editor with `,
@@ -312,141 +313,156 @@ class IdTool extends Tool {
 	}
 }
 
+class GpxTool extends Tool {
+	private selectedNotes: ReadonlyArray<Note> = []
+	private selectedNoteUsers: ReadonlyMap<number,string> = new Map()
+	constructor() {super(
+		'gpx',
+		`GPX`
+	)}
+	getInfo() {return[p(
+		`Export selected notes in `,makeLink(`GPX`,'https://wiki.openstreetmap.org/wiki/GPX'),` (GPS exchange) format. `,
+		`During the export, each selected note is treated as a waypoint with its name set to note id, description set to comments and link pointing to note's page on the OSM website. `,
+		`This allows OSM notes to be used in applications that can't show them directly. `,
+		`Also it allows a particular selection of notes to be shown if an application can't filter them. `,
+		`One example of such app is `,makeLink(`iD editor`,'https://wiki.openstreetmap.org/wiki/ID'),`. `,
+		`Unfortunately iD doesn't fully understand the gpx format and can't show links associated with waypoints. `,
+		`You'll have to enable the notes layer in iD and compare its note marker with waypoint markers from the gpx file.`
+	),p(
+		`By default only the `,dfn(`first comment`),` is added to waypoint descriptions. `,
+		`This is because some apps such as iD and especially `,makeLink(`JOSM`,`https://wiki.openstreetmap.org/wiki/JOSM`),` try to render the entire description in one line next to the waypoint marker, cluttering the map.`
+	),p(
+		`It's possible to pretend that note waypoints are connected by a `,makeLink(`route`,`https://www.topografix.com/GPX/1/1/#type_rteType`),` by using the `,dfn(`connected by route`),` option. `,
+		`This may help to go from a note to the next one in an app by visually following the route line. `,
+		`There's also the `,dfn(`connected by track`),` option in case the app makes it easier to work with `,makeLink(`tracks`,`https://www.topografix.com/GPX/1/1/#type_trkType`),` than with the routes.`
+	),p(
+		`Instead of clicking the `,em(`Export`),` button, you can drag it and drop into a place that accepts data sent by `,makeLink(`Drag and Drop API`,`https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`),`. `,
+		`Not many places actually do, and those who do often can handle only plaintext. `,
+		`That's why there's a type selector, with which plaintext format can be forced on transmitted data.`
+	)]}
+	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+		const $connectSelect=document.createElement('select')
+		$connectSelect.append(
+			new Option(`without connections`,'no'),
+			new Option(`connected by route`,'rte'),
+			new Option(`connected by track`,'trk')
+		)
+		const $commentsSelect=document.createElement('select')
+		$commentsSelect.append(
+			new Option(`first comment`,'first'),
+			new Option(`all comments`,'all')
+		)
+		const $dataTypeSelect=document.createElement('select')
+		$dataTypeSelect.append(
+			new Option('text/xml'),
+			new Option('application/gpx+xml'),
+			new Option('text/plain')
+		)
+		const $exportNotesButton=this.makeRequiringSelectedNotesButton()
+		$exportNotesButton.append(`Export `,makeNotesIcon('selected'))
+		const e=makeEscapeTag(escapeXml)
+		const getPoints=(pointTag: string, getDetails: (note: Note) => string = ()=>''): string => {
+			let gpx=''
+			for (const note of this.selectedNotes) {
+				const firstComment=note.comments[0]
+				gpx+=e`<${pointTag} lat="${note.lat}" lon="${note.lon}">\n`
+				if (firstComment) gpx+=e`<time>${toUrlDate(firstComment.date)}</time>\n`
+				gpx+=getDetails(note)
+				gpx+=e`</${pointTag}>\n`
+			}
+			return gpx
+		}
+		const getGpx=(): string => {
+			let gpx=e`<?xml version="1.0" encoding="UTF-8" ?>\n`
+			gpx+=e`<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">\n`
+			// TODO <name>selected notes of user A</name>
+			gpx+=getPoints('wpt',note=>{
+				let gpx=''
+				gpx+=e`<name>${note.id}</name>\n`
+				if (note.comments.length>0) {
+					gpx+=`<desc>`
+					let first=true
+					for (const comment of note.comments) {
+						if (first) {
+							first=false
+						} else {
+							gpx+=`&#xA;\n` // JOSM wants this kind of double newline, otherwise no space between comments is rendered
+						}
+						if (comment.uid) {
+							const username=this.selectedNoteUsers.get(comment.uid)
+							if (username!=null) {
+								gpx+=e`${username}`
+							} else {
+								gpx+=e`user #${comment.uid}`
+							}
+						} else {
+							gpx+=`anonymous user`
+						}
+						if ($commentsSelect.value=='all') gpx+=e` ${comment.action}`
+						gpx+=` at ${toReadableDate(comment.date)}`
+						if (comment.text) gpx+=e`: ${comment.text}`
+						if ($commentsSelect.value!='all') break
+					}
+					gpx+=`</desc>\n`
+				}
+				const noteUrl=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.id)
+				gpx+=e`<link href="${noteUrl}">\n`
+				gpx+=e`<text>note #${note.id} on osm</text>\n`
+				gpx+=e`</link>\n`
+				gpx+=e`<type>${note.status}</type>\n`
+				return gpx
+			})
+			if ($connectSelect.value=='rte') {
+				gpx+=`<rte>\n`
+				gpx+=getPoints('rtept')
+				gpx+=`</rte>\n`
+			}
+			if ($connectSelect.value=='trk') {
+				gpx+=`<trk><trkseg>\n`
+				gpx+=getPoints('trkpt')
+				gpx+=`</trkseg></trk>\n`
+			}
+			gpx+=`</gpx>\n`
+			return gpx
+		}
+		$exportNotesButton.addEventListener('click',()=>{
+			const gpx=getGpx()
+			const file=new File([gpx],'notes.gpx')
+			const $a=document.createElement('a')
+			$a.href=URL.createObjectURL(file)
+			$a.download='notes.gpx'
+			$a.click()
+			URL.revokeObjectURL($a.href)
+		})
+		$exportNotesButton.draggable=true
+		$exportNotesButton.addEventListener('dragstart',ev=>{
+			const gpx=getGpx()
+			if (!ev.dataTransfer) return
+			ev.dataTransfer.setData($dataTypeSelect.value,gpx)
+		})
+		return [
+			$exportNotesButton,` `,
+			makeLabel('inline')(` as waypoints `,$connectSelect),` `,
+			makeLabel('inline')(` with `,$commentsSelect,` in descriptions`),`, `,
+			makeLabel('inline')(`set `,$dataTypeSelect,` type in drag and drop events`)
+		]
+	}
+	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean {
+		this.selectedNotes=selectedNotes
+		this.selectedNoteUsers=selectedNoteUsers
+		return true
+	}
+}
+
 export const toolMakerSequence: Array<()=>Tool> = [
-	()=>new AutozoomTool, ()=>new TimestampTool, ()=>new OverpassTurboTool, ()=>new OverpassDirectTool, ()=>new RcTool, ()=>new IdTool
+	()=>new AutozoomTool,
+	()=>new TimestampTool, ()=>new OverpassTurboTool, ()=>new OverpassDirectTool,
+	()=>new RcTool, ()=>new IdTool,
+	()=>new GpxTool
 ]
 
 /*
 	static commandGroups: CommandGroup[] = [[
-		'gpx',
-		`GPX`,,
-		(cp,map)=>{
-			const $connectSelect=document.createElement('select')
-			$connectSelect.append(
-				new Option(`without connections`,'no'),
-				new Option(`connected by route`,'rte'),
-				new Option(`connected by track`,'trk')
-			)
-			const $commentsSelect=document.createElement('select')
-			$commentsSelect.append(
-				new Option(`first comment`,'first'),
-				new Option(`all comments`,'all')
-			)
-			const $dataTypeSelect=document.createElement('select')
-			$dataTypeSelect.append(
-				new Option('text/xml'),
-				new Option('application/gpx+xml'),
-				new Option('text/plain')
-			)
-			const $exportNotesButton=cp.makeRequiringSelectedNotesButton()
-			$exportNotesButton.append(`Export `,makeNotesIcon('selected'))
-			const e=makeEscapeTag(escapeXml)
-			const getPoints=(pointTag: string, getDetails: (note: Note) => string = ()=>''): string => {
-				let gpx=''
-				for (const note of cp.checkedNotes) {
-					const firstComment=note.comments[0]
-					gpx+=e`<${pointTag} lat="${note.lat}" lon="${note.lon}">\n`
-					if (firstComment) gpx+=e`<time>${toUrlDate(firstComment.date)}</time>\n`
-					gpx+=getDetails(note)
-					gpx+=e`</${pointTag}>\n`
-				}
-				return gpx
-			}
-			const getGpx=(): string => {
-				let gpx=e`<?xml version="1.0" encoding="UTF-8" ?>\n`
-				gpx+=e`<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">\n`
-				// TODO <name>selected notes of user A</name>
-				gpx+=getPoints('wpt',note=>{
-					let gpx=''
-					gpx+=e`<name>${note.id}</name>\n`
-					if (note.comments.length>0) {
-						gpx+=`<desc>`
-						let first=true
-						for (const comment of note.comments) {
-							if (first) {
-								first=false
-							} else {
-								gpx+=`&#xA;\n` // JOSM wants this kind of double newline, otherwise no space between comments is rendered
-							}
-							if (comment.uid) {
-								const username=cp.checkedNoteUsers.get(comment.uid)
-								if (username!=null) {
-									gpx+=e`${username}`
-								} else {
-									gpx+=e`user #${comment.uid}`
-								}
-							} else {
-								gpx+=`anonymous user`
-							}
-							if ($commentsSelect.value=='all') gpx+=e` ${comment.action}`
-							gpx+=` at ${toReadableDate(comment.date)}`
-							if (comment.text) gpx+=e`: ${comment.text}`
-							if ($commentsSelect.value!='all') break
-						}
-						gpx+=`</desc>\n`
-					}
-					const noteUrl=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.id)
-					gpx+=e`<link href="${noteUrl}">\n`
-					gpx+=e`<text>note #${note.id} on osm</text>\n`
-					gpx+=e`</link>\n`
-					gpx+=e`<type>${note.status}</type>\n`
-					return gpx
-				})
-				if ($connectSelect.value=='rte') {
-					gpx+=`<rte>\n`
-					gpx+=getPoints('rtept')
-					gpx+=`</rte>\n`
-				}
-				if ($connectSelect.value=='trk') {
-					gpx+=`<trk><trkseg>\n`
-					gpx+=getPoints('trkpt')
-					gpx+=`</trkseg></trk>\n`
-				}
-				gpx+=`</gpx>\n`
-				return gpx
-			}
-			$exportNotesButton.addEventListener('click',()=>{
-				const gpx=getGpx()
-				const file=new File([gpx],'notes.gpx')
-				const $a=document.createElement('a')
-				$a.href=URL.createObjectURL(file)
-				$a.download='notes.gpx'
-				$a.click()
-				URL.revokeObjectURL($a.href)
-			})
-			$exportNotesButton.draggable=true
-			$exportNotesButton.addEventListener('dragstart',ev=>{
-				const gpx=getGpx()
-				if (!ev.dataTransfer) return
-				ev.dataTransfer.setData($dataTypeSelect.value,gpx)
-			})
-			return [
-				$exportNotesButton,` `,
-				makeLabel('inline')(` as waypoints `,$connectSelect),` `,
-				makeLabel('inline')(` with `,$commentsSelect,` in descriptions`),`, `,
-				makeLabel('inline')(`set `,$dataTypeSelect,` type in drag and drop events`)
-			]
-		},()=>[p(
-			`Export selected notes in `,makeLink(`GPX`,'https://wiki.openstreetmap.org/wiki/GPX'),` (GPS exchange) format. `,
-			`During the export, each selected note is treated as a waypoint with its name set to note id, description set to comments and link pointing to note's page on the OSM website. `,
-			`This allows OSM notes to be used in applications that can't show them directly. `,
-			`Also it allows a particular selection of notes to be shown if an application can't filter them. `,
-			`One example of such app is `,makeLink(`iD editor`,'https://wiki.openstreetmap.org/wiki/ID'),`. `,
-			`Unfortunately iD doesn't fully understand the gpx format and can't show links associated with waypoints. `,
-			`You'll have to enable the notes layer in iD and compare its note marker with waypoint markers from the gpx file.`
-		),p(
-			`By default only the `,dfn(`first comment`),` is added to waypoint descriptions. `,
-			`This is because some apps such as iD and especially `,makeLink(`JOSM`,`https://wiki.openstreetmap.org/wiki/JOSM`),` try to render the entire description in one line next to the waypoint marker, cluttering the map.`
-		),p(
-			`It's possible to pretend that note waypoints are connected by a `,makeLink(`route`,`https://www.topografix.com/GPX/1/1/#type_rteType`),` by using the `,dfn(`connected by route`),` option. `,
-			`This may help to go from a note to the next one in an app by visually following the route line. `,
-			`There's also the `,dfn(`connected by track`),` option in case the app makes it easier to work with `,makeLink(`tracks`,`https://www.topografix.com/GPX/1/1/#type_trkType`),` than with the routes.`
-		),p(
-			`Instead of clicking the `,em(`Export`),` button, you can drag it and drop into a place that accepts data sent by `,makeLink(`Drag and Drop API`,`https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`),`. `,
-			`Not many places actually do, and those who do often can handle only plaintext. `,
-			`That's why there's a type selector, with which plaintext format can be forced on transmitted data.`
-		)]
-	],[
 		'yandex-panoramas',
 		`Y.Panoramas`,
 		`Yandex.Panoramas (Яндекс.Панорамы)`,

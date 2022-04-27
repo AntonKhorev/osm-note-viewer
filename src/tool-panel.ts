@@ -1,7 +1,6 @@
 import type {Note} from './data'
 import NoteViewerStorage from './storage'
 import {NoteMap} from './map'
-import {toReadableDate, toUrlDate} from './query-date'
 import {Tool, ToolFitMode, ToolCallbacks, toolMakerSequence} from './tools'
 import {startOrResetFadeAnimation} from './util'
 
