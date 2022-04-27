@@ -22,17 +22,30 @@ class ToolBroadcaster {
 			this.sources.delete(fromTool)
 		}
 	}
+	// TODO remove copypaste
+	broadcastSelectedNotesChange(fromTool: Tool|null, selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): void {
+		if (fromTool) {
+			if (this.sources.has(fromTool)) return
+			this.sources.add(fromTool)
+		}
+		for (const [tool,$tool] of this.tools) {
+			if (this.sources.has(tool)) continue
+			const reacted=tool.onSelectedNotesChange(selectedNotes,selectedNoteUsers)
+			if (reacted) startOrResetFadeAnimation($tool,'tool-ping-fade','ping')
+		}
+		if (fromTool) {
+			this.sources.delete(fromTool)
+		}
+	}
 }
 
 export default class ToolPanel {
 	// { TODO inputs to remove
 	$fetchedNoteCount=document.createElement('output')
 	$visibleNoteCount=document.createElement('output')
-	$checkedNoteCount=document.createElement('output')
+	$selectedNoteCount=document.createElement('output')
 	// }
 	private $buttonsRequiringSelectedNotes: HTMLButtonElement[] = []
-	private checkedNotes: ReadonlyArray<Note> = []
-	private checkedNoteUsers: ReadonlyMap<number,string> = new Map()
 	// { tool callbacks rewrite
 	private toolBroadcaster: ToolBroadcaster
 	#fitMode: ToolFitMode
@@ -104,22 +117,12 @@ export default class ToolPanel {
 		this.$fetchedNoteCount.textContent=String(nFetched)
 		this.$visibleNoteCount.textContent=String(nVisible)
 	}
-	receiveCheckedNotes(checkedNotes: ReadonlyArray<Note>, checkedNoteUsers: ReadonlyMap<number,string>): void {
-		this.$checkedNoteCount.textContent=String(checkedNotes.length)
-		this.checkedNotes=checkedNotes
-		this.checkedNoteUsers=checkedNoteUsers
-		for (const $button of this.$buttonsRequiringSelectedNotes) {
-			$button.disabled=checkedNotes.length<=0
-		}
+	receiveSelectedNotes(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): void {
+		this.$selectedNoteCount.textContent=String(selectedNotes.length)
+		this.toolBroadcaster.broadcastSelectedNotesChange(null,selectedNotes,selectedNoteUsers)
 	}
 	receiveTimestamp(timestamp: string): void {
 		this.toolBroadcaster.broadcastTimestampChange(null,timestamp)
-	}
-	private makeRequiringSelectedNotesButton(): HTMLButtonElement {
-		const $button=document.createElement('button')
-		$button.disabled=true
-		this.$buttonsRequiringSelectedNotes.push($button)
-		return $button
 	}
 	// { tool callbacks rewrite
 	get fitMode(): ToolFitMode {
@@ -130,34 +133,4 @@ export default class ToolPanel {
 
 function toolAnimationEndListener(this: HTMLElement) {
 	this.classList.remove('ping')
-}
-
-function makeNotesIcon(type: string): HTMLImageElement {
-	const $img=document.createElement('img')
-	$img.classList.add('icon')
-	$img.src=`notes-${type}.svg`
-	$img.width=9
-	$img.height=13
-	$img.alt=`${type} notes`
-	return $img
-}
-
-async function openRcUrl($button: HTMLButtonElement, rcUrl: string): Promise<boolean> {
-	try {
-		const response=await fetch(rcUrl)
-		if (response.ok) {
-			clearError()
-			return true
-		}
-	} catch {}
-	setError()
-	return false
-	function setError() {
-		$button.classList.add('error')
-		$button.title='Remote control command failed. Make sure you have an editor open and remote control enabled.'
-	}
-	function clearError() {
-		$button.classList.remove('error')
-		$button.title=''
-	}
 }

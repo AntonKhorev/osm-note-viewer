@@ -356,7 +356,7 @@ export default class NoteTable {
 		let hasChecked=checkedNotes.length>0
 		this.$selectAllCheckbox.indeterminate=hasChecked && hasUnchecked
 		this.$selectAllCheckbox.checked=hasChecked && !hasUnchecked
-		this.toolPanel.receiveCheckedNotes(checkedNotes,checkedNoteUsers)
+		this.toolPanel.receiveSelectedNotes(checkedNotes,checkedNoteUsers)
 	}
 	private listVisibleNoteSections(): NodeListOf<HTMLTableSectionElement> {
 		return this.$table.querySelectorAll('tbody:not(.hidden)')
