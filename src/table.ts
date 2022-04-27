@@ -92,7 +92,7 @@ export default class NoteTable {
 				makeHeaderCell('id'),
 				makeHeaderCell('date'),
 				makeHeaderCell('user'),
-				makeHeaderCell('?',`Action performed along with adding the comment. Also a radio button. Click to select comment for Overpass turbo commands.`),
+				makeHeaderCell('?',`action performed along with adding the comment`),
 				makeHeaderCell('comment')
 			)
 		}
