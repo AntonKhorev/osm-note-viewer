@@ -124,7 +124,7 @@ export default class NoteTableCommentWriter {
 export function makeDateOutput(readableDate: string, activeTimeElementClickListener: (this: HTMLTimeElement, ev: MouseEvent) => void): HTMLElement {
 	const [readableDateWithoutTime]=readableDate.split(' ',1)
 	if (readableDate && readableDateWithoutTime) {
-		const $time=makeActiveTimeElement(readableDateWithoutTime,`${readableDate}Z`,`${readableDate} UTC`)
+		const $time=makeActiveTimeElement(readableDateWithoutTime,`${readableDate.replace(' ','T')}Z`,`${readableDate} UTC`)
 		$time.addEventListener('click',activeTimeElementClickListener)
 		return $time
 	} else {
