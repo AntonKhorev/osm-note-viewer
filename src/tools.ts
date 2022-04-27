@@ -24,6 +24,7 @@ export abstract class Tool {
 	abstract getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements
 	getInfo(): ToolElements|undefined { return undefined }
 	onTimestampChange(timestamp: string): boolean { return false }
+	onNoteCountsChange(nFetched: number, nVisible: number): boolean { return false }
 	onSelectedNotesChange(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean {
 		let reactedToButtons=false
 		if (this.$buttonsRequiringSelectedNotes.length>0) {
@@ -499,28 +500,45 @@ class MapillaryTool extends StreetViewTool {
 	}
 }
 
+class CountTool extends Tool {
+	private $fetchedNoteCount=document.createElement('output')
+	private $visibleNoteCount=document.createElement('output')
+	private $selectedNoteCount=document.createElement('output')
+	constructor() {super(
+		'counts',
+		`Note counts`
+	)}
+	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+		this.$fetchedNoteCount.textContent='0'
+		this.$visibleNoteCount.textContent='0'
+		this.$selectedNoteCount.textContent='0'
+		return [
+			this.$fetchedNoteCount,` fetched, `,
+			this.$visibleNoteCount,` visible, `,
+			this.$selectedNoteCount,` selected`
+		]
+	}
+	onNoteCountsChange(nFetched: number, nVisible: number): boolean {
+		this.$fetchedNoteCount.textContent=String(nFetched)
+		this.$visibleNoteCount.textContent=String(nVisible)
+		return true
+	}
+	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean {
+		this.$selectedNoteCount.textContent=String(selectedNotes.length)
+		return true
+	}
+}
+
 export const toolMakerSequence: Array<()=>Tool> = [
 	()=>new AutozoomTool,
 	()=>new TimestampTool, ()=>new OverpassTurboTool, ()=>new OverpassDirectTool,
 	()=>new RcTool, ()=>new IdTool,
-	()=>new GpxTool, ()=>new YandexPanoramasTool, ()=>new MapillaryTool
+	()=>new GpxTool, ()=>new YandexPanoramasTool, ()=>new MapillaryTool,
+	()=>new CountTool
 ]
 
 /*
 	static commandGroups: CommandGroup[] = [[
-		'counts',
-		`Note counts`,,
-		(cp,map)=>{
-			cp.$fetchedNoteCount.textContent='0'
-			cp.$visibleNoteCount.textContent='0'
-			cp.$checkedNoteCount.textContent='0'
-			return [
-				cp.$fetchedNoteCount,` fetched, `,
-				cp.$visibleNoteCount,` visible, `,
-				cp.$checkedNoteCount,` selected`
-			]
-		}
-	],[
 		'legend',
 		`Legend`,
 		`What do icons in command panel mean`,

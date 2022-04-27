@@ -10,6 +10,9 @@ class ToolBroadcaster {
 	broadcastTimestampChange(fromTool: Tool|null, timestamp: string): void {
 		this.broadcast(fromTool,tool=>tool.onTimestampChange(timestamp))
 	}
+	broadcastNoteCountsChange(fromTool: Tool|null, nFetched: number, nVisible: number): void {
+		this.broadcast(fromTool,tool=>tool.onNoteCountsChange(nFetched,nVisible))
+	}
 	broadcastSelectedNotesChange(fromTool: Tool|null, selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): void {
 		this.broadcast(fromTool,tool=>tool.onSelectedNotesChange(selectedNotes,selectedNoteUsers))
 	}
@@ -30,11 +33,6 @@ class ToolBroadcaster {
 }
 
 export default class ToolPanel {
-	// { TODO inputs to remove
-	$fetchedNoteCount=document.createElement('output')
-	$visibleNoteCount=document.createElement('output')
-	$selectedNoteCount=document.createElement('output')
-	// }
 	private $buttonsRequiringSelectedNotes: HTMLButtonElement[] = []
 	// { tool callbacks rewrite
 	private toolBroadcaster: ToolBroadcaster
@@ -104,11 +102,9 @@ export default class ToolPanel {
 		this.toolBroadcaster=new ToolBroadcaster(tools)
 	}
 	receiveNoteCounts(nFetched: number, nVisible: number) { // TODO receive one object with all/visible/selected notes
-		this.$fetchedNoteCount.textContent=String(nFetched)
-		this.$visibleNoteCount.textContent=String(nVisible)
+		this.toolBroadcaster.broadcastNoteCountsChange(null,nFetched,nVisible)
 	}
 	receiveSelectedNotes(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): void {
-		this.$selectedNoteCount.textContent=String(selectedNotes.length)
 		this.toolBroadcaster.broadcastSelectedNotesChange(null,selectedNotes,selectedNoteUsers)
 	}
 	receiveTimestamp(timestamp: string): void {
