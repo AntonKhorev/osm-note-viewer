@@ -238,11 +238,11 @@ class OverpassDirectTool extends OverpassTool {
 	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
 		const $button=document.createElement('button')
 		$button.append(`Find closest node to `,makeMapIcon('center'))
-		const $a=document.createElement('a')
-		$a.innerText=`link`
+		const $output=document.createElement('code')
+		$output.textContent=`none`
 		$button.addEventListener('click',async()=>{
 			$button.disabled=true
-			$a.removeAttribute('href')
+			$output.textContent=`none`
 			try {
 				const radius=10
 				let query=this.getOverpassQueryPreamble(map)
@@ -257,7 +257,8 @@ class OverpassDirectTool extends OverpassTool {
 					return
 				}
 				const url=`https://www.openstreetmap.org/node/`+encodeURIComponent(closestNodeId)
-				$a.href=url
+				const $a=makeLink(`link`,url)
+				$output.replaceChildren($a)
 				const that=this
 				downloadAndShowElement(
 					$a,map,
@@ -271,7 +272,7 @@ class OverpassDirectTool extends OverpassTool {
 				$button.disabled=false
 			}
 		})
-		return [$button,` `,$a]
+		return [$button,` → `,$output]
 	}
 }
 
