@@ -317,13 +317,18 @@ class NoteMap {
         layersControl.addOverlay(crosshairLayer, `Crosshair`);
         layersControl.addTo(this.leafletMap);
         this.onMoveEnd(() => {
-            if (!this.queuedPopupLayerId)
+            if (!this.queuedPopup)
                 return;
-            const layerId = this.queuedPopupLayerId;
-            this.queuedPopupLayerId = undefined;
+            const [layerId, popupWriter] = this.queuedPopup;
+            this.queuedPopup = undefined;
             const geometry = this.elementLayer.getLayer(layerId);
-            if (geometry)
-                geometry.openPopup();
+            if (geometry) {
+                const popup = L.popup({ autoPan: false })
+                    .setLatLng(this.leafletMap.getCenter()) // need to tell the popup this exact place after map stops moving, otherwise is sometimes gets opened off-screen
+                    .setContent(popupWriter)
+                    .openOn(this.leafletMap);
+                geometry.bindPopup(popup);
+            }
         });
     }
     invalidateSize() {
@@ -377,24 +382,24 @@ class NoteMap {
         if (bounds.isValid())
             this.leafletMap.fitBounds(bounds);
     }
-    addOsmElement(geometry) {
+    addOsmElement(geometry, popupWriter) {
         // TODO zoom on second click, like with notes
         this.elementLayer.clearLayers();
         this.elementLayer.addLayer(geometry);
         const layerId = this.elementLayer.getLayerId(geometry);
         // geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
         if (geometry instanceof L.CircleMarker) {
-            this.queuedPopupLayerId = layerId;
+            this.queuedPopup = [layerId, popupWriter];
             this.leafletMap.panTo(geometry.getLatLng());
         }
         else {
             const bounds = this.elementLayer.getBounds();
             if (bounds.isValid()) {
-                this.queuedPopupLayerId = layerId;
+                this.queuedPopup = [layerId, popupWriter];
                 this.leafletMap.fitBounds(bounds);
             }
             else {
-                geometry.openPopup();
+                geometry.bindPopup(popupWriter).openPopup();
             }
         }
     }
@@ -539,7 +544,7 @@ function getFadeAnimation($element, animationName) {
     }
 }
 
-class PhotoDialog {
+class FigureDialog {
     constructor($dialog) {
         this.$dialog = $dialog;
         this.fallbackMode = (window.HTMLDialogElement == null);
@@ -928,7 +933,7 @@ function getElementsFromOsmApiResponse(data) {
     return { node, way, relation };
 }
 function addElementGeometryToMap(map, outputDate, element, elementGeometry) {
-    elementGeometry.bindPopup(() => {
+    const popupWriter = () => {
         const p = (...s) => makeElement('p')()(...s);
         const h = (...s) => p(makeElement('strong')()(...s));
         const elementHref = e `https://www.openstreetmap.org/${element.type}/${element.id}`;
@@ -936,8 +941,8 @@ function addElementGeometryToMap(map, outputDate, element, elementGeometry) {
         if (element.tags)
             $popup.append(getElementTags(element.tags));
         return $popup;
-    });
-    map.addOsmElement(elementGeometry);
+    };
+    map.addOsmElement(elementGeometry, popupWriter);
 }
 function capitalize(s) {
     return s[0].toUpperCase() + s.slice(1);
@@ -992,11 +997,13 @@ function getElementTags(tags) {
     }
 }
 
-class NoteTableCommentWriter {
-    constructor($table, map, photoDialog, pingNoteSection, activeTimeElementClickListener) {
-        this.$table = $table;
-        this.activeTimeElementClickListener = activeTimeElementClickListener;
+class CommentWriter {
+    constructor(map, figureDialog, pingNoteSection, receiveTimestamp) {
         const that = this;
+        this.wrappedActiveTimeElementClickListener = function (ev) {
+            ev.stopPropagation();
+            receiveTimestamp(this.dateTime);
+        };
         this.wrappedOsmLinkClickListener = function (ev) {
             const $a = this;
             ev.preventDefault();
@@ -1014,7 +1021,7 @@ class NoteTableCommentWriter {
                     return false;
                 if ($noteSection.classList.contains('hidden'))
                     return false;
-                photoDialog.close();
+                figureDialog.close();
                 pingNoteSection($noteSection);
                 return true;
             }
@@ -1023,14 +1030,14 @@ class NoteTableCommentWriter {
                     return false;
                 if (elementType != 'node' && elementType != 'way' && elementType != 'relation')
                     return false;
-                photoDialog.close();
-                downloadAndShowElement($a, map, (readableDate) => makeDateOutput(readableDate, that.activeTimeElementClickListener), elementType, elementId);
+                figureDialog.close();
+                downloadAndShowElement($a, map, (readableDate) => makeDateOutput(readableDate, that.wrappedActiveTimeElementClickListener), elementType, elementId);
                 return true;
             }
             function handleMap(zoom, lat, lon) {
                 if (!(zoom && lat && lon))
                     return false;
-                photoDialog.close();
+                figureDialog.close();
                 map.panAndZoomTo([Number(lat), Number(lon)], Number(zoom));
                 return true;
             }
@@ -1039,19 +1046,18 @@ class NoteTableCommentWriter {
             const $a = this;
             ev.preventDefault();
             ev.stopPropagation();
-            photoDialog.toggle($a.href);
+            figureDialog.toggle($a.href);
         };
     }
-    writeCommentText($cell, commentText, showImages) {
-        const result = [];
-        const images = [];
-        let iImage = 0;
+    makeCommentElements(commentText, showImages = false) {
+        const inlineElements = [];
+        const imageElements = [];
         for (const item of getCommentItems(commentText)) {
             if (item.type == 'link' && item.link == 'image') {
                 const $inlineLink = makeLink(item.href, item.href);
-                $inlineLink.classList.add('image', 'inline');
+                $inlineLink.classList.add('listened', 'image', 'inline');
                 $inlineLink.addEventListener('click', this.wrappedImageLinkClickListener);
-                result.push($inlineLink);
+                inlineElements.push($inlineLink);
                 const $img = document.createElement('img');
                 $img.loading = 'lazy'; // this + display:none is not enough to surely stop the browser from accessing the image link
                 if (showImages)
@@ -1059,62 +1065,65 @@ class NoteTableCommentWriter {
                 $img.alt = `attached photo`;
                 $img.addEventListener('error', imageErrorHandler);
                 const $floatLink = document.createElement('a');
-                $floatLink.classList.add('image', 'float');
+                $floatLink.classList.add('listened', 'image', 'float');
                 $floatLink.href = item.href;
                 $floatLink.append($img);
                 $floatLink.addEventListener('click', this.wrappedImageLinkClickListener);
-                images.push($floatLink);
-                if (!iImage) {
-                    $cell.addEventListener('mouseover', imageCommentHoverListener);
-                    $cell.addEventListener('mouseout', imageCommentHoverListener);
-                }
-                iImage++;
+                imageElements.push($floatLink);
             }
             else if (item.type == 'link' && item.link == 'osm') {
                 const $a = makeLink(item.text, item.href);
-                $a.classList.add('osm');
+                $a.classList.add('listened', 'osm');
                 if (item.map)
                     [$a.dataset.zoom, $a.dataset.lat, $a.dataset.lon] = item.map;
                 if (item.osm == 'note') {
                     $a.classList.add('other-note');
                     $a.dataset.noteId = String(item.id);
-                    // updateNoteLink($a) // handleNotesUpdate() is going to be run anyway
+                    // updateNoteLink($a) // handleNotesUpdate() is going to be run anyway - TODO: or not if ran from parse tool?
                 }
                 if (item.osm == 'element') {
                     $a.dataset.elementType = item.element;
                     $a.dataset.elementId = String(item.id);
                 }
                 $a.addEventListener('click', this.wrappedOsmLinkClickListener);
-                result.push($a);
+                inlineElements.push($a);
             }
             else if (item.type == 'date') {
                 const $time = makeActiveTimeElement(item.text, item.text);
-                $time.addEventListener('click', this.activeTimeElementClickListener);
-                result.push($time);
+                $time.addEventListener('click', this.wrappedActiveTimeElementClickListener);
+                inlineElements.push($time);
             }
             else {
-                result.push(item.text);
+                inlineElements.push(item.text);
             }
         }
-        $cell.append(...images, ...result);
+        return [inlineElements, imageElements];
     }
-    handleShowImagesUpdate(showImages) {
-        for (const $a of this.$table.querySelectorAll('td.note-comment a.image.float')) {
-            if (!($a instanceof HTMLAnchorElement))
-                continue;
-            const $img = $a.firstChild;
-            if (!($img instanceof HTMLImageElement))
-                continue;
-            if (showImages && !$img.src)
-                $img.src = $a.href; // don't remove src when showImages is disabled, otherwise will reload all images when src is set back
+    writeComment($cell, commentText, showImages) {
+        const [inlineElements, imageElements] = this.makeCommentElements(commentText, showImages);
+        if (imageElements.length > 0) {
+            $cell.addEventListener('mouseover', imageCommentHoverListener);
+            $cell.addEventListener('mouseout', imageCommentHoverListener);
         }
+        $cell.append(...imageElements, ...inlineElements);
     }
-    handleNotesUpdate() {
-        for (const $a of this.$table.querySelectorAll('td.note-comment a.other-note')) {
-            if (!($a instanceof HTMLAnchorElement))
-                continue;
-            updateNoteLink($a);
-        }
+}
+function handleShowImagesUpdate($table, showImages) {
+    for (const $a of $table.querySelectorAll('td.note-comment a.image.float')) {
+        if (!($a instanceof HTMLAnchorElement))
+            continue;
+        const $img = $a.firstChild;
+        if (!($img instanceof HTMLImageElement))
+            continue;
+        if (showImages && !$img.src)
+            $img.src = $a.href; // don't remove src when showImages is disabled, otherwise will reload all images when src is set back
+    }
+}
+function handleNotesUpdate($table) {
+    for (const $a of $table.querySelectorAll('td.note-comment a.other-note')) {
+        if (!($a instanceof HTMLAnchorElement))
+            continue;
+        updateNoteLink($a);
     }
 }
 function makeDateOutput(readableDate, activeTimeElementClickListener) {
@@ -1132,6 +1141,7 @@ function makeDateOutput(readableDate, activeTimeElementClickListener) {
 }
 function makeActiveTimeElement(text, dateTime, title) {
     const $time = document.createElement('time');
+    $time.classList.add('listened');
     $time.textContent = text;
     $time.dateTime = dateTime;
     if (title)
@@ -1303,7 +1313,7 @@ function toDateQuery(readableDate) {
 }
 
 class NoteTable {
-    constructor($container, toolPanel, map, filter, photoDialog, showImages) {
+    constructor($container, toolPanel, map, filter, figureDialog, showImages) {
         this.toolPanel = toolPanel;
         this.map = map;
         this.filter = filter;
@@ -1341,7 +1351,7 @@ class NoteTable {
             // }],
             ['click', function () {
                     if ($clickReadyNoteSection == this) {
-                        photoDialog.close();
+                        figureDialog.close();
                         that.focusOnNote(this, true);
                     }
                     $clickReadyNoteSection = undefined;
@@ -1356,12 +1366,8 @@ class NoteTable {
         this.wrappedNoteMarkerClickListener = function () {
             that.noteMarkerClickListener(this);
         };
-        this.wrappedActiveTimeElementClickListener = function (ev) {
-            ev.stopPropagation();
-            toolPanel.receiveTimestamp(this.dateTime);
-        };
         this.noteSectionVisibilityObserver = new NoteSectionVisibilityObserver(toolPanel, map, this.noteSectionLayerIdVisibility);
-        this.commentWriter = new NoteTableCommentWriter(this.$table, this.map, photoDialog, $noteSection => this.focusOnNote($noteSection), this.wrappedActiveTimeElementClickListener);
+        this.commentWriter = new CommentWriter(this.map, figureDialog, $noteSection => this.focusOnNote($noteSection), timestamp => toolPanel.receiveTimestamp(timestamp));
         this.$table.classList.toggle('with-images', showImages);
         $container.append(this.$table);
         {
@@ -1420,7 +1426,7 @@ class NoteTable {
         }
         this.toolPanel.receiveNoteCounts(nFetched, nVisible);
         this.updateCheckboxDependents();
-        this.commentWriter.handleNotesUpdate();
+        handleNotesUpdate(this.$table);
     }
     /**
      * @returns number of added notes that passed through the filter
@@ -1473,7 +1479,7 @@ class NoteTable {
                 {
                     const $cell = $row.insertCell();
                     $cell.classList.add('note-date');
-                    $cell.append(makeDateOutput(toReadableDate(comment.date), this.wrappedActiveTimeElementClickListener));
+                    $cell.append(makeDateOutput(toReadableDate(comment.date), this.commentWriter.wrappedActiveTimeElementClickListener));
                 }
                 {
                     const $cell = $row.insertCell();
@@ -1499,7 +1505,7 @@ class NoteTable {
                 {
                     const $cell = $row.insertCell();
                     $cell.classList.add('note-comment');
-                    this.commentWriter.writeCommentText($cell, comment.text, this.showImages);
+                    this.commentWriter.writeComment($cell, comment.text, this.showImages);
                 }
                 iComment++;
             }
@@ -1520,13 +1526,13 @@ class NoteTable {
                 nVisible++;
         }
         this.toolPanel.receiveNoteCounts(nFetched, nVisible);
-        this.commentWriter.handleNotesUpdate();
+        handleNotesUpdate(this.$table);
         return nUnfilteredNotes;
     }
     setShowImages(showImages) {
         this.showImages = showImages;
         this.$table.classList.toggle('with-images', showImages);
-        this.commentWriter.handleShowImagesUpdate(showImages);
+        handleShowImagesUpdate(this.$table, showImages);
     }
     writeNote(note, isVisible) {
         const marker = new NoteMarker(note);
@@ -1859,7 +1865,7 @@ class TimestampTool extends Tool {
     getInfo() {
         return [p(`Allows to select a timestamp for use with `, em(`Overpass`), ` and `, em(`Overpass turbo`), ` commands. `, `You can either enter the timestamp in ISO format (or anything else that Overpass understands) manually here click on a date of/in a note comment. `, `If present, a `, makeLink(`date setting`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL#date`), ` is added to Overpass queries. `, `The idea is to allow for examining the OSM data at the moment some note was opened/commented/closed to evaluate if this action was correct.`), p(`Timestamps inside note comments are usually generated by apps like `, makeLink(`MAPS.ME`, `https://wiki.openstreetmap.org/wiki/MAPS.ME`), ` to indicate their OSM data version.`)];
     }
-    getTool(callbacks, map) {
+    getTool(callbacks) {
         // this.$timestampInput.type='datetime-local' // no standard datetime input for now because they're being difficult with UTC and 24-hour format.
         // this.$timestampInput.step='1'
         this.$timestampInput.type = 'text';
@@ -1878,6 +1884,38 @@ class TimestampTool extends Tool {
     onTimestampChange(timestamp) {
         this.$timestampInput.value = timestamp;
         return true;
+    }
+}
+class ParseTool extends Tool {
+    constructor() {
+        super('parse', `Parse links`);
+    }
+    getTool(callbacks, map, figureDialog) {
+        const commentWriter = new CommentWriter(map, figureDialog, () => { }, // TODO ping note section
+        (timestamp) => callbacks.onTimestampChange(this, timestamp));
+        const $input = document.createElement('input');
+        const $parseButton = document.createElement('button');
+        const $output = document.createElement('code');
+        $output.append(getFirstActiveElement([]));
+        $parseButton.textContent = 'Parse';
+        $parseButton.addEventListener('click', () => {
+            const [elements] = commentWriter.makeCommentElements($input.value);
+            $output.replaceChildren(getFirstActiveElement(elements));
+        });
+        return [$input, ` `, $parseButton, ` → `, $output];
+        function getFirstActiveElement(elements) {
+            for (const element of elements) {
+                if (element instanceof HTMLAnchorElement) {
+                    element.textContent = `link`;
+                    return element;
+                }
+                else if (element instanceof HTMLTimeElement) {
+                    element.textContent = `date`;
+                    return element;
+                }
+            }
+            return `none`;
+        }
     }
 }
 class OverpassTool extends Tool {
@@ -1963,11 +2001,11 @@ class OverpassDirectTool extends OverpassTool {
     getTool(callbacks, map) {
         const $button = document.createElement('button');
         $button.append(`Find closest node to `, makeMapIcon('center'));
-        const $a = document.createElement('a');
-        $a.innerText = `link`;
+        const $output = document.createElement('code');
+        $output.textContent = `none`;
         $button.addEventListener('click', async () => {
             $button.disabled = true;
-            $a.removeAttribute('href');
+            $output.textContent = `none`;
             try {
                 const radius = 10;
                 let query = this.getOverpassQueryPreamble(map);
@@ -1983,7 +2021,8 @@ class OverpassDirectTool extends OverpassTool {
                     return;
                 }
                 const url = `https://www.openstreetmap.org/node/` + encodeURIComponent(closestNodeId);
-                $a.href = url;
+                const $a = makeLink(`link`, url);
+                $output.replaceChildren($a);
                 const that = this;
                 downloadAndShowElement($a, map, (readableDate) => makeDateOutput(readableDate, function () {
                     that.timestamp = this.dateTime;
@@ -1994,7 +2033,7 @@ class OverpassDirectTool extends OverpassTool {
                 $button.disabled = false;
             }
         });
-        return [$button, ` `, $a];
+        return [$button, ` → `, $output];
     }
 }
 class RcTool extends Tool {
@@ -2063,7 +2102,7 @@ class GpxTool extends Tool {
     getInfo() {
         return [p(`Export selected notes in `, makeLink(`GPX`, 'https://wiki.openstreetmap.org/wiki/GPX'), ` (GPS exchange) format. `, `During the export, each selected note is treated as a waypoint with its name set to note id, description set to comments and link pointing to note's page on the OSM website. `, `This allows OSM notes to be used in applications that can't show them directly. `, `Also it allows a particular selection of notes to be shown if an application can't filter them. `, `One example of such app is `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), `. `, `Unfortunately iD doesn't fully understand the gpx format and can't show links associated with waypoints. `, `You'll have to enable the notes layer in iD and compare its note marker with waypoint markers from the gpx file.`), p(`By default only the `, dfn(`first comment`), ` is added to waypoint descriptions. `, `This is because some apps such as iD and especially `, makeLink(`JOSM`, `https://wiki.openstreetmap.org/wiki/JOSM`), ` try to render the entire description in one line next to the waypoint marker, cluttering the map.`), p(`It's possible to pretend that note waypoints are connected by a `, makeLink(`route`, `https://www.topografix.com/GPX/1/1/#type_rteType`), ` by using the `, dfn(`connected by route`), ` option. `, `This may help to go from a note to the next one in an app by visually following the route line. `, `There's also the `, dfn(`connected by track`), ` option in case the app makes it easier to work with `, makeLink(`tracks`, `https://www.topografix.com/GPX/1/1/#type_trkType`), ` than with the routes.`), p(`Instead of clicking the `, em(`Export`), ` button, you can drag it and drop into a place that accepts data sent by `, makeLink(`Drag and Drop API`, `https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`), `. `, `Not many places actually do, and those who do often can handle only plaintext. `, `That's why there's a type selector, with which plaintext format can be forced on transmitted data.`)];
     }
-    getTool(callbacks, map) {
+    getTool() {
         const $connectSelect = document.createElement('select');
         $connectSelect.append(new Option(`without connections`, 'no'), new Option(`connected by route`, 'rte'), new Option(`connected by track`, 'trk'));
         const $commentsSelect = document.createElement('select');
@@ -2215,7 +2254,7 @@ class CountTool extends Tool {
         this.$visibleNoteCount = document.createElement('output');
         this.$selectedNoteCount = document.createElement('output');
     }
-    getTool(callbacks, map) {
+    getTool() {
         this.$fetchedNoteCount.textContent = '0';
         this.$visibleNoteCount.textContent = '0';
         this.$selectedNoteCount.textContent = '0';
@@ -2239,7 +2278,7 @@ class LegendTool extends Tool {
     constructor() {
         super('legend', `Legend`, `What do icons in command panel mean`);
     }
-    getTool(callbacks, map) {
+    getTool() {
         return [
             makeMapIcon('center'), ` = map center, `, makeMapIcon('area'), ` = map area, `, makeNotesIcon('selected'), ` = selected notes`
         ];
@@ -2249,7 +2288,7 @@ class SettingsTool extends Tool {
     constructor() {
         super('settings', `⚙️`, `Settings`);
     }
-    getTool(callbacks, map) {
+    getTool(callbacks) {
         const $openAllButton = document.createElement('button');
         $openAllButton.textContent = `+ open all tools`;
         $openAllButton.addEventListener('click', () => callbacks.onToolOpenToggle(this, true));
@@ -2260,8 +2299,8 @@ class SettingsTool extends Tool {
     }
 }
 const toolMakerSequence = [
-    () => new AutozoomTool,
-    () => new TimestampTool, () => new OverpassTurboTool, () => new OverpassDirectTool,
+    () => new AutozoomTool, () => new TimestampTool, () => new ParseTool,
+    () => new OverpassTurboTool, () => new OverpassDirectTool,
     () => new RcTool, () => new IdTool,
     () => new GpxTool, () => new YandexPanoramasTool, () => new MapillaryTool,
     () => new CountTool, () => new LegendTool, () => new SettingsTool
@@ -2387,7 +2426,7 @@ class ToolBroadcaster {
     }
 }
 class ToolPanel {
-    constructor($container, map, storage) {
+    constructor($container, map, figureDialog, storage) {
         _ToolPanel_fitMode.set(this, void 0);
         const tools = [];
         const toolCallbacks = {
@@ -2418,7 +2457,7 @@ class ToolPanel {
                     storage.removeItem(storageKey);
                 }
             });
-            $toolDetails.append($toolSummary, ...tool.getTool(toolCallbacks, map));
+            $toolDetails.append($toolSummary, ...tool.getTool(toolCallbacks, map, figureDialog));
             $toolDetails.addEventListener('animationend', toolAnimationEndListener);
             const infoElements = tool.getInfo();
             if (infoElements) {
@@ -3153,7 +3192,7 @@ class NominatimBboxFetcher {
 }
 
 class NoteFetchPanel {
-    constructor(storage, db, $container, $notesContainer, $moreContainer, $toolContainer, filterPanel, extrasPanel, map, photoDialog, restoreScrollPosition) {
+    constructor(storage, db, $container, $notesContainer, $moreContainer, $toolContainer, filterPanel, extrasPanel, map, figureDialog, restoreScrollPosition) {
         let noteTable;
         const moreButtonIntersectionObservers = [];
         const $showImagesCheckboxes = [];
@@ -3226,7 +3265,7 @@ class NoteFetchPanel {
             $toolContainer.innerHTML = ``;
         }
         function runStartFetcher(query, clearStore) {
-            photoDialog.close();
+            figureDialog.close();
             resetNoteDependents();
             if (query?.mode == 'search') {
                 extrasPanel.rewrite(query, Number(searchDialog.$limitSelect.value));
@@ -3237,8 +3276,8 @@ class NoteFetchPanel {
             if (query?.mode != 'search' && query?.mode != 'bbox')
                 return;
             filterPanel.unsubscribe();
-            const toolPanel = new ToolPanel($toolContainer, map, storage);
-            noteTable = new NoteTable($notesContainer, toolPanel, map, filterPanel.noteFilter, photoDialog, $showImagesCheckboxes[0]?.checked);
+            const toolPanel = new ToolPanel($toolContainer, map, figureDialog, storage);
+            noteTable = new NoteTable($notesContainer, toolPanel, map, filterPanel.noteFilter, figureDialog, $showImagesCheckboxes[0]?.checked);
             filterPanel.subscribe(noteFilter => noteTable?.updateFilter(noteFilter));
             if (query?.mode == 'search') {
                 startSearchFetcher(db, noteTable, $moreContainer, searchDialog.$limitSelect, searchDialog.$autoLoadCheckbox, searchDialog.$fetchButton, moreButtonIntersectionObservers, query, clearStore);
@@ -4079,24 +4118,24 @@ async function main() {
     const $moreContainer = makeDiv('more')();
     const $toolContainer = makeDiv('panel', 'command')();
     const $mapContainer = makeDiv('map')();
-    const $photoDialog = document.createElement('dialog');
-    $photoDialog.classList.add('photo');
+    const $figureDialog = document.createElement('dialog');
+    $figureDialog.classList.add('figure');
     const $scrollingPart = makeDiv('scrolling')($fetchContainer, $filterContainer, $extrasContainer, $notesContainer, $moreContainer);
     const $stickyPart = makeDiv('sticky')($toolContainer);
     const $textSide = makeDiv('text-side')($scrollingPart, $stickyPart);
-    const $graphicSide = makeDiv('graphic-side')($mapContainer, $photoDialog);
+    const $graphicSide = makeDiv('graphic-side')($mapContainer, $figureDialog);
     const flipped = !!storage.getItem('flipped');
     if (flipped)
         document.body.classList.add('flipped');
     document.body.append($textSide, $graphicSide);
     const scrollRestorer = new ScrollRestorer($scrollingPart);
     const map = new NoteMap($mapContainer);
-    const photoDialog = new PhotoDialog($photoDialog);
+    const figureDialog = new FigureDialog($figureDialog);
     writeFlipLayoutButton(storage, $fetchContainer, map);
     writeResetButton($fetchContainer);
     const extrasPanel = new ExtrasPanel(storage, db, $extrasContainer);
     const filterPanel = new NoteFilterPanel($filterContainer);
-    new NoteFetchPanel(storage, db, $fetchContainer, $notesContainer, $moreContainer, $toolContainer, filterPanel, extrasPanel, map, photoDialog, () => scrollRestorer.run($notesContainer));
+    new NoteFetchPanel(storage, db, $fetchContainer, $notesContainer, $moreContainer, $toolContainer, filterPanel, extrasPanel, map, figureDialog, () => scrollRestorer.run($notesContainer));
     scrollRestorer.run($notesContainer);
 }
 function writeFlipLayoutButton(storage, $container, map) {
