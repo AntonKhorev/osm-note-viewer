@@ -204,7 +204,7 @@ export default class NoteTable {
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-comment')
-					this.commentWriter.writeCommentText($cell,comment.text,this.showImages)
+					this.commentWriter.writeComment($cell,comment.text,this.showImages)
 				}
 				iComment++
 			}

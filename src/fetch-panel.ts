@@ -95,7 +95,7 @@ export default class NoteFetchPanel {
 			}
 			if (query?.mode!='search' && query?.mode!='bbox') return
 			filterPanel.unsubscribe()
-			const toolPanel=new ToolPanel($toolContainer,map,storage)
+			const toolPanel=new ToolPanel($toolContainer,map,figureDialog,storage)
 			noteTable=new NoteTable(
 				$notesContainer,toolPanel,map,filterPanel.noteFilter,
 				figureDialog,$showImagesCheckboxes[0]?.checked

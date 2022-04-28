@@ -1,6 +1,7 @@
 import type {Note} from './data'
 import NoteViewerStorage from './storage'
 import {NoteMap} from './map'
+import FigureDialog from './figure'
 import {Tool, ToolFitMode, ToolCallbacks, toolMakerSequence} from './tools'
 import {startOrResetFadeAnimation} from './util'
 
@@ -35,7 +36,7 @@ class ToolBroadcaster {
 export default class ToolPanel {
 	private toolBroadcaster: ToolBroadcaster
 	#fitMode: ToolFitMode
-	constructor($container: HTMLElement, map: NoteMap, storage: NoteViewerStorage) {
+	constructor($container: HTMLElement, map: NoteMap, figureDialog: FigureDialog, storage: NoteViewerStorage) {
 		const tools: [tool:Tool,$tool:HTMLDetailsElement][] = []
 		const toolCallbacks: ToolCallbacks = {
 			onFitModeChange: (fromTool,fitMode)=>this.#fitMode=fitMode,
@@ -62,7 +63,7 @@ export default class ToolPanel {
 					storage.removeItem(storageKey)
 				}
 			})
-			$toolDetails.append($toolSummary,...tool.getTool(toolCallbacks,map))
+			$toolDetails.append($toolSummary,...tool.getTool(toolCallbacks,map,figureDialog))
 			$toolDetails.addEventListener('animationend',toolAnimationEndListener)
 			const infoElements=tool.getInfo()
 			if (infoElements) {

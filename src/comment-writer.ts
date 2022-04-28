@@ -59,16 +59,20 @@ export default class CommentWriter {
 			figureDialog.toggle($a.href)
 		}
 	}
-	writeCommentText($cell: HTMLElement, commentText: string, showImages: boolean): void {
-		const result: Array<string|HTMLElement> = []
-		const images: Array<HTMLAnchorElement> = []
-		let iImage=0
+	makeCommentElements(
+		commentText: string, showImages=false
+	): [
+		inlineElements: Array<string|HTMLAnchorElement|HTMLTimeElement>,
+		imageElements: Array<HTMLAnchorElement>
+	] {
+		const inlineElements: Array<string|HTMLAnchorElement|HTMLTimeElement> = []
+		const imageElements: Array<HTMLAnchorElement> = []
 		for (const item of getCommentItems(commentText)) {
 			if (item.type=='link' && item.link=='image') {
 				const $inlineLink=makeLink(item.href,item.href)
 				$inlineLink.classList.add('image','inline')
 				$inlineLink.addEventListener('click',this.wrappedImageLinkClickListener)
-				result.push($inlineLink)
+				inlineElements.push($inlineLink)
 				const $img=document.createElement('img')
 				$img.loading='lazy' // this + display:none is not enough to surely stop the browser from accessing the image link
 				if (showImages) $img.src=item.href // therefore only set the link if user agreed to loading
@@ -79,12 +83,7 @@ export default class CommentWriter {
 				$floatLink.href=item.href
 				$floatLink.append($img)
 				$floatLink.addEventListener('click',this.wrappedImageLinkClickListener)
-				images.push($floatLink)
-				if (!iImage) {
-					$cell.addEventListener('mouseover',imageCommentHoverListener)
-					$cell.addEventListener('mouseout',imageCommentHoverListener)
-				}
-				iImage++
+				imageElements.push($floatLink)
 			} else if (item.type=='link' && item.link=='osm') {
 				const $a=makeLink(item.text,item.href)
 				$a.classList.add('osm')
@@ -92,23 +91,31 @@ export default class CommentWriter {
 				if (item.osm=='note') {
 					$a.classList.add('other-note')
 					$a.dataset.noteId=String(item.id)
-					// updateNoteLink($a) // handleNotesUpdate() is going to be run anyway
+					// updateNoteLink($a) // handleNotesUpdate() is going to be run anyway - TODO: or not if ran from parse tool?
 				}
 				if (item.osm=='element') {
 					$a.dataset.elementType=item.element
 					$a.dataset.elementId=String(item.id)
 				}
 				$a.addEventListener('click',this.wrappedOsmLinkClickListener)
-				result.push($a)
+				inlineElements.push($a)
 			} else if (item.type=='date') {
 				const $time=makeActiveTimeElement(item.text,item.text)
 				$time.addEventListener('click',this.wrappedActiveTimeElementClickListener)
-				result.push($time)
+				inlineElements.push($time)
 			} else {
-				result.push(item.text)
+				inlineElements.push(item.text)
 			}
 		}
-		$cell.append(...images,...result)
+		return [inlineElements,imageElements]
+	}
+	writeComment($cell: HTMLElement, commentText: string, showImages: boolean): void {
+		const [inlineElements,imageElements]=this.makeCommentElements(commentText,showImages)
+		if (imageElements.length>0) {
+			$cell.addEventListener('mouseover',imageCommentHoverListener)
+			$cell.addEventListener('mouseout',imageCommentHoverListener)
+		}
+		$cell.append(...imageElements,...inlineElements)
 	}
 }
 
