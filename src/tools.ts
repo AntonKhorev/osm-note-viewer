@@ -130,6 +130,9 @@ class ParseTool extends Tool {
 			(timestamp)=>callbacks.onTimestampChange(this,timestamp)
 		)
 		const $input=document.createElement('input')
+		$input.type='text'
+		$input.size=50
+		$input.classList.add('complicated')
 		const $parseButton=document.createElement('button')
 		const $output=document.createElement('code')
 		$output.append(getFirstActiveElement([]))
