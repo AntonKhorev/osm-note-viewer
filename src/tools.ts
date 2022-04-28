@@ -117,6 +117,22 @@ class TimestampTool extends Tool {
 	}
 }
 
+class ParseTool extends Tool {
+	constructor() {super(
+		'parse',
+		`Parse links`
+	)}
+	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+		const $input=document.createElement('input')
+		const $parseButton=document.createElement('button')
+		$parseButton.textContent='Parse'
+		$parseButton.addEventListener('click',()=>{
+			// TODO
+		})
+		return [$input,` `,$parseButton]
+	}
+}
+
 abstract class OverpassTool extends Tool {
 	protected timestamp: string = ''
 	onTimestampChange(timestamp: string): boolean {
@@ -561,8 +577,8 @@ class SettingsTool extends Tool {
 }
 
 export const toolMakerSequence: Array<()=>Tool> = [
-	()=>new AutozoomTool,
-	()=>new TimestampTool, ()=>new OverpassTurboTool, ()=>new OverpassDirectTool,
+	()=>new AutozoomTool, ()=>new TimestampTool, ()=>new ParseTool,
+	()=>new OverpassTurboTool, ()=>new OverpassDirectTool,
 	()=>new RcTool, ()=>new IdTool,
 	()=>new GpxTool, ()=>new YandexPanoramasTool, ()=>new MapillaryTool,
 	()=>new CountTool, ()=>new LegendTool, ()=>new SettingsTool

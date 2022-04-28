@@ -1,7 +1,7 @@
 import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
 import PhotoDialog from './photo'
-import NoteTableCommentWriter, {makeDateOutput} from './table-comment'
+import NoteTableCommentWriter, {handleShowImagesUpdate, handleNotesUpdate, makeDateOutput} from './table-comment'
 import ToolPanel from './tool-panel'
 import NoteFilter from './filter'
 import {toReadableDate} from './query-date'
@@ -12,7 +12,6 @@ export default class NoteTable {
 	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedAllNotesCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
-	private wrappedActiveTimeElementClickListener: (this: HTMLTimeElement, ev: MouseEvent) => void
 	private noteSectionVisibilityObserver: NoteSectionVisibilityObserver
 	private $table = document.createElement('table')
 	private $selectAllCheckbox = document.createElement('input')
@@ -67,15 +66,11 @@ export default class NoteTable {
 		this.wrappedNoteMarkerClickListener=function(){
 			that.noteMarkerClickListener(this)
 		}
-		this.wrappedActiveTimeElementClickListener=function(ev: MouseEvent){
-			ev.stopPropagation()
-			toolPanel.receiveTimestamp(this.dateTime)
-		}
 		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver(toolPanel,map,this.noteSectionLayerIdVisibility)
 		this.commentWriter=new NoteTableCommentWriter(
-			this.$table,this.map,photoDialog,
+			this.map,photoDialog,
 			$noteSection=>this.focusOnNote($noteSection),
-			this.wrappedActiveTimeElementClickListener
+			timestamp=>toolPanel.receiveTimestamp(timestamp)
 		)
 		this.$table.classList.toggle('with-images',showImages)
 		$container.append(this.$table)
@@ -138,7 +133,7 @@ export default class NoteTable {
 		}
 		this.toolPanel.receiveNoteCounts(nFetched,nVisible)
 		this.updateCheckboxDependents()
-		this.commentWriter.handleNotesUpdate()
+		handleNotesUpdate(this.$table)
 	}
 	/**
 	 * @returns number of added notes that passed through the filter
@@ -187,7 +182,7 @@ export default class NoteTable {
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-date')
-					$cell.append(makeDateOutput(toReadableDate(comment.date),this.wrappedActiveTimeElementClickListener))
+					$cell.append(makeDateOutput(toReadableDate(comment.date),this.commentWriter.wrappedActiveTimeElementClickListener))
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-user')
@@ -227,13 +222,13 @@ export default class NoteTable {
 			if (!$noteSection.classList.contains('hidden')) nVisible++
 		}
 		this.toolPanel.receiveNoteCounts(nFetched,nVisible)
-		this.commentWriter.handleNotesUpdate()
+		handleNotesUpdate(this.$table)
 		return nUnfilteredNotes
 	}
 	setShowImages(showImages: boolean) {
 		this.showImages=showImages
 		this.$table.classList.toggle('with-images',showImages)
-		this.commentWriter.handleShowImagesUpdate(showImages)
+		handleShowImagesUpdate(this.$table,showImages)
 	}
 	private writeNote(note: Note, isVisible: boolean): HTMLTableSectionElement {
 		const marker=new NoteMarker(note)

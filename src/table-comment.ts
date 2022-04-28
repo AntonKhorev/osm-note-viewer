@@ -5,14 +5,19 @@ import downloadAndShowElement from './osm'
 import {makeLink} from './util'
 
 export default class NoteTableCommentWriter {
-	wrappedOsmLinkClickListener:  (this: HTMLAnchorElement, ev: MouseEvent)=>void
-	wrappedImageLinkClickListener:  (this: HTMLAnchorElement, ev: MouseEvent)=>void
+	wrappedOsmLinkClickListener: (this: HTMLAnchorElement, ev: MouseEvent) => void
+	wrappedImageLinkClickListener: (this: HTMLAnchorElement, ev: MouseEvent) => void
+	wrappedActiveTimeElementClickListener: (this: HTMLTimeElement, ev: MouseEvent) => void
 	constructor(
-		private $table: HTMLTableElement, map: NoteMap, photoDialog: PhotoDialog,
-		pingNoteSection: ($noteSection: HTMLTableSectionElement)=>void,
-		private activeTimeElementClickListener: (this: HTMLTimeElement, ev: MouseEvent) => void
+		map: NoteMap, photoDialog: PhotoDialog,
+		pingNoteSection: ($noteSection: HTMLTableSectionElement) => void,
+		receiveTimestamp: (timestamp: string) => void
 	) {
 		const that=this
+		this.wrappedActiveTimeElementClickListener=function(this: HTMLTimeElement, ev: MouseEvent){
+			ev.stopPropagation()
+			receiveTimestamp(this.dateTime)
+		}
 		this.wrappedOsmLinkClickListener=function(this: HTMLAnchorElement, ev: MouseEvent){
 			const $a=this
 			ev.preventDefault()
@@ -35,7 +40,7 @@ export default class NoteTableCommentWriter {
 				photoDialog.close()
 				downloadAndShowElement(
 					$a,map,
-					(readableDate)=>makeDateOutput(readableDate,that.activeTimeElementClickListener),
+					(readableDate)=>makeDateOutput(readableDate,that.wrappedActiveTimeElementClickListener),
 					elementType,elementId
 				)
 				return true
@@ -97,7 +102,7 @@ export default class NoteTableCommentWriter {
 				result.push($a)
 			} else if (item.type=='date') {
 				const $time=makeActiveTimeElement(item.text,item.text)
-				$time.addEventListener('click',this.activeTimeElementClickListener)
+				$time.addEventListener('click',this.wrappedActiveTimeElementClickListener)
 				result.push($time)
 			} else {
 				result.push(item.text)
@@ -105,19 +110,21 @@ export default class NoteTableCommentWriter {
 		}
 		$cell.append(...images,...result)
 	}
-	handleShowImagesUpdate(showImages: boolean): void {
-		for (const $a of this.$table.querySelectorAll('td.note-comment a.image.float')) {
-			if (!($a instanceof HTMLAnchorElement)) continue
-			const $img=$a.firstChild
-			if (!($img instanceof HTMLImageElement)) continue
-			if (showImages && !$img.src) $img.src=$a.href // don't remove src when showImages is disabled, otherwise will reload all images when src is set back
-		}
+}
+
+export function handleShowImagesUpdate($table: HTMLTableElement, showImages: boolean): void {
+	for (const $a of $table.querySelectorAll('td.note-comment a.image.float')) {
+		if (!($a instanceof HTMLAnchorElement)) continue
+		const $img=$a.firstChild
+		if (!($img instanceof HTMLImageElement)) continue
+		if (showImages && !$img.src) $img.src=$a.href // don't remove src when showImages is disabled, otherwise will reload all images when src is set back
 	}
-	handleNotesUpdate(): void {
-		for (const $a of this.$table.querySelectorAll('td.note-comment a.other-note')) {
-			if (!($a instanceof HTMLAnchorElement)) continue
-			updateNoteLink($a)
-		}
+}
+
+export function handleNotesUpdate($table: HTMLTableElement): void {
+	for (const $a of $table.querySelectorAll('td.note-comment a.other-note')) {
+		if (!($a instanceof HTMLAnchorElement)) continue
+		updateNoteLink($a)
 	}
 }
 
