@@ -156,6 +156,9 @@ body.flipped .panel.fetch button.flip {
 .panel.command details.tool button.info.open:hover {
 	background: url("info-tip.svg") no-repeat, url("info-close-hover.svg") no-repeat, url("info.svg") no-repeat;
 }
+.panel.command details.tool form {
+	display: contents;
+}
 .panel.command details.info {
 	width: calc(100% + 1rem);
 	display: none;
