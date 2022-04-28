@@ -36,6 +36,12 @@ a.listened {
 	text-decoration-style: dotted;
 	text-decoration-thickness: 1px;
 }
+a.listened.loading {
+	cursor: progress;
+}
+a.listened.absent {
+	text-decoration-color: #A00;
+}
 
 .panel {
 	position: relative;
@@ -318,12 +324,6 @@ body.flipped .notes td.note-user {
 }
 .notes table.with-images td.note-comment a.image.float {
 	display: block;
-}
-.notes td.note-comment a.loading {
-	cursor: progress;
-}
-.notes td.note-comment a.absent {
-	text-decoration-color: #A00;
 }
 .notes td.note-comment a.other-note.absent:active {
 	cursor: not-allowed;

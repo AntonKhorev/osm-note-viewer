@@ -6,9 +6,13 @@ import downloadAndShowElement from './osm'
 import {toReadableDate, toUrlDate} from './query-date'
 import {makeElement, makeLink, makeLabel, escapeXml, makeEscapeTag} from './util'
 
-const p=(...ss: Array<string|HTMLElement>)=>makeElement('p')()(...ss)
+type InfoElements = Array<string|HTMLElement>
+
+const p=(...ss: InfoElements)=>makeElement('p')()(...ss)
 const em=(s: string)=>makeElement('em')()(s)
 const dfn=(s: string)=>makeElement('dfn')()(s)
+const ul=(...ss: InfoElements)=>makeElement('ul')()(...ss)
+const li=(...ss: InfoElements)=>makeElement('li')()(...ss)
 
 type ToolElements = Array<string|HTMLElement>
 
@@ -124,6 +128,17 @@ class ParseTool extends Tool {
 		'parse',
 		`Parse links`
 	)}
+	getInfo() {return[p(
+		`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →.`,
+		`Currently detected active elements are: `,
+	),ul(
+		li(`links to images made in `,makeLink(`StreetComplete`,`https://wiki.openstreetmap.org/wiki/StreetComplete`)),
+		li(`links to OSM notes (clicking the output link is not yet implemented)`),
+		li(`links to OSM elements`),
+		li(`ISO-formatted timestamps`)
+	),p(
+		`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`
+	)]}
 	getTool(callbacks: ToolCallbacks, map: NoteMap, figureDialog: FigureDialog): ToolElements {
 		const commentWriter=new CommentWriter(
 			map,figureDialog,
