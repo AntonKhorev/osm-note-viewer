@@ -390,7 +390,13 @@ class NoteMap {
         // geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
         if (geometry instanceof L.CircleMarker) {
             this.queuedPopup = [layerId, popupWriter];
-            this.leafletMap.panTo(geometry.getLatLng());
+            const minZoomForNode = 10;
+            if (this.zoom < minZoomForNode) {
+                this.leafletMap.flyTo(geometry.getLatLng(), minZoomForNode, { duration: .5 });
+            }
+            else {
+                this.leafletMap.panTo(geometry.getLatLng());
+            }
         }
         else {
             const bounds = this.elementLayer.getBounds();
@@ -1802,6 +1808,8 @@ function __classPrivateFieldSet(receiver, state, value, kind, f) {
 const p = (...ss) => makeElement('p')()(...ss);
 const em = (s) => makeElement('em')()(s);
 const dfn = (s) => makeElement('dfn')()(s);
+const ul = (...ss) => makeElement('ul')()(...ss);
+const li = (...ss) => makeElement('li')()(...ss);
 class Tool {
     constructor(id, name, title) {
         this.id = id;
@@ -1841,7 +1849,7 @@ class AutozoomTool extends Tool {
     getTool(callbacks, map) {
         const $fitModeSelect = document.createElement('select');
         $fitModeSelect.append(new Option('is disabled', 'none'), new Option('to notes in table view', 'inViewNotes'), new Option('to all notes', 'allNotes'));
-        $fitModeSelect.addEventListener('change', () => {
+        $fitModeSelect.onchange = () => {
             if ($fitModeSelect.value == 'allNotes') {
                 callbacks.onFitModeChange(this, $fitModeSelect.value);
                 map.fitNotes();
@@ -1853,7 +1861,7 @@ class AutozoomTool extends Tool {
             else {
                 callbacks.onFitModeChange(this, undefined);
             }
-        });
+        };
         return [$fitModeSelect];
     }
 }
@@ -1870,16 +1878,17 @@ class TimestampTool extends Tool {
         // this.$timestampInput.step='1'
         this.$timestampInput.type = 'text';
         this.$timestampInput.size = 20;
-        this.$timestampInput.addEventListener('input', () => {
+        this.$timestampInput.oninput = () => {
             callbacks.onTimestampChange(this, this.$timestampInput.value);
-        });
+        };
         const $clearButton = document.createElement('button');
+        $clearButton.type = 'reset';
         $clearButton.textContent = 'Clear';
-        $clearButton.addEventListener('click', () => {
-            this.$timestampInput.value = '';
+        const $form = makeElement('form')()(this.$timestampInput, ` `, $clearButton);
+        $form.onreset = () => {
             callbacks.onTimestampChange(this, '');
-        });
-        return [this.$timestampInput, ` `, $clearButton];
+        };
+        return [$form];
     }
     onTimestampChange(timestamp) {
         this.$timestampInput.value = timestamp;
@@ -1890,19 +1899,34 @@ class ParseTool extends Tool {
     constructor() {
         super('parse', `Parse links`);
     }
+    getInfo() {
+        return [p(`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →.`, `Currently detected active elements are: `), ul(li(`links to images made in `, makeLink(`StreetComplete`, `https://wiki.openstreetmap.org/wiki/StreetComplete`)), li(`links to OSM notes (clicking the output link is not yet implemented)`), li(`links to OSM elements`), li(`ISO-formatted timestamps`)), p(`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`)];
+    }
     getTool(callbacks, map, figureDialog) {
         const commentWriter = new CommentWriter(map, figureDialog, () => { }, // TODO ping note section
         (timestamp) => callbacks.onTimestampChange(this, timestamp));
         const $input = document.createElement('input');
+        $input.type = 'text';
+        $input.size = 50;
+        $input.classList.add('complicated');
         const $parseButton = document.createElement('button');
+        $parseButton.type = 'submit';
+        $parseButton.textContent = 'Parse';
+        const $clearButton = document.createElement('button');
+        $clearButton.type = 'reset';
+        $clearButton.textContent = 'Clear';
         const $output = document.createElement('code');
         $output.append(getFirstActiveElement([]));
-        $parseButton.textContent = 'Parse';
-        $parseButton.addEventListener('click', () => {
+        const $form = makeElement('form')()($input, ` `, $parseButton, ` `, $clearButton);
+        $form.onsubmit = (ev) => {
+            ev.preventDefault();
             const [elements] = commentWriter.makeCommentElements($input.value);
             $output.replaceChildren(getFirstActiveElement(elements));
-        });
-        return [$input, ` `, $parseButton, ` → `, $output];
+        };
+        $form.onreset = () => {
+            $output.replaceChildren(getFirstActiveElement([]));
+        };
+        return [$form, ` → `, $output];
         function getFirstActiveElement(elements) {
             for (const element of elements) {
                 if (element instanceof HTMLAnchorElement) {
@@ -1968,20 +1992,20 @@ class OverpassTurboTool extends OverpassTool {
         {
             const $button = document.createElement('button');
             $button.append(`Load `, makeMapIcon('area'), ` without relations`);
-            $button.addEventListener('click', () => buttonClickListener(false, false));
+            $button.onclick = () => buttonClickListener(false, false);
             $overpassButtons.push($button);
         }
         {
             const $button = document.createElement('button');
             $button.append(`Load `, makeMapIcon('area'), ` with relations`);
             $button.title = `May fetch large unwanted relations like routes.`;
-            $button.addEventListener('click', () => buttonClickListener(true, false));
+            $button.onclick = () => buttonClickListener(true, false);
             $overpassButtons.push($button);
         }
         {
             const $button = document.createElement('button');
             $button.append(`Load around `, makeMapIcon('center'));
-            $button.addEventListener('click', () => buttonClickListener(false, true));
+            $button.onclick = () => buttonClickListener(false, true);
             $overpassButtons.push($button);
         }
         const result = [];
@@ -2003,7 +2027,7 @@ class OverpassDirectTool extends OverpassTool {
         $button.append(`Find closest node to `, makeMapIcon('center'));
         const $output = document.createElement('code');
         $output.textContent = `none`;
-        $button.addEventListener('click', async () => {
+        $button.onclick = async () => {
             $button.disabled = true;
             $output.textContent = `none`;
             try {
@@ -2032,7 +2056,7 @@ class OverpassDirectTool extends OverpassTool {
             finally {
                 $button.disabled = false;
             }
-        });
+        };
         return [$button, ` → `, $output];
     }
 }
@@ -2048,7 +2072,7 @@ class RcTool extends Tool {
         const e = makeEscapeTag(encodeURIComponent);
         const $loadNotesButton = this.makeRequiringSelectedNotesButton();
         $loadNotesButton.append(`Load `, makeNotesIcon('selected'));
-        $loadNotesButton.addEventListener('click', async () => {
+        $loadNotesButton.onclick = async () => {
             for (const { id } of this.selectedNotes) {
                 const noteUrl = e `https://www.openstreetmap.org/note/${id}`;
                 const rcUrl = e `http://127.0.0.1:8111/import?url=${noteUrl}`;
@@ -2056,16 +2080,16 @@ class RcTool extends Tool {
                 if (!success)
                     break;
             }
-        });
+        };
         const $loadMapButton = document.createElement('button');
         $loadMapButton.append(`Load `, makeMapIcon('area'));
-        $loadMapButton.addEventListener('click', () => {
+        $loadMapButton.onclick = () => {
             const bounds = map.bounds;
             const rcUrl = e `http://127.0.0.1:8111/load_and_zoom` +
                 `?left=${bounds.getWest()}&right=${bounds.getEast()}` +
                 `&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`;
             openRcUrl($loadMapButton, rcUrl);
-        });
+        };
         return [$loadNotesButton, ` `, $loadMapButton];
     }
     onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) {
@@ -2085,11 +2109,11 @@ class IdTool extends Tool {
         // which is zooming/panning
         const $zoomButton = document.createElement('button');
         $zoomButton.append(`Open `, makeMapIcon('center'));
-        $zoomButton.addEventListener('click', () => {
+        $zoomButton.onclick = () => {
             const e = makeEscapeTag(encodeURIComponent);
             const url = e `https://www.openstreetmap.org/id#map=${map.zoom}/${map.lat}/${map.lon}`;
             open(url, 'id');
-        });
+        };
         return [$zoomButton];
     }
 }
@@ -2183,7 +2207,7 @@ class GpxTool extends Tool {
             gpx += `</gpx>\n`;
             return gpx;
         };
-        $exportNotesButton.addEventListener('click', () => {
+        $exportNotesButton.onclick = () => {
             const gpx = getGpx();
             const file = new File([gpx], 'notes.gpx');
             const $a = document.createElement('a');
@@ -2191,14 +2215,14 @@ class GpxTool extends Tool {
             $a.download = 'notes.gpx';
             $a.click();
             URL.revokeObjectURL($a.href);
-        });
+        };
         $exportNotesButton.draggable = true;
-        $exportNotesButton.addEventListener('dragstart', ev => {
+        $exportNotesButton.ondragstart = (ev) => {
             const gpx = getGpx();
             if (!ev.dataTransfer)
                 return;
             ev.dataTransfer.setData($dataTypeSelect.value, gpx);
-        });
+        };
         return [
             $exportNotesButton, ` `,
             makeLabel('inline')(` as waypoints `, $connectSelect), ` `,
@@ -2216,9 +2240,9 @@ class StreetViewTool extends Tool {
     getTool(callbacks, map) {
         const $viewButton = document.createElement('button');
         $viewButton.append(`Open `, makeMapIcon('center'));
-        $viewButton.addEventListener('click', () => {
+        $viewButton.onclick = () => {
             open(this.generateUrl(map), this.id);
-        });
+        };
         return [$viewButton];
     }
 }
@@ -2291,10 +2315,10 @@ class SettingsTool extends Tool {
     getTool(callbacks) {
         const $openAllButton = document.createElement('button');
         $openAllButton.textContent = `+ open all tools`;
-        $openAllButton.addEventListener('click', () => callbacks.onToolOpenToggle(this, true));
+        $openAllButton.onclick = () => callbacks.onToolOpenToggle(this, true);
         const $closeAllButton = document.createElement('button');
         $closeAllButton.textContent = `− close all tools`;
-        $closeAllButton.addEventListener('click', () => callbacks.onToolOpenToggle(this, false));
+        $closeAllButton.onclick = () => callbacks.onToolOpenToggle(this, false);
         return [$openAllButton, ` `, $closeAllButton];
     }
 }
