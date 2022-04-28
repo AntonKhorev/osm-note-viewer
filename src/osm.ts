@@ -185,7 +185,7 @@ function getElementsFromOsmApiResponse(data: any): {
 }
 
 function addElementGeometryToMap(map: NoteMap, outputDate: (readableDate:string)=>HTMLElement, element: OsmElement, elementGeometry: L.Layer) {
-	elementGeometry.bindPopup(()=>{
+	const popupWriter=()=>{
 		const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
 		const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
 		const elementHref=e`https://www.openstreetmap.org/${element.type}/${element.id}`
@@ -204,8 +204,8 @@ function addElementGeometryToMap(map: NoteMap, outputDate: (readableDate:string)
 		)
 		if (element.tags) $popup.append(getElementTags(element.tags))
 		return $popup
-	})
-	map.addOsmElement(elementGeometry)
+	}
+	map.addOsmElement(elementGeometry,popupWriter)
 }
 
 function capitalize(s: string): string {
