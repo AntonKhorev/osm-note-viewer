@@ -145,7 +145,12 @@ export class NoteMap {
 		// geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
 		if (geometry instanceof L.CircleMarker) {
 			this.queuedPopup=[layerId,popupWriter]
-			this.leafletMap.panTo(geometry.getLatLng())
+			const minZoomForNode=10
+			if (this.zoom<minZoomForNode) {
+				this.leafletMap.flyTo(geometry.getLatLng(),minZoomForNode,{duration:.5})
+			} else {
+				this.leafletMap.panTo(geometry.getLatLng())
+			}
 		} else {
 			const bounds=this.elementLayer.getBounds()
 			if (bounds.isValid()) {
