@@ -18,7 +18,6 @@ body.flipped .text-side {
 	bottom: 0;
 	right: 0;
 }
-
 .text-side {
 	display: flex;
 	flex-direction: column;
@@ -26,6 +25,16 @@ body.flipped .text-side {
 .text-side .scrolling {
 	overflow-y: scroll;
 	flex-grow: 1;
+}
+
+time.listened {
+	text-decoration: underline dotted 1px;
+	color: #004;
+	cursor: pointer;
+}
+a.listened {
+	text-decoration-style: dotted;
+	text-decoration-thickness: 1px;
 }
 
 .panel {
@@ -260,13 +269,6 @@ body.flipped .notes td.note-user {
 	content: "anonymous";
 	color: gray;
 }
-.notes td.note-date time,
-.notes td.note-comment time,
-.map .osm-element-popup-contents time {
-	text-decoration: underline dotted 1px;
-	color: #004;
-	cursor: pointer;
-}
 .notes td.note-action .icon {
 	position: relative;
 	display: inline-block;
@@ -293,10 +295,6 @@ body.flipped .notes td.note-user {
 .notes td.note-comment:empty::before {
 	content: "no comment";
 	color: gray;
-}
-.notes td.note-comment a {
-	text-decoration-style: dotted;
-	text-decoration-thickness: 1px;
 }
 .notes td.note-comment a.image:hover,
 .notes td.note-comment a.image.active {

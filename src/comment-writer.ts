@@ -70,7 +70,7 @@ export default class CommentWriter {
 		for (const item of getCommentItems(commentText)) {
 			if (item.type=='link' && item.link=='image') {
 				const $inlineLink=makeLink(item.href,item.href)
-				$inlineLink.classList.add('image','inline')
+				$inlineLink.classList.add('listened','image','inline')
 				$inlineLink.addEventListener('click',this.wrappedImageLinkClickListener)
 				inlineElements.push($inlineLink)
 				const $img=document.createElement('img')
@@ -79,14 +79,14 @@ export default class CommentWriter {
 				$img.alt=`attached photo`
 				$img.addEventListener('error',imageErrorHandler)
 				const $floatLink=document.createElement('a')
-				$floatLink.classList.add('image','float')
+				$floatLink.classList.add('listened','image','float')
 				$floatLink.href=item.href
 				$floatLink.append($img)
 				$floatLink.addEventListener('click',this.wrappedImageLinkClickListener)
 				imageElements.push($floatLink)
 			} else if (item.type=='link' && item.link=='osm') {
 				const $a=makeLink(item.text,item.href)
-				$a.classList.add('osm')
+				$a.classList.add('listened','osm')
 				if (item.map) [$a.dataset.zoom,$a.dataset.lat,$a.dataset.lon]=item.map
 				if (item.osm=='note') {
 					$a.classList.add('other-note')
@@ -150,6 +150,7 @@ export function makeDateOutput(readableDate: string, activeTimeElementClickListe
 
 function makeActiveTimeElement(text: string, dateTime: string, title?: string): HTMLTimeElement {
 	const $time=document.createElement('time')
+	$time.classList.add('listened')
 	$time.textContent=text
 	$time.dateTime=dateTime
 	if (title) $time.title=title
