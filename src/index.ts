@@ -1,7 +1,7 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
 import {NoteMap} from './map'
-import PhotoDialog from './photo'
+import FigureDialog from './figure'
 import NoteFetchPanel from './fetch-panel'
 import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
@@ -65,21 +65,21 @@ async function main() {
 	const $moreContainer=makeDiv('more')()
 	const $toolContainer=makeDiv('panel','command')()
 	const $mapContainer=makeDiv('map')()
-	const $photoDialog=document.createElement('dialog')
-	$photoDialog.classList.add('photo')
+	const $figureDialog=document.createElement('dialog')
+	$figureDialog.classList.add('figure')
 
 	const $scrollingPart=makeDiv('scrolling')($fetchContainer,$filterContainer,$extrasContainer,$notesContainer,$moreContainer)
 	const $stickyPart=makeDiv('sticky')($toolContainer)
 
 	const $textSide=makeDiv('text-side')($scrollingPart,$stickyPart)
-	const $graphicSide=makeDiv('graphic-side')($mapContainer,$photoDialog)
+	const $graphicSide=makeDiv('graphic-side')($mapContainer,$figureDialog)
 	const flipped=!!storage.getItem('flipped')
 	if (flipped) document.body.classList.add('flipped')
 	document.body.append($textSide,$graphicSide)
 
 	const scrollRestorer=new ScrollRestorer($scrollingPart)
 	const map=new NoteMap($mapContainer)
-	const photoDialog=new PhotoDialog($photoDialog)
+	const figureDialog=new FigureDialog($figureDialog)
 	writeFlipLayoutButton(storage,$fetchContainer,map)
 	writeResetButton($fetchContainer)
 	const extrasPanel=new ExtrasPanel(storage,db,$extrasContainer)
@@ -87,7 +87,7 @@ async function main() {
 	const fetchPanel=new NoteFetchPanel(
 		storage,db,
 		$fetchContainer,$notesContainer,$moreContainer,$toolContainer,
-		filterPanel,extrasPanel,map,photoDialog,
+		filterPanel,extrasPanel,map,figureDialog,
 		()=>scrollRestorer.run($notesContainer)
 	)
 	scrollRestorer.run($notesContainer)

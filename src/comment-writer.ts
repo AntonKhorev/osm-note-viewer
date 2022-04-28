@@ -1,6 +1,6 @@
 import getCommentItems from './comment'
 import {NoteMap} from './map'
-import PhotoDialog from './photo'
+import FigureDialog from './figure'
 import downloadAndShowElement from './osm'
 import {makeLink} from './util'
 
@@ -9,7 +9,7 @@ export default class CommentWriter {
 	wrappedImageLinkClickListener: (this: HTMLAnchorElement, ev: MouseEvent) => void
 	wrappedActiveTimeElementClickListener: (this: HTMLTimeElement, ev: MouseEvent) => void
 	constructor(
-		map: NoteMap, photoDialog: PhotoDialog,
+		map: NoteMap, figureDialog: FigureDialog,
 		pingNoteSection: ($noteSection: HTMLTableSectionElement) => void,
 		receiveTimestamp: (timestamp: string) => void
 	) {
@@ -30,14 +30,14 @@ export default class CommentWriter {
 				const $noteSection=document.getElementById(`note-`+noteId)
 				if (!($noteSection instanceof HTMLTableSectionElement)) return false
 				if ($noteSection.classList.contains('hidden')) return false
-				photoDialog.close()
+				figureDialog.close()
 				pingNoteSection($noteSection)
 				return true
 			}
 			function handleElement(elementType: string|undefined, elementId: string|undefined): boolean {
 				if (!elementId) return false
 				if (elementType!='node' && elementType!='way' && elementType!='relation') return false
-				photoDialog.close()
+				figureDialog.close()
 				downloadAndShowElement(
 					$a,map,
 					(readableDate)=>makeDateOutput(readableDate,that.wrappedActiveTimeElementClickListener),
@@ -47,7 +47,7 @@ export default class CommentWriter {
 			}
 			function handleMap(zoom: string|undefined, lat: string|undefined, lon: string|undefined): boolean {
 				if (!(zoom && lat && lon)) return false
-				photoDialog.close()
+				figureDialog.close()
 				map.panAndZoomTo([Number(lat),Number(lon)],Number(zoom))
 				return true
 			}
@@ -56,7 +56,7 @@ export default class CommentWriter {
 			const $a=this
 			ev.preventDefault()
 			ev.stopPropagation()
-			photoDialog.toggle($a.href)
+			figureDialog.toggle($a.href)
 		}
 	}
 	writeCommentText($cell: HTMLElement, commentText: string, showImages: boolean): void {

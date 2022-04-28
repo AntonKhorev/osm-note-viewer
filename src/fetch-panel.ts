@@ -1,7 +1,7 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
 import {NoteMap} from './map'
-import PhotoDialog from './photo'
+import FigureDialog from './figure'
 import NoteTable from './table'
 import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
@@ -18,7 +18,7 @@ export default class NoteFetchPanel {
 		storage: NoteViewerStorage, db: NoteViewerDB,
 		$container: HTMLElement,
 		$notesContainer: HTMLElement, $moreContainer: HTMLElement, $toolContainer: HTMLElement,
-		filterPanel: NoteFilterPanel, extrasPanel: ExtrasPanel, map: NoteMap, photoDialog: PhotoDialog, restoreScrollPosition: ()=>void
+		filterPanel: NoteFilterPanel, extrasPanel: ExtrasPanel, map: NoteMap, figureDialog: FigureDialog, restoreScrollPosition: ()=>void
 	) {
 		let noteTable: NoteTable | undefined
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
@@ -86,7 +86,7 @@ export default class NoteFetchPanel {
 			$toolContainer.innerHTML=``
 		}
 		function runStartFetcher(query: NoteQuery | undefined, clearStore: boolean): void {
-			photoDialog.close()
+			figureDialog.close()
 			resetNoteDependents()
 			if (query?.mode=='search') {
 				extrasPanel.rewrite(query,Number(searchDialog.$limitSelect.value))
@@ -98,7 +98,7 @@ export default class NoteFetchPanel {
 			const toolPanel=new ToolPanel($toolContainer,map,storage)
 			noteTable=new NoteTable(
 				$notesContainer,toolPanel,map,filterPanel.noteFilter,
-				photoDialog,$showImagesCheckboxes[0]?.checked
+				figureDialog,$showImagesCheckboxes[0]?.checked
 			)
 			filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(noteFilter))
 			if (query?.mode=='search') {

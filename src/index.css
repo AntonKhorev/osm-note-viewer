@@ -406,7 +406,7 @@ body.flipped .notes td.note-user {
 	margin: var(--block-gap) 0;
 }
 
-.photo {
+dialog.figure {
 	position: absolute;
 	inset: 0;
 	padding: 0;
@@ -414,7 +414,7 @@ body.flipped .notes td.note-user {
 	width: 100%;
 	height: 100%;
 }
-.photo figure {
+dialog.figure figure {
 	width: 100%;
 	height: 100%;
 	overflow: hidden;
@@ -422,16 +422,16 @@ body.flipped .notes td.note-user {
 	padding: 0;
 	cursor: zoom-in;
 }
-.photo figure:not(.zoomed) {
+dialog.figure figure:not(.zoomed) {
 	display: flex;
 	align-items: center;
 	justify-content: center;
 }
-.photo figure.zoomed {
+dialog.figure figure.zoomed {
 	overflow: scroll;
 	cursor: zoom-out;
 }
-.photo figure .backdrop {
+dialog.figure figure .backdrop {
 	position: absolute;
 	inset: 0;
 	background-color: #888;
@@ -439,18 +439,18 @@ body.flipped .notes td.note-user {
 	background-position: center;
 	filter: saturate(.5) brightness(.8) blur(10px);
 }
-.photo figure.zoomed .backdrop {
+dialog.figure figure.zoomed .backdrop {
 	display: none;
 }
-.photo figure img {
+dialog.figure figure img {
 	position: relative;
 	display: block;
 }
-.photo figure:not(.zoomed) img {
+dialog.figure figure:not(.zoomed) img {
 	max-width: 100%;
 	max-height: 100%;
 }
-.photo button { /* copypaste from reset button */
+dialog.figure button { /* copypaste from reset button */
 	--position-offset: 2rem;
 	display: block;
 	position: absolute;
@@ -463,11 +463,11 @@ body.flipped .notes td.note-user {
 	background: url("reset.svg");
 	opacity: 0;
 }
-.photo button.right-position {
+dialog.figure button.right-position {
 	left: unset;
 	right: var(--position-offset);
 }
-.photo button.bottom-position {
+dialog.figure button.bottom-position {
 	top: unset;
 	bottom: var(--position-offset);
 }
@@ -475,12 +475,12 @@ body.flipped .notes td.note-user {
 	from { opacity: 1; }
 	to { opacity: 0; }
 }
-.photo button.fading {
+dialog.figure button.fading {
 	animation-name: photo-button-fade;
 	animation-duration: 3s;
 }
-.photo button:hover,
-.photo button:focus {
+dialog.figure button:hover,
+dialog.figure button:focus {
 	outline: auto;
 	opacity: 1;
 	animation: none;

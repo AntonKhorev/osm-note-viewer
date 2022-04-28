@@ -10,7 +10,7 @@ interface HTMLDialogElementHack extends HTMLDialogElement {
 	showModal(): void
 }
 
-export default class PhotoDialog {
+export default class FigureDialog {
 	private url: string|undefined
 	private fallbackMode: boolean
 	constructor(private $dialog: HTMLDialogElement) {

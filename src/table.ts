@@ -1,6 +1,6 @@
 import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
-import PhotoDialog from './photo'
+import FigureDialog from './figure'
 import CommentWriter, {handleShowImagesUpdate, handleNotesUpdate, makeDateOutput} from './comment-writer'
 import ToolPanel from './tool-panel'
 import NoteFilter from './filter'
@@ -23,7 +23,7 @@ export default class NoteTable {
 	constructor(
 		$container: HTMLElement, 
 		private toolPanel: ToolPanel, private map: NoteMap, private filter: NoteFilter,
-		photoDialog: PhotoDialog, private showImages: boolean
+		figureDialog: FigureDialog, private showImages: boolean
 	) {
 		const that=this
 		let $clickReadyNoteSection: HTMLTableSectionElement | undefined
@@ -51,7 +51,7 @@ export default class NoteTable {
 			// }],
 			['click',function(){ // need 'click' and not 'mouseup' event because elements inside may listen to click and choose to cancel it
 				if ($clickReadyNoteSection==this) {
-					photoDialog.close()
+					figureDialog.close()
 					that.focusOnNote(this,true)
 				}
 				$clickReadyNoteSection=undefined
@@ -68,7 +68,7 @@ export default class NoteTable {
 		}
 		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver(toolPanel,map,this.noteSectionLayerIdVisibility)
 		this.commentWriter=new CommentWriter(
-			this.map,photoDialog,
+			this.map,figureDialog,
 			$noteSection=>this.focusOnNote($noteSection),
 			timestamp=>toolPanel.receiveTimestamp(timestamp)
 		)
