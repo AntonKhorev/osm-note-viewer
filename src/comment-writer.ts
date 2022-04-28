@@ -4,7 +4,7 @@ import PhotoDialog from './photo'
 import downloadAndShowElement from './osm'
 import {makeLink} from './util'
 
-export default class NoteTableCommentWriter {
+export default class CommentWriter {
 	wrappedOsmLinkClickListener: (this: HTMLAnchorElement, ev: MouseEvent) => void
 	wrappedImageLinkClickListener: (this: HTMLAnchorElement, ev: MouseEvent) => void
 	wrappedActiveTimeElementClickListener: (this: HTMLTimeElement, ev: MouseEvent) => void

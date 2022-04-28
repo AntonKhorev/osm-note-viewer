@@ -1,7 +1,7 @@
 import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
 import PhotoDialog from './photo'
-import NoteTableCommentWriter, {handleShowImagesUpdate, handleNotesUpdate, makeDateOutput} from './table-comment'
+import CommentWriter, {handleShowImagesUpdate, handleNotesUpdate, makeDateOutput} from './comment-writer'
 import ToolPanel from './tool-panel'
 import NoteFilter from './filter'
 import {toReadableDate} from './query-date'
@@ -19,7 +19,7 @@ export default class NoteTable {
 	private $lastClickedNoteSection: HTMLTableSectionElement | undefined
 	private notesById = new Map<number,Note>() // in the future these might be windowed to limit the amount of stuff on one page
 	private usersById = new Map<number,string>()
-	private commentWriter: NoteTableCommentWriter
+	private commentWriter: CommentWriter
 	constructor(
 		$container: HTMLElement, 
 		private toolPanel: ToolPanel, private map: NoteMap, private filter: NoteFilter,
@@ -67,7 +67,7 @@ export default class NoteTable {
 			that.noteMarkerClickListener(this)
 		}
 		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver(toolPanel,map,this.noteSectionLayerIdVisibility)
-		this.commentWriter=new NoteTableCommentWriter(
+		this.commentWriter=new CommentWriter(
 			this.map,photoDialog,
 			$noteSection=>this.focusOnNote($noteSection),
 			timestamp=>toolPanel.receiveTimestamp(timestamp)

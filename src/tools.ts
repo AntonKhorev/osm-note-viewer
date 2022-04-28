@@ -1,6 +1,6 @@
 import type {Note} from './data'
 import {NoteMap} from './map'
-import {makeDateOutput} from './table-comment'
+import CommentWriter, {makeDateOutput} from './comment-writer'
 import downloadAndShowElement from './osm'
 import {toReadableDate, toUrlDate} from './query-date'
 import {makeElement, makeLink, makeLabel, escapeXml, makeEscapeTag} from './util'
@@ -123,6 +123,7 @@ class ParseTool extends Tool {
 		`Parse links`
 	)}
 	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+		// const commentWriter=new CommentWriter(map,)
 		const $input=document.createElement('input')
 		const $parseButton=document.createElement('button')
 		$parseButton.textContent='Parse'
