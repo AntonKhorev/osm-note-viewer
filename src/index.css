@@ -401,7 +401,7 @@ body.flipped .notes td.note-user {
 	background: #F8F8FF;
 	border-right: solid 1px #CCC;
 }
-.map .osm-element-popup-contents figure button {
+.map .osm-element-popup-contents button {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;

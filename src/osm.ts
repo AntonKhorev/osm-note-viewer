@@ -138,8 +138,10 @@ export async function downloadAndShowChangeset(
 		}
 		const data=await response.json()
 		const changeset=getChangesetFromOsmApiResponse(data)
-		addChangesetGeometryToMap(map,outputDate,changeset,
-			makeChangesetGeometry(changeset)
+		addGeometryToMap(
+			map,
+			makeChangesetGeometry(changeset),
+			()=>makeChangesetPopupContents(outputDate,changeset)
 		)
 	})
 	function makeChangesetGeometry(changeset: OsmChangeset): L.Layer {
@@ -178,16 +180,22 @@ export async function downloadAndShowElement(
 		const element=elements[elementType][elementId]
 		if (!element) throw new TypeError(`OSM API error: requested element not found in response data`)
 		if (isOsmNodeElement(element)) {
-			addElementGeometryToMap(map,outputDate,element,
-				makeNodeGeometry(element)
+			addGeometryToMap(
+				map,
+				makeNodeGeometry(element),
+				()=>makeElementPopupContents(outputDate,element)
 			)
 		} else if (isOsmWayElement(element)) {
-			addElementGeometryToMap(map,outputDate,element,
-				makeWayGeometry(element,elements)
+			addGeometryToMap(
+				map,
+				makeWayGeometry(element,elements),
+				()=>makeElementPopupContents(outputDate,element)
 			)
 		} else if (isOsmRelationElement(element)) {
-			addElementGeometryToMap(map,outputDate,element,
-				makeRelationGeometry(element,elements)
+			addGeometryToMap(
+				map,
+				makeRelationGeometry(element,elements),
+				()=>makeElementPopupContents(outputDate,element)
 			)
 		} else {
 			throw new TypeError(`OSM API error: requested element has unknown type`) // shouldn't happen
@@ -274,54 +282,67 @@ function getElementsFromOsmApiResponse(data: any): OsmElementMap {
 	return {node,way,relation}
 }
 
-function addChangesetGeometryToMap(map: NoteMap, outputDate: (readableDate:string)=>HTMLElement, changeset: OsmChangeset, changesetGeometry: L.Layer) {
-	const popupWriter=()=>{
-		const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
-		const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
-		const c=(...s: Array<string|HTMLElement>)=>p(makeElement('em')()(...s))
-		const changesetHref=e`https://www.openstreetmap.org/changeset/${changeset.id}`
-		const $popup=makeDiv('osm-element-popup-contents')(
-			h(`Changeset: `,makeLink(String(changeset.id),changesetHref))
-		)
-		if (changeset.tags?.comment) $popup.append(c(changeset.tags.comment))
-		const $p=p()
-		if (changeset.closed_at) {$p.append(
-			`Closed on `,getDate(changeset.closed_at,outputDate)
-		)} else {$p.append(
-			`Created on `,getDate(changeset.created_at,outputDate)
-		)}
-		$p.append(
-			` by `,getUser(changeset)
-		)
-		$popup.append($p)
-		if (changeset.tags) $popup.append(getTags(changeset.tags,'comment'))
-		return $popup
-	}
-	map.addOsmElement(changesetGeometry,popupWriter)
+function makeChangesetPopupContents(outputDate: (readableDate:string)=>HTMLElement, changeset: OsmChangeset): HTMLElement[] {
+	const contents: HTMLElement[] = []
+	const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
+	const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
+	const c=(...s: Array<string|HTMLElement>)=>p(makeElement('em')()(...s))
+	const changesetHref=e`https://www.openstreetmap.org/changeset/${changeset.id}`
+	contents.push(
+		h(`Changeset: `,makeLink(String(changeset.id),changesetHref))
+	)
+	if (changeset.tags?.comment) contents.push(
+		c(changeset.tags.comment)
+	)
+	const $p=p()
+	if (changeset.closed_at) {$p.append(
+		`Closed on `,getDate(changeset.closed_at,outputDate)
+	)} else {$p.append(
+		`Created on `,getDate(changeset.created_at,outputDate)
+	)}
+	$p.append(
+		` by `,getUser(changeset)
+	)
+	contents.push($p)
+	const $tags=getTags(changeset.tags,'comment')
+	if ($tags) contents.push($tags)
+	return contents
 }
 
-function addElementGeometryToMap(map: NoteMap, outputDate: (readableDate:string)=>HTMLElement, element: OsmElement, elementGeometry: L.Layer) {
-	const popupWriter=()=>{
-		const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
-		const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
-		const elementHref=e`https://www.openstreetmap.org/${element.type}/${element.id}`
-		const $popup=makeDiv('osm-element-popup-contents')(
-			h(capitalize(element.type)+`: `,makeLink(getElementName(element),elementHref)),
-			h(
-				`Version #${element.version} · `,
-				makeLink(`View History`,elementHref+'/history'),` · `,
-				makeLink(`Edit`,e`https://www.openstreetmap.org/edit?${element.type}=${element.id}`)
-			),
-			p(
-				`Edited on `,getDate(element.timestamp,outputDate),
-				` by `,getUser(element),
-				` · Changeset #`,makeLink(String(element.changeset),e`https://www.openstreetmap.org/changeset/${element.changeset}`)
-			)
+function makeElementPopupContents(outputDate: (readableDate:string)=>HTMLElement, element: OsmElement): HTMLElement[] {
+	const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
+	const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
+	const elementHref=e`https://www.openstreetmap.org/${element.type}/${element.id}`
+	const contents: HTMLElement[] = [
+		h(capitalize(element.type)+`: `,makeLink(getElementName(element),elementHref)),
+		h(
+			`Version #${element.version} · `,
+			makeLink(`View History`,elementHref+'/history'),` · `,
+			makeLink(`Edit`,e`https://www.openstreetmap.org/edit?${element.type}=${element.id}`)
+		),
+		p(
+			`Edited on `,getDate(element.timestamp,outputDate),
+			` by `,getUser(element),
+			` · Changeset #`,makeLink(String(element.changeset),e`https://www.openstreetmap.org/changeset/${element.changeset}`)
 		)
-		if (element.tags) $popup.append(getTags(element.tags))
-		return $popup
+	]
+	const $tags=getTags(element.tags)
+	if ($tags) contents.push($tags)
+	return contents
+}
+
+function addGeometryToMap(map: NoteMap, geometry: L.Layer, makePopupContents: ()=>HTMLElement[]) {
+	const popupWriter=()=>{
+		const $removeButton=document.createElement('button')
+		$removeButton.textContent=`Remove from map view`
+		$removeButton.onclick=()=>{
+			map.elementLayer.clearLayers()
+		}
+		return makeDiv('osm-element-popup-contents')(
+			...makePopupContents(),$removeButton
+		)
 	}
-	map.addOsmElement(elementGeometry,popupWriter)
+	map.addOsmElement(geometry,popupWriter)
 }
 
 function capitalize(s: string): string {
@@ -337,9 +358,11 @@ function getUser(data: OsmBase): HTMLElement {
 	return makeUserLink(data.uid,data.user)
 }
 
-function getTags(tags: {[key:string]:string}, skipKey?: string): HTMLElement {
+function getTags(tags: {[key:string]:string}|undefined, skipKey?: string): HTMLElement|null {
+	if (!tags) return null
 	const tagBatchSize=10
 	const tagList=Object.entries(tags).filter(([k,v])=>k!=skipKey)
+	if (tagList.length<=0) return null
 	let i=0
 	let $button: HTMLButtonElement|undefined
 	const $figure=document.createElement('figure')
