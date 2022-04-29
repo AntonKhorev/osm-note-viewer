@@ -134,6 +134,7 @@ class ParseTool extends Tool {
 	),ul(
 		li(`links to images made in `,makeLink(`StreetComplete`,`https://wiki.openstreetmap.org/wiki/StreetComplete`)),
 		li(`links to OSM notes (clicking the output link is not yet implemented)`),
+		li(`links to OSM changesets`),
 		li(`links to OSM elements`),
 		li(`ISO-formatted timestamps`)
 	),p(
