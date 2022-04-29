@@ -1,5 +1,6 @@
 import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
+import LooseParserPopup from './loose-popup'
 import FigureDialog from './figure'
 import CommentWriter, {handleShowImagesUpdate, handleNotesUpdate, makeDateOutput} from './comment-writer'
 import ToolPanel from './tool-panel'
@@ -15,6 +16,7 @@ export default class NoteTable {
 	private noteSectionVisibilityObserver: NoteSectionVisibilityObserver
 	private $table = document.createElement('table')
 	private $selectAllCheckbox = document.createElement('input')
+	private looseParserPopup: LooseParserPopup
 	private noteSectionLayerIdVisibility=new Map<number,boolean>()
 	private $lastClickedNoteSection: HTMLTableSectionElement | undefined
 	private notesById = new Map<number,Note>() // in the future these might be windowed to limit the amount of stuff on one page
@@ -98,6 +100,7 @@ export default class NoteTable {
 			return $cell
 		}
 		this.updateCheckboxDependents()
+		this.looseParserPopup=new LooseParserPopup($container)
 	}
 	updateFilter(filter: NoteFilter): void {
 		let nFetched=0
@@ -205,6 +208,13 @@ export default class NoteTable {
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-comment')
 					this.commentWriter.writeComment($cell,comment.text,this.showImages)
+					$cell.onmouseup=(ev)=>{ // TODO wrap listener
+						const selection=document.getSelection()
+						if (!selection) return
+						if (selection.rangeCount!=1) return
+						if (!selection.toString()) return
+						this.looseParserPopup.open(ev.pageX,ev.pageY,123,'note') // TODO give parse results
+					}
 				}
 				iComment++
 			}
