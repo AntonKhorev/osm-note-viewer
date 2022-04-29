@@ -138,8 +138,22 @@ export async function downloadAndShowChangeset(
 		}
 		const data=await response.json()
 		const changeset=getChangesetFromOsmApiResponse(data)
-		console.log(changeset)
+		addChangesetGeometryToMap(map,outputDate,changeset,
+			makeChangesetGeometry(changeset)
+		)
 	})
+	function makeChangesetGeometry(changeset: OsmChangeset): L.Layer {
+		if (
+			changeset.minlat==null || changeset.minlon==null ||
+			changeset.maxlat==null || changeset.maxlon==null
+		) {
+			throw new TypeError(`changeset is empty`)
+		}
+		return L.rectangle([
+			[changeset.minlat,changeset.minlon],
+			[changeset.maxlat,changeset.maxlon]
+		])
+	}
 }
 
 export async function downloadAndShowElement(
@@ -260,6 +274,32 @@ function getElementsFromOsmApiResponse(data: any): OsmElementMap {
 	return {node,way,relation}
 }
 
+function addChangesetGeometryToMap(map: NoteMap, outputDate: (readableDate:string)=>HTMLElement, changeset: OsmChangeset, changesetGeometry: L.Layer) {
+	const popupWriter=()=>{
+		const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
+		const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
+		const c=(...s: Array<string|HTMLElement>)=>p(makeElement('em')()(...s))
+		const changesetHref=e`https://www.openstreetmap.org/changeset/${changeset.id}`
+		const $popup=makeDiv('osm-element-popup-contents')(
+			h(`Changeset: `,makeLink(String(changeset.id),changesetHref))
+		)
+		if (changeset.tags?.comment) $popup.append(c(changeset.tags.comment))
+		const $p=p()
+		if (changeset.closed_at) {$p.append(
+			`Closed on `,getDate(changeset.closed_at,outputDate)
+		)} else {$p.append(
+			`Created on `,getDate(changeset.created_at,outputDate)
+		)}
+		$p.append(
+			` by `,getUser(changeset)
+		)
+		$popup.append($p)
+		if (changeset.tags) $popup.append(getTags(changeset.tags,'comment'))
+		return $popup
+	}
+	map.addOsmElement(changesetGeometry,popupWriter)
+}
+
 function addElementGeometryToMap(map: NoteMap, outputDate: (readableDate:string)=>HTMLElement, element: OsmElement, elementGeometry: L.Layer) {
 	const popupWriter=()=>{
 		const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
@@ -273,12 +313,12 @@ function addElementGeometryToMap(map: NoteMap, outputDate: (readableDate:string)
 				makeLink(`Edit`,e`https://www.openstreetmap.org/edit?${element.type}=${element.id}`)
 			),
 			p(
-				`Edited on `,getElementDate(element,outputDate),
-				` by `,getElementUser(element),
+				`Edited on `,getDate(element.timestamp,outputDate),
+				` by `,getUser(element),
 				` · Changeset #`,makeLink(String(element.changeset),e`https://www.openstreetmap.org/changeset/${element.changeset}`)
 			)
 		)
-		if (element.tags) $popup.append(getElementTags(element.tags))
+		if (element.tags) $popup.append(getTags(element.tags))
 		return $popup
 	}
 	map.addOsmElement(elementGeometry,popupWriter)
@@ -288,26 +328,18 @@ function capitalize(s: string): string {
 	return s[0].toUpperCase()+s.slice(1)
 }
 
-function getElementName(element: OsmElement): string {
-	if (element.tags?.name) {
-		return `${element.tags.name} (${element.id})`
-	} else {
-		return String(element.id)
-	}
-}
-
-function getElementDate(element: OsmElement, outputDate: (readableDate:string)=>HTMLElement): HTMLElement {
-	const readableDate=element.timestamp.replace('T',' ').replace('Z','') // TODO replace date output fn with active element fn
+function getDate(timestamp: string, outputDate: (readableDate:string)=>HTMLElement): HTMLElement {
+	const readableDate=timestamp.replace('T',' ').replace('Z','') // TODO replace date output fn with active element fn
 	return outputDate(readableDate)
 }
 
-function getElementUser(element: OsmElement): HTMLElement {
-	return makeUserLink(element.uid,element.user)
+function getUser(data: OsmBase): HTMLElement {
+	return makeUserLink(data.uid,data.user)
 }
 
-function getElementTags(tags: {[key:string]:string}): HTMLElement {
+function getTags(tags: {[key:string]:string}, skipKey?: string): HTMLElement {
 	const tagBatchSize=10
-	const tagList=Object.entries(tags)
+	const tagList=Object.entries(tags).filter(([k,v])=>k!=skipKey)
 	let i=0
 	let $button: HTMLButtonElement|undefined
 	const $figure=document.createElement('figure')
@@ -336,5 +368,13 @@ function getElementTags(tags: {[key:string]:string}): HTMLElement {
 		} else {
 			$button?.remove()
 		}
+	}
+}
+
+function getElementName(element: OsmElement): string {
+	if (element.tags?.name) {
+		return `${element.tags.name} (${element.id})`
+	} else {
+		return String(element.id)
 	}
 }
