@@ -644,7 +644,7 @@ function getCommentItems(commentText) {
         `(?<image>westnordost\.de/p/[0-9]+\.jpg)` +
         '|' +
         `(?<osm>(?:www\\.)?(?:osm|openstreetmap)\\.org/` +
-        `(?<path>(?<osmType>node|way|relation|note)/(?<id>[0-9]+))?` +
+        `(?<path>(?<osmType>node|way|relation|changeset|note)/(?<id>[0-9]+))?` +
         `(?<hash>#[-0-9a-zA-Z/.=&]+)?` + // only need hash at root or at recognized path
         `)` +
         `))` +
@@ -720,18 +720,18 @@ function getMatchItem(groups) {
                 map: getMap(groups.hash)
             };
             if (groups.osmType && groups.id) {
-                if (groups.osmType == 'note') {
-                    return {
-                        ...osmItem,
-                        osm: 'note',
-                        id: Number(groups.id)
-                    };
-                }
-                else if (groups.osmType == 'node' || groups.osmType == 'way' || groups.osmType == 'relation') {
+                if (groups.osmType == 'node' || groups.osmType == 'way' || groups.osmType == 'relation') {
                     return {
                         ...osmItem,
                         osm: 'element',
                         element: groups.osmType,
+                        id: Number(groups.id)
+                    };
+                }
+                else if (groups.osmType == 'changeset' || groups.osmType == 'note') {
+                    return {
+                        ...osmItem,
+                        osm: groups.osmType,
                         id: Number(groups.id)
                     };
                 }
@@ -771,22 +771,29 @@ function getMap(hash) {
     return [zoom, lat, lon];
 }
 
+function isOsmBase(d) {
+    if (!d)
+        return false;
+    if (!Number.isInteger(d.id))
+        return false;
+    if (d.user != null && (typeof d.user != 'string'))
+        return false;
+    if (!Number.isInteger(d.uid))
+        return false;
+    if (d.tags != null && (typeof d.tags != 'object'))
+        return false;
+    return true;
+}
 function isOsmElementBase(e) {
-    if (!e)
+    if (!isOsmBase(e))
         return false;
     if (e.type != 'node' && e.type != 'way' && e.type != 'relation')
-        return false;
-    if (!Number.isInteger(e.id))
         return false;
     if (typeof e.timestamp != 'string')
         return false;
     if (!Number.isInteger(e.version))
         return false;
     if (!Number.isInteger(e.changeset))
-        return false;
-    if (e.user != null && (typeof e.user != 'string'))
-        return false;
-    if (!Number.isInteger(e.uid))
         return false;
     return true;
 }
@@ -828,11 +835,55 @@ function isOsmRelationElement(e) {
         return false;
     return true;
 }
+function isOsmChangeset(c) {
+    if (!isOsmBase(c))
+        return false;
+    if (typeof c.created_at != 'string')
+        return false;
+    if (c.closed_at != null && (typeof c.closed_at != 'string'))
+        return false;
+    if (c.minlat == null && c.minlon == null &&
+        c.maxlat == null && c.maxlon == null) {
+        return true;
+    }
+    else if (Number.isFinite(c.minlat) && Number.isFinite(c.minlon) &&
+        Number.isFinite(c.maxlat) && Number.isFinite(c.maxlon)) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
 const e = makeEscapeTag(encodeURIComponent);
+async function downloadAndShowChangeset($a, map, outputDate, changesetId) {
+    downloadCommon($a, map, async () => {
+        const url = e `https://api.openstreetmap.org/api/0.6/changeset/${changesetId}.json`;
+        const response = await fetch(url);
+        if (!response.ok) {
+            if (response.status == 404) {
+                throw new TypeError(`changeset doesn't exist`);
+            }
+            else {
+                throw new TypeError(`OSM API error: unsuccessful response`);
+            }
+        }
+        const data = await response.json();
+        const changeset = getChangesetFromOsmApiResponse(data);
+        addGeometryToMap(map, makeChangesetGeometry(changeset), () => makeChangesetPopupContents(outputDate, changeset));
+    });
+    function makeChangesetGeometry(changeset) {
+        if (changeset.minlat == null || changeset.minlon == null ||
+            changeset.maxlat == null || changeset.maxlon == null) {
+            throw new TypeError(`changeset is empty`);
+        }
+        return L.rectangle([
+            [changeset.minlat, changeset.minlon],
+            [changeset.maxlat, changeset.maxlon]
+        ]);
+    }
+}
 async function downloadAndShowElement($a, map, outputDate, elementType, elementId) {
-    $a.classList.add('loading');
-    try {
-        // TODO cancel already running response
+    downloadCommon($a, map, async () => {
         const fullBit = (elementType == 'node' ? '' : '/full');
         const url = e `https://api.openstreetmap.org/api/0.6/${elementType}/${elementId}` + `${fullBit}.json`;
         const response = await fetch(url);
@@ -853,51 +904,58 @@ async function downloadAndShowElement($a, map, outputDate, elementType, elementI
         if (!element)
             throw new TypeError(`OSM API error: requested element not found in response data`);
         if (isOsmNodeElement(element)) {
-            addElementGeometryToMap(map, outputDate, element, makeNodeGeometry(element));
+            addGeometryToMap(map, makeNodeGeometry(element), () => makeElementPopupContents(outputDate, element));
         }
         else if (isOsmWayElement(element)) {
-            addElementGeometryToMap(map, outputDate, element, makeWayGeometry(element));
+            addGeometryToMap(map, makeWayGeometry(element, elements), () => makeElementPopupContents(outputDate, element));
         }
         else if (isOsmRelationElement(element)) {
-            addElementGeometryToMap(map, outputDate, element, makeRelationGeometry(element));
+            addGeometryToMap(map, makeRelationGeometry(element, elements), () => makeElementPopupContents(outputDate, element));
         }
         else {
             throw new TypeError(`OSM API error: requested element has unknown type`); // shouldn't happen
         }
-        $a.classList.remove('absent');
-        $a.title = '';
-        function makeNodeGeometry(node) {
-            return L.circleMarker([node.lat, node.lon]);
+    });
+    function makeNodeGeometry(node) {
+        return L.circleMarker([node.lat, node.lon]);
+    }
+    function makeWayGeometry(way, elements) {
+        const coords = [];
+        for (const id of way.nodes) {
+            const node = elements.node[id];
+            if (!node)
+                throw new TypeError(`OSM API error: referenced element not found in response data`);
+            coords.push([node.lat, node.lon]);
         }
-        function makeWayGeometry(way) {
-            const coords = [];
-            for (const id of way.nodes) {
-                const node = elements.node[id];
+        return L.polyline(coords);
+    }
+    function makeRelationGeometry(relation, elements) {
+        const geometry = L.featureGroup();
+        for (const member of relation.members) {
+            if (member.type == 'node') {
+                const node = elements.node[member.ref];
                 if (!node)
                     throw new TypeError(`OSM API error: referenced element not found in response data`);
-                coords.push([node.lat, node.lon]);
+                geometry.addLayer(makeNodeGeometry(node));
             }
-            return L.polyline(coords);
-        }
-        function makeRelationGeometry(relation) {
-            const geometry = L.featureGroup();
-            for (const member of relation.members) {
-                if (member.type == 'node') {
-                    const node = elements.node[member.ref];
-                    if (!node)
-                        throw new TypeError(`OSM API error: referenced element not found in response data`);
-                    geometry.addLayer(makeNodeGeometry(node));
-                }
-                else if (member.type == 'way') {
-                    const way = elements.way[member.ref];
-                    if (!way)
-                        throw new TypeError(`OSM API error: referenced element not found in response data`);
-                    geometry.addLayer(makeWayGeometry(way));
-                }
-                // TODO indicate that there might be relations, their data may be incomplete
+            else if (member.type == 'way') {
+                const way = elements.way[member.ref];
+                if (!way)
+                    throw new TypeError(`OSM API error: referenced element not found in response data`);
+                geometry.addLayer(makeWayGeometry(way, elements));
             }
-            return geometry;
+            // TODO indicate that there might be relations, their data may be incomplete
         }
+        return geometry;
+    }
+}
+async function downloadCommon($a, map, downloadSpecific) {
+    $a.classList.add('loading');
+    try {
+        // TODO cancel already running response
+        await downloadSpecific();
+        $a.classList.remove('absent');
+        $a.title = '';
     }
     catch (ex) {
         map.elementLayer.clearLayers();
@@ -912,6 +970,19 @@ async function downloadAndShowElement($a, map, outputDate, elementType, elementI
     finally {
         $a.classList.remove('loading');
     }
+}
+function getChangesetFromOsmApiResponse(data) {
+    if (!data)
+        throw new TypeError(`OSM API error: invalid response data`);
+    const changesetArray = data.elements;
+    if (!Array.isArray(changesetArray))
+        throw new TypeError(`OSM API error: invalid response data`);
+    if (changesetArray.length != 1)
+        throw new TypeError(`OSM API error: invalid response data`);
+    const changeset = changesetArray[0];
+    if (!isOsmChangeset(changeset))
+        throw new TypeError(`OSM API error: invalid changeset in response data`);
+    return changeset;
 }
 function getElementsFromOsmApiResponse(data) {
     const node = {};
@@ -938,39 +1009,71 @@ function getElementsFromOsmApiResponse(data) {
     }
     return { node, way, relation };
 }
-function addElementGeometryToMap(map, outputDate, element, elementGeometry) {
+function makeChangesetPopupContents(outputDate, changeset) {
+    const contents = [];
+    const p = (...s) => makeElement('p')()(...s);
+    const h = (...s) => p(makeElement('strong')()(...s));
+    const c = (...s) => p(makeElement('em')()(...s));
+    const changesetHref = e `https://www.openstreetmap.org/changeset/${changeset.id}`;
+    contents.push(h(`Changeset: `, makeLink(String(changeset.id), changesetHref)));
+    if (changeset.tags?.comment)
+        contents.push(c(changeset.tags.comment));
+    const $p = p();
+    if (changeset.closed_at) {
+        $p.append(`Closed on `, getDate(changeset.closed_at, outputDate));
+    }
+    else {
+        $p.append(`Created on `, getDate(changeset.created_at, outputDate));
+    }
+    $p.append(` by `, getUser(changeset));
+    contents.push($p);
+    const $tags = getTags(changeset.tags, 'comment');
+    if ($tags)
+        contents.push($tags);
+    return contents;
+}
+function makeElementPopupContents(outputDate, element) {
+    const p = (...s) => makeElement('p')()(...s);
+    const h = (...s) => p(makeElement('strong')()(...s));
+    const elementHref = e `https://www.openstreetmap.org/${element.type}/${element.id}`;
+    const contents = [
+        h(capitalize(element.type) + `: `, makeLink(getElementName(element), elementHref)),
+        h(`Version #${element.version} · `, makeLink(`View History`, elementHref + '/history'), ` · `, makeLink(`Edit`, e `https://www.openstreetmap.org/edit?${element.type}=${element.id}`)),
+        p(`Edited on `, getDate(element.timestamp, outputDate), ` by `, getUser(element), ` · Changeset #`, makeLink(String(element.changeset), e `https://www.openstreetmap.org/changeset/${element.changeset}`))
+    ];
+    const $tags = getTags(element.tags);
+    if ($tags)
+        contents.push($tags);
+    return contents;
+}
+function addGeometryToMap(map, geometry, makePopupContents) {
     const popupWriter = () => {
-        const p = (...s) => makeElement('p')()(...s);
-        const h = (...s) => p(makeElement('strong')()(...s));
-        const elementHref = e `https://www.openstreetmap.org/${element.type}/${element.id}`;
-        const $popup = makeDiv('osm-element-popup-contents')(h(capitalize(element.type) + `: `, makeLink(getElementName(element), elementHref)), h(`Version #${element.version} · `, makeLink(`View History`, elementHref + '/history'), ` · `, makeLink(`Edit`, e `https://www.openstreetmap.org/edit?${element.type}=${element.id}`)), p(`Edited on `, getElementDate(element, outputDate), ` by `, getElementUser(element), ` · Changeset #`, makeLink(String(element.changeset), e `https://www.openstreetmap.org/changeset/${element.changeset}`)));
-        if (element.tags)
-            $popup.append(getElementTags(element.tags));
-        return $popup;
+        const $removeButton = document.createElement('button');
+        $removeButton.textContent = `Remove from map view`;
+        $removeButton.onclick = () => {
+            map.elementLayer.clearLayers();
+        };
+        return makeDiv('osm-element-popup-contents')(...makePopupContents(), $removeButton);
     };
-    map.addOsmElement(elementGeometry, popupWriter);
+    map.addOsmElement(geometry, popupWriter);
 }
 function capitalize(s) {
     return s[0].toUpperCase() + s.slice(1);
 }
-function getElementName(element) {
-    if (element.tags?.name) {
-        return `${element.tags.name} (${element.id})`;
-    }
-    else {
-        return String(element.id);
-    }
-}
-function getElementDate(element, outputDate) {
-    const readableDate = element.timestamp.replace('T', ' ').replace('Z', ''); // TODO replace date output fn with active element fn
+function getDate(timestamp, outputDate) {
+    const readableDate = timestamp.replace('T', ' ').replace('Z', ''); // TODO replace date output fn with active element fn
     return outputDate(readableDate);
 }
-function getElementUser(element) {
-    return makeUserLink(element.uid, element.user);
+function getUser(data) {
+    return makeUserLink(data.uid, data.user);
 }
-function getElementTags(tags) {
+function getTags(tags, skipKey) {
+    if (!tags)
+        return null;
     const tagBatchSize = 10;
-    const tagList = Object.entries(tags);
+    const tagList = Object.entries(tags).filter(([k, v]) => k != skipKey);
+    if (tagList.length <= 0)
+        return null;
     let i = 0;
     let $button;
     const $figure = document.createElement('figure');
@@ -1002,6 +1105,14 @@ function getElementTags(tags) {
         }
     }
 }
+function getElementName(element) {
+    if (element.tags?.name) {
+        return `${element.tags.name} (${element.id})`;
+    }
+    else {
+        return String(element.id);
+    }
+}
 
 class CommentWriter {
     constructor(map, figureDialog, pingNoteSection, receiveTimestamp) {
@@ -1016,6 +1127,8 @@ class CommentWriter {
             ev.stopPropagation();
             if (handleNote($a.dataset.noteId))
                 return;
+            if (handleChangeset($a.dataset.changesetId))
+                return;
             if (handleElement($a.dataset.elementType, $a.dataset.elementId))
                 return;
             handleMap($a.dataset.zoom, $a.dataset.lat, $a.dataset.lon);
@@ -1029,6 +1142,13 @@ class CommentWriter {
                     return false;
                 figureDialog.close();
                 pingNoteSection($noteSection);
+                return true;
+            }
+            function handleChangeset(changesetId) {
+                if (!changesetId)
+                    return false;
+                figureDialog.close();
+                downloadAndShowChangeset($a, map, (readableDate) => makeDateOutput(readableDate, that.wrappedActiveTimeElementClickListener), changesetId);
                 return true;
             }
             function handleElement(elementType, elementId) {
@@ -1082,14 +1202,18 @@ class CommentWriter {
                 $a.classList.add('listened', 'osm');
                 if (item.map)
                     [$a.dataset.zoom, $a.dataset.lat, $a.dataset.lon] = item.map;
+                if (item.osm == 'element') {
+                    $a.dataset.elementType = item.element;
+                    $a.dataset.elementId = String(item.id);
+                }
+                if (item.osm == 'changeset') {
+                    $a.classList.add('changeset');
+                    $a.dataset.changesetId = String(item.id);
+                }
                 if (item.osm == 'note') {
                     $a.classList.add('other-note');
                     $a.dataset.noteId = String(item.id);
                     // updateNoteLink($a) // handleNotesUpdate() is going to be run anyway - TODO: or not if ran from parse tool?
-                }
-                if (item.osm == 'element') {
-                    $a.dataset.elementType = item.element;
-                    $a.dataset.elementId = String(item.id);
                 }
                 $a.addEventListener('click', this.wrappedOsmLinkClickListener);
                 inlineElements.push($a);
@@ -1900,7 +2024,7 @@ class ParseTool extends Tool {
         super('parse', `Parse links`);
     }
     getInfo() {
-        return [p(`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →.`, `Currently detected active elements are: `), ul(li(`links to images made in `, makeLink(`StreetComplete`, `https://wiki.openstreetmap.org/wiki/StreetComplete`)), li(`links to OSM notes (clicking the output link is not yet implemented)`), li(`links to OSM elements`), li(`ISO-formatted timestamps`)), p(`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`)];
+        return [p(`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →.`, `Currently detected active elements are: `), ul(li(`links to images made in `, makeLink(`StreetComplete`, `https://wiki.openstreetmap.org/wiki/StreetComplete`)), li(`links to OSM notes (clicking the output link is not yet implemented)`), li(`links to OSM changesets`), li(`links to OSM elements`), li(`ISO-formatted timestamps`)), p(`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`)];
     }
     getTool(callbacks, map, figureDialog) {
         const commentWriter = new CommentWriter(map, figureDialog, () => { }, // TODO ping note section
