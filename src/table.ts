@@ -208,12 +208,28 @@ export default class NoteTable {
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-comment')
 					this.commentWriter.writeComment($cell,comment.text,this.showImages)
+					let x: number|undefined
+					let y: number|undefined
+					let hadSelectinOnMouseDown: boolean = false
+					$cell.onmousedown=(ev)=>{ // TODO wrap listener
+						x=ev.pageX
+						y=ev.pageY
+						hadSelectinOnMouseDown=!!getSelectedText()
+					}
 					$cell.onmouseup=(ev)=>{ // TODO wrap listener
-						const selection=document.getSelection()
-						if (!selection) return
-						if (selection.rangeCount!=1) return
-						if (!selection.toString()) return
+						const samePlace=x==ev.pageX && y==ev.pageY
+						x=y=undefined
+						if (samePlace && hadSelectinOnMouseDown) return // had something selected and made a single click
+						const selectedText=getSelectedText()
+						if (!selectedText) return
+						console.log('> TODO parse',selectedText,'as a result of',samePlace?'doubleclick':'normal selection') ///
 						this.looseParserPopup.open(ev.pageX,ev.pageY,123,'note') // TODO give parse results
+					}
+					function getSelectedText(): string|null {
+						const selection=document.getSelection()
+						if (!selection) return null
+						if (selection.rangeCount!=1) return null
+						return selection.toString()
 					}
 				}
 				iComment++
