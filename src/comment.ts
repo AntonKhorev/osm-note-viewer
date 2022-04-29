@@ -26,12 +26,16 @@ interface OsmElementCommentItem extends OsmCommentItem {
 	element: 'node'|'way'|'relation'
 	id: number
 }
+interface OsmChangesetCommentItem extends OsmCommentItem {
+	osm: 'changeset'
+	id: number
+}
 interface OsmNoteCommentItem extends OsmCommentItem {
 	osm: 'note'
 	id: number
 }
 
-type CommentItem = TextCommentItem | DateCommentItem | ImageCommentItem | OsmRootCommentItem | OsmElementCommentItem | OsmNoteCommentItem
+type CommentItem = TextCommentItem | DateCommentItem | ImageCommentItem | OsmRootCommentItem | OsmElementCommentItem | OsmChangesetCommentItem | OsmNoteCommentItem
 
 export default function getCommentItems(commentText: string): CommentItem[] {
 	const matchRegExp=new RegExp(`(?<before>.*?)(?<text>`+
@@ -41,7 +45,7 @@ export default function getCommentItems(commentText: string): CommentItem[] {
 			`(?<image>westnordost\.de/p/[0-9]+\.jpg)`+
 		'|'+
 			`(?<osm>(?:www\\.)?(?:osm|openstreetmap)\\.org/`+
-				`(?<path>(?<osmType>node|way|relation|note)/(?<id>[0-9]+))?`+
+				`(?<path>(?<osmType>node|way|relation|changeset|note)/(?<id>[0-9]+))?`+
 				`(?<hash>#[-0-9a-zA-Z/.=&]+)?`+ // only need hash at root or at recognized path
 			`)`+
 		`))`+
@@ -112,17 +116,17 @@ function getMatchItem(groups: {[key:string]:string}): CommentItem {
 				map: getMap(groups.hash)
 			}
 			if (groups.osmType && groups.id) {
-				if (groups.osmType=='note') {
-					return {
-						...osmItem,
-						osm: 'note',
-						id: Number(groups.id)
-					}
-				} else if (groups.osmType=='node' || groups.osmType=='way' || groups.osmType=='relation') {
+				if (groups.osmType=='node' || groups.osmType=='way' || groups.osmType=='relation') {
 					return {
 						...osmItem,
 						osm: 'element',
 						element: groups.osmType,
+						id: Number(groups.id)
+					}
+				} else if (groups.osmType=='changeset' || groups.osmType=='note') {
+					return {
+						...osmItem,
+						osm: groups.osmType,
 						id: Number(groups.id)
 					}
 				}

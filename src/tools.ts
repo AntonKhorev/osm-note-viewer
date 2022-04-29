@@ -2,7 +2,7 @@ import type {Note} from './data'
 import {NoteMap} from './map'
 import FigureDialog from './figure'
 import CommentWriter, {makeDateOutput} from './comment-writer'
-import downloadAndShowElement from './osm'
+import {downloadAndShowElement} from './osm'
 import {toReadableDate, toUrlDate} from './query-date'
 import {makeElement, makeLink, makeLabel, escapeXml, makeEscapeTag} from './util'
 

@@ -1,14 +1,17 @@
 import {NoteMap} from './map'
 import {makeLink, makeUserLink, makeDiv, makeElement, makeEscapeTag} from './util'
 
-interface OsmElementBase { // visible osm element
+interface OsmBase {
 	id: number
-	timestamp: string
-	version: number
-	changeset: number
 	user?: string
 	uid: number
 	tags?: {[key:string]:string}
+}
+
+interface OsmElementBase extends OsmBase { // visible osm element
+	timestamp: string
+	version: number
+	changeset: number
 }
 
 interface OsmNodeElement extends OsmElementBase {
@@ -33,15 +36,27 @@ interface OsmRelationElement extends OsmElementBase {
 
 type OsmElement = OsmNodeElement | OsmWayElement | OsmRelationElement
 
+type OsmElementMap = {
+	node: {[id:string]: OsmNodeElement},
+	way: {[id:string]: OsmWayElement},
+	relation: {[id:string]: OsmRelationElement}
+}
+
+function isOsmBase(d: any): boolean {
+	if (!d) return false
+	if (!Number.isInteger(d.id)) return false
+	if (d.user!=null && (typeof d.user != 'string')) return false
+	if (!Number.isInteger(d.uid)) return false
+	if (d.tags!=null && (typeof d.tags != 'object')) return false
+	return true
+}
+
 function isOsmElementBase(e: any): boolean {
-	if (!e) return false
+	if (!isOsmBase(e)) return false
 	if (e.type!='node' && e.type!='way' && e.type!='relation') return false
-	if (!Number.isInteger(e.id)) return false
 	if (typeof e.timestamp != 'string') return false
 	if (!Number.isInteger(e.version)) return false
 	if (!Number.isInteger(e.changeset)) return false
-	if (e.user!=null && (typeof e.user != 'string')) return false
-	if (!Number.isInteger(e.uid)) return false
 	return true
 }
 
@@ -76,15 +91,62 @@ function isOsmRelationElement(e: any): e is OsmRelationElement {
 	return true
 }
 
+interface OsmChangeset extends OsmBase {
+	created_at: string
+	closed_at?: string
+	minlat?: number
+	minlon?: number
+	maxlat?: number
+	maxlon?: number
+}
+
+
+function isOsmChangeset(c: any): c is OsmChangeset {
+	if (!isOsmBase(c)) return false
+	if (typeof c.created_at != 'string') return false
+	if (c.closed_at!=null && (typeof c.closed_at != 'string')) return false
+	if (
+		c.minlat==null && c.minlon==null &&
+		c.maxlat==null && c.maxlon==null
+	) {
+		return true
+	} else if (
+		Number.isFinite(c.minlat) && Number.isFinite(c.minlon) &&
+		Number.isFinite(c.maxlat) && Number.isFinite(c.maxlon)
+	) {
+		return true
+	} else {
+		return false
+	}
+}
+
 const e=makeEscapeTag(encodeURIComponent)
 
-export default async function downloadAndShowElement(
+export async function downloadAndShowChangeset(
+	$a: HTMLAnchorElement, map: NoteMap, outputDate: (readableDate:string)=>HTMLElement,
+	changesetId: string
+): Promise<void> {
+	downloadCommon($a,map,async()=>{
+		const url=e`https://api.openstreetmap.org/api/0.6/changeset/${changesetId}.json`
+		const response=await fetch(url)
+		if (!response.ok) {
+			if (response.status==404) {
+				throw new TypeError(`changeset doesn't exist`)
+			} else {
+				throw new TypeError(`OSM API error: unsuccessful response`)
+			}
+		}
+		const data=await response.json()
+		const changeset=getChangesetFromOsmApiResponse(data)
+		console.log(changeset)
+	})
+}
+
+export async function downloadAndShowElement(
 	$a: HTMLAnchorElement, map: NoteMap, outputDate: (readableDate:string)=>HTMLElement,
 	elementType: OsmElement['type'], elementId: string
-) {
-	$a.classList.add('loading')
-	try {
-		// TODO cancel already running response
+): Promise<void> {
+	downloadCommon($a,map,async()=>{
 		const fullBit=(elementType=='node' ? '' : '/full')
 		const url=e`https://api.openstreetmap.org/api/0.6/${elementType}/${elementId}`+`${fullBit}.json`
 		const response=await fetch(url)
@@ -107,45 +169,53 @@ export default async function downloadAndShowElement(
 			)
 		} else if (isOsmWayElement(element)) {
 			addElementGeometryToMap(map,outputDate,element,
-				makeWayGeometry(element)
+				makeWayGeometry(element,elements)
 			)
 		} else if (isOsmRelationElement(element)) {
 			addElementGeometryToMap(map,outputDate,element,
-				makeRelationGeometry(element)
+				makeRelationGeometry(element,elements)
 			)
 		} else {
 			throw new TypeError(`OSM API error: requested element has unknown type`) // shouldn't happen
 		}
+	})
+	function makeNodeGeometry(node: OsmNodeElement): L.Layer {
+		return L.circleMarker([node.lat,node.lon])
+	}
+	function makeWayGeometry(way: OsmWayElement, elements: OsmElementMap): L.Layer {
+		const coords: L.LatLngExpression[] = []
+		for (const id of way.nodes) {
+			const node=elements.node[id]
+			if (!node) throw new TypeError(`OSM API error: referenced element not found in response data`)
+			coords.push([node.lat,node.lon])
+		}
+		return L.polyline(coords)
+	}
+	function makeRelationGeometry(relation: OsmRelationElement, elements: OsmElementMap): L.Layer {
+		const geometry=L.featureGroup()
+		for (const member of relation.members) {
+			if (member.type=='node') {
+				const node=elements.node[member.ref]
+				if (!node) throw new TypeError(`OSM API error: referenced element not found in response data`)
+				geometry.addLayer(makeNodeGeometry(node))
+			} else if (member.type=='way') {
+				const way=elements.way[member.ref]
+				if (!way) throw new TypeError(`OSM API error: referenced element not found in response data`)
+				geometry.addLayer(makeWayGeometry(way,elements))
+			}
+			// TODO indicate that there might be relations, their data may be incomplete
+		}
+		return geometry
+	}
+}
+
+async function downloadCommon($a: HTMLAnchorElement, map: NoteMap, downloadSpecific: ()=>Promise<void>): Promise<void> {
+	$a.classList.add('loading')
+	try {
+		// TODO cancel already running response
+		await downloadSpecific()
 		$a.classList.remove('absent')
 		$a.title=''
-		function makeNodeGeometry(node: OsmNodeElement): L.Layer {
-			return L.circleMarker([node.lat,node.lon])
-		}
-		function makeWayGeometry(way: OsmWayElement): L.Layer {
-			const coords: L.LatLngExpression[] = []
-			for (const id of way.nodes) {
-				const node=elements.node[id]
-				if (!node) throw new TypeError(`OSM API error: referenced element not found in response data`)
-				coords.push([node.lat,node.lon])
-			}
-			return L.polyline(coords)
-		}
-		function makeRelationGeometry(relation: OsmRelationElement): L.Layer {
-			const geometry=L.featureGroup()
-			for (const member of relation.members) {
-				if (member.type=='node') {
-					const node=elements.node[member.ref]
-					if (!node) throw new TypeError(`OSM API error: referenced element not found in response data`)
-					geometry.addLayer(makeNodeGeometry(node))
-				} else if (member.type=='way') {
-					const way=elements.way[member.ref]
-					if (!way) throw new TypeError(`OSM API error: referenced element not found in response data`)
-					geometry.addLayer(makeWayGeometry(way))
-				}
-				// TODO indicate that there might be relations, their data may be incomplete
-			}
-			return geometry
-		}
 	} catch (ex) {
 		map.elementLayer.clearLayers()
 		$a.classList.add('absent')
@@ -159,11 +229,17 @@ export default async function downloadAndShowElement(
 	}
 }
 
-function getElementsFromOsmApiResponse(data: any): {
-	node: {[id:string]: OsmNodeElement},
-	way: {[id:string]: OsmWayElement},
-	relation: {[id:string]: OsmRelationElement}
-} {
+function getChangesetFromOsmApiResponse(data: any): OsmChangeset {
+	if (!data) throw new TypeError(`OSM API error: invalid response data`)
+	const changesetArray=data.elements
+	if (!Array.isArray(changesetArray)) throw new TypeError(`OSM API error: invalid response data`)
+	if (changesetArray.length!=1) throw new TypeError(`OSM API error: invalid response data`)
+	const changeset=changesetArray[0]
+	if (!isOsmChangeset(changeset)) throw new TypeError(`OSM API error: invalid changeset in response data`)
+	return changeset
+}
+
+function getElementsFromOsmApiResponse(data: any): OsmElementMap {
 	const node: {[id:string]: OsmNodeElement} = {}
 	const way: {[id:string]: OsmWayElement} = {}
 	const relation: {[id:string]: OsmRelationElement} = {}

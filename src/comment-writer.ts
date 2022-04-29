@@ -1,7 +1,7 @@
 import getCommentItems from './comment'
 import {NoteMap} from './map'
 import FigureDialog from './figure'
-import downloadAndShowElement from './osm'
+import {downloadAndShowChangeset, downloadAndShowElement} from './osm'
 import {makeLink} from './util'
 
 export default class CommentWriter {
@@ -23,6 +23,7 @@ export default class CommentWriter {
 			ev.preventDefault()
 			ev.stopPropagation()
 			if (handleNote($a.dataset.noteId)) return
+			if (handleChangeset($a.dataset.changesetId)) return
 			if (handleElement($a.dataset.elementType,$a.dataset.elementId)) return
 			handleMap($a.dataset.zoom,$a.dataset.lat,$a.dataset.lon)
 			function handleNote(noteId: string|undefined): boolean {
@@ -32,6 +33,16 @@ export default class CommentWriter {
 				if ($noteSection.classList.contains('hidden')) return false
 				figureDialog.close()
 				pingNoteSection($noteSection)
+				return true
+			}
+			function handleChangeset(changesetId: string|undefined): boolean {
+				if (!changesetId) return false
+				figureDialog.close()
+				downloadAndShowChangeset(
+					$a,map,
+					(readableDate)=>makeDateOutput(readableDate,that.wrappedActiveTimeElementClickListener),
+					changesetId
+				)
 				return true
 			}
 			function handleElement(elementType: string|undefined, elementId: string|undefined): boolean {
@@ -88,14 +99,18 @@ export default class CommentWriter {
 				const $a=makeLink(item.text,item.href)
 				$a.classList.add('listened','osm')
 				if (item.map) [$a.dataset.zoom,$a.dataset.lat,$a.dataset.lon]=item.map
+				if (item.osm=='element') {
+					$a.dataset.elementType=item.element
+					$a.dataset.elementId=String(item.id)
+				}
+				if (item.osm=='changeset') {
+					$a.classList.add('changeset')
+					$a.dataset.changesetId=String(item.id)
+				}
 				if (item.osm=='note') {
 					$a.classList.add('other-note')
 					$a.dataset.noteId=String(item.id)
 					// updateNoteLink($a) // handleNotesUpdate() is going to be run anyway - TODO: or not if ran from parse tool?
-				}
-				if (item.osm=='element') {
-					$a.dataset.elementType=item.element
-					$a.dataset.elementId=String(item.id)
 				}
 				$a.addEventListener('click',this.wrappedOsmLinkClickListener)
 				inlineElements.push($a)
