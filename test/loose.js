@@ -34,4 +34,8 @@ describe("loose parser module",()=>{
 		const result=parseLoose(`Added to wheelchair:description in Changeset: 1122334455`)
 		assert.deepEqual(result,[1122334455,'changeset'])
 	})
+	it("returns changeset id on multiline changeset url input",()=>{
+		const result=parseLoose(`blabla:\nhttps://www.openstreetmap.org/changeset/99887766`)
+		assert.deepEqual(result,[99887766,'changeset'])
+	})
 })
