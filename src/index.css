@@ -48,6 +48,9 @@ a.listened.loading {
 a.listened.absent {
 	text-decoration-color: #A00;
 }
+a.other-note.absent:active {
+	cursor: not-allowed;
+}
 
 .panel {
 	position: relative;
@@ -330,9 +333,6 @@ body.flipped .notes td.note-user {
 }
 .notes table.with-images td.note-comment a.image.float {
 	display: block;
-}
-.notes td.note-comment a.other-note.absent:active {
-	cursor: not-allowed;
 }
 
 .more div {

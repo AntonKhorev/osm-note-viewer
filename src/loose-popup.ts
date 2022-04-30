@@ -34,6 +34,7 @@ export default class LooseParserPopup {
 		const $a=makeElement('a')()(type)
 		$a.href=e`https://www.openstreetmap.org/${type}/${id}`
 		if (type=='note') {
+			$a.classList.add('other-note')
 			$a.dataset.noteId=String(id)
 		} else if (type=='changeset') {
 			$a.dataset.changesetId=String(id)

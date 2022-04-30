@@ -109,9 +109,8 @@ export default class CommentWriter {
 				if (item.osm=='note') {
 					$a.classList.add('other-note')
 					$a.dataset.noteId=String(item.id)
-					// updateNoteLink($a) // handleNotesUpdate() is going to be run anyway - TODO: or not if ran from parse tool?
 				}
-				this.installOsmClickListenerAfterDatasets($a)
+				this.installOsmClickListenerAfterDatasets($a,true) // suppress note link updates because handleNotesUpdate() is going to be run anyway - TODO: or not if ran from parse tool?
 				inlineElements.push($a)
 			} else if (item.type=='date') {
 				const $time=makeActiveTimeElement(item.text,item.text)
@@ -131,8 +130,9 @@ export default class CommentWriter {
 		}
 		$cell.append(...imageElements,...inlineElements)
 	}
-	installOsmClickListenerAfterDatasets($a: HTMLAnchorElement) {
+	installOsmClickListenerAfterDatasets($a: HTMLAnchorElement, suppressUpdateNoteLink=false): void {
 		$a.classList.add('listened','osm')
+		if (!suppressUpdateNoteLink && $a.classList.contains('other-note')) updateNoteLink($a)
 		$a.addEventListener('click',this.wrappedOsmLinkClickListener)
 	}
 }
