@@ -11,8 +11,8 @@ describe("loose parser module",()=>{
 		assert.equal(result,null)
 	})
 	it("returns unknown id on number input",()=>{
-		const result=parseLoose(`12345`)
-		assert.deepEqual(result,[12345,undefined])
+		const result=parseLoose(`123450`)
+		assert.deepEqual(result,[123450,undefined])
 	})
 	it("returns unknown id on padded number input",()=>{
 		const result=parseLoose(`  1234567   `)
@@ -21,5 +21,17 @@ describe("loose parser module",()=>{
 	it("returns unknown id on input with number preceded by rubbish",()=>{
 		const result=parseLoose(`sdhfsk hkjsh owieij 54321`)
 		assert.deepEqual(result,[54321,undefined])
+	})
+	it("returns changeset id on basic changeset input",()=>{
+		const result=parseLoose(`changeset 87655678`)
+		assert.deepEqual(result,[87655678,'changeset'])
+	})
+	it("returns changeset id on extended changeset input",()=>{
+		const result=parseLoose(`Relevant details added in changeset 12345678 `)
+		assert.deepEqual(result,[12345678,'changeset'])
+	})
+	it("returns changeset id on extended changeset input with caps",()=>{
+		const result=parseLoose(`Added to wheelchair:description in Changeset: 1122334455`)
+		assert.deepEqual(result,[1122334455,'changeset'])
 	})
 })
