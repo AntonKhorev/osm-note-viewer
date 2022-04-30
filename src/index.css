@@ -364,7 +364,7 @@ body.flipped .notes td.note-user {
 
 .loose-parser-popup {
 	--item-height: 20px;
-	--item-width: 80px;
+	--item-width: 90px;
 	display: none;
 	position: fixed;
 	z-index: 1;

@@ -17,7 +17,7 @@ export default class LooseParserPopup {
 	}
 	open(x: number, y: number, id: number, type: LooseParseType): void {
 		const itemHeight=20
-		const itemWidth=80
+		const itemWidth=90
 		this.$popup.style.left=`${x-0.75*itemWidth}px`
 		this.$popup.style.top=`${y-2*itemHeight}px`
 		this.$popup.innerHTML=''
