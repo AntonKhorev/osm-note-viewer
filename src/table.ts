@@ -1,5 +1,6 @@
 import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
+import LooseParserListener from './loose-listen'
 import LooseParserPopup from './loose-popup'
 import FigureDialog from './figure'
 import CommentWriter, {handleShowImagesUpdate, handleNotesUpdate, makeDateOutput} from './comment-writer'
@@ -14,9 +15,9 @@ export default class NoteTable {
 	private wrappedAllNotesCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
 	private noteSectionVisibilityObserver: NoteSectionVisibilityObserver
+	private looseParserListener: LooseParserListener
 	private $table = document.createElement('table')
 	private $selectAllCheckbox = document.createElement('input')
-	private looseParserPopup: LooseParserPopup
 	private noteSectionLayerIdVisibility=new Map<number,boolean>()
 	private $lastClickedNoteSection: HTMLTableSectionElement | undefined
 	private notesById = new Map<number,Note>() // in the future these might be windowed to limit the amount of stuff on one page
@@ -100,7 +101,11 @@ export default class NoteTable {
 			return $cell
 		}
 		this.updateCheckboxDependents()
-		this.looseParserPopup=new LooseParserPopup($container)
+		const looseParserPopup=new LooseParserPopup($container)
+		this.looseParserListener=new LooseParserListener((x,y,text)=>{
+			console.log('> parse',text) ///
+			looseParserPopup.open(x,y,123,'note') // TODO give parse results
+		})
 	}
 	updateFilter(filter: NoteFilter): void {
 		let nFetched=0
@@ -208,76 +213,7 @@ export default class NoteTable {
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-comment')
 					this.commentWriter.writeComment($cell,comment.text,this.showImages)
-					let x: number|undefined
-					let y: number|undefined
-					let hadSelectionOnMouseDown: boolean = false
-					$cell.onmousedown=(ev)=>{ // TODO wrap listener
-						x=ev.pageX
-						y=ev.pageY
-						hadSelectionOnMouseDown=!!getSelection()?.toString()
-					}
-					$cell.onmouseup=(ev)=>{ // TODO wrap listener
-						const samePlace=x==ev.pageX && y==ev.pageY
-						x=y=undefined
-						if (samePlace && hadSelectionOnMouseDown) return // had something selected and made a single click
-						const selectedText=getExtendedSelectionText(samePlace) // need to extend the selected text when the selection is a result of a double-click
-						if (!selectedText) return
-						console.log('> parse',selectedText,'from selection',document.getSelection()) ///
-						this.looseParserPopup.open(ev.pageX,ev.pageY,123,'note') // TODO give parse results
-					}
-					function getSelection(): Selection|null {
-						const selection=document.getSelection()
-						if (!selection) return null
-						if (selection.rangeCount!=1) return null
-						return selection
-					}
-					function getExtendedSelectionText(needToExtend: boolean): string {
-						const selection=getSelection()
-						if (!selection) return ''
-						const selectionText=selection.toString()
-						if (!needToExtend || !selectionText) return selectionText
-						if (
-							selection.anchorNode==null || selection.anchorOffset==null ||
-							selection.focusNode==null  || selection.focusOffset==null
-						) return ''
-						const t1=getExtendedSelectionTextToNodeAndOffset($cell,selection.anchorNode,selection.anchorOffset)
-						const t2=getExtendedSelectionTextToNodeAndOffset($cell,selection.focusNode,selection.focusOffset)
-						if (t1.length>t2.length) {
-							return t1
-						} else {
-							return t2
-						}
-					}
-					function getExtendedSelectionTextToNodeAndOffset(startNode: Node, node: Node, offset: number): string {
-						const range=document.createRange()
-						range.setStart(startNode,0)
-						range.setEnd(node,offset)
-						return range.toString()
-					}
-
-					// function getEndNodeAndOffset(
-					// 	anchorNode: Node, anchorOffset: number,
-					// 	focusNode:  Node, focusOffset:  number
-					// ): [Node,number] {
-					// 	if (anchorNode==focusNode) {
-					// 		if (anchorOffset>focusOffset) {
-					// 			console.log('>> as')
-					// 			return [anchorNode,anchorOffset]
-					// 		} else {
-					// 			console.log('>> fs')
-					// 			return [focusNode,focusOffset]
-					// 		}
-					// 	} else {
-					// 		const order=anchorNode.compareDocumentPosition(focusNode)
-					// 		if (order&Node.DOCUMENT_POSITION_PRECEDING) {
-					// 			console.log('>> ad',order)
-					// 			return [anchorNode,anchorOffset]
-					// 		} else {
-					// 			console.log('>> fd',order)
-					// 			return [focusNode,focusOffset]
-					// 		}
-					// 	}
-					// }
+					this.looseParserListener.listen($cell)
 				}
 				iComment++
 			}
