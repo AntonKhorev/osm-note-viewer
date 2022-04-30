@@ -636,6 +636,136 @@ class FigureDialog {
     }
 }
 
+class LooseParserListener {
+    constructor(callback) {
+        this.hadSelectionOnMouseDown = false;
+        const that = this;
+        this.mouseDownListener = function (ev) {
+            that.x = ev.pageX;
+            that.y = ev.pageY;
+            that.hadSelectionOnMouseDown = !!getValidSelection()?.toString();
+        };
+        this.mouseUpListener = function (ev) {
+            const samePlace = that.x == ev.pageX && that.y == ev.pageY;
+            that.x = that.y = undefined;
+            if (samePlace && that.hadSelectionOnMouseDown)
+                return; // had something selected and made a single click
+            const selectedText = getExtendedSelectionText(this, samePlace); // need to extend the selected text when the selection is a result of a double-click
+            if (!selectedText)
+                return;
+            callback(ev.pageX, ev.pageY, selectedText);
+        };
+        function getValidSelection() {
+            const selection = document.getSelection();
+            if (!selection)
+                return null;
+            if (selection.rangeCount != 1)
+                return null;
+            return selection;
+        }
+        function getExtendedSelectionText(startNode, needToExtend) {
+            const selection = getValidSelection();
+            if (!selection)
+                return '';
+            const selectionText = selection.toString();
+            if (!needToExtend || !selectionText)
+                return selectionText;
+            if (selection.anchorNode == null || selection.anchorOffset == null ||
+                selection.focusNode == null || selection.focusOffset == null)
+                return '';
+            const t1 = getExtendedSelectionTextToNodeAndOffset(startNode, selection.anchorNode, selection.anchorOffset);
+            const t2 = getExtendedSelectionTextToNodeAndOffset(startNode, selection.focusNode, selection.focusOffset);
+            if (t1.length > t2.length) {
+                return t1;
+            }
+            else {
+                return t2;
+            }
+        }
+        function getExtendedSelectionTextToNodeAndOffset(startNode, node, offset) {
+            const range = document.createRange();
+            range.setStart(startNode, 0);
+            range.setEnd(node, offset);
+            return range.toString();
+        }
+    }
+    listen($target) {
+        $target.addEventListener('mousedown', this.mouseDownListener);
+        $target.addEventListener('mouseup', this.mouseUpListener);
+    }
+}
+
+const e$1 = makeEscapeTag(encodeURIComponent);
+const makeItem = makeElement('li')();
+const makeITEM = makeElement('li')('main');
+class LooseParserPopup {
+    constructor($container, installClickListener) {
+        this.installClickListener = installClickListener;
+        this.$popup = document.createElement('ul');
+        this.$popup.classList.add('loose-parser-popup');
+        this.$popup.onmouseleave = () => {
+            this.$popup.classList.remove('open');
+            this.$popup.innerHTML = '';
+        };
+        $container.append(this.$popup);
+    }
+    open(x, y, id, type) {
+        const itemHeight = 20;
+        const itemWidth = 90;
+        this.$popup.style.left = `${x - 0.75 * itemWidth}px`;
+        this.$popup.style.top = `${y - 2 * itemHeight}px`;
+        this.$popup.innerHTML = '';
+        this.$popup.append(makeItem(makeElement('a')()(`#${id}`)));
+        this.$popup.append(makeITEM(this.makeLink(id, type)));
+        const types = ['note', 'changeset', 'node', 'way', 'relation'];
+        for (const type of types) {
+            this.$popup.append(makeItem(this.makeLink(id, type)));
+        }
+        this.$popup.classList.add('open');
+    }
+    makeLink(id, type) {
+        if (type == null)
+            return makeElement('a')()('?');
+        const $a = makeElement('a')()(type);
+        $a.href = e$1 `https://www.openstreetmap.org/${type}/${id}`;
+        if (type == 'note') {
+            $a.classList.add('other-note');
+            $a.dataset.noteId = String(id);
+        }
+        else if (type == 'changeset') {
+            $a.dataset.changesetId = String(id);
+        }
+        else {
+            $a.dataset.elementType = type;
+            $a.dataset.elementId = String(id);
+        }
+        this.installClickListener($a);
+        return $a;
+    }
+}
+
+function parseLoose(text) {
+    const match = text.match(/^(.*?)([0-9]+)\s*$/s);
+    if (!match)
+        return null;
+    const [, prefix, idString] = match;
+    return [Number(idString), getType(prefix)];
+}
+function getType(text) {
+    const types = ['note', 'changeset', 'node', 'way', 'relation'];
+    let bestType = undefined;
+    let bestIndex = -1;
+    const lowercaseText = text.toLowerCase();
+    for (const type of types) {
+        const index = lowercaseText.lastIndexOf(type);
+        if (index > bestIndex) {
+            bestIndex = index;
+            bestType = type;
+        }
+    }
+    return bestType;
+}
+
 function getCommentItems(commentText) {
     const matchRegExp = new RegExp(`(?<before>.*?)(?<text>` +
         `(?<date>\\d\\d\\d\\d-\\d\\d-\\d\\d[T ]\\d\\d:\\d\\d:\\d\\dZ)` +
@@ -1199,7 +1329,6 @@ class CommentWriter {
             }
             else if (item.type == 'link' && item.link == 'osm') {
                 const $a = makeLink(item.text, item.href);
-                $a.classList.add('listened', 'osm');
                 if (item.map)
                     [$a.dataset.zoom, $a.dataset.lat, $a.dataset.lon] = item.map;
                 if (item.osm == 'element') {
@@ -1213,9 +1342,8 @@ class CommentWriter {
                 if (item.osm == 'note') {
                     $a.classList.add('other-note');
                     $a.dataset.noteId = String(item.id);
-                    // updateNoteLink($a) // handleNotesUpdate() is going to be run anyway - TODO: or not if ran from parse tool?
                 }
-                $a.addEventListener('click', this.wrappedOsmLinkClickListener);
+                this.installOsmClickListenerAfterDatasets($a, true); // suppress note link updates because handleNotesUpdate() is going to be run anyway - TODO: or not if ran from parse tool?
                 inlineElements.push($a);
             }
             else if (item.type == 'date') {
@@ -1236,6 +1364,12 @@ class CommentWriter {
             $cell.addEventListener('mouseout', imageCommentHoverListener);
         }
         $cell.append(...imageElements, ...inlineElements);
+    }
+    installOsmClickListenerAfterDatasets($a, suppressUpdateNoteLink = false) {
+        $a.classList.add('listened', 'osm');
+        if (!suppressUpdateNoteLink && $a.classList.contains('other-note'))
+            updateNoteLink($a);
+        $a.addEventListener('click', this.wrappedOsmLinkClickListener);
     }
 }
 function handleShowImagesUpdate($table, showImages) {
@@ -1518,6 +1652,13 @@ class NoteTable {
             return $cell;
         }
         this.updateCheckboxDependents();
+        const looseParserPopup = new LooseParserPopup($container, ($a) => this.commentWriter.installOsmClickListenerAfterDatasets($a));
+        this.looseParserListener = new LooseParserListener((x, y, text) => {
+            const parseResult = parseLoose(text);
+            if (!parseResult)
+                return;
+            looseParserPopup.open(x, y, ...parseResult);
+        });
     }
     updateFilter(filter) {
         let nFetched = 0;
@@ -1636,6 +1777,7 @@ class NoteTable {
                     const $cell = $row.insertCell();
                     $cell.classList.add('note-comment');
                     this.commentWriter.writeComment($cell, comment.text, this.showImages);
+                    this.looseParserListener.listen($cell);
                 }
                 iComment++;
             }

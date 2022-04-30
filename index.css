@@ -1,3 +1,9 @@
+:root {
+	--frame-color: #CCC;
+	--hover-color: #DEF;
+	--click-color: #FC8;
+}
+
 .text-side,
 .graphic-side {
 	position: fixed;
@@ -42,12 +48,15 @@ a.listened.loading {
 a.listened.absent {
 	text-decoration-color: #A00;
 }
+a.other-note.absent:active {
+	cursor: not-allowed;
+}
 
 .panel {
 	position: relative;
 	padding: .5rem;
-	border-top: solid 1px #CCC;
-	border-bottom: solid 1px #CCC;
+	border-top: solid 1px var(--frame-color);
+	border-bottom: solid 1px var(--frame-color);
 }
 .panel + .panel {
 	border-top: none;
@@ -246,10 +255,10 @@ body.flipped .panel.fetch button.flip {
 	box-shadow: -2px 0px 0px 0px green, 2px 0px 0px 0px green;
 }
 .notes tbody.active-hover {
-	background: #DEF;
+	background: var(--hover-color);
 }
 @keyframes active-click-fade {
-	from { background: #FC8; }
+	from { background: var(--click-color); }
 	to { background: transparent; }
 }
 .notes tbody.active-click {
@@ -325,9 +334,7 @@ body.flipped .notes td.note-user {
 .notes table.with-images td.note-comment a.image.float {
 	display: block;
 }
-.notes td.note-comment a.other-note.absent:active {
-	cursor: not-allowed;
-}
+
 .more div {
 	padding: 1em;
 }
@@ -353,6 +360,41 @@ body.flipped .notes td.note-user {
 }
 .examples code {
 	white-space: pre-wrap;
+}
+
+.loose-parser-popup {
+	--item-height: 20px;
+	--item-width: 90px;
+	display: none;
+	position: fixed;
+	z-index: 1;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	border: solid 1px var(--frame-color);
+	font-size: .9em;
+	opacity: .9;
+}
+.loose-parser-popup.open {
+	display: block;
+}
+.loose-parser-popup a {
+	display: flex;
+	box-sizing: border-box;
+	width: var(--item-width);
+	height: var(--item-height);
+	align-items: center;
+	padding-left: 5px;
+	background: #F8F8F8;
+}
+.loose-parser-popup li.main a {
+	height: calc(2*var(--item-height));
+	border-top: solid 1px var(--frame-color);
+	border-bottom: solid 1px var(--frame-color);
+	background: #FFF;
+}
+.loose-parser-popup a:link:hover {
+	background: var(--hover-color);
 }
 
 .map {
@@ -389,17 +431,17 @@ body.flipped .notes td.note-user {
 	font-weight: bold;
 }
 .map .osm-element-popup-contents figure table {
-	border: solid 1px #CCC;
+	border: solid 1px var(--frame-color);
 	border-spacing: 0;
 	border-radius: .25rem;
 	width: 100%;
 }
 .map .osm-element-popup-contents figure tr:not(:first-child) td {
-	border-top: solid 1px #CCC;
+	border-top: solid 1px var(--frame-color);
 }
 .map .osm-element-popup-contents figure tr td:first-child {
 	background: #F8F8FF;
-	border-right: solid 1px #CCC;
+	border-right: solid 1px var(--frame-color);
 }
 .map .osm-element-popup-contents button {
 	display: block;
