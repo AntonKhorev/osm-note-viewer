@@ -1,3 +1,4 @@
+import {LooseParseType} from './loose'
 import {makeElement, makeEscapeTag} from './util'
 
 const e=makeEscapeTag(encodeURIComponent)
@@ -11,7 +12,7 @@ export default class LooseParserPopup {
 		}
 		$container.append(this.$popup)
 	}
-	open(x: number, y: number, id: number, type: 'note'|'changeset'|'node'|'way'|'relation'|undefined): void {
+	open(x: number, y: number, id: number, type: LooseParseType): void {
 		const itemHeight=20
 		const itemWidth=80
 		this.$popup.style.left=`${x-0.75*itemWidth}px`

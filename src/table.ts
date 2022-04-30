@@ -2,6 +2,7 @@ import type {Note, NoteComment, Users} from './data'
 import {NoteMap, NoteMarker} from './map'
 import LooseParserListener from './loose-listen'
 import LooseParserPopup from './loose-popup'
+import parseLoose from './loose'
 import FigureDialog from './figure'
 import CommentWriter, {handleShowImagesUpdate, handleNotesUpdate, makeDateOutput} from './comment-writer'
 import ToolPanel from './tool-panel'
@@ -103,8 +104,9 @@ export default class NoteTable {
 		this.updateCheckboxDependents()
 		const looseParserPopup=new LooseParserPopup($container)
 		this.looseParserListener=new LooseParserListener((x,y,text)=>{
-			console.log('> parse',text) ///
-			looseParserPopup.open(x,y,123,'note') // TODO give parse results
+			const parseResult=parseLoose(text)
+			if (!parseResult) return
+			looseParserPopup.open(x,y,...parseResult)
 		})
 	}
 	updateFilter(filter: NoteFilter): void {
