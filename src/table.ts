@@ -210,27 +210,74 @@ export default class NoteTable {
 					this.commentWriter.writeComment($cell,comment.text,this.showImages)
 					let x: number|undefined
 					let y: number|undefined
-					let hadSelectinOnMouseDown: boolean = false
+					let hadSelectionOnMouseDown: boolean = false
 					$cell.onmousedown=(ev)=>{ // TODO wrap listener
 						x=ev.pageX
 						y=ev.pageY
-						hadSelectinOnMouseDown=!!getSelectedText()
+						hadSelectionOnMouseDown=!!getSelection()?.toString()
 					}
 					$cell.onmouseup=(ev)=>{ // TODO wrap listener
 						const samePlace=x==ev.pageX && y==ev.pageY
 						x=y=undefined
-						if (samePlace && hadSelectinOnMouseDown) return // had something selected and made a single click
-						const selectedText=getSelectedText()
+						if (samePlace && hadSelectionOnMouseDown) return // had something selected and made a single click
+						const selectedText=getExtendedSelectionText(samePlace) // need to extend the selected text when the selection is a result of a double-click
 						if (!selectedText) return
-						console.log('> TODO parse',selectedText,'as a result of',samePlace?'doubleclick':'normal selection') ///
+						console.log('> parse',selectedText,'from selection',document.getSelection()) ///
 						this.looseParserPopup.open(ev.pageX,ev.pageY,123,'note') // TODO give parse results
 					}
-					function getSelectedText(): string|null {
+					function getSelection(): Selection|null {
 						const selection=document.getSelection()
 						if (!selection) return null
 						if (selection.rangeCount!=1) return null
-						return selection.toString()
+						return selection
 					}
+					function getExtendedSelectionText(needToExtend: boolean): string {
+						const selection=getSelection()
+						if (!selection) return ''
+						const selectionText=selection.toString()
+						if (!needToExtend || !selectionText) return selectionText
+						if (
+							selection.anchorNode==null || selection.anchorOffset==null ||
+							selection.focusNode==null  || selection.focusOffset==null
+						) return ''
+						const t1=getExtendedSelectionTextToNodeAndOffset($cell,selection.anchorNode,selection.anchorOffset)
+						const t2=getExtendedSelectionTextToNodeAndOffset($cell,selection.focusNode,selection.focusOffset)
+						if (t1.length>t2.length) {
+							return t1
+						} else {
+							return t2
+						}
+					}
+					function getExtendedSelectionTextToNodeAndOffset(startNode: Node, node: Node, offset: number): string {
+						const range=document.createRange()
+						range.setStart(startNode,0)
+						range.setEnd(node,offset)
+						return range.toString()
+					}
+
+					// function getEndNodeAndOffset(
+					// 	anchorNode: Node, anchorOffset: number,
+					// 	focusNode:  Node, focusOffset:  number
+					// ): [Node,number] {
+					// 	if (anchorNode==focusNode) {
+					// 		if (anchorOffset>focusOffset) {
+					// 			console.log('>> as')
+					// 			return [anchorNode,anchorOffset]
+					// 		} else {
+					// 			console.log('>> fs')
+					// 			return [focusNode,focusOffset]
+					// 		}
+					// 	} else {
+					// 		const order=anchorNode.compareDocumentPosition(focusNode)
+					// 		if (order&Node.DOCUMENT_POSITION_PRECEDING) {
+					// 			console.log('>> ad',order)
+					// 			return [anchorNode,anchorOffset]
+					// 		} else {
+					// 			console.log('>> fd',order)
+					// 			return [focusNode,focusOffset]
+					// 		}
+					// 	}
+					// }
 				}
 				iComment++
 			}
