@@ -38,4 +38,28 @@ describe("loose parser module",()=>{
 		const result=parseLoose(`blabla:\nhttps://www.openstreetmap.org/changeset/99887766`)
 		assert.deepEqual(result,[99887766,'changeset'])
 	})
+	it("returns node id on basic note input",()=>{
+		const result=parseLoose(`note 78987`)
+		assert.deepEqual(result,[78987,'note'])
+	})
+	it("returns node id on basic node input",()=>{
+		const result=parseLoose(`node 1020304050`)
+		assert.deepEqual(result,[1020304050,'node'])
+	})
+	it("returns way id on basic way input",()=>{
+		const result=parseLoose(`way 10203040`)
+		assert.deepEqual(result,[10203040,'way'])
+	})
+	it("returns relation id on basic relation input",()=>{
+		const result=parseLoose(`relation 102030`)
+		assert.deepEqual(result,[102030,'relation'])
+	})
+	it("returns node id if node comes last in way and node input",()=>{
+		const result=parseLoose(`way 332211 and node 55443322`)
+		assert.deepEqual(result,[55443322,'node'])
+	})
+	it("returns way id if way comes last in node and way input",()=>{
+		const result=parseLoose(`node 55443322 and way 332211`)
+		assert.deepEqual(result,[332211,'way'])
+	})
 })
