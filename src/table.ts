@@ -102,7 +102,7 @@ export default class NoteTable {
 			return $cell
 		}
 		this.updateCheckboxDependents()
-		const looseParserPopup=new LooseParserPopup($container)
+		const looseParserPopup=new LooseParserPopup($container,($a)=>this.commentWriter.installOsmClickListenerAfterDatasets($a))
 		this.looseParserListener=new LooseParserListener((x,y,text)=>{
 			const parseResult=parseLoose(text)
 			if (!parseResult) return

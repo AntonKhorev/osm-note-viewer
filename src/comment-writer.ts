@@ -97,7 +97,6 @@ export default class CommentWriter {
 				imageElements.push($floatLink)
 			} else if (item.type=='link' && item.link=='osm') {
 				const $a=makeLink(item.text,item.href)
-				$a.classList.add('listened','osm')
 				if (item.map) [$a.dataset.zoom,$a.dataset.lat,$a.dataset.lon]=item.map
 				if (item.osm=='element') {
 					$a.dataset.elementType=item.element
@@ -112,7 +111,7 @@ export default class CommentWriter {
 					$a.dataset.noteId=String(item.id)
 					// updateNoteLink($a) // handleNotesUpdate() is going to be run anyway - TODO: or not if ran from parse tool?
 				}
-				$a.addEventListener('click',this.wrappedOsmLinkClickListener)
+				this.installOsmClickListenerAfterDatasets($a)
 				inlineElements.push($a)
 			} else if (item.type=='date') {
 				const $time=makeActiveTimeElement(item.text,item.text)
@@ -131,6 +130,10 @@ export default class CommentWriter {
 			$cell.addEventListener('mouseout',imageCommentHoverListener)
 		}
 		$cell.append(...imageElements,...inlineElements)
+	}
+	installOsmClickListenerAfterDatasets($a: HTMLAnchorElement) {
+		$a.classList.add('listened','osm')
+		$a.addEventListener('click',this.wrappedOsmLinkClickListener)
 	}
 }
 
