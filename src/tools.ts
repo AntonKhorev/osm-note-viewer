@@ -382,9 +382,60 @@ class IdTool extends Tool {
 	}
 }
 
-class GpxTool extends Tool {
-	private selectedNotes: ReadonlyArray<Note> = []
-	private selectedNoteUsers: ReadonlyMap<number,string> = new Map()
+abstract class ExportTool extends Tool {
+	protected selectedNotes: ReadonlyArray<Note> = []
+	protected selectedNoteUsers: ReadonlyMap<number,string> = new Map()
+	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean {
+		this.selectedNotes=selectedNotes
+		this.selectedNoteUsers=selectedNoteUsers
+		return true
+	}
+	getTool(): ToolElements {
+		const $connectSelect=document.createElement('select')
+		$connectSelect.append(
+			new Option(`without connections`,'no'),
+			new Option(`connected by route`,'rte'),
+			new Option(`connected by track`,'trk')
+		)
+		const $commentsSelect=document.createElement('select')
+		$commentsSelect.append(
+			new Option(`first comment`,'first'),
+			new Option(`all comments`,'all')
+		)
+		const $dataTypeSelect=document.createElement('select')
+		$dataTypeSelect.append(
+			new Option('text/xml'),
+			new Option('application/gpx+xml'),
+			new Option('text/plain')
+		)
+		const $exportNotesButton=this.makeRequiringSelectedNotesButton()
+		$exportNotesButton.append(`Export `,makeNotesIcon('selected'))
+		$exportNotesButton.onclick=()=>{
+			const gpx=this.generateData($connectSelect.value,$commentsSelect.value)
+			const file=new File([gpx],'notes.gpx')
+			const $a=document.createElement('a')
+			$a.href=URL.createObjectURL(file)
+			$a.download='notes.gpx'
+			$a.click()
+			URL.revokeObjectURL($a.href)
+		}
+		$exportNotesButton.draggable=true
+		$exportNotesButton.ondragstart=(ev)=>{
+			const gpx=this.generateData($connectSelect.value,$commentsSelect.value)
+			if (!ev.dataTransfer) return
+			ev.dataTransfer.setData($dataTypeSelect.value,gpx)
+		}
+		return [
+			$exportNotesButton,` `,
+			makeLabel('inline')(` as waypoints `,$connectSelect),` `,
+			makeLabel('inline')(` with `,$commentsSelect,` in descriptions`),`, `,
+			makeLabel('inline')(`set `,$dataTypeSelect,` type in drag and drop events`)
+		]
+	}
+	protected abstract generateData(connectSetting: string, commentsSetting: string): string
+}
+
+class GpxTool extends ExportTool {
 	constructor() {super(
 		'gpx',
 		`GPX`
@@ -409,26 +460,7 @@ class GpxTool extends Tool {
 		`Not many places actually do, and those who do often can handle only plaintext. `,
 		`That's why there's a type selector, with which plaintext format can be forced on transmitted data.`
 	)]}
-	getTool(): ToolElements {
-		const $connectSelect=document.createElement('select')
-		$connectSelect.append(
-			new Option(`without connections`,'no'),
-			new Option(`connected by route`,'rte'),
-			new Option(`connected by track`,'trk')
-		)
-		const $commentsSelect=document.createElement('select')
-		$commentsSelect.append(
-			new Option(`first comment`,'first'),
-			new Option(`all comments`,'all')
-		)
-		const $dataTypeSelect=document.createElement('select')
-		$dataTypeSelect.append(
-			new Option('text/xml'),
-			new Option('application/gpx+xml'),
-			new Option('text/plain')
-		)
-		const $exportNotesButton=this.makeRequiringSelectedNotesButton()
-		$exportNotesButton.append(`Export `,makeNotesIcon('selected'))
+	protected generateData(connectSetting: string, commentsSetting: string): string {
 		const e=makeEscapeTag(escapeXml)
 		const getPoints=(pointTag: string, getDetails: (note: Note) => string = ()=>''): string => {
 			let gpx=''
@@ -441,85 +473,67 @@ class GpxTool extends Tool {
 			}
 			return gpx
 		}
-		const getGpx=(): string => {
-			let gpx=e`<?xml version="1.0" encoding="UTF-8" ?>\n`
-			gpx+=e`<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">\n`
-			// TODO <name>selected notes of user A</name>
-			gpx+=getPoints('wpt',note=>{
-				let gpx=''
-				gpx+=e`<name>${note.id}</name>\n`
-				if (note.comments.length>0) {
-					gpx+=`<desc>`
-					let first=true
-					for (const comment of note.comments) {
-						if (first) {
-							first=false
-						} else {
-							gpx+=`&#xA;\n` // JOSM wants this kind of double newline, otherwise no space between comments is rendered
-						}
-						if (comment.uid) {
-							const username=this.selectedNoteUsers.get(comment.uid)
-							if (username!=null) {
-								gpx+=e`${username}`
-							} else {
-								gpx+=e`user #${comment.uid}`
-							}
-						} else {
-							gpx+=`anonymous user`
-						}
-						if ($commentsSelect.value=='all') gpx+=e` ${comment.action}`
-						gpx+=` at ${toReadableDate(comment.date)}`
-						if (comment.text) gpx+=e`: ${comment.text}`
-						if ($commentsSelect.value!='all') break
+		let gpx=e`<?xml version="1.0" encoding="UTF-8" ?>\n`
+		gpx+=e`<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">\n`
+		// TODO <name>selected notes of user A</name>
+		gpx+=getPoints('wpt',note=>{
+			let gpx=''
+			gpx+=e`<name>${note.id}</name>\n`
+			if (note.comments.length>0) {
+				gpx+=`<desc>`
+				let first=true
+				for (const comment of note.comments) {
+					if (first) {
+						first=false
+					} else {
+						gpx+=`&#xA;\n` // JOSM wants this kind of double newline, otherwise no space between comments is rendered
 					}
-					gpx+=`</desc>\n`
+					if (comment.uid) {
+						const username=this.selectedNoteUsers.get(comment.uid)
+						if (username!=null) {
+							gpx+=e`${username}`
+						} else {
+							gpx+=e`user #${comment.uid}`
+						}
+					} else {
+						gpx+=`anonymous user`
+					}
+					if (commentsSetting=='all') gpx+=e` ${comment.action}`
+					gpx+=` at ${toReadableDate(comment.date)}`
+					if (comment.text) gpx+=e`: ${comment.text}`
+					if (commentsSetting!='all') break
 				}
-				const noteUrl=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.id)
-				gpx+=e`<link href="${noteUrl}">\n`
-				gpx+=e`<text>note #${note.id} on osm</text>\n`
-				gpx+=e`</link>\n`
-				gpx+=e`<type>${note.status}</type>\n`
-				return gpx
-			})
-			if ($connectSelect.value=='rte') {
-				gpx+=`<rte>\n`
-				gpx+=getPoints('rtept')
-				gpx+=`</rte>\n`
+				gpx+=`</desc>\n`
 			}
-			if ($connectSelect.value=='trk') {
-				gpx+=`<trk><trkseg>\n`
-				gpx+=getPoints('trkpt')
-				gpx+=`</trkseg></trk>\n`
-			}
-			gpx+=`</gpx>\n`
+			const noteUrl=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.id)
+			gpx+=e`<link href="${noteUrl}">\n`
+			gpx+=e`<text>note #${note.id} on osm</text>\n`
+			gpx+=e`</link>\n`
+			gpx+=e`<type>${note.status}</type>\n`
 			return gpx
+		})
+		if (connectSetting=='rte') {
+			gpx+=`<rte>\n`
+			gpx+=getPoints('rtept')
+			gpx+=`</rte>\n`
 		}
-		$exportNotesButton.onclick=()=>{
-			const gpx=getGpx()
-			const file=new File([gpx],'notes.gpx')
-			const $a=document.createElement('a')
-			$a.href=URL.createObjectURL(file)
-			$a.download='notes.gpx'
-			$a.click()
-			URL.revokeObjectURL($a.href)
+		if (connectSetting=='trk') {
+			gpx+=`<trk><trkseg>\n`
+			gpx+=getPoints('trkpt')
+			gpx+=`</trkseg></trk>\n`
 		}
-		$exportNotesButton.draggable=true
-		$exportNotesButton.ondragstart=(ev)=>{
-			const gpx=getGpx()
-			if (!ev.dataTransfer) return
-			ev.dataTransfer.setData($dataTypeSelect.value,gpx)
-		}
-		return [
-			$exportNotesButton,` `,
-			makeLabel('inline')(` as waypoints `,$connectSelect),` `,
-			makeLabel('inline')(` with `,$commentsSelect,` in descriptions`),`, `,
-			makeLabel('inline')(`set `,$dataTypeSelect,` type in drag and drop events`)
-		]
+		gpx+=`</gpx>\n`
+		return gpx
 	}
-	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean {
-		this.selectedNotes=selectedNotes
-		this.selectedNoteUsers=selectedNoteUsers
-		return true
+}
+
+class GeoJsonTool extends ExportTool {
+	constructor() {super(
+		'geojson',
+		`GeoJSON`
+	)}
+	protected generateData(connectSetting: string, commentsSetting: string): string {
+		return 'TODO'
 	}
 }
 
