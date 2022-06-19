@@ -411,19 +411,20 @@ abstract class ExportTool extends Tool {
 		const $exportNotesButton=this.makeRequiringSelectedNotesButton()
 		$exportNotesButton.append(`Export `,makeNotesIcon('selected'))
 		$exportNotesButton.onclick=()=>{
-			const gpx=this.generateData($connectSelect.value,$commentsSelect.value)
-			const file=new File([gpx],'notes.gpx')
+			const data=this.generateData($connectSelect.value,$commentsSelect.value)
+			const filename=this.generateFilename()
+			const file=new File([data],filename)
 			const $a=document.createElement('a')
 			$a.href=URL.createObjectURL(file)
-			$a.download='notes.gpx'
+			$a.download=filename
 			$a.click()
 			URL.revokeObjectURL($a.href)
 		}
 		$exportNotesButton.draggable=true
 		$exportNotesButton.ondragstart=(ev)=>{
-			const gpx=this.generateData($connectSelect.value,$commentsSelect.value)
+			const data=this.generateData($connectSelect.value,$commentsSelect.value)
 			if (!ev.dataTransfer) return
-			ev.dataTransfer.setData($dataTypeSelect.value,gpx)
+			ev.dataTransfer.setData($dataTypeSelect.value,data)
 		}
 		return [
 			$exportNotesButton,` `,
@@ -432,6 +433,7 @@ abstract class ExportTool extends Tool {
 			makeLabel('inline')(`set `,$dataTypeSelect,` type in drag and drop events`)
 		]
 	}
+	protected abstract generateFilename(): string
 	protected abstract generateData(connectSetting: string, commentsSetting: string): string
 }
 
@@ -460,6 +462,9 @@ class GpxTool extends ExportTool {
 		`Not many places actually do, and those who do often can handle only plaintext. `,
 		`That's why there's a type selector, with which plaintext format can be forced on transmitted data.`
 	)]}
+	protected generateFilename(): string {
+		return 'notes.gpx'
+	}
 	protected generateData(connectSetting: string, commentsSetting: string): string {
 		const e=makeEscapeTag(escapeXml)
 		const getPoints=(pointTag: string, getDetails: (note: Note) => string = ()=>''): string => {
@@ -532,6 +537,9 @@ class GeoJsonTool extends ExportTool {
 		'geojson',
 		`GeoJSON`
 	)}
+	protected generateFilename(): string {
+		return 'notes.json'
+	}
 	protected generateData(connectSetting: string, commentsSetting: string): string {
 		return 'TODO'
 	}
@@ -645,7 +653,8 @@ export const toolMakerSequence: Array<()=>Tool> = [
 	()=>new AutozoomTool, ()=>new TimestampTool, ()=>new ParseTool,
 	()=>new OverpassTurboTool, ()=>new OverpassDirectTool,
 	()=>new RcTool, ()=>new IdTool,
-	()=>new GpxTool, ()=>new YandexPanoramasTool, ()=>new MapillaryTool,
+	()=>new GpxTool, ()=>new GeoJsonTool,
+	()=>new YandexPanoramasTool, ()=>new MapillaryTool,
 	()=>new CountTool, ()=>new LegendTool, ()=>new SettingsTool
 ]
 
