@@ -19,6 +19,7 @@ body.flipped .text-side {
 	top: 0;
 	left: 0;
 	z-index: 1; /* be above photo with blurry backdrop */
+	overflow-y: auto; /* scrollbar should appear only for oversized tools panel */
 }
 .graphic-side {
 	bottom: 0;
