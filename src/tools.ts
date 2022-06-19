@@ -16,6 +16,7 @@ type InfoElements = Array<string|HTMLElement>
 const p=(...ss: InfoElements)=>makeElement('p')()(...ss)
 const em=(s: string)=>makeElement('em')()(s)
 const dfn=(s: string)=>makeElement('dfn')()(s)
+const code=(s: string)=>makeElement('code')()(s)
 const ul=(...ss: InfoElements)=>makeElement('ul')()(...ss)
 const li=(...ss: InfoElements)=>makeElement('li')()(...ss)
 
@@ -542,6 +543,46 @@ class GeoJsonTool extends ExportTool {
 		'geojson',
 		`GeoJSON`
 	)}
+	getInfo() {return[p(
+		`Export selected notes in `,makeLink(`GeoJSON`,'https://wiki.openstreetmap.org/wiki/GeoJSON'),` format. `,
+		`The exact features and properties exported are made to be close to OSM API `,code(`.json`),` output:`
+	),ul(
+		li(`the entire note collection is represented as a `,makeLink(`FeatureCollection`,'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.3')),
+		li(`each note is represented as a `,makeLink(`Point`,'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.2'),` `,makeLink(`Feature`,'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.2'))
+	),p(
+		`There are few differences to OSM API output:`,
+	),ul(
+		li(`comments don't have `,code(`html`),` property, their content is available only as plaintext`),
+		li(`dates may be incorrect in case of hidden note comments (something that happens very rarely)`)
+	),p(
+		`Like GPX exports, this tool allows OSM notes to be used in applications that can't show them directly. `,
+		`Also it allows a particular selection of notes to be shown if an application can't filter them. `,
+		`One example of such app is `,makeLink(`iD editor`,'https://wiki.openstreetmap.org/wiki/ID'),`. `,
+		`Given that GeoJSON specification doesn't define what goes into feature properties, the support for rendering notes this way is lower than the one of GPX export. `,
+		`Particularly neither iD nor JOSM seem to render any labels for note markers. `,
+		`Also clicking the marker in JOSM is not going to open the note webpage. `,
+		`On the other hand there's more clarity about how to to display properties outside of the editor map view. `,
+		`All of the properties are displayed like OSM element tags, which opens some possibilities: `
+	),ul(
+		li(`properties are editable in JOSM with a possibility to save results to a file`),
+		li(`it's possible to access the note url in iD, something that was impossible with GPX format`)
+	)
+/*
+		`You'll have to enable the notes layer in iD and compare its note marker with waypoint markers from the gpx file.`
+	),p(
+		`By default only the `,dfn(`first comment`),` is added to waypoint descriptions. `,
+		`This is because some apps such as iD and especially `,makeLink(`JOSM`,`https://wiki.openstreetmap.org/wiki/JOSM`),` try to render the entire description in one line next to the waypoint marker, cluttering the map.`
+	),p(
+		`It's possible to pretend that note waypoints are connected by a `,makeLink(`route`,`https://www.topografix.com/GPX/1/1/#type_rteType`),` by using the `,dfn(`connected by route`),` option. `,
+		`This may help to go from a note to the next one in an app by visually following the route line. `,
+		`There's also the `,dfn(`connected by track`),` option in case the app makes it easier to work with `,makeLink(`tracks`,`https://www.topografix.com/GPX/1/1/#type_trkType`),` than with the routes.`
+	),p(
+		`Instead of clicking the `,em(`Export`),` button, you can drag it and drop into a place that accepts data sent by `,makeLink(`Drag and Drop API`,`https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`),`. `,
+		`Not many places actually do, and those who do often can handle only plaintext. `,
+		`That's why there's a type selector, with which plaintext format can be forced on transmitted data.`
+	)
+*/
+	]}
 	protected generateFilename(): string {
 		return 'notes.geojson' // JOSM doesn't like .json
 	}
@@ -586,7 +627,7 @@ class GeoJsonTool extends ExportTool {
 			}
 			return result
 		}
-		function generateNoteDates(note: Note): {[key:string]:string} { // technically the dates may be incorrect because some comments could be hidden
+		function generateNoteDates(note: Note): {[key:string]:string} {
 			const result: {[key:string]:string} = {}
 			if (note.comments.length>0) {
 				result.date_created=formatDate(note.comments[0].date)
