@@ -68,7 +68,7 @@ abstract class ExportTool extends Tool {
 		}
 		return [
 			$exportNotesButton,` `,
-			...this.writeOptions($optionSelects),
+			...this.writeOptions($optionSelects),`, `,
 			makeLabel('inline')(`set `,$dataTypeSelect,` type in drag and drop events`)
 		]
 		function getOptionValues(): {[key:string]:string} {
@@ -135,7 +135,7 @@ export class GpxTool extends ExportTool {
 				['rte',`connected by route`],
 				['trk',`connected by track`],
 			],
-			comments: [
+			commentQuantity: [
 				['first',`first comment`],
 				['all',`all comments`],
 			]
@@ -143,8 +143,8 @@ export class GpxTool extends ExportTool {
 	}
 	protected writeOptions($selects:{[key:string]:HTMLSelectElement}): ToolElements {
 		return [
-			makeLabel('inline')(` as waypoints `,$selects.connect),` `,
-			makeLabel('inline')(` with `,$selects.comments,` in descriptions`),`, `,
+			makeLabel('inline')(`as waypoints `,$selects.connect),` `,
+			makeLabel('inline')(`with `,$selects.commentQuantity,` in descriptions`),
 		]
 	}
 	protected listDataTypes(): string[] {
@@ -153,7 +153,7 @@ export class GpxTool extends ExportTool {
 	protected generateFilename(): string {
 		return 'notes.gpx'
 	}
-	protected generateData(options: {connect:string,comments:string}): string {
+	protected generateData(options: {connect:string,commentQuantity:string}): string {
 		const e=makeEscapeTag(escapeXml)
 		const getPoints=(pointTag: string, getDetails: (note: Note) => string = ()=>''): string => {
 			let gpx=''
@@ -174,7 +174,7 @@ export class GpxTool extends ExportTool {
 			gpx+=e`<name>${note.id}</name>\n`
 			if (note.comments.length>0) {
 				gpx+=`<desc>`
-				gpx+=this.getCommentStrings(note.comments,options.comments=='all').map(escapeXml).join(`&#xA;\n`) // JOSM wants this kind of double newline, otherwise no space between comments is rendered
+				gpx+=this.getCommentStrings(note.comments,options.commentQuantity=='all').map(escapeXml).join(`&#xA;\n`) // JOSM wants this kind of double newline, otherwise no space between comments is rendered
 				gpx+=`</desc>\n`
 			}
 			const noteUrl=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.id)
@@ -237,15 +237,9 @@ export class GeoJsonTool extends ExportTool {
 		`OSM tags are strings, and that's what editors expect to display in their tag views. `,
 		`When used for properties of notes, there's one non-string property: `,em(`comments`),`. `,
 		`iD is unable to display it. `,
-		`If you want to force comments to be represented by strings, like in GPX exports, there's an options for that.`
-	),
-/*
+		`If you want to force comments to be represented by strings, like in GPX exports, there's an options for that. `,
+		`There's also option to output each comment as a separate property, making it easier to see them all in the tags table.`
 	),p(
-		`By default only the `,dfn(`first comment`),` is added to waypoint descriptions. `,
-		`This is because some apps such as iD and especially `,makeLink(`JOSM`,`https://wiki.openstreetmap.org/wiki/JOSM`),` try to render the entire description in one line next to the waypoint marker, cluttering the map.`
-	),
-*/
-	p(
 		`It's possible to pretend that note points are connected by a `,makeLink(`LineString`,`https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.4`),` by using the `,dfn(`connected by line`),` option. `,
 		`This may help to go from a note to the next one in an app by visually following the route line. `,
 		`However, enabling the line makes it difficult to click on note points in iD.`
@@ -260,17 +254,23 @@ export class GeoJsonTool extends ExportTool {
 				['api',`OSM API`],
 				['web',`OSM website`],
 			],
-			comments: [
-				['array',`arrays`],
-				['string',`strings`],
+			commentQuantity: [
+				['all',`all comments`],
+				['first',`first comment`],
+			],
+			commentType: [
+				['array',`array property`],
+				['string',`string property`],
+				['strings',`separate string properties`],
 			],
 		}
 	}
 	protected writeOptions($selects:{[key:string]:HTMLSelectElement}): ToolElements {
 		return [
-			makeLabel('inline')(` as points `,$selects.connect),` `,
-			makeLabel('inline')(` with `,$selects.urls,` URLs in properties`),` and `,
-			makeLabel('inline')(` comments written as `,$selects.comments),`, `
+			makeLabel('inline')(`as points `,$selects.connect),` `,
+			makeLabel('inline')(`with `,$selects.urls,` URLs in properties`),` and `,
+			makeLabel('inline')($selects.commentQuantity,` of each note `),
+			makeLabel('inline')(`written as `,$selects.commentType),
 		]
 	}
 	protected listDataTypes(): string[] {
@@ -279,9 +279,9 @@ export class GeoJsonTool extends ExportTool {
 	protected generateFilename(): string {
 		return 'notes.geojson' // JOSM doesn't like .json
 	}
-	protected generateData(options: {connect:string,urls:string,comments:string}): string {
+	protected generateData(options: {connect:string,urls:string,commentQuantity:string,commentType:string}): string {
 		// https://github.com/openstreetmap/openstreetmap-website/blob/master/app/views/api/notes/_note.json.jbuilder
-		const selectedNoteUsers=this.selectedNoteUsers
+		const self=this
 		const e=makeEscapeTag(encodeURIComponent)
 		const features: Feature[] = this.selectedNotes.map(note=>({
 			type: 'Feature',
@@ -294,12 +294,7 @@ export class GeoJsonTool extends ExportTool {
 				...generateNoteUrls(note),
 				...generateNoteDates(note),
 				status: note.status,
-				comments: options.comments=='array' ? note.comments.map(comment=>({
-					date: formatDate(comment.date),
-					...generateCommentUserProperties(comment),
-					action: comment.action,
-					text: comment.text
-				})) : this.getCommentStrings(note.comments,true).join(`; `).replace(/\n/g,'\n ')
+				...generateNoteComments(note.comments),
 			}
 		}))
 		if (options.connect=='line' && this.selectedNotes.length>1) {
@@ -346,11 +341,39 @@ export class GeoJsonTool extends ExportTool {
 			}
 			return result
 		}
+		function generateNoteComments(comments: NoteComment[]): {[key:string]:any} {
+			if (comments.length==0) return {}
+			if (options.commentType=='strings') {
+				return Object.fromEntries(
+					self.getCommentStrings(comments,options.commentQuantity=='all').map((v,i)=>['comment'+(i>0?i+1:''),v.replace(/\n/g,'\n ')])
+				)
+			} else if (options.commentType=='string') {
+				return {
+					comments: self.getCommentStrings(comments,options.commentQuantity=='all').join(`; `).replace(/\n/g,'\n ')
+				}
+			} else {
+				const toPropObject=(comment: NoteComment)=>({
+					date: formatDate(comment.date),
+					...generateCommentUserProperties(comment),
+					action: comment.action,
+					text: comment.text
+				})
+				if (options.commentQuantity=='all') {
+					return {
+						comments: comments.map(toPropObject)
+					}
+				} else {
+					return {
+						comments: [toPropObject(comments[0])]
+					}
+				}
+			}
+		}
 		function generateCommentUserProperties(comment: NoteComment): {[key:string]:string|number} {
 			const result: {[key:string]:string|number} = {}
 			if (comment.uid==null) return result
 			result.uid=comment.uid
-			const username=selectedNoteUsers.get(comment.uid)
+			const username=self.selectedNoteUsers.get(comment.uid)
 			if (username==null) return result
 			result.user=username
 			if (options.urls=='web') {
