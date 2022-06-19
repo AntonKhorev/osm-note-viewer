@@ -339,6 +339,7 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
 		{
 			this.$bboxInput.type='text'
 			this.$bboxInput.name='bbox'
+			this.$bboxInput.required=true // otherwise could submit empty bbox without entering anything
 			$fieldset.append(makeDiv('major-input')(makeLabel()(
 				`Bounding box (`,
 				tip(`left`,`western-most (min) longitude`),`, `,
