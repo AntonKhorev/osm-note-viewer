@@ -2071,11 +2071,6 @@ function __classPrivateFieldSet(receiver, state, value, kind, f) {
     return (kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value)), value;
 }
 
-const p = (...ss) => makeElement('p')()(...ss);
-const em = (s) => makeElement('em')()(s);
-const dfn = (s) => makeElement('dfn')()(s);
-const ul = (...ss) => makeElement('ul')()(...ss);
-const li = (...ss) => makeElement('li')()(...ss);
 class Tool {
     constructor(id, name, title) {
         this.id = id;
@@ -2105,6 +2100,565 @@ class Tool {
         return $button;
     }
 }
+function makeMapIcon(type) {
+    const $img = document.createElement('img');
+    $img.classList.add('icon');
+    $img.src = `map-${type}.svg`;
+    $img.width = 19;
+    $img.height = 13;
+    $img.alt = `map ${type}`;
+    return $img;
+}
+function makeNotesIcon(type) {
+    const $img = document.createElement('img');
+    $img.classList.add('icon');
+    $img.src = `notes-${type}.svg`;
+    $img.width = 9;
+    $img.height = 13;
+    $img.alt = `${type} notes`;
+    return $img;
+}
+
+const p$3 = (...ss) => makeElement('p')()(...ss);
+class OverpassTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.timestamp = '';
+    }
+    onTimestampChange(timestamp) {
+        this.timestamp = timestamp;
+        return true;
+    }
+    getOverpassQueryPreamble(map) {
+        const bounds = map.bounds;
+        let query = '';
+        if (this.timestamp)
+            query += `[date:"${this.timestamp}"]\n`;
+        query += `[bbox:${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}]\n`;
+        query += `;\n`;
+        return query;
+    }
+}
+class OverpassTurboTool extends OverpassTool {
+    constructor() {
+        super('overpass-turbo', `Overpass turbo`);
+    }
+    getInfo() {
+        return [p$3(`Some Overpass queries to run from `, makeLink(`Overpass turbo`, 'https://wiki.openstreetmap.org/wiki/Overpass_turbo'), `, web UI for Overpass API. `, `Useful to inspect historic data at the time a particular note comment was made.`)];
+    }
+    getTool(callbacks, map) {
+        const $overpassButtons = [];
+        const buttonClickListener = (withRelations, onlyAround) => {
+            const e = makeEscapeTag(encodeURIComponent);
+            let query = this.getOverpassQueryPreamble(map);
+            if (withRelations) {
+                query += `nwr`;
+            }
+            else {
+                query += `nw`;
+            }
+            if (onlyAround) {
+                const radius = 10;
+                query += `(around:${radius},${map.lat},${map.lon})`;
+            }
+            query += `;\n`;
+            query += `out meta geom;`;
+            const location = `${map.lat};${map.lon};${map.zoom}`;
+            const url = e `https://overpass-turbo.eu/?C=${location}&Q=${query}`;
+            open(url, 'overpass-turbo');
+        };
+        {
+            const $button = document.createElement('button');
+            $button.append(`Load `, makeMapIcon('area'), ` without relations`);
+            $button.onclick = () => buttonClickListener(false, false);
+            $overpassButtons.push($button);
+        }
+        {
+            const $button = document.createElement('button');
+            $button.append(`Load `, makeMapIcon('area'), ` with relations`);
+            $button.title = `May fetch large unwanted relations like routes.`;
+            $button.onclick = () => buttonClickListener(true, false);
+            $overpassButtons.push($button);
+        }
+        {
+            const $button = document.createElement('button');
+            $button.append(`Load around `, makeMapIcon('center'));
+            $button.onclick = () => buttonClickListener(false, true);
+            $overpassButtons.push($button);
+        }
+        const result = [];
+        for (const $button of $overpassButtons) {
+            result.push(` `, $button);
+        }
+        return result;
+    }
+}
+class OverpassDirectTool extends OverpassTool {
+    constructor() {
+        super('overpass', `Overpass`);
+    }
+    getInfo() {
+        return [p$3(`Query `, makeLink(`Overpass API`, 'https://wiki.openstreetmap.org/wiki/Overpass_API'), ` without going through Overpass turbo. `, `Shows results on the map. Also gives link to the element page on the OSM website.`)];
+    }
+    getTool(callbacks, map) {
+        const $button = document.createElement('button');
+        $button.append(`Find closest node to `, makeMapIcon('center'));
+        const $output = document.createElement('code');
+        $output.textContent = `none`;
+        $button.onclick = async () => {
+            $button.disabled = true;
+            $output.textContent = `none`;
+            try {
+                const radius = 10;
+                let query = this.getOverpassQueryPreamble(map);
+                query += `node(around:${radius},${map.lat},${map.lon});\n`;
+                query += `out skel;`;
+                const doc = await makeOverpassQuery($button, query);
+                if (!doc)
+                    return;
+                const closestNodeId = getClosestNodeId(doc, map.lat, map.lon);
+                if (!closestNodeId) {
+                    $button.classList.add('error');
+                    $button.title = `Could not find nodes nearby`;
+                    return;
+                }
+                const url = `https://www.openstreetmap.org/node/` + encodeURIComponent(closestNodeId);
+                const $a = makeLink(`link`, url);
+                $output.replaceChildren($a);
+                const that = this;
+                downloadAndShowElement($a, map, (readableDate) => makeDateOutput(readableDate, function () {
+                    that.timestamp = this.dateTime;
+                    callbacks.onTimestampChange(that, this.dateTime);
+                }), 'node', closestNodeId);
+            }
+            finally {
+                $button.disabled = false;
+            }
+        };
+        return [$button, ` → `, $output];
+    }
+}
+async function makeOverpassQuery($button, query) {
+    try {
+        const response = await fetch(`https://www.overpass-api.de/api/interpreter`, {
+            method: 'POST',
+            body: new URLSearchParams({ data: query })
+        });
+        const text = await response.text();
+        if (!response.ok) {
+            setError(`receiving the following message: ${text}`);
+            return;
+        }
+        clearError();
+        return new DOMParser().parseFromString(text, 'text/xml');
+    }
+    catch (ex) {
+        if (ex instanceof TypeError) {
+            setError(`with the following error before receiving a response: ${ex.message}`);
+        }
+        else {
+            setError(`for unknown reason`);
+        }
+    }
+    function setError(reason) {
+        $button.classList.add('error');
+        $button.title = `Overpass query failed ${reason}`;
+    }
+    function clearError() {
+        $button.classList.remove('error');
+        $button.title = '';
+    }
+}
+function getClosestNodeId(doc, centerLat, centerLon) {
+    let closestNodeId;
+    let closestNodeDistanceSquared = Infinity;
+    for (const node of doc.querySelectorAll('node')) {
+        const lat = Number(node.getAttribute('lat'));
+        const lon = Number(node.getAttribute('lon'));
+        const id = node.getAttribute('id');
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) || !id)
+            continue;
+        const distanceSquared = (lat - centerLat) ** 2 + (lon - centerLon) ** 2;
+        if (distanceSquared < closestNodeDistanceSquared) {
+            closestNodeDistanceSquared = distanceSquared;
+            closestNodeId = id;
+        }
+    }
+    return closestNodeId;
+}
+
+const p$2 = (...ss) => makeElement('p')()(...ss);
+const em$1 = (s) => makeElement('em')()(s);
+const dfn$1 = (s) => makeElement('dfn')()(s);
+const code = (s) => makeElement('code')()(s);
+const ul$1 = (...ss) => makeElement('ul')()(...ss);
+const li$1 = (...ss) => makeElement('li')()(...ss);
+class ExportTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.selectedNotes = [];
+        this.selectedNoteUsers = new Map();
+    }
+    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) {
+        this.selectedNotes = selectedNotes;
+        this.selectedNoteUsers = selectedNoteUsers;
+        return true;
+    }
+    getInfo() {
+        return [
+            ...this.getInfoWithoutDragAndDrop(),
+            p$2(`Instead of clicking the `, em$1(`Export`), ` button, you can drag it and drop into a place that accepts data sent by `, makeLink(`Drag and Drop API`, `https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`), `. `, `Not many places actually do, and those who do often can handle only plaintext. `, `That's why there's a type selector, with which plaintext format can be forced on transmitted data.`)
+        ];
+    }
+    getTool() {
+        const $optionSelects = Object.fromEntries(Object.entries(this.describeOptions()).map(([key, valuesWithTexts]) => {
+            const $select = document.createElement('select');
+            $select.append(...valuesWithTexts.map(([value, text]) => new Option(text, value)));
+            return [key, $select];
+        }));
+        const $dataTypeSelect = document.createElement('select');
+        $dataTypeSelect.append(...this.listDataTypes().map(type => new Option(type)));
+        const $exportNotesButton = this.makeRequiringSelectedNotesButton();
+        $exportNotesButton.append(`Export `, makeNotesIcon('selected'));
+        $exportNotesButton.onclick = () => {
+            const data = this.generateData(getOptionValues());
+            const filename = this.generateFilename();
+            const file = new File([data], filename);
+            const $a = document.createElement('a');
+            $a.href = URL.createObjectURL(file);
+            $a.download = filename;
+            $a.click();
+            URL.revokeObjectURL($a.href);
+        };
+        $exportNotesButton.draggable = true;
+        $exportNotesButton.ondragstart = (ev) => {
+            const data = this.generateData(getOptionValues());
+            if (!ev.dataTransfer)
+                return;
+            ev.dataTransfer.setData($dataTypeSelect.value, data);
+        };
+        return [
+            $exportNotesButton, ` `,
+            ...this.writeOptions($optionSelects), `, `,
+            makeLabel('inline')(`set `, $dataTypeSelect, ` type in drag and drop events`)
+        ];
+        function getOptionValues() {
+            return Object.fromEntries(Object.entries($optionSelects).map(([key, $select]) => [key, $select.value]));
+        }
+    }
+    getCommentStrings(comments, all) {
+        const ts = [];
+        for (const comment of comments) {
+            let t = '';
+            if (comment.uid) {
+                const username = this.selectedNoteUsers.get(comment.uid);
+                if (username != null) {
+                    t += `${username}`;
+                }
+                else {
+                    t += `user #${comment.uid}`;
+                }
+            }
+            else {
+                t += `anonymous user`;
+            }
+            if (all)
+                t += ` ${comment.action}`;
+            t += ` at ${toReadableDate(comment.date)}`;
+            if (comment.text)
+                t += `: ${comment.text}`;
+            ts.push(t);
+            if (!all)
+                break;
+        }
+        return ts;
+    }
+}
+class GpxTool extends ExportTool {
+    constructor() {
+        super('gpx', `GPX`);
+    }
+    getInfoWithoutDragAndDrop() {
+        return [p$2(`Export selected notes in `, makeLink(`GPX`, 'https://wiki.openstreetmap.org/wiki/GPX'), ` (GPS exchange) format. `, `During the export, each selected note is treated as a waypoint with its name set to note id, description set to comments and link pointing to note's page on the OSM website. `, `This allows OSM notes to be used in applications that can't show them directly. `, `Also it allows a particular selection of notes to be shown if an application can't filter them. `, `One example of such app is `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), `. `, `Unfortunately iD doesn't fully understand the gpx format and can't show links associated with waypoints. `, `You'll have to enable the notes layer in iD and compare its note marker with waypoint markers from the gpx file.`), p$2(`By default only the `, dfn$1(`first comment`), ` is added to waypoint descriptions. `, `This is because some apps such as iD and especially `, makeLink(`JOSM`, `https://wiki.openstreetmap.org/wiki/JOSM`), ` try to render the entire description in one line next to the waypoint marker, cluttering the map.`), p$2(`It's possible to pretend that note waypoints are connected by a `, makeLink(`route`, `https://www.topografix.com/GPX/1/1/#type_rteType`), ` by using the `, dfn$1(`connected by route`), ` option. `, `This may help to go from a note to the next one in an app by visually following the route line. `, `There's also the `, dfn$1(`connected by track`), ` option in case the app makes it easier to work with `, makeLink(`tracks`, `https://www.topografix.com/GPX/1/1/#type_trkType`), ` than with the routes.`)];
+    }
+    describeOptions() {
+        return {
+            connect: [
+                ['no', `without connections`],
+                ['rte', `connected by route`],
+                ['trk', `connected by track`],
+            ],
+            commentQuantity: [
+                ['first', `first comment`],
+                ['all', `all comments`],
+            ]
+        };
+    }
+    writeOptions($selects) {
+        return [
+            makeLabel('inline')(`as waypoints `, $selects.connect), ` `,
+            makeLabel('inline')(`with `, $selects.commentQuantity, ` in descriptions`),
+        ];
+    }
+    listDataTypes() {
+        return ['text/xml', 'application/gpx+xml', 'text/plain'];
+    }
+    generateFilename() {
+        return 'notes.gpx';
+    }
+    generateData(options) {
+        const e = makeEscapeTag(escapeXml);
+        const getPoints = (pointTag, getDetails = () => '') => {
+            let gpx = '';
+            for (const note of this.selectedNotes) {
+                const firstComment = note.comments[0];
+                gpx += e `<${pointTag} lat="${note.lat}" lon="${note.lon}">\n`;
+                if (firstComment)
+                    gpx += e `<time>${toUrlDate(firstComment.date)}</time>\n`;
+                gpx += getDetails(note);
+                gpx += e `</${pointTag}>\n`;
+            }
+            return gpx;
+        };
+        let gpx = e `<?xml version="1.0" encoding="UTF-8" ?>\n`;
+        gpx += e `<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">\n`;
+        // TODO <name>selected notes of user A</name>
+        gpx += getPoints('wpt', note => {
+            let gpx = '';
+            gpx += e `<name>${note.id}</name>\n`;
+            if (note.comments.length > 0) {
+                gpx += `<desc>`;
+                gpx += this.getCommentStrings(note.comments, options.commentQuantity == 'all').map(escapeXml).join(`&#xA;\n`); // JOSM wants this kind of double newline, otherwise no space between comments is rendered
+                gpx += `</desc>\n`;
+            }
+            const noteUrl = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
+            gpx += e `<link href="${noteUrl}">\n`;
+            gpx += e `<text>note #${note.id} on osm</text>\n`;
+            gpx += e `</link>\n`;
+            gpx += e `<type>${note.status}</type>\n`;
+            return gpx;
+        });
+        if (options.connect == 'rte') {
+            gpx += `<rte>\n`;
+            gpx += getPoints('rtept');
+            gpx += `</rte>\n`;
+        }
+        if (options.connect == 'trk') {
+            gpx += `<trk><trkseg>\n`;
+            gpx += getPoints('trkpt');
+            gpx += `</trkseg></trk>\n`;
+        }
+        gpx += `</gpx>\n`;
+        return gpx;
+    }
+}
+class GeoJsonTool extends ExportTool {
+    constructor() {
+        super('geojson', `GeoJSON`);
+    }
+    getInfoWithoutDragAndDrop() {
+        return [p$2(`Export selected notes in `, makeLink(`GeoJSON`, 'https://wiki.openstreetmap.org/wiki/GeoJSON'), ` format. `, `The exact features and properties exported are made to be close to OSM API `, code(`.json`), ` output:`), ul$1(li$1(`the entire note collection is represented as a `, makeLink(`FeatureCollection`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.3')), li$1(`each note is represented as a `, makeLink(`Point`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.2'), ` `, makeLink(`Feature`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.2'))), p$2(`There are few differences to OSM API output, not including modifications using tool options described later:`), ul$1(li$1(`comments don't have `, code(`html`), ` property, their content is available only as plaintext`), li$1(`dates may be incorrect in case of hidden note comments (something that happens very rarely)`)), p$2(`Like GPX exports, this tool allows OSM notes to be used in applications that can't show them directly. `, `Also it allows a particular selection of notes to be shown if an application can't filter them. `, `One example of such app is `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), `. `, `Given that GeoJSON specification doesn't define what goes into feature properties, the support for rendering notes this way is lower than the one of GPX export. `, `Particularly neither iD nor JOSM seem to render any labels for note markers. `, `Also clicking the marker in JOSM is not going to open the note webpage. `, `On the other hand there's more clarity about how to to display properties outside of the editor map view. `, `All of the properties are displayed like `, makeLink(`OSM tags`, 'https://wiki.openstreetmap.org/wiki/Tags'), `, which opens some possibilities: `), ul$1(li$1(`properties are editable in JOSM with a possibility to save results to a file`), li$1(`it's possible to access the note URL in iD, something that was impossible with GPX format`)), p$2(`While accessing the URLs, note that they are OSM API URLs, not the website URLs you might expect. `, `This is how OSM API outputs them. `, `Since that might be inconvenient, there's an `, dfn$1(`OSM website URLs`), ` option. `, `With it you're able to select the note url in iD by triple-clicking its value.`), p$2(`Another consequence of displaying properties like tags is that they work best when they are strings. `, `OSM tags are strings, and that's what editors expect to display in their tag views. `, `When used for properties of notes, there's one non-string property: `, em$1(`comments`), `. `, `iD is unable to display it. `, `If you want to force comments to be represented by strings, like in GPX exports, there's an options for that. `, `There's also option to output each comment as a separate property, making it easier to see them all in the tags table.`), p$2(`It's possible to pretend that note points are connected by a `, makeLink(`LineString`, `https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.4`), ` by using the `, dfn$1(`connected by line`), ` option. `, `This may help to go from a note to the next one in an app by visually following the route line. `, `However, enabling the line makes it difficult to click on note points in iD.`)];
+    }
+    describeOptions() {
+        return {
+            connect: [
+                ['no', `without connections`],
+                ['line', `connected by line`],
+            ],
+            urls: [
+                ['api', `OSM API`],
+                ['web', `OSM website`],
+            ],
+            commentQuantity: [
+                ['all', `all comments`],
+                ['first', `first comment`],
+            ],
+            commentType: [
+                ['array', `array property`],
+                ['string', `string property`],
+                ['strings', `separate string properties`],
+            ],
+        };
+    }
+    writeOptions($selects) {
+        return [
+            makeLabel('inline')(`as points `, $selects.connect), ` `,
+            makeLabel('inline')(`with `, $selects.urls, ` URLs in properties`), ` and `,
+            makeLabel('inline')($selects.commentQuantity, ` of each note `),
+            makeLabel('inline')(`written as `, $selects.commentType),
+        ];
+    }
+    listDataTypes() {
+        return ['application/json', 'application/geo+json', 'text/plain'];
+    }
+    generateFilename() {
+        return 'notes.geojson'; // JOSM doesn't like .json
+    }
+    generateData(options) {
+        // https://github.com/openstreetmap/openstreetmap-website/blob/master/app/views/api/notes/_note.json.jbuilder
+        const self = this;
+        const e = makeEscapeTag(encodeURIComponent);
+        const features = this.selectedNotes.map(note => ({
+            type: 'Feature',
+            geometry: {
+                type: 'Point',
+                coordinates: [note.lon, note.lat]
+            },
+            properties: {
+                id: note.id,
+                ...generateNoteUrls(note),
+                ...generateNoteDates(note),
+                status: note.status,
+                ...generateNoteComments(note.comments),
+            }
+        }));
+        if (options.connect == 'line' && this.selectedNotes.length > 1) {
+            features.push({
+                type: 'Feature',
+                geometry: {
+                    type: 'LineString',
+                    coordinates: this.selectedNotes.map(note => [note.lon, note.lat]),
+                },
+                properties: null
+            });
+        }
+        const featureCollection = {
+            type: 'FeatureCollection',
+            features
+        };
+        return JSON.stringify(featureCollection, undefined, 2);
+        function generateNoteUrls(note) {
+            if (options.urls == 'web')
+                return {
+                    url: e `https://www.openstreetmap.org/note/${note.id}`
+                };
+            const urlBase = e `https://api.openstreetmap.org/api/0.6/notes/${note.id}`;
+            const result = {
+                url: urlBase + `.json`
+            };
+            if (note.status == 'closed') {
+                result.reopen_url = urlBase + `/reopen.json`;
+            }
+            else {
+                result.comment_url = urlBase + `/comment.json`;
+                result.close_url = urlBase + `/close.json`;
+            }
+            return result;
+        }
+        function generateNoteDates(note) {
+            const result = {};
+            if (note.comments.length > 0) {
+                result.date_created = formatDate(note.comments[0].date);
+                if (note.status == 'closed') {
+                    const closeComment = lastCloseComment(note);
+                    if (closeComment) {
+                        result.closed_at = formatDate(closeComment.date);
+                    }
+                }
+            }
+            return result;
+        }
+        function generateNoteComments(comments) {
+            if (comments.length == 0)
+                return {};
+            if (options.commentType == 'strings') {
+                return Object.fromEntries(self.getCommentStrings(comments, options.commentQuantity == 'all').map((v, i) => ['comment' + (i > 0 ? i + 1 : ''), v.replace(/\n/g, '\n ')]));
+            }
+            else if (options.commentType == 'string') {
+                return {
+                    comments: self.getCommentStrings(comments, options.commentQuantity == 'all').join(`; `).replace(/\n/g, '\n ')
+                };
+            }
+            else {
+                const toPropObject = (comment) => ({
+                    date: formatDate(comment.date),
+                    ...generateCommentUserProperties(comment),
+                    action: comment.action,
+                    text: comment.text
+                });
+                if (options.commentQuantity == 'all') {
+                    return {
+                        comments: comments.map(toPropObject)
+                    };
+                }
+                else {
+                    return {
+                        comments: [toPropObject(comments[0])]
+                    };
+                }
+            }
+        }
+        function generateCommentUserProperties(comment) {
+            const result = {};
+            if (comment.uid == null)
+                return result;
+            result.uid = comment.uid;
+            const username = self.selectedNoteUsers.get(comment.uid);
+            if (username == null)
+                return result;
+            result.user = username;
+            if (options.urls == 'web') {
+                result.user_url = e `https://www.openstreetmap.org/user/${username}`;
+            }
+            else {
+                result.user_url = e `https://api.openstreetmap.org/user/${username}`;
+            }
+            return result;
+        }
+        function lastCloseComment(note) {
+            for (let i = note.comments.length - 1; i >= 0; i--) {
+                if (note.comments[i].action == 'closed')
+                    return note.comments[i];
+            }
+        }
+        function formatDate(date) {
+            return toReadableDate(date) + ' UTC';
+        }
+    }
+}
+
+const p$1 = (...ss) => makeElement('p')()(...ss);
+class StreetViewTool extends Tool {
+    getTool(callbacks, map) {
+        const $viewButton = document.createElement('button');
+        $viewButton.append(`Open `, makeMapIcon('center'));
+        $viewButton.onclick = () => {
+            open(this.generateUrl(map), this.id);
+        };
+        return [$viewButton];
+    }
+}
+class YandexPanoramasTool extends StreetViewTool {
+    constructor() {
+        super('yandex-panoramas', `Y.Panoramas`, `Yandex.Panoramas (Яндекс.Панорамы)`);
+    }
+    getInfo() {
+        return [p$1(`Open a map location in `, makeLink(`Yandex.Panoramas`, 'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B'), ` street view. `, `Could be useful to find out if an object mentioned in a note existed at a certain point of time. `, `Yandex.Panoramas have a year selector in the upper right corner. Use it to get a photo made close to the date of interest.`)];
+    }
+    generateUrl(map) {
+        const e = makeEscapeTag(encodeURIComponent);
+        const coords = map.lon + ',' + map.lat;
+        return e `https://yandex.ru/maps/?ll=${coords}&panorama%5Bpoint%5D=${coords}&z=${map.zoom}`; // 'll' is required if 'z' argument is present
+    }
+}
+class MapillaryTool extends StreetViewTool {
+    constructor() {
+        super('mapillary', `Mapillary`);
+    }
+    getInfo() {
+        return [p$1(`Open a map location in `, makeLink(`Mapillary`, 'https://wiki.openstreetmap.org/wiki/Mapillary'), `. `, `Not yet fully implemented. The idea is to jump straight to the best available photo, but in order to do that, Mapillary API has to be queried for available photos. That's impossible to do without an API key.`)];
+    }
+    generateUrl(map) {
+        const e = makeEscapeTag(encodeURIComponent);
+        return e `https://www.mapillary.com/app/?lat=${map.lat}&lng=${map.lon}&z=${map.zoom}&focus=photo`;
+    }
+}
+
+const p = (...ss) => makeElement('p')()(...ss);
+const em = (s) => makeElement('em')()(s);
+const dfn = (s) => makeElement('dfn')()(s);
+const ul = (...ss) => makeElement('ul')()(...ss);
+const li = (...ss) => makeElement('li')()(...ss);
 class AutozoomTool extends Tool {
     constructor() {
         super('autozoom', `Automatic zoom`, `Pan and zoom the map to visible notes`);
@@ -2208,124 +2762,6 @@ class ParseTool extends Tool {
         }
     }
 }
-class OverpassTool extends Tool {
-    constructor() {
-        super(...arguments);
-        this.timestamp = '';
-    }
-    onTimestampChange(timestamp) {
-        this.timestamp = timestamp;
-        return true;
-    }
-    getOverpassQueryPreamble(map) {
-        const bounds = map.bounds;
-        let query = '';
-        if (this.timestamp)
-            query += `[date:"${this.timestamp}"]\n`;
-        query += `[bbox:${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}]\n`;
-        query += `;\n`;
-        return query;
-    }
-}
-class OverpassTurboTool extends OverpassTool {
-    constructor() {
-        super('overpass-turbo', `Overpass turbo`);
-    }
-    getInfo() {
-        return [p(`Some Overpass queries to run from `, makeLink(`Overpass turbo`, 'https://wiki.openstreetmap.org/wiki/Overpass_turbo'), `, web UI for Overpass API. `, `Useful to inspect historic data at the time a particular note comment was made.`)];
-    }
-    getTool(callbacks, map) {
-        const $overpassButtons = [];
-        const buttonClickListener = (withRelations, onlyAround) => {
-            const e = makeEscapeTag(encodeURIComponent);
-            let query = this.getOverpassQueryPreamble(map);
-            if (withRelations) {
-                query += `nwr`;
-            }
-            else {
-                query += `nw`;
-            }
-            if (onlyAround) {
-                const radius = 10;
-                query += `(around:${radius},${map.lat},${map.lon})`;
-            }
-            query += `;\n`;
-            query += `out meta geom;`;
-            const location = `${map.lat};${map.lon};${map.zoom}`;
-            const url = e `https://overpass-turbo.eu/?C=${location}&Q=${query}`;
-            open(url, 'overpass-turbo');
-        };
-        {
-            const $button = document.createElement('button');
-            $button.append(`Load `, makeMapIcon('area'), ` without relations`);
-            $button.onclick = () => buttonClickListener(false, false);
-            $overpassButtons.push($button);
-        }
-        {
-            const $button = document.createElement('button');
-            $button.append(`Load `, makeMapIcon('area'), ` with relations`);
-            $button.title = `May fetch large unwanted relations like routes.`;
-            $button.onclick = () => buttonClickListener(true, false);
-            $overpassButtons.push($button);
-        }
-        {
-            const $button = document.createElement('button');
-            $button.append(`Load around `, makeMapIcon('center'));
-            $button.onclick = () => buttonClickListener(false, true);
-            $overpassButtons.push($button);
-        }
-        const result = [];
-        for (const $button of $overpassButtons) {
-            result.push(` `, $button);
-        }
-        return result;
-    }
-}
-class OverpassDirectTool extends OverpassTool {
-    constructor() {
-        super('overpass', `Overpass`);
-    }
-    getInfo() {
-        return [p(`Query `, makeLink(`Overpass API`, 'https://wiki.openstreetmap.org/wiki/Overpass_API'), ` without going through Overpass turbo. `, `Shows results on the map. Also gives link to the element page on the OSM website.`)];
-    }
-    getTool(callbacks, map) {
-        const $button = document.createElement('button');
-        $button.append(`Find closest node to `, makeMapIcon('center'));
-        const $output = document.createElement('code');
-        $output.textContent = `none`;
-        $button.onclick = async () => {
-            $button.disabled = true;
-            $output.textContent = `none`;
-            try {
-                const radius = 10;
-                let query = this.getOverpassQueryPreamble(map);
-                query += `node(around:${radius},${map.lat},${map.lon});\n`;
-                query += `out skel;`;
-                const doc = await makeOverpassQuery($button, query);
-                if (!doc)
-                    return;
-                const closestNodeId = getClosestNodeId(doc, map.lat, map.lon);
-                if (!closestNodeId) {
-                    $button.classList.add('error');
-                    $button.title = `Could not find nodes nearby`;
-                    return;
-                }
-                const url = `https://www.openstreetmap.org/node/` + encodeURIComponent(closestNodeId);
-                const $a = makeLink(`link`, url);
-                $output.replaceChildren($a);
-                const that = this;
-                downloadAndShowElement($a, map, (readableDate) => makeDateOutput(readableDate, function () {
-                    that.timestamp = this.dateTime;
-                    callbacks.onTimestampChange(that, this.dateTime);
-                }), 'node', closestNodeId);
-            }
-            finally {
-                $button.disabled = false;
-            }
-        };
-        return [$button, ` → `, $output];
-    }
-}
 class RcTool extends Tool {
     constructor() {
         super('rc', `RC`, `JOSM (or another editor) Remote Control`);
@@ -2383,160 +2819,6 @@ class IdTool extends Tool {
         return [$zoomButton];
     }
 }
-class GpxTool extends Tool {
-    constructor() {
-        super('gpx', `GPX`);
-        this.selectedNotes = [];
-        this.selectedNoteUsers = new Map();
-    }
-    getInfo() {
-        return [p(`Export selected notes in `, makeLink(`GPX`, 'https://wiki.openstreetmap.org/wiki/GPX'), ` (GPS exchange) format. `, `During the export, each selected note is treated as a waypoint with its name set to note id, description set to comments and link pointing to note's page on the OSM website. `, `This allows OSM notes to be used in applications that can't show them directly. `, `Also it allows a particular selection of notes to be shown if an application can't filter them. `, `One example of such app is `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), `. `, `Unfortunately iD doesn't fully understand the gpx format and can't show links associated with waypoints. `, `You'll have to enable the notes layer in iD and compare its note marker with waypoint markers from the gpx file.`), p(`By default only the `, dfn(`first comment`), ` is added to waypoint descriptions. `, `This is because some apps such as iD and especially `, makeLink(`JOSM`, `https://wiki.openstreetmap.org/wiki/JOSM`), ` try to render the entire description in one line next to the waypoint marker, cluttering the map.`), p(`It's possible to pretend that note waypoints are connected by a `, makeLink(`route`, `https://www.topografix.com/GPX/1/1/#type_rteType`), ` by using the `, dfn(`connected by route`), ` option. `, `This may help to go from a note to the next one in an app by visually following the route line. `, `There's also the `, dfn(`connected by track`), ` option in case the app makes it easier to work with `, makeLink(`tracks`, `https://www.topografix.com/GPX/1/1/#type_trkType`), ` than with the routes.`), p(`Instead of clicking the `, em(`Export`), ` button, you can drag it and drop into a place that accepts data sent by `, makeLink(`Drag and Drop API`, `https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`), `. `, `Not many places actually do, and those who do often can handle only plaintext. `, `That's why there's a type selector, with which plaintext format can be forced on transmitted data.`)];
-    }
-    getTool() {
-        const $connectSelect = document.createElement('select');
-        $connectSelect.append(new Option(`without connections`, 'no'), new Option(`connected by route`, 'rte'), new Option(`connected by track`, 'trk'));
-        const $commentsSelect = document.createElement('select');
-        $commentsSelect.append(new Option(`first comment`, 'first'), new Option(`all comments`, 'all'));
-        const $dataTypeSelect = document.createElement('select');
-        $dataTypeSelect.append(new Option('text/xml'), new Option('application/gpx+xml'), new Option('text/plain'));
-        const $exportNotesButton = this.makeRequiringSelectedNotesButton();
-        $exportNotesButton.append(`Export `, makeNotesIcon('selected'));
-        const e = makeEscapeTag(escapeXml);
-        const getPoints = (pointTag, getDetails = () => '') => {
-            let gpx = '';
-            for (const note of this.selectedNotes) {
-                const firstComment = note.comments[0];
-                gpx += e `<${pointTag} lat="${note.lat}" lon="${note.lon}">\n`;
-                if (firstComment)
-                    gpx += e `<time>${toUrlDate(firstComment.date)}</time>\n`;
-                gpx += getDetails(note);
-                gpx += e `</${pointTag}>\n`;
-            }
-            return gpx;
-        };
-        const getGpx = () => {
-            let gpx = e `<?xml version="1.0" encoding="UTF-8" ?>\n`;
-            gpx += e `<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">\n`;
-            // TODO <name>selected notes of user A</name>
-            gpx += getPoints('wpt', note => {
-                let gpx = '';
-                gpx += e `<name>${note.id}</name>\n`;
-                if (note.comments.length > 0) {
-                    gpx += `<desc>`;
-                    let first = true;
-                    for (const comment of note.comments) {
-                        if (first) {
-                            first = false;
-                        }
-                        else {
-                            gpx += `&#xA;\n`; // JOSM wants this kind of double newline, otherwise no space between comments is rendered
-                        }
-                        if (comment.uid) {
-                            const username = this.selectedNoteUsers.get(comment.uid);
-                            if (username != null) {
-                                gpx += e `${username}`;
-                            }
-                            else {
-                                gpx += e `user #${comment.uid}`;
-                            }
-                        }
-                        else {
-                            gpx += `anonymous user`;
-                        }
-                        if ($commentsSelect.value == 'all')
-                            gpx += e ` ${comment.action}`;
-                        gpx += ` at ${toReadableDate(comment.date)}`;
-                        if (comment.text)
-                            gpx += e `: ${comment.text}`;
-                        if ($commentsSelect.value != 'all')
-                            break;
-                    }
-                    gpx += `</desc>\n`;
-                }
-                const noteUrl = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
-                gpx += e `<link href="${noteUrl}">\n`;
-                gpx += e `<text>note #${note.id} on osm</text>\n`;
-                gpx += e `</link>\n`;
-                gpx += e `<type>${note.status}</type>\n`;
-                return gpx;
-            });
-            if ($connectSelect.value == 'rte') {
-                gpx += `<rte>\n`;
-                gpx += getPoints('rtept');
-                gpx += `</rte>\n`;
-            }
-            if ($connectSelect.value == 'trk') {
-                gpx += `<trk><trkseg>\n`;
-                gpx += getPoints('trkpt');
-                gpx += `</trkseg></trk>\n`;
-            }
-            gpx += `</gpx>\n`;
-            return gpx;
-        };
-        $exportNotesButton.onclick = () => {
-            const gpx = getGpx();
-            const file = new File([gpx], 'notes.gpx');
-            const $a = document.createElement('a');
-            $a.href = URL.createObjectURL(file);
-            $a.download = 'notes.gpx';
-            $a.click();
-            URL.revokeObjectURL($a.href);
-        };
-        $exportNotesButton.draggable = true;
-        $exportNotesButton.ondragstart = (ev) => {
-            const gpx = getGpx();
-            if (!ev.dataTransfer)
-                return;
-            ev.dataTransfer.setData($dataTypeSelect.value, gpx);
-        };
-        return [
-            $exportNotesButton, ` `,
-            makeLabel('inline')(` as waypoints `, $connectSelect), ` `,
-            makeLabel('inline')(` with `, $commentsSelect, ` in descriptions`), `, `,
-            makeLabel('inline')(`set `, $dataTypeSelect, ` type in drag and drop events`)
-        ];
-    }
-    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) {
-        this.selectedNotes = selectedNotes;
-        this.selectedNoteUsers = selectedNoteUsers;
-        return true;
-    }
-}
-class StreetViewTool extends Tool {
-    getTool(callbacks, map) {
-        const $viewButton = document.createElement('button');
-        $viewButton.append(`Open `, makeMapIcon('center'));
-        $viewButton.onclick = () => {
-            open(this.generateUrl(map), this.id);
-        };
-        return [$viewButton];
-    }
-}
-class YandexPanoramasTool extends StreetViewTool {
-    constructor() {
-        super('yandex-panoramas', `Y.Panoramas`, `Yandex.Panoramas (Яндекс.Панорамы)`);
-    }
-    getInfo() {
-        return [p(`Open a map location in `, makeLink(`Yandex.Panoramas`, 'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B'), ` street view. `, `Could be useful to find out if an object mentioned in a note existed at a certain point of time. `, `Yandex.Panoramas have a year selector in the upper right corner. Use it to get a photo made close to the date of interest.`)];
-    }
-    generateUrl(map) {
-        const e = makeEscapeTag(encodeURIComponent);
-        const coords = map.lon + ',' + map.lat;
-        return e `https://yandex.ru/maps/?ll=${coords}&panorama%5Bpoint%5D=${coords}&z=${map.zoom}`; // 'll' is required if 'z' argument is present
-    }
-}
-class MapillaryTool extends StreetViewTool {
-    constructor() {
-        super('mapillary', `Mapillary`);
-    }
-    getInfo() {
-        return [p(`Open a map location in `, makeLink(`Mapillary`, 'https://wiki.openstreetmap.org/wiki/Mapillary'), `. `, `Not yet fully implemented. The idea is to jump straight to the best available photo, but in order to do that, Mapillary API has to be queried for available photos. That's impossible to do without an API key.`)];
-    }
-    generateUrl(map) {
-        const e = makeEscapeTag(encodeURIComponent);
-        return e `https://www.mapillary.com/app/?lat=${map.lat}&lng=${map.lon}&z=${map.zoom}&focus=photo`;
-    }
-}
 class CountTool extends Tool {
     constructor() {
         super('counts', `Note counts`);
@@ -2592,75 +2874,10 @@ const toolMakerSequence = [
     () => new AutozoomTool, () => new TimestampTool, () => new ParseTool,
     () => new OverpassTurboTool, () => new OverpassDirectTool,
     () => new RcTool, () => new IdTool,
-    () => new GpxTool, () => new YandexPanoramasTool, () => new MapillaryTool,
+    () => new GpxTool, () => new GeoJsonTool,
+    () => new YandexPanoramasTool, () => new MapillaryTool,
     () => new CountTool, () => new LegendTool, () => new SettingsTool
 ];
-function makeMapIcon(type) {
-    const $img = document.createElement('img');
-    $img.classList.add('icon');
-    $img.src = `map-${type}.svg`;
-    $img.width = 19;
-    $img.height = 13;
-    $img.alt = `map ${type}`;
-    return $img;
-}
-function makeNotesIcon(type) {
-    const $img = document.createElement('img');
-    $img.classList.add('icon');
-    $img.src = `notes-${type}.svg`;
-    $img.width = 9;
-    $img.height = 13;
-    $img.alt = `${type} notes`;
-    return $img;
-}
-async function makeOverpassQuery($button, query) {
-    try {
-        const response = await fetch(`https://www.overpass-api.de/api/interpreter`, {
-            method: 'POST',
-            body: new URLSearchParams({ data: query })
-        });
-        const text = await response.text();
-        if (!response.ok) {
-            setError(`receiving the following message: ${text}`);
-            return;
-        }
-        clearError();
-        return new DOMParser().parseFromString(text, 'text/xml');
-    }
-    catch (ex) {
-        if (ex instanceof TypeError) {
-            setError(`with the following error before receiving a response: ${ex.message}`);
-        }
-        else {
-            setError(`for unknown reason`);
-        }
-    }
-    function setError(reason) {
-        $button.classList.add('error');
-        $button.title = `Overpass query failed ${reason}`;
-    }
-    function clearError() {
-        $button.classList.remove('error');
-        $button.title = '';
-    }
-}
-function getClosestNodeId(doc, centerLat, centerLon) {
-    let closestNodeId;
-    let closestNodeDistanceSquared = Infinity;
-    for (const node of doc.querySelectorAll('node')) {
-        const lat = Number(node.getAttribute('lat'));
-        const lon = Number(node.getAttribute('lon'));
-        const id = node.getAttribute('id');
-        if (!Number.isFinite(lat) || !Number.isFinite(lon) || !id)
-            continue;
-        const distanceSquared = (lat - centerLat) ** 2 + (lon - centerLon) ** 2;
-        if (distanceSquared < closestNodeDistanceSquared) {
-            closestNodeDistanceSquared = distanceSquared;
-            closestNodeId = id;
-        }
-    }
-    return closestNodeId;
-}
 async function openRcUrl($button, rcUrl) {
     try {
         const response = await fetch(rcUrl);
@@ -3758,6 +3975,7 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
         {
             this.$bboxInput.type = 'text';
             this.$bboxInput.name = 'bbox';
+            this.$bboxInput.required = true; // otherwise could submit empty bbox without entering anything
             $fieldset.append(makeDiv('major-input')(makeLabel()(`Bounding box (`, tip(`left`, `western-most (min) longitude`), `, `, tip(`bottom`, `southern-most (min) latitude`), `, `, tip(`right`, `eastern-most (max) longitude`), `, `, tip(`top`, `northern-most (max) latitude`), `): `, this.$bboxInput)));
             function tip(text, title) {
                 const $span = document.createElement('span');
