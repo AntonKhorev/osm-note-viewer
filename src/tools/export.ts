@@ -225,10 +225,14 @@ export class GeoJsonTool extends ExportTool {
 		`All of the properties are displayed like OSM element tags, which opens some possibilities: `
 	),ul(
 		li(`properties are editable in JOSM with a possibility to save results to a file`),
-		li(`it's possible to access the note url in iD, something that was impossible with GPX format`)
+		li(`it's possible to access the note URL in iD, something that was impossible with GPX format`)
+	),p(
+		`While accessing the URLs, note that they are OSM API URLs, not the website URLs you might expect. `,
+		`This is how OSM API outputs them. `,
+		`Since that might be inconvenient, there's an `,dfn(`OSM website URLs`),` option. `,
+		`With it you're able to select the note url in iD by triple-clicking its value.`
 	),
 /*
-		`You'll have to enable the notes layer in iD and compare its note marker with waypoint markers from the gpx file.`
 	),p(
 		`By default only the `,dfn(`first comment`),` is added to waypoint descriptions. `,
 		`This is because some apps such as iD and especially `,makeLink(`JOSM`,`https://wiki.openstreetmap.org/wiki/JOSM`),` try to render the entire description in one line next to the waypoint marker, cluttering the map.`
@@ -245,16 +249,16 @@ export class GeoJsonTool extends ExportTool {
 				['no',`without connections`],
 				['line',`connected by line`],
 			],
-			comments: [
-				['first',`first comment`],
-				['all',`all comments`],
-			]
+			urls: [
+				['api',`OSM API`],
+				['web',`OSM website`],
+			],
 		}
 	}
 	protected writeOptions($selects:{[key:string]:HTMLSelectElement}): ToolElements {
 		return [
 			makeLabel('inline')(` as points `,$selects.connect),` `,
-			makeLabel('inline')(` with `,$selects.comments,` in descriptions`),`, `,
+			makeLabel('inline')(` with `,$selects.urls,` URLs in properties`),`, `,
 		]
 	}
 	protected listDataTypes(): string[] {
@@ -263,7 +267,7 @@ export class GeoJsonTool extends ExportTool {
 	protected generateFilename(): string {
 		return 'notes.geojson' // JOSM doesn't like .json
 	}
-	protected generateData(options: {connect:string,comments:string}): string {
+	protected generateData(options: {connect:string,urls:string}): string {
 		// https://github.com/openstreetmap/openstreetmap-website/blob/master/app/views/api/notes/_note.json.jbuilder
 		const selectedNoteUsers=this.selectedNoteUsers
 		const e=makeEscapeTag(encodeURIComponent)
@@ -302,6 +306,9 @@ export class GeoJsonTool extends ExportTool {
 		}
 		return JSON.stringify(featureCollection,undefined,2)
 		function generateNoteUrls(note: Note): {[key:string]:string} {
+			if (options.urls=='web') return {
+				url: e`https://www.openstreetmap.org/note/${note.id}`
+			}
 			const urlBase= e`https://api.openstreetmap.org/api/0.6/notes/${note.id}`
 			const result: {[key:string]:string} = {
 				url: urlBase+`.json`
@@ -334,7 +341,11 @@ export class GeoJsonTool extends ExportTool {
 			const username=selectedNoteUsers.get(comment.uid)
 			if (username==null) return result
 			result.user=username
-			result.user_url=e`https://api.openstreetmap.org/user/${username}`
+			if (options.urls=='web') {
+				result.user_url=e`https://www.openstreetmap.org/user/${username}`
+			} else {
+				result.user_url=e`https://api.openstreetmap.org/user/${username}`
+			}
 			return result
 		}
 		function lastCloseComment(note: Note): NoteComment|undefined {
