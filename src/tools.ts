@@ -397,17 +397,11 @@ abstract class ExportTool extends Tool {
 		return true
 	}
 	getTool(): ToolElements {
-		const $connectSelect=document.createElement('select')
-		$connectSelect.append(
-			new Option(`without connections`,'no'),
-			new Option(`connected by route`,'rte'),
-			new Option(`connected by track`,'trk')
-		)
-		const $commentsSelect=document.createElement('select')
-		$commentsSelect.append(
-			new Option(`first comment`,'first'),
-			new Option(`all comments`,'all')
-		)
+		const $optionSelects=Object.fromEntries(Object.entries(this.describeOptions()).map(([key,valuesWithTexts])=>{
+			const $select=document.createElement('select')
+			$select.append(...valuesWithTexts.map(([value,text])=>new Option(text,value)))
+			return [key,$select]
+		}))
 		const $dataTypeSelect=document.createElement('select')
 		$dataTypeSelect.append(
 			new Option('text/xml'),
@@ -417,7 +411,7 @@ abstract class ExportTool extends Tool {
 		const $exportNotesButton=this.makeRequiringSelectedNotesButton()
 		$exportNotesButton.append(`Export `,makeNotesIcon('selected'))
 		$exportNotesButton.onclick=()=>{
-			const data=this.generateData($connectSelect.value,$commentsSelect.value)
+			const data=this.generateData($optionSelects.connect.value,$optionSelects.comments.value)
 			const filename=this.generateFilename()
 			const file=new File([data],filename)
 			const $a=document.createElement('a')
@@ -428,15 +422,33 @@ abstract class ExportTool extends Tool {
 		}
 		$exportNotesButton.draggable=true
 		$exportNotesButton.ondragstart=(ev)=>{
-			const data=this.generateData($connectSelect.value,$commentsSelect.value)
+			const data=this.generateData($optionSelects.connect.value,$optionSelects.comments.value)
 			if (!ev.dataTransfer) return
 			ev.dataTransfer.setData($dataTypeSelect.value,data)
 		}
 		return [
 			$exportNotesButton,` `,
-			makeLabel('inline')(` as waypoints `,$connectSelect),` `,
-			makeLabel('inline')(` with `,$commentsSelect,` in descriptions`),`, `,
+			...this.writeOptions($optionSelects),
 			makeLabel('inline')(`set `,$dataTypeSelect,` type in drag and drop events`)
+		]
+	}
+	protected describeOptions(): {[key:string]:[value:string,text:string][]} {
+		return {
+			connect: [
+				['no',`without connections`],
+				['rte',`connected by route`],
+				['trk',`connected by track`],
+			],
+			comments: [
+				['first',`first comment`],
+				['all',`all comments`],
+			]
+		}
+	}
+	protected writeOptions($selects:{[key:string]:HTMLSelectElement}): ToolElements {
+		return [
+			makeLabel('inline')(` as waypoints `,$selects.connect),` `,
+			makeLabel('inline')(` with `,$selects.comments,` in descriptions`),`, `,
 		]
 	}
 	protected abstract generateFilename(): string
