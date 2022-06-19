@@ -1,4 +1,9 @@
-import type {Note} from './data'
+import type {
+	Feature,
+	FeatureCollection
+} from 'geojson'
+
+import type {Note, NoteComment} from './data'
 import {NoteMap} from './map'
 import FigureDialog from './figure'
 import CommentWriter, {makeDateOutput} from './comment-writer'
@@ -538,10 +543,80 @@ class GeoJsonTool extends ExportTool {
 		`GeoJSON`
 	)}
 	protected generateFilename(): string {
-		return 'notes.json'
+		return 'notes.geojson' // JOSM doesn't like .json
 	}
 	protected generateData(connectSetting: string, commentsSetting: string): string {
-		return 'TODO'
+		// https://github.com/openstreetmap/openstreetmap-website/blob/master/app/views/api/notes/_note.json.jbuilder
+		const selectedNoteUsers=this.selectedNoteUsers
+		const e=makeEscapeTag(encodeURIComponent)
+		const features: Feature[] = this.selectedNotes.map(note=>({
+			type: 'Feature',
+			geometry: {
+				type: 'Point',
+				coordinates: [note.lon,note.lat]
+			},
+			properties: {
+				id: note.id,
+				...generateNoteUrls(note),
+				...generateNoteDates(note),
+				status: note.status,
+				comments: note.comments.map(comment=>({
+					date: formatDate(comment.date),
+					...generateCommentUserProperties(comment),
+					action: comment.action,
+					text: comment.text
+				}))
+			}
+		}))
+		const featureCollection: FeatureCollection = {
+			type: 'FeatureCollection',
+			features
+		}
+		return JSON.stringify(featureCollection,undefined,2)
+		function generateNoteUrls(note: Note): {[key:string]:string} {
+			const urlBase= e`https://api.openstreetmap.org/api/0.6/notes/${note.id}`
+			const result: {[key:string]:string} = {
+				url: urlBase+`.json`
+			}
+			if (note.status=='closed') {
+				result.reopen_url=urlBase+`/reopen.json`
+			} else {
+				result.comment_url=urlBase+`/comment.json`
+				result.close_url=urlBase+`/close.json`
+			}
+			return result
+		}
+		function generateNoteDates(note: Note): {[key:string]:string} { // technically the dates may be incorrect because some comments could be hidden
+			const result: {[key:string]:string} = {}
+			if (note.comments.length>0) {
+				result.date_created=formatDate(note.comments[0].date)
+				if (note.status=='closed') {
+					const closeComment=lastCloseComment(note)
+					if (closeComment) {
+						result.closed_at=formatDate(closeComment.date)
+					}
+				}
+			}
+			return result
+		}
+		function generateCommentUserProperties(comment: NoteComment): {[key:string]:string|number} {
+			const result: {[key:string]:string|number} = {}
+			if (comment.uid==null) return result
+			result.uid=comment.uid
+			const username=selectedNoteUsers.get(comment.uid)
+			if (username==null) return result
+			result.user=username
+			result.user_url=e`https://api.openstreetmap.org/user/${username}`
+			return result
+		}
+		function lastCloseComment(note: Note): NoteComment|undefined {
+			for (let i=note.comments.length-1;i>=0;i--) {
+				if (note.comments[i].action=='closed') return note.comments[i]
+			}
+		}
+		function formatDate(date: number): string {
+			return toReadableDate(date)+' UTC'
+		}
 	}
 }
 
