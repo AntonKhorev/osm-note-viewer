@@ -28,15 +28,15 @@ abstract class ExportTool extends Tool {
 		const $optionSelects=Object.fromEntries(
 			Object.entries(this.describeOptions()).map(([key,valuesWithTexts])=>{
 				const $select=document.createElement('select')
-				$select.append(...valuesWithTexts.map(([value,text])=>new Option(text,value)))
+				$select.append(
+					...valuesWithTexts.map(([value,text])=>new Option(text,value))
+				)
 				return [key,$select]
 			})
 		)
 		const $dataTypeSelect=document.createElement('select')
 		$dataTypeSelect.append(
-			new Option('text/xml'),
-			new Option('application/gpx+xml'),
-			new Option('text/plain')
+			...this.listDataTypes().map(type=>new Option(type))
 		)
 		const $exportNotesButton=this.makeRequiringSelectedNotesButton()
 		$exportNotesButton.append(`Export `,makeNotesIcon('selected'))
@@ -69,6 +69,7 @@ abstract class ExportTool extends Tool {
 	}
 	protected abstract describeOptions(): {[key:string]:[value:string,text:string][]}
 	protected abstract writeOptions($selects:{[key:string]:HTMLSelectElement}): ToolElements
+	protected abstract listDataTypes(): string[]
 	protected abstract generateFilename(): string
 	protected abstract generateData(options: {[key:string]:string}): string
 }
@@ -116,6 +117,9 @@ export class GpxTool extends ExportTool {
 			makeLabel('inline')(` as waypoints `,$selects.connect),` `,
 			makeLabel('inline')(` with `,$selects.comments,` in descriptions`),`, `,
 		]
+	}
+	protected listDataTypes(): string[] {
+		return ['text/xml','application/gpx+xml','text/plain']
 	}
 	protected generateFilename(): string {
 		return 'notes.gpx'
@@ -253,6 +257,9 @@ export class GeoJsonTool extends ExportTool {
 			makeLabel('inline')(` as points `,$selects.connect),` `,
 			makeLabel('inline')(` with `,$selects.comments,` in descriptions`),`, `,
 		]
+	}
+	protected listDataTypes(): string[] {
+		return ['application/json','application/geo+json','text/plain']
 	}
 	protected generateFilename(): string {
 		return 'notes.geojson' // JOSM doesn't like .json
