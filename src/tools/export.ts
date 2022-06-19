@@ -24,6 +24,16 @@ abstract class ExportTool extends Tool {
 		this.selectedNoteUsers=selectedNoteUsers
 		return true
 	}
+	getInfo(): ToolElements {
+		return [
+			...this.getInfoWithoutDragAndDrop(),
+			p(
+				`Instead of clicking the `,em(`Export`),` button, you can drag it and drop into a place that accepts data sent by `,makeLink(`Drag and Drop API`,`https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`),`. `,
+				`Not many places actually do, and those who do often can handle only plaintext. `,
+				`That's why there's a type selector, with which plaintext format can be forced on transmitted data.`
+			)
+		]
+	}
 	getTool(): ToolElements {
 		const $optionSelects=Object.fromEntries(
 			Object.entries(this.describeOptions()).map(([key,valuesWithTexts])=>{
@@ -67,6 +77,7 @@ abstract class ExportTool extends Tool {
 			)
 		}
 	}
+	protected abstract getInfoWithoutDragAndDrop(): ToolElements
 	protected abstract describeOptions(): {[key:string]:[value:string,text:string][]}
 	protected abstract writeOptions($selects:{[key:string]:HTMLSelectElement}): ToolElements
 	protected abstract listDataTypes(): string[]
@@ -79,7 +90,7 @@ export class GpxTool extends ExportTool {
 		'gpx',
 		`GPX`
 	)}
-	getInfo() {return[p(
+	protected getInfoWithoutDragAndDrop() {return[p(
 		`Export selected notes in `,makeLink(`GPX`,'https://wiki.openstreetmap.org/wiki/GPX'),` (GPS exchange) format. `,
 		`During the export, each selected note is treated as a waypoint with its name set to note id, description set to comments and link pointing to note's page on the OSM website. `,
 		`This allows OSM notes to be used in applications that can't show them directly. `,
@@ -94,10 +105,6 @@ export class GpxTool extends ExportTool {
 		`It's possible to pretend that note waypoints are connected by a `,makeLink(`route`,`https://www.topografix.com/GPX/1/1/#type_rteType`),` by using the `,dfn(`connected by route`),` option. `,
 		`This may help to go from a note to the next one in an app by visually following the route line. `,
 		`There's also the `,dfn(`connected by track`),` option in case the app makes it easier to work with `,makeLink(`tracks`,`https://www.topografix.com/GPX/1/1/#type_trkType`),` than with the routes.`
-	),p(
-		`Instead of clicking the `,em(`Export`),` button, you can drag it and drop into a place that accepts data sent by `,makeLink(`Drag and Drop API`,`https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`),`. `,
-		`Not many places actually do, and those who do often can handle only plaintext. `,
-		`That's why there's a type selector, with which plaintext format can be forced on transmitted data.`
 	)]}
 	protected describeOptions(): {[key:string]:[value:string,text:string][]} {
 		return {
@@ -196,7 +203,7 @@ export class GeoJsonTool extends ExportTool {
 		'geojson',
 		`GeoJSON`
 	)}
-	getInfo() {return[p(
+	protected getInfoWithoutDragAndDrop() {return[p(
 		`Export selected notes in `,makeLink(`GeoJSON`,'https://wiki.openstreetmap.org/wiki/GeoJSON'),` format. `,
 		`The exact features and properties exported are made to be close to OSM API `,code(`.json`),` output:`
 	),ul(
@@ -231,15 +238,7 @@ export class GeoJsonTool extends ExportTool {
 		`It's possible to pretend that note points are connected by a `,makeLink(`LineString`,`https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.4`),` by using the `,dfn(`connected by line`),` option. `,
 		`This may help to go from a note to the next one in an app by visually following the route line. `,
 		`However, enabling the line makes it difficult to click on note points in iD.`
-	)
-/*
-	,p(
-		`Instead of clicking the `,em(`Export`),` button, you can drag it and drop into a place that accepts data sent by `,makeLink(`Drag and Drop API`,`https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`),`. `,
-		`Not many places actually do, and those who do often can handle only plaintext. `,
-		`That's why there's a type selector, with which plaintext format can be forced on transmitted data.`
-	)
-*/
-	]}
+	)]}
 	protected describeOptions(): {[key:string]:[value:string,text:string][]} {
 		return {
 			connect: [
