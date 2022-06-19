@@ -83,6 +83,28 @@ abstract class ExportTool extends Tool {
 	protected abstract listDataTypes(): string[]
 	protected abstract generateFilename(): string
 	protected abstract generateData(options: {[key:string]:string}): string
+	protected getCommentStrings(comments: NoteComment[], all: boolean): string[] {
+		const ts=[]
+		for (const comment of comments) {
+			let t=''
+			if (comment.uid) {
+				const username=this.selectedNoteUsers.get(comment.uid)
+				if (username!=null) {
+					t+=`${username}`
+				} else {
+					t+=`user #${comment.uid}`
+				}
+			} else {
+				t+=`anonymous user`
+			}
+			if (all) t+=` ${comment.action}`
+			t+=` at ${toReadableDate(comment.date)}`
+			if (comment.text) t+=`: ${comment.text}`
+			ts.push(t)
+			if (!all) break
+		}
+		return ts
+	}
 }
 
 export class GpxTool extends ExportTool {
@@ -152,28 +174,7 @@ export class GpxTool extends ExportTool {
 			gpx+=e`<name>${note.id}</name>\n`
 			if (note.comments.length>0) {
 				gpx+=`<desc>`
-				let first=true
-				for (const comment of note.comments) {
-					if (first) {
-						first=false
-					} else {
-						gpx+=`&#xA;\n` // JOSM wants this kind of double newline, otherwise no space between comments is rendered
-					}
-					if (comment.uid) {
-						const username=this.selectedNoteUsers.get(comment.uid)
-						if (username!=null) {
-							gpx+=e`${username}`
-						} else {
-							gpx+=e`user #${comment.uid}`
-						}
-					} else {
-						gpx+=`anonymous user`
-					}
-					if (options.comments=='all') gpx+=e` ${comment.action}`
-					gpx+=` at ${toReadableDate(comment.date)}`
-					if (comment.text) gpx+=e`: ${comment.text}`
-					if (options.comments!='all') break
-				}
+				gpx+=this.getCommentStrings(note.comments,options.comments=='all').map(escapeXml).join(`&#xA;\n`) // JOSM wants this kind of double newline, otherwise no space between comments is rendered
 				gpx+=`</desc>\n`
 			}
 			const noteUrl=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.id)
@@ -222,7 +223,7 @@ export class GeoJsonTool extends ExportTool {
 		`Particularly neither iD nor JOSM seem to render any labels for note markers. `,
 		`Also clicking the marker in JOSM is not going to open the note webpage. `,
 		`On the other hand there's more clarity about how to to display properties outside of the editor map view. `,
-		`All of the properties are displayed like OSM element tags, which opens some possibilities: `
+		`All of the properties are displayed like `,makeLink(`OSM tags`,'https://wiki.openstreetmap.org/wiki/Tags'),`, which opens some possibilities: `
 	),ul(
 		li(`properties are editable in JOSM with a possibility to save results to a file`),
 		li(`it's possible to access the note URL in iD, something that was impossible with GPX format`)
@@ -231,6 +232,12 @@ export class GeoJsonTool extends ExportTool {
 		`This is how OSM API outputs them. `,
 		`Since that might be inconvenient, there's an `,dfn(`OSM website URLs`),` option. `,
 		`With it you're able to select the note url in iD by triple-clicking its value.`
+	),p(
+		`Another consequence of displaying properties like tags is that they work best when they are strings. `,
+		`OSM tags are strings, and that's what editors expect to display in their tag views. `,
+		`When used for properties of notes, there's one non-string property: `,em(`comments`),`. `,
+		`iD is unable to display it. `,
+		`If you want to force comments to be represented by strings, like in GPX exports, there's an options for that.`
 	),
 /*
 	),p(
@@ -253,12 +260,17 @@ export class GeoJsonTool extends ExportTool {
 				['api',`OSM API`],
 				['web',`OSM website`],
 			],
+			comments: [
+				['array',`arrays`],
+				['string',`strings`],
+			],
 		}
 	}
 	protected writeOptions($selects:{[key:string]:HTMLSelectElement}): ToolElements {
 		return [
 			makeLabel('inline')(` as points `,$selects.connect),` `,
-			makeLabel('inline')(` with `,$selects.urls,` URLs in properties`),`, `,
+			makeLabel('inline')(` with `,$selects.urls,` URLs in properties`),` and `,
+			makeLabel('inline')(` comments written as `,$selects.comments),`, `
 		]
 	}
 	protected listDataTypes(): string[] {
@@ -267,7 +279,7 @@ export class GeoJsonTool extends ExportTool {
 	protected generateFilename(): string {
 		return 'notes.geojson' // JOSM doesn't like .json
 	}
-	protected generateData(options: {connect:string,urls:string}): string {
+	protected generateData(options: {connect:string,urls:string,comments:string}): string {
 		// https://github.com/openstreetmap/openstreetmap-website/blob/master/app/views/api/notes/_note.json.jbuilder
 		const selectedNoteUsers=this.selectedNoteUsers
 		const e=makeEscapeTag(encodeURIComponent)
@@ -282,12 +294,12 @@ export class GeoJsonTool extends ExportTool {
 				...generateNoteUrls(note),
 				...generateNoteDates(note),
 				status: note.status,
-				comments: note.comments.map(comment=>({
+				comments: options.comments=='array' ? note.comments.map(comment=>({
 					date: formatDate(comment.date),
 					...generateCommentUserProperties(comment),
 					action: comment.action,
 					text: comment.text
-				}))
+				})) : this.getCommentStrings(note.comments,true).join(`; `).replace(/\n/g,'\n ')
 			}
 		}))
 		if (options.connect=='line' && this.selectedNotes.length>1) {
