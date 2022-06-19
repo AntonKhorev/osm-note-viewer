@@ -25,11 +25,13 @@ abstract class ExportTool extends Tool {
 		return true
 	}
 	getTool(): ToolElements {
-		const $optionSelects=Object.fromEntries(Object.entries(this.describeOptions()).map(([key,valuesWithTexts])=>{
-			const $select=document.createElement('select')
-			$select.append(...valuesWithTexts.map(([value,text])=>new Option(text,value)))
-			return [key,$select]
-		}))
+		const $optionSelects=Object.fromEntries(
+			Object.entries(this.describeOptions()).map(([key,valuesWithTexts])=>{
+				const $select=document.createElement('select')
+				$select.append(...valuesWithTexts.map(([value,text])=>new Option(text,value)))
+				return [key,$select]
+			})
+		)
 		const $dataTypeSelect=document.createElement('select')
 		$dataTypeSelect.append(
 			new Option('text/xml'),
@@ -39,7 +41,7 @@ abstract class ExportTool extends Tool {
 		const $exportNotesButton=this.makeRequiringSelectedNotesButton()
 		$exportNotesButton.append(`Export `,makeNotesIcon('selected'))
 		$exportNotesButton.onclick=()=>{
-			const data=this.generateData($optionSelects.connect.value,$optionSelects.comments.value)
+			const data=this.generateData(getOptionValues())
 			const filename=this.generateFilename()
 			const file=new File([data],filename)
 			const $a=document.createElement('a')
@@ -50,7 +52,7 @@ abstract class ExportTool extends Tool {
 		}
 		$exportNotesButton.draggable=true
 		$exportNotesButton.ondragstart=(ev)=>{
-			const data=this.generateData($optionSelects.connect.value,$optionSelects.comments.value)
+			const data=this.generateData(getOptionValues())
 			if (!ev.dataTransfer) return
 			ev.dataTransfer.setData($dataTypeSelect.value,data)
 		}
@@ -59,28 +61,16 @@ abstract class ExportTool extends Tool {
 			...this.writeOptions($optionSelects),
 			makeLabel('inline')(`set `,$dataTypeSelect,` type in drag and drop events`)
 		]
-	}
-	protected describeOptions(): {[key:string]:[value:string,text:string][]} {
-		return {
-			connect: [
-				['no',`without connections`],
-				['rte',`connected by route`],
-				['trk',`connected by track`],
-			],
-			comments: [
-				['first',`first comment`],
-				['all',`all comments`],
-			]
+		function getOptionValues(): {[key:string]:string} {
+			return Object.fromEntries(
+				Object.entries($optionSelects).map(([key,$select])=>[key,$select.value])
+			)
 		}
 	}
-	protected writeOptions($selects:{[key:string]:HTMLSelectElement}): ToolElements {
-		return [
-			makeLabel('inline')(` as waypoints `,$selects.connect),` `,
-			makeLabel('inline')(` with `,$selects.comments,` in descriptions`),`, `,
-		]
-	}
+	protected abstract describeOptions(): {[key:string]:[value:string,text:string][]}
+	protected abstract writeOptions($selects:{[key:string]:HTMLSelectElement}): ToolElements
 	protected abstract generateFilename(): string
-	protected abstract generateData(connectSetting: string, commentsSetting: string): string
+	protected abstract generateData(options: {[key:string]:string}): string
 }
 
 export class GpxTool extends ExportTool {
@@ -108,10 +98,29 @@ export class GpxTool extends ExportTool {
 		`Not many places actually do, and those who do often can handle only plaintext. `,
 		`That's why there's a type selector, with which plaintext format can be forced on transmitted data.`
 	)]}
+	protected describeOptions(): {[key:string]:[value:string,text:string][]} {
+		return {
+			connect: [
+				['no',`without connections`],
+				['rte',`connected by route`],
+				['trk',`connected by track`],
+			],
+			comments: [
+				['first',`first comment`],
+				['all',`all comments`],
+			]
+		}
+	}
+	protected writeOptions($selects:{[key:string]:HTMLSelectElement}): ToolElements {
+		return [
+			makeLabel('inline')(` as waypoints `,$selects.connect),` `,
+			makeLabel('inline')(` with `,$selects.comments,` in descriptions`),`, `,
+		]
+	}
 	protected generateFilename(): string {
 		return 'notes.gpx'
 	}
-	protected generateData(connectSetting: string, commentsSetting: string): string {
+	protected generateData(options: {connect:string,comments:string}): string {
 		const e=makeEscapeTag(escapeXml)
 		const getPoints=(pointTag: string, getDetails: (note: Note) => string = ()=>''): string => {
 			let gpx=''
@@ -149,10 +158,10 @@ export class GpxTool extends ExportTool {
 					} else {
 						gpx+=`anonymous user`
 					}
-					if (commentsSetting=='all') gpx+=e` ${comment.action}`
+					if (options.comments=='all') gpx+=e` ${comment.action}`
 					gpx+=` at ${toReadableDate(comment.date)}`
 					if (comment.text) gpx+=e`: ${comment.text}`
-					if (commentsSetting!='all') break
+					if (options.comments!='all') break
 				}
 				gpx+=`</desc>\n`
 			}
@@ -163,12 +172,12 @@ export class GpxTool extends ExportTool {
 			gpx+=e`<type>${note.status}</type>\n`
 			return gpx
 		})
-		if (connectSetting=='rte') {
+		if (options.connect=='rte') {
 			gpx+=`<rte>\n`
 			gpx+=getPoints('rtept')
 			gpx+=`</rte>\n`
 		}
-		if (connectSetting=='trk') {
+		if (options.connect=='trk') {
 			gpx+=`<trk><trkseg>\n`
 			gpx+=getPoints('trkpt')
 			gpx+=`</trkseg></trk>\n`
@@ -190,7 +199,7 @@ export class GeoJsonTool extends ExportTool {
 		li(`the entire note collection is represented as a `,makeLink(`FeatureCollection`,'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.3')),
 		li(`each note is represented as a `,makeLink(`Point`,'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.2'),` `,makeLink(`Feature`,'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.2'))
 	),p(
-		`There are few differences to OSM API output:`,
+		`There are few differences to OSM API output, not including modifications using tool options described later:`,
 	),ul(
 		li(`comments don't have `,code(`html`),` property, their content is available only as plaintext`),
 		li(`dates may be incorrect in case of hidden note comments (something that happens very rarely)`)
@@ -206,27 +215,49 @@ export class GeoJsonTool extends ExportTool {
 	),ul(
 		li(`properties are editable in JOSM with a possibility to save results to a file`),
 		li(`it's possible to access the note url in iD, something that was impossible with GPX format`)
-	)
+	),
 /*
 		`You'll have to enable the notes layer in iD and compare its note marker with waypoint markers from the gpx file.`
 	),p(
 		`By default only the `,dfn(`first comment`),` is added to waypoint descriptions. `,
 		`This is because some apps such as iD and especially `,makeLink(`JOSM`,`https://wiki.openstreetmap.org/wiki/JOSM`),` try to render the entire description in one line next to the waypoint marker, cluttering the map.`
-	),p(
-		`It's possible to pretend that note waypoints are connected by a `,makeLink(`route`,`https://www.topografix.com/GPX/1/1/#type_rteType`),` by using the `,dfn(`connected by route`),` option. `,
+	),
+*/
+	p(
+		`It's possible to pretend that note points are connected by a `,makeLink(`LineString`,`https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.4`),` by using the `,dfn(`connected by line`),` option. `,
 		`This may help to go from a note to the next one in an app by visually following the route line. `,
-		`There's also the `,dfn(`connected by track`),` option in case the app makes it easier to work with `,makeLink(`tracks`,`https://www.topografix.com/GPX/1/1/#type_trkType`),` than with the routes.`
-	),p(
+		`However, enabling the line makes it difficult to click on note points in iD.`
+	)
+/*
+	,p(
 		`Instead of clicking the `,em(`Export`),` button, you can drag it and drop into a place that accepts data sent by `,makeLink(`Drag and Drop API`,`https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`),`. `,
 		`Not many places actually do, and those who do often can handle only plaintext. `,
 		`That's why there's a type selector, with which plaintext format can be forced on transmitted data.`
 	)
 */
 	]}
+	protected describeOptions(): {[key:string]:[value:string,text:string][]} {
+		return {
+			connect: [
+				['no',`without connections`],
+				['line',`connected by line`],
+			],
+			comments: [
+				['first',`first comment`],
+				['all',`all comments`],
+			]
+		}
+	}
+	protected writeOptions($selects:{[key:string]:HTMLSelectElement}): ToolElements {
+		return [
+			makeLabel('inline')(` as points `,$selects.connect),` `,
+			makeLabel('inline')(` with `,$selects.comments,` in descriptions`),`, `,
+		]
+	}
 	protected generateFilename(): string {
 		return 'notes.geojson' // JOSM doesn't like .json
 	}
-	protected generateData(connectSetting: string, commentsSetting: string): string {
+	protected generateData(options: {connect:string,comments:string}): string {
 		// https://github.com/openstreetmap/openstreetmap-website/blob/master/app/views/api/notes/_note.json.jbuilder
 		const selectedNoteUsers=this.selectedNoteUsers
 		const e=makeEscapeTag(encodeURIComponent)
@@ -249,6 +280,16 @@ export class GeoJsonTool extends ExportTool {
 				}))
 			}
 		}))
+		if (options.connect=='line' && this.selectedNotes.length>1) {
+			features.push({
+				type: 'Feature',
+				geometry: {
+					type: 'LineString',
+					coordinates: this.selectedNotes.map(note=>[note.lon,note.lat]),
+				},
+				properties: null
+			})
+		}
 		const featureCollection: FeatureCollection = {
 			type: 'FeatureCollection',
 			features
