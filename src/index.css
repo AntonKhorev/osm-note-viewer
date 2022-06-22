@@ -318,13 +318,18 @@ body.flipped .notes td.note-user {
 	width: 16px;
 	height: 16px;
 	vertical-align: text-top;
-	background: url("note-status.svg");
+}
+.notes td.note-action .icon > svg {
+	width: 16px;
+	height: 16px;
 }
 .notes td.note-action .icon.open {
-	background: url("note-status-open.svg");
+	--table-note-default-part-visibility: hidden;
+	--table-note-open-part-visibility: visible;
 }
 .notes td.note-action .icon.closed {
-	background: url("note-status-closed.svg");
+	--table-note-default-part-visibility: hidden;
+	--table-note-closed-part-visibility: visible;
 }
 .notes td.note-comment {
 	--comment-img-gap-size: 2px;

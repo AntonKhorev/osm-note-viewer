@@ -7,7 +7,7 @@ await fs.rm('dist',{recursive: true, force: true})
 await fs.mkdir('dist')
 
 // process svgs
-const embedSvgFiles=['tools-map.svg','tools-notes.svg']
+const embedSvgFiles=['table-note.svg','tools-map.svg','tools-notes.svg']
 let embeddedStyles=''
 let embeddedSymbols=''
 for (const svgDirEntry of await fs.readdir('src/svg',{withFileTypes:true})) {
@@ -63,7 +63,8 @@ function getEmbeddedSvg(id,input) {
 			break
 		} else if (match=line.match(/^<g class="([^"]*)">$/)) {
 			const [,partClass]=match
-			style+=`#${id} .${partClass} { visibility: var(--${id}-${partClass}-part-visibility,hidden); }\n`
+			const visibility=(partClass=='default'?'visible':'hidden')
+			style+=`#${id} .${partClass} { visibility: var(--${id}-${partClass}-part-visibility,${visibility}); }\n`
 			symbol+=line+'\n'
 		} else {
 			symbol+=line+'\n'

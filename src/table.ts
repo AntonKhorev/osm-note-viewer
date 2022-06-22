@@ -210,6 +210,7 @@ export default class NoteTable {
 					const $icon=document.createElement('span')
 					$icon.title=comment.action
 					$icon.classList.add('icon',getActionClass(comment.action))
+					$icon.innerHTML=`<svg><use href="#table-note" /></svg>`
 					$cell.append($icon)
 				}{
 					const $cell=$row.insertCell()
