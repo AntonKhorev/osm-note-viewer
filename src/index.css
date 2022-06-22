@@ -167,23 +167,31 @@ body.flipped .panel.fetch button.flip {
 	border: none;
 	padding: 0;
 	margin: 0;
+	background: none;
 	width: var(--info-size);
 	height: var(--info-size);
-	background: url("info.svg") no-repeat;
+}
+.panel.command details.tool button.info > svg {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: var(--info-size);
+	height: var(--info-size);
 }
 .panel.command details.tool button.info:not(.open) {
 	cursor: help;
 }
 .panel.command details.tool button.info:hover {
-	background: url("info-hover.svg") no-repeat, url("info.svg") no-repeat;
+	--tools-info-hover-part-visibility: visible;
 }
 .panel.command details.tool button.info.open {
 	margin-bottom: calc(-1px - var(--gap));
 	height: calc(var(--info-size) + var(--gap) + 1px);
-	background: url("info-tip.svg") no-repeat, url("info.svg") no-repeat;
+	background: url("info-tip.svg") no-repeat;
 }
 .panel.command details.tool button.info.open:hover {
-	background: url("info-tip.svg") no-repeat, url("info-close-hover.svg") no-repeat, url("info.svg") no-repeat;
+	--tools-info-close-hover-part-visibility: visible;
+	background: url("info-tip.svg") no-repeat;
 }
 .panel.command details.tool form {
 	display: contents;

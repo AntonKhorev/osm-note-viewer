@@ -70,11 +70,11 @@ export default class ToolPanel {
 				const $infoDetails=document.createElement('details')
 				$infoDetails.classList.add('info')
 				const $infoSummary=document.createElement('summary')
-				$infoSummary.textContent=`${name} info`
+				$infoSummary.textContent=`${tool.name} info`
 				$infoDetails.append($infoSummary,...infoElements)
 				const $infoButton=document.createElement('button')
 				$infoButton.classList.add('info')
-				$infoButton.title=`tool info`
+				$infoButton.innerHTML=`<svg><title>Tool info</title><use href="#tools-info" /></svg>`
 				const updateInfoButton=()=>{
 					if ($infoDetails.open) {
 						$infoButton.classList.add('open')
