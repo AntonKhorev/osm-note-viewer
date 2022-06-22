@@ -310,7 +310,7 @@ body.flipped .notes td.note-user {
 	content: "anonymous";
 	color: gray;
 }
-.notes td.note-action .icon {
+.notes td.note-action [class|=icon] {
 	position: relative;
 	display: inline-block;
 	margin: 0;
@@ -319,15 +319,11 @@ body.flipped .notes td.note-user {
 	height: 16px;
 	vertical-align: text-top;
 }
-.notes td.note-action .icon > svg {
-	width: 16px;
-	height: 16px;
-}
-.notes td.note-action .icon.open {
+.notes td.note-action [class|=icon-open] {
 	--table-note-default-part-visibility: hidden;
 	--table-note-open-part-visibility: visible;
 }
-.notes td.note-action .icon.closed {
+.notes td.note-action [class|=icon-closed] {
 	--table-note-default-part-visibility: hidden;
 	--table-note-closed-part-visibility: visible;
 }
