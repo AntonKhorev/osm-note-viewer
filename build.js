@@ -7,22 +7,17 @@ await fs.rm('dist',{recursive: true, force: true})
 await fs.mkdir('dist')
 
 // process svgs
-const embedSvgFiles=['flip.svg','reset.svg','table-note.svg','tools-info.svg','tools-map.svg','tools-notes.svg']
 let embeddedStyles=''
 let embeddedSymbols=''
 for (const svgDirEntry of await fs.readdir('src/svg',{withFileTypes:true})) {
 	if (svgDirEntry.isDirectory()) continue
 	const filename=svgDirEntry.name
-	if (embedSvgFiles.includes(filename)) {
-		const [style,symbol]=getEmbeddedSvg(
-			filename.split('.')[0],
-			await fs.readFile(`src/svg/${filename}`,'utf-8')
-		)
-		embeddedStyles+=style
-		embeddedSymbols+=symbol
-	} else {
-		await fs.copyFile(`src/svg/${filename}`,`dist/${filename}`)
-	}	
+	const [style,symbol]=getEmbeddedSvg(
+		filename.split('.')[0],
+		await fs.readFile(`src/svg/${filename}`,'utf-8')
+	)
+	embeddedStyles+=style
+	embeddedSymbols+=symbol
 }
 
 // build index with embedded svgs

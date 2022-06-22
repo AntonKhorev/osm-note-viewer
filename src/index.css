@@ -459,7 +459,6 @@ body.flipped .notes td.note-user {
 .map .crosshair-overlay .crosshair {
 	height: 15px;
 	width: 15px;
-	background: url("crosshair.svg");
 }
 .map .osm-element-popup-contents {
 	--block-gap: .5em;

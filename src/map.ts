@@ -202,9 +202,7 @@ class CrosshairLayer extends L.Layer {
 		this.$overlay?.remove()
 		this.$overlay=document.createElement('div')
 		this.$overlay.classList.add('crosshair-overlay')
-		const $crosshair=document.createElement('div')
-		$crosshair.classList.add('crosshair')
-		this.$overlay.append($crosshair)
+		this.$overlay.innerHTML=`<svg class="crosshair"><use href="#map-crosshair" /></svg>`
 		map.getContainer().append(this.$overlay)
 		return this
 	}
