@@ -448,9 +448,7 @@ class CrosshairLayer extends L.Layer {
         this.$overlay?.remove();
         this.$overlay = document.createElement('div');
         this.$overlay.classList.add('crosshair-overlay');
-        const $crosshair = document.createElement('div');
-        $crosshair.classList.add('crosshair');
-        this.$overlay.append($crosshair);
+        this.$overlay.innerHTML = `<svg class="crosshair"><use href="#map-crosshair" /></svg>`;
         map.getContainer().append(this.$overlay);
         return this;
     }
@@ -584,7 +582,8 @@ class FigureDialog {
         $img.alt = 'attached photo';
         $figure.append($backdrop, $img);
         const $closeButton = document.createElement('button');
-        $closeButton.title = `Close photo`;
+        $closeButton.classList.add('global');
+        $closeButton.innerHTML = `<svg><title>Close photo</title><use href="#reset" /></svg>`;
         $dialog.append($figure, $closeButton);
         $figure.addEventListener('keydown', (ev) => {
             if (ev.key == 'Enter' || ev.key == ' ') {
@@ -1768,10 +1767,9 @@ class NoteTable {
                 {
                     const $cell = $row.insertCell();
                     $cell.classList.add('note-action');
-                    const $icon = document.createElement('span');
-                    $icon.title = comment.action;
-                    $icon.classList.add('icon', getActionClass(comment.action));
-                    $cell.append($icon);
+                    $cell.innerHTML = `<svg class="icon-${getActionClass(comment.action)}">` +
+                        `<title>${comment.action}</title><use href="#table-note" />` +
+                        `</svg>`;
                 }
                 {
                     const $cell = $row.insertCell();
@@ -2101,22 +2099,174 @@ class Tool {
     }
 }
 function makeMapIcon(type) {
-    const $img = document.createElement('img');
-    $img.classList.add('icon');
-    $img.src = `map-${type}.svg`;
-    $img.width = 19;
-    $img.height = 13;
-    $img.alt = `map ${type}`;
-    return $img;
+    const $span = document.createElement('span');
+    $span.innerHTML = `<span class='icon-map-${type}'><svg><use href="#tools-map" /></svg><span>map ${type}</span></span>`;
+    return $span;
 }
 function makeNotesIcon(type) {
-    const $img = document.createElement('img');
-    $img.classList.add('icon');
-    $img.src = `notes-${type}.svg`;
-    $img.width = 9;
-    $img.height = 13;
-    $img.alt = `${type} notes`;
-    return $img;
+    const $span = document.createElement('span');
+    $span.innerHTML = `<span class='icon-notes-${type}'><svg><use href="#tools-notes" /></svg><span>${type} notes</span></span>`;
+    return $span;
+}
+
+const p$4 = (...ss) => makeElement('p')()(...ss);
+const em$2 = (s) => makeElement('em')()(s);
+const dfn$1 = (s) => makeElement('dfn')()(s);
+const ul$1 = (...ss) => makeElement('ul')()(...ss);
+const li$1 = (...ss) => makeElement('li')()(...ss);
+class AutozoomTool extends Tool {
+    constructor() {
+        super('autozoom', `Automatic zoom`, `Pan and zoom the map to visible notes`);
+    }
+    getInfo() {
+        return [p$4(`Pan and zoom the map to notes in the table. `, `Can be used as `, em$2(`zoom to data`), ` for notes layer if `, dfn$1(`to all notes`), ` is selected. `), p$4(dfn$1(`To notes in table view`), ` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `, `This option is convenient to use when `, em$2(`Track between notes`), ` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`)];
+    }
+    getTool(callbacks, map) {
+        const $fitModeSelect = document.createElement('select');
+        $fitModeSelect.append(new Option('is disabled', 'none'), new Option('to notes in table view', 'inViewNotes'), new Option('to all notes', 'allNotes'));
+        $fitModeSelect.onchange = () => {
+            if ($fitModeSelect.value == 'allNotes') {
+                callbacks.onFitModeChange(this, $fitModeSelect.value);
+                map.fitNotes();
+            }
+            else if ($fitModeSelect.value == 'inViewNotes') {
+                callbacks.onFitModeChange(this, $fitModeSelect.value);
+                map.fitNoteTrack();
+            }
+            else {
+                callbacks.onFitModeChange(this, undefined);
+            }
+        };
+        return [$fitModeSelect];
+    }
+}
+class TimestampTool extends Tool {
+    constructor() {
+        super('timestamp', `Timestamp for historic queries`);
+        this.$timestampInput = document.createElement('input');
+    }
+    getInfo() {
+        return [p$4(`Allows to select a timestamp for use with `, em$2(`Overpass`), ` and `, em$2(`Overpass turbo`), ` commands. `, `You can either enter the timestamp in ISO format (or anything else that Overpass understands) manually here click on a date of/in a note comment. `, `If present, a `, makeLink(`date setting`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL#date`), ` is added to Overpass queries. `, `The idea is to allow for examining the OSM data at the moment some note was opened/commented/closed to evaluate if this action was correct.`), p$4(`Timestamps inside note comments are usually generated by apps like `, makeLink(`MAPS.ME`, `https://wiki.openstreetmap.org/wiki/MAPS.ME`), ` to indicate their OSM data version.`)];
+    }
+    getTool(callbacks) {
+        // this.$timestampInput.type='datetime-local' // no standard datetime input for now because they're being difficult with UTC and 24-hour format.
+        // this.$timestampInput.step='1'
+        this.$timestampInput.type = 'text';
+        this.$timestampInput.size = 20;
+        this.$timestampInput.oninput = () => {
+            callbacks.onTimestampChange(this, this.$timestampInput.value);
+        };
+        const $clearButton = document.createElement('button');
+        $clearButton.type = 'reset';
+        $clearButton.textContent = 'Clear';
+        const $form = makeElement('form')()(this.$timestampInput, ` `, $clearButton);
+        $form.onreset = () => {
+            callbacks.onTimestampChange(this, '');
+        };
+        return [$form];
+    }
+    onTimestampChange(timestamp) {
+        this.$timestampInput.value = timestamp;
+        return true;
+    }
+}
+class ParseTool extends Tool {
+    constructor() {
+        super('parse', `Parse links`);
+    }
+    getInfo() {
+        return [p$4(`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →.`, `Currently detected active elements are: `), ul$1(li$1(`links to images made in `, makeLink(`StreetComplete`, `https://wiki.openstreetmap.org/wiki/StreetComplete`)), li$1(`links to OSM notes (clicking the output link is not yet implemented)`), li$1(`links to OSM changesets`), li$1(`links to OSM elements`), li$1(`ISO-formatted timestamps`)), p$4(`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`)];
+    }
+    getTool(callbacks, map, figureDialog) {
+        const commentWriter = new CommentWriter(map, figureDialog, () => { }, // TODO ping note section
+        (timestamp) => callbacks.onTimestampChange(this, timestamp));
+        const $input = document.createElement('input');
+        $input.type = 'text';
+        $input.size = 50;
+        $input.classList.add('complicated');
+        const $parseButton = document.createElement('button');
+        $parseButton.type = 'submit';
+        $parseButton.textContent = 'Parse';
+        const $clearButton = document.createElement('button');
+        $clearButton.type = 'reset';
+        $clearButton.textContent = 'Clear';
+        const $output = document.createElement('code');
+        $output.append(getFirstActiveElement([]));
+        const $form = makeElement('form')()($input, ` `, $parseButton, ` `, $clearButton);
+        $form.onsubmit = (ev) => {
+            ev.preventDefault();
+            const [elements] = commentWriter.makeCommentElements($input.value);
+            $output.replaceChildren(getFirstActiveElement(elements));
+        };
+        $form.onreset = () => {
+            $output.replaceChildren(getFirstActiveElement([]));
+        };
+        return [$form, ` → `, $output];
+        function getFirstActiveElement(elements) {
+            for (const element of elements) {
+                if (element instanceof HTMLAnchorElement) {
+                    element.textContent = `link`;
+                    return element;
+                }
+                else if (element instanceof HTMLTimeElement) {
+                    element.textContent = `date`;
+                    return element;
+                }
+            }
+            return `none`;
+        }
+    }
+}
+class CountTool extends Tool {
+    constructor() {
+        super('counts', `Note counts`);
+        this.$fetchedNoteCount = document.createElement('output');
+        this.$visibleNoteCount = document.createElement('output');
+        this.$selectedNoteCount = document.createElement('output');
+    }
+    getTool() {
+        this.$fetchedNoteCount.textContent = '0';
+        this.$visibleNoteCount.textContent = '0';
+        this.$selectedNoteCount.textContent = '0';
+        return [
+            this.$fetchedNoteCount, ` fetched, `,
+            this.$visibleNoteCount, ` visible, `,
+            this.$selectedNoteCount, ` selected`
+        ];
+    }
+    onNoteCountsChange(nFetched, nVisible) {
+        this.$fetchedNoteCount.textContent = String(nFetched);
+        this.$visibleNoteCount.textContent = String(nVisible);
+        return true;
+    }
+    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) {
+        this.$selectedNoteCount.textContent = String(selectedNotes.length);
+        return true;
+    }
+}
+class LegendTool extends Tool {
+    constructor() {
+        super('legend', `Legend`, `What do icons in command panel mean`);
+    }
+    getTool() {
+        return [
+            makeMapIcon('center'), ` = map center, `, makeMapIcon('area'), ` = map area, `, makeNotesIcon('selected'), ` = selected notes`
+        ];
+    }
+}
+class SettingsTool extends Tool {
+    constructor() {
+        super('settings', `⚙️`, `Settings`);
+    }
+    getTool(callbacks) {
+        const $openAllButton = document.createElement('button');
+        $openAllButton.textContent = `+ open all tools`;
+        $openAllButton.onclick = () => callbacks.onToolOpenToggle(this, true);
+        const $closeAllButton = document.createElement('button');
+        $closeAllButton.textContent = `− close all tools`;
+        $closeAllButton.onclick = () => callbacks.onToolOpenToggle(this, false);
+        return [$openAllButton, ` `, $closeAllButton];
+    }
 }
 
 const p$3 = (...ss) => makeElement('p')()(...ss);
@@ -2289,10 +2439,90 @@ function getClosestNodeId(doc, centerLat, centerLon) {
 
 const p$2 = (...ss) => makeElement('p')()(...ss);
 const em$1 = (s) => makeElement('em')()(s);
-const dfn$1 = (s) => makeElement('dfn')()(s);
+class RcTool extends Tool {
+    constructor() {
+        super('rc', `RC`, `JOSM (or another editor) Remote Control`);
+        this.selectedNotes = [];
+    }
+    getInfo() {
+        return [p$2(`Load note/map data to an editor with `, makeLink(`remote control`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl'), `.`)];
+    }
+    getTool(callbacks, map) {
+        const e = makeEscapeTag(encodeURIComponent);
+        const $loadNotesButton = this.makeRequiringSelectedNotesButton();
+        $loadNotesButton.append(`Load `, makeNotesIcon('selected'));
+        $loadNotesButton.onclick = async () => {
+            for (const { id } of this.selectedNotes) {
+                const noteUrl = e `https://www.openstreetmap.org/note/${id}`;
+                const rcUrl = e `http://127.0.0.1:8111/import?url=${noteUrl}`;
+                const success = await openRcUrl($loadNotesButton, rcUrl);
+                if (!success)
+                    break;
+            }
+        };
+        const $loadMapButton = document.createElement('button');
+        $loadMapButton.append(`Load `, makeMapIcon('area'));
+        $loadMapButton.onclick = () => {
+            const bounds = map.bounds;
+            const rcUrl = e `http://127.0.0.1:8111/load_and_zoom` +
+                `?left=${bounds.getWest()}&right=${bounds.getEast()}` +
+                `&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`;
+            openRcUrl($loadMapButton, rcUrl);
+        };
+        return [$loadNotesButton, ` `, $loadMapButton];
+    }
+    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) {
+        this.selectedNotes = selectedNotes;
+        return true;
+    }
+}
+class IdTool extends Tool {
+    constructor() {
+        super('id', `iD`);
+    }
+    getInfo() {
+        return [p$2(`Follow your notes by zooming from one place to another in one `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), ` window. `, `It could be faster to do first here in note-viewer than in iD directly because note-viewer won't try to download more data during panning. `, `After zooming in note-viewer, click the `, em$1(`Open`), ` button to open this location in iD. `, `When you go back to note-viewer, zoom to another place and click the `, em$1(`Open`), ` button for the second time, the already opened iD instance zooms to that place. `, `Your edits are not lost between such zooms.`), p$2(`Technical details: this is an attempt to make something like `, em$1(`remote control`), ` in iD editor. `, `Convincing iD to load notes has proven to be tricky. `, `Your best chance of seeing the selected notes is importing them as a `, em$1(`gpx`), ` file. `, `See `, makeLink(`this diary post`, `https://www.openstreetmap.org/user/Anton%20Khorev/diary/398991`), ` for further explanations.`), p$2(`Zooming/panning is easier to do, and that's what is currently implemented. `, `It's not without quirks however. You'll notice that the iD window opened from here doesn't have the OSM website header. `, `This is because the editor is opened at `, makeLink(`/id`, `https://www.openstreetmap.org/id`), ` url instead of `, makeLink(`/edit`, `https://www.openstreetmap.org/edit`), `. `, `It has to be done because otherwise iD won't listen to `, em$1(`#map`), ` changes in the webpage location.`)];
+    }
+    getTool(callbacks, map) {
+        // limited to what hashchange() lets you do here https://github.com/openstreetmap/iD/blob/develop/modules/behavior/hash.js
+        // which is zooming/panning
+        const $zoomButton = document.createElement('button');
+        $zoomButton.append(`Open `, makeMapIcon('center'));
+        $zoomButton.onclick = () => {
+            const e = makeEscapeTag(encodeURIComponent);
+            const url = e `https://www.openstreetmap.org/id#map=${map.zoom}/${map.lat}/${map.lon}`;
+            open(url, 'id');
+        };
+        return [$zoomButton];
+    }
+}
+async function openRcUrl($button, rcUrl) {
+    try {
+        const response = await fetch(rcUrl);
+        if (response.ok) {
+            clearError();
+            return true;
+        }
+    }
+    catch { }
+    setError();
+    return false;
+    function setError() {
+        $button.classList.add('error');
+        $button.title = 'Remote control command failed. Make sure you have an editor open and remote control enabled.';
+    }
+    function clearError() {
+        $button.classList.remove('error');
+        $button.title = '';
+    }
+}
+
+const p$1 = (...ss) => makeElement('p')()(...ss);
+const em = (s) => makeElement('em')()(s);
+const dfn = (s) => makeElement('dfn')()(s);
 const code = (s) => makeElement('code')()(s);
-const ul$1 = (...ss) => makeElement('ul')()(...ss);
-const li$1 = (...ss) => makeElement('li')()(...ss);
+const ul = (...ss) => makeElement('ul')()(...ss);
+const li = (...ss) => makeElement('li')()(...ss);
 class ExportTool extends Tool {
     constructor() {
         super(...arguments);
@@ -2307,7 +2537,7 @@ class ExportTool extends Tool {
     getInfo() {
         return [
             ...this.getInfoWithoutDragAndDrop(),
-            p$2(`Instead of clicking the `, em$1(`Export`), ` button, you can drag it and drop into a place that accepts data sent by `, makeLink(`Drag and Drop API`, `https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`), `. `, `Not many places actually do, and those who do often can handle only plaintext. `, `That's why there's a type selector, with which plaintext format can be forced on transmitted data.`)
+            p$1(`Instead of clicking the `, em(`Export`), ` button, you can drag it and drop into a place that accepts data sent by `, makeLink(`Drag and Drop API`, `https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`), `. `, `Not many places actually do, and those who do often can handle only plaintext. `, `That's why there's a type selector, with which plaintext format can be forced on transmitted data.`)
         ];
     }
     getTool() {
@@ -2379,7 +2609,7 @@ class GpxTool extends ExportTool {
         super('gpx', `GPX`);
     }
     getInfoWithoutDragAndDrop() {
-        return [p$2(`Export selected notes in `, makeLink(`GPX`, 'https://wiki.openstreetmap.org/wiki/GPX'), ` (GPS exchange) format. `, `During the export, each selected note is treated as a waypoint with its name set to note id, description set to comments and link pointing to note's page on the OSM website. `, `This allows OSM notes to be used in applications that can't show them directly. `, `Also it allows a particular selection of notes to be shown if an application can't filter them. `, `One example of such app is `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), `. `, `Unfortunately iD doesn't fully understand the gpx format and can't show links associated with waypoints. `, `You'll have to enable the notes layer in iD and compare its note marker with waypoint markers from the gpx file.`), p$2(`By default only the `, dfn$1(`first comment`), ` is added to waypoint descriptions. `, `This is because some apps such as iD and especially `, makeLink(`JOSM`, `https://wiki.openstreetmap.org/wiki/JOSM`), ` try to render the entire description in one line next to the waypoint marker, cluttering the map.`), p$2(`It's possible to pretend that note waypoints are connected by a `, makeLink(`route`, `https://www.topografix.com/GPX/1/1/#type_rteType`), ` by using the `, dfn$1(`connected by route`), ` option. `, `This may help to go from a note to the next one in an app by visually following the route line. `, `There's also the `, dfn$1(`connected by track`), ` option in case the app makes it easier to work with `, makeLink(`tracks`, `https://www.topografix.com/GPX/1/1/#type_trkType`), ` than with the routes.`)];
+        return [p$1(`Export selected notes in `, makeLink(`GPX`, 'https://wiki.openstreetmap.org/wiki/GPX'), ` (GPS exchange) format. `, `During the export, each selected note is treated as a waypoint with its name set to note id, description set to comments and link pointing to note's page on the OSM website. `, `This allows OSM notes to be used in applications that can't show them directly. `, `Also it allows a particular selection of notes to be shown if an application can't filter them. `, `One example of such app is `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), `. `, `Unfortunately iD doesn't fully understand the gpx format and can't show links associated with waypoints. `, `You'll have to enable the notes layer in iD and compare its note marker with waypoint markers from the gpx file.`), p$1(`By default only the `, dfn(`first comment`), ` is added to waypoint descriptions. `, `This is because some apps such as iD and especially `, makeLink(`JOSM`, `https://wiki.openstreetmap.org/wiki/JOSM`), ` try to render the entire description in one line next to the waypoint marker, cluttering the map.`), p$1(`It's possible to pretend that note waypoints are connected by a `, makeLink(`route`, `https://www.topografix.com/GPX/1/1/#type_rteType`), ` by using the `, dfn(`connected by route`), ` option. `, `This may help to go from a note to the next one in an app by visually following the route line. `, `There's also the `, dfn(`connected by track`), ` option in case the app makes it easier to work with `, makeLink(`tracks`, `https://www.topografix.com/GPX/1/1/#type_trkType`), ` than with the routes.`)];
     }
     describeOptions() {
         return {
@@ -2457,7 +2687,7 @@ class GeoJsonTool extends ExportTool {
         super('geojson', `GeoJSON`);
     }
     getInfoWithoutDragAndDrop() {
-        return [p$2(`Export selected notes in `, makeLink(`GeoJSON`, 'https://wiki.openstreetmap.org/wiki/GeoJSON'), ` format. `, `The exact features and properties exported are made to be close to OSM API `, code(`.json`), ` output:`), ul$1(li$1(`the entire note collection is represented as a `, makeLink(`FeatureCollection`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.3')), li$1(`each note is represented as a `, makeLink(`Point`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.2'), ` `, makeLink(`Feature`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.2'))), p$2(`There are few differences to OSM API output, not including modifications using tool options described later:`), ul$1(li$1(`comments don't have `, code(`html`), ` property, their content is available only as plaintext`), li$1(`dates may be incorrect in case of hidden note comments (something that happens very rarely)`)), p$2(`Like GPX exports, this tool allows OSM notes to be used in applications that can't show them directly. `, `Also it allows a particular selection of notes to be shown if an application can't filter them. `, `One example of such app is `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), `. `, `Given that GeoJSON specification doesn't define what goes into feature properties, the support for rendering notes this way is lower than the one of GPX export. `, `Particularly neither iD nor JOSM seem to render any labels for note markers. `, `Also clicking the marker in JOSM is not going to open the note webpage. `, `On the other hand there's more clarity about how to to display properties outside of the editor map view. `, `All of the properties are displayed like `, makeLink(`OSM tags`, 'https://wiki.openstreetmap.org/wiki/Tags'), `, which opens some possibilities: `), ul$1(li$1(`properties are editable in JOSM with a possibility to save results to a file`), li$1(`it's possible to access the note URL in iD, something that was impossible with GPX format`)), p$2(`While accessing the URLs, note that they are OSM API URLs, not the website URLs you might expect. `, `This is how OSM API outputs them. `, `Since that might be inconvenient, there's an `, dfn$1(`OSM website URLs`), ` option. `, `With it you're able to select the note url in iD by triple-clicking its value.`), p$2(`Another consequence of displaying properties like tags is that they work best when they are strings. `, `OSM tags are strings, and that's what editors expect to display in their tag views. `, `When used for properties of notes, there's one non-string property: `, em$1(`comments`), `. `, `iD is unable to display it. `, `If you want to force comments to be represented by strings, like in GPX exports, there's an options for that. `, `There's also option to output each comment as a separate property, making it easier to see them all in the tags table.`), p$2(`It's possible to pretend that note points are connected by a `, makeLink(`LineString`, `https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.4`), ` by using the `, dfn$1(`connected by line`), ` option. `, `This may help to go from a note to the next one in an app by visually following the route line. `, `However, enabling the line makes it difficult to click on note points in iD.`)];
+        return [p$1(`Export selected notes in `, makeLink(`GeoJSON`, 'https://wiki.openstreetmap.org/wiki/GeoJSON'), ` format. `, `The exact features and properties exported are made to be close to OSM API `, code(`.json`), ` output:`), ul(li(`the entire note collection is represented as a `, makeLink(`FeatureCollection`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.3')), li(`each note is represented as a `, makeLink(`Point`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.2'), ` `, makeLink(`Feature`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.2'))), p$1(`There are few differences to OSM API output, not including modifications using tool options described later:`), ul(li(`comments don't have `, code(`html`), ` property, their content is available only as plaintext`), li(`dates may be incorrect in case of hidden note comments (something that happens very rarely)`)), p$1(`Like GPX exports, this tool allows OSM notes to be used in applications that can't show them directly. `, `Also it allows a particular selection of notes to be shown if an application can't filter them. `, `One example of such app is `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), `. `, `Given that GeoJSON specification doesn't define what goes into feature properties, the support for rendering notes this way is lower than the one of GPX export. `, `Particularly neither iD nor JOSM seem to render any labels for note markers. `, `Also clicking the marker in JOSM is not going to open the note webpage. `, `On the other hand there's more clarity about how to to display properties outside of the editor map view. `, `All of the properties are displayed like `, makeLink(`OSM tags`, 'https://wiki.openstreetmap.org/wiki/Tags'), `, which opens some possibilities: `), ul(li(`properties are editable in JOSM with a possibility to save results to a file`), li(`it's possible to access the note URL in iD, something that was impossible with GPX format`)), p$1(`While accessing the URLs, note that they are OSM API URLs, not the website URLs you might expect. `, `This is how OSM API outputs them. `, `Since that might be inconvenient, there's an `, dfn(`OSM website URLs`), ` option. `, `With it you're able to select the note url in iD by triple-clicking its value.`), p$1(`Another consequence of displaying properties like tags is that they work best when they are strings. `, `OSM tags are strings, and that's what editors expect to display in their tag views. `, `When used for properties of notes, there's one non-string property: `, em(`comments`), `. `, `iD is unable to display it. `, `If you want to force comments to be represented by strings, like in GPX exports, there's an options for that. `, `There's also option to output each comment as a separate property, making it easier to see them all in the tags table.`), p$1(`It's possible to pretend that note points are connected by a `, makeLink(`LineString`, `https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.4`), ` by using the `, dfn(`connected by line`), ` option. `, `This may help to go from a note to the next one in an app by visually following the route line. `, `However, enabling the line makes it difficult to click on note points in iD.`)];
     }
     describeOptions() {
         return {
@@ -2617,7 +2847,7 @@ class GeoJsonTool extends ExportTool {
     }
 }
 
-const p$1 = (...ss) => makeElement('p')()(...ss);
+const p = (...ss) => makeElement('p')()(...ss);
 class StreetViewTool extends Tool {
     getTool(callbacks, map) {
         const $viewButton = document.createElement('button');
@@ -2633,7 +2863,7 @@ class YandexPanoramasTool extends StreetViewTool {
         super('yandex-panoramas', `Y.Panoramas`, `Yandex.Panoramas (Яндекс.Панорамы)`);
     }
     getInfo() {
-        return [p$1(`Open a map location in `, makeLink(`Yandex.Panoramas`, 'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B'), ` street view. `, `Could be useful to find out if an object mentioned in a note existed at a certain point of time. `, `Yandex.Panoramas have a year selector in the upper right corner. Use it to get a photo made close to the date of interest.`)];
+        return [p(`Open a map location in `, makeLink(`Yandex.Panoramas`, 'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B'), ` street view. `, `Could be useful to find out if an object mentioned in a note existed at a certain point of time. `, `Yandex.Panoramas have a year selector in the upper right corner. Use it to get a photo made close to the date of interest.`)];
     }
     generateUrl(map) {
         const e = makeEscapeTag(encodeURIComponent);
@@ -2646,7 +2876,7 @@ class MapillaryTool extends StreetViewTool {
         super('mapillary', `Mapillary`);
     }
     getInfo() {
-        return [p$1(`Open a map location in `, makeLink(`Mapillary`, 'https://wiki.openstreetmap.org/wiki/Mapillary'), `. `, `Not yet fully implemented. The idea is to jump straight to the best available photo, but in order to do that, Mapillary API has to be queried for available photos. That's impossible to do without an API key.`)];
+        return [p(`Open a map location in `, makeLink(`Mapillary`, 'https://wiki.openstreetmap.org/wiki/Mapillary'), `. `, `Not yet fully implemented. The idea is to jump straight to the best available photo, but in order to do that, Mapillary API has to be queried for available photos. That's impossible to do without an API key.`)];
     }
     generateUrl(map) {
         const e = makeEscapeTag(encodeURIComponent);
@@ -2654,222 +2884,6 @@ class MapillaryTool extends StreetViewTool {
     }
 }
 
-const p = (...ss) => makeElement('p')()(...ss);
-const em = (s) => makeElement('em')()(s);
-const dfn = (s) => makeElement('dfn')()(s);
-const ul = (...ss) => makeElement('ul')()(...ss);
-const li = (...ss) => makeElement('li')()(...ss);
-class AutozoomTool extends Tool {
-    constructor() {
-        super('autozoom', `Automatic zoom`, `Pan and zoom the map to visible notes`);
-    }
-    getInfo() {
-        return [p(`Pan and zoom the map to notes in the table. `, `Can be used as `, em(`zoom to data`), ` for notes layer if `, dfn(`to all notes`), ` is selected. `), p(dfn(`To notes in table view`), ` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `, `This option is convenient to use when `, em(`Track between notes`), ` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`)];
-    }
-    getTool(callbacks, map) {
-        const $fitModeSelect = document.createElement('select');
-        $fitModeSelect.append(new Option('is disabled', 'none'), new Option('to notes in table view', 'inViewNotes'), new Option('to all notes', 'allNotes'));
-        $fitModeSelect.onchange = () => {
-            if ($fitModeSelect.value == 'allNotes') {
-                callbacks.onFitModeChange(this, $fitModeSelect.value);
-                map.fitNotes();
-            }
-            else if ($fitModeSelect.value == 'inViewNotes') {
-                callbacks.onFitModeChange(this, $fitModeSelect.value);
-                map.fitNoteTrack();
-            }
-            else {
-                callbacks.onFitModeChange(this, undefined);
-            }
-        };
-        return [$fitModeSelect];
-    }
-}
-class TimestampTool extends Tool {
-    constructor() {
-        super('timestamp', `Timestamp for historic queries`);
-        this.$timestampInput = document.createElement('input');
-    }
-    getInfo() {
-        return [p(`Allows to select a timestamp for use with `, em(`Overpass`), ` and `, em(`Overpass turbo`), ` commands. `, `You can either enter the timestamp in ISO format (or anything else that Overpass understands) manually here click on a date of/in a note comment. `, `If present, a `, makeLink(`date setting`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL#date`), ` is added to Overpass queries. `, `The idea is to allow for examining the OSM data at the moment some note was opened/commented/closed to evaluate if this action was correct.`), p(`Timestamps inside note comments are usually generated by apps like `, makeLink(`MAPS.ME`, `https://wiki.openstreetmap.org/wiki/MAPS.ME`), ` to indicate their OSM data version.`)];
-    }
-    getTool(callbacks) {
-        // this.$timestampInput.type='datetime-local' // no standard datetime input for now because they're being difficult with UTC and 24-hour format.
-        // this.$timestampInput.step='1'
-        this.$timestampInput.type = 'text';
-        this.$timestampInput.size = 20;
-        this.$timestampInput.oninput = () => {
-            callbacks.onTimestampChange(this, this.$timestampInput.value);
-        };
-        const $clearButton = document.createElement('button');
-        $clearButton.type = 'reset';
-        $clearButton.textContent = 'Clear';
-        const $form = makeElement('form')()(this.$timestampInput, ` `, $clearButton);
-        $form.onreset = () => {
-            callbacks.onTimestampChange(this, '');
-        };
-        return [$form];
-    }
-    onTimestampChange(timestamp) {
-        this.$timestampInput.value = timestamp;
-        return true;
-    }
-}
-class ParseTool extends Tool {
-    constructor() {
-        super('parse', `Parse links`);
-    }
-    getInfo() {
-        return [p(`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →.`, `Currently detected active elements are: `), ul(li(`links to images made in `, makeLink(`StreetComplete`, `https://wiki.openstreetmap.org/wiki/StreetComplete`)), li(`links to OSM notes (clicking the output link is not yet implemented)`), li(`links to OSM changesets`), li(`links to OSM elements`), li(`ISO-formatted timestamps`)), p(`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`)];
-    }
-    getTool(callbacks, map, figureDialog) {
-        const commentWriter = new CommentWriter(map, figureDialog, () => { }, // TODO ping note section
-        (timestamp) => callbacks.onTimestampChange(this, timestamp));
-        const $input = document.createElement('input');
-        $input.type = 'text';
-        $input.size = 50;
-        $input.classList.add('complicated');
-        const $parseButton = document.createElement('button');
-        $parseButton.type = 'submit';
-        $parseButton.textContent = 'Parse';
-        const $clearButton = document.createElement('button');
-        $clearButton.type = 'reset';
-        $clearButton.textContent = 'Clear';
-        const $output = document.createElement('code');
-        $output.append(getFirstActiveElement([]));
-        const $form = makeElement('form')()($input, ` `, $parseButton, ` `, $clearButton);
-        $form.onsubmit = (ev) => {
-            ev.preventDefault();
-            const [elements] = commentWriter.makeCommentElements($input.value);
-            $output.replaceChildren(getFirstActiveElement(elements));
-        };
-        $form.onreset = () => {
-            $output.replaceChildren(getFirstActiveElement([]));
-        };
-        return [$form, ` → `, $output];
-        function getFirstActiveElement(elements) {
-            for (const element of elements) {
-                if (element instanceof HTMLAnchorElement) {
-                    element.textContent = `link`;
-                    return element;
-                }
-                else if (element instanceof HTMLTimeElement) {
-                    element.textContent = `date`;
-                    return element;
-                }
-            }
-            return `none`;
-        }
-    }
-}
-class RcTool extends Tool {
-    constructor() {
-        super('rc', `RC`, `JOSM (or another editor) Remote Control`);
-        this.selectedNotes = [];
-    }
-    getInfo() {
-        return [p(`Load note/map data to an editor with `, makeLink(`remote control`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl'), `.`)];
-    }
-    getTool(callbacks, map) {
-        const e = makeEscapeTag(encodeURIComponent);
-        const $loadNotesButton = this.makeRequiringSelectedNotesButton();
-        $loadNotesButton.append(`Load `, makeNotesIcon('selected'));
-        $loadNotesButton.onclick = async () => {
-            for (const { id } of this.selectedNotes) {
-                const noteUrl = e `https://www.openstreetmap.org/note/${id}`;
-                const rcUrl = e `http://127.0.0.1:8111/import?url=${noteUrl}`;
-                const success = await openRcUrl($loadNotesButton, rcUrl);
-                if (!success)
-                    break;
-            }
-        };
-        const $loadMapButton = document.createElement('button');
-        $loadMapButton.append(`Load `, makeMapIcon('area'));
-        $loadMapButton.onclick = () => {
-            const bounds = map.bounds;
-            const rcUrl = e `http://127.0.0.1:8111/load_and_zoom` +
-                `?left=${bounds.getWest()}&right=${bounds.getEast()}` +
-                `&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`;
-            openRcUrl($loadMapButton, rcUrl);
-        };
-        return [$loadNotesButton, ` `, $loadMapButton];
-    }
-    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) {
-        this.selectedNotes = selectedNotes;
-        return true;
-    }
-}
-class IdTool extends Tool {
-    constructor() {
-        super('id', `iD`);
-    }
-    getInfo() {
-        return [p(`Follow your notes by zooming from one place to another in one `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), ` window. `, `It could be faster to do first here in note-viewer than in iD directly because note-viewer won't try to download more data during panning. `, `After zooming in note-viewer, click the `, em(`Open`), ` button to open this location in iD. `, `When you go back to note-viewer, zoom to another place and click the `, em(`Open`), ` button for the second time, the already opened iD instance zooms to that place. `, `Your edits are not lost between such zooms.`), p(`Technical details: this is an attempt to make something like `, em(`remote control`), ` in iD editor. `, `Convincing iD to load notes has proven to be tricky. `, `Your best chance of seeing the selected notes is importing them as a `, em(`gpx`), ` file. `, `See `, makeLink(`this diary post`, `https://www.openstreetmap.org/user/Anton%20Khorev/diary/398991`), ` for further explanations.`), p(`Zooming/panning is easier to do, and that's what is currently implemented. `, `It's not without quirks however. You'll notice that the iD window opened from here doesn't have the OSM website header. `, `This is because the editor is opened at `, makeLink(`/id`, `https://www.openstreetmap.org/id`), ` url instead of `, makeLink(`/edit`, `https://www.openstreetmap.org/edit`), `. `, `It has to be done because otherwise iD won't listen to `, em(`#map`), ` changes in the webpage location.`)];
-    }
-    getTool(callbacks, map) {
-        // limited to what hashchange() lets you do here https://github.com/openstreetmap/iD/blob/develop/modules/behavior/hash.js
-        // which is zooming/panning
-        const $zoomButton = document.createElement('button');
-        $zoomButton.append(`Open `, makeMapIcon('center'));
-        $zoomButton.onclick = () => {
-            const e = makeEscapeTag(encodeURIComponent);
-            const url = e `https://www.openstreetmap.org/id#map=${map.zoom}/${map.lat}/${map.lon}`;
-            open(url, 'id');
-        };
-        return [$zoomButton];
-    }
-}
-class CountTool extends Tool {
-    constructor() {
-        super('counts', `Note counts`);
-        this.$fetchedNoteCount = document.createElement('output');
-        this.$visibleNoteCount = document.createElement('output');
-        this.$selectedNoteCount = document.createElement('output');
-    }
-    getTool() {
-        this.$fetchedNoteCount.textContent = '0';
-        this.$visibleNoteCount.textContent = '0';
-        this.$selectedNoteCount.textContent = '0';
-        return [
-            this.$fetchedNoteCount, ` fetched, `,
-            this.$visibleNoteCount, ` visible, `,
-            this.$selectedNoteCount, ` selected`
-        ];
-    }
-    onNoteCountsChange(nFetched, nVisible) {
-        this.$fetchedNoteCount.textContent = String(nFetched);
-        this.$visibleNoteCount.textContent = String(nVisible);
-        return true;
-    }
-    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) {
-        this.$selectedNoteCount.textContent = String(selectedNotes.length);
-        return true;
-    }
-}
-class LegendTool extends Tool {
-    constructor() {
-        super('legend', `Legend`, `What do icons in command panel mean`);
-    }
-    getTool() {
-        return [
-            makeMapIcon('center'), ` = map center, `, makeMapIcon('area'), ` = map area, `, makeNotesIcon('selected'), ` = selected notes`
-        ];
-    }
-}
-class SettingsTool extends Tool {
-    constructor() {
-        super('settings', `⚙️`, `Settings`);
-    }
-    getTool(callbacks) {
-        const $openAllButton = document.createElement('button');
-        $openAllButton.textContent = `+ open all tools`;
-        $openAllButton.onclick = () => callbacks.onToolOpenToggle(this, true);
-        const $closeAllButton = document.createElement('button');
-        $closeAllButton.textContent = `− close all tools`;
-        $closeAllButton.onclick = () => callbacks.onToolOpenToggle(this, false);
-        return [$openAllButton, ` `, $closeAllButton];
-    }
-}
 const toolMakerSequence = [
     () => new AutozoomTool, () => new TimestampTool, () => new ParseTool,
     () => new OverpassTurboTool, () => new OverpassDirectTool,
@@ -2878,26 +2892,6 @@ const toolMakerSequence = [
     () => new YandexPanoramasTool, () => new MapillaryTool,
     () => new CountTool, () => new LegendTool, () => new SettingsTool
 ];
-async function openRcUrl($button, rcUrl) {
-    try {
-        const response = await fetch(rcUrl);
-        if (response.ok) {
-            clearError();
-            return true;
-        }
-    }
-    catch { }
-    setError();
-    return false;
-    function setError() {
-        $button.classList.add('error');
-        $button.title = 'Remote control command failed. Make sure you have an editor open and remote control enabled.';
-    }
-    function clearError() {
-        $button.classList.remove('error');
-        $button.title = '';
-    }
-}
 
 var _ToolPanel_fitMode;
 class ToolBroadcaster {
@@ -2971,11 +2965,11 @@ class ToolPanel {
                 const $infoDetails = document.createElement('details');
                 $infoDetails.classList.add('info');
                 const $infoSummary = document.createElement('summary');
-                $infoSummary.textContent = `${name} info`;
+                $infoSummary.textContent = `${tool.name} info`;
                 $infoDetails.append($infoSummary, ...infoElements);
                 const $infoButton = document.createElement('button');
                 $infoButton.classList.add('info');
-                $infoButton.title = `tool info`;
+                $infoButton.innerHTML = `<svg><title>Tool info</title><use href="#tools-info" /></svg>`;
                 const updateInfoButton = () => {
                     if ($infoDetails.open) {
                         $infoButton.classList.add('open');
@@ -4648,8 +4642,8 @@ async function main() {
 }
 function writeFlipLayoutButton(storage, $container, map) {
     const $button = document.createElement('button');
-    $button.classList.add('flip');
-    $button.title = `Flip layout`;
+    $button.classList.add('global', 'flip');
+    $button.innerHTML = `<svg><title>Flip layout</title><use href="#flip" /></svg>`;
     $button.addEventListener('click', () => {
         document.body.classList.toggle('flipped');
         if (document.body.classList.contains('flipped')) {
@@ -4664,8 +4658,8 @@ function writeFlipLayoutButton(storage, $container, map) {
 }
 function writeResetButton($container) {
     const $button = document.createElement('button');
-    $button.classList.add('reset');
-    $button.title = `Reset query`;
+    $button.classList.add('global', 'reset');
+    $button.innerHTML = `<svg><title>Reset query</title><use href="#reset" /></svg>`;
     $button.addEventListener('click', () => {
         location.href = location.pathname + location.search;
     });

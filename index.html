@@ -7,6 +7,125 @@
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
 </head>
 <body>
+<svg class="symbols">
+<style>
+#flip .hor { visibility: var(--flip-hor-part-visibility,hidden); }
+#flip .ver { visibility: var(--flip-ver-part-visibility,hidden); }
+#table-note .default { visibility: var(--table-note-default-part-visibility,visible); }
+#table-note .open { visibility: var(--table-note-open-part-visibility,hidden); }
+#table-note .closed { visibility: var(--table-note-closed-part-visibility,hidden); }
+#tools-info .hover { visibility: var(--tools-info-hover-part-visibility,hidden); }
+#tools-info .close-hover { visibility: var(--tools-info-close-hover-part-visibility,hidden); }
+#tools-info .tip { visibility: var(--tools-info-tip-part-visibility,hidden); }
+#tools-map .area { visibility: var(--tools-map-area-part-visibility,hidden); }
+#tools-map .center { visibility: var(--tools-map-center-part-visibility,hidden); }
+</style>
+<symbol id="flip" viewBox="-32 -32 64 64">
+<defs>
+<g id="flip-hor-back" stroke="#444" stroke-width="2">
+<path d="M 31,1 V 25 A 6,6 0 0 1 25,31 H -25 A 6,6 0 0 1 -31,25 V 1 Z" fill="#CE8" />
+<path d="M -31 1 V -25 A 6,6 0 0 1 -25,-31 H 25 A 6,6 0 0 1 31,-25 V 1" fill="none" />
+</g>
+<g id="flip-hor-row" stroke="#AAA" stroke-width="4">
+<path d="M -24,0 H 24" />
+</g>
+<g id="flip-ver-row" stroke="#AAA" stroke-width="4">
+<path d="M -24,0 H -6" />
+</g>
+</defs>
+<g class="hor">
+<use href="#flip-hor-back" />
+<use href="#flip-hor-row" y="-22" />
+<use href="#flip-hor-row" y="-14" />
+<use href="#flip-hor-row" y="-6" />
+</g>
+<g class="ver">
+<use href="#flip-hor-back" transform="rotate(-90)" />
+<use href="#flip-ver-row" y="-16" />
+<use href="#flip-ver-row" y="-8" />
+<use href="#flip-ver-row" y="0" />
+<use href="#flip-ver-row" y="8" />
+<use href="#flip-ver-row" y="16" />
+</g>
+</symbol>
+<symbol id="map-crosshair" viewBox="-7.5 -7.5 15 15">
+<g stroke="black">
+<rect x="-5" y="-5" width="10" height="10" fill="none" />
+<line x1="-7" x2="-3" />
+<line x1="+7" x2="+3" />
+<line y1="-7" y2="-3" />
+<line y1="+7" y2="+3" />
+</g>
+</symbol>
+<symbol id="reset" viewBox="-32 -32 64 64">
+<circle r="31" stroke="#AAA" stroke-width="2" fill="#DDD" />
+<g stroke-width="6" stroke="#FFF" stroke-linecap="round">
+<line x1="-15" y1="-15" x2="15" y2="15" />
+<line x1="-15" y1="15" x2="15" y2="-15" />
+</symbol>
+<symbol id="table-note" viewBox="-16 -16 32 32">
+<g stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+<g class="default">
+<circle r="15" cx="0" cy="0" fill="none" stroke="#306d98" stroke-width="2" />
+<line x1="-7" x2="7" y1="0" y2="0" stroke="#306d98" />
+<line x1="0" x2="0" y1="-7" y2="7" stroke="#306d98" />
+</g>
+<g class="open">
+<circle r="15" cx="0" cy="0" fill="#ce413b" stroke="#a63b39" stroke-width="2" />
+<line x1="-7" x2="7" y1="-7" y2="7" stroke="#fff" />
+<line x1="-7" x2="7" y1="7" y2="-7" stroke="#fff" />
+</g>
+<g class="closed">
+<circle r="15" cx="0" cy="0" fill="#9bc54e" stroke="#7ca23b" stroke-width="2" />
+<polyline points="-8,2 -1,8 8,-6" stroke="#fff" fill="none" />
+</g>
+</g>
+</symbol>
+<symbol id="tools-info" viewBox="-10 -10 20 29">
+<g stroke="white" stroke-width="2" stroke-linecap="square">
+<circle r="8" fill="#28F" stroke="none" />
+<line x1="0" x2="0" y1="0" y2="4" />
+<line x1="-2" x2="2" y1="4" y2="4" />
+<line x1="-2" x2="0" y1="0" y2="0" />
+<circle fill="white" r=".8" cy="-4" />
+<g stroke="blue" stroke-linecap="round">
+<g class="hover">
+<circle r="9" fill="none" />
+</g>
+<g class="close-hover">
+<line x1="-4" y1="-4" x2="4" y2="4" />
+<line x1="-4" y1="4" x2="4" y2="-4" />
+</g>
+</g>
+</g>
+<g class="tip">
+<path d="M-8.5,19 l8.5,-8.5 l8.5,8.5 z" fill="#DDD" stroke="none" />
+<path d="M-10,18.5 h2 l8,-8 l8,8 h2" fill="none" stroke="#AAA" stroke-width="1" />
+</g>
+</symbol>
+<symbol id="tools-map" viewBox="-9.5 -6.5 19 13">
+<g stroke="none" fill="#EEE">
+<path d="M -9 -6 l 6 1 v 11 l -6 -1 z" />
+<path d="M -3 -5 l 6 -1 v 11 l -6 1 z" fill="#FFF" />
+<path d="M 3 -6 l 6 1 v 11 l -6 -1 z" />
+</g>
+<g stroke="black" fill="none">
+<path d="M -9 -6 l 6 1 l 6 -1 l 6 1 v 11 l -6 -1 l -6 1 l -6 -1 z" />
+<g class="area">
+<rect x="-7" y="-3" width="14" height="6" stroke-dasharray="1" stroke-dashoffset=".5" />
+</g>
+<g class="center">
+<path d="M -9 -6 l 6 1 l 6 -1 l 6 1 v 11 l -6 -1 l -6 1 l -6 -1 z" />
+<line x1="-3" x2="3" />
+<line y1="-3" y2="3" />
+</g>
+</g>
+</symbol>
+<symbol id="tools-notes" viewBox="-4.5 -6.5 9 13">
+<path d="M0,5 L-4,1 V-4 a2,2 1,0,1 2,-2 H2 a2,2 1,0,1 2,2 V1 Z" stroke="black" fill="#06E" />
+<path d="M-2.5,-1.5 l2,2 l3,-3" stroke="white" stroke-width="1.5" fill="none" />
+</symbol>
+</svg>
 <script src=index.js></script>
 </body>
 </html>
