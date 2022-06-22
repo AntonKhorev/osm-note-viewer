@@ -1,9 +1,10 @@
-import fs from 'fs-extra'
+import * as fs from 'fs/promises'
 import { rollup } from 'rollup'
 import typescript from '@rollup/plugin-typescript'
 
 // remove previous build
-await fs.remove('dist')
+await fs.rm('dist',{recursive: true, force: true})
+await fs.mkdir('dist')
 
 // process svgs
 const embedSvgFiles=['tools-map.svg','tools-notes.svg']
@@ -20,8 +21,8 @@ for (const svgDirEntry of await fs.readdir('src/svg',{withFileTypes:true})) {
 		embeddedStyles+=style
 		embeddedSymbols+=symbol
 	} else {
-		await fs.copy(`src/svg/${filename}`,`dist/${filename}`)
-	}
+		await fs.copyFile(`src/svg/${filename}`,`dist/${filename}`)
+	}	
 }
 
 // build index with embedded svgs
@@ -37,7 +38,7 @@ const patchedHtmlContents=htmlContents.replace(`<!-- embed svgs -->`,embeddedSvg
 await fs.writeFile('dist/index.html',patchedHtmlContents)
 
 // copy css
-await fs.copy('src/index.css','dist/index.css')
+await fs.copyFile('src/index.css','dist/index.css')
 
 // compile and bundle scripts
 const bundle=await rollup({
