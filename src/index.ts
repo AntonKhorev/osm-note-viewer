@@ -95,7 +95,7 @@ async function main() {
 
 function writeFlipLayoutButton(storage: NoteViewerStorage, $container: HTMLElement, map: NoteMap): void {
 	const $button=document.createElement('button')
-	$button.classList.add('flip')
+	$button.classList.add('global','flip')
 	$button.innerHTML=`<svg><title>Flip layout</title><use href="#flip" /></svg>`
 	$button.addEventListener('click',()=>{
 		document.body.classList.toggle('flipped')
@@ -111,7 +111,7 @@ function writeFlipLayoutButton(storage: NoteViewerStorage, $container: HTMLEleme
 
 function writeResetButton($container: HTMLElement): void {
 	const $button=document.createElement('button')
-	$button.classList.add('reset')
+	$button.classList.add('global','reset')
 	$button.innerHTML=`<svg><title>Reset query</title><use href="#reset" /></svg>`
 	$button.addEventListener('click',()=>{
 		location.href=location.pathname+location.search
