@@ -83,6 +83,13 @@ a.other-note.absent:active {
 	height: 2rem;
 	box-sizing: border-box;
 	border: none;
+	padding: 0;
+	background: none;
+}
+.panel.fetch button.reset > svg,
+.panel.fetch button.flip > svg {
+	width: 100%;
+	height: 100%;
 }
 .panel.fetch button.reset:hover,
 .panel.fetch button.flip:hover {
@@ -94,10 +101,11 @@ a.other-note.absent:active {
 }
 .panel.fetch button.flip {
 	left: .5rem;
-	background: url("flip-ver.svg");
+	--flip-ver-part-visibility: visible;
 }
 body.flipped .panel.fetch button.flip {
-	background: url("flip-hor.svg");
+	--flip-ver-part-visibility: hidden;
+	--flip-hor-part-visibility: visible;
 }
 .panel.command {
 	--gap: 8px;  /* used in info tips */

@@ -96,7 +96,7 @@ async function main() {
 function writeFlipLayoutButton(storage: NoteViewerStorage, $container: HTMLElement, map: NoteMap): void {
 	const $button=document.createElement('button')
 	$button.classList.add('flip')
-	$button.title=`Flip layout`
+	$button.innerHTML=`<svg><title>Flip layout</title><use href="#flip" /></svg>`
 	$button.addEventListener('click',()=>{
 		document.body.classList.toggle('flipped')
 		if (document.body.classList.contains('flipped')) {

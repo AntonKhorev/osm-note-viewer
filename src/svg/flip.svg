@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-32 -32 64 64">
+<defs>
+<g id="flip-hor-back" stroke="#444" stroke-width="2">
+<path d="M 31,1 V 25 A 6,6 0 0 1 25,31 H -25 A 6,6 0 0 1 -31,25 V 1 Z" fill="#CE8" />
+<path d="M -31 1 V -25 A 6,6 0 0 1 -25,-31 H 25 A 6,6 0 0 1 31,-25 V 1" fill="none" />
+</g>
+<g id="flip-hor-row" stroke="#AAA" stroke-width="4">
+<path d="M -24,0 H 24" />
+</g>
+<g id="flip-ver-row" stroke="#AAA" stroke-width="4">
+<path d="M -24,0 H -6" />
+</g>
+</defs>
+<g class="hor">
+<use href="#flip-hor-back" />
+<use href="#flip-hor-row" y="-22" />
+<use href="#flip-hor-row" y="-14" />
+<use href="#flip-hor-row" y="-6" />
+</g>
+<g class="ver">
+<use href="#flip-hor-back" transform="rotate(-90)" />
+<use href="#flip-ver-row" y="-16" />
+<use href="#flip-ver-row" y="-8" />
+<use href="#flip-ver-row" y="0" />
+<use href="#flip-ver-row" y="8" />
+<use href="#flip-ver-row" y="16" />
+</g>
+</svg>

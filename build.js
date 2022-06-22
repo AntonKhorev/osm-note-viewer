@@ -7,7 +7,7 @@ await fs.rm('dist',{recursive: true, force: true})
 await fs.mkdir('dist')
 
 // process svgs
-const embedSvgFiles=['table-note.svg','tools-map.svg','tools-notes.svg']
+const embedSvgFiles=['flip.svg','table-note.svg','tools-map.svg','tools-notes.svg']
 let embeddedStyles=''
 let embeddedSymbols=''
 for (const svgDirEntry of await fs.readdir('src/svg',{withFileTypes:true})) {
