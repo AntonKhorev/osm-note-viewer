@@ -112,7 +112,7 @@ function writeFlipLayoutButton(storage: NoteViewerStorage, $container: HTMLEleme
 function writeResetButton($container: HTMLElement): void {
 	const $button=document.createElement('button')
 	$button.classList.add('reset')
-	$button.title=`Reset query`
+	$button.innerHTML=`<svg><title>Reset query</title><use href="#reset" /></svg>`
 	$button.addEventListener('click',()=>{
 		location.href=location.pathname+location.search
 	})

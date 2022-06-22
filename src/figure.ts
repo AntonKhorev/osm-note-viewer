@@ -45,7 +45,7 @@ export default class FigureDialog {
 		$img.alt='attached photo'
 		$figure.append($backdrop,$img)
 		const $closeButton=document.createElement('button')
-		$closeButton.title=`Close photo`
+		$closeButton.innerHTML=`<svg><title>Close photo</title><use href="#reset" /></svg>`
 		$dialog.append($figure,$closeButton)
 
 		$figure.addEventListener('keydown',(ev)=>{ // probably can't make it a button
