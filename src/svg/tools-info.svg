@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -10 20 20">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -10 20 29">
 <g stroke="white" stroke-width="2" stroke-linecap="square">
 <circle r="8" fill="#28F" stroke="none" />
 <line x1="0" x2="0" y1="0" y2="4" />
@@ -14,5 +14,9 @@
 <line x1="-4" y1="4" x2="4" y2="-4" />
 </g>
 </g>
+</g>
+<g class="tip">
+<path d="M-8.5,19 l8.5,-8.5 l8.5,8.5 z" fill="#DDD" stroke="none" />
+<path d="M-10,18.5 h2 l8,-8 l8,8 h2" fill="none" stroke="#AAA" stroke-width="1" />
 </g>
 </svg>

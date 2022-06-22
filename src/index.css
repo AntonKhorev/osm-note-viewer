@@ -161,6 +161,7 @@ body.flipped .panel.fetch button.flip {
 }
 .panel.command details.tool button.info {
 	--info-size: 20px;
+	--info-height-with-tip: calc(var(--info-size) + var(--gap) + 1px);
 	display: inline-block;
 	position: relative;
 	vertical-align: bottom;
@@ -170,13 +171,14 @@ body.flipped .panel.fetch button.flip {
 	background: none;
 	width: var(--info-size);
 	height: var(--info-size);
+	overflow: hidden;
 }
 .panel.command details.tool button.info > svg {
 	position: absolute;
 	top: 0;
 	left: 0;
 	width: var(--info-size);
-	height: var(--info-size);
+	height: var(--info-height-with-tip);
 }
 .panel.command details.tool button.info:not(.open) {
 	cursor: help;
@@ -186,12 +188,11 @@ body.flipped .panel.fetch button.flip {
 }
 .panel.command details.tool button.info.open {
 	margin-bottom: calc(-1px - var(--gap));
-	height: calc(var(--info-size) + var(--gap) + 1px);
-	background: url("info-tip.svg") no-repeat;
+	height: var(--info-height-with-tip);
+	--tools-info-tip-part-visibility: visible;
 }
 .panel.command details.tool button.info.open:hover {
 	--tools-info-close-hover-part-visibility: visible;
-	background: url("info-tip.svg") no-repeat;
 }
 .panel.command details.tool form {
 	display: contents;
