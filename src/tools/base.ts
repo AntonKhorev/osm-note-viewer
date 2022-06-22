@@ -39,22 +39,14 @@ export abstract class Tool {
 	}
 }
 
-export function makeMapIcon(type: string): HTMLImageElement {
-	const $img=document.createElement('img')
-	$img.classList.add('icon')
-	$img.src=`map-${type}.svg`
-	$img.width=19
-	$img.height=13
-	$img.alt=`map ${type}`
-	return $img
+export function makeMapIcon(type: string): HTMLElement {
+	const $span=document.createElement('span')
+	$span.innerHTML=`<span class='icon-map-${type}'><svg><use href="#tools-map" /></svg><span>map ${type}</span></span>`
+	return $span
 }
 
-export function makeNotesIcon(type: string): HTMLImageElement {
-	const $img=document.createElement('img')
-	$img.classList.add('icon')
-	$img.src=`notes-${type}.svg`
-	$img.width=9
-	$img.height=13
-	$img.alt=`${type} notes`
-	return $img
+export function makeNotesIcon(type: string): HTMLElement {
+	const $span=document.createElement('span')
+	$span.innerHTML=`<span class='icon-notes-${type}'><svg><use href="#tools-notes" /></svg><span>${type} notes</span></span>`
+	return $span
 }

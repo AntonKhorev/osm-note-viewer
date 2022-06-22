@@ -4,6 +4,10 @@
 	--click-color: #FC8;
 }
 
+body > .symbols {
+	display: none;
+}
+
 .text-side,
 .graphic-side {
 	position: fixed;
@@ -193,11 +197,28 @@ body.flipped .panel.fetch button.flip {
 .panel.command details.info summary {
 	display: none;
 }
-.panel.command .icon {
+.panel.command [class|=icon] > span {
+	display: none;
+}
+.panel.command [class|=icon] > svg {
 	vertical-align: middle;
 }
-.panel.command button[disabled] .icon {
+.panel.command button[disabled] [class|=icon] {
 	opacity: .5;
+}
+.panel.command [class|=icon-map] > svg {
+	width: 19px;
+	height: 13px;
+}
+.panel.command [class|=icon-notes] > svg {
+	width: 9px;
+	height: 13px;
+}
+.panel.command .icon-map-area {
+	--tools-map-area-part-visibility: visible;
+}
+.panel.command .icon-map-center {
+	--tools-map-center-part-visibility: visible;
 }
 .panel input:invalid:not(.no-invalid-indication),
 .panel textarea:invalid:not(.no-invalid-indication) {
