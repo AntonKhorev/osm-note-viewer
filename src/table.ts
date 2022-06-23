@@ -114,7 +114,7 @@ export default class NoteTable {
 		let nVisible=0
 		this.filter=filter
 		const getUsername=(uid:number)=>this.usersById.get(uid)
-		for (const $noteSection of this.$table.querySelectorAll('tbody')) {
+		for (const $noteSection of this.$table.tBodies) {
 			const noteId=Number($noteSection.dataset.noteId)
 			const note=this.notesById.get(noteId)
 			const layerId=Number($noteSection.dataset.layerId)
@@ -226,7 +226,7 @@ export default class NoteTable {
 		}
 		let nFetched=0
 		let nVisible=0
-		for (const $noteSection of this.$table.querySelectorAll('tbody')) {
+		for (const $noteSection of this.$table.tBodies) {
 			if (!$noteSection.dataset.noteId) continue
 			nFetched++
 			if (!$noteSection.classList.contains('hidden')) nVisible++
