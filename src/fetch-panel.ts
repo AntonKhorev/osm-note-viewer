@@ -8,7 +8,7 @@ import ExtrasPanel from './extras-panel'
 import ToolPanel from './tool-panel'
 import {NoteQuery, makeNoteQueryFromHash, makeNoteQueryString} from './query'
 import {toReadableDate} from './query-date'
-import {startSearchFetcher, startBboxFetcher} from './fetch'
+import {NoteSearchFetcher, NoteBboxFetcher} from './fetch'
 import {NoteFetchDialogSharedCheckboxes, NoteSearchFetchDialog, NoteBboxFetchDialog} from './fetch-dialog'
 
 export default class NoteFetchPanel {
@@ -29,11 +29,13 @@ export default class NoteFetchPanel {
 			modifyHistory(query,true)
 			runStartFetcher(query,true)
 		})
+		const searchFetcher=new NoteSearchFetcher()
 		const bboxDialog=new NoteBboxFetchDialog(map)
 		bboxDialog.write($container,$sharedCheckboxes,query=>{
 			modifyHistory(query,true)
 			runStartFetcher(query,true)
 		})
+		const bboxFetcher=new NoteBboxFetcher()
 		handleSharedCheckboxes($sharedCheckboxes.showImages,state=>noteTable?.setShowImages(state))
 		handleSharedCheckboxes($sharedCheckboxes.showRequests,state=>$container.classList.toggle('show-requests',state))
 		window.addEventListener('hashchange',()=>{
@@ -102,7 +104,7 @@ export default class NoteFetchPanel {
 			)
 			filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(noteFilter))
 			if (query?.mode=='search') {
-				startSearchFetcher(
+				searchFetcher.start(
 					db,
 					noteTable,$moreContainer,
 					searchDialog.$limitSelect,searchDialog.$autoLoadCheckbox,searchDialog.$fetchButton,
@@ -112,7 +114,7 @@ export default class NoteFetchPanel {
 				)
 			} else if (query?.mode=='bbox') {
 				if (bboxDialog.$trackMapCheckbox.checked) map.needToFitNotes=false
-				startBboxFetcher(
+				bboxFetcher.start(
 					db,
 					noteTable,$moreContainer,
 					bboxDialog.$limitSelect,/*bboxDialog.$autoLoadCheckbox,*/bboxDialog.$fetchButton,

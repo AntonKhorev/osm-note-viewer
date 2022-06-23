@@ -7,7 +7,32 @@ const maxSingleAutoLoadLimit=200
 const maxTotalAutoLoadLimit=1000
 const maxFullyFilteredFetches=10
 
-export async function startSearchFetcher(
+abstract class NoteFetcher {
+	getRequestUrls(query: NoteQuery, limit: number): [type: string, url: string][] {
+		const parameters=this.getRequestUrlParameters(query,limit)
+		if (parameters==null) return []
+		const base=this.getRequestUrlBase()
+		return [
+			['json',`${base}.json?${parameters}`],
+			['xml',`${base}?${parameters}`],
+			['gpx',`${base}.gpx?${parameters}`],
+			['rss',`${base}.rss?${parameters}`],
+		]
+	}
+	protected abstract getRequestUrlBase(): string
+	protected abstract getRequestUrlParameters(query: NoteQuery, limit: number): string|undefined
+	// TODO unify start methods
+}
+
+export class NoteSearchFetcher extends NoteFetcher {
+	protected getRequestUrlBase(): string {
+		return `https://api.openstreetmap.org/api/0.6/notes/search`
+	}
+	protected getRequestUrlParameters(query: NoteQuery, limit: number): string|undefined {
+		if (query.mode!='search') return
+		return getNextFetchDetails(query,limit).parameters
+	}
+async start(
 	db: NoteViewerDB,
 	noteTable: NoteTable, $moreContainer: HTMLElement,
 	$limitSelect: HTMLSelectElement, $autoLoadCheckbox: HTMLInputElement, $fetchButton: HTMLButtonElement,
@@ -138,8 +163,17 @@ export async function startSearchFetcher(
 		$moreContainer.append($div)
 	}
 }
+}
 
-export async function startBboxFetcher( // TODO cleanup copypaste from above
+export class NoteBboxFetcher extends NoteFetcher {
+	protected getRequestUrlBase(): string {
+		return `https://api.openstreetmap.org/api/0.6/notes.json?`
+	}
+	protected getRequestUrlParameters(query: NoteQuery, limit: number): string|undefined {
+		if (query.mode!='bbox') return
+		return `bbox=`+encodeURIComponent(query.bbox)+'&closed='+encodeURIComponent(query.closed)+'&limit='+encodeURIComponent(limit)
+	}
+async start( // TODO cleanup copypaste from above
 	db: NoteViewerDB,
 	noteTable: NoteTable, $moreContainer: HTMLElement,
 	$limitSelect: HTMLSelectElement, /*$autoLoadCheckbox: HTMLInputElement,*/ $fetchButton: HTMLButtonElement,
@@ -147,6 +181,7 @@ export async function startBboxFetcher( // TODO cleanup copypaste from above
 	query: NoteBboxQuery,
 	clearStore: boolean
 ) {
+	const self=this
 	const [notes,users,mergeNotesAndUsers]=makeNotesAndUsersAndMerger()
 	const queryString=makeNoteQueryString(query)
 	const fetchEntry: FetchEntry = await(async()=>{
@@ -187,8 +222,7 @@ export async function startBboxFetcher( // TODO cleanup copypaste from above
 		rewriteLoadingButton()
 		const limit=getLimit($limitSelect)
 		// { different
-		const parameters=`bbox=`+encodeURIComponent(query.bbox)+'&closed='+encodeURIComponent(query.closed)+'&limit='+encodeURIComponent(limit)
-		const url=`https://api.openstreetmap.org/api/0.6/notes.json?`+parameters
+		const url=`https://api.openstreetmap.org/api/0.6/notes.json?`+self.getRequestUrlParameters(query,limit)
 		// } different
 		$fetchButton.disabled=true
 		try {
@@ -247,6 +281,7 @@ export async function startBboxFetcher( // TODO cleanup copypaste from above
 		$div.append($button)
 		$moreContainer.append($div)
 	}
+}
 }
 
 function makeNotesAndUsersAndMerger(): [
