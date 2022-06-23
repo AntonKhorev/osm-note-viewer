@@ -1,47 +1,58 @@
 import { LatLngBounds } from 'leaflet'
 import type {Note, NoteComment} from './data'
+import {escapeXml, makeEscapeTag} from './util'
 
 export class NoteMarker extends L.Marker {
 	noteId: number
 	constructor(note: Note) {
 		const width=25
 		const height=40
-		const nInnerCircles=4
+		const auraThickness=4
 		const r=width/2
-		const rp=height-r
-		const y=r**2/rp
-		const x=Math.sqrt(r**2-y**2)
-		const xf=x.toFixed(2)
-		const yf=y.toFixed(2)
-		const dcr=(r-.5)/nInnerCircles
+		const widthWithAura=width+auraThickness*2
+		const heightWithAura=height+auraThickness
+		const rWithAura=widthWithAura/2
+		const nInnerCircles=4
+		const e=makeEscapeTag(escapeXml)
 		let html=``
-		html+=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-r} ${-r} ${width} ${height}">`
-		html+=`<path d="M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z" fill="${note.status=='open'?'red':'green'}" />`
+		html+=e`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`
+		html+=e`<title>${note.status} note #${note.id}</title>`,
+		html+=e`<path d="${computeMarkerOutlinePath(heightWithAura,rWithAura)}" class="aura" fill="none" />`
+		html+=e`<path d="${computeMarkerOutlinePath(height,r)}" fill="${note.status=='open'?'red':'green'}" />`
 		const states=[...noteCommentsToStates(note.comments)]
-		const statesToDraw=states.slice(-nInnerCircles,-1)
-		for (let i=2;i>=0;i--) {
-			if (i>=statesToDraw.length) continue
-			const cr=dcr*(i+1)
-			html+=`<circle r="${cr}" fill="${color()}" stroke="white" />`
-			function color(): string {
-				if (i==0 && states.length<=nInnerCircles) return 'white'
-				if (statesToDraw[i]) return 'red'
-				return 'green'
-			}
-		}
-		html+=`</svg>`
+		html+=drawStateCircles(r,nInnerCircles,states.slice(-nInnerCircles,-1))
+		html+=e`</svg>`
 		const icon=L.divIcon({
 			html,
-			className: '',
-			iconSize: [width,height],
-			iconAnchor: [(width-1)/2,height],
+			className: 'note-marker',
+			iconSize: [widthWithAura,heightWithAura],
+			iconAnchor: [(widthWithAura-1)/2,heightWithAura],
 		})
-		super([note.lat,note.lon],{
-			icon,
-			alt: `note`,
-			opacity: 0.5
-		})
+		super([note.lat,note.lon],{icon})
 		this.noteId=note.id
+		function computeMarkerOutlinePath(height: number, r: number): string {
+			const rp=height-r
+			const y=r**2/rp
+			const x=Math.sqrt(r**2-y**2)
+			const xf=x.toFixed(2)
+			const yf=y.toFixed(2)
+			return `M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z`
+		}
+		function drawStateCircles(r: number, nInnerCircles: number, statesToDraw: boolean[]): string {
+			const dcr=(r-.5)/nInnerCircles
+			let html=``
+			for (let i=2;i>=0;i--) {
+				if (i>=statesToDraw.length) continue
+				const cr=dcr*(i+1)
+				html+=e`<circle r="${cr}" fill="${color()}" stroke="white" />`
+				function color(): string {
+					if (i==0 && states.length<=nInnerCircles) return 'white'
+					if (statesToDraw[i]) return 'red'
+					return 'green'
+				}
+			}
+			return html
+		}
 	}
 }
 

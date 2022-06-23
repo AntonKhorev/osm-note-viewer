@@ -310,12 +310,12 @@ export default class NoteTable {
 	}
 	private deactivateNote(type: 'hover'|'click', $noteSection: HTMLTableSectionElement): void {
 		$noteSection.classList.remove('active-'+type)
-		if ($noteSection.classList.contains('active-hover') || $noteSection.classList.contains('active-click')) return
 		const layerId=Number($noteSection.dataset.layerId)
 		const marker=this.map.noteLayer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
+		marker.getElement()?.classList.remove('active-'+type)
+		if ($noteSection.classList.contains('active-hover') || $noteSection.classList.contains('active-click')) return
 		marker.setZIndexOffset(0)
-		marker.setOpacity(0.5)
 	}
 	private activateNote(type: 'hover'|'click', $noteSection: HTMLTableSectionElement): void {
 		let alreadyActive=false
@@ -332,8 +332,8 @@ export default class NoteTable {
 		const layerId=Number($noteSection.dataset.layerId)
 		const marker=this.map.noteLayer.getLayer(layerId)
 		if (!(marker instanceof L.Marker)) return
-		marker.setOpacity(1)
 		marker.setZIndexOffset(1000)
+		marker.getElement()?.classList.add('active-'+type)
 		$noteSection.classList.add('active-'+type)
 	}
 	private updateCheckboxDependents(): void {
