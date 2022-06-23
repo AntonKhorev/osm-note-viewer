@@ -1,6 +1,6 @@
 import NoteViewerDB, {FetchEntry} from './db'
 import {Note, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesAndUsers} from './data'
-import {NoteQuery, NoteSearchQuery, NoteBboxQuery, getNextFetchDetails, makeNoteQueryString} from './query'
+import {NoteQuery, NoteSearchQuery, NoteBboxQuery, NoteFetchDetails, getNextFetchDetails, makeNoteQueryString} from './query'
 import NoteTable from './table'
 
 const maxSingleAutoLoadLimit=200
@@ -32,6 +32,18 @@ export class NoteSearchFetcher extends NoteFetcher {
 		if (query.mode!='search') return
 		return getNextFetchDetails(query,limit).parameters
 	}
+	protected getCycleFetchDetails(
+		query: NoteQuery, limit: number,
+		lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined, $moreContainer: HTMLElement
+	): NoteFetchDetails|undefined {
+		if (query.mode!='search') return
+		const fetchDetails=getNextFetchDetails(query,limit,lastNote,prevLastNote,lastLimit)
+		if (fetchDetails.limit>10000) {
+			rewriteMessage($moreContainer,`Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`)
+			return
+		}
+		return fetchDetails
+	}
 async start(
 	db: NoteViewerDB,
 	noteTable: NoteTable, $moreContainer: HTMLElement,
@@ -40,6 +52,7 @@ async start(
 	query: NoteSearchQuery,
 	clearStore: boolean
 ) {
+	const self=this
 	const [notes,users,mergeNotesAndUsers]=makeNotesAndUsersAndMerger()
 	const queryString=makeNoteQueryString(query)
 	const fetchEntry: FetchEntry = await(async()=>{
@@ -79,12 +92,9 @@ async start(
 	async function fetchCycle() {
 		rewriteLoadingButton()
 		const limit=getLimit($limitSelect)
-		const fetchDetails=getNextFetchDetails(query,limit,lastNote,prevLastNote,lastLimit)
-		if (fetchDetails.limit>10000) {
-			rewriteMessage($moreContainer,`Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`)
-			return
-		}
-		const url=`https://api.openstreetmap.org/api/0.6/notes/search.json?`+fetchDetails.parameters
+		const fetchDetails=self.getCycleFetchDetails(query,limit,lastNote,prevLastNote,lastLimit,$moreContainer)
+		if (fetchDetails==null) return
+		const url=self.getRequestUrlBase()+`.json?`+fetchDetails.parameters
 		$fetchButton.disabled=true
 		try {
 			const response=await fetch(url)
@@ -105,6 +115,7 @@ async start(
 				return
 			}
 			addNewNotes(unseenNotes)
+			// { different
 			if (data.features.length<fetchDetails.limit) {
 				rewriteMessage($moreContainer,`Got all ${notes.length} notes`)
 				return
@@ -133,6 +144,7 @@ async start(
 				moreButtonIntersectionObservers.push(moreButtonIntersectionObserver)
 				moreButtonIntersectionObserver.observe($moreButton)
 			}
+			// } different
 		} catch (ex) {
 			if (ex instanceof TypeError) {
 				rewriteFetchErrorMessage($moreContainer,query,`failed with the following error before receiving a response`,ex.message)
@@ -167,11 +179,19 @@ async start(
 
 export class NoteBboxFetcher extends NoteFetcher {
 	protected getRequestUrlBase(): string {
-		return `https://api.openstreetmap.org/api/0.6/notes.json?`
+		return `https://api.openstreetmap.org/api/0.6/notes`
 	}
 	protected getRequestUrlParameters(query: NoteQuery, limit: number): string|undefined {
 		if (query.mode!='bbox') return
 		return `bbox=`+encodeURIComponent(query.bbox)+'&closed='+encodeURIComponent(query.closed)+'&limit='+encodeURIComponent(limit)
+	}
+	protected getCycleFetchDetails(
+		query: NoteQuery, limit: number,
+		lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined, $moreContainer: HTMLElement
+	): NoteFetchDetails|undefined {
+		const parameters=this.getRequestUrlParameters(query,limit)
+		if (parameters==null) return
+		return {parameters,limit}
 	}
 async start( // TODO cleanup copypaste from above
 	db: NoteViewerDB,
@@ -193,15 +213,15 @@ async start( // TODO cleanup copypaste from above
 			return fetchEntry
 		}
 	})()
-	// let lastNote: Note | undefined
-	// let prevLastNote: Note | undefined
-	// let lastLimit: number | undefined
+	let lastNote: Note | undefined
+	let prevLastNote: Note | undefined
+	let lastLimit: number | undefined
 	let nFullyFilteredFetches=0
 	let holdOffAutoLoad=false
 	if (!clearStore) {
 		addNewNotes(notes)
 		if (notes.length>0) {
-			// lastNote=notes[notes.length-1]
+			lastNote=notes[notes.length-1]
 			rewriteLoadMoreButton()
 		} else {
 			holdOffAutoLoad=true // db was empty; expected to show something => need to fetch; not expected to autoload
@@ -221,9 +241,9 @@ async start( // TODO cleanup copypaste from above
 	async function fetchCycle() {
 		rewriteLoadingButton()
 		const limit=getLimit($limitSelect)
-		// { different
-		const url=`https://api.openstreetmap.org/api/0.6/notes.json?`+self.getRequestUrlParameters(query,limit)
-		// } different
+		const fetchDetails=self.getCycleFetchDetails(query,limit,lastNote,prevLastNote,lastLimit,$moreContainer)
+		if (fetchDetails==null) return
+		const url=self.getRequestUrlBase()+`.json?`+fetchDetails.parameters
 		$fetchButton.disabled=true
 		try {
 			const response=await fetch(url)
@@ -245,7 +265,7 @@ async start( // TODO cleanup copypaste from above
 			}
 			addNewNotes(unseenNotes)
 			// { different
-			if (notes.length<limit) {
+			if (notes.length<fetchDetails.limit) {
 				rewriteMessage($moreContainer,`Got all ${notes.length} notes in the area`)
 			} else {
 				rewriteMessage($moreContainer,`Got all ${notes.length} requested notes`)
