@@ -13,6 +13,11 @@ import {startSearchFetcher, startBboxFetcher} from './fetch'
 import {makeDiv, makeLabel} from './util'
 import {NominatimBbox, NominatimBboxFetcher} from './nominatim'
 
+interface SharedCheckboxes {
+	showImages: HTMLInputElement[]
+	showRequests: HTMLInputElement[]
+}
+
 export default class NoteFetchPanel {
 	constructor(
 		storage: NoteViewerStorage, db: NoteViewerDB,
@@ -22,20 +27,22 @@ export default class NoteFetchPanel {
 	) {
 		let noteTable: NoteTable | undefined
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
-		const $showImagesCheckboxes: HTMLInputElement[] = []
+		const $sharedCheckboxes: SharedCheckboxes = {
+			showImages: [],
+			showRequests: []
+		}
 		const searchDialog=new NoteSearchFetchDialog()
-		searchDialog.write($container,$showImagesCheckboxes,query=>{
+		searchDialog.write($container,$sharedCheckboxes,query=>{
 			modifyHistory(query,true)
 			runStartFetcher(query,true)
 		})
 		const bboxDialog=new NoteBboxFetchDialog(map)
-		bboxDialog.write($container,$showImagesCheckboxes,query=>{
+		bboxDialog.write($container,$sharedCheckboxes,query=>{
 			modifyHistory(query,true)
 			runStartFetcher(query,true)
 		})
-		for (const $showImagesCheckbox of $showImagesCheckboxes) {
-			$showImagesCheckbox.addEventListener('input',showImagesCheckboxInputListener)
-		}
+		handleSharedCheckboxes($sharedCheckboxes.showImages,state=>noteTable?.setShowImages(state))
+		handleSharedCheckboxes($sharedCheckboxes.showRequests,state=>$container.classList.toggle('show-requests',state))
 		window.addEventListener('hashchange',()=>{
 			const query=makeNoteQueryFromHash(location.hash)
 			openQueryDialog(query,false)
@@ -98,7 +105,7 @@ export default class NoteFetchPanel {
 			const toolPanel=new ToolPanel($toolContainer,map,figureDialog,storage)
 			noteTable=new NoteTable(
 				$notesContainer,toolPanel,map,filterPanel.noteFilter,
-				figureDialog,$showImagesCheckboxes[0]?.checked
+				figureDialog,$sharedCheckboxes.showImages[0]?.checked
 			)
 			filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(noteFilter))
 			if (query?.mode=='search') {
@@ -122,12 +129,17 @@ export default class NoteFetchPanel {
 				)
 			}
 		}
-		function showImagesCheckboxInputListener(this: HTMLInputElement) {
-			const state=this.checked
-			for (const $showImagesCheckbox of $showImagesCheckboxes) {
-				$showImagesCheckbox.checked=state
+		function handleSharedCheckboxes($checkboxes: HTMLInputElement[], stateChangeListener: (state:boolean)=>void) {
+			for (const $checkbox of $checkboxes) {
+				$checkbox.addEventListener('input',inputListener)
 			}
-			noteTable?.setShowImages(state)
+			function inputListener(this: HTMLInputElement) {
+				const state=this.checked
+				for (const $checkbox of $checkboxes) {
+					$checkbox.checked=state
+				}
+				stateChangeListener(state)
+			}
 		}
 	}
 }
@@ -136,20 +148,12 @@ abstract class NoteFetchDialog {
 	abstract title: string
 	$details=document.createElement('details')
 	$fetchButton=document.createElement('button')
-	write($container: HTMLElement, $showImagesCheckboxes: HTMLInputElement[], submitQuery: (query: NoteQuery) => void) {
+	write($container: HTMLElement, $sharedCheckboxes: SharedCheckboxes, submitQuery: (query: NoteQuery) => void) {
 		const $summary=document.createElement('summary')
 		$summary.textContent=this.title
 		const $form=document.createElement('form')
 		const $scopeFieldset=this.makeScopeAndOrderFieldset()
-		const $downloadFieldset=this.makeDownloadModeFieldset()
-		const $showImagesCheckbox=document.createElement('input')
-		$showImagesCheckbox.type='checkbox'
-		$showImagesCheckboxes.push($showImagesCheckbox)
-		$downloadFieldset.append(
-			makeDiv()(makeLabel()(
-				$showImagesCheckbox,` Load and show images from StreetComplete`
-			))
-		)
+		const $downloadFieldset=this.makeDownloadModeFieldset($sharedCheckboxes)
 		$form.append(
 			$scopeFieldset,
 			$downloadFieldset,
@@ -185,13 +189,25 @@ abstract class NoteFetchDialog {
 		this.writeScopeAndOrderFieldset($fieldset)
 		return $fieldset
 	}
-	private makeDownloadModeFieldset(): HTMLFieldSetElement {
+	private makeDownloadModeFieldset($sharedCheckboxes: SharedCheckboxes): HTMLFieldSetElement {
 		const $fieldset=document.createElement('fieldset')
 		// TODO (re)store input values
 		const $legend=document.createElement('legend')
 		$legend.textContent=`Download mode (can change anytime)`
 		$fieldset.append($legend)
 		this.writeDownloadModeFieldset($fieldset)
+		const $showImagesCheckbox=document.createElement('input')
+		$showImagesCheckbox.type='checkbox'
+		$sharedCheckboxes.showImages.push($showImagesCheckbox)
+		$fieldset.append(makeDiv()(makeLabel()(
+			$showImagesCheckbox,` Load and show images from StreetComplete`
+		)))
+		const $showRequestsCheckbox=document.createElement('input')
+		$showRequestsCheckbox.type='checkbox'
+		$sharedCheckboxes.showRequests.push($showRequestsCheckbox)
+		$fieldset.append(makeDiv()(makeLabel()(
+			$showRequestsCheckbox,` Show request parameters and URLs`
+		)))
 		return $fieldset
 	}
 	private makeFetchButtonDiv(): HTMLDivElement {
