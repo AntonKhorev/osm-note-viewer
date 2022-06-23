@@ -7,6 +7,8 @@ import {makeElement, makeLink, makeDiv, makeLabel} from './util'
 
 const em=(...ss: Array<string|HTMLElement>)=>makeElement('em')()(...ss)
 const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
+const rq=(param: string)=>makeElement('span')('request')(` (`,code(param),` parameter)`)
+const rq2=(param1: string, param2: string)=>makeElement('span')('request')(` (`,code(param1),` or `,code(param2),` parameter)`)
 
 export interface NoteFetchDialogSharedCheckboxes {
 	showImages: HTMLInputElement[]
@@ -112,13 +114,13 @@ export class NoteSearchFetchDialog extends NoteFetchDialog {
 			this.$userInput.type='text'
 			this.$userInput.name='user'
 			$fieldset.append(makeDiv('major-input')(makeLabel()(
-				`OSM username, URL or #id: `,this.$userInput
+				`OSM username, URL or #id`,rq2('display_name','user'),`: `,this.$userInput
 			)))
 		}{
 			this.$textInput.type='text'
 			this.$textInput.name='text'
 			$fieldset.append(makeDiv('major-input')(makeLabel()(
-				`Comment text search query: `,this.$textInput
+				`Comment text search query`,rq('q'),`: `,this.$textInput
 			)))
 		}{
 			this.$fromInput.type='text'
@@ -129,8 +131,8 @@ export class NoteSearchFetchDialog extends NoteFetchDialog {
 			this.$toInput.name='to'
 			$fieldset.append(makeDiv()(
 				`Date range: `,
-				makeLabel()(`from `,this.$fromInput),` `,
-				makeLabel()(`to `,this.$toInput)
+				makeLabel()(`from`,rq('from'),` `,this.$fromInput),` `,
+				makeLabel()(`to`,rq('to'),` `,this.$toInput)
 			))
 		}{
 			this.$statusSelect.append(
@@ -148,9 +150,9 @@ export class NoteSearchFetchDialog extends NoteFetchDialog {
 			)
 			$fieldset.append(makeDiv()(
 				`Fetch `,
-				makeLabel('inline')(this.$statusSelect,` matching notes`),` `,
-				makeLabel('inline')(`sorted by `,this.$sortSelect,` date`),`, `,
-				makeLabel('inline')(this.$orderSelect,` first`)
+				makeLabel('inline')(this.$statusSelect,rq('closed'),` matching notes`),` `,
+				makeLabel('inline')(`sorted by `,this.$sortSelect,rq('sort'),` date`),`, `,
+				makeLabel('inline')(this.$orderSelect,rq('order'),` first`)
 			))
 		}
 	}
@@ -164,7 +166,7 @@ export class NoteSearchFetchDialog extends NoteFetchDialog {
 			)
 			$fieldset.append(makeDiv()(
 				`Download these `,
-				makeLabel()(`in batches of `,this.$limitSelect,` notes`)
+				makeLabel()(`in batches of `,this.$limitSelect,rq('limit'),` notes`)
 			))
 		}{
 			this.$autoLoadCheckbox.type='checkbox'
