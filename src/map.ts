@@ -17,7 +17,7 @@ export class NoteMarker extends L.Marker {
 		let html=``
 		html+=e`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`
 		html+=e`<title>${note.status} note #${note.id}</title>`,
-		html+=e`<path d="${computeMarkerOutlinePath(heightWithAura,rWithAura)}" class="aura" fill="none" />`
+		html+=e`<path d="${computeMarkerOutlinePath(heightWithAura-.5,rWithAura-.5)}" class="aura" fill="none" />`
 		html+=e`<path d="${computeMarkerOutlinePath(height,r)}" fill="${note.status=='open'?'red':'green'}" />`
 		const states=[...noteCommentsToStates(note.comments)]
 		html+=drawStateCircles(r,nInnerCircles,states.slice(-nInnerCircles,-1))
