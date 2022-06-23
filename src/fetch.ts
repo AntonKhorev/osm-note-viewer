@@ -1,5 +1,5 @@
 import NoteViewerDB, {FetchEntry} from './db'
-import {Note, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesAndUsers} from './data'
+import {Note, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesAndUsers, NoteFeatureCollection} from './data'
 import {NoteQuery, NoteSearchQuery, NoteBboxQuery, NoteFetchDetails, getNextFetchDetails, makeNoteQueryString} from './query'
 import NoteTable from './table'
 
@@ -43,6 +43,17 @@ export class NoteSearchFetcher extends NoteFetcher {
 			return
 		}
 		return fetchDetails
+	}
+	protected continueCycle(
+		notes: Note[],
+		fetchDetails: NoteFetchDetails, data: NoteFeatureCollection,
+		$moreContainer: HTMLElement
+	): boolean {
+		if (data.features.length<fetchDetails.limit) {
+			rewriteMessage($moreContainer,`Got all ${notes.length} notes`)
+			return false
+		}
+		return true
 	}
 async start(
 	db: NoteViewerDB,
@@ -115,14 +126,10 @@ async start(
 				return
 			}
 			addNewNotes(unseenNotes)
-			// { different
-			if (data.features.length<fetchDetails.limit) {
-				rewriteMessage($moreContainer,`Got all ${notes.length} notes`)
-				return
-			}
 			prevLastNote=lastNote
 			lastNote=notes[notes.length-1]
 			lastLimit=fetchDetails.limit
+			if (!self.continueCycle(notes,fetchDetails,data,$moreContainer)) return
 			const $moreButton=rewriteLoadMoreButton()
 			if (holdOffAutoLoad) {
 				holdOffAutoLoad=false
@@ -144,7 +151,6 @@ async start(
 				moreButtonIntersectionObservers.push(moreButtonIntersectionObserver)
 				moreButtonIntersectionObserver.observe($moreButton)
 			}
-			// } different
 		} catch (ex) {
 			if (ex instanceof TypeError) {
 				rewriteFetchErrorMessage($moreContainer,query,`failed with the following error before receiving a response`,ex.message)
@@ -192,6 +198,18 @@ export class NoteBboxFetcher extends NoteFetcher {
 		const parameters=this.getRequestUrlParameters(query,limit)
 		if (parameters==null) return
 		return {parameters,limit}
+	}
+	protected continueCycle(
+		notes: Note[],
+		fetchDetails: NoteFetchDetails, data: NoteFeatureCollection,
+		$moreContainer: HTMLElement
+	): boolean {
+		if (notes.length<fetchDetails.limit) {
+			rewriteMessage($moreContainer,`Got all ${notes.length} notes in the area`)
+		} else {
+			rewriteMessage($moreContainer,`Got all ${notes.length} requested notes`)
+		}
+		return false
 	}
 async start( // TODO cleanup copypaste from above
 	db: NoteViewerDB,
@@ -264,14 +282,11 @@ async start( // TODO cleanup copypaste from above
 				return
 			}
 			addNewNotes(unseenNotes)
-			// { different
-			if (notes.length<fetchDetails.limit) {
-				rewriteMessage($moreContainer,`Got all ${notes.length} notes in the area`)
-			} else {
-				rewriteMessage($moreContainer,`Got all ${notes.length} requested notes`)
-			}
-			return
-			// } different
+			prevLastNote=lastNote
+			lastNote=notes[notes.length-1]
+			lastLimit=fetchDetails.limit
+			if (!self.continueCycle(notes,fetchDetails,data,$moreContainer)) return
+			return // TODO more paste here
 		} catch (ex) {
 			if (ex instanceof TypeError) {
 				rewriteFetchErrorMessage($moreContainer,query,`failed with the following error before receiving a response`,ex.message)
