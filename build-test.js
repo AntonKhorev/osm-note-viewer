@@ -1,4 +1,4 @@
-import fs from 'fs-extra'
+import * as fs from 'fs/promises'
 import { rollup } from 'rollup'
 import typescript from '@rollup/plugin-typescript'
 
