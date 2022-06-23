@@ -33,7 +33,6 @@ export default class NoteTable {
 		let $clickReadyNoteSection: HTMLTableSectionElement | undefined
 		this.wrappedNoteSectionListeners=[
 			['mouseenter',function(){
-				if (this.classList.contains('active-click')) return
 				that.activateNote('hover',this)
 			}],
 			['mouseleave',function(){

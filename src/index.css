@@ -1,9 +1,7 @@
 :root {
 	--frame-color: #CCC;
 	--hover-color: #DEF;
-	--hover-color-dark: #08F;
 	--click-color: #FC8;
-	--click-color-dark: #D80;
 }
 
 body > .symbols {
@@ -453,14 +451,16 @@ body.flipped .notes td.note-user {
 	opacity: 1;
 }
 .map .note-marker .aura {
+	stroke: #0000;
 	fill: #0000;
-	transition: fill .5s;
+	transition: stroke,fill .5s;
 }
 .map .note-marker.active-hover .aura {
-	fill: var(--hover-color-dark);
+	stroke: #048;
+	fill: #FFF;
 }
 .map .note-marker.active-click .aura {
-	fill: var(--click-color-dark);
+	fill: #F80;
 }
 .map .note-track {
 	vector-effect: non-scaling-stroke;
