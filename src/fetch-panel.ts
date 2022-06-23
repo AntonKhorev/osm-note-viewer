@@ -24,20 +24,23 @@ export default class NoteFetchPanel {
 			showImages: [],
 			showRequests: []
 		}
-		const searchDialog=new NoteSearchFetchDialog()
-		searchDialog.write($container,$sharedCheckboxes,query=>{
-			modifyHistory(query,true)
-			runStartFetcher(query,true)
-		})
 		const searchFetcher=new NoteSearchFetcher()
-		const bboxDialog=new NoteBboxFetchDialog(map)
-		bboxDialog.write($container,$sharedCheckboxes,query=>{
+		const searchDialog=new NoteSearchFetchDialog()
+		searchDialog.write($container,$sharedCheckboxes,(query,limit)=>searchFetcher.getRequestUrls(query,limit),(query)=>{
 			modifyHistory(query,true)
 			runStartFetcher(query,true)
 		})
 		const bboxFetcher=new NoteBboxFetcher()
+		const bboxDialog=new NoteBboxFetchDialog(map)
+		bboxDialog.write($container,$sharedCheckboxes,(query,limit)=>bboxFetcher.getRequestUrls(query,limit),query=>{
+			modifyHistory(query,true)
+			runStartFetcher(query,true)
+		})
 		handleSharedCheckboxes($sharedCheckboxes.showImages,state=>noteTable?.setShowImages(state))
-		handleSharedCheckboxes($sharedCheckboxes.showRequests,state=>$container.classList.toggle('show-requests',state))
+		handleSharedCheckboxes($sharedCheckboxes.showRequests,state=>{
+			$container.classList.toggle('show-requests',state)
+			$moreContainer.classList.toggle('show-requests',state)
+		})
 		window.addEventListener('hashchange',()=>{
 			const query=makeNoteQueryFromHash(location.hash)
 			openQueryDialog(query,false)
