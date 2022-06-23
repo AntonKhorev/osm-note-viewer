@@ -117,7 +117,7 @@ export default class NoteFetchPanel {
 				bboxFetcher.start(
 					db,
 					noteTable,$moreContainer,
-					bboxDialog.$limitSelect,/*bboxDialog.$autoLoadCheckbox,*/bboxDialog.$fetchButton,
+					bboxDialog.$limitSelect,{checked:false},bboxDialog.$fetchButton,
 					moreButtonIntersectionObservers,
 					query,
 					clearStore
