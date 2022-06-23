@@ -86,6 +86,7 @@ button.global > svg {
 .panel label.inline {
 	white-space: nowrap;
 }
+
 .panel.fetch {
 	padding: .5rem 3rem;
 }
@@ -108,6 +109,14 @@ body.flipped .panel.fetch button.flip {
 	--flip-ver-part-visibility: hidden;
 	--flip-hor-part-visibility: visible;
 }
+.panel.fetch .request {
+	color: #444;
+	font-size: .9em;
+}
+.panel.fetch:not(.show-requests) .request {
+	display: none;
+}
+
 .panel.command {
 	--gap: 8px;  /* used in info tips */
 	display: flex;
@@ -238,6 +247,7 @@ body.flipped .panel.fetch button.flip {
 .panel.command .icon-map-center {
 	--tools-map-center-part-visibility: visible;
 }
+
 .panel input:invalid:not(.no-invalid-indication),
 .panel textarea:invalid:not(.no-invalid-indication) {
 	border: solid 2px red;

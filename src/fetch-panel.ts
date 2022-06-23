@@ -10,8 +10,11 @@ import {NoteQuery, makeNoteSearchQueryFromValues, makeNoteBboxQueryFromValues,ma
 import {toUserQuery} from './query-user'
 import {toReadableDate, toDateQuery} from './query-date'
 import {startSearchFetcher, startBboxFetcher} from './fetch'
-import {makeDiv, makeLabel} from './util'
+import {makeElement, makeLink, makeDiv, makeLabel} from './util'
 import {NominatimBbox, NominatimBboxFetcher} from './nominatim'
+
+const em=(...ss: Array<string|HTMLElement>)=>makeElement('em')()(...ss)
+const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
 
 interface SharedCheckboxes {
 	showImages: HTMLInputElement[]
@@ -234,6 +237,11 @@ class NoteSearchFetchDialog extends NoteFetchDialog {
 	$limitSelect=document.createElement('select')
 	$autoLoadCheckbox=document.createElement('input')
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
+		{
+			$fieldset.append(makeDiv('request')(
+				`Make a `,makeLink(`search for notes`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch`),` request at `,code(`https://api.openstreetmap.org/api/0.6/notes/search?`,em(`parameters`)),`; see `,em(`parameters`),` below.`
+			))
+		}
 		{
 			this.$userInput.type='text'
 			this.$userInput.name='user'
