@@ -2,7 +2,7 @@ import NoteViewerDB, {FetchEntry} from './db'
 import {Note, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesAndUsers, NoteFeatureCollection} from './data'
 import {NoteQuery, NoteFetchDetails, getNextFetchDetails, makeNoteQueryString, NoteBboxQuery} from './query'
 import NoteTable from './table'
-import {makeEscapeTag} from './util'
+import {makeDiv, makeLink, makeEscapeTag} from './util'
 
 const e=makeEscapeTag(encodeURIComponent)
 
@@ -30,7 +30,8 @@ abstract class NoteFetcher {
 		query: NoteQuery,
 		clearStore: boolean
 	) {
-		const self=this
+		const getCycleFetchDetails=this.getGetCycleFetchDetails(query)
+		if (!getCycleFetchDetails) return // shouldn't happen
 		const [notes,users,mergeNotesAndUsers]=makeNotesAndUsersAndMerger()
 		const queryString=makeNoteQueryString(query)
 		const fetchEntry: FetchEntry = await(async()=>{
@@ -47,38 +48,30 @@ abstract class NoteFetcher {
 		let lastLimit: number | undefined
 		let nFullyFilteredFetches=0
 		let holdOffAutoLoad=false
-		if (!clearStore) {
-			addNewNotes(notes)
-			if (notes.length>0) {
-				lastNote=notes[notes.length-1]
-				rewriteLoadMoreButton()
-			} else {
-				holdOffAutoLoad=true // db was empty; expected to show something => need to fetch; not expected to autoload
-				await fetchCycle()
-			}
-		} else {
-			await fetchCycle()
+		const rewriteLoadMoreButton=(limit: number): HTMLButtonElement => {
+			// TODO dynamically update limit
+			const fetchDetails=getCycleFetchDetails(limit,lastNote,prevLastNote,lastLimit)
+			const url=this.getRequestUrlBase()+`.json?`+fetchDetails.parameters
+			$moreContainer.innerHTML=''
+			const $button=document.createElement('button')
+			$button.textContent=`Load more notes`
+			$button.addEventListener('click',fetchCycle)
+			$moreContainer.append(
+				makeDiv()($button),
+				makeDiv('request')(`Resulting request: `,makeLink(url,url))
+			)
+			return $button
 		}
-		function addNewNotes(newNotes: Note[]) {
-			const nUnfilteredNotes=noteTable.addNotes(newNotes,users)
-			if (nUnfilteredNotes==0) {
-				nFullyFilteredFetches++
-			} else {
-				nFullyFilteredFetches=0
-			}
-		}
-		async function fetchCycle() {
+		const fetchCycle=async()=>{
 			rewriteLoadingButton()
 			const limit=getLimit($limitSelect)
-			const getCycleFetchDetails=self.getGetCycleFetchDetails(query)
-			if (!getCycleFetchDetails) return // shouldn't happen
 			const fetchDetails=getCycleFetchDetails(limit,lastNote,prevLastNote,lastLimit)
 			if (fetchDetails==null) return
 			if (fetchDetails.limit>10000) {
 				rewriteMessage($moreContainer,`Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`)
 				return
 			}
-			const url=self.getRequestUrlBase()+`.json?`+fetchDetails.parameters
+			const url=this.getRequestUrlBase()+`.json?`+fetchDetails.parameters
 			$fetchButton.disabled=true
 			try {
 				const response=await fetch(url)
@@ -102,9 +95,9 @@ abstract class NoteFetcher {
 				prevLastNote=lastNote
 				lastNote=notes[notes.length-1]
 				lastLimit=fetchDetails.limit
-				if (!self.continueCycle(notes,fetchDetails,data,$moreContainer)) return
+				if (!this.continueCycle(notes,fetchDetails,data,$moreContainer)) return
 				const nextFetchDetails=getCycleFetchDetails(limit,lastNote,prevLastNote,lastLimit)
-				const $moreButton=rewriteLoadMoreButton()
+				const $moreButton=rewriteLoadMoreButton(limit)
 				if (holdOffAutoLoad) {
 					holdOffAutoLoad=false
 				} else if (notes.length>maxTotalAutoLoadLimit) {
@@ -135,24 +128,33 @@ abstract class NoteFetcher {
 				$fetchButton.disabled=false
 			}
 		}
-		function rewriteLoadMoreButton(): HTMLButtonElement {
-			$moreContainer.innerHTML=''
-			const $div=document.createElement('div')
-			const $button=document.createElement('button')
-			$button.textContent=`Load more notes`
-			$button.addEventListener('click',fetchCycle)
-			$div.append($button)
-			$moreContainer.append($div)
-			return $button
+		if (!clearStore) {
+			addNewNotes(notes)
+			if (notes.length>0) {
+				lastNote=notes[notes.length-1]
+				const limit=getLimit($limitSelect)
+				rewriteLoadMoreButton(limit)
+			} else {
+				holdOffAutoLoad=true // db was empty; expected to show something => need to fetch; not expected to autoload
+				await fetchCycle()
+			}
+		} else {
+			await fetchCycle()
+		}
+		function addNewNotes(newNotes: Note[]) {
+			const nUnfilteredNotes=noteTable.addNotes(newNotes,users)
+			if (nUnfilteredNotes==0) {
+				nFullyFilteredFetches++
+			} else {
+				nFullyFilteredFetches=0
+			}
 		}
 		function rewriteLoadingButton(): void {
 			$moreContainer.innerHTML=''
-			const $div=document.createElement('div')
 			const $button=document.createElement('button')
 			$button.textContent=`Loading notes...`
 			$button.disabled=true
-			$div.append($button)
-			$moreContainer.append($div)
+			$moreContainer.append(makeDiv()($button))
 		}
 	}
 	protected abstract getRequestUrlBase(): string

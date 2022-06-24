@@ -71,7 +71,7 @@ abstract class NoteFetchDialog {
 		const knownTypes: {[type:string]:string} = {
 			json: `https://wiki.openstreetmap.org/wiki/GeoJSON`,
 			gpx: `https://www.topografix.com/GPX/1/1/`, // gpx on osm wiki talks mostly about tracks
-			rss: `https://www.rssboard.org/rss-specification`,
+			rss: `https://www.rssboard.org/rss-specification`, // osm wiki doesn't describe rss format
 		}
 		const appendLinkIfKnown=(type:string)=>{
 			const url=knownTypes[type]
