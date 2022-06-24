@@ -121,9 +121,9 @@ abstract class NoteFetchDialog {
 	}
 	private addRequestChangeListeners() {
 		for (const $input of this.listQueryChangingInputs()) {
-			$input.addEventListener('input',()=>this.updateRequest)
+			$input.addEventListener('input',()=>this.updateRequest())
 		}
-		this.$limitSelect.addEventListener('input',()=>this.updateRequest)
+		this.$limitSelect.addEventListener('input',()=>this.updateRequest())
 	}
 	protected abstract writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void
 	protected abstract writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void
