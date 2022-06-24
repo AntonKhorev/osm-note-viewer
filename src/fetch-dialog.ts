@@ -1,7 +1,7 @@
 import {NoteMap} from './map'
 import {NoteQuery, makeNoteSearchQueryFromValues, makeNoteBboxQueryFromValues} from './query'
 import {toUserQuery} from './query-user'
-import {toDateQuery} from './query-date'
+import {toDateQuery, toReadableDate} from './query-date'
 import {NominatimBbox, NominatimBboxFetcher} from './nominatim'
 import {makeElement, makeLink, makeDiv, makeLabel} from './util'
 
@@ -20,30 +20,48 @@ abstract class NoteFetchDialog {
 	$details=document.createElement('details')
 	$fetchButton=document.createElement('button')
 	$limitSelect=document.createElement('select')
-	write(
-		$container: HTMLElement, $sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
-		getRequestUrls: (query: NoteQuery, limit: number) => [type: string, url: string][],
-		submitQuery: (query: NoteQuery) => void)
-	{
+	constructor(
+		private getRequestUrls: (query: NoteQuery, limit: number) => [type: string, url: string][],
+		private submitQuery: (query: NoteQuery) => void
+	) {}
+	write($container: HTMLElement, $sharedCheckboxes: NoteFetchDialogSharedCheckboxes) {
 		const $summary=document.createElement('summary')
 		$summary.textContent=this.title
 		const $form=document.createElement('form')
 		const $scopeFieldset=this.makeScopeAndOrderFieldset()
 		const $downloadFieldset=this.makeDownloadModeFieldset($sharedCheckboxes)
 		const $requestOutput=document.createElement('output')
+		const updateRequest=()=>{
+			const query=this.constructQuery()
+			if (!query) {
+				$requestOutput.replaceChildren(`invalid request`)
+				return
+			}
+			const requestUrls=this.getRequestUrls(query,Number(this.$limitSelect.value))
+			if (requestUrls.length==0) {
+				$requestOutput.replaceChildren(`invalid request`)
+				return
+			}
+			const [[mainType,mainUrl],...otherRequestUrls]=requestUrls
+			$requestOutput.replaceChildren(code(makeLink(mainUrl,mainUrl)))
+			for (const [type,url] of otherRequestUrls) {
+				$requestOutput.append(`, `,code(makeLink(type,url)))
+			}
+		}
 		$form.append(
 			$scopeFieldset,
 			$downloadFieldset,
 			this.makeFetchButtonDiv(),
 			this.makeRequestDiv($requestOutput)
 		)
-		this.addEventListeners()
-		this.addRequestChangeListeners($requestOutput,getRequestUrls)
+		this.addEventListeners(updateRequest)
+		this.addRequestChangeListeners(updateRequest)
+		updateRequest()
 		$form.addEventListener('submit',(ev)=>{
 			ev.preventDefault()
 			const query=this.constructQuery()
 			if (!query) return
-			submitQuery(query)
+			this.submitQuery(query)
 		})
 		this.$details.addEventListener('toggle',()=>{ // keep only one dialog open
 			if (!this.$details.open) return
@@ -60,6 +78,7 @@ abstract class NoteFetchDialog {
 	open(): void {
 		this.$details.open=true
 	}
+	abstract populateInputs(query: NoteQuery | undefined): void
 	private makeScopeAndOrderFieldset(): HTMLFieldSetElement {
 		const $fieldset=document.createElement('fieldset')
 		const $legend=document.createElement('legend')
@@ -97,27 +116,7 @@ abstract class NoteFetchDialog {
 	private makeRequestDiv($requestOutput: HTMLOutputElement) {
 		return makeDiv('request')(`Resulting request: `,$requestOutput)
 	}
-	private addRequestChangeListeners(
-		$requestOutput: HTMLOutputElement,
-		getRequestUrls: (query: NoteQuery, limit: number) => [type: string, url: string][]
-	) {
-		const updateRequest=()=>{
-			const query=this.constructQuery()
-			if (!query) {
-				$requestOutput.replaceChildren(`invalid request`)
-				return
-			}
-			const requestUrls=getRequestUrls(query,Number(this.$limitSelect.value))
-			if (requestUrls.length==0) {
-				$requestOutput.replaceChildren(`invalid request`)
-				return
-			}
-			const [[mainType,mainUrl],...otherRequestUrls]=requestUrls
-			$requestOutput.replaceChildren(code(makeLink(mainUrl,mainUrl)))
-			for (const [type,url] of otherRequestUrls) {
-				$requestOutput.append(`, `,code(makeLink(type,url)))
-			}
-		}
+	private addRequestChangeListeners(updateRequest: ()=>void) {
 		for (const $input of this.listQueryChangingInputs()) {
 			$input.addEventListener('input',updateRequest)
 		}
@@ -126,7 +125,7 @@ abstract class NoteFetchDialog {
 	protected abstract writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void
 	protected abstract writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void
 	protected writeExtraForms(): void {}
-	protected abstract addEventListeners(): void
+	protected abstract addEventListeners(updateRequest: ()=>void): void
 	protected abstract constructQuery(): NoteQuery | undefined
 	protected abstract listQueryChangingInputs(): Array<HTMLInputElement|HTMLSelectElement>
 }
@@ -141,6 +140,23 @@ export class NoteSearchFetchDialog extends NoteFetchDialog {
 	$sortSelect=document.createElement('select')
 	$orderSelect=document.createElement('select')
 	$autoLoadCheckbox=document.createElement('input')
+	populateInputs(query: NoteQuery | undefined): void {
+		if (!query || query.mode=='search') {
+			if (query?.display_name) {
+				this.$userInput.value=query.display_name
+			} else if (query?.user) {
+				this.$userInput.value='#'+query.user
+			} else {
+				this.$userInput.value=''
+			}
+			this.$textInput.value=query?.q ?? ''
+			this.$fromInput.value=toReadableDate(query?.from)
+			this.$toInput.value=toReadableDate(query?.to)
+			this.$statusSelect.value=query ? String(query.closed) : '-1'
+			this.$sortSelect.value=query?.sort ?? 'created_at'
+			this.$orderSelect.value=query?.order ?? 'newest'
+		}
+	}
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{
 			$fieldset.append(makeDiv('request')(
@@ -213,7 +229,7 @@ export class NoteSearchFetchDialog extends NoteFetchDialog {
 			)))
 		}
 	}
-	protected addEventListeners(): void {
+	protected addEventListeners(updateRequest: ()=>void): void {
 		this.$userInput.addEventListener('input',()=>{
 			const userQuery=toUserQuery(this.$userInput.value)
 			if (userQuery.userType=='invalid') {
@@ -263,8 +279,18 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 	$bboxInput=document.createElement('input')
 	$trackMapCheckbox=document.createElement('input')
 	$statusSelect=document.createElement('select')
-	constructor(private map: NoteMap) {
-		super()
+	constructor(
+		getRequestUrls: (query: NoteQuery, limit: number) => [type: string, url: string][],
+		submitQuery: (query: NoteQuery) => void,
+		private map: NoteMap
+	) {
+		super(getRequestUrls,submitQuery)
+	}
+	populateInputs(query: NoteQuery | undefined): void {
+		if (!query || query.mode=='bbox') {
+			this.$bboxInput.value=query?.bbox ?? ''
+			this.$statusSelect.value=query ? String(query.closed) : '-1'
+		}
 	}
 	protected writeExtraForms() {
 		this.$details.append(this.$nominatimForm)
@@ -337,7 +363,7 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 			))
 		}
 	}
-	protected addEventListeners(): void {
+	protected addEventListeners(updateRequest: ()=>void): void {
 		const validateBounds=():boolean=>{
 			const splitValue=this.$bboxInput.value.split(',')
 			if (splitValue.length!=4) {
@@ -353,6 +379,7 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 			// (left,bottom,right,top)
 			this.$bboxInput.value=bounds.getWest()+','+bounds.getSouth()+','+bounds.getEast()+','+bounds.getNorth()
 			validateBounds()
+			updateRequest()
 		}
 		this.map.onMoveEnd(copyBounds)
 		this.$trackMapCheckbox.addEventListener('input',copyBounds)

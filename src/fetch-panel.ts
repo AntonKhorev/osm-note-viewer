@@ -7,7 +7,6 @@ import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
 import ToolPanel from './tool-panel'
 import {NoteQuery, makeNoteQueryFromHash, makeNoteQueryString} from './query'
-import {toReadableDate} from './query-date'
 import {NoteSearchFetcher, NoteBboxFetcher} from './fetch'
 import {NoteFetchDialogSharedCheckboxes, NoteSearchFetchDialog, NoteBboxFetchDialog} from './fetch-dialog'
 
@@ -24,18 +23,19 @@ export default class NoteFetchPanel {
 			showImages: [],
 			showRequests: []
 		}
+		const hashQuery=makeNoteQueryFromHash(location.hash)
 		const searchFetcher=new NoteSearchFetcher()
-		const searchDialog=new NoteSearchFetchDialog()
-		searchDialog.write($container,$sharedCheckboxes,(query,limit)=>searchFetcher.getRequestUrls(query,limit),(query)=>{
+		const searchDialog=new NoteSearchFetchDialog((query,limit)=>searchFetcher.getRequestUrls(query,limit),(query)=>{
 			modifyHistory(query,true)
 			runStartFetcher(query,true)
 		})
+		searchDialog.write($container,$sharedCheckboxes)
 		const bboxFetcher=new NoteBboxFetcher()
-		const bboxDialog=new NoteBboxFetchDialog(map)
-		bboxDialog.write($container,$sharedCheckboxes,(query,limit)=>bboxFetcher.getRequestUrls(query,limit),query=>{
+		const bboxDialog=new NoteBboxFetchDialog((query,limit)=>bboxFetcher.getRequestUrls(query,limit),query=>{
 			modifyHistory(query,true)
 			runStartFetcher(query,true)
-		})
+		},map)
+		bboxDialog.write($container,$sharedCheckboxes)
 		handleSharedCheckboxes($sharedCheckboxes.showImages,state=>noteTable?.setShowImages(state))
 		handleSharedCheckboxes($sharedCheckboxes.showRequests,state=>{
 			$container.classList.toggle('show-requests',state)
@@ -49,11 +49,10 @@ export default class NoteFetchPanel {
 			runStartFetcher(query,false)
 			restoreScrollPosition()
 		})
-		const query=makeNoteQueryFromHash(location.hash)
-		openQueryDialog(query,true)
-		modifyHistory(query,false)
-		populateInputs(query)
-		runStartFetcher(query,false)
+		openQueryDialog(hashQuery,true)
+		modifyHistory(hashQuery,false)
+		populateInputs(hashQuery)
+		runStartFetcher(hashQuery,false)
 		function openQueryDialog(query: NoteQuery | undefined, initial: boolean): void {
 			if (!query) {
 				if (initial) searchDialog.open()
@@ -64,25 +63,8 @@ export default class NoteFetchPanel {
 			}
 		}
 		function populateInputs(query: NoteQuery | undefined): void {
-			if (!query || query.mode=='search') {
-				if (query?.display_name) {
-					searchDialog.$userInput.value=query.display_name
-				} else if (query?.user) {
-					searchDialog.$userInput.value='#'+query.user
-				} else {
-					searchDialog.$userInput.value=''
-				}
-				searchDialog.$textInput.value=query?.q ?? ''
-				searchDialog.$fromInput.value=toReadableDate(query?.from)
-				searchDialog.$toInput.value=toReadableDate(query?.to)
-				searchDialog.$statusSelect.value=query ? String(query.closed) : '-1'
-				searchDialog.$sortSelect.value=query?.sort ?? 'created_at'
-				searchDialog.$orderSelect.value=query?.order ?? 'newest'
-			}
-			if (!query || query.mode=='bbox') {
-				bboxDialog.$bboxInput.value=query?.bbox ?? ''
-				bboxDialog.$statusSelect.value=query ? String(query.closed) : '-1'
-			}
+			searchDialog.populateInputs(query)
+			bboxDialog.populateInputs(query)
 		}
 		function resetNoteDependents() {
 			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
