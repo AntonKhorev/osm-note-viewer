@@ -147,7 +147,8 @@ export class NoteSearchFetchDialog extends NoteFetchDialog {
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{
 			$fieldset.append(makeDiv('request')(
-				`Make a `,makeLink(`search for notes`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch`),` request at `,code(`https://api.openstreetmap.org/api/0.6/notes/search?`,em(`parameters`)),`; see `,em(`parameters`),` below.`
+				`Make a `,makeLink(`search for notes`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch`),
+				` request at `,code(`https://api.openstreetmap.org/api/0.6/notes/search?`,em(`parameters`)),`; see `,em(`parameters`),` below.`
 			))
 		}
 		{
@@ -295,6 +296,12 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 	}
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{
+			$fieldset.append(makeDiv('request')(
+				`Get `,makeLink(`notes by bounding box`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_.2Fapi.2F0.6.2Fnotes`),
+				` request at `,code(`https://api.openstreetmap.org/api/0.6/notes?`,em(`parameters`)),`; see `,em(`parameters`),` below.`
+			))
+		}
+		{
 			this.$bboxInput.type='text'
 			this.$bboxInput.name='bbox'
 			this.$bboxInput.required=true // otherwise could submit empty bbox without entering anything
@@ -304,7 +311,7 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 				tip(`bottom`,`southern-most (min) latitude`),`, `,
 				tip(`right`,`eastern-most (max) longitude`),`, `,
 				tip(`top`,`northern-most (max) latitude`),
-				`): `,this.$bboxInput
+				`)`,rq('bbox'),`: `,this.$bboxInput
 			)))
 			function tip(text: string, title: string) {
 				const $span=document.createElement('span')
@@ -340,7 +347,7 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 			)
 			$fieldset.append(makeDiv()(
 				`Fetch `,
-				makeLabel('inline')(this.$statusSelect,` matching notes`),` `,
+				makeLabel('inline')(this.$statusSelect,rq('closed'),` matching notes`),` `,
 				`sorted by last update date `,
 				`newest first`
 			))
@@ -357,7 +364,7 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 			)
 			$fieldset.append(makeDiv()(
 				`Download `,
-				makeLabel()(`at most `,this.$limitSelect,` notes`)
+				makeLabel()(`at most `,this.$limitSelect,rq('limit'),` notes`)
 			))
 		}
 	}
