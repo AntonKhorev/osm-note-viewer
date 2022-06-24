@@ -110,7 +110,7 @@ body.flipped .panel.fetch button.flip {
 	--flip-hor-part-visibility: visible;
 }
 .panel.fetch .request {
-	color: #444;
+	opacity: .7;
 	font-size: .9em;
 }
 .panel.fetch:not(.show-requests) .request {

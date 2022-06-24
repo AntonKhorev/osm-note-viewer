@@ -9,6 +9,7 @@ const em=(...ss: Array<string|HTMLElement>)=>makeElement('em')()(...ss)
 const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
 const rq=(param: string)=>makeElement('span')('request')(` (`,code(param),` parameter)`)
 const rq2=(param1: string, param2: string)=>makeElement('span')('request')(` (`,code(param1),` or `,code(param2),` parameter)`)
+const spanRequest=(...ss: Array<string|HTMLElement>)=>makeElement('span')('request')(...ss)
 
 export interface NoteFetchDialogSharedCheckboxes {
 	showImages: HTMLInputElement[]
@@ -17,7 +18,7 @@ export interface NoteFetchDialogSharedCheckboxes {
 
 abstract class NoteFetchDialog {
 	abstract title: string
-	$details=document.createElement('details')
+	protected $details=document.createElement('details')
 	$fetchButton=document.createElement('button')
 	$limitSelect=document.createElement('select')
 	private $requestOutput=document.createElement('output')
@@ -136,13 +137,13 @@ abstract class NoteFetchDialog {
 
 export class NoteSearchFetchDialog extends NoteFetchDialog {
 	title=`Search notes for user / text / date range`
-	$userInput=document.createElement('input')
-	$textInput=document.createElement('input')
-	$fromInput=document.createElement('input')
-	$toInput=document.createElement('input')
-	$statusSelect=document.createElement('select')
-	$sortSelect=document.createElement('select')
-	$orderSelect=document.createElement('select')
+	protected $userInput=document.createElement('input')
+	protected $textInput=document.createElement('input')
+	protected $fromInput=document.createElement('input')
+	protected $toInput=document.createElement('input')
+	protected $statusSelect=document.createElement('select')
+	protected $sortSelect=document.createElement('select')
+	protected $orderSelect=document.createElement('select')
 	$autoLoadCheckbox=document.createElement('input')
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{
@@ -281,15 +282,20 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 		...makeDumbCache() // TODO real cache in db
 	)
 	title=`Get notes inside small rectangular area`
-	$bboxInput=document.createElement('input')
+	protected $bboxInput=document.createElement('input')
 	$trackMapCheckbox=document.createElement('input')
-	$statusSelect=document.createElement('select')
+	protected $statusSelect=document.createElement('select')
+	private $nominatimRequestOutput=document.createElement('output')
 	constructor(
 		getRequestUrls: (query: NoteQuery, limit: number) => [type: string, url: string][],
 		submitQuery: (query: NoteQuery) => void,
 		private map: NoteMap
 	) {
 		super(getRequestUrls,submitQuery)
+	}
+	populateInputs(query: NoteQuery|undefined): void {
+		super.populateInputs(query)
+		this.updateNominatimRequest()
 	}
 	protected writeExtraForms() {
 		this.$details.append(this.$nominatimForm)
@@ -311,7 +317,8 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 				tip(`bottom`,`southern-most (min) latitude`),`, `,
 				tip(`right`,`eastern-most (max) longitude`),`, `,
 				tip(`top`,`northern-most (max) latitude`),
-				`)`,rq('bbox'),`: `,this.$bboxInput
+				`)`,rq('bbox'),spanRequest(` (also `,code('west'),`, `,code('south'),`, `,code('east'),`, `,code('north'),` Nominatim parameters)`),`: `,
+				this.$bboxInput
 			)))
 			function tip(text: string, title: string) {
 				const $span=document.createElement('span')
@@ -326,6 +333,10 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 				this.$trackMapCheckbox,` Update bounding box value with current map area`
 			)))
 		}{
+			$fieldset.append(makeDiv('request')(
+				`Make `,makeLink(`Nominatim search query`,`https://nominatim.org/release-docs/develop/api/Search/`),
+				` at `,code(this.nominatimBboxFetcher.urlBase+'?',em(`parameters`)),`; see `,em(`parameters`),` above and below.`
+			))
 			this.$nominatimForm.id='nominatim-form'
 			this.$nominatimInput.type='text'
 			this.$nominatimInput.required=true
@@ -335,10 +346,10 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 			this.$nominatimButton.textContent='Get'
 			this.$nominatimButton.setAttribute('form','nominatim-form')
 			$fieldset.append(makeDiv('text-button-input')(makeLabel()(
-				//`Or get bounding box by place name from `,makeLink(`Nominatim`,'https://wiki.openstreetmap.org/wiki/Nominatim'),`: `, // TODO inconvenient to have links inside form, better do info panels
-				`Or get bounding box by place name from Nominatim: `,
+				`Or get bounding box by place name from Nominatim`,spanRequest(` (`,code('q'),` Nominatim parameter)`),`: `,
 				this.$nominatimInput
 			),this.$nominatimButton))
+			$fieldset.append(makeDiv('request')(`Resulting Nominatim request: `,this.$nominatimRequestOutput))
 		}{
 			this.$statusSelect.append(
 				new Option(`both open and closed`,'-1'),
@@ -391,6 +402,7 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 			this.$bboxInput.value=bounds.getWest()+','+bounds.getSouth()+','+bounds.getEast()+','+bounds.getNorth()
 			validateBounds()
 			this.updateRequest()
+			this.updateNominatimRequest()
 		}
 		this.map.onMoveEnd(copyBounds)
 		this.$trackMapCheckbox.addEventListener('input',copyBounds)
@@ -398,6 +410,8 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 			if (!validateBounds()) return
 			this.$trackMapCheckbox.checked=false
 		})
+		this.$bboxInput.addEventListener('input',()=>this.updateNominatimRequest())
+		this.$nominatimInput.addEventListener('input',()=>this.updateNominatimRequest())
 		this.$nominatimForm.addEventListener('submit',async(ev)=>{
 			ev.preventDefault()
 			this.$nominatimButton.disabled=true
@@ -413,6 +427,7 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 				this.$bboxInput.value=`${minLon},${minLat},${maxLon},${maxLat}`
 				validateBounds()
 				this.updateRequest()
+				this.updateNominatimRequest()
 				this.$trackMapCheckbox.checked=false
 				this.map.fitBounds([[Number(minLat),Number(minLon)],[Number(maxLat),Number(maxLon)]])
 			} catch (ex) {
@@ -436,6 +451,14 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 		return [
 			this.$bboxInput,this.$statusSelect
 		]
+	}
+	private updateNominatimRequest() {
+		const bounds=this.map.bounds
+		const url=this.nominatimBboxFetcher.getUrl(
+			this.$nominatimInput.value,
+			bounds.getWest(),bounds.getSouth(),bounds.getEast(),bounds.getNorth()
+		)
+		this.$nominatimRequestOutput.replaceChildren(code(makeLink(url,url)))
 	}
 }
 

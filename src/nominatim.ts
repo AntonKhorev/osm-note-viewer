@@ -17,17 +17,25 @@ export class NominatimBboxFetcher {
 		private fetchFromCache: (timestamp:number,url:string)=>Promise<any>,
 		private storeToCache: (timestamp:number,url:string,bbox:NominatimBbox)=>Promise<any>
 	) {}
+	urlBase=`https://nominatim.openstreetmap.org/search`
+	getUrl(
+		q: string,
+		west: number, south: number, east: number, north: number
+	): string {
+		const e=makeEscapeTag(encodeURIComponent)
+		let url=this.urlBase+e`?format=json&limit=1&q=${q}`
+		if (east>west && north>south && east-west<360) {
+			const viewbox=`${west},${south},${east},${north}`
+			url+=e`&viewbox=${viewbox}`
+		}
+		return url
+	}
 	async fetch(
 		timestamp: number,
 		q: string,
 		west: number, south: number, east: number, north: number
 	): Promise<NominatimBbox> {
-		const e=makeEscapeTag(encodeURIComponent)
-		let url=e`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${q}`
-		if (east>west && north>south && east-west<360) {
-			const viewbox=`${west},${south},${east},${north}`
-			url+=e`&viewbox=${viewbox}`
-		}
+		const url=this.getUrl(q,west,south,east,north)
 		const cacheBbox=await this.fetchFromCache(timestamp,url)
 		if (isNominatimBbox(cacheBbox)) {
 			await this.storeToCache(timestamp,url,cacheBbox)
