@@ -78,19 +78,6 @@ export default class ExtrasPanel {
 			`This works because usernames can't contain any of these characters: `,makeCode(`/;.,?%#`),` , can't have leading/trailing whitespace, have to be between 3 and 255 characters in length.`
 		])
 		writeBlock(()=>[
-			`Notes documentation: `,
-			makeLink(`wiki`,`https://wiki.openstreetmap.org/wiki/Notes`),
-			`, `,
-			makeLink(`API`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API`),
-			` (`,
-			makeLink(`search`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch`),
-			`, `,
-			makeLink(`bbox`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_.2Fapi.2F0.6.2Fnotes`),
-			`), `,
-			makeLink(`GeoJSON`,`https://wiki.openstreetmap.org/wiki/GeoJSON`),
-			` (output format used for notes/search.json api calls)`
-		])
-		writeBlock(()=>[
 			`Notes implementation code: `,
 			makeLink(`notes api controller`,`https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`),
 			` (db search query is build there), `,
@@ -107,9 +94,7 @@ export default class ExtrasPanel {
 		])
 		writeBlock(()=>[
 			`Other documentation: `,
-			makeLink(`Overpass queries`,`https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`),`, `,
-			makeLink(`GPX format`,`https://www.topografix.com/GPX/1/1/`),`, `,
-			makeLink(`Nominatim search`,`https://nominatim.org/release-docs/develop/api/Search/`)
+			makeLink(`Overpass queries`,`https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`)
 		])
 		writeBlock(()=>[
 			makeLink(`Source code`,`https://github.com/AntonKhorev/osm-note-viewer`)

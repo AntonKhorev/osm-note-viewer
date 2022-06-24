@@ -6,6 +6,7 @@ import {NominatimBbox, NominatimBboxFetcher} from './nominatim'
 import {makeElement, makeLink, makeDiv, makeLabel} from './util'
 
 const em=(...ss: Array<string|HTMLElement>)=>makeElement('em')()(...ss)
+const sup=(...ss: Array<string|HTMLElement>)=>makeElement('sup')()(...ss)
 const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
 const rq=(param: string)=>makeElement('span')('request')(` (`,code(param),` parameter)`)
 const rq2=(param1: string, param2: string)=>makeElement('span')('request')(` (`,code(param1),` or `,code(param2),` parameter)`)
@@ -67,6 +68,16 @@ abstract class NoteFetchDialog {
 		this.updateRequest()
 	}
 	protected updateRequest() {
+		const knownTypes: {[type:string]:string} = {
+			json: `https://wiki.openstreetmap.org/wiki/GeoJSON`,
+			gpx: `https://www.topografix.com/GPX/1/1/`, // gpx on osm wiki talks mostly about tracks
+			rss: `https://www.rssboard.org/rss-specification`,
+		}
+		const appendLinkIfKnown=(type:string)=>{
+			const url=knownTypes[type]
+			if (url==null) return
+			this.$requestOutput.append(sup(makeLink(`[?]`,url)))
+		}
 		const query=this.constructQuery()
 		if (!query) {
 			this.$requestOutput.replaceChildren(`invalid request`)
@@ -78,9 +89,20 @@ abstract class NoteFetchDialog {
 			return
 		}
 		const [[mainType,mainUrl],...otherRequestUrls]=requestUrls
-		this.$requestOutput.replaceChildren(code(makeLink(mainUrl,mainUrl)))
+		this.$requestOutput.replaceChildren(code(makeLink(mainUrl,mainUrl)),` in ${mainType} format`)
+		appendLinkIfKnown(mainType)
+		if (otherRequestUrls.length>0) {
+			this.$requestOutput.append(` or other formats: `)
+		}
+		let first=true
 		for (const [type,url] of otherRequestUrls) {
-			this.$requestOutput.append(`, `,code(makeLink(type,url)))
+			if (first) {
+				first=false
+			} else {
+				this.$requestOutput.append(`, `)
+			}
+			this.$requestOutput.append(code(makeLink(type,url)))
+			appendLinkIfKnown(type)
 		}
 	}
 	private makeScopeAndOrderFieldset(): HTMLFieldSetElement {
@@ -148,11 +170,10 @@ export class NoteSearchFetchDialog extends NoteFetchDialog {
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{
 			$fieldset.append(makeDiv('request')(
-				`Make a `,makeLink(`search for notes`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch`),
+				`Make a `,makeLink(`search for notes`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`),
 				` request at `,code(`https://api.openstreetmap.org/api/0.6/notes/search?`,em(`parameters`)),`; see `,em(`parameters`),` below.`
 			))
-		}
-		{
+		}{
 			this.$userInput.type='text'
 			this.$userInput.name='user'
 			$fieldset.append(makeDiv('major-input')(makeLabel()(
@@ -303,11 +324,10 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{
 			$fieldset.append(makeDiv('request')(
-				`Get `,makeLink(`notes by bounding box`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_.2Fapi.2F0.6.2Fnotes`),
+				`Get `,makeLink(`notes by bounding box`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`),
 				` request at `,code(`https://api.openstreetmap.org/api/0.6/notes?`,em(`parameters`)),`; see `,em(`parameters`),` below.`
 			))
-		}
-		{
+		}{
 			this.$bboxInput.type='text'
 			this.$bboxInput.name='bbox'
 			this.$bboxInput.required=true // otherwise could submit empty bbox without entering anything
