@@ -404,6 +404,8 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 				)
 				const [minLat,maxLat,minLon,maxLon]=bbox
 				this.$bboxInput.value=`${minLon},${minLat},${maxLon},${maxLat}`
+				validateBounds()
+				this.updateRequest()
 				this.$trackMapCheckbox.checked=false
 				this.map.fitBounds([[Number(minLat),Number(minLon)],[Number(maxLat),Number(maxLon)]])
 			} catch (ex) {
