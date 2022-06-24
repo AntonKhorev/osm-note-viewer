@@ -29,12 +29,14 @@ export default class NoteFetchPanel {
 			modifyHistory(query,true)
 			runStartFetcher(query,true)
 		})
+		searchDialog.$limitSelect.addEventListener('input',()=>searchFetcher.limitWasUpdated())
 		searchDialog.write($container,$sharedCheckboxes,hashQuery)
 		const bboxFetcher=new NoteBboxFetcher()
 		const bboxDialog=new NoteBboxFetchDialog((query,limit)=>bboxFetcher.getRequestUrls(query,limit),query=>{
 			modifyHistory(query,true)
 			runStartFetcher(query,true)
 		},map)
+		bboxDialog.$limitSelect.addEventListener('input',()=>bboxFetcher.limitWasUpdated())
 		bboxDialog.write($container,$sharedCheckboxes,hashQuery)
 		handleSharedCheckboxes($sharedCheckboxes.showImages,state=>noteTable?.setShowImages(state))
 		handleSharedCheckboxes($sharedCheckboxes.showRequests,state=>{
