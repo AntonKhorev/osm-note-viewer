@@ -109,11 +109,13 @@ body.flipped .panel.fetch button.flip {
 	--flip-ver-part-visibility: hidden;
 	--flip-hor-part-visibility: visible;
 }
-.panel.fetch .request {
-	color: #444;
+.panel.fetch .request,
+.more .request {
+	opacity: .7;
 	font-size: .9em;
 }
-.panel.fetch:not(.show-requests) .request {
+.panel.fetch:not(.show-requests) .request,
+.more:not(.show-requests) .request {
 	display: none;
 }
 
@@ -393,7 +395,7 @@ body.flipped .notes td.note-user {
 }
 
 .more div {
-	padding: 1em;
+	margin: 1em;
 }
 .more button {
 	display: block;

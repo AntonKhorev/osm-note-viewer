@@ -3134,9 +3134,6 @@ function makeUserQueryFromDisplayNameAndUser(display_name, user) {
         };
     }
 }
-function makeUserQueryFromNoteSearchQuery(query) {
-    return makeUserQueryFromDisplayNameAndUser(query.display_name, query.user);
-}
 function makeNoteSearchQueryFromUserQueryAndValues(userQuery, textValue, fromValue, toValue, closedValue, sortValue, orderValue) {
     const noteSearchQuery = {
         mode: 'search',
@@ -3364,6 +3361,10 @@ const maxSingleAutoLoadLimit = 200;
 const maxTotalAutoLoadLimit = 1000;
 const maxFullyFilteredFetches = 10;
 class NoteFetcher {
+    constructor() {
+        this.$requestOutput = document.createElement('output');
+        this.limitUpdater = () => { };
+    }
     getRequestUrls(query, limit) {
         const parameters = this.getRequestUrlParameters(query, limit);
         if (parameters == null)
@@ -3376,8 +3377,17 @@ class NoteFetcher {
             ['rss', `${base}.rss?${parameters}`],
         ];
     }
+    resetLimitUpdater() {
+        this.limitUpdater = () => { };
+    }
+    limitWasUpdated() {
+        this.limitUpdater();
+    }
     async start(db, noteTable, $moreContainer, $limitSelect, $autoLoadCheckbox, $fetchButton, moreButtonIntersectionObservers, query, clearStore) {
-        const self = this;
+        this.resetLimitUpdater();
+        const getCycleFetchDetails = this.getGetCycleFetchDetails(query);
+        if (!getCycleFetchDetails)
+            return; // shouldn't happen
         const [notes, users, mergeNotesAndUsers] = makeNotesAndUsersAndMerger();
         const queryString = makeNoteQueryString(query);
         const fetchEntry = await (async () => {
@@ -3395,35 +3405,24 @@ class NoteFetcher {
         let lastLimit;
         let nFullyFilteredFetches = 0;
         let holdOffAutoLoad = false;
-        if (!clearStore) {
-            addNewNotes(notes);
-            if (notes.length > 0) {
-                lastNote = notes[notes.length - 1];
-                rewriteLoadMoreButton();
-            }
-            else {
-                holdOffAutoLoad = true; // db was empty; expected to show something => need to fetch; not expected to autoload
-                await fetchCycle();
-            }
-        }
-        else {
-            await fetchCycle();
-        }
-        function addNewNotes(newNotes) {
-            const nUnfilteredNotes = noteTable.addNotes(newNotes, users);
-            if (nUnfilteredNotes == 0) {
-                nFullyFilteredFetches++;
-            }
-            else {
-                nFullyFilteredFetches = 0;
-            }
-        }
-        async function fetchCycle() {
+        const rewriteLoadMoreButton = () => {
+            this.limitUpdater = () => {
+                const limit = getLimit($limitSelect);
+                const fetchDetails = getCycleFetchDetails(limit, lastNote, prevLastNote, lastLimit);
+                const url = this.getRequestUrlBase() + `.json?` + fetchDetails.parameters;
+                this.$requestOutput.replaceChildren(makeElement('code')()(makeLink(url, url)));
+            };
+            this.limitUpdater();
+            $moreContainer.innerHTML = '';
+            const $button = document.createElement('button');
+            $button.textContent = `Load more notes`;
+            $button.addEventListener('click', fetchCycle);
+            $moreContainer.append(makeDiv()($button), makeDiv('request')(`Resulting request: `, this.$requestOutput));
+            return $button;
+        };
+        const fetchCycle = async () => {
             rewriteLoadingButton();
             const limit = getLimit($limitSelect);
-            const getCycleFetchDetails = self.getGetCycleFetchDetails(query);
-            if (!getCycleFetchDetails)
-                return; // shouldn't happen
             const fetchDetails = getCycleFetchDetails(limit, lastNote, prevLastNote, lastLimit);
             if (fetchDetails == null)
                 return;
@@ -3431,7 +3430,7 @@ class NoteFetcher {
                 rewriteMessage($moreContainer, `Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`);
                 return;
             }
-            const url = self.getRequestUrlBase() + `.json?` + fetchDetails.parameters;
+            const url = this.getRequestUrlBase() + `.json?` + fetchDetails.parameters;
             $fetchButton.disabled = true;
             try {
                 const response = await fetch(url);
@@ -3455,7 +3454,7 @@ class NoteFetcher {
                 prevLastNote = lastNote;
                 lastNote = notes[notes.length - 1];
                 lastLimit = fetchDetails.limit;
-                if (!self.continueCycle(notes, fetchDetails, data, $moreContainer))
+                if (!this.continueCycle(notes, fetchDetails, data, $moreContainer))
                     return;
                 const nextFetchDetails = getCycleFetchDetails(limit, lastNote, prevLastNote, lastLimit);
                 const $moreButton = rewriteLoadMoreButton();
@@ -3499,25 +3498,36 @@ class NoteFetcher {
             finally {
                 $fetchButton.disabled = false;
             }
+        };
+        if (!clearStore) {
+            addNewNotes(notes);
+            if (notes.length > 0) {
+                lastNote = notes[notes.length - 1];
+                rewriteLoadMoreButton();
+            }
+            else {
+                holdOffAutoLoad = true; // db was empty; expected to show something => need to fetch; not expected to autoload
+                await fetchCycle();
+            }
         }
-        function rewriteLoadMoreButton() {
-            $moreContainer.innerHTML = '';
-            const $div = document.createElement('div');
-            const $button = document.createElement('button');
-            $button.textContent = `Load more notes`;
-            $button.addEventListener('click', fetchCycle);
-            $div.append($button);
-            $moreContainer.append($div);
-            return $button;
+        else {
+            await fetchCycle();
+        }
+        function addNewNotes(newNotes) {
+            const nUnfilteredNotes = noteTable.addNotes(newNotes, users);
+            if (nUnfilteredNotes == 0) {
+                nFullyFilteredFetches++;
+            }
+            else {
+                nFullyFilteredFetches = 0;
+            }
         }
         function rewriteLoadingButton() {
             $moreContainer.innerHTML = '';
-            const $div = document.createElement('div');
             const $button = document.createElement('button');
             $button.textContent = `Loading notes...`;
             $button.disabled = true;
-            $div.append($button);
-            $moreContainer.append($div);
+            $moreContainer.append(makeDiv()($button));
         }
     }
 }
@@ -3647,14 +3657,19 @@ class NominatimBboxFetcher {
         this.fetchFromServer = fetchFromServer;
         this.fetchFromCache = fetchFromCache;
         this.storeToCache = storeToCache;
+        this.urlBase = `https://nominatim.openstreetmap.org/search`;
     }
-    async fetch(timestamp, q, west, south, east, north) {
+    getUrl(q, west, south, east, north) {
         const e = makeEscapeTag(encodeURIComponent);
-        let url = e `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${q}`;
+        let url = this.urlBase + e `?format=json&limit=1&q=${q}`;
         if (east > west && north > south && east - west < 360) {
             const viewbox = `${west},${south},${east},${north}`;
             url += e `&viewbox=${viewbox}`;
         }
+        return url;
+    }
+    async fetch(timestamp, q, west, south, east, north) {
+        const url = this.getUrl(q, west, south, east, north);
         const cacheBbox = await this.fetchFromCache(timestamp, url);
         if (isNominatimBbox(cacheBbox)) {
             await this.storeToCache(timestamp, url, cacheBbox);
@@ -3675,9 +3690,11 @@ class NominatimBboxFetcher {
 }
 
 const em = (...ss) => makeElement('em')()(...ss);
+const sup = (...ss) => makeElement('sup')()(...ss);
 const code = (...ss) => makeElement('code')()(...ss);
 const rq = (param) => makeElement('span')('request')(` (`, code(param), ` parameter)`);
 const rq2 = (param1, param2) => makeElement('span')('request')(` (`, code(param1), ` or `, code(param2), ` parameter)`);
+const spanRequest = (...ss) => makeElement('span')('request')(...ss);
 class NoteFetchDialog {
     constructor(getRequestUrls, submitQuery) {
         this.getRequestUrls = getRequestUrls;
@@ -3727,6 +3744,17 @@ class NoteFetchDialog {
         this.updateRequest();
     }
     updateRequest() {
+        const knownTypes = {
+            json: `https://wiki.openstreetmap.org/wiki/GeoJSON`,
+            gpx: `https://www.topografix.com/GPX/1/1/`,
+            rss: `https://www.rssboard.org/rss-specification`, // osm wiki doesn't describe rss format
+        };
+        const appendLinkIfKnown = (type) => {
+            const url = knownTypes[type];
+            if (url == null)
+                return;
+            this.$requestOutput.append(sup(makeLink(`[?]`, url)));
+        };
         const query = this.constructQuery();
         if (!query) {
             this.$requestOutput.replaceChildren(`invalid request`);
@@ -3738,9 +3766,21 @@ class NoteFetchDialog {
             return;
         }
         const [[mainType, mainUrl], ...otherRequestUrls] = requestUrls;
-        this.$requestOutput.replaceChildren(code(makeLink(mainUrl, mainUrl)));
+        this.$requestOutput.replaceChildren(code(makeLink(mainUrl, mainUrl)), ` in ${mainType} format`);
+        appendLinkIfKnown(mainType);
+        if (otherRequestUrls.length > 0) {
+            this.$requestOutput.append(` or other formats: `);
+        }
+        let first = true;
         for (const [type, url] of otherRequestUrls) {
-            this.$requestOutput.append(`, `, code(makeLink(type, url)));
+            if (first) {
+                first = false;
+            }
+            else {
+                this.$requestOutput.append(`, `);
+            }
+            this.$requestOutput.append(code(makeLink(type, url)));
+            appendLinkIfKnown(type);
         }
     }
     makeScopeAndOrderFieldset() {
@@ -3799,7 +3839,7 @@ class NoteSearchFetchDialog extends NoteFetchDialog {
     }
     writeScopeAndOrderFieldset($fieldset) {
         {
-            $fieldset.append(makeDiv('request')(`Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch`), ` request at `, code(`https://api.openstreetmap.org/api/0.6/notes/search?`, em(`parameters`)), `; see `, em(`parameters`), ` below.`));
+            $fieldset.append(makeDiv('request')(`Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`), ` request at `, code(`https://api.openstreetmap.org/api/0.6/notes/search?`, em(`parameters`)), `; see `, em(`parameters`), ` below.`));
         }
         {
             this.$userInput.type = 'text';
@@ -3908,19 +3948,24 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
         this.$bboxInput = document.createElement('input');
         this.$trackMapCheckbox = document.createElement('input');
         this.$statusSelect = document.createElement('select');
+        this.$nominatimRequestOutput = document.createElement('output');
+    }
+    populateInputs(query) {
+        super.populateInputs(query);
+        this.updateNominatimRequest();
     }
     writeExtraForms() {
         this.$details.append(this.$nominatimForm);
     }
     writeScopeAndOrderFieldset($fieldset) {
         {
-            $fieldset.append(makeDiv('request')(`Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_.2Fapi.2F0.6.2Fnotes`), ` request at `, code(`https://api.openstreetmap.org/api/0.6/notes?`, em(`parameters`)), `; see `, em(`parameters`), ` below.`));
+            $fieldset.append(makeDiv('request')(`Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code(`https://api.openstreetmap.org/api/0.6/notes?`, em(`parameters`)), `; see `, em(`parameters`), ` below.`));
         }
         {
             this.$bboxInput.type = 'text';
             this.$bboxInput.name = 'bbox';
             this.$bboxInput.required = true; // otherwise could submit empty bbox without entering anything
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`Bounding box (`, tip(`left`, `western-most (min) longitude`), `, `, tip(`bottom`, `southern-most (min) latitude`), `, `, tip(`right`, `eastern-most (max) longitude`), `, `, tip(`top`, `northern-most (max) latitude`), `)`, rq('bbox'), `: `, this.$bboxInput)));
+            $fieldset.append(makeDiv('major-input')(makeLabel()(`Bounding box (`, tip(`left`, `western-most (min) longitude`), `, `, tip(`bottom`, `southern-most (min) latitude`), `, `, tip(`right`, `eastern-most (max) longitude`), `, `, tip(`top`, `northern-most (max) latitude`), `)`, rq('bbox'), spanRequest(` (also `, code('west'), `, `, code('south'), `, `, code('east'), `, `, code('north'), ` Nominatim parameters)`), `: `, this.$bboxInput)));
             function tip(text, title) {
                 const $span = document.createElement('span');
                 $span.textContent = text;
@@ -3934,6 +3979,7 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
             $fieldset.append(makeDiv()(makeLabel()(this.$trackMapCheckbox, ` Update bounding box value with current map area`)));
         }
         {
+            $fieldset.append(makeDiv('request')(`Make `, makeLink(`Nominatim search query`, `https://nominatim.org/release-docs/develop/api/Search/`), ` at `, code(this.nominatimBboxFetcher.urlBase + '?', em(`parameters`)), `; see `, em(`parameters`), ` above and below.`));
             this.$nominatimForm.id = 'nominatim-form';
             this.$nominatimInput.type = 'text';
             this.$nominatimInput.required = true;
@@ -3942,9 +3988,8 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
             this.$nominatimInput.setAttribute('form', 'nominatim-form');
             this.$nominatimButton.textContent = 'Get';
             this.$nominatimButton.setAttribute('form', 'nominatim-form');
-            $fieldset.append(makeDiv('text-button-input')(makeLabel()(
-            //`Or get bounding box by place name from `,makeLink(`Nominatim`,'https://wiki.openstreetmap.org/wiki/Nominatim'),`: `, // TODO inconvenient to have links inside form, better do info panels
-            `Or get bounding box by place name from Nominatim: `, this.$nominatimInput), this.$nominatimButton));
+            $fieldset.append(makeDiv('text-button-input')(makeLabel()(`Or get bounding box by place name from Nominatim`, spanRequest(` (`, code('q'), ` Nominatim parameter)`), `: `, this.$nominatimInput), this.$nominatimButton));
+            $fieldset.append(makeDiv('request')(`Resulting Nominatim request: `, this.$nominatimRequestOutput));
         }
         {
             this.$statusSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
@@ -3982,6 +4027,7 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
             this.$bboxInput.value = bounds.getWest() + ',' + bounds.getSouth() + ',' + bounds.getEast() + ',' + bounds.getNorth();
             validateBounds();
             this.updateRequest();
+            this.updateNominatimRequest();
         };
         this.map.onMoveEnd(copyBounds);
         this.$trackMapCheckbox.addEventListener('input', copyBounds);
@@ -3990,6 +4036,8 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
                 return;
             this.$trackMapCheckbox.checked = false;
         });
+        this.$bboxInput.addEventListener('input', () => this.updateNominatimRequest());
+        this.$nominatimInput.addEventListener('input', () => this.updateNominatimRequest());
         this.$nominatimForm.addEventListener('submit', async (ev) => {
             ev.preventDefault();
             this.$nominatimButton.disabled = true;
@@ -4001,6 +4049,7 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
                 this.$bboxInput.value = `${minLon},${minLat},${maxLon},${maxLat}`;
                 validateBounds();
                 this.updateRequest();
+                this.updateNominatimRequest();
                 this.$trackMapCheckbox.checked = false;
                 this.map.fitBounds([[Number(minLat), Number(minLon)], [Number(maxLat), Number(maxLon)]]);
             }
@@ -4026,6 +4075,11 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
             this.$bboxInput, this.$statusSelect
         ];
     }
+    updateNominatimRequest() {
+        const bounds = this.map.bounds;
+        const url = this.nominatimBboxFetcher.getUrl(this.$nominatimInput.value, bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth());
+        this.$nominatimRequestOutput.replaceChildren(code(makeLink(url, url)));
+    }
 }
 function makeDumbCache() {
     const cache = new Map();
@@ -4036,7 +4090,7 @@ function makeDumbCache() {
 }
 
 class NoteFetchPanel {
-    constructor(storage, db, $container, $notesContainer, $moreContainer, $toolContainer, filterPanel, extrasPanel, map, figureDialog, restoreScrollPosition) {
+    constructor(storage, db, $container, $notesContainer, $moreContainer, $toolContainer, filterPanel, map, figureDialog, restoreScrollPosition) {
         let noteTable;
         const moreButtonIntersectionObservers = [];
         const $sharedCheckboxes = {
@@ -4049,12 +4103,14 @@ class NoteFetchPanel {
             modifyHistory(query, true);
             runStartFetcher(query, true);
         });
+        searchDialog.$limitSelect.addEventListener('input', () => searchFetcher.limitWasUpdated());
         searchDialog.write($container, $sharedCheckboxes, hashQuery);
         const bboxFetcher = new NoteBboxFetcher();
         const bboxDialog = new NoteBboxFetchDialog((query, limit) => bboxFetcher.getRequestUrls(query, limit), query => {
             modifyHistory(query, true);
             runStartFetcher(query, true);
         }, map);
+        bboxDialog.$limitSelect.addEventListener('input', () => bboxFetcher.limitWasUpdated());
         bboxDialog.write($container, $sharedCheckboxes, hashQuery);
         handleSharedCheckboxes($sharedCheckboxes.showImages, state => noteTable?.setShowImages(state));
         handleSharedCheckboxes($sharedCheckboxes.showRequests, state => {
@@ -4098,12 +4154,6 @@ class NoteFetchPanel {
         function runStartFetcher(query, clearStore) {
             figureDialog.close();
             resetNoteDependents();
-            if (query?.mode == 'search') {
-                extrasPanel.rewrite(query, Number(searchDialog.$limitSelect.value));
-            }
-            else {
-                extrasPanel.rewrite();
-            }
             if (query?.mode != 'search' && query?.mode != 'bbox')
                 return;
             filterPanel.unsubscribe();
@@ -4479,8 +4529,6 @@ class ExtrasPanel {
         this.storage = storage;
         this.db = db;
         this.$container = $container;
-    }
-    rewrite(query, limit) {
         this.$container.innerHTML = '';
         const $details = document.createElement('details');
         {
@@ -4548,42 +4596,9 @@ class ExtrasPanel {
             });
             return [$clearButton];
         });
-        if (query != null && limit != null) { // TODO don't limit to this user
-            const userQuery = makeUserQueryFromNoteSearchQuery(query);
-            const $userLink = makeUserLink();
-            if ($userLink)
-                writeBlock(() => [
-                    `API links to queries on `,
-                    $userLink,
-                    `: `,
-                    makeNoteSearchQueryLink(`with specified limit`, query, limit),
-                    `, `,
-                    makeNoteSearchQueryLink(`with max limit`, query, 10000),
-                    ` (may be slow)`
-                ]);
-            function makeUserLink() {
-                if (userQuery.userType == 'name')
-                    return makeUserNameLink(userQuery.username, `this user`);
-                if (userQuery.userType == 'id')
-                    return makeUserIdLink(userQuery.uid, `this user`);
-            }
-        }
         writeBlock(() => [
             `User query have whitespace trimmed, then the remaining part starting with `, makeCode(`#`), ` is treated as a user id; containing `, makeCode(`/`), `is treated as a URL, anything else as a username. `,
             `This works because usernames can't contain any of these characters: `, makeCode(`/;.,?%#`), ` , can't have leading/trailing whitespace, have to be between 3 and 255 characters in length.`
-        ]);
-        writeBlock(() => [
-            `Notes documentation: `,
-            makeLink(`wiki`, `https://wiki.openstreetmap.org/wiki/Notes`),
-            `, `,
-            makeLink(`API`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Map_Notes_API`),
-            ` (`,
-            makeLink(`search`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch`),
-            `, `,
-            makeLink(`bbox`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_.2Fapi.2F0.6.2Fnotes`),
-            `), `,
-            makeLink(`GeoJSON`, `https://wiki.openstreetmap.org/wiki/GeoJSON`),
-            ` (output format used for notes/search.json api calls)`
         ]);
         writeBlock(() => [
             `Notes implementation code: `,
@@ -4602,9 +4617,7 @@ class ExtrasPanel {
         ]);
         writeBlock(() => [
             `Other documentation: `,
-            makeLink(`Overpass queries`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`), `, `,
-            makeLink(`GPX format`, `https://www.topografix.com/GPX/1/1/`), `, `,
-            makeLink(`Nominatim search`, `https://nominatim.org/release-docs/develop/api/Search/`)
+            makeLink(`Overpass queries`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`)
         ]);
         writeBlock(() => [
             makeLink(`Source code`, `https://github.com/AntonKhorev/osm-note-viewer`)
@@ -4619,9 +4632,6 @@ class ExtrasPanel {
             const $code = document.createElement('code');
             $code.textContent = s;
             return $code;
-        }
-        function makeNoteSearchQueryLink(text, query, limit) {
-            return makeLink(text, `https://api.openstreetmap.org/api/0.6/notes/search.json?` + getNextFetchDetails(query, limit).parameters);
         }
         this.$container.append($details);
     }
@@ -4699,9 +4709,9 @@ async function main() {
     const figureDialog = new FigureDialog($figureDialog);
     writeFlipLayoutButton(storage, $fetchContainer, map);
     writeResetButton($fetchContainer);
-    const extrasPanel = new ExtrasPanel(storage, db, $extrasContainer);
+    new ExtrasPanel(storage, db, $extrasContainer);
     const filterPanel = new NoteFilterPanel($filterContainer);
-    new NoteFetchPanel(storage, db, $fetchContainer, $notesContainer, $moreContainer, $toolContainer, filterPanel, extrasPanel, map, figureDialog, () => scrollRestorer.run($notesContainer));
+    new NoteFetchPanel(storage, db, $fetchContainer, $notesContainer, $moreContainer, $toolContainer, filterPanel, map, figureDialog, () => scrollRestorer.run($notesContainer));
     scrollRestorer.run($notesContainer);
 }
 function writeFlipLayoutButton(storage, $container, map) {
