@@ -3778,9 +3778,9 @@ class NoteFetchDialog {
     }
     addRequestChangeListeners() {
         for (const $input of this.listQueryChangingInputs()) {
-            $input.addEventListener('input', () => this.updateRequest);
+            $input.addEventListener('input', () => this.updateRequest());
         }
-        this.$limitSelect.addEventListener('input', () => this.updateRequest);
+        this.$limitSelect.addEventListener('input', () => this.updateRequest());
     }
     writeExtraForms() { }
 }
