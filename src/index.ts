@@ -87,7 +87,7 @@ async function main() {
 	const fetchPanel=new NoteFetchPanel(
 		storage,db,
 		$fetchContainer,$notesContainer,$moreContainer,$toolContainer,
-		filterPanel,extrasPanel,map,figureDialog,
+		filterPanel,map,figureDialog,
 		()=>scrollRestorer.run($notesContainer)
 	)
 	scrollRestorer.run($notesContainer)

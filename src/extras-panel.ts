@@ -7,8 +7,7 @@ export default class ExtrasPanel {
 	constructor(
 		private storage: NoteViewerStorage, private db: NoteViewerDB, 
 		private $container: HTMLElement
-	) {}
-	rewrite(query?: NoteSearchQuery, limit?: number): void {
+	) {
 		this.$container.innerHTML=''
 		const $details=document.createElement('details')
 		{
@@ -74,23 +73,6 @@ export default class ExtrasPanel {
 			})
 			return [$clearButton]
 		})
-		if (query!=null && limit!=null) { // TODO don't limit to this user
-			const userQuery=makeUserQueryFromNoteSearchQuery(query)
-			const $userLink=makeUserLink()
-			if ($userLink) writeBlock(()=>[
-				`API links to queries on `,
-				$userLink,
-				`: `,
-				makeNoteSearchQueryLink(`with specified limit`,query,limit),
-				`, `,
-				makeNoteSearchQueryLink(`with max limit`,query,10000),
-				` (may be slow)`
-			])
-			function makeUserLink(): HTMLElement|undefined {
-				if (userQuery.userType=='name') return makeUserNameLink(userQuery.username,`this user`)
-				if (userQuery.userType=='id') return makeUserIdLink(userQuery.uid,`this user`)
-			}
-		}
 		writeBlock(()=>[
 			`User query have whitespace trimmed, then the remaining part starting with `,makeCode(`#`),` is treated as a user id; containing `,makeCode(`/`),`is treated as a URL, anything else as a username. `,
 			`This works because usernames can't contain any of these characters: `,makeCode(`/;.,?%#`),` , can't have leading/trailing whitespace, have to be between 3 and 255 characters in length.`

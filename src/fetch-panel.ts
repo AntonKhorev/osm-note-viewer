@@ -15,7 +15,7 @@ export default class NoteFetchPanel {
 		storage: NoteViewerStorage, db: NoteViewerDB,
 		$container: HTMLElement,
 		$notesContainer: HTMLElement, $moreContainer: HTMLElement, $toolContainer: HTMLElement,
-		filterPanel: NoteFilterPanel, extrasPanel: ExtrasPanel, map: NoteMap, figureDialog: FigureDialog, restoreScrollPosition: ()=>void
+		filterPanel: NoteFilterPanel, map: NoteMap, figureDialog: FigureDialog, restoreScrollPosition: ()=>void
 	) {
 		let noteTable: NoteTable | undefined
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
@@ -74,11 +74,6 @@ export default class NoteFetchPanel {
 		function runStartFetcher(query: NoteQuery | undefined, clearStore: boolean): void {
 			figureDialog.close()
 			resetNoteDependents()
-			if (query?.mode=='search') {
-				extrasPanel.rewrite(query,Number(searchDialog.$limitSelect.value))
-			} else {
-				extrasPanel.rewrite()
-			}
 			if (query?.mode!='search' && query?.mode!='bbox') return
 			filterPanel.unsubscribe()
 			const toolPanel=new ToolPanel($toolContainer,map,figureDialog,storage)
