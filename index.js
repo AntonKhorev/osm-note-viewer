@@ -249,49 +249,136 @@ function makeTimestampRange(timestamp) {
     return IDBKeyRange.bound([timestamp, -Infinity], [timestamp, +Infinity]);
 }
 
+function makeUserLink(uid, username, text) {
+    if (username)
+        return makeUserNameLink(username, text);
+    return makeUserIdLink(uid, text);
+}
+function makeUserNameLink(username, text) {
+    const fromName = (name) => `https://www.openstreetmap.org/user/${encodeURIComponent(name)}`;
+    return makeLink(text ?? username, fromName(username));
+}
+function makeUserIdLink(uid, text) {
+    const fromId = (id) => `https://api.openstreetmap.org/api/0.6/user/${encodeURIComponent(id)}`;
+    return makeLink(text ?? '#' + uid, fromId(uid));
+}
+function makeLink(text, href, title) {
+    const $link = document.createElement('a');
+    $link.href = href;
+    $link.textContent = text;
+    if (title != null)
+        $link.title = title;
+    return $link;
+}
+function makeElement(tag) {
+    return (...classes) => (...items) => {
+        const $element = document.createElement(tag);
+        $element.classList.add(...classes);
+        $element.append(...items);
+        return $element;
+    };
+}
+const makeDiv = makeElement('div');
+const makeLabel = makeElement('label');
+function escapeRegex(text) {
+    return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+function escapeXml(text) {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/"/g, '&quot;')
+        .replace(/\t/g, '&#x9;')
+        .replace(/\n/g, '&#xA;')
+        .replace(/\r/g, '&#xD;');
+}
+function makeEscapeTag(escapeFn) {
+    return function (strings, ...values) {
+        let result = strings[0];
+        for (let i = 0; i < values.length; i++) {
+            result += escapeFn(String(values[i])) + strings[i + 1];
+        }
+        return result;
+    };
+}
+function startOrResetFadeAnimation($element, animationName, animationClass) {
+    if ($element.classList.contains(animationClass)) {
+        resetFadeAnimation($element, animationName);
+    }
+    else {
+        $element.classList.add(animationClass);
+    }
+}
+function resetFadeAnimation($element, animationName) {
+    const animation = getFadeAnimation($element, animationName);
+    if (!animation)
+        return;
+    animation.currentTime = 0;
+}
+function getFadeAnimation($element, animationName) {
+    if (typeof CSSAnimation == 'undefined')
+        return; // experimental technology, implemented in latest browser versions
+    for (const animation of $element.getAnimations()) {
+        if (!(animation instanceof CSSAnimation))
+            continue;
+        if (animation.animationName == animationName)
+            return animation;
+    }
+}
+
 class NoteMarker extends L.Marker {
     constructor(note) {
         const width = 25;
         const height = 40;
-        const nInnerCircles = 4;
+        const auraThickness = 4;
         const r = width / 2;
-        const rp = height - r;
-        const y = r ** 2 / rp;
-        const x = Math.sqrt(r ** 2 - y ** 2);
-        const xf = x.toFixed(2);
-        const yf = y.toFixed(2);
-        const dcr = (r - .5) / nInnerCircles;
+        const widthWithAura = width + auraThickness * 2;
+        const heightWithAura = height + auraThickness;
+        const rWithAura = widthWithAura / 2;
+        const nInnerCircles = 4;
+        const e = makeEscapeTag(escapeXml);
         let html = ``;
-        html += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-r} ${-r} ${width} ${height}">`;
-        html += `<path d="M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z" fill="${note.status == 'open' ? 'red' : 'green'}" />`;
+        html += e `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`;
+        html += e `<title>${note.status} note #${note.id}</title>`,
+            html += e `<path d="${computeMarkerOutlinePath(heightWithAura - .5, rWithAura - .5)}" class="aura" fill="none" />`;
+        html += e `<path d="${computeMarkerOutlinePath(height, r)}" fill="${note.status == 'open' ? 'red' : 'green'}" />`;
         const states = [...noteCommentsToStates(note.comments)];
-        const statesToDraw = states.slice(-nInnerCircles, -1);
-        for (let i = 2; i >= 0; i--) {
-            if (i >= statesToDraw.length)
-                continue;
-            const cr = dcr * (i + 1);
-            html += `<circle r="${cr}" fill="${color()}" stroke="white" />`;
-            function color() {
-                if (i == 0 && states.length <= nInnerCircles)
-                    return 'white';
-                if (statesToDraw[i])
-                    return 'red';
-                return 'green';
-            }
-        }
-        html += `</svg>`;
+        html += drawStateCircles(r, nInnerCircles, states.slice(-nInnerCircles, -1));
+        html += e `</svg>`;
         const icon = L.divIcon({
             html,
-            className: '',
-            iconSize: [width, height],
-            iconAnchor: [(width - 1) / 2, height],
+            className: 'note-marker',
+            iconSize: [widthWithAura, heightWithAura],
+            iconAnchor: [(widthWithAura - 1) / 2, heightWithAura],
         });
-        super([note.lat, note.lon], {
-            icon,
-            alt: `note`,
-            opacity: 0.5
-        });
+        super([note.lat, note.lon], { icon });
         this.noteId = note.id;
+        function computeMarkerOutlinePath(height, r) {
+            const rp = height - r;
+            const y = r ** 2 / rp;
+            const x = Math.sqrt(r ** 2 - y ** 2);
+            const xf = x.toFixed(2);
+            const yf = y.toFixed(2);
+            return `M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z`;
+        }
+        function drawStateCircles(r, nInnerCircles, statesToDraw) {
+            const dcr = (r - .5) / nInnerCircles;
+            let html = ``;
+            for (let i = 2; i >= 0; i--) {
+                if (i >= statesToDraw.length)
+                    continue;
+                const cr = dcr * (i + 1);
+                html += e `<circle r="${cr}" fill="${color()}" stroke="white" />`;
+                function color() {
+                    if (i == 0 && states.length <= nInnerCircles)
+                        return 'white';
+                    if (statesToDraw[i])
+                        return 'red';
+                    return 'green';
+                }
+            }
+            return html;
+        }
     }
 }
 class NoteMap {
@@ -471,83 +558,6 @@ function* noteCommentsToStates(comments) {
     }
 }
 
-function makeUserLink(uid, username, text) {
-    if (username)
-        return makeUserNameLink(username, text);
-    return makeUserIdLink(uid, text);
-}
-function makeUserNameLink(username, text) {
-    const fromName = (name) => `https://www.openstreetmap.org/user/${encodeURIComponent(name)}`;
-    return makeLink(text ?? username, fromName(username));
-}
-function makeUserIdLink(uid, text) {
-    const fromId = (id) => `https://api.openstreetmap.org/api/0.6/user/${encodeURIComponent(id)}`;
-    return makeLink(text ?? '#' + uid, fromId(uid));
-}
-function makeLink(text, href, title) {
-    const $link = document.createElement('a');
-    $link.href = href;
-    $link.textContent = text;
-    if (title != null)
-        $link.title = title;
-    return $link;
-}
-function makeElement(tag) {
-    return (...classes) => (...items) => {
-        const $element = document.createElement(tag);
-        $element.classList.add(...classes);
-        $element.append(...items);
-        return $element;
-    };
-}
-const makeDiv = makeElement('div');
-const makeLabel = makeElement('label');
-function escapeRegex(text) {
-    return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-}
-function escapeXml(text) {
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/"/g, '&quot;')
-        .replace(/\t/g, '&#x9;')
-        .replace(/\n/g, '&#xA;')
-        .replace(/\r/g, '&#xD;');
-}
-function makeEscapeTag(escapeFn) {
-    return function (strings, ...values) {
-        let result = strings[0];
-        for (let i = 0; i < values.length; i++) {
-            result += escapeFn(String(values[i])) + strings[i + 1];
-        }
-        return result;
-    };
-}
-function startOrResetFadeAnimation($element, animationName, animationClass) {
-    if ($element.classList.contains(animationClass)) {
-        resetFadeAnimation($element, animationName);
-    }
-    else {
-        $element.classList.add(animationClass);
-    }
-}
-function resetFadeAnimation($element, animationName) {
-    const animation = getFadeAnimation($element, animationName);
-    if (!animation)
-        return;
-    animation.currentTime = 0;
-}
-function getFadeAnimation($element, animationName) {
-    if (typeof CSSAnimation == 'undefined')
-        return; // experimental technology, implemented in latest browser versions
-    for (const animation of $element.getAnimations()) {
-        if (!(animation instanceof CSSAnimation))
-            continue;
-        if (animation.animationName == animationName)
-            return animation;
-    }
-}
-
 class FigureDialog {
     constructor($dialog) {
         this.$dialog = $dialog;
@@ -694,7 +704,7 @@ class LooseParserListener {
     }
 }
 
-const e$1 = makeEscapeTag(encodeURIComponent);
+const e$2 = makeEscapeTag(encodeURIComponent);
 const makeItem = makeElement('li')();
 const makeITEM = makeElement('li')('main');
 class LooseParserPopup {
@@ -726,7 +736,7 @@ class LooseParserPopup {
         if (type == null)
             return makeElement('a')()('?');
         const $a = makeElement('a')()(type);
-        $a.href = e$1 `https://www.openstreetmap.org/${type}/${id}`;
+        $a.href = e$2 `https://www.openstreetmap.org/${type}/${id}`;
         if (type == 'note') {
             $a.classList.add('other-note');
             $a.dataset.noteId = String(id);
@@ -983,10 +993,10 @@ function isOsmChangeset(c) {
         return false;
     }
 }
-const e = makeEscapeTag(encodeURIComponent);
+const e$1 = makeEscapeTag(encodeURIComponent);
 async function downloadAndShowChangeset($a, map, outputDate, changesetId) {
     downloadCommon($a, map, async () => {
-        const url = e `https://api.openstreetmap.org/api/0.6/changeset/${changesetId}.json`;
+        const url = e$1 `https://api.openstreetmap.org/api/0.6/changeset/${changesetId}.json`;
         const response = await fetch(url);
         if (!response.ok) {
             if (response.status == 404) {
@@ -1014,7 +1024,7 @@ async function downloadAndShowChangeset($a, map, outputDate, changesetId) {
 async function downloadAndShowElement($a, map, outputDate, elementType, elementId) {
     downloadCommon($a, map, async () => {
         const fullBit = (elementType == 'node' ? '' : '/full');
-        const url = e `https://api.openstreetmap.org/api/0.6/${elementType}/${elementId}` + `${fullBit}.json`;
+        const url = e$1 `https://api.openstreetmap.org/api/0.6/${elementType}/${elementId}` + `${fullBit}.json`;
         const response = await fetch(url);
         if (!response.ok) {
             if (response.status == 404) {
@@ -1143,7 +1153,7 @@ function makeChangesetPopupContents(outputDate, changeset) {
     const p = (...s) => makeElement('p')()(...s);
     const h = (...s) => p(makeElement('strong')()(...s));
     const c = (...s) => p(makeElement('em')()(...s));
-    const changesetHref = e `https://www.openstreetmap.org/changeset/${changeset.id}`;
+    const changesetHref = e$1 `https://www.openstreetmap.org/changeset/${changeset.id}`;
     contents.push(h(`Changeset: `, makeLink(String(changeset.id), changesetHref)));
     if (changeset.tags?.comment)
         contents.push(c(changeset.tags.comment));
@@ -1164,11 +1174,11 @@ function makeChangesetPopupContents(outputDate, changeset) {
 function makeElementPopupContents(outputDate, element) {
     const p = (...s) => makeElement('p')()(...s);
     const h = (...s) => p(makeElement('strong')()(...s));
-    const elementHref = e `https://www.openstreetmap.org/${element.type}/${element.id}`;
+    const elementHref = e$1 `https://www.openstreetmap.org/${element.type}/${element.id}`;
     const contents = [
         h(capitalize(element.type) + `: `, makeLink(getElementName(element), elementHref)),
-        h(`Version #${element.version} · `, makeLink(`View History`, elementHref + '/history'), ` · `, makeLink(`Edit`, e `https://www.openstreetmap.org/edit?${element.type}=${element.id}`)),
-        p(`Edited on `, getDate(element.timestamp, outputDate), ` by `, getUser(element), ` · Changeset #`, makeLink(String(element.changeset), e `https://www.openstreetmap.org/changeset/${element.changeset}`))
+        h(`Version #${element.version} · `, makeLink(`View History`, elementHref + '/history'), ` · `, makeLink(`Edit`, e$1 `https://www.openstreetmap.org/edit?${element.type}=${element.id}`)),
+        p(`Edited on `, getDate(element.timestamp, outputDate), ` by `, getUser(element), ` · Changeset #`, makeLink(String(element.changeset), e$1 `https://www.openstreetmap.org/changeset/${element.changeset}`))
     ];
     const $tags = getTags(element.tags);
     if ($tags)
@@ -1590,8 +1600,6 @@ class NoteTable {
         let $clickReadyNoteSection;
         this.wrappedNoteSectionListeners = [
             ['mouseenter', function () {
-                    if (this.classList.contains('active-click'))
-                        return;
                     that.activateNote('hover', this);
                 }],
             ['mouseleave', function () {
@@ -1664,7 +1672,7 @@ class NoteTable {
         let nVisible = 0;
         this.filter = filter;
         const getUsername = (uid) => this.usersById.get(uid);
-        for (const $noteSection of this.$table.querySelectorAll('tbody')) {
+        for (const $noteSection of this.$table.tBodies) {
             const noteId = Number($noteSection.dataset.noteId);
             const note = this.notesById.get(noteId);
             const layerId = Number($noteSection.dataset.layerId);
@@ -1788,7 +1796,7 @@ class NoteTable {
         }
         let nFetched = 0;
         let nVisible = 0;
-        for (const $noteSection of this.$table.querySelectorAll('tbody')) {
+        for (const $noteSection of this.$table.tBodies) {
             if (!$noteSection.dataset.noteId)
                 continue;
             nFetched++;
@@ -1881,14 +1889,14 @@ class NoteTable {
     }
     deactivateNote(type, $noteSection) {
         $noteSection.classList.remove('active-' + type);
-        if ($noteSection.classList.contains('active-hover') || $noteSection.classList.contains('active-click'))
-            return;
         const layerId = Number($noteSection.dataset.layerId);
         const marker = this.map.noteLayer.getLayer(layerId);
         if (!(marker instanceof L.Marker))
             return;
+        marker.getElement()?.classList.remove('active-' + type);
+        if ($noteSection.classList.contains('active-hover') || $noteSection.classList.contains('active-click'))
+            return;
         marker.setZIndexOffset(0);
-        marker.setOpacity(0.5);
     }
     activateNote(type, $noteSection) {
         let alreadyActive = false;
@@ -1910,8 +1918,8 @@ class NoteTable {
         const marker = this.map.noteLayer.getLayer(layerId);
         if (!(marker instanceof L.Marker))
             return;
-        marker.setOpacity(1);
         marker.setZIndexOffset(1000);
+        marker.getElement()?.classList.add('active-' + type);
         $noteSection.classList.add('active-' + type);
     }
     updateCheckboxDependents() {
@@ -2110,7 +2118,7 @@ function makeNotesIcon(type) {
 }
 
 const p$4 = (...ss) => makeElement('p')()(...ss);
-const em$2 = (s) => makeElement('em')()(s);
+const em$3 = (s) => makeElement('em')()(s);
 const dfn$1 = (s) => makeElement('dfn')()(s);
 const ul$1 = (...ss) => makeElement('ul')()(...ss);
 const li$1 = (...ss) => makeElement('li')()(...ss);
@@ -2119,7 +2127,7 @@ class AutozoomTool extends Tool {
         super('autozoom', `Automatic zoom`, `Pan and zoom the map to visible notes`);
     }
     getInfo() {
-        return [p$4(`Pan and zoom the map to notes in the table. `, `Can be used as `, em$2(`zoom to data`), ` for notes layer if `, dfn$1(`to all notes`), ` is selected. `), p$4(dfn$1(`To notes in table view`), ` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `, `This option is convenient to use when `, em$2(`Track between notes`), ` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`)];
+        return [p$4(`Pan and zoom the map to notes in the table. `, `Can be used as `, em$3(`zoom to data`), ` for notes layer if `, dfn$1(`to all notes`), ` is selected. `), p$4(dfn$1(`To notes in table view`), ` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `, `This option is convenient to use when `, em$3(`Track between notes`), ` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`)];
     }
     getTool(callbacks, map) {
         const $fitModeSelect = document.createElement('select');
@@ -2146,7 +2154,7 @@ class TimestampTool extends Tool {
         this.$timestampInput = document.createElement('input');
     }
     getInfo() {
-        return [p$4(`Allows to select a timestamp for use with `, em$2(`Overpass`), ` and `, em$2(`Overpass turbo`), ` commands. `, `You can either enter the timestamp in ISO format (or anything else that Overpass understands) manually here click on a date of/in a note comment. `, `If present, a `, makeLink(`date setting`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL#date`), ` is added to Overpass queries. `, `The idea is to allow for examining the OSM data at the moment some note was opened/commented/closed to evaluate if this action was correct.`), p$4(`Timestamps inside note comments are usually generated by apps like `, makeLink(`MAPS.ME`, `https://wiki.openstreetmap.org/wiki/MAPS.ME`), ` to indicate their OSM data version.`)];
+        return [p$4(`Allows to select a timestamp for use with `, em$3(`Overpass`), ` and `, em$3(`Overpass turbo`), ` commands. `, `You can either enter the timestamp in ISO format (or anything else that Overpass understands) manually here click on a date of/in a note comment. `, `If present, a `, makeLink(`date setting`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL#date`), ` is added to Overpass queries. `, `The idea is to allow for examining the OSM data at the moment some note was opened/commented/closed to evaluate if this action was correct.`), p$4(`Timestamps inside note comments are usually generated by apps like `, makeLink(`MAPS.ME`, `https://wiki.openstreetmap.org/wiki/MAPS.ME`), ` to indicate their OSM data version.`)];
     }
     getTool(callbacks) {
         // this.$timestampInput.type='datetime-local' // no standard datetime input for now because they're being difficult with UTC and 24-hour format.
@@ -2438,7 +2446,7 @@ function getClosestNodeId(doc, centerLat, centerLon) {
 }
 
 const p$2 = (...ss) => makeElement('p')()(...ss);
-const em$1 = (s) => makeElement('em')()(s);
+const em$2 = (s) => makeElement('em')()(s);
 class RcTool extends Tool {
     constructor() {
         super('rc', `RC`, `JOSM (or another editor) Remote Control`);
@@ -2481,7 +2489,7 @@ class IdTool extends Tool {
         super('id', `iD`);
     }
     getInfo() {
-        return [p$2(`Follow your notes by zooming from one place to another in one `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), ` window. `, `It could be faster to do first here in note-viewer than in iD directly because note-viewer won't try to download more data during panning. `, `After zooming in note-viewer, click the `, em$1(`Open`), ` button to open this location in iD. `, `When you go back to note-viewer, zoom to another place and click the `, em$1(`Open`), ` button for the second time, the already opened iD instance zooms to that place. `, `Your edits are not lost between such zooms.`), p$2(`Technical details: this is an attempt to make something like `, em$1(`remote control`), ` in iD editor. `, `Convincing iD to load notes has proven to be tricky. `, `Your best chance of seeing the selected notes is importing them as a `, em$1(`gpx`), ` file. `, `See `, makeLink(`this diary post`, `https://www.openstreetmap.org/user/Anton%20Khorev/diary/398991`), ` for further explanations.`), p$2(`Zooming/panning is easier to do, and that's what is currently implemented. `, `It's not without quirks however. You'll notice that the iD window opened from here doesn't have the OSM website header. `, `This is because the editor is opened at `, makeLink(`/id`, `https://www.openstreetmap.org/id`), ` url instead of `, makeLink(`/edit`, `https://www.openstreetmap.org/edit`), `. `, `It has to be done because otherwise iD won't listen to `, em$1(`#map`), ` changes in the webpage location.`)];
+        return [p$2(`Follow your notes by zooming from one place to another in one `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), ` window. `, `It could be faster to do first here in note-viewer than in iD directly because note-viewer won't try to download more data during panning. `, `After zooming in note-viewer, click the `, em$2(`Open`), ` button to open this location in iD. `, `When you go back to note-viewer, zoom to another place and click the `, em$2(`Open`), ` button for the second time, the already opened iD instance zooms to that place. `, `Your edits are not lost between such zooms.`), p$2(`Technical details: this is an attempt to make something like `, em$2(`remote control`), ` in iD editor. `, `Convincing iD to load notes has proven to be tricky. `, `Your best chance of seeing the selected notes is importing them as a `, em$2(`gpx`), ` file. `, `See `, makeLink(`this diary post`, `https://www.openstreetmap.org/user/Anton%20Khorev/diary/398991`), ` for further explanations.`), p$2(`Zooming/panning is easier to do, and that's what is currently implemented. `, `It's not without quirks however. You'll notice that the iD window opened from here doesn't have the OSM website header. `, `This is because the editor is opened at `, makeLink(`/id`, `https://www.openstreetmap.org/id`), ` url instead of `, makeLink(`/edit`, `https://www.openstreetmap.org/edit`), `. `, `It has to be done because otherwise iD won't listen to `, em$2(`#map`), ` changes in the webpage location.`)];
     }
     getTool(callbacks, map) {
         // limited to what hashchange() lets you do here https://github.com/openstreetmap/iD/blob/develop/modules/behavior/hash.js
@@ -2518,9 +2526,9 @@ async function openRcUrl($button, rcUrl) {
 }
 
 const p$1 = (...ss) => makeElement('p')()(...ss);
-const em = (s) => makeElement('em')()(s);
+const em$1 = (s) => makeElement('em')()(s);
 const dfn = (s) => makeElement('dfn')()(s);
-const code = (s) => makeElement('code')()(s);
+const code$1 = (s) => makeElement('code')()(s);
 const ul = (...ss) => makeElement('ul')()(...ss);
 const li = (...ss) => makeElement('li')()(...ss);
 class ExportTool extends Tool {
@@ -2537,7 +2545,7 @@ class ExportTool extends Tool {
     getInfo() {
         return [
             ...this.getInfoWithoutDragAndDrop(),
-            p$1(`Instead of clicking the `, em(`Export`), ` button, you can drag it and drop into a place that accepts data sent by `, makeLink(`Drag and Drop API`, `https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`), `. `, `Not many places actually do, and those who do often can handle only plaintext. `, `That's why there's a type selector, with which plaintext format can be forced on transmitted data.`)
+            p$1(`Instead of clicking the `, em$1(`Export`), ` button, you can drag it and drop into a place that accepts data sent by `, makeLink(`Drag and Drop API`, `https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`), `. `, `Not many places actually do, and those who do often can handle only plaintext. `, `That's why there's a type selector, with which plaintext format can be forced on transmitted data.`)
         ];
     }
     getTool() {
@@ -2687,7 +2695,7 @@ class GeoJsonTool extends ExportTool {
         super('geojson', `GeoJSON`);
     }
     getInfoWithoutDragAndDrop() {
-        return [p$1(`Export selected notes in `, makeLink(`GeoJSON`, 'https://wiki.openstreetmap.org/wiki/GeoJSON'), ` format. `, `The exact features and properties exported are made to be close to OSM API `, code(`.json`), ` output:`), ul(li(`the entire note collection is represented as a `, makeLink(`FeatureCollection`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.3')), li(`each note is represented as a `, makeLink(`Point`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.2'), ` `, makeLink(`Feature`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.2'))), p$1(`There are few differences to OSM API output, not including modifications using tool options described later:`), ul(li(`comments don't have `, code(`html`), ` property, their content is available only as plaintext`), li(`dates may be incorrect in case of hidden note comments (something that happens very rarely)`)), p$1(`Like GPX exports, this tool allows OSM notes to be used in applications that can't show them directly. `, `Also it allows a particular selection of notes to be shown if an application can't filter them. `, `One example of such app is `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), `. `, `Given that GeoJSON specification doesn't define what goes into feature properties, the support for rendering notes this way is lower than the one of GPX export. `, `Particularly neither iD nor JOSM seem to render any labels for note markers. `, `Also clicking the marker in JOSM is not going to open the note webpage. `, `On the other hand there's more clarity about how to to display properties outside of the editor map view. `, `All of the properties are displayed like `, makeLink(`OSM tags`, 'https://wiki.openstreetmap.org/wiki/Tags'), `, which opens some possibilities: `), ul(li(`properties are editable in JOSM with a possibility to save results to a file`), li(`it's possible to access the note URL in iD, something that was impossible with GPX format`)), p$1(`While accessing the URLs, note that they are OSM API URLs, not the website URLs you might expect. `, `This is how OSM API outputs them. `, `Since that might be inconvenient, there's an `, dfn(`OSM website URLs`), ` option. `, `With it you're able to select the note url in iD by triple-clicking its value.`), p$1(`Another consequence of displaying properties like tags is that they work best when they are strings. `, `OSM tags are strings, and that's what editors expect to display in their tag views. `, `When used for properties of notes, there's one non-string property: `, em(`comments`), `. `, `iD is unable to display it. `, `If you want to force comments to be represented by strings, like in GPX exports, there's an options for that. `, `There's also option to output each comment as a separate property, making it easier to see them all in the tags table.`), p$1(`It's possible to pretend that note points are connected by a `, makeLink(`LineString`, `https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.4`), ` by using the `, dfn(`connected by line`), ` option. `, `This may help to go from a note to the next one in an app by visually following the route line. `, `However, enabling the line makes it difficult to click on note points in iD.`)];
+        return [p$1(`Export selected notes in `, makeLink(`GeoJSON`, 'https://wiki.openstreetmap.org/wiki/GeoJSON'), ` format. `, `The exact features and properties exported are made to be close to OSM API `, code$1(`.json`), ` output:`), ul(li(`the entire note collection is represented as a `, makeLink(`FeatureCollection`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.3')), li(`each note is represented as a `, makeLink(`Point`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.2'), ` `, makeLink(`Feature`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.2'))), p$1(`There are few differences to OSM API output, not including modifications using tool options described later:`), ul(li(`comments don't have `, code$1(`html`), ` property, their content is available only as plaintext`), li(`dates may be incorrect in case of hidden note comments (something that happens very rarely)`)), p$1(`Like GPX exports, this tool allows OSM notes to be used in applications that can't show them directly. `, `Also it allows a particular selection of notes to be shown if an application can't filter them. `, `One example of such app is `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), `. `, `Given that GeoJSON specification doesn't define what goes into feature properties, the support for rendering notes this way is lower than the one of GPX export. `, `Particularly neither iD nor JOSM seem to render any labels for note markers. `, `Also clicking the marker in JOSM is not going to open the note webpage. `, `On the other hand there's more clarity about how to to display properties outside of the editor map view. `, `All of the properties are displayed like `, makeLink(`OSM tags`, 'https://wiki.openstreetmap.org/wiki/Tags'), `, which opens some possibilities: `), ul(li(`properties are editable in JOSM with a possibility to save results to a file`), li(`it's possible to access the note URL in iD, something that was impossible with GPX format`)), p$1(`While accessing the URLs, note that they are OSM API URLs, not the website URLs you might expect. `, `This is how OSM API outputs them. `, `Since that might be inconvenient, there's an `, dfn(`OSM website URLs`), ` option. `, `With it you're able to select the note url in iD by triple-clicking its value.`), p$1(`Another consequence of displaying properties like tags is that they work best when they are strings. `, `OSM tags are strings, and that's what editors expect to display in their tag views. `, `When used for properties of notes, there's one non-string property: `, em$1(`comments`), `. `, `iD is unable to display it. `, `If you want to force comments to be represented by strings, like in GPX exports, there's an options for that. `, `There's also option to output each comment as a separate property, making it easier to see them all in the tags table.`), p$1(`It's possible to pretend that note points are connected by a `, makeLink(`LineString`, `https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.4`), ` by using the `, dfn(`connected by line`), ` option. `, `This may help to go from a note to the next one in an app by visually following the route line. `, `However, enabling the line makes it difficult to click on note points in iD.`)];
     }
     describeOptions() {
         return {
@@ -3351,245 +3359,219 @@ function transformFeatureCollectionToNotesAndUsers(data) {
     }
 }
 
+const e = makeEscapeTag(encodeURIComponent);
 const maxSingleAutoLoadLimit = 200;
 const maxTotalAutoLoadLimit = 1000;
 const maxFullyFilteredFetches = 10;
-async function startSearchFetcher(db, noteTable, $moreContainer, $limitSelect, $autoLoadCheckbox, $fetchButton, moreButtonIntersectionObservers, query, clearStore) {
-    const [notes, users, mergeNotesAndUsers] = makeNotesAndUsersAndMerger();
-    const queryString = makeNoteQueryString(query);
-    const fetchEntry = await (async () => {
-        if (clearStore) {
-            return await db.clear(queryString);
+class NoteFetcher {
+    getRequestUrls(query, limit) {
+        const parameters = this.getRequestUrlParameters(query, limit);
+        if (parameters == null)
+            return [];
+        const base = this.getRequestUrlBase();
+        return [
+            ['json', `${base}.json?${parameters}`],
+            ['xml', `${base}?${parameters}`],
+            ['gpx', `${base}.gpx?${parameters}`],
+            ['rss', `${base}.rss?${parameters}`],
+        ];
+    }
+    async start(db, noteTable, $moreContainer, $limitSelect, $autoLoadCheckbox, $fetchButton, moreButtonIntersectionObservers, query, clearStore) {
+        const self = this;
+        const [notes, users, mergeNotesAndUsers] = makeNotesAndUsersAndMerger();
+        const queryString = makeNoteQueryString(query);
+        const fetchEntry = await (async () => {
+            if (clearStore) {
+                return await db.clear(queryString);
+            }
+            else {
+                const [fetchEntry, initialNotes, initialUsers] = await db.load(queryString); // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
+                mergeNotesAndUsers(initialNotes, initialUsers);
+                return fetchEntry;
+            }
+        })();
+        let lastNote;
+        let prevLastNote;
+        let lastLimit;
+        let nFullyFilteredFetches = 0;
+        let holdOffAutoLoad = false;
+        if (!clearStore) {
+            addNewNotes(notes);
+            if (notes.length > 0) {
+                lastNote = notes[notes.length - 1];
+                rewriteLoadMoreButton();
+            }
+            else {
+                holdOffAutoLoad = true; // db was empty; expected to show something => need to fetch; not expected to autoload
+                await fetchCycle();
+            }
         }
         else {
-            const [fetchEntry, initialNotes, initialUsers] = await db.load(queryString); // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
-            mergeNotesAndUsers(initialNotes, initialUsers);
-            return fetchEntry;
-        }
-    })();
-    let lastNote;
-    let prevLastNote;
-    let lastLimit;
-    let nFullyFilteredFetches = 0;
-    let holdOffAutoLoad = false;
-    if (!clearStore) {
-        addNewNotes(notes);
-        if (notes.length > 0) {
-            lastNote = notes[notes.length - 1];
-            rewriteLoadMoreButton();
-        }
-        else {
-            holdOffAutoLoad = true; // db was empty; expected to show something => need to fetch; not expected to autoload
             await fetchCycle();
         }
-    }
-    else {
-        await fetchCycle();
-    }
-    function addNewNotes(newNotes) {
-        const nUnfilteredNotes = noteTable.addNotes(newNotes, users);
-        if (nUnfilteredNotes == 0) {
-            nFullyFilteredFetches++;
-        }
-        else {
-            nFullyFilteredFetches = 0;
-        }
-    }
-    async function fetchCycle() {
-        rewriteLoadingButton();
-        const limit = getLimit($limitSelect);
-        const fetchDetails = getNextFetchDetails(query, limit, lastNote, prevLastNote, lastLimit);
-        if (fetchDetails.limit > 10000) {
-            rewriteMessage($moreContainer, `Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`);
-            return;
-        }
-        const url = `https://api.openstreetmap.org/api/0.6/notes/search.json?` + fetchDetails.parameters;
-        $fetchButton.disabled = true;
-        try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                const responseText = await response.text();
-                rewriteFetchErrorMessage($moreContainer, query, `received the following error response`, responseText);
-                return;
+        function addNewNotes(newNotes) {
+            const nUnfilteredNotes = noteTable.addNotes(newNotes, users);
+            if (nUnfilteredNotes == 0) {
+                nFullyFilteredFetches++;
             }
-            const data = await response.json();
-            if (!isNoteFeatureCollection(data)) {
-                rewriteMessage($moreContainer, `Received invalid data`);
-                return;
-            }
-            const [unseenNotes, unseenUsers] = mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data));
-            await db.save(fetchEntry, notes, unseenNotes, users, unseenUsers);
-            if (!noteTable && notes.length <= 0) {
-                rewriteMessage($moreContainer, `No matching notes found`);
-                return;
-            }
-            addNewNotes(unseenNotes);
-            if (data.features.length < fetchDetails.limit) {
-                rewriteMessage($moreContainer, `Got all ${notes.length} notes`);
-                return;
-            }
-            prevLastNote = lastNote;
-            lastNote = notes[notes.length - 1];
-            lastLimit = fetchDetails.limit;
-            const $moreButton = rewriteLoadMoreButton();
-            if (holdOffAutoLoad) {
-                holdOffAutoLoad = false;
-            }
-            else if (notes.length > maxTotalAutoLoadLimit) {
-                $moreButton.append(` (no auto download because displaying more than ${maxTotalAutoLoadLimit} notes)`);
-            }
-            else if (getNextFetchDetails(query, limit, lastNote, prevLastNote, lastLimit).limit > maxSingleAutoLoadLimit) {
-                $moreButton.append(` (no auto download because required batch is larger than ${maxSingleAutoLoadLimit})`);
-            }
-            else if (nFullyFilteredFetches > maxFullyFilteredFetches) {
-                $moreButton.append(` (no auto download because ${maxFullyFilteredFetches} consecutive fetches were fully filtered)`);
+            else {
                 nFullyFilteredFetches = 0;
             }
-            else {
-                const moreButtonIntersectionObserver = new IntersectionObserver((entries) => {
-                    if (entries.length <= 0)
-                        return;
-                    if (!entries[0].isIntersecting)
-                        return;
-                    if (!$autoLoadCheckbox.checked)
-                        return;
-                    while (moreButtonIntersectionObservers.length > 0)
-                        moreButtonIntersectionObservers.pop()?.disconnect();
-                    $moreButton.click();
-                });
-                moreButtonIntersectionObservers.push(moreButtonIntersectionObserver);
-                moreButtonIntersectionObserver.observe($moreButton);
+        }
+        async function fetchCycle() {
+            rewriteLoadingButton();
+            const limit = getLimit($limitSelect);
+            const getCycleFetchDetails = self.getGetCycleFetchDetails(query);
+            if (!getCycleFetchDetails)
+                return; // shouldn't happen
+            const fetchDetails = getCycleFetchDetails(limit, lastNote, prevLastNote, lastLimit);
+            if (fetchDetails == null)
+                return;
+            if (fetchDetails.limit > 10000) {
+                rewriteMessage($moreContainer, `Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`);
+                return;
+            }
+            const url = self.getRequestUrlBase() + `.json?` + fetchDetails.parameters;
+            $fetchButton.disabled = true;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    const responseText = await response.text();
+                    rewriteFetchErrorMessage($moreContainer, query, `received the following error response`, responseText);
+                    return;
+                }
+                const data = await response.json();
+                if (!isNoteFeatureCollection(data)) {
+                    rewriteMessage($moreContainer, `Received invalid data`);
+                    return;
+                }
+                const [unseenNotes, unseenUsers] = mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data));
+                await db.save(fetchEntry, notes, unseenNotes, users, unseenUsers);
+                if (!noteTable && notes.length <= 0) {
+                    rewriteMessage($moreContainer, `No matching notes found`);
+                    return;
+                }
+                addNewNotes(unseenNotes);
+                prevLastNote = lastNote;
+                lastNote = notes[notes.length - 1];
+                lastLimit = fetchDetails.limit;
+                if (!self.continueCycle(notes, fetchDetails, data, $moreContainer))
+                    return;
+                const nextFetchDetails = getCycleFetchDetails(limit, lastNote, prevLastNote, lastLimit);
+                const $moreButton = rewriteLoadMoreButton();
+                if (holdOffAutoLoad) {
+                    holdOffAutoLoad = false;
+                }
+                else if (notes.length > maxTotalAutoLoadLimit) {
+                    $moreButton.append(` (no auto download because displaying more than ${maxTotalAutoLoadLimit} notes)`);
+                }
+                else if (nextFetchDetails.limit > maxSingleAutoLoadLimit) {
+                    $moreButton.append(` (no auto download because required batch is larger than ${maxSingleAutoLoadLimit})`);
+                }
+                else if (nFullyFilteredFetches > maxFullyFilteredFetches) {
+                    $moreButton.append(` (no auto download because ${maxFullyFilteredFetches} consecutive fetches were fully filtered)`);
+                    nFullyFilteredFetches = 0;
+                }
+                else {
+                    const moreButtonIntersectionObserver = new IntersectionObserver((entries) => {
+                        if (entries.length <= 0)
+                            return;
+                        if (!entries[0].isIntersecting)
+                            return;
+                        if (!$autoLoadCheckbox.checked)
+                            return;
+                        while (moreButtonIntersectionObservers.length > 0)
+                            moreButtonIntersectionObservers.pop()?.disconnect();
+                        $moreButton.click();
+                    });
+                    moreButtonIntersectionObservers.push(moreButtonIntersectionObserver);
+                    moreButtonIntersectionObserver.observe($moreButton);
+                }
+            }
+            catch (ex) {
+                if (ex instanceof TypeError) {
+                    rewriteFetchErrorMessage($moreContainer, query, `failed with the following error before receiving a response`, ex.message);
+                }
+                else {
+                    rewriteFetchErrorMessage($moreContainer, query, `failed for unknown reason`, `${ex}`);
+                }
+            }
+            finally {
+                $fetchButton.disabled = false;
             }
         }
-        catch (ex) {
-            if (ex instanceof TypeError) {
-                rewriteFetchErrorMessage($moreContainer, query, `failed with the following error before receiving a response`, ex.message);
-            }
-            else {
-                rewriteFetchErrorMessage($moreContainer, query, `failed for unknown reason`, `${ex}`);
-            }
+        function rewriteLoadMoreButton() {
+            $moreContainer.innerHTML = '';
+            const $div = document.createElement('div');
+            const $button = document.createElement('button');
+            $button.textContent = `Load more notes`;
+            $button.addEventListener('click', fetchCycle);
+            $div.append($button);
+            $moreContainer.append($div);
+            return $button;
         }
-        finally {
-            $fetchButton.disabled = false;
+        function rewriteLoadingButton() {
+            $moreContainer.innerHTML = '';
+            const $div = document.createElement('div');
+            const $button = document.createElement('button');
+            $button.textContent = `Loading notes...`;
+            $button.disabled = true;
+            $div.append($button);
+            $moreContainer.append($div);
         }
-    }
-    function rewriteLoadMoreButton() {
-        $moreContainer.innerHTML = '';
-        const $div = document.createElement('div');
-        const $button = document.createElement('button');
-        $button.textContent = `Load more notes`;
-        $button.addEventListener('click', fetchCycle);
-        $div.append($button);
-        $moreContainer.append($div);
-        return $button;
-    }
-    function rewriteLoadingButton() {
-        $moreContainer.innerHTML = '';
-        const $div = document.createElement('div');
-        const $button = document.createElement('button');
-        $button.textContent = `Loading notes...`;
-        $button.disabled = true;
-        $div.append($button);
-        $moreContainer.append($div);
     }
 }
-async function startBboxFetcher(// TODO cleanup copypaste from above
-db, noteTable, $moreContainer, $limitSelect, /*$autoLoadCheckbox: HTMLInputElement,*/ $fetchButton, moreButtonIntersectionObservers, query, clearStore) {
-    const [notes, users, mergeNotesAndUsers] = makeNotesAndUsersAndMerger();
-    const queryString = makeNoteQueryString(query);
-    const fetchEntry = await (async () => {
-        if (clearStore) {
-            return await db.clear(queryString);
-        }
-        else {
-            const [fetchEntry, initialNotes, initialUsers] = await db.load(queryString); // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
-            mergeNotesAndUsers(initialNotes, initialUsers);
-            return fetchEntry;
-        }
-    })();
-    if (!clearStore) {
-        addNewNotes(notes);
-        if (notes.length > 0) {
-            // lastNote=notes[notes.length-1]
-            rewriteLoadMoreButton();
-        }
-        else {
-            await fetchCycle();
-        }
+class NoteSearchFetcher extends NoteFetcher {
+    getRequestUrlBase() {
+        return `https://api.openstreetmap.org/api/0.6/notes/search`;
     }
-    else {
-        await fetchCycle();
-    }
-    function addNewNotes(newNotes) {
-        noteTable.addNotes(newNotes, users);
-    }
-    async function fetchCycle() {
-        rewriteLoadingButton();
-        const limit = getLimit($limitSelect);
-        // { different
-        const parameters = `bbox=` + encodeURIComponent(query.bbox) + '&closed=' + encodeURIComponent(query.closed) + '&limit=' + encodeURIComponent(limit);
-        const url = `https://api.openstreetmap.org/api/0.6/notes.json?` + parameters;
-        // } different
-        $fetchButton.disabled = true;
-        try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                const responseText = await response.text();
-                rewriteFetchErrorMessage($moreContainer, query, `received the following error response`, responseText);
-                return;
-            }
-            const data = await response.json();
-            if (!isNoteFeatureCollection(data)) {
-                rewriteMessage($moreContainer, `Received invalid data`);
-                return;
-            }
-            const [unseenNotes, unseenUsers] = mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data));
-            await db.save(fetchEntry, notes, unseenNotes, users, unseenUsers);
-            if (!noteTable && notes.length <= 0) {
-                rewriteMessage($moreContainer, `No matching notes found`);
-                return;
-            }
-            addNewNotes(unseenNotes);
-            // { different
-            if (notes.length < limit) {
-                rewriteMessage($moreContainer, `Got all ${notes.length} notes in the area`);
-            }
-            else {
-                rewriteMessage($moreContainer, `Got all ${notes.length} requested notes`);
-            }
+    getRequestUrlParameters(query, limit) {
+        if (query.mode != 'search')
             return;
-            // } different
-        }
-        catch (ex) {
-            if (ex instanceof TypeError) {
-                rewriteFetchErrorMessage($moreContainer, query, `failed with the following error before receiving a response`, ex.message);
-            }
-            else {
-                rewriteFetchErrorMessage($moreContainer, query, `failed for unknown reason`, `${ex}`);
-            }
-        }
-        finally {
-            $fetchButton.disabled = false;
-        }
+        return getNextFetchDetails(query, limit).parameters;
     }
-    function rewriteLoadMoreButton() {
-        $moreContainer.innerHTML = '';
-        const $div = document.createElement('div');
-        const $button = document.createElement('button');
-        $button.textContent = `Load more notes`;
-        $button.addEventListener('click', fetchCycle);
-        $div.append($button);
-        $moreContainer.append($div);
-        return $button;
+    getGetCycleFetchDetails(query) {
+        if (query.mode != 'search')
+            return;
+        return (limit, lastNote, prevLastNote, lastLimit) => getNextFetchDetails(query, limit, lastNote, prevLastNote, lastLimit);
     }
-    function rewriteLoadingButton() {
-        $moreContainer.innerHTML = '';
-        const $div = document.createElement('div');
-        const $button = document.createElement('button');
-        $button.textContent = `Loading notes...`;
-        $button.disabled = true;
-        $div.append($button);
-        $moreContainer.append($div);
+    continueCycle(notes, fetchDetails, data, $moreContainer) {
+        if (data.features.length < fetchDetails.limit) {
+            rewriteMessage($moreContainer, `Got all ${notes.length} notes`);
+            return false;
+        }
+        return true;
+    }
+}
+class NoteBboxFetcher extends NoteFetcher {
+    getRequestUrlBase() {
+        return `https://api.openstreetmap.org/api/0.6/notes`;
+    }
+    getRequestUrlParameters(query, limit) {
+        if (query.mode != 'bbox')
+            return;
+        return this.getRequestUrlParametersWithoutLimit(query) + e `&limit=${limit}`;
+    }
+    getRequestUrlParametersWithoutLimit(query) {
+        return e `bbox=${query.bbox}&closed=${query.closed}`;
+    }
+    getGetCycleFetchDetails(query) {
+        if (query.mode != 'bbox')
+            return;
+        const parametersWithoutLimit = this.getRequestUrlParametersWithoutLimit(query);
+        return (limit, lastNote, prevLastNote, lastLimit) => ({
+            parameters: parametersWithoutLimit + e `&limit=${limit}`,
+            limit
+        });
+    }
+    continueCycle(notes, fetchDetails, data, $moreContainer) {
+        if (notes.length < fetchDetails.limit) {
+            rewriteMessage($moreContainer, `Got all ${notes.length} notes in the area`);
+        }
+        else {
+            rewriteMessage($moreContainer, `Got all ${notes.length} requested notes`);
+        }
+        return false;
     }
 }
 function makeNotesAndUsersAndMerger() {
@@ -3692,135 +3674,35 @@ class NominatimBboxFetcher {
     }
 }
 
-class NoteFetchPanel {
-    constructor(storage, db, $container, $notesContainer, $moreContainer, $toolContainer, filterPanel, extrasPanel, map, figureDialog, restoreScrollPosition) {
-        let noteTable;
-        const moreButtonIntersectionObservers = [];
-        const $showImagesCheckboxes = [];
-        const searchDialog = new NoteSearchFetchDialog();
-        searchDialog.write($container, $showImagesCheckboxes, query => {
-            modifyHistory(query, true);
-            runStartFetcher(query, true);
-        });
-        const bboxDialog = new NoteBboxFetchDialog(map);
-        bboxDialog.write($container, $showImagesCheckboxes, query => {
-            modifyHistory(query, true);
-            runStartFetcher(query, true);
-        });
-        for (const $showImagesCheckbox of $showImagesCheckboxes) {
-            $showImagesCheckbox.addEventListener('input', showImagesCheckboxInputListener);
-        }
-        window.addEventListener('hashchange', () => {
-            const query = makeNoteQueryFromHash(location.hash);
-            openQueryDialog(query, false);
-            modifyHistory(query, false); // in case location was edited manually
-            populateInputs(query);
-            runStartFetcher(query, false);
-            restoreScrollPosition();
-        });
-        const query = makeNoteQueryFromHash(location.hash);
-        openQueryDialog(query, true);
-        modifyHistory(query, false);
-        populateInputs(query);
-        runStartFetcher(query, false);
-        function openQueryDialog(query, initial) {
-            if (!query) {
-                if (initial)
-                    searchDialog.open();
-            }
-            else if (query.mode == 'search') {
-                searchDialog.open();
-            }
-            else if (query.mode == 'bbox') {
-                bboxDialog.open();
-            }
-        }
-        function populateInputs(query) {
-            if (!query || query.mode == 'search') {
-                if (query?.display_name) {
-                    searchDialog.$userInput.value = query.display_name;
-                }
-                else if (query?.user) {
-                    searchDialog.$userInput.value = '#' + query.user;
-                }
-                else {
-                    searchDialog.$userInput.value = '';
-                }
-                searchDialog.$textInput.value = query?.q ?? '';
-                searchDialog.$fromInput.value = toReadableDate(query?.from);
-                searchDialog.$toInput.value = toReadableDate(query?.to);
-                searchDialog.$statusSelect.value = query ? String(query.closed) : '-1';
-                searchDialog.$sortSelect.value = query?.sort ?? 'created_at';
-                searchDialog.$orderSelect.value = query?.order ?? 'newest';
-            }
-            if (!query || query.mode == 'bbox') {
-                bboxDialog.$bboxInput.value = query?.bbox ?? '';
-                bboxDialog.$statusSelect.value = query ? String(query.closed) : '-1';
-            }
-        }
-        function resetNoteDependents() {
-            while (moreButtonIntersectionObservers.length > 0)
-                moreButtonIntersectionObservers.pop()?.disconnect();
-            map.clearNotes();
-            $notesContainer.innerHTML = ``;
-            $toolContainer.innerHTML = ``;
-        }
-        function runStartFetcher(query, clearStore) {
-            figureDialog.close();
-            resetNoteDependents();
-            if (query?.mode == 'search') {
-                extrasPanel.rewrite(query, Number(searchDialog.$limitSelect.value));
-            }
-            else {
-                extrasPanel.rewrite();
-            }
-            if (query?.mode != 'search' && query?.mode != 'bbox')
-                return;
-            filterPanel.unsubscribe();
-            const toolPanel = new ToolPanel($toolContainer, map, figureDialog, storage);
-            noteTable = new NoteTable($notesContainer, toolPanel, map, filterPanel.noteFilter, figureDialog, $showImagesCheckboxes[0]?.checked);
-            filterPanel.subscribe(noteFilter => noteTable?.updateFilter(noteFilter));
-            if (query?.mode == 'search') {
-                startSearchFetcher(db, noteTable, $moreContainer, searchDialog.$limitSelect, searchDialog.$autoLoadCheckbox, searchDialog.$fetchButton, moreButtonIntersectionObservers, query, clearStore);
-            }
-            else if (query?.mode == 'bbox') {
-                if (bboxDialog.$trackMapCheckbox.checked)
-                    map.needToFitNotes = false;
-                startBboxFetcher(db, noteTable, $moreContainer, bboxDialog.$limitSelect, /*bboxDialog.$autoLoadCheckbox,*/ bboxDialog.$fetchButton, moreButtonIntersectionObservers, query, clearStore);
-            }
-        }
-        function showImagesCheckboxInputListener() {
-            const state = this.checked;
-            for (const $showImagesCheckbox of $showImagesCheckboxes) {
-                $showImagesCheckbox.checked = state;
-            }
-            noteTable?.setShowImages(state);
-        }
-    }
-}
+const em = (...ss) => makeElement('em')()(...ss);
+const code = (...ss) => makeElement('code')()(...ss);
+const rq = (param) => makeElement('span')('request')(` (`, code(param), ` parameter)`);
+const rq2 = (param1, param2) => makeElement('span')('request')(` (`, code(param1), ` or `, code(param2), ` parameter)`);
 class NoteFetchDialog {
-    constructor() {
+    constructor(getRequestUrls, submitQuery) {
+        this.getRequestUrls = getRequestUrls;
+        this.submitQuery = submitQuery;
         this.$details = document.createElement('details');
         this.$fetchButton = document.createElement('button');
+        this.$limitSelect = document.createElement('select');
+        this.$requestOutput = document.createElement('output');
     }
-    write($container, $showImagesCheckboxes, submitQuery) {
+    write($container, $sharedCheckboxes, initialQuery) {
         const $summary = document.createElement('summary');
         $summary.textContent = this.title;
         const $form = document.createElement('form');
         const $scopeFieldset = this.makeScopeAndOrderFieldset();
-        const $downloadFieldset = this.makeDownloadModeFieldset();
-        const $showImagesCheckbox = document.createElement('input');
-        $showImagesCheckbox.type = 'checkbox';
-        $showImagesCheckboxes.push($showImagesCheckbox);
-        $downloadFieldset.append(makeDiv()(makeLabel()($showImagesCheckbox, ` Load and show images from StreetComplete`)));
-        $form.append($scopeFieldset, $downloadFieldset, this.makeFetchButtonDiv());
+        const $downloadFieldset = this.makeDownloadModeFieldset($sharedCheckboxes);
+        $form.append($scopeFieldset, $downloadFieldset, this.makeFetchButtonDiv(), this.makeRequestDiv());
+        this.populateInputs(initialQuery);
         this.addEventListeners();
+        this.addRequestChangeListeners();
         $form.addEventListener('submit', (ev) => {
             ev.preventDefault();
             const query = this.constructQuery();
             if (!query)
                 return;
-            submitQuery(query);
+            this.submitQuery(query);
         });
         this.$details.addEventListener('toggle', () => {
             if (!this.$details.open)
@@ -3840,6 +3722,27 @@ class NoteFetchDialog {
     open() {
         this.$details.open = true;
     }
+    populateInputs(query) {
+        this.populateInputsWithoutUpdatingRequest(query);
+        this.updateRequest();
+    }
+    updateRequest() {
+        const query = this.constructQuery();
+        if (!query) {
+            this.$requestOutput.replaceChildren(`invalid request`);
+            return;
+        }
+        const requestUrls = this.getRequestUrls(query, Number(this.$limitSelect.value));
+        if (requestUrls.length == 0) {
+            this.$requestOutput.replaceChildren(`invalid request`);
+            return;
+        }
+        const [[mainType, mainUrl], ...otherRequestUrls] = requestUrls;
+        this.$requestOutput.replaceChildren(code(makeLink(mainUrl, mainUrl)));
+        for (const [type, url] of otherRequestUrls) {
+            this.$requestOutput.append(`, `, code(makeLink(type, url)));
+        }
+    }
     makeScopeAndOrderFieldset() {
         const $fieldset = document.createElement('fieldset');
         const $legend = document.createElement('legend');
@@ -3848,19 +3751,36 @@ class NoteFetchDialog {
         this.writeScopeAndOrderFieldset($fieldset);
         return $fieldset;
     }
-    makeDownloadModeFieldset() {
+    makeDownloadModeFieldset($sharedCheckboxes) {
         const $fieldset = document.createElement('fieldset');
         // TODO (re)store input values
         const $legend = document.createElement('legend');
         $legend.textContent = `Download mode (can change anytime)`;
         $fieldset.append($legend);
         this.writeDownloadModeFieldset($fieldset);
+        const $showImagesCheckbox = document.createElement('input');
+        $showImagesCheckbox.type = 'checkbox';
+        $sharedCheckboxes.showImages.push($showImagesCheckbox);
+        $fieldset.append(makeDiv()(makeLabel()($showImagesCheckbox, ` Load and show images from StreetComplete`)));
+        const $showRequestsCheckbox = document.createElement('input');
+        $showRequestsCheckbox.type = 'checkbox';
+        $sharedCheckboxes.showRequests.push($showRequestsCheckbox);
+        $fieldset.append(makeDiv()(makeLabel()($showRequestsCheckbox, ` Show request parameters and URLs`)));
         return $fieldset;
     }
     makeFetchButtonDiv() {
         this.$fetchButton.textContent = `Fetch notes`;
         this.$fetchButton.type = 'submit';
         return makeDiv('major-input')(this.$fetchButton);
+    }
+    makeRequestDiv() {
+        return makeDiv('request')(`Resulting request: `, this.$requestOutput);
+    }
+    addRequestChangeListeners() {
+        for (const $input of this.listQueryChangingInputs()) {
+            $input.addEventListener('input', () => this.updateRequest);
+        }
+        this.$limitSelect.addEventListener('input', () => this.updateRequest);
     }
     writeExtraForms() { }
 }
@@ -3875,19 +3795,21 @@ class NoteSearchFetchDialog extends NoteFetchDialog {
         this.$statusSelect = document.createElement('select');
         this.$sortSelect = document.createElement('select');
         this.$orderSelect = document.createElement('select');
-        this.$limitSelect = document.createElement('select');
         this.$autoLoadCheckbox = document.createElement('input');
     }
     writeScopeAndOrderFieldset($fieldset) {
         {
+            $fieldset.append(makeDiv('request')(`Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch`), ` request at `, code(`https://api.openstreetmap.org/api/0.6/notes/search?`, em(`parameters`)), `; see `, em(`parameters`), ` below.`));
+        }
+        {
             this.$userInput.type = 'text';
             this.$userInput.name = 'user';
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`OSM username, URL or #id: `, this.$userInput)));
+            $fieldset.append(makeDiv('major-input')(makeLabel()(`OSM username, URL or #id`, rq2('display_name', 'user'), `: `, this.$userInput)));
         }
         {
             this.$textInput.type = 'text';
             this.$textInput.name = 'text';
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`Comment text search query: `, this.$textInput)));
+            $fieldset.append(makeDiv('major-input')(makeLabel()(`Comment text search query`, rq('q'), `: `, this.$textInput)));
         }
         {
             this.$fromInput.type = 'text';
@@ -3896,25 +3818,45 @@ class NoteSearchFetchDialog extends NoteFetchDialog {
             this.$toInput.type = 'text';
             this.$toInput.size = 20;
             this.$toInput.name = 'to';
-            $fieldset.append(makeDiv()(`Date range: `, makeLabel()(`from `, this.$fromInput), ` `, makeLabel()(`to `, this.$toInput)));
+            $fieldset.append(makeDiv()(`Date range: `, makeLabel()(`from`, rq('from'), ` `, this.$fromInput), ` `, makeLabel()(`to`, rq('to'), ` `, this.$toInput)));
         }
         {
             this.$statusSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
             this.$sortSelect.append(new Option(`creation`, 'created_at'), new Option(`last update`, 'updated_at'));
             this.$orderSelect.append(new Option('newest'), new Option('oldest'));
-            $fieldset.append(makeDiv()(`Fetch `, makeLabel('inline')(this.$statusSelect, ` matching notes`), ` `, makeLabel('inline')(`sorted by `, this.$sortSelect, ` date`), `, `, makeLabel('inline')(this.$orderSelect, ` first`)));
+            $fieldset.append(makeDiv()(`Fetch `, makeLabel('inline')(this.$statusSelect, rq('closed'), ` matching notes`), ` `, makeLabel('inline')(`sorted by `, this.$sortSelect, rq('sort'), ` date`), `, `, makeLabel('inline')(this.$orderSelect, rq('order'), ` first`)));
         }
     }
     writeDownloadModeFieldset($fieldset) {
         {
             this.$limitSelect.append(new Option('20'), new Option('100'), new Option('500'), new Option('2500'));
-            $fieldset.append(makeDiv()(`Download these `, makeLabel()(`in batches of `, this.$limitSelect, ` notes`)));
+            $fieldset.append(makeDiv()(`Download these `, makeLabel()(`in batches of `, this.$limitSelect, rq('limit'), ` notes`)));
         }
         {
             this.$autoLoadCheckbox.type = 'checkbox';
             this.$autoLoadCheckbox.checked = true;
             $fieldset.append(makeDiv()(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
         }
+    }
+    populateInputsWithoutUpdatingRequest(query) {
+        if (query && query.mode != 'search')
+            return;
+        // TODO why populate on empty query?
+        if (query?.display_name) {
+            this.$userInput.value = query.display_name;
+        }
+        else if (query?.user) {
+            this.$userInput.value = '#' + query.user;
+        }
+        else {
+            this.$userInput.value = '';
+        }
+        this.$textInput.value = query?.q ?? '';
+        this.$fromInput.value = toReadableDate(query?.from);
+        this.$toInput.value = toReadableDate(query?.to);
+        this.$statusSelect.value = query ? String(query.closed) : '-1';
+        this.$sortSelect.value = query?.sort ?? 'created_at';
+        this.$orderSelect.value = query?.order ?? 'newest';
     }
     addEventListeners() {
         this.$userInput.addEventListener('input', () => {
@@ -3940,10 +3882,16 @@ class NoteSearchFetchDialog extends NoteFetchDialog {
     constructQuery() {
         return makeNoteSearchQueryFromValues(this.$userInput.value, this.$textInput.value, this.$fromInput.value, this.$toInput.value, this.$statusSelect.value, this.$sortSelect.value, this.$orderSelect.value);
     }
+    listQueryChangingInputs() {
+        return [
+            this.$userInput, this.$textInput, this.$fromInput, this.$toInput,
+            this.$statusSelect, this.$sortSelect, this.$orderSelect
+        ];
+    }
 }
 class NoteBboxFetchDialog extends NoteFetchDialog {
-    constructor(map) {
-        super();
+    constructor(getRequestUrls, submitQuery, map) {
+        super(getRequestUrls, submitQuery);
         this.map = map;
         this.$nominatimForm = document.createElement('form');
         this.$nominatimInput = document.createElement('input');
@@ -3960,17 +3908,19 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
         this.$bboxInput = document.createElement('input');
         this.$trackMapCheckbox = document.createElement('input');
         this.$statusSelect = document.createElement('select');
-        this.$limitSelect = document.createElement('select');
     }
     writeExtraForms() {
         this.$details.append(this.$nominatimForm);
     }
     writeScopeAndOrderFieldset($fieldset) {
         {
+            $fieldset.append(makeDiv('request')(`Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_.2Fapi.2F0.6.2Fnotes`), ` request at `, code(`https://api.openstreetmap.org/api/0.6/notes?`, em(`parameters`)), `; see `, em(`parameters`), ` below.`));
+        }
+        {
             this.$bboxInput.type = 'text';
             this.$bboxInput.name = 'bbox';
             this.$bboxInput.required = true; // otherwise could submit empty bbox without entering anything
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`Bounding box (`, tip(`left`, `western-most (min) longitude`), `, `, tip(`bottom`, `southern-most (min) latitude`), `, `, tip(`right`, `eastern-most (max) longitude`), `, `, tip(`top`, `northern-most (max) latitude`), `): `, this.$bboxInput)));
+            $fieldset.append(makeDiv('major-input')(makeLabel()(`Bounding box (`, tip(`left`, `western-most (min) longitude`), `, `, tip(`bottom`, `southern-most (min) latitude`), `, `, tip(`right`, `eastern-most (max) longitude`), `, `, tip(`top`, `northern-most (max) latitude`), `)`, rq('bbox'), `: `, this.$bboxInput)));
             function tip(text, title) {
                 const $span = document.createElement('span');
                 $span.textContent = text;
@@ -3998,14 +3948,21 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
         }
         {
             this.$statusSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
-            $fieldset.append(makeDiv()(`Fetch `, makeLabel('inline')(this.$statusSelect, ` matching notes`), ` `, `sorted by last update date `, `newest first`));
+            $fieldset.append(makeDiv()(`Fetch `, makeLabel('inline')(this.$statusSelect, rq('closed'), ` matching notes`), ` `, `sorted by last update date `, `newest first`));
         }
     }
     writeDownloadModeFieldset($fieldset) {
         {
             this.$limitSelect.append(new Option('20'), new Option('100'), new Option('500'), new Option('2500'), new Option('10000'));
-            $fieldset.append(makeDiv()(`Download `, makeLabel()(`at most `, this.$limitSelect, ` notes`)));
+            $fieldset.append(makeDiv()(`Download `, makeLabel()(`at most `, this.$limitSelect, rq('limit'), ` notes`)));
         }
+    }
+    populateInputsWithoutUpdatingRequest(query) {
+        if (query && query.mode != 'bbox')
+            return;
+        // TODO why populate on empty query?
+        this.$bboxInput.value = query?.bbox ?? '';
+        this.$statusSelect.value = query ? String(query.closed) : '-1';
     }
     addEventListeners() {
         const validateBounds = () => {
@@ -4024,6 +3981,7 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
             // (left,bottom,right,top)
             this.$bboxInput.value = bounds.getWest() + ',' + bounds.getSouth() + ',' + bounds.getEast() + ',' + bounds.getNorth();
             validateBounds();
+            this.updateRequest();
         };
         this.map.onMoveEnd(copyBounds);
         this.$trackMapCheckbox.addEventListener('input', copyBounds);
@@ -4041,6 +3999,8 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
                 const bbox = await this.nominatimBboxFetcher.fetch(Date.now(), this.$nominatimInput.value, bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth());
                 const [minLat, maxLat, minLon, maxLon] = bbox;
                 this.$bboxInput.value = `${minLon},${minLat},${maxLon},${maxLat}`;
+                validateBounds();
+                this.updateRequest();
                 this.$trackMapCheckbox.checked = false;
                 this.map.fitBounds([[Number(minLat), Number(minLon)], [Number(maxLat), Number(maxLon)]]);
             }
@@ -4061,6 +4021,11 @@ class NoteBboxFetchDialog extends NoteFetchDialog {
     constructQuery() {
         return makeNoteBboxQueryFromValues(this.$bboxInput.value, this.$statusSelect.value);
     }
+    listQueryChangingInputs() {
+        return [
+            this.$bboxInput, this.$statusSelect
+        ];
+    }
 }
 function makeDumbCache() {
     const cache = new Map();
@@ -4068,6 +4033,105 @@ function makeDumbCache() {
         async (timestamp, url) => cache.get(url),
         async (timestamp, url, bbox) => cache.set(url, bbox)
     ];
+}
+
+class NoteFetchPanel {
+    constructor(storage, db, $container, $notesContainer, $moreContainer, $toolContainer, filterPanel, extrasPanel, map, figureDialog, restoreScrollPosition) {
+        let noteTable;
+        const moreButtonIntersectionObservers = [];
+        const $sharedCheckboxes = {
+            showImages: [],
+            showRequests: []
+        };
+        const hashQuery = makeNoteQueryFromHash(location.hash);
+        const searchFetcher = new NoteSearchFetcher();
+        const searchDialog = new NoteSearchFetchDialog((query, limit) => searchFetcher.getRequestUrls(query, limit), (query) => {
+            modifyHistory(query, true);
+            runStartFetcher(query, true);
+        });
+        searchDialog.write($container, $sharedCheckboxes, hashQuery);
+        const bboxFetcher = new NoteBboxFetcher();
+        const bboxDialog = new NoteBboxFetchDialog((query, limit) => bboxFetcher.getRequestUrls(query, limit), query => {
+            modifyHistory(query, true);
+            runStartFetcher(query, true);
+        }, map);
+        bboxDialog.write($container, $sharedCheckboxes, hashQuery);
+        handleSharedCheckboxes($sharedCheckboxes.showImages, state => noteTable?.setShowImages(state));
+        handleSharedCheckboxes($sharedCheckboxes.showRequests, state => {
+            $container.classList.toggle('show-requests', state);
+            $moreContainer.classList.toggle('show-requests', state);
+        });
+        window.addEventListener('hashchange', () => {
+            const query = makeNoteQueryFromHash(location.hash);
+            openQueryDialog(query, false);
+            modifyHistory(query, false); // in case location was edited manually
+            populateInputs(query);
+            runStartFetcher(query, false);
+            restoreScrollPosition();
+        });
+        openQueryDialog(hashQuery, true);
+        modifyHistory(hashQuery, false);
+        runStartFetcher(hashQuery, false);
+        function openQueryDialog(query, initial) {
+            if (!query) {
+                if (initial)
+                    searchDialog.open();
+            }
+            else if (query.mode == 'search') {
+                searchDialog.open();
+            }
+            else if (query.mode == 'bbox') {
+                bboxDialog.open();
+            }
+        }
+        function populateInputs(query) {
+            searchDialog.populateInputs(query);
+            bboxDialog.populateInputs(query);
+        }
+        function resetNoteDependents() {
+            while (moreButtonIntersectionObservers.length > 0)
+                moreButtonIntersectionObservers.pop()?.disconnect();
+            map.clearNotes();
+            $notesContainer.innerHTML = ``;
+            $toolContainer.innerHTML = ``;
+        }
+        function runStartFetcher(query, clearStore) {
+            figureDialog.close();
+            resetNoteDependents();
+            if (query?.mode == 'search') {
+                extrasPanel.rewrite(query, Number(searchDialog.$limitSelect.value));
+            }
+            else {
+                extrasPanel.rewrite();
+            }
+            if (query?.mode != 'search' && query?.mode != 'bbox')
+                return;
+            filterPanel.unsubscribe();
+            const toolPanel = new ToolPanel($toolContainer, map, figureDialog, storage);
+            noteTable = new NoteTable($notesContainer, toolPanel, map, filterPanel.noteFilter, figureDialog, $sharedCheckboxes.showImages[0]?.checked);
+            filterPanel.subscribe(noteFilter => noteTable?.updateFilter(noteFilter));
+            if (query?.mode == 'search') {
+                searchFetcher.start(db, noteTable, $moreContainer, searchDialog.$limitSelect, searchDialog.$autoLoadCheckbox, searchDialog.$fetchButton, moreButtonIntersectionObservers, query, clearStore);
+            }
+            else if (query?.mode == 'bbox') {
+                if (bboxDialog.$trackMapCheckbox.checked)
+                    map.needToFitNotes = false;
+                bboxFetcher.start(db, noteTable, $moreContainer, bboxDialog.$limitSelect, { checked: false }, bboxDialog.$fetchButton, moreButtonIntersectionObservers, query, clearStore);
+            }
+        }
+        function handleSharedCheckboxes($checkboxes, stateChangeListener) {
+            for (const $checkbox of $checkboxes) {
+                $checkbox.addEventListener('input', inputListener);
+            }
+            function inputListener() {
+                const state = this.checked;
+                for (const $checkbox of $checkboxes) {
+                    $checkbox.checked = state;
+                }
+                stateChangeListener(state);
+            }
+        }
+    }
 }
 function modifyHistory(query, push) {
     const canonicalQueryHash = query ? '#' + makeNoteQueryString(query) : '';

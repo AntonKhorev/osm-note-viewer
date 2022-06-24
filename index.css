@@ -86,6 +86,7 @@ button.global > svg {
 .panel label.inline {
 	white-space: nowrap;
 }
+
 .panel.fetch {
 	padding: .5rem 3rem;
 }
@@ -108,6 +109,14 @@ body.flipped .panel.fetch button.flip {
 	--flip-ver-part-visibility: hidden;
 	--flip-hor-part-visibility: visible;
 }
+.panel.fetch .request {
+	color: #444;
+	font-size: .9em;
+}
+.panel.fetch:not(.show-requests) .request {
+	display: none;
+}
+
 .panel.command {
 	--gap: 8px;  /* used in info tips */
 	display: flex;
@@ -238,6 +247,7 @@ body.flipped .panel.fetch button.flip {
 .panel.command .icon-map-center {
 	--tools-map-center-part-visibility: visible;
 }
+
 .panel input:invalid:not(.no-invalid-indication),
 .panel textarea:invalid:not(.no-invalid-indication) {
 	border: solid 2px red;
@@ -287,6 +297,7 @@ body.flipped .panel.fetch button.flip {
 }
 .notes tbody {
 	box-shadow: -2px 0px 0px 0px red, 2px 0px 0px 0px red;
+	position: relative;
 }
 .notes tbody.hidden {
 	display: none;
@@ -294,8 +305,13 @@ body.flipped .panel.fetch button.flip {
 .notes tbody.closed {
 	box-shadow: -2px 0px 0px 0px green, 2px 0px 0px 0px green;
 }
-.notes tbody.active-hover {
+.notes tbody.active-hover::before {
+	content: '';
+	display: block;
+	position: absolute;
+	inset: 0;
 	background: var(--hover-color);
+	z-index: -1;
 }
 @keyframes active-click-fade {
 	from { background: var(--click-color); }
@@ -442,6 +458,25 @@ body.flipped .notes td.note-user {
 	width: 100%;
 	height: 100%;
 	isolation: isolate;
+}
+.map .note-marker {
+	opacity: 0.5;
+}
+.map .note-marker.active-click,
+.map .note-marker.active-hover {
+	opacity: 1;
+}
+.map .note-marker .aura {
+	stroke: #0000;
+	fill: #0000;
+	transition: stroke,fill .5s;
+}
+.map .note-marker.active-hover .aura {
+	stroke: #048;
+	fill: #FFF;
+}
+.map .note-marker.active-click .aura {
+	fill: #FC0;
 }
 .map .note-track {
 	vector-effect: non-scaling-stroke;
