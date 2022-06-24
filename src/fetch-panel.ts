@@ -29,13 +29,13 @@ export default class NoteFetchPanel {
 			modifyHistory(query,true)
 			runStartFetcher(query,true)
 		})
-		searchDialog.write($container,$sharedCheckboxes)
+		searchDialog.write($container,$sharedCheckboxes,hashQuery)
 		const bboxFetcher=new NoteBboxFetcher()
 		const bboxDialog=new NoteBboxFetchDialog((query,limit)=>bboxFetcher.getRequestUrls(query,limit),query=>{
 			modifyHistory(query,true)
 			runStartFetcher(query,true)
 		},map)
-		bboxDialog.write($container,$sharedCheckboxes)
+		bboxDialog.write($container,$sharedCheckboxes,hashQuery)
 		handleSharedCheckboxes($sharedCheckboxes.showImages,state=>noteTable?.setShowImages(state))
 		handleSharedCheckboxes($sharedCheckboxes.showRequests,state=>{
 			$container.classList.toggle('show-requests',state)
@@ -51,7 +51,6 @@ export default class NoteFetchPanel {
 		})
 		openQueryDialog(hashQuery,true)
 		modifyHistory(hashQuery,false)
-		populateInputs(hashQuery)
 		runStartFetcher(hashQuery,false)
 		function openQueryDialog(query: NoteQuery | undefined, initial: boolean): void {
 			if (!query) {
