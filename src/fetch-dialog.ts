@@ -495,7 +495,11 @@ export class NoteXmlFetchDialog extends NoteFetchDialog {
 	$fetchFileInput=document.createElement('input')
 	protected makeFetchControlDiv(): HTMLDivElement {
 		this.$fetchFileInput.type='file'
-		return makeDiv('major-input')(this.$fetchFileInput)
+		return makeDiv('major-input')(makeLabel('file-reader')(
+			makeElement('span')('over')(`Read XML file`),
+			makeElement('span')('colon')(`:`),` `,
+			this.$fetchFileInput
+		))
 	}
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{
@@ -561,6 +565,7 @@ export class NoteXmlFetchDialog extends NoteFetchDialog {
 			this.$fetchFileInput.classList.remove('active')
 		}
 		this.$fetchFileInput.addEventListener('change',()=>{
+			this.$fetchFileInput.classList.remove('active')
 			if (!this.$form.reportValidity()) return // doesn't display validity message on drag&drop in Firefox, works ok in Chrome
 			const files=this.$fetchFileInput.files
 			if (!files) return

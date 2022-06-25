@@ -292,6 +292,46 @@ body.flipped .panel.fetch button.flip {
 	margin-left: 0;
 	margin-right: 0;
 }
+.panel .major-input label.file-reader {
+	--file-reader-background-color: #e9e9ed;
+	--file-reader-passive-border-color: #888;
+	--file-reader-active-border-color: #6A6;
+	--file-reader-border-width: 2px;
+}
+.panel .major-input label.file-reader {
+	display: grid;
+	align-content: center;
+}
+.panel .major-input label.file-reader .over {
+	margin: 2px;
+	grid-row: 1;
+	grid-column: 1;
+	z-index: 1;
+	pointer-events: none;
+	background: var(--file-reader-background-color);
+	display: grid;
+	align-items: center;
+	justify-items: center;
+}
+.panel .major-input label.file-reader:focus-within .over {
+	z-index: -1;
+}
+.panel .major-input label.file-reader .colon {
+	display: none;
+}
+.panel .major-input label.file-reader input {
+	display: block;
+	padding: 3rem;
+	background: var(--file-reader-background-color);
+	text-align: center;
+	grid-row: 1;
+	grid-column: 1;
+	border: dashed var(--file-reader-border-width) var(--file-reader-passive-border-color);
+	border-radius: 2px;
+}
+.panel .major-input label.file-reader input.active {
+	border: dashed var(--file-reader-border-width) var(--file-reader-active-border-color);
+}
 
 .notes table {
 	border-collapse: collapse;
