@@ -302,7 +302,7 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 		},
 		...makeDumbCache() // TODO real cache in db
 	)
-	title=`Get notes inside small rectangular area`
+	title=`Get notes inside rectangular area`
 	protected $bboxInput=document.createElement('input')
 	$trackMapCheckbox=document.createElement('input')
 	protected $statusSelect=document.createElement('select')
@@ -479,6 +479,69 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 			bounds.getWest(),bounds.getSouth(),bounds.getEast(),bounds.getNorth()
 		)
 		this.$nominatimRequestOutput.replaceChildren(code(makeLink(url,url)))
+	}
+}
+
+export class NoteXmlFetchDialog extends NoteFetchDialog {
+	title=`Load an xml file containing note ids, then fetch them`
+	protected $selectorInput=document.createElement('input')
+	protected $attributeInput=document.createElement('input')
+	protected $fileInput=document.createElement('input')
+	$autoLoadCheckbox=document.createElement('input')
+	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
+		{
+			$fieldset.append(makeDiv('request')(
+				`Load an arbitrary XML file containing note ids or links. `,
+				`Elements containing the ids are selected by a `,makeLink(`css selector`,`https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors`),` provided below. `,
+				`Inside the elements ids are looked for in an `,em(`attribute`),` if specified below, or in text content. `,
+				`After that download each note `,makeLink(`by its id`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Read:_GET_/api/0.6/notes/#id`),`.`
+			))
+		}{
+			this.$selectorInput.type='text'
+			this.$selectorInput.name='selector'
+			this.$selectorInput.required=true
+			$fieldset.append(makeDiv('major-input')(makeLabel()(
+				`CSS selector matching XML elements with note ids: `,this.$selectorInput
+			)))
+		}{
+			this.$attributeInput.type='text'
+			this.$attributeInput.name='attribute'
+			$fieldset.append(makeDiv('major-input')(makeLabel()(
+				`Attribute of matched XML elements containing note id (leave blank if note id is in text content): `,this.$attributeInput
+			)))
+		}
+	}
+	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
+		{
+			this.$limitSelect.append(
+				new Option('5'),
+				new Option('20'),
+			)
+			$fieldset.append(makeDiv()(
+				`Download these `,
+				makeLabel()(
+					`in batches of `,this.$limitSelect,` notes`,
+					makeElement('span')('request')(` (will make this many API requests each time it downloads more notes)`)
+				)
+			))
+		}{
+			this.$autoLoadCheckbox.type='checkbox'
+			this.$autoLoadCheckbox.checked=true
+			$fieldset.append(makeDiv()(makeLabel()(
+				this.$autoLoadCheckbox,` Automatically load more notes when scrolled to the end of the table`
+			)))
+		}
+	}
+	protected populateInputsWithoutUpdatingRequest(query: NoteQuery | undefined): void {
+		return // query not stored
+	}
+	protected addEventListeners(): void {
+	}
+	protected constructQuery(): NoteQuery | undefined {
+		return undefined
+	}
+	protected listQueryChangingInputs(): Array<HTMLInputElement|HTMLSelectElement> {
+		return []
 	}
 }
 

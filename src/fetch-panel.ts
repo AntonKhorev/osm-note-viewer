@@ -4,11 +4,10 @@ import {NoteMap} from './map'
 import FigureDialog from './figure'
 import NoteTable from './table'
 import NoteFilterPanel from './filter-panel'
-import ExtrasPanel from './extras-panel'
 import ToolPanel from './tool-panel'
 import {NoteQuery, makeNoteQueryFromHash, makeNoteQueryString} from './query'
 import {NoteSearchFetcher, NoteBboxFetcher} from './fetch'
-import {NoteFetchDialogSharedCheckboxes, NoteSearchFetchDialog, NoteBboxFetchDialog} from './fetch-dialog'
+import {NoteFetchDialogSharedCheckboxes, NoteSearchFetchDialog, NoteBboxFetchDialog, NoteXmlFetchDialog} from './fetch-dialog'
 
 export default class NoteFetchPanel {
 	constructor(
@@ -24,6 +23,8 @@ export default class NoteFetchPanel {
 			showRequests: []
 		}
 		const hashQuery=makeNoteQueryFromHash(location.hash)
+
+		// make fetchers and dialogs
 		const searchFetcher=new NoteSearchFetcher()
 		const searchDialog=new NoteSearchFetchDialog((query,limit)=>searchFetcher.getRequestUrls(query,limit),(query)=>{
 			modifyHistory(query,true)
@@ -32,12 +33,20 @@ export default class NoteFetchPanel {
 		searchDialog.$limitSelect.addEventListener('input',()=>searchFetcher.limitWasUpdated())
 		searchDialog.write($container,$sharedCheckboxes,hashQuery)
 		const bboxFetcher=new NoteBboxFetcher()
-		const bboxDialog=new NoteBboxFetchDialog((query,limit)=>bboxFetcher.getRequestUrls(query,limit),query=>{
+		const bboxDialog=new NoteBboxFetchDialog((query,limit)=>bboxFetcher.getRequestUrls(query,limit),(query)=>{
 			modifyHistory(query,true)
 			runStartFetcher(query,true)
 		},map)
 		bboxDialog.$limitSelect.addEventListener('input',()=>bboxFetcher.limitWasUpdated())
 		bboxDialog.write($container,$sharedCheckboxes,hashQuery)
+		// const idsFetcher=new NoteIdsFetcher() // TODO
+		const xmlDialog=new NoteXmlFetchDialog((query,limit)=>[],(query)=>{
+			// modifyHistory(query,true) // not saving the query for now
+			console.log(`TODO run fetcher for query`,query) // runStartFetcher(query,true)
+		})
+		// xmlDialog.$limitSelect.addEventListener('input',()=>idsFetcher.limitWasUpdated())
+		xmlDialog.write($container,$sharedCheckboxes,hashQuery)
+		
 		handleSharedCheckboxes($sharedCheckboxes.showImages,state=>noteTable?.setShowImages(state))
 		handleSharedCheckboxes($sharedCheckboxes.showRequests,state=>{
 			$container.classList.toggle('show-requests',state)

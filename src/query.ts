@@ -22,6 +22,11 @@ export interface NoteBboxQuery {
 	closed: number // defaults to -1 because that's how user's note page would have worked
 }
 
+export interface NoteIdsQuery {
+	mode: 'xml'
+	ids: number[]
+}
+
 export type NoteQuery = NoteSearchQuery | NoteBboxQuery
 
 function makeUserQueryFromDisplayNameAndUser(display_name: string|undefined|null, user: number|undefined|null): UserQuery {
