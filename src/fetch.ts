@@ -33,7 +33,8 @@ abstract class NoteFetcher {
 	async start(
 		db: NoteViewerDB,
 		noteTable: NoteTable, $moreContainer: HTMLElement,
-		$limitSelect: HTMLSelectElement, $autoLoadCheckbox: {checked:boolean}, $fetchButton: HTMLButtonElement,
+		$limitSelect: HTMLSelectElement, $autoLoadCheckbox: {checked:boolean},
+		blockDownloads: (disabled: boolean) => void,
 		moreButtonIntersectionObservers: IntersectionObserver[],
 		query: NoteQuery,
 		clearStore: boolean
@@ -87,7 +88,7 @@ abstract class NoteFetcher {
 				return
 			}
 			const url=this.getRequestUrlBase()+`.json?`+fetchDetails.parameters
-			$fetchButton.disabled=true
+			blockDownloads(true)
 			try {
 				const response=await fetch(url)
 				if (!response.ok) {
@@ -140,7 +141,7 @@ abstract class NoteFetcher {
 					rewriteFetchErrorMessage($moreContainer,query,`failed for unknown reason`,`${ex}`)
 				}
 			} finally {
-				$fetchButton.disabled=false
+				blockDownloads(false)
 			}
 		}
 		if (!clearStore) {

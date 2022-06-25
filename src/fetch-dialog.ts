@@ -1,5 +1,5 @@
 import {NoteMap} from './map'
-import {NoteQuery, makeNoteSearchQueryFromValues, makeNoteBboxQueryFromValues} from './query'
+import {NoteQuery, NoteIdsQuery, makeNoteSearchQueryFromValues, makeNoteBboxQueryFromValues} from './query'
 import {toUserQuery} from './query-user'
 import {toDateQuery, toReadableDate} from './query-date'
 import {NominatimBbox, NominatimBboxFetcher} from './nominatim'
@@ -20,29 +20,28 @@ export interface NoteFetchDialogSharedCheckboxes {
 abstract class NoteFetchDialog {
 	abstract title: string
 	protected $details=document.createElement('details')
-	$fetchButton=document.createElement('button')
+	protected $form=document.createElement('form')
 	$limitSelect=document.createElement('select')
 	private $requestOutput=document.createElement('output')
 	constructor(
 		private getRequestUrls: (query: NoteQuery, limit: number) => [type: string, url: string][],
-		private submitQuery: (query: NoteQuery) => void
+		protected submitQuery: (query: NoteQuery) => void
 	) {}
 	write($container: HTMLElement, $sharedCheckboxes: NoteFetchDialogSharedCheckboxes, initialQuery: NoteQuery|undefined) {
 		const $summary=document.createElement('summary')
 		$summary.textContent=this.title
-		const $form=document.createElement('form')
 		const $scopeFieldset=this.makeScopeAndOrderFieldset()
 		const $downloadFieldset=this.makeDownloadModeFieldset($sharedCheckboxes)
-		$form.append(
+		this.$form.append(
 			$scopeFieldset,
 			$downloadFieldset,
-			this.makeFetchButtonDiv(),
+			this.makeFetchControlDiv(),
 			this.makeRequestDiv()
 		)
 		this.populateInputs(initialQuery)
 		this.addEventListeners()
 		this.addRequestChangeListeners()
-		$form.addEventListener('submit',(ev)=>{
+		this.$form.addEventListener('submit',(ev)=>{
 			ev.preventDefault()
 			const query=this.constructQuery()
 			if (!query) return
@@ -56,7 +55,7 @@ abstract class NoteFetchDialog {
 				$otherDetails.open=false
 			}
 		})
-		this.$details.append($summary,$form)
+		this.$details.append($summary,this.$form)
 		this.writeExtraForms()
 		$container.append(this.$details)
 	}
@@ -134,11 +133,6 @@ abstract class NoteFetchDialog {
 		)))
 		return $fieldset
 	}
-	private makeFetchButtonDiv(): HTMLDivElement {
-		this.$fetchButton.textContent=`Fetch notes`
-		this.$fetchButton.type='submit'
-		return makeDiv('major-input')(this.$fetchButton)
-	}
 	private makeRequestDiv() {
 		return makeDiv('request')(`Resulting request: `,this.$requestOutput)
 	}
@@ -148,6 +142,7 @@ abstract class NoteFetchDialog {
 		}
 		this.$limitSelect.addEventListener('input',()=>this.updateRequest())
 	}
+	protected abstract makeFetchControlDiv(): HTMLDivElement
 	protected abstract writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void
 	protected abstract writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void
 	protected writeExtraForms(): void {}
@@ -157,7 +152,16 @@ abstract class NoteFetchDialog {
 	protected abstract listQueryChangingInputs(): Array<HTMLInputElement|HTMLSelectElement>
 }
 
-export class NoteSearchFetchDialog extends NoteFetchDialog {
+abstract class NoteButtonFetchDialog extends NoteFetchDialog {
+	$fetchButton=document.createElement('button')
+	protected makeFetchControlDiv(): HTMLDivElement {
+		this.$fetchButton.textContent=`Fetch notes`
+		this.$fetchButton.type='submit'
+		return makeDiv('major-input')(this.$fetchButton)
+	}
+}
+
+export class NoteSearchFetchDialog extends NoteButtonFetchDialog {
 	title=`Search notes for user / text / date range`
 	protected $userInput=document.createElement('input')
 	protected $textInput=document.createElement('input')
@@ -288,7 +292,8 @@ export class NoteSearchFetchDialog extends NoteFetchDialog {
 	}
 }
 
-export class NoteBboxFetchDialog extends NoteFetchDialog {
+export class NoteBboxFetchDialog extends NoteButtonFetchDialog {
+	title=`Get notes inside rectangular area`
 	private $nominatimForm=document.createElement('form')
 	private $nominatimInput=document.createElement('input')
 	private $nominatimButton=document.createElement('button')
@@ -302,7 +307,6 @@ export class NoteBboxFetchDialog extends NoteFetchDialog {
 		},
 		...makeDumbCache() // TODO real cache in db
 	)
-	title=`Get notes inside rectangular area`
 	protected $bboxInput=document.createElement('input')
 	$trackMapCheckbox=document.createElement('input')
 	protected $statusSelect=document.createElement('select')
@@ -488,6 +492,11 @@ export class NoteXmlFetchDialog extends NoteFetchDialog {
 	protected $attributeInput=document.createElement('input')
 	protected $fileInput=document.createElement('input')
 	$autoLoadCheckbox=document.createElement('input')
+	$fetchFileInput=document.createElement('input')
+	protected makeFetchControlDiv(): HTMLDivElement {
+		this.$fetchFileInput.type='file'
+		return makeDiv('major-input')(this.$fetchFileInput)
+	}
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{
 			$fieldset.append(makeDiv('request')(
@@ -536,6 +545,58 @@ export class NoteXmlFetchDialog extends NoteFetchDialog {
 		return // query not stored
 	}
 	protected addEventListeners(): void {
+		this.$selectorInput.addEventListener('input',()=>{
+			const selector=this.$selectorInput.value
+			try {
+				document.createDocumentFragment().querySelector(selector) // https://stackoverflow.com/a/42149818
+				this.$selectorInput.setCustomValidity('')
+			} catch (ex) {
+				this.$selectorInput.setCustomValidity(`has to be a valid css selector`)
+			}
+		})
+		this.$fetchFileInput.ondragenter=()=>{
+			this.$fetchFileInput.classList.add('active')
+		}
+		this.$fetchFileInput.ondragleave=()=>{
+			this.$fetchFileInput.classList.remove('active')
+		}
+		this.$fetchFileInput.addEventListener('change',()=>{
+			if (!this.$form.reportValidity()) return // doesn't display validity message on drag&drop in Firefox, works ok in Chrome
+			const files=this.$fetchFileInput.files
+			if (!files) return
+			const [file]=files
+			const reader=new FileReader()
+			reader.readAsText(file)
+			reader.onload=()=>{
+				if (typeof reader.result != 'string') return
+				const parser=new DOMParser()
+				const xmlDoc=parser.parseFromString(reader.result,'text/xml')
+				const selector=this.$selectorInput.value
+				const attribute=this.$attributeInput.value
+				const $elements=xmlDoc.querySelectorAll(selector)
+				const ids: number[] = []
+				for (const $element of $elements) {
+					const value=getValue($element,attribute)
+					if (!value) continue
+					const match=value.match(/([0-9]+)[^0-9]*$/)
+					if (!match) continue
+					const [idString]=match
+					ids.push(Number(idString))
+				}
+				const query: NoteIdsQuery = {
+					mode: 'ids',
+					ids
+				}
+				this.submitQuery(query)
+			}
+		})
+		function getValue($element: Element, attribute: string) {
+			if (attribute=='') {
+				return $element.textContent
+			} else {
+				return $element.getAttribute(attribute)
+			}
+		}
 	}
 	protected constructQuery(): NoteQuery | undefined {
 		return undefined

@@ -23,11 +23,11 @@ export interface NoteBboxQuery {
 }
 
 export interface NoteIdsQuery {
-	mode: 'xml'
+	mode: 'ids'
 	ids: number[]
 }
 
-export type NoteQuery = NoteSearchQuery | NoteBboxQuery
+export type NoteQuery = NoteSearchQuery | NoteBboxQuery | NoteIdsQuery
 
 function makeUserQueryFromDisplayNameAndUser(display_name: string|undefined|null, user: number|undefined|null): UserQuery {
 	if (display_name!=null) {

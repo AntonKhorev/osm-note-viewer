@@ -97,7 +97,8 @@ export default class NoteFetchPanel {
 				searchFetcher.start(
 					db,
 					noteTable,$moreContainer,
-					searchDialog.$limitSelect,searchDialog.$autoLoadCheckbox,searchDialog.$fetchButton,
+					searchDialog.$limitSelect,searchDialog.$autoLoadCheckbox,
+					(disabled: boolean) => searchDialog.$fetchButton.disabled=disabled,
 					moreButtonIntersectionObservers,
 					query,
 					clearStore
@@ -107,7 +108,8 @@ export default class NoteFetchPanel {
 				bboxFetcher.start(
 					db,
 					noteTable,$moreContainer,
-					bboxDialog.$limitSelect,{checked:false},bboxDialog.$fetchButton,
+					bboxDialog.$limitSelect,{checked:false},
+					(disabled: boolean) => bboxDialog.$fetchButton.disabled=disabled,
 					moreButtonIntersectionObservers,
 					query,
 					clearStore
