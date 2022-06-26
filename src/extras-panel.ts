@@ -1,7 +1,6 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB, {FetchEntry} from './db'
-import {NoteSearchQuery, makeUserQueryFromNoteSearchQuery, getNextFetchDetails} from './query'
-import {makeLink, makeUserIdLink, makeUserNameLink} from './util'
+import {makeLink, makeUserNameLink} from './util'
 
 export default class ExtrasPanel {
 	constructor(
@@ -109,9 +108,6 @@ export default class ExtrasPanel {
 			const $code=document.createElement('code')
 			$code.textContent=s
 			return $code
-		}
-		function makeNoteSearchQueryLink(text: string, query: NoteSearchQuery, limit: number): HTMLAnchorElement {
-			return makeLink(text,`https://api.openstreetmap.org/api/0.6/notes/search.json?`+getNextFetchDetails(query,limit).parameters)
 		}
 		this.$container.append($details)
 	}

@@ -176,7 +176,7 @@ export function makeNoteQueryString(query: NoteQuery, withMode: boolean = true):
 }
 
 export interface NoteFetchDetails {
-	parameters: string
+	parametersList: string[]
 	limit: number // to be (checked against result size for exit condition) and (passed as lastLimit on the next iteration)
 }
 
@@ -235,7 +235,7 @@ export function getNextFetchDetails(query: NoteSearchQuery, requestedLimit: numb
 	if (lowerDate!=null) updatedQuery.from=lowerDate
 	if (upperDate!=null) updatedQuery.to=upperDate
 	return {
-		parameters: makeNoteQueryString(updatedQuery,false)+'&limit='+encodeURIComponent(limit),
+		parametersList: [makeNoteQueryString(updatedQuery,false)+'&limit='+encodeURIComponent(limit)],
 		limit
 	}
 	

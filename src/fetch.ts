@@ -112,7 +112,7 @@ abstract class NoteFetcher {
 			this.limitUpdater=()=>{
 				const limit=getLimit($limitSelect)
 				const fetchDetails=getCycleFetchDetails(...fetchState.getNextCycleArguments(limit))
-				const url=this.getRequestUrlBase()+`.json?`+fetchDetails.parameters
+				const url=this.getRequestUrlBase()+`.json?`+fetchDetails.parametersList[0]
 				this.$requestOutput.replaceChildren(makeElement('code')()(
 					makeLink(url,url)
 				))
@@ -137,7 +137,7 @@ abstract class NoteFetcher {
 				rewriteMessage($moreContainer,`Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`)
 				return
 			}
-			const url=this.getRequestUrlBase()+`.json?`+fetchDetails.parameters
+			const url=this.getRequestUrlBase()+`.json?`+fetchDetails.parametersList[0]
 			blockDownloads(true)
 			try {
 				const response=await fetch(url)
@@ -236,7 +236,7 @@ export class NoteSearchFetcher extends NoteFetcher {
 	}
 	protected getRequestUrlPathAndParameters(query: NoteQuery, limit: number): [path:string,parameters:string]|undefined {
 		if (query.mode!='search') return
-		return ['',getNextFetchDetails(query,limit).parameters]
+		return ['',getNextFetchDetails(query,limit).parametersList[0]]
 	}
 	protected getGetCycleFetchDetails(query: NoteQuery): (
 		(limit: number, lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined) => NoteFetchDetails
@@ -274,7 +274,7 @@ export class NoteBboxFetcher extends NoteFetcher {
 		if (query.mode!='bbox') return
 		const parametersWithoutLimit=this.getRequestUrlParametersWithoutLimit(query)
 		return (limit,lastNote,prevLastNote,lastLimit)=>({
-			parameters:parametersWithoutLimit+e`&limit=${limit}`,
+			parametersList: [parametersWithoutLimit+e`&limit=${limit}`],
 			limit
 		})
 	}
@@ -301,6 +301,34 @@ export class NoteIdsFetcher extends NoteFetcher {
 		if (query.mode!='ids') return
 		if (query.ids.length==0) return
 		return ['',String(query.ids[0])] // TODO actually going to do several requests, can list them here somehow?
+	}
+	protected getGetCycleFetchDetails(query: NoteQuery): (
+		(limit: number, lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined) => NoteFetchDetails
+	) | undefined {
+		if (query.mode!='ids') return
+		const uniqueIds=new Set<number>()
+		for (const id of query.ids) uniqueIds.add(id)
+		return (limit,lastNote,prevLastNote,lastLimit)=>{
+			let skip=true
+			const parametersList: string[] = []
+			for (const id of uniqueIds) {
+				if (parametersList.length>=limit) break
+				if (skip) {
+					if (lastNote) {
+						if (id==lastNote.id) {
+							skip=false
+						}
+						continue
+					} else {
+						skip=false
+					}
+				}
+			}
+			return {
+				parametersList,
+				limit
+			}
+		}
 	}
 }
 */
