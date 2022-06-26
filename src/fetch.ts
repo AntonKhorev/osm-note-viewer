@@ -1,5 +1,5 @@
 import NoteViewerDB, {FetchEntry} from './db'
-import {Note, Users, isNoteFeatureCollection, transformFeatureCollectionToNotesAndUsers, NoteFeatureCollection} from './data'
+import {Note, Users, isNoteFeatureCollection, isNoteFeature, transformFeatureCollectionToNotesAndUsers, NoteFeatureCollection} from './data'
 import {NoteQuery, NoteFetchDetails, getNextFetchDetails, makeNoteQueryString, NoteBboxQuery} from './query'
 import NoteTable from './table'
 import {makeElement, makeDiv, makeLink, makeEscapeTag} from './util'
@@ -62,17 +62,15 @@ abstract class NoteFetcher {
 	getRequestUrls(query: NoteQuery, limit: number): [type: string, url: string][] {
 		const pathAndParameters=this.getRequestUrlPathAndParameters(query,limit)
 		if (pathAndParameters==null) return []
-		const [path,parameters]=pathAndParameters
-		const base=this.getRequestUrlBase()
-		const constructUrl=(type:string):string=>{
-			const extension=type=='xml'?'':'.'+type
-			let url=base
-			if (path) url+=path
-			url+=extension
-			if (parameters) url+='?'+parameters
-			return url
-		}
-		return ['json','xml','gpx','rss'].map(type=>[type,constructUrl(type)])
+		return ['json','xml','gpx','rss'].map(type=>[type,this.constructUrl(...pathAndParameters,type)])
+	}
+	protected constructUrl(path: string, parameters: string, type: string = 'json'): string {
+		const extension=type=='xml'?'':'.'+type
+		let url=this.getRequestUrlBase()
+		if (path) url+=path
+		url+=extension
+		if (parameters) url+='?'+parameters
+		return url
 	}
 	private $requestOutput=document.createElement('output')
 	private limitUpdater: ()=>void = ()=>{}
@@ -112,7 +110,7 @@ abstract class NoteFetcher {
 			this.limitUpdater=()=>{
 				const limit=getLimit($limitSelect)
 				const fetchDetails=getCycleFetchDetails(...fetchState.getNextCycleArguments(limit))
-				const url=this.getRequestUrlBase()+`.json?`+fetchDetails.parametersList[0]
+				const url=this.constructUrl(...fetchDetails.pathAndParametersList[0])
 				this.$requestOutput.replaceChildren(makeElement('code')()(
 					makeLink(url,url)
 				))
@@ -137,28 +135,32 @@ abstract class NoteFetcher {
 				rewriteMessage($moreContainer,`Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`)
 				return
 			}
-			const url=this.getRequestUrlBase()+`.json?`+fetchDetails.parametersList[0]
 			blockDownloads(true)
 			try {
-				const response=await fetch(url)
-				if (!response.ok) {
-					const responseText=await response.text()
-					rewriteFetchErrorMessage($moreContainer,query,`received the following error response`,responseText)
-					return
+				const downloadedNotes: Note[] = []
+				const downloadedUsers: Users = {}
+				for (const pathAndParameters of fetchDetails.pathAndParametersList) {
+					const url=this.constructUrl(...pathAndParameters)
+					const response=await fetch(url)
+					if (!response.ok) {
+						const responseText=await response.text()
+						rewriteFetchErrorMessage($moreContainer,query,`received the following error response`,responseText)
+						return
+					}
+					const data=await response.json()
+					if (!this.accumulateDownloadedData(downloadedNotes,downloadedUsers,data)) {
+						rewriteMessage($moreContainer,`Received invalid data`)
+						return
+					}
 				}
-				const data=await response.json()
-				if (!isNoteFeatureCollection(data)) {
-					rewriteMessage($moreContainer,`Received invalid data`)
-					return
-				}
-				const [unseenNotes,unseenUsers]=fetchState.recordCycleData(...transformFeatureCollectionToNotesAndUsers(data),fetchDetails.limit)
+				const [unseenNotes,unseenUsers]=fetchState.recordCycleData(downloadedNotes,downloadedUsers,fetchDetails.limit)
 				if (fetchEntry) await db.save(fetchEntry,fetchState.notes.values(),unseenNotes,fetchState.users,unseenUsers)
 				if (!noteTable && fetchState.notes.size<=0) {
 					rewriteMessage($moreContainer,`No matching notes found`)
 					return
 				}
 				addNewNotesToTable(unseenNotes)
-				if (!this.continueCycle(fetchState.notes,fetchDetails,data,$moreContainer)) return
+				if (!this.continueCycle(fetchState.notes,fetchDetails,downloadedNotes,$moreContainer)) return
 				const nextFetchDetails=getCycleFetchDetails(...fetchState.getNextCycleArguments(limit))
 				const $moreButton=rewriteLoadMoreButton()
 				if (holdOffAutoLoad) {
@@ -223,20 +225,31 @@ abstract class NoteFetcher {
 	protected abstract getGetCycleFetchDetails(query: NoteQuery): (
 		(limit: number, lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined) => NoteFetchDetails
 	) | undefined
+	protected abstract accumulateDownloadedData(downloadedNotes: Note[], downloadedUsers: Users, data: any): boolean
 	protected abstract continueCycle(
 		notes: Map<number,Note>,
-		fetchDetails: NoteFetchDetails, data: NoteFeatureCollection,
+		fetchDetails: NoteFetchDetails, downloadedNotes: Note[],
 		$moreContainer: HTMLElement
 	): boolean
 }
 
-export class NoteSearchFetcher extends NoteFetcher {
+abstract class NoteFeatureCollectionFetcher extends NoteFetcher {
+	protected accumulateDownloadedData(downloadedNotes: Note[], downloadedUsers: Users, data: any): boolean {
+		if (!isNoteFeatureCollection(data)) return false
+		const [newNotes,newUsers]=transformFeatureCollectionToNotesAndUsers(data)
+		downloadedNotes.push(...newNotes)
+		Object.assign(downloadedUsers,newUsers)
+		return true
+	}
+}
+
+export class NoteSearchFetcher extends NoteFeatureCollectionFetcher {
 	protected getRequestUrlBase(): string {
 		return `https://api.openstreetmap.org/api/0.6/notes/search`
 	}
 	protected getRequestUrlPathAndParameters(query: NoteQuery, limit: number): [path:string,parameters:string]|undefined {
 		if (query.mode!='search') return
-		return ['',getNextFetchDetails(query,limit).parametersList[0]]
+		return getNextFetchDetails(query,limit).pathAndParametersList[0]
 	}
 	protected getGetCycleFetchDetails(query: NoteQuery): (
 		(limit: number, lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined) => NoteFetchDetails
@@ -246,10 +259,10 @@ export class NoteSearchFetcher extends NoteFetcher {
 	}
 	protected continueCycle(
 		notes: Map<number,Note>,
-		fetchDetails: NoteFetchDetails, data: NoteFeatureCollection,
+		fetchDetails: NoteFetchDetails, downloadedNotes: Note[],
 		$moreContainer: HTMLElement
 	): boolean {
-		if (data.features.length<fetchDetails.limit) {
+		if (downloadedNotes.length<fetchDetails.limit) {
 			rewriteMessage($moreContainer,`Got all ${notes.size} notes`)
 			return false
 		}
@@ -257,7 +270,7 @@ export class NoteSearchFetcher extends NoteFetcher {
 	}
 }
 
-export class NoteBboxFetcher extends NoteFetcher {
+export class NoteBboxFetcher extends NoteFeatureCollectionFetcher {
 	protected getRequestUrlBase(): string {
 		return `https://api.openstreetmap.org/api/0.6/notes`
 	}
@@ -274,13 +287,13 @@ export class NoteBboxFetcher extends NoteFetcher {
 		if (query.mode!='bbox') return
 		const parametersWithoutLimit=this.getRequestUrlParametersWithoutLimit(query)
 		return (limit,lastNote,prevLastNote,lastLimit)=>({
-			parametersList: [parametersWithoutLimit+e`&limit=${limit}`],
+			pathAndParametersList: [['',parametersWithoutLimit+e`&limit=${limit}`]],
 			limit
 		})
 	}
 	protected continueCycle(
 		notes: Map<number,Note>,
-		fetchDetails: NoteFetchDetails, data: NoteFeatureCollection,
+		fetchDetails: NoteFetchDetails, downloadedNotes: Note[],
 		$moreContainer: HTMLElement
 	): boolean {
 		if (notes.size<fetchDetails.limit) {
@@ -323,6 +336,7 @@ export class NoteIdsFetcher extends NoteFetcher {
 						skip=false
 					}
 				}
+				// parametersList.push() // TODO
 			}
 			return {
 				parametersList,

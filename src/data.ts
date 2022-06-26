@@ -14,6 +14,7 @@ export function isNoteFeatureCollection(data: any): data is NoteFeatureCollectio
  * single note as received from the server
  */
 export interface NoteFeature {
+	type: "Point"
 	geometry: {
 		coordinates: [lon: number, lat: number]
 	}
@@ -22,6 +23,10 @@ export interface NoteFeature {
 		status: 'open' | 'closed' | 'hidden'
 		comments: NoteFeatureComment[]
 	}
+}
+
+export function isNoteFeature(data: any): data is NoteFeature {
+	return data.type=="Point"
 }
 
 /**
