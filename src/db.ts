@@ -116,7 +116,7 @@ export default class NoteViewerDB {
 			tx.onerror=()=>reject(new Error(`Database read error: ${tx.error}`))
 		})
 	}
-	save(fetch: FetchEntry, allNotes: Note[], newNotes: Note[], allUsers: Users, newUsers: Users): Promise<void> {
+	save(fetch: FetchEntry, allNotes: Iterable<Note>, newNotes: Note[], allUsers: Users, newUsers: Users): Promise<void> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
 		const timestamp=Date.now()
 		return new Promise((resolve,reject)=>{
@@ -150,7 +150,7 @@ export default class NoteViewerDB {
 			}
 			tx.oncomplete=()=>resolve()
 			tx.onerror=()=>reject(new Error(`Database save error: ${tx.error}`))
-			function writeNotesAndUsers(sequenceNumber: number, notes: Note[], users: Users) {
+			function writeNotesAndUsers(sequenceNumber: number, notes: Iterable<Note>, users: Users) {
 				for (const note of notes) {
 					sequenceNumber++
 					const noteEntry: NoteEntry = {

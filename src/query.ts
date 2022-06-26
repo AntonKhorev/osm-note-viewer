@@ -142,6 +142,9 @@ export function makeNoteQueryFromHash(queryString: string): NoteQuery | undefine
 	}
 }
 
+/**
+ * @returns query string that can be stored in url/db or empty string if the query is not supposed to be stored
+ */
 export function makeNoteQueryString(query: NoteQuery, withMode: boolean = true): string {
 	const parameters:Array<[string,string|number]>=[]
 	if (withMode) parameters.push(['mode',query.mode])
@@ -166,6 +169,8 @@ export function makeNoteQueryString(query: NoteQuery, withMode: boolean = true):
 			['bbox',query.bbox],
 			['closed',query.closed]
 		)
+	} else {
+		return ''
 	}
 	return parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
 }
@@ -176,6 +181,7 @@ export interface NoteFetchDetails {
 }
 
 /**
+ * Get (next) date-windowed query, which is only relevant for note search queries for now
  * @returns fd.parameters - url parameters in this order: 
                             user OR display_name;
                             q;

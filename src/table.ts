@@ -147,7 +147,7 @@ export default class NoteTable {
 	/**
 	 * @returns number of added notes that passed through the filter
 	 */
-	addNotes(notes: Note[], users: Users): number {
+	addNotes(notes: Iterable<Note>, users: Users): number {
 		// remember notes and users
 		for (const note of notes) {
 			this.notesById.set(note.id,note)

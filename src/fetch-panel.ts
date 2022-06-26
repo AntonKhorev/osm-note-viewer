@@ -41,7 +41,7 @@ export default class NoteFetchPanel {
 		bboxDialog.write($container,$sharedCheckboxes,hashQuery)
 		// const idsFetcher=new NoteIdsFetcher() // TODO
 		const xmlDialog=new NoteXmlFetchDialog((query,limit)=>[],(query)=>{
-			// modifyHistory(query,true) // not saving the query for now
+			modifyHistory(query,true)
 			console.log(`TODO run fetcher for query`,query) // runStartFetcher(query,true)
 		})
 		// xmlDialog.$limitSelect.addEventListener('input',()=>idsFetcher.limitWasUpdated())
@@ -132,7 +132,11 @@ export default class NoteFetchPanel {
 }
 
 function modifyHistory(query: NoteQuery | undefined, push: boolean): void {
-	const canonicalQueryHash = query ? '#'+makeNoteQueryString(query) : ''
+	let canonicalQueryHash=''
+	if (query) {
+		const queryString=makeNoteQueryString(query)
+		if (queryString) canonicalQueryHash='#'+queryString
+	}
 	if (canonicalQueryHash!=location.hash) {
 		const url=canonicalQueryHash||location.pathname+location.search
 		if (push) {
