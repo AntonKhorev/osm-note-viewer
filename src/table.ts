@@ -149,7 +149,9 @@ export default class NoteTable {
 	 */
 	addNotes(notes: Iterable<Note>, users: Users): number {
 		// remember notes and users
+		const noteSequence: Note[] = []
 		for (const note of notes) {
+			noteSequence.push(note)
 			this.notesById.set(note.id,note)
 		}
 		for (const [uid,username] of Object.entries(users)) {
@@ -158,7 +160,7 @@ export default class NoteTable {
 		// output table
 		let nUnfilteredNotes=0
 		const getUsername=(uid:number)=>users[uid]
-		for (const note of notes) {
+		for (const note of noteSequence) {
 			const isVisible=this.filter.matchNote(note,getUsername)
 			if (isVisible) nUnfilteredNotes++
 			const $noteSection=this.writeNote(note,isVisible)

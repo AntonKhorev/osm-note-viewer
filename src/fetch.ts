@@ -10,6 +10,54 @@ const maxSingleAutoLoadLimit=200
 const maxTotalAutoLoadLimit=1000
 const maxFullyFilteredFetches=10
 
+class FetchState {
+	// fetch state
+	readonly notes = new Map<number,Note>()
+	readonly users: Users = {}
+	lastNote: Note | undefined
+	prevLastNote: Note | undefined
+	lastLimit: number | undefined
+	recordInitialData( // TODO make it ctor
+		initialNotes: Note[], initialUsers: Users
+	) {
+		this.recordData(initialNotes,initialUsers)
+	}
+	recordCycleData(
+		newNotes: Note[], newUsers: Users, usedLimit: number
+	): [
+		unseenNotes: Note[], unseenUsers: Users
+	] {
+		return this.recordData(newNotes,newUsers,usedLimit)
+	}
+	getNextCycleArguments(limit: number): [
+		limit: number, lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined
+	] {
+		return [limit,this.lastNote,this.prevLastNote,this.lastLimit]
+	}
+	private recordData(
+		newNotes: Note[], newUsers: Users, usedLimit?: number
+	): [
+		unseenNotes: Note[], unseenUsers: Users
+	] {
+		this.lastLimit=usedLimit
+		this.prevLastNote=this.lastNote
+		const unseenNotes: Note[] = []
+		const unseenUsers: Users ={}
+		for (const note of newNotes) {
+			if (this.notes.has(note.id)) continue
+			this.notes.set(note.id,note)
+			this.lastNote=note
+			unseenNotes.push(note)
+		}
+		for (const newUserIdString in newUsers) {
+			const newUserId=Number(newUserIdString) // TODO rewrite this hack
+			if (this.users[newUserId]!=newUsers[newUserId]) unseenUsers[newUserId]=newUsers[newUserId]
+		}
+		Object.assign(this.users,newUsers)
+		return [unseenNotes,unseenUsers]
+	}
+}
+
 abstract class NoteFetcher {
 	getRequestUrls(query: NoteQuery, limit: number): [type: string, url: string][] {
 		const pathAndParameters=this.getRequestUrlPathAndParameters(query,limit)
@@ -46,31 +94,7 @@ abstract class NoteFetcher {
 		this.resetLimitUpdater()
 		const getCycleFetchDetails=this.getGetCycleFetchDetails(query)
 		if (!getCycleFetchDetails) return // shouldn't happen
-
-		// fetch state
-		const notes = new Map<number,Note>()
-		const users: Users = {}
-		let lastNote: Note | undefined
-		let prevLastNote: Note | undefined
-		let lastLimit: number | undefined
-		const mergeNotesAndUsers = (newNotes: Note[], newUsers: Users): [unseenNotes: Note[], unseenUsers: Users] => {
-			prevLastNote=lastNote
-			const unseenNotes: Note[] = []
-			const unseenUsers: Users ={}
-			for (const note of newNotes) {
-				if (notes.has(note.id)) continue
-				notes.set(note.id,note)
-				lastNote=note
-				unseenNotes.push(note)
-			}
-			for (const newUserIdString in newUsers) {
-				const newUserId=Number(newUserIdString) // TODO rewrite this hack
-				if (users[newUserId]!=newUsers[newUserId]) unseenUsers[newUserId]=newUsers[newUserId]
-			}
-			Object.assign(users,newUsers)
-			return [unseenNotes,unseenUsers]
-		}
-
+		const fetchState=new FetchState()
 		const queryString=makeNoteQueryString(query)
 		const fetchEntry: FetchEntry|null = await(async()=>{
 			if (!queryString) return null
@@ -78,7 +102,7 @@ abstract class NoteFetcher {
 				return await db.clear(queryString)
 			} else {
 				const [fetchEntry,initialNotes,initialUsers]=await db.load(queryString) // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
-				mergeNotesAndUsers(initialNotes,initialUsers)
+				fetchState.recordInitialData(initialNotes,initialUsers)
 				return fetchEntry
 			}
 		})()
@@ -87,7 +111,7 @@ abstract class NoteFetcher {
 		const rewriteLoadMoreButton=(): HTMLButtonElement => {
 			this.limitUpdater=()=>{
 				const limit=getLimit($limitSelect)
-				const fetchDetails=getCycleFetchDetails(limit,lastNote,prevLastNote,lastLimit)
+				const fetchDetails=getCycleFetchDetails(...fetchState.getNextCycleArguments(limit))
 				const url=this.getRequestUrlBase()+`.json?`+fetchDetails.parameters
 				this.$requestOutput.replaceChildren(makeElement('code')()(
 					makeLink(url,url)
@@ -107,7 +131,7 @@ abstract class NoteFetcher {
 		const fetchCycle=async()=>{
 			rewriteLoadingButton()
 			const limit=getLimit($limitSelect)
-			const fetchDetails=getCycleFetchDetails(limit,lastNote,prevLastNote,lastLimit)
+			const fetchDetails=getCycleFetchDetails(...fetchState.getNextCycleArguments(limit))
 			if (fetchDetails==null) return
 			if (fetchDetails.limit>10000) {
 				rewriteMessage($moreContainer,`Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`)
@@ -127,20 +151,19 @@ abstract class NoteFetcher {
 					rewriteMessage($moreContainer,`Received invalid data`)
 					return
 				}
-				const [unseenNotes,unseenUsers]=mergeNotesAndUsers(...transformFeatureCollectionToNotesAndUsers(data))
-				lastLimit=fetchDetails.limit
-				if (fetchEntry) await db.save(fetchEntry,notes.values(),unseenNotes,users,unseenUsers)
-				if (!noteTable && notes.size<=0) {
+				const [unseenNotes,unseenUsers]=fetchState.recordCycleData(...transformFeatureCollectionToNotesAndUsers(data),fetchDetails.limit)
+				if (fetchEntry) await db.save(fetchEntry,fetchState.notes.values(),unseenNotes,fetchState.users,unseenUsers)
+				if (!noteTable && fetchState.notes.size<=0) {
 					rewriteMessage($moreContainer,`No matching notes found`)
 					return
 				}
-				addNewNotes(unseenNotes)
-				if (!this.continueCycle(notes,fetchDetails,data,$moreContainer)) return
-				const nextFetchDetails=getCycleFetchDetails(limit,lastNote,prevLastNote,lastLimit)
+				addNewNotesToTable(unseenNotes)
+				if (!this.continueCycle(fetchState.notes,fetchDetails,data,$moreContainer)) return
+				const nextFetchDetails=getCycleFetchDetails(...fetchState.getNextCycleArguments(limit))
 				const $moreButton=rewriteLoadMoreButton()
 				if (holdOffAutoLoad) {
 					holdOffAutoLoad=false
-				} else if (notes.size>maxTotalAutoLoadLimit) {
+				} else if (fetchState.notes.size>maxTotalAutoLoadLimit) {
 					$moreButton.append(` (no auto download because displaying more than ${maxTotalAutoLoadLimit} notes)`)
 				} else if (nextFetchDetails.limit>maxSingleAutoLoadLimit) {
 					$moreButton.append(` (no auto download because required batch is larger than ${maxSingleAutoLoadLimit})`)
@@ -169,8 +192,8 @@ abstract class NoteFetcher {
 			}
 		}
 		if (!clearStore) {
-			addNewNotes(notes.values())
-			if (notes.size>0) {
+			addNewNotesToTable(fetchState.notes.values())
+			if (fetchState.notes.size>0) {
 				rewriteLoadMoreButton()
 			} else {
 				holdOffAutoLoad=true // db was empty; expected to show something => need to fetch; not expected to autoload
@@ -179,8 +202,8 @@ abstract class NoteFetcher {
 		} else {
 			await fetchCycle()
 		}
-		function addNewNotes(newNotes: Iterable<Note>) {
-			const nUnfilteredNotes=noteTable.addNotes(newNotes,users)
+		function addNewNotesToTable(newNotes: Iterable<Note>) {
+			const nUnfilteredNotes=noteTable.addNotes(newNotes,fetchState.users)
 			if (nUnfilteredNotes==0) {
 				nFullyFilteredFetches++
 			} else {
