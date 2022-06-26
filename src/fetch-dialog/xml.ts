@@ -3,10 +3,9 @@ import {NoteQuery, NoteIdsQuery} from '../query'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../util'
 
 const em=(...ss: Array<string|HTMLElement>)=>makeElement('em')()(...ss)
-const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
 
 export class NoteXmlFetchDialog extends NoteFetchDialog {
-	title=`Load an xml file containing note ids, then fetch them`
+	title=`Load an XML file containing note ids, then fetch them`
 	private $neisForm=document.createElement('form')
 	private $neisCountryInput=document.createElement('input')
 	private $neisStatusSelect=document.createElement('select')
@@ -32,6 +31,13 @@ export class NoteXmlFetchDialog extends NoteFetchDialog {
 	protected writePrependedFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void {
 		$legend.textContent=`Get note feed from resultmaps.neis-one.org`
 		{
+			$fieldset.append(makeDiv()(makeElement('p')()(
+				`Select a country and a note status, then click `,em(`Download feed file`),`. `,
+				`This will download the feed and set the `,em(`selector`),` and `,em(`attribute`),` fields below aimed at extracting note ids. `,
+				`After this you can open the file by clicking `,em(`Read XML file`),` area and picking the file using the dialog. `,
+				`Alternatively, which is likely a faster way, drag the file from downloads panel/window of the browser and drop it in `,em(`Read XML file`),` area. `,
+				`Unfortunately this step of downloading/opening a file cannot be avoided because `,makeLink(`neis-one.org`,`https://resultmaps.neis-one.org/osm-notes`),` server is not configured to let its data to be accessed by browser scripts.`
+			)))
 			this.$neisCountryInput.type='text'
 			this.$neisCountryInput.required=true
 			this.$neisCountryInput.classList.add('no-invalid-indication') // because it's inside another form that doesn't require it, don't indicate that it's invalid
