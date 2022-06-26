@@ -14,7 +14,7 @@ export function isNoteFeatureCollection(data: any): data is NoteFeatureCollectio
  * single note as received from the server
  */
 export interface NoteFeature {
-	type: "Point"
+	type: "Feature"
 	geometry: {
 		coordinates: [lon: number, lat: number]
 	}
@@ -26,7 +26,7 @@ export interface NoteFeature {
 }
 
 export function isNoteFeature(data: any): data is NoteFeature {
-	return data.type=="Point"
+	return data.type=="Feature"
 }
 
 /**
@@ -65,16 +65,26 @@ export interface Users {
 	[uid: number]: string | undefined
 }
 
-export function transformFeatureCollectionToNotesAndUsers(data: NoteFeatureCollection): [Note[], Users] {
+export function transformFeatureCollectionToNotesAndUsers(noteFeatureCollection: NoteFeatureCollection): [Note[], Users] {
 	const users: Users = {}
-	const notes=data.features.map(noteFeature=>({ // TODO make sure note has at least one comment
+	const notes=noteFeatureCollection.features.map(noteFeature=>transformFeatureToNote(noteFeature,users))
+	return [notes,users]
+}
+
+export function transformFeatureToNotesAndUsers(noteFeature: NoteFeature): [Note[], Users] {
+	const users: Users = {}
+	const notes=[transformFeatureToNote(noteFeature,users)]
+	return [notes,users]
+}
+
+function transformFeatureToNote(noteFeature: NoteFeature, users: Users): Note {
+	return { // TODO make sure note has at least one comment
 		id: noteFeature.properties.id,
 		lat: noteFeature.geometry.coordinates[1],
 		lon: noteFeature.geometry.coordinates[0],
 		status: noteFeature.properties.status,
 		comments: noteFeature.properties.comments.map(cullCommentProps)
-	}))
-	return [notes,users]
+	}
 	function cullCommentProps(a: NoteFeatureComment): NoteComment {
 		const b:NoteComment={
 			date: transformDate(a.date),

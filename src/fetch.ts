@@ -1,5 +1,5 @@
 import NoteViewerDB, {FetchEntry} from './db'
-import {Note, Users, isNoteFeatureCollection, isNoteFeature, transformFeatureCollectionToNotesAndUsers, NoteFeatureCollection} from './data'
+import {Note, Users, isNoteFeatureCollection, isNoteFeature, transformFeatureCollectionToNotesAndUsers, transformFeatureToNotesAndUsers} from './data'
 import {NoteQuery, NoteFetchDetails, getNextFetchDetails, makeNoteQueryString, NoteBboxQuery} from './query'
 import NoteTable from './table'
 import {makeElement, makeDiv, makeLink, makeEscapeTag} from './util'
@@ -305,7 +305,6 @@ export class NoteBboxFetcher extends NoteFeatureCollectionFetcher {
 	}
 }
 
-/*
 export class NoteIdsFetcher extends NoteFetcher {
 	protected getRequestUrlBase(): string {
 		return `https://api.openstreetmap.org/api/0.6/notes/`
@@ -323,9 +322,9 @@ export class NoteIdsFetcher extends NoteFetcher {
 		for (const id of query.ids) uniqueIds.add(id)
 		return (limit,lastNote,prevLastNote,lastLimit)=>{
 			let skip=true
-			const parametersList: string[] = []
+			const pathAndParametersList: [path: string, parameters: string][] = []
 			for (const id of uniqueIds) {
-				if (parametersList.length>=limit) break
+				if (pathAndParametersList.length>=limit) break
 				if (skip) {
 					if (lastNote) {
 						if (id==lastNote.id) {
@@ -336,16 +335,33 @@ export class NoteIdsFetcher extends NoteFetcher {
 						skip=false
 					}
 				}
-				// parametersList.push() // TODO
+				pathAndParametersList.push([String(id),''])
 			}
 			return {
-				parametersList,
+				pathAndParametersList,
 				limit
 			}
 		}
 	}
+	protected accumulateDownloadedData(downloadedNotes: Note[], downloadedUsers: Users, data: any): boolean {
+		if (!isNoteFeature(data)) return false
+		const [newNotes,newUsers]=transformFeatureToNotesAndUsers(data)
+		downloadedNotes.push(...newNotes)
+		Object.assign(downloadedUsers,newUsers)
+		return true
+	}
+	protected continueCycle(
+		notes: Map<number,Note>,
+		fetchDetails: NoteFetchDetails, downloadedNotes: Note[],
+		$moreContainer: HTMLElement
+	): boolean {
+		if (downloadedNotes.length<fetchDetails.limit) {
+			rewriteMessage($moreContainer,`Got all ${notes.size} notes`)
+			return false
+		}
+		return true
+	}
 }
-*/
 
 function rewriteMessage($container: HTMLElement, ...items: Array<string>): HTMLElement {
 	$container.innerHTML=''

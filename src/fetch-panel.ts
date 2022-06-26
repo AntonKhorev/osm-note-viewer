@@ -6,7 +6,7 @@ import NoteTable from './table'
 import NoteFilterPanel from './filter-panel'
 import ToolPanel from './tool-panel'
 import {NoteQuery, makeNoteQueryFromHash, makeNoteQueryString} from './query'
-import {NoteSearchFetcher, NoteBboxFetcher} from './fetch'
+import {NoteSearchFetcher, NoteBboxFetcher, NoteIdsFetcher} from './fetch'
 import {NoteFetchDialogSharedCheckboxes, NoteSearchFetchDialog, NoteBboxFetchDialog, NoteXmlFetchDialog} from './fetch-dialog'
 
 export default class NoteFetchPanel {
@@ -39,12 +39,12 @@ export default class NoteFetchPanel {
 		},map)
 		bboxDialog.$limitSelect.addEventListener('input',()=>bboxFetcher.limitWasUpdated())
 		bboxDialog.write($container,$sharedCheckboxes,hashQuery)
-		// const idsFetcher=new NoteIdsFetcher() // TODO
+		const idsFetcher=new NoteIdsFetcher()
 		const xmlDialog=new NoteXmlFetchDialog((query,limit)=>[],(query)=>{
 			modifyHistory(query,true)
-			console.log(`TODO run fetcher for query`,query) // runStartFetcher(query,true)
+			runStartFetcher(query,true)
 		})
-		// xmlDialog.$limitSelect.addEventListener('input',()=>idsFetcher.limitWasUpdated())
+		xmlDialog.$limitSelect.addEventListener('input',()=>idsFetcher.limitWasUpdated())
 		xmlDialog.write($container,$sharedCheckboxes,hashQuery)
 		
 		handleSharedCheckboxes($sharedCheckboxes.showImages,state=>noteTable?.setShowImages(state))
@@ -85,7 +85,7 @@ export default class NoteFetchPanel {
 		function runStartFetcher(query: NoteQuery | undefined, clearStore: boolean): void {
 			figureDialog.close()
 			resetNoteDependents()
-			if (query?.mode!='search' && query?.mode!='bbox') return
+			if (query?.mode!='search' && query?.mode!='bbox' && query?.mode!='ids') return
 			filterPanel.unsubscribe()
 			const toolPanel=new ToolPanel($toolContainer,map,figureDialog,storage)
 			noteTable=new NoteTable(
@@ -110,6 +110,16 @@ export default class NoteFetchPanel {
 					noteTable,$moreContainer,
 					bboxDialog.$limitSelect,{checked:false},
 					(disabled: boolean) => bboxDialog.$fetchButton.disabled=disabled,
+					moreButtonIntersectionObservers,
+					query,
+					clearStore
+				)
+			} else if (query?.mode=='ids') { // TODO pass dialog; problems: different autoload checkboxes and fetch buttons/file inputs
+				idsFetcher.start(
+					db,
+					noteTable,$moreContainer,
+					xmlDialog.$limitSelect,xmlDialog.$autoLoadCheckbox,
+					(disabled: boolean) => xmlDialog.$fetchFileInput.disabled=disabled,
 					moreButtonIntersectionObservers,
 					query,
 					clearStore
