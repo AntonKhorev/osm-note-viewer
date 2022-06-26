@@ -3,6 +3,10 @@ import {NoteQuery, NoteIdsQuery} from '../query'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../util'
 
 const em=(...ss: Array<string|HTMLElement>)=>makeElement('em')()(...ss)
+const p=(...ss: Array<string|HTMLElement>)=>makeElement('p')()(...ss)
+const ol=(...ss: Array<string|HTMLElement>)=>makeElement('ol')()(...ss)
+const ul=(...ss: Array<string|HTMLElement>)=>makeElement('ul')()(...ss)
+const li=(...ss: Array<string|HTMLElement>)=>makeElement('li')()(...ss)
 
 export class NoteXmlFetchDialog extends NoteFetchDialog {
 	title=`Load an XML file containing note ids, then fetch them`
@@ -18,6 +22,7 @@ export class NoteXmlFetchDialog extends NoteFetchDialog {
 	protected writeExtraForms() {
 		this.$neisForm.id='neis-form'
 		this.$neisForm.action=`https://resultmaps.neis-one.org/osm-notes-country-feed`
+		this.$neisForm.target='_blank' // if browser chooses to navigate instead of download, open a new window; file download can't be forced without cooperation from server
 		this.$details.append(this.$neisForm)
 	}
 	protected makeFetchControlDiv(): HTMLDivElement {
@@ -31,13 +36,29 @@ export class NoteXmlFetchDialog extends NoteFetchDialog {
 	protected writePrependedFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void {
 		$legend.textContent=`Get note feed from resultmaps.neis-one.org`
 		{
-			$fieldset.append(makeDiv()(makeElement('p')()(
-				`Select a country and a note status, then click `,em(`Download feed file`),`. `,
-				`This will download the feed and set the `,em(`selector`),` and `,em(`attribute`),` fields below aimed at extracting note ids. `,
-				`After this you can open the file by clicking `,em(`Read XML file`),` area and picking the file using the dialog. `,
-				`Alternatively, which is likely a faster way, drag the file from downloads panel/window of the browser and drop it in `,em(`Read XML file`),` area. `,
-				`Unfortunately this step of downloading/opening a file cannot be avoided because `,makeLink(`neis-one.org`,`https://resultmaps.neis-one.org/osm-notes`),` server is not configured to let its data to be accessed by browser scripts.`
-			)))
+			$fieldset.append(makeDiv()(
+				ol(
+					li(
+						`Select a country and a note status, then click `,em(`Download feed file`),`. `,
+						`After this one of the following things will happen, depending on your browser: `,
+						ul(
+							li(`The feed file is downloaded, which is what you want.`),
+							li(`Browser opens a new tab with the feed file. In this case manually save the page.`)
+						),
+						`Also the `,em(`selector`),` and `,em(`attribute`),` fields below are updated to extract note ids from this feed.`
+					),
+					li(
+						`Open the file with one of these two methods: `,
+						ul(
+							li(`Click the `,em(`Read XML file`),` area and use a file picker dialog.`),
+							li(`Drag and drop the file from browser downloads panel/window into the `,em(`Read XML file`),` area. This is likely a faster method.`)
+						)
+					)
+				),
+				p(
+					`Unfortunately these steps of downloading/opening a file cannot be avoided because `,makeLink(`neis-one.org`,`https://resultmaps.neis-one.org/osm-notes`),` server is not configured to let its data to be accessed by browser scripts.`
+				)
+			))
 			this.$neisCountryInput.type='text'
 			this.$neisCountryInput.required=true
 			this.$neisCountryInput.classList.add('no-invalid-indication') // because it's inside another form that doesn't require it, don't indicate that it's invalid
@@ -56,10 +77,7 @@ export class NoteXmlFetchDialog extends NoteFetchDialog {
 			this.$neisStatusSelect.name='a'
 			this.$neisStatusSelect.setAttribute('form','neis-form')
 			this.$neisStatusSelect.append(
-				new Option('opened'),
-				new Option('commented'),
-				new Option('reopened'),
-				new Option('closed')
+				...neisStatuses.map(c=>new Option(c))
 			)
 			$fieldset.append(makeDiv()(
 				`Get `,makeLabel()(
@@ -188,6 +206,13 @@ export class NoteXmlFetchDialog extends NoteFetchDialog {
 		return []
 	}
 }
+
+const neisStatuses=[
+	'opened',
+	'commented',
+	'reopened',
+	'closed',
+]
 
 const neisCountries=[
 	'Afghanistan',
