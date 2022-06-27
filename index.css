@@ -2,6 +2,44 @@
 	--frame-color: #CCC;
 	--hover-color: #DEF;
 	--click-color: #FC8;
+	--info-color: #28F;
+	--info-stroke-color: #00F;
+	--error-color: #F00;
+	--error-background-color: #FCC;
+	--semi-link-color: #004;
+	--inset-background-color: #EEE;
+	--file-reader-background-color: #e9e9ed;
+	--file-reader-passive-border-color: #888;
+	--file-reader-active-border-color: #6A6;
+	--tag-key-background-color: #F8F8FF;
+	--popup-item-background: #F8F8F8;
+	--popup-main-item-background: #FFF;
+}
+@media (prefers-color-scheme: dark) {
+	:root {
+		--hover-color: #246;
+		--click-color: #A84;
+		--info-color: #26B;
+		--info-stroke-color: #008;
+		--error-color: #C00;
+		--error-background-color: #822;
+		--semi-link-color: #CCF;
+		--inset-background-color: #333;
+		--file-reader-background-color: #2b2a33;
+		--tag-key-background-color: #223;
+		--popup-item-background: #333;
+		--popup-main-item-background: #222;
+	}
+	.leaflet-container {
+		background: #888 !important;
+	}
+	.leaflet-container .leaflet-popup-content-wrapper a {
+		color: revert;
+	}
+	.leaflet-popup-content-wrapper {
+		background: #222 !important;
+		color: revert !important;
+	}
 }
 
 body > .symbols {
@@ -40,7 +78,7 @@ body.flipped .text-side {
 
 time.listened {
 	text-decoration: underline dotted 1px;
-	color: #004;
+	color: var(--semi-link-color);
 	cursor: pointer;
 }
 a.listened {
@@ -135,12 +173,10 @@ body.flipped .panel.fetch button.flip {
 }
 @keyframes tool-ping-fade {
 	from {
-		outline-color: #9CF;
-		outline-width: calc(var(--gap)/2);
+		outline-color: var(--click-color);
 	}
 	to {
-		outline-color: #FFF;
-		outline-width: 0;
+		outline-color: transparent;
 	}
 }
 .panel.command details.tool.ping {
@@ -160,7 +196,7 @@ body.flipped .panel.fetch button.flip {
 	text-align: center;
 }
 .panel.command details.tool summary:hover::before {
-	background: yellow;
+	background: var(--hover-color);
 }
 .panel.command details.tool[open] summary::before {
 	content: '−';
@@ -215,7 +251,7 @@ body.flipped .panel.fetch button.flip {
 	border-top: solid 1px #AAA;
 	border-bottom: solid 1px #AAA;
 	padding: 0 .5rem;
-	background: #DDD;
+	background: var(--inset-background-color);
 }
 .panel.command details.info p {
 	margin: .5rem 0;
@@ -252,7 +288,7 @@ body.flipped .panel.fetch button.flip {
 
 .panel input:invalid:not(.no-invalid-indication),
 .panel textarea:invalid:not(.no-invalid-indication) {
-	border: solid 2px red;
+	border: solid 2px var(--error-color);
 	border-radius: 3px;
 }
 .panel .major-input input[type=text],
@@ -285,17 +321,14 @@ body.flipped .panel.fetch button.flip {
 	right: 0;
 }
 .panel button.error {
-	color: red;
-	box-shadow: 0px 0px 0px 1px red;
+	color: var(--error-color);
+	box-shadow: 0px 0px 0px 1px var(--error-color);
 }
 .panel fieldset {
 	margin-left: 0;
 	margin-right: 0;
 }
 .panel .major-input label.file-reader {
-	--file-reader-background-color: #e9e9ed;
-	--file-reader-passive-border-color: #888;
-	--file-reader-active-border-color: #6A6;
 	--file-reader-border-width: 2px;
 }
 .panel .major-input label.file-reader {
@@ -395,13 +428,19 @@ body.flipped .notes td.note-user {
 	height: 16px;
 	vertical-align: text-top;
 }
-.notes td.note-action [class|=icon-open] {
+.notes td.note-action [class|=icon-status-open] {
 	--table-note-default-part-visibility: hidden;
 	--table-note-open-part-visibility: visible;
 }
-.notes td.note-action [class|=icon-closed] {
+.notes td.note-action [class|=icon-status-closed] {
 	--table-note-default-part-visibility: hidden;
 	--table-note-closed-part-visibility: visible;
+}
+.notes td.note-action [class|=icon-comments-count] text {
+	font-family: sans-serif;
+	font-size: 10px;
+	text-anchor: middle;
+	dominant-baseline: central;
 }
 .notes td.note-comment {
 	--comment-img-gap-size: 2px;
@@ -433,6 +472,19 @@ body.flipped .notes td.note-user {
 .notes table.with-images td.note-comment a.image.float {
 	display: block;
 }
+.notes table.only-first-comments tr:not(:first-child) {
+	display: none;
+}
+.notes table.only-first-comments td.note-action [class|=icon-status] {
+	display: none;
+}
+.notes table:not(.only-first-comments) td.note-action [class|=icon-comments-count] {
+	display: none;
+}
+.notes table.one-line-comments td.note-comment {
+	white-space: nowrap;
+	overflow: hidden;
+}
 
 .more div {
 	margin: 1em;
@@ -444,18 +496,18 @@ body.flipped .notes td.note-user {
 	padding: .3rem;
 }
 .more .error {
-	background: #FCC;
+	background: var(--error-background-color);
 }
 .more pre {
 	margin: 1rem 0 0 0;
 	padding: 1rem;
-	background: #CCC;
+	background: var(--inset-background-color);
 	overflow-x: scroll;
 }
 .examples dd {
 	margin: .5em 0 .5em 2em;
 	padding: .5em;
-	background: #EEE;
+	background: var(--inset-background-color);
 }
 .examples code {
 	white-space: pre-wrap;
@@ -484,13 +536,13 @@ body.flipped .notes td.note-user {
 	height: var(--item-height);
 	align-items: center;
 	padding-left: 5px;
-	background: #F8F8F8;
+	background: var(--popup-item-background);
 }
 .loose-parser-popup li.main a {
 	height: calc(2*var(--item-height));
 	border-top: solid 1px var(--frame-color);
 	border-bottom: solid 1px var(--frame-color);
-	background: #FFF;
+	background: var(--popup-main-item-background);
 }
 .loose-parser-popup a:link:hover {
 	background: var(--hover-color);
@@ -557,7 +609,7 @@ body.flipped .notes td.note-user {
 	border-top: solid 1px var(--frame-color);
 }
 .map .osm-element-popup-contents figure tr td:first-child {
-	background: #F8F8FF;
+	background: var(--tag-key-background-color);
 	border-right: solid 1px var(--frame-color);
 }
 .map .osm-element-popup-contents button {

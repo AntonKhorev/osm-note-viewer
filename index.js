@@ -1596,6 +1596,10 @@ class NoteTable {
         this.noteSectionLayerIdVisibility = new Map();
         this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
         this.usersById = new Map();
+        toolPanel.onCommentsViewChange = (onlyFirst, oneLine) => {
+            this.$table.classList.toggle('only-first-comments', onlyFirst);
+            this.$table.classList.toggle('one-line-comments', oneLine);
+        };
         const that = this;
         let $clickReadyNoteSection;
         this.wrappedNoteSectionListeners = [
@@ -1649,13 +1653,14 @@ class NoteTable {
             this.$selectAllCheckbox.title = `check/uncheck all`;
             this.$selectAllCheckbox.addEventListener('click', this.wrappedAllNotesCheckboxClickListener);
             $checkboxCell.append(this.$selectAllCheckbox);
-            $row.append($checkboxCell, makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), makeHeaderCell('?', `action performed along with adding the comment`), makeHeaderCell('comment'));
+            const $actionCell = makeHeaderCell('?');
+            $actionCell.title = `action performed along with adding the comment; number of comments`;
+            $actionCell.classList.add('note-action');
+            $row.append($checkboxCell, makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), $actionCell, makeHeaderCell('comment'));
         }
-        function makeHeaderCell(text, title) {
+        function makeHeaderCell(text) {
             const $cell = document.createElement('th');
             $cell.textContent = text;
-            if (title)
-                $cell.title = title;
             return $cell;
         }
         this.updateCheckboxDependents();
@@ -1775,11 +1780,17 @@ class NoteTable {
                     }
                 }
                 {
-                    const $cell = $row.insertCell();
-                    $cell.classList.add('note-action');
-                    $cell.innerHTML = `<svg class="icon-${getActionClass(comment.action)}">` +
+                    let svgs = `<svg class="icon-status-${getActionClass(comment.action)}">` +
                         `<title>${comment.action}</title><use href="#table-note" />` +
                         `</svg>`;
+                    if (note.comments.length > 1) {
+                        svgs += ` <svg class="icon-comments-count">` +
+                            `<title>number of additional comments</title><use href="#table-comments" /><text x="8" y="8">${note.comments.length - 1}</text>` +
+                            `</svg>`;
+                    }
+                    const $cell = $row.insertCell();
+                    $cell.classList.add('note-action');
+                    $cell.innerHTML = svgs;
                 }
                 {
                     const $cell = $row.insertCell();
@@ -2124,16 +2135,17 @@ const em$5 = (s) => makeElement('em')()(s);
 const dfn$1 = (s) => makeElement('dfn')()(s);
 const ul$2 = (...ss) => makeElement('ul')()(...ss);
 const li$2 = (...ss) => makeElement('li')()(...ss);
+const label = (...ss) => makeElement('label')('inline')(...ss);
 class AutozoomTool extends Tool {
     constructor() {
-        super('autozoom', `Automatic zoom`, `Pan and zoom the map to visible notes`);
+        super('autozoom', `Map autozoom`, `Pan and zoom the map to visible notes`);
     }
     getInfo() {
-        return [p$5(`Pan and zoom the map to notes in the table. `, `Can be used as `, em$5(`zoom to data`), ` for notes layer if `, dfn$1(`to all notes`), ` is selected. `), p$5(dfn$1(`To notes in table view`), ` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `, `This option is convenient to use when `, em$5(`Track between notes`), ` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`)];
+        return [p$5(`Pan and zoom the map to notes in the table. `, `Can be used as `, em$5(`zoom to data`), ` for notes layer if `, dfn$1(`to all visible notes`), ` is selected. `), p$5(dfn$1(`To notes on screen in table`), ` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `, `This option is convenient to use when `, em$5(`Track between notes`), ` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`)];
     }
     getTool(callbacks, map) {
         const $fitModeSelect = document.createElement('select');
-        $fitModeSelect.append(new Option('is disabled', 'none'), new Option('to notes in table view', 'inViewNotes'), new Option('to all notes', 'allNotes'));
+        $fitModeSelect.append(new Option('is disabled', 'none'), new Option('to notes on screen in table', 'inViewNotes'), new Option('to all visible notes', 'allNotes'));
         $fitModeSelect.onchange = () => {
             if ($fitModeSelect.value == 'allNotes') {
                 callbacks.onFitModeChange(this, $fitModeSelect.value);
@@ -2148,6 +2160,25 @@ class AutozoomTool extends Tool {
             }
         };
         return [$fitModeSelect];
+    }
+}
+class CommentsTool extends Tool {
+    constructor() {
+        super('comments', `Table comments`, `Change how comments are displayed in notes table`);
+    }
+    getTool(callbacks, map) {
+        const $onlyFirstCommentsCheckbox = document.createElement('input');
+        $onlyFirstCommentsCheckbox.type = 'checkbox';
+        const $oneLineCommentsCheckbox = document.createElement('input');
+        $oneLineCommentsCheckbox.type = 'checkbox';
+        $onlyFirstCommentsCheckbox.onchange = $oneLineCommentsCheckbox.onchange = () => {
+            callbacks.onCommentsViewChange(this, $onlyFirstCommentsCheckbox.checked, $oneLineCommentsCheckbox.checked);
+        };
+        return [
+            `show `,
+            label($onlyFirstCommentsCheckbox, ` only 1st`), `; `,
+            label($oneLineCommentsCheckbox, ` on 1 line`),
+        ];
     }
 }
 class TimestampTool extends Tool {
@@ -2895,7 +2926,8 @@ class MapillaryTool extends StreetViewTool {
 }
 
 const toolMakerSequence = [
-    () => new AutozoomTool, () => new TimestampTool, () => new ParseTool,
+    () => new AutozoomTool, () => new CommentsTool,
+    () => new TimestampTool, () => new ParseTool,
     () => new OverpassTurboTool, () => new OverpassDirectTool,
     () => new RcTool, () => new IdTool,
     () => new GpxTool, () => new GeoJsonTool,
@@ -2942,6 +2974,7 @@ class ToolPanel {
         const tools = [];
         const toolCallbacks = {
             onFitModeChange: (fromTool, fitMode) => __classPrivateFieldSet(this, _ToolPanel_fitMode, fitMode, "f"),
+            onCommentsViewChange: (fromTool, onlyFirst, oneLine) => this.onCommentsViewChange?.(onlyFirst, oneLine),
             onTimestampChange: (fromTool, timestamp) => {
                 this.toolBroadcaster.broadcastTimestampChange(fromTool, timestamp);
             },

@@ -2,6 +2,8 @@
 <html lang=en>
 <head>
 <meta charset=utf-8>
+<meta name=color-scheme content='light dark'>
+<link rel=icon href="data:image/svg+xml;charset=utf-8;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9Ii0xNi41IC0xNi41IDMzIDQ0Ij48cGF0aCBkPSJNMCwyNy41IEwtMTMuMDEsOS4zMSBBMTYsMTYgMCAxIDEgMTMuMDEsOS4zMSBaIiBzdHJva2U9IiMwNDgiIGZpbGw9IiNGRkYiPjwvcGF0aD48cGF0aCBkPSJNMCwyNy41IEwtMTEuMTMsNS42OCBBMTIuNSwxMi41IDAgMSAxIDExLjEzLDUuNjggWiIgZmlsbD0iZ3JlZW4iPjwvcGF0aD48Y2lyY2xlIHI9IjMiIGZpbGw9IndoaXRlIiBzdHJva2U9IndoaXRlIj48L2NpcmNsZT48L3N2Zz4=">
 <link rel=stylesheet href=index.css>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" crossorigin="" />
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
@@ -22,30 +24,46 @@
 </style>
 <symbol id="flip" viewBox="-32 -32 64 64">
 <defs>
-<g id="flip-hor-back" stroke="#444" stroke-width="2">
-<path d="M 31,1 V 25 A 6,6 0 0 1 25,31 H -25 A 6,6 0 0 1 -31,25 V 1 Z" fill="#CE8" />
+<filter id="flip-map-surface">
+<feTurbulence result="turbulence" baseFrequency="0.05" />
+<feComposite operator="atop" in="turbulence" in2="SourceGraphic" />
+</filter>
+<path id="flip-map-shape" d="M 31,1 V 25 A 6,6 0 0 1 25,31 H -25 A 6,6 0 0 1 -31,25 V 1 Z"/>
+<g id="flip-background" stroke="#444" stroke-width="2">
+<use href="#flip-map-shape" stroke="none" fill="#CE8" filter="url(#flip-map-surface)" />
+<use href="#flip-map-shape" fill="none" />
 <path d="M -31 1 V -25 A 6,6 0 0 1 -25,-31 H 25 A 6,6 0 0 1 31,-25 V 1" fill="none" />
 </g>
-<g id="flip-hor-row" stroke="#AAA" stroke-width="4">
-<path d="M -24,0 H 24" />
+<path id="flip-hor-row" d="M -24,0 H 24" stroke="#CCC" stroke-width="4" />
+<path id="flip-ver-row" d="M -24,0 H -6" stroke="#CCC" stroke-width="4" />
+<g id="flip-arrow" fill="none" stroke-linecap="square" >
+<path d="M 7,-23 a 16,16 0 0 1 16,16 v 2" />
+<path d="M 9,-27 l -4,4 l 4,4" />
 </g>
-<g id="flip-ver-row" stroke="#AAA" stroke-width="4">
-<path d="M -24,0 H -6" />
+<g id="flip-arrow-pair">
+<use href="#flip-arrow" />
+<use href="#flip-arrow" transform="scale(-1)" />
+</g>
+<g id="flip-arrow-pair-outlined">
+<use href="#flip-arrow-pair" stroke="#FFF" stroke-width="4" />
+<use href="#flip-arrow-pair" stroke="#000" stroke-width="2" />
 </g>
 </defs>
 <g class="hor">
-<use href="#flip-hor-back" />
+<use href="#flip-background" />
 <use href="#flip-hor-row" y="-22" />
 <use href="#flip-hor-row" y="-14" />
 <use href="#flip-hor-row" y="-6" />
+<use href="#flip-arrow-pair-outlined" transform="matrix(0,1,1,0,0,0)" />
 </g>
 <g class="ver">
-<use href="#flip-hor-back" transform="rotate(-90)" />
+<use href="#flip-background" transform="rotate(-90)" />
 <use href="#flip-ver-row" y="-16" />
 <use href="#flip-ver-row" y="-8" />
 <use href="#flip-ver-row" y="0" />
 <use href="#flip-ver-row" y="8" />
 <use href="#flip-ver-row" y="16" />
+<use href="#flip-arrow-pair-outlined" />
 </g>
 </symbol>
 <symbol id="map-crosshair" viewBox="-7.5 -7.5 15 15">
@@ -62,6 +80,13 @@
 <g stroke-width="6" stroke="#FFF" stroke-linecap="round">
 <line x1="-15" y1="-15" x2="15" y2="15" />
 <line x1="-15" y1="15" x2="15" y2="-15" />
+</g>
+</symbol>
+<symbol id="table-comments" viewBox="-16 -16 32 32">
+<g stroke="#444" stroke-width="2" fill="#FFF" >
+<rect width="30" height="22" x="-15" y="-11" rx="4"/>
+<path d="M 7,10 v 1 a 4,4 0 0 0 4,4 a 8,4 0 0 1 -8,-4 v -1" />
+</g>
 </symbol>
 <symbol id="table-note" viewBox="-16 -16 32 32">
 <g stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
@@ -83,12 +108,12 @@
 </symbol>
 <symbol id="tools-info" viewBox="-10 -10 20 29">
 <g stroke="white" stroke-width="2" stroke-linecap="square">
-<circle r="8" fill="#28F" stroke="none" />
+<circle r="8" fill="var(--info-color,#28F)" stroke="none" />
 <line x1="0" x2="0" y1="0" y2="4" />
 <line x1="-2" x2="2" y1="4" y2="4" />
 <line x1="-2" x2="0" y1="0" y2="0" />
 <circle fill="white" r=".8" cy="-4" />
-<g stroke="blue" stroke-linecap="round">
+<g stroke="var(--info-stroke-color,#00F)" stroke-linecap="round">
 <g class="hover">
 <circle r="9" fill="none" />
 </g>
@@ -99,7 +124,7 @@
 </g>
 </g>
 <g class="tip">
-<path d="M-8.5,19 l8.5,-8.5 l8.5,8.5 z" fill="#DDD" stroke="none" />
+<path d="M-8.5,19 l8.5,-8.5 l8.5,8.5 z" fill="var(--inset-background-color,#EEE)" stroke="none" />
 <path d="M-10,18.5 h2 l8,-8 l8,8 h2" fill="none" stroke="#AAA" stroke-width="1" />
 </g>
 </symbol>
