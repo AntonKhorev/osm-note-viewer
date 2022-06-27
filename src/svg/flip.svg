@@ -4,20 +4,14 @@
 <feTurbulence result="turbulence" baseFrequency="0.05" />
 <feComposite operator="atop" in="turbulence" in2="SourceGraphic" />
 </filter>
-<g id="flip-map-shape">
-<path d="M 31,1 V 25 A 6,6 0 0 1 25,31 H -25 A 6,6 0 0 1 -31,25 V 1 Z"/>
-</g>
+<path id="flip-map-shape" d="M 31,1 V 25 A 6,6 0 0 1 25,31 H -25 A 6,6 0 0 1 -31,25 V 1 Z"/>
 <g id="flip-background" stroke="#444" stroke-width="2">
 <use href="#flip-map-shape" stroke="none" fill="#CE8" filter="url(#flip-map-surface)" />
 <use href="#flip-map-shape" fill="none" />
 <path d="M -31 1 V -25 A 6,6 0 0 1 -25,-31 H 25 A 6,6 0 0 1 31,-25 V 1" fill="none" />
 </g>
-<g id="flip-hor-row" stroke="#CCC" stroke-width="4">
-<path d="M -24,0 H 24" />
-</g>
-<g id="flip-ver-row" stroke="#CCC" stroke-width="4">
-<path d="M -24,0 H -6" />
-</g>
+<path id="flip-hor-row" d="M -24,0 H 24" stroke="#CCC" stroke-width="4" />
+<path id="flip-ver-row" d="M -24,0 H -6" stroke="#CCC" stroke-width="4" />
 <g id="flip-arrow" fill="none" stroke-linecap="square" >
 <path d="M 7,-23 a 16,16 0 0 1 16,16 v 2" />
 <path d="M 9,-27 l -4,4 l 4,4" />
