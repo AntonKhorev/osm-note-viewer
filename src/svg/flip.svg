@@ -30,7 +30,7 @@
 <use href="#flip-hor-row" y="-22" />
 <use href="#flip-hor-row" y="-14" />
 <use href="#flip-hor-row" y="-6" />
-<use href="#flip-arrow-pair-outlined" />
+<use href="#flip-arrow-pair-outlined" transform="matrix(0,1,1,0,0,0)" />
 </g>
 <g class="ver">
 <use href="#flip-background" transform="rotate(-90)" />
@@ -39,6 +39,6 @@
 <use href="#flip-ver-row" y="0" />
 <use href="#flip-ver-row" y="8" />
 <use href="#flip-ver-row" y="16" />
-<use href="#flip-arrow-pair-outlined" transform="matrix(0,1,1,0,0,0)" />
+<use href="#flip-arrow-pair-outlined" />
 </g>
 </svg>
