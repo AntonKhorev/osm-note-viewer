@@ -1,7 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-32 -32 64 64">
 <defs>
-<g id="flip-hor-back" stroke="#444" stroke-width="2">
-<path d="M 31,1 V 25 A 6,6 0 0 1 25,31 H -25 A 6,6 0 0 1 -31,25 V 1 Z" fill="#CE8" />
+<filter id="flip-map-surface">
+<feTurbulence result="turbulence" baseFrequency="0.05" />
+<feComposite operator="atop" in="turbulence" in2="SourceGraphic" />
+</filter>
+<g id="flip-map-shape">
+<path d="M 31,1 V 25 A 6,6 0 0 1 25,31 H -25 A 6,6 0 0 1 -31,25 V 1 Z"/>
+</g>
+<g id="flip-background" stroke="#444" stroke-width="2">
+<use href="#flip-map-shape" stroke="none" fill="#CE8" filter="url(#flip-map-surface)" />
+<use href="#flip-map-shape" fill="none" />
 <path d="M -31 1 V -25 A 6,6 0 0 1 -25,-31 H 25 A 6,6 0 0 1 31,-25 V 1" fill="none" />
 </g>
 <g id="flip-hor-row" stroke="#CCC" stroke-width="4">
@@ -24,14 +32,14 @@
 </g>
 </defs>
 <g class="hor">
-<use href="#flip-hor-back" />
+<use href="#flip-background" />
 <use href="#flip-hor-row" y="-22" />
 <use href="#flip-hor-row" y="-14" />
 <use href="#flip-hor-row" y="-6" />
 <use href="#flip-arrow-pair-outlined" />
 </g>
 <g class="ver">
-<use href="#flip-hor-back" transform="rotate(-90)" />
+<use href="#flip-background" transform="rotate(-90)" />
 <use href="#flip-ver-row" y="-16" />
 <use href="#flip-ver-row" y="-8" />
 <use href="#flip-ver-row" y="0" />
