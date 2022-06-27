@@ -12,6 +12,7 @@ let embeddedSymbols=''
 for (const svgDirEntry of await fs.readdir('src/svg',{withFileTypes:true})) {
 	if (svgDirEntry.isDirectory()) continue
 	const filename=svgDirEntry.name
+	if (filename=='favicon.svg') continue
 	const [style,symbol]=getEmbeddedSvg(
 		filename.split('.')[0],
 		await fs.readFile(`src/svg/${filename}`,'utf-8')
@@ -28,8 +29,12 @@ const embeddedSvgs=
 	`</style>\n`+
 	embeddedSymbols+
 	`</svg>`
+const favicon=await fs.readFile(`src/svg/favicon.svg`,'utf-8')
+const encodedFavicon=Buffer.from(favicon).toString('base64')
 const htmlContents=await fs.readFile('src/index.html','utf-8')
-const patchedHtmlContents=htmlContents.replace(`<!-- embed svgs -->`,embeddedSvgs)
+const patchedHtmlContents=htmlContents
+	.replace(`<!-- {embed svgs} -->`,embeddedSvgs)
+	.replace(`<!-- {embed favicon} -->`,`<link rel=icon href="data:image/svg+xml;charset=utf-8;base64,${encodedFavicon}">`)
 await fs.writeFile('dist/index.html',patchedHtmlContents)
 
 // copy css
