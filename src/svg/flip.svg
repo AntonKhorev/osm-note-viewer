@@ -4,15 +4,23 @@
 <path d="M 31,1 V 25 A 6,6 0 0 1 25,31 H -25 A 6,6 0 0 1 -31,25 V 1 Z" fill="#CE8" />
 <path d="M -31 1 V -25 A 6,6 0 0 1 -25,-31 H 25 A 6,6 0 0 1 31,-25 V 1" fill="none" />
 </g>
-<g id="flip-hor-row" stroke="#AAA" stroke-width="4">
+<g id="flip-hor-row" stroke="#CCC" stroke-width="4">
 <path d="M -24,0 H 24" />
 </g>
-<g id="flip-ver-row" stroke="#AAA" stroke-width="4">
+<g id="flip-ver-row" stroke="#CCC" stroke-width="4">
 <path d="M -24,0 H -6" />
 </g>
-<g id="flip-arrow" stroke="#000" stroke-width="2" fill="none" >
-<path d="M 5,-23 h 2 a 16,16 0 0 1 16,16 v 2" />
+<g id="flip-arrow" fill="none" stroke-linecap="square" >
+<path d="M 7,-23 a 16,16 0 0 1 16,16 v 2" />
 <path d="M 9,-27 l -4,4 l 4,4" />
+</g>
+<g id="flip-arrow-pair">
+<use href="#flip-arrow" />
+<use href="#flip-arrow" transform="scale(-1)" />
+</g>
+<g id="flip-arrow-pair-outlined">
+<use href="#flip-arrow-pair" stroke="#FFF" stroke-width="4" />
+<use href="#flip-arrow-pair" stroke="#000" stroke-width="2" />
 </g>
 </defs>
 <g class="hor">
@@ -20,8 +28,7 @@
 <use href="#flip-hor-row" y="-22" />
 <use href="#flip-hor-row" y="-14" />
 <use href="#flip-hor-row" y="-6" />
-<use href="#flip-arrow" />
-<use href="#flip-arrow" transform="scale(-1)" />
+<use href="#flip-arrow-pair-outlined" />
 </g>
 <g class="ver">
 <use href="#flip-hor-back" transform="rotate(-90)" />
@@ -30,7 +37,6 @@
 <use href="#flip-ver-row" y="0" />
 <use href="#flip-ver-row" y="8" />
 <use href="#flip-ver-row" y="16" />
-<use href="#flip-arrow" transform="matrix(0,1,1,0,0,0)" />
-<use href="#flip-arrow" transform="matrix(0,-1,-1,0,0,0)" />
+<use href="#flip-arrow-pair-outlined" transform="matrix(0,1,1,0,0,0)" />
 </g>
 </svg>
