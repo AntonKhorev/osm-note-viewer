@@ -36,10 +36,12 @@ class ToolBroadcaster {
 export default class ToolPanel {
 	private toolBroadcaster: ToolBroadcaster
 	#fitMode: ToolFitMode
+	onCommentsViewChange?: (onlyFirst:boolean,oneLine:boolean)=>void
 	constructor($container: HTMLElement, map: NoteMap, figureDialog: FigureDialog, storage: NoteViewerStorage) {
 		const tools: [tool:Tool,$tool:HTMLDetailsElement][] = []
 		const toolCallbacks: ToolCallbacks = {
 			onFitModeChange: (fromTool,fitMode)=>this.#fitMode=fitMode,
+			onCommentsViewChange: (fromTool,onlyFirst,oneLine)=>this.onCommentsViewChange?.(onlyFirst,oneLine),
 			onTimestampChange: (fromTool,timestamp)=>{
 				this.toolBroadcaster.broadcastTimestampChange(fromTool,timestamp)
 			},

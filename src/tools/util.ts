@@ -12,12 +12,13 @@ const em=(s: string)=>makeElement('em')()(s)
 const dfn=(s: string)=>makeElement('dfn')()(s)
 const ul=(...ss: InfoElements)=>makeElement('ul')()(...ss)
 const li=(...ss: InfoElements)=>makeElement('li')()(...ss)
+const label=(...ss: InfoElements)=>makeElement('label')('inline')(...ss)
 
-export class AutozoomTool extends Tool {
+export class TableTool extends Tool {
 	constructor() {super(
-		'autozoom',
-		`Automatic zoom`,
-		`Pan and zoom the map to visible notes`
+		'table',
+		`Notes table`,
+		`Settings for table view and its interactions with the map`
 	)}
 	getInfo() {return[p(
 		`Pan and zoom the map to notes in the table. `,
@@ -30,8 +31,8 @@ export class AutozoomTool extends Tool {
 		const $fitModeSelect=document.createElement('select')
 		$fitModeSelect.append(
 			new Option('is disabled','none'),
-			new Option('to notes in table view','inViewNotes'),
-			new Option('to all notes','allNotes')
+			new Option('to notes on screen in table','inViewNotes'),
+			new Option('to all notes in table','allNotes')
 		)
 		$fitModeSelect.onchange=()=>{
 			if ($fitModeSelect.value=='allNotes') {
@@ -44,7 +45,22 @@ export class AutozoomTool extends Tool {
 				callbacks.onFitModeChange(this,undefined)
 			}
 		}
-		return [$fitModeSelect]
+		const $onlyFirstCommentsCheckbox=document.createElement('input')
+		$onlyFirstCommentsCheckbox.type='checkbox'
+		const $oneLineCommentsCheckbox=document.createElement('input')
+		$oneLineCommentsCheckbox.type='checkbox'
+		$onlyFirstCommentsCheckbox.onchange=$oneLineCommentsCheckbox.onchange=()=>{
+			callbacks.onCommentsViewChange(this,
+				$onlyFirstCommentsCheckbox.checked,
+				$oneLineCommentsCheckbox.checked
+			)
+		}
+		return [
+			label(`map autozoom `,$fitModeSelect),`; `,
+			`comments: `,
+			label($onlyFirstCommentsCheckbox,` only 1st`),`; `,
+			label($oneLineCommentsCheckbox,` on 1 line`),
+		]
 	}
 }
 

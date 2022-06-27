@@ -29,6 +29,10 @@ export default class NoteTable {
 		private toolPanel: ToolPanel, private map: NoteMap, private filter: NoteFilter,
 		figureDialog: FigureDialog, private showImages: boolean
 	) {
+		toolPanel.onCommentsViewChange=(onlyFirst:boolean,oneLine:boolean)=>{
+			this.$table.classList.toggle('only-first-comments',onlyFirst)
+			this.$table.classList.toggle('one-line-comments',oneLine)
+		}
 		const that=this
 		let $clickReadyNoteSection: HTMLTableSectionElement | undefined
 		this.wrappedNoteSectionListeners=[

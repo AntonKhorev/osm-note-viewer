@@ -8,6 +8,7 @@ export type ToolFitMode = 'allNotes' | 'inViewNotes' | undefined
 
 export interface ToolCallbacks {
 	onFitModeChange(fromTool: Tool, fitMode: ToolFitMode): void
+	onCommentsViewChange(fromTool: Tool, onlyFirst: boolean, oneLine: boolean): void
 	onTimestampChange(fromTool: Tool, timestamp: string): void
 	onToolOpenToggle(fromTool: Tool, setToOpen: boolean): void
 }
