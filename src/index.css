@@ -343,8 +343,7 @@ body.flipped .panel.fetch button.flip {
 	pointer-events: none;
 	background: var(--file-reader-background-color);
 	display: grid;
-	align-items: center;
-	justify-items: center;
+	place-items: center;
 }
 .panel .major-input label.file-reader:focus-within .over {
 	z-index: -1;
