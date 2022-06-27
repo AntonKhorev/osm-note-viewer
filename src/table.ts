@@ -89,20 +89,21 @@ export default class NoteTable {
 			this.$selectAllCheckbox.title=`check/uncheck all`
 			this.$selectAllCheckbox.addEventListener('click',this.wrappedAllNotesCheckboxClickListener)
 			$checkboxCell.append(this.$selectAllCheckbox)
+			const $actionCell=makeHeaderCell('?')
+			$actionCell.title=`action performed along with adding the comment; number of comments`
+			$actionCell.classList.add('note-action')
 			$row.append(
 				$checkboxCell,
 				makeHeaderCell('id'),
 				makeHeaderCell('date'),
 				makeHeaderCell('user'),
-				makeHeaderCell('?',`action performed along with adding the comment`,'note-action'),
+				$actionCell,
 				makeHeaderCell('comment')
 			)
 		}
-		function makeHeaderCell(text: string, title?: string, className?: string): HTMLTableCellElement {
+		function makeHeaderCell(text: string): HTMLTableCellElement {
 			const $cell=document.createElement('th')
 			$cell.textContent=text
-			if (title) $cell.title=title
-			if (className) $cell.classList.add(className)
 			return $cell
 		}
 		this.updateCheckboxDependents()
@@ -211,11 +212,17 @@ export default class NoteTable {
 						}
 					}
 				}{
-					const $cell=$row.insertCell()
-					$cell.classList.add('note-action')
-					$cell.innerHTML=`<svg class="icon-${getActionClass(comment.action)}">`+
+					let svgs=`<svg class="icon-status-${getActionClass(comment.action)}">`+
 						`<title>${comment.action}</title><use href="#table-note" />`+
 					`</svg>`
+					if (note.comments.length>1) {
+						svgs+=` <svg class="icon-comments-count">`+
+							`<title>number of additional comments</title><use href="#table-comments" /><text x="8" y="8">${note.comments.length-1}</text>`+
+						`</svg>`
+					}
+					const $cell=$row.insertCell()
+					$cell.classList.add('note-action')
+					$cell.innerHTML=svgs
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-comment')

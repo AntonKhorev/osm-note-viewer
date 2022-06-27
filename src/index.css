@@ -428,13 +428,19 @@ body.flipped .notes td.note-user {
 	height: 16px;
 	vertical-align: text-top;
 }
-.notes td.note-action [class|=icon-open] {
+.notes td.note-action [class|=icon-status-open] {
 	--table-note-default-part-visibility: hidden;
 	--table-note-open-part-visibility: visible;
 }
-.notes td.note-action [class|=icon-closed] {
+.notes td.note-action [class|=icon-status-closed] {
 	--table-note-default-part-visibility: hidden;
 	--table-note-closed-part-visibility: visible;
+}
+.notes td.note-action [class|=icon-comments-count] text {
+	font-family: sans-serif;
+	font-size: 10px;
+	text-anchor: middle;
+	dominant-baseline: central;
 }
 .notes td.note-comment {
 	--comment-img-gap-size: 2px;
@@ -469,8 +475,10 @@ body.flipped .notes td.note-user {
 .notes table.only-first-comments tr:not(:first-child) {
 	display: none;
 }
-.notes table.only-first-comments th.note-action,
-.notes table.only-first-comments td.note-action {
+.notes table.only-first-comments td.note-action [class|=icon-status] {
+	display: none;
+}
+.notes table:not(.only-first-comments) td.note-action [class|=icon-comments-count] {
 	display: none;
 }
 .notes table.one-line-comments td.note-comment {
