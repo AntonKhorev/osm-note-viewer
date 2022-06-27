@@ -33,8 +33,8 @@
 	.leaflet-container {
 		background: #888 !important;
 	}
-	.leaflet-container a {
-		color: revert !important;
+	.leaflet-container .leaflet-popup-content-wrapper a {
+		color: revert;
 	}
 	.leaflet-popup-content-wrapper {
 		background: #222 !important;
