@@ -8,7 +8,8 @@ import * as StreetViewTools from './tools/streetview'
 export {Tool, ToolFitMode, ToolCallbacks}
 
 export const toolMakerSequence: Array<()=>Tool> = [
-	()=>new UtilTools.TableTool, ()=>new UtilTools.TimestampTool, ()=>new UtilTools.ParseTool,
+	()=>new UtilTools.AutozoomTool, ()=>new UtilTools.CommentsTool,
+	()=>new UtilTools.TimestampTool, ()=>new UtilTools.ParseTool,
 	()=>new OverpassTools.OverpassTurboTool, ()=>new OverpassTools.OverpassDirectTool,
 	()=>new EditorTools.RcTool, ()=>new EditorTools.IdTool,
 	()=>new ExportTools.GpxTool, ()=>new ExportTools.GeoJsonTool,

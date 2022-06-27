@@ -14,17 +14,17 @@ const ul=(...ss: InfoElements)=>makeElement('ul')()(...ss)
 const li=(...ss: InfoElements)=>makeElement('li')()(...ss)
 const label=(...ss: InfoElements)=>makeElement('label')('inline')(...ss)
 
-export class TableTool extends Tool {
+export class AutozoomTool extends Tool {
 	constructor() {super(
-		'table',
-		`Notes table`,
-		`Settings for table view and its interactions with the map`
+		'autozoom',
+		`Map autozoom`,
+		`Pan and zoom the map to visible notes`
 	)}
 	getInfo() {return[p(
 		`Pan and zoom the map to notes in the table. `,
-		`Can be used as `,em(`zoom to data`),` for notes layer if `,dfn(`to all notes`),` is selected. `,
+		`Can be used as `,em(`zoom to data`),` for notes layer if `,dfn(`to all visible notes`),` is selected. `,
 	),p(
-		dfn(`To notes in table view`),` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `,
+		dfn(`To notes on screen in table`),` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `,
 		`This option is convenient to use when `,em(`Track between notes`),` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`
 	)]}
 	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
@@ -32,7 +32,7 @@ export class TableTool extends Tool {
 		$fitModeSelect.append(
 			new Option('is disabled','none'),
 			new Option('to notes on screen in table','inViewNotes'),
-			new Option('to all notes in table','allNotes')
+			new Option('to all visible notes','allNotes')
 		)
 		$fitModeSelect.onchange=()=>{
 			if ($fitModeSelect.value=='allNotes') {
@@ -45,6 +45,17 @@ export class TableTool extends Tool {
 				callbacks.onFitModeChange(this,undefined)
 			}
 		}
+		return [$fitModeSelect]
+	}
+}
+
+export class CommentsTool extends Tool {
+	constructor() {super(
+		'comments',
+		`Table comments`,
+		`Change how comments are displayed in notes table`
+	)}
+	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
 		const $onlyFirstCommentsCheckbox=document.createElement('input')
 		$onlyFirstCommentsCheckbox.type='checkbox'
 		const $oneLineCommentsCheckbox=document.createElement('input')
@@ -56,8 +67,7 @@ export class TableTool extends Tool {
 			)
 		}
 		return [
-			label(`map autozoom `,$fitModeSelect),`; `,
-			`comments: `,
+			`show `,
 			label($onlyFirstCommentsCheckbox,` only 1st`),`; `,
 			label($oneLineCommentsCheckbox,` on 1 line`),
 		]
