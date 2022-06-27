@@ -94,14 +94,15 @@ export default class NoteTable {
 				makeHeaderCell('id'),
 				makeHeaderCell('date'),
 				makeHeaderCell('user'),
-				makeHeaderCell('?',`action performed along with adding the comment`),
+				makeHeaderCell('?',`action performed along with adding the comment`,'note-action'),
 				makeHeaderCell('comment')
 			)
 		}
-		function makeHeaderCell(text: string, title?: string): HTMLTableCellElement {
+		function makeHeaderCell(text: string, title?: string, className?: string): HTMLTableCellElement {
 			const $cell=document.createElement('th')
 			$cell.textContent=text
 			if (title) $cell.title=title
+			if (className) $cell.classList.add(className)
 			return $cell
 		}
 		this.updateCheckboxDependents()

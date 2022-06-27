@@ -466,7 +466,11 @@ body.flipped .notes td.note-user {
 .notes table.with-images td.note-comment a.image.float {
 	display: block;
 }
-.notes table.only-first-comments tbody tr:not(:first-child) {
+.notes table.only-first-comments tr:not(:first-child) {
+	display: none;
+}
+.notes table.only-first-comments th.note-action,
+.notes table.only-first-comments td.note-action {
 	display: none;
 }
 .notes table.one-line-comments td.note-comment {
