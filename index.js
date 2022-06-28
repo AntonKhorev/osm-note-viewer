@@ -645,6 +645,57 @@ class FigureDialog {
     }
 }
 
+class Navbar {
+    constructor(storage, $container, map) {
+        this.$tabList = document.createElement('ul');
+        this.tabs = new Map();
+        $container.append(this.$tabList, makeFlipLayoutButton(storage, map), makeResetButton());
+    }
+    addTab(shortTitle, $section) {
+        const id = 'section-' + shortTitle;
+        $section.id = id;
+        const $a = makeLink(shortTitle, '#' + id);
+        this.$tabList.append(makeElement('li')()($a));
+        this.tabs.set(shortTitle, [$a, $section]);
+        $a.addEventListener('click', ev => {
+            ev.preventDefault();
+            this.openTab(shortTitle);
+        });
+    }
+    openTab(targetShortTitle) {
+        for (const [shortTitle, [$a, $section]] of this.tabs) {
+            const isActive = shortTitle == targetShortTitle;
+            $a.classList.toggle('active', isActive);
+            $section.classList.toggle('active', isActive);
+        }
+    }
+}
+function makeFlipLayoutButton(storage, map) {
+    const $button = document.createElement('button');
+    $button.classList.add('global', 'flip');
+    $button.innerHTML = `<svg><title>Flip layout</title><use href="#flip" /></svg>`;
+    $button.addEventListener('click', () => {
+        document.body.classList.toggle('flipped');
+        if (document.body.classList.contains('flipped')) {
+            storage.setItem('flipped', '1');
+        }
+        else {
+            storage.removeItem('flipped');
+        }
+        map.invalidateSize();
+    });
+    return $button;
+}
+function makeResetButton() {
+    const $button = document.createElement('button');
+    $button.classList.add('global', 'reset');
+    $button.innerHTML = `<svg><title>Reset query</title><use href="#reset" /></svg>`;
+    $button.addEventListener('click', () => {
+        location.href = location.pathname + location.search;
+    });
+    return $button;
+}
+
 class LooseParserListener {
     constructor(callback) {
         this.hadSelectionOnMouseDown = false;
@@ -3785,14 +3836,15 @@ class NoteFetchDialog {
     constructor(getRequestUrls, submitQuery) {
         this.getRequestUrls = getRequestUrls;
         this.submitQuery = submitQuery;
-        this.$details = document.createElement('details');
+        this.$section = document.createElement('section');
         this.$form = document.createElement('form');
         this.$limitSelect = document.createElement('select');
         this.$requestOutput = document.createElement('output');
     }
     write($container, $sharedCheckboxes, initialQuery) {
-        const $summary = document.createElement('summary');
-        $summary.textContent = this.title;
+        this.$section.classList.add('fetch-dialog');
+        const $heading = document.createElement('h2');
+        $heading.textContent = this.title;
         const appendIfExists = (...$es) => {
             for (const $e of $es) {
                 if ($e)
@@ -3810,27 +3862,16 @@ class NoteFetchDialog {
                 return;
             this.submitQuery(query);
         });
-        this.$details.addEventListener('toggle', () => {
-            if (!this.$details.open)
-                return;
-            for (const $otherDetails of $container.querySelectorAll('details')) {
-                if ($otherDetails == this.$details)
-                    continue;
-                if (!$otherDetails.open)
-                    continue;
-                $otherDetails.open = false;
-            }
-        });
-        this.$details.append($summary, this.$form);
+        this.$section.append($heading, this.$form);
         this.writeExtraForms();
-        $container.append(this.$details);
-    }
-    open() {
-        this.$details.open = true;
+        $container.append(this.$section);
     }
     populateInputs(query) {
         this.populateInputsWithoutUpdatingRequest(query);
         this.updateRequest();
+    }
+    needToSuppressFitNotes() {
+        return false;
     }
     updateRequest() {
         const knownTypes = {
@@ -3930,6 +3971,9 @@ class NoteButtonFetchDialog extends NoteFetchDialog {
         this.$fetchButton.type = 'submit';
         return makeDiv('major-input')(this.$fetchButton);
     }
+    disableFetchControl(disabled) {
+        this.$fetchButton.disabled = disabled;
+    }
 }
 
 const em$2 = (...ss) => makeElement('em')()(...ss);
@@ -3939,6 +3983,7 @@ const rq2 = (param1, param2) => makeElement('span')('request')(` (`, code$1(para
 class NoteSearchFetchDialog extends NoteButtonFetchDialog {
     constructor() {
         super(...arguments);
+        this.shortTitle = `Search`;
         this.title = `Search notes for user / text / date range`;
         this.$userInput = document.createElement('input');
         this.$textInput = document.createElement('input');
@@ -3948,6 +3993,9 @@ class NoteSearchFetchDialog extends NoteButtonFetchDialog {
         this.$sortSelect = document.createElement('select');
         this.$orderSelect = document.createElement('select');
         this.$autoLoadCheckbox = document.createElement('input');
+    }
+    getAutoloadChecker() {
+        return this.$autoLoadCheckbox;
     }
     writeScopeAndOrderFieldset($fieldset) {
         {
@@ -4098,6 +4146,7 @@ class NoteBboxFetchDialog extends NoteButtonFetchDialog {
     constructor(getRequestUrls, submitQuery, map) {
         super(getRequestUrls, submitQuery);
         this.map = map;
+        this.shortTitle = `BBox`;
         this.title = `Get notes inside rectangular area`;
         this.$nominatimForm = document.createElement('form');
         this.$nominatimInput = document.createElement('input');
@@ -4115,13 +4164,19 @@ class NoteBboxFetchDialog extends NoteButtonFetchDialog {
         this.$statusSelect = document.createElement('select');
         this.$nominatimRequestOutput = document.createElement('output');
     }
+    getAutoloadChecker() {
+        return { checked: false };
+    }
     populateInputs(query) {
         super.populateInputs(query);
         this.updateNominatimRequest();
     }
+    needToSuppressFitNotes() {
+        return this.$trackMapCheckbox.checked;
+    }
     writeExtraForms() {
         this.$nominatimForm.id = 'nominatim-form';
-        this.$details.append(this.$nominatimForm);
+        this.$section.append(this.$nominatimForm);
     }
     writeScopeAndOrderFieldset($fieldset) {
         {
@@ -4262,6 +4317,7 @@ const li = (...ss) => makeElement('li')()(...ss);
 class NoteXmlFetchDialog extends NoteFetchDialog {
     constructor() {
         super(...arguments);
+        this.shortTitle = `XML`;
         this.title = `Load an XML file containing note ids, then fetch them`;
         this.$neisForm = document.createElement('form');
         this.$neisCountryInput = document.createElement('input');
@@ -4277,11 +4333,17 @@ class NoteXmlFetchDialog extends NoteFetchDialog {
         this.$neisForm.id = 'neis-form';
         this.$neisForm.action = `https://resultmaps.neis-one.org/osm-notes-country-feed`;
         this.$neisForm.target = '_blank'; // if browser chooses to navigate instead of download, open a new window; file download can't be forced without cooperation from server
-        this.$details.append(this.$neisForm);
+        this.$section.append(this.$neisForm);
     }
     makeFetchControlDiv() {
         this.$fetchFileInput.type = 'file';
         return makeDiv('major-input')(makeLabel('file-reader')(makeElement('span')('over')(`Read XML file`), makeElement('span')('colon')(`:`), ` `, this.$fetchFileInput));
+    }
+    disableFetchControl(disabled) {
+        this.$fetchFileInput.disabled = disabled;
+    }
+    getAutoloadChecker() {
+        return this.$autoLoadCheckbox;
     }
     writePrependedFieldset($fieldset, $legend) {
         $legend.textContent = `Get note feed from resultmaps.neis-one.org`;
@@ -4679,7 +4741,7 @@ const neisCountries = [
 ];
 
 class NoteFetchPanel {
-    constructor(storage, db, $container, $notesContainer, $moreContainer, $toolContainer, filterPanel, map, figureDialog, restoreScrollPosition) {
+    constructor(storage, db, $container, $notesContainer, $moreContainer, $toolContainer, navbar, filterPanel, map, figureDialog, restoreScrollPosition) {
         let noteTable;
         const moreButtonIntersectionObservers = [];
         const $sharedCheckboxes = {
@@ -4689,26 +4751,21 @@ class NoteFetchPanel {
         const hashQuery = makeNoteQueryFromHash(location.hash);
         // make fetchers and dialogs
         const searchFetcher = new NoteSearchFetcher();
-        const searchDialog = new NoteSearchFetchDialog((query, limit) => searchFetcher.getRequestUrls(query, limit), (query) => {
-            modifyHistory(query, true);
-            runStartFetcher(query, true);
-        });
-        searchDialog.$limitSelect.addEventListener('input', () => searchFetcher.limitWasUpdated());
-        searchDialog.write($container, $sharedCheckboxes, hashQuery);
         const bboxFetcher = new NoteBboxFetcher();
-        const bboxDialog = new NoteBboxFetchDialog((query, limit) => bboxFetcher.getRequestUrls(query, limit), (query) => {
-            modifyHistory(query, true);
-            runStartFetcher(query, true);
-        }, map);
-        bboxDialog.$limitSelect.addEventListener('input', () => bboxFetcher.limitWasUpdated());
-        bboxDialog.write($container, $sharedCheckboxes, hashQuery);
         const idsFetcher = new NoteIdsFetcher();
-        const xmlDialog = new NoteXmlFetchDialog((query, limit) => [], (query) => {
-            modifyHistory(query, true);
-            runStartFetcher(query, true);
-        });
-        xmlDialog.$limitSelect.addEventListener('input', () => idsFetcher.limitWasUpdated());
-        xmlDialog.write($container, $sharedCheckboxes, hashQuery);
+        const makeSearchDialog = (fetcher, fetchDialogCtor) => {
+            const dialog = fetchDialogCtor((query, limit) => fetcher.getRequestUrls(query, limit), (query) => {
+                modifyHistory(query, true);
+                startFetcher(query, true, fetcher, dialog);
+            });
+            dialog.$limitSelect.addEventListener('input', () => searchFetcher.limitWasUpdated());
+            dialog.write($container, $sharedCheckboxes, hashQuery);
+            navbar.addTab(dialog.shortTitle, dialog.$section);
+            return dialog;
+        };
+        const searchDialog = makeSearchDialog(searchFetcher, (getRequestUrls, submitQuery) => new NoteSearchFetchDialog(getRequestUrls, submitQuery));
+        const bboxDialog = makeSearchDialog(bboxFetcher, (getRequestUrls, submitQuery) => new NoteBboxFetchDialog(getRequestUrls, submitQuery, map));
+        makeSearchDialog(idsFetcher, (getRequestUrls, submitQuery) => new NoteXmlFetchDialog(getRequestUrls, submitQuery));
         handleSharedCheckboxes($sharedCheckboxes.showImages, state => noteTable?.setShowImages(state));
         handleSharedCheckboxes($sharedCheckboxes.showRequests, state => {
             $container.classList.toggle('show-requests', state);
@@ -4719,22 +4776,22 @@ class NoteFetchPanel {
             openQueryDialog(query, false);
             modifyHistory(query, false); // in case location was edited manually
             populateInputs(query);
-            runStartFetcher(query, false);
+            startFetcherFromQuery(query, false);
             restoreScrollPosition();
         });
         openQueryDialog(hashQuery, true);
         modifyHistory(hashQuery, false);
-        runStartFetcher(hashQuery, false);
+        startFetcherFromQuery(hashQuery, false);
         function openQueryDialog(query, initial) {
             if (!query) {
                 if (initial)
-                    searchDialog.open();
+                    navbar.openTab(searchDialog.shortTitle);
             }
             else if (query.mode == 'search') {
-                searchDialog.open();
+                navbar.openTab(searchDialog.shortTitle);
             }
             else if (query.mode == 'bbox') {
-                bboxDialog.open();
+                navbar.openTab(bboxDialog.shortTitle);
             }
         }
         function populateInputs(query) {
@@ -4748,7 +4805,23 @@ class NoteFetchPanel {
             $notesContainer.innerHTML = ``;
             $toolContainer.innerHTML = ``;
         }
-        function runStartFetcher(query, clearStore) {
+        function startFetcherFromQuery(query, clearStore) {
+            if (!query)
+                return;
+            const fetcherAndDialog = getFetcherAndDialogFromQuery(query);
+            if (!fetcherAndDialog)
+                return;
+            startFetcher(query, clearStore, ...fetcherAndDialog);
+        }
+        function getFetcherAndDialogFromQuery(query) {
+            if (query.mode == 'search') {
+                return [searchFetcher, searchDialog];
+            }
+            else if (query.mode == 'bbox') {
+                return [bboxFetcher, bboxDialog];
+            }
+        }
+        function startFetcher(query, clearStore, fetcher, dialog) {
             figureDialog.close();
             resetNoteDependents();
             if (query?.mode != 'search' && query?.mode != 'bbox' && query?.mode != 'ids')
@@ -4757,17 +4830,9 @@ class NoteFetchPanel {
             const toolPanel = new ToolPanel($toolContainer, map, figureDialog, storage);
             noteTable = new NoteTable($notesContainer, toolPanel, map, filterPanel.noteFilter, figureDialog, $sharedCheckboxes.showImages[0]?.checked);
             filterPanel.subscribe(noteFilter => noteTable?.updateFilter(noteFilter));
-            if (query?.mode == 'search') {
-                searchFetcher.start(db, noteTable, $moreContainer, searchDialog.$limitSelect, searchDialog.$autoLoadCheckbox, (disabled) => searchDialog.$fetchButton.disabled = disabled, moreButtonIntersectionObservers, query, clearStore);
-            }
-            else if (query?.mode == 'bbox') {
-                if (bboxDialog.$trackMapCheckbox.checked)
-                    map.needToFitNotes = false;
-                bboxFetcher.start(db, noteTable, $moreContainer, bboxDialog.$limitSelect, { checked: false }, (disabled) => bboxDialog.$fetchButton.disabled = disabled, moreButtonIntersectionObservers, query, clearStore);
-            }
-            else if (query?.mode == 'ids') { // TODO pass dialog; problems: different autoload checkboxes and fetch buttons/file inputs
-                idsFetcher.start(db, noteTable, $moreContainer, xmlDialog.$limitSelect, xmlDialog.$autoLoadCheckbox, (disabled) => xmlDialog.$fetchFileInput.disabled = disabled, moreButtonIntersectionObservers, query, clearStore);
-            }
+            if (dialog.needToSuppressFitNotes())
+                map.needToFitNotes = false;
+            fetcher.start(db, noteTable, $moreContainer, dialog.$limitSelect, dialog.getAutoloadChecker(), (disabled) => dialog.disableFetchControl(disabled), moreButtonIntersectionObservers, query, clearStore);
         }
         function handleSharedCheckboxes($checkboxes, stateChangeListener) {
             for (const $checkbox of $checkboxes) {
@@ -5292,6 +5357,7 @@ main();
 async function main() {
     const storage = new NoteViewerStorage('osm-note-viewer-');
     const db = await NoteViewerDB.open();
+    const $navbarContainer = document.createElement('nav');
     const $fetchContainer = makeDiv('panel', 'fetch')();
     const $filterContainer = makeDiv('panel', 'fetch')();
     const $extrasContainer = makeDiv('panel')();
@@ -5301,7 +5367,7 @@ async function main() {
     const $mapContainer = makeDiv('map')();
     const $figureDialog = document.createElement('dialog');
     $figureDialog.classList.add('figure');
-    const $scrollingPart = makeDiv('scrolling')($fetchContainer, $filterContainer, $extrasContainer, $notesContainer, $moreContainer);
+    const $scrollingPart = makeDiv('scrolling')($navbarContainer, $fetchContainer, $filterContainer, $extrasContainer, $notesContainer, $moreContainer);
     const $stickyPart = makeDiv('sticky')($toolContainer);
     const $textSide = makeDiv('text-side')($scrollingPart, $stickyPart);
     const $graphicSide = makeDiv('graphic-side')($mapContainer, $figureDialog);
@@ -5312,35 +5378,9 @@ async function main() {
     const scrollRestorer = new ScrollRestorer($scrollingPart);
     const map = new NoteMap($mapContainer);
     const figureDialog = new FigureDialog($figureDialog);
-    writeFlipLayoutButton(storage, $fetchContainer, map);
-    writeResetButton($fetchContainer);
+    const navbar = new Navbar(storage, $navbarContainer, map);
     new ExtrasPanel(storage, db, $extrasContainer);
     const filterPanel = new NoteFilterPanel($filterContainer);
-    new NoteFetchPanel(storage, db, $fetchContainer, $notesContainer, $moreContainer, $toolContainer, filterPanel, map, figureDialog, () => scrollRestorer.run($notesContainer));
+    new NoteFetchPanel(storage, db, $fetchContainer, $notesContainer, $moreContainer, $toolContainer, navbar, filterPanel, map, figureDialog, () => scrollRestorer.run($notesContainer));
     scrollRestorer.run($notesContainer);
-}
-function writeFlipLayoutButton(storage, $container, map) {
-    const $button = document.createElement('button');
-    $button.classList.add('global', 'flip');
-    $button.innerHTML = `<svg><title>Flip layout</title><use href="#flip" /></svg>`;
-    $button.addEventListener('click', () => {
-        document.body.classList.toggle('flipped');
-        if (document.body.classList.contains('flipped')) {
-            storage.setItem('flipped', '1');
-        }
-        else {
-            storage.removeItem('flipped');
-        }
-        map.invalidateSize();
-    });
-    $container.append($button);
-}
-function writeResetButton($container) {
-    const $button = document.createElement('button');
-    $button.classList.add('global', 'reset');
-    $button.innerHTML = `<svg><title>Reset query</title><use href="#reset" /></svg>`;
-    $button.addEventListener('click', () => {
-        location.href = location.pathname + location.search;
-    });
-    $container.append($button);
 }
