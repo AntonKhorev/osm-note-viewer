@@ -1,4 +1,5 @@
 import NoteFilter from './filter'
+import {makeDiv, makeLabel} from './util'
 
 const syntaxDescription=`<summary>Filter syntax</summary>
 <ul>
@@ -58,9 +59,6 @@ const syntaxExamples: Array<[string,string[]]> = [
 function term(t:string):string {
 	return `<em>&lt;${t}&gt;</em>`
 }
-function val(t:string):string {
-	return `<em>${t}</em>`
-}
 
 export default class NoteFilterPanel {
 	noteFilter: NoteFilter
@@ -89,21 +87,15 @@ export default class NoteFilterPanel {
 			$details.append($examplesTitle,$examplesList)
 			$form.append($details)
 		}{
-			const $div=document.createElement('div')
-			$div.classList.add('major-input')
 			$textarea.rows=5
-			const $label=document.createElement('label')
-			$label.append(`Filter:`,$textarea)
-			$div.append($label)
-			$form.append($div)
+			$form.append(makeDiv('major-input')(makeLabel()(
+				`Filter: `,$textarea
+			)))
 		}{
-			const $div=document.createElement('div')
-			$div.classList.add('major-input')
 			$button.textContent=`Apply filter`
 			$button.type='submit'
 			$button.disabled=true
-			$div.append($button)
-			$form.append($div)
+			$form.append(makeDiv('major-input')($button))
 		}
 		$textarea.addEventListener('input',()=>{
 			$button.disabled=this.noteFilter.isSameQuery($textarea.value)

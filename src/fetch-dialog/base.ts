@@ -178,3 +178,27 @@ export function mixinWithFetchButton<T extends abstract new (...args: any[]) => 
 	}
 	return WithFetchButton
 }
+
+export abstract class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
+	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
+		{
+			this.$limitSelect.append(
+				new Option('5'),
+				new Option('20'),
+			)
+			$fieldset.append(makeDiv()(
+				`Download these `,
+				makeLabel()(
+					`in batches of `,this.$limitSelect,` notes`,
+					makeElement('span')('request')(` (will make this many API requests each time it downloads more notes)`)
+				)
+			))
+		}{
+			this.$autoLoadCheckbox.type='checkbox'
+			this.$autoLoadCheckbox.checked=true
+			$fieldset.append(makeDiv()(makeLabel()(
+				this.$autoLoadCheckbox,` Automatically load more notes when scrolled to the end of the table`
+			)))
+		}
+	}
+}

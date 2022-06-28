@@ -8,7 +8,9 @@ import NoteFilterPanel from './filter-panel'
 import ToolPanel from './tool-panel'
 import {NoteQuery, makeNoteQueryFromHash, makeNoteQueryString} from './query'
 import {NoteFetcher, NoteSearchFetcher, NoteBboxFetcher, NoteIdsFetcher} from './fetch'
-import {NoteFetchDialogSharedCheckboxes, NoteFetchDialog, NoteSearchFetchDialog, NoteBboxFetchDialog, NoteXmlFetchDialog} from './fetch-dialog'
+import {NoteFetchDialogSharedCheckboxes,
+	NoteFetchDialog, NoteSearchFetchDialog, NoteBboxFetchDialog, NoteXmlFetchDialog, NotePlaintextFetchDialog
+} from './fetch-dialog'
 
 export default class NoteFetchPanel {
 	constructor(
@@ -30,13 +32,13 @@ export default class NoteFetchPanel {
 		const searchFetcher=new NoteSearchFetcher()
 		const bboxFetcher=new NoteBboxFetcher()
 		const idsFetcher=new NoteIdsFetcher()
-		const makeSearchDialog=(
+		const makeSearchDialog = (
 			fetcher: NoteFetcher,
 			fetchDialogCtor: (
 				getRequestUrls: (query: NoteQuery, limit: number) => [type: string, url: string][],
 				submitQuery: (query: NoteQuery) => void
 			) => NoteFetchDialog
-		): NoteFetchDialog=>{
+		): NoteFetchDialog => {
 			const dialog=fetchDialogCtor((query,limit)=>fetcher.getRequestUrls(query,limit),(query)=>{
 				modifyHistory(query,true)
 				startFetcher(query,true,fetcher,dialog)
@@ -49,6 +51,7 @@ export default class NoteFetchPanel {
 		const searchDialog=makeSearchDialog(searchFetcher,(getRequestUrls,submitQuery)=>new NoteSearchFetchDialog(getRequestUrls,submitQuery))
 		const bboxDialog=makeSearchDialog(bboxFetcher,(getRequestUrls,submitQuery)=>new NoteBboxFetchDialog(getRequestUrls,submitQuery,map))
 		const xmlDialog=makeSearchDialog(idsFetcher,(getRequestUrls,submitQuery)=>new NoteXmlFetchDialog(getRequestUrls,submitQuery))
+		const plaintextDialog=makeSearchDialog(idsFetcher,(getRequestUrls,submitQuery)=>new NotePlaintextFetchDialog(getRequestUrls,submitQuery))
 		
 		handleSharedCheckboxes($sharedCheckboxes.showImages,state=>noteTable?.setShowImages(state))
 		handleSharedCheckboxes($sharedCheckboxes.showRequests,state=>{
@@ -69,10 +72,11 @@ export default class NoteFetchPanel {
 		function openQueryDialog(query: NoteQuery | undefined, initial: boolean): void {
 			if (!query) {
 				if (initial) navbar.openTab(searchDialog.shortTitle)
-			} else if (query.mode=='search') {
-				navbar.openTab(searchDialog.shortTitle)
-			} else if (query.mode=='bbox') {
-				navbar.openTab(bboxDialog.shortTitle)
+			} else {
+				const fetcherAndDialog=getFetcherAndDialogFromQuery(query)
+				if (!fetcherAndDialog) return
+				const [,dialog]=fetcherAndDialog
+				navbar.openTab(dialog.shortTitle)
 			}
 		}
 		function populateInputs(query: NoteQuery | undefined): void {
@@ -97,11 +101,12 @@ export default class NoteFetchPanel {
 			} else if (query.mode=='bbox') {
 				return [bboxFetcher,bboxDialog]
 			}
+			// TODO ids fetcher and plaintext dialog for ids query
 		}
 		function startFetcher(query: NoteQuery, clearStore: boolean, fetcher: NoteFetcher, dialog: NoteFetchDialog): void {
 			figureDialog.close()
 			resetNoteDependents()
-			if (query?.mode!='search' && query?.mode!='bbox' && query?.mode!='ids') return
+			if (query.mode!='search' && query.mode!='bbox' && query.mode!='ids') return
 			filterPanel.unsubscribe()
 			const toolPanel=new ToolPanel($toolContainer,map,figureDialog,storage)
 			noteTable=new NoteTable(

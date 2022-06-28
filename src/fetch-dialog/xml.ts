@@ -1,4 +1,4 @@
-import {NoteFetchDialog, mixinWithAutoLoadCheckbox} from './base'
+import {NoteIdsFetchDialog} from './base'
 import {NoteQuery, NoteIdsQuery} from '../query'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../util'
 
@@ -8,7 +8,7 @@ const ol=(...ss: Array<string|HTMLElement>)=>makeElement('ol')()(...ss)
 const ul=(...ss: Array<string|HTMLElement>)=>makeElement('ul')()(...ss)
 const li=(...ss: Array<string|HTMLElement>)=>makeElement('li')()(...ss)
 
-export class NoteXmlFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
+export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 	shortTitle=`XML`
 	title=`Load an XML file containing note ids, then fetch them`
 	private $neisForm=document.createElement('form')
@@ -116,27 +116,6 @@ export class NoteXmlFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialo
 			this.$attributeInput.name='attribute'
 			$fieldset.append(makeDiv('major-input')(makeLabel()(
 				`Attribute of matched XML elements containing note id (leave blank if note id is in text content): `,this.$attributeInput
-			)))
-		}
-	}
-	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
-		{
-			this.$limitSelect.append(
-				new Option('5'),
-				new Option('20'),
-			)
-			$fieldset.append(makeDiv()(
-				`Download these `,
-				makeLabel()(
-					`in batches of `,this.$limitSelect,` notes`,
-					makeElement('span')('request')(` (will make this many API requests each time it downloads more notes)`)
-				)
-			))
-		}{
-			this.$autoLoadCheckbox.type='checkbox'
-			this.$autoLoadCheckbox.checked=true
-			$fieldset.append(makeDiv()(makeLabel()(
-				this.$autoLoadCheckbox,` Automatically load more notes when scrolled to the end of the table`
 			)))
 		}
 	}
