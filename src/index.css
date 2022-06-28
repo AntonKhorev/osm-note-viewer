@@ -165,6 +165,9 @@ nav ul li:first-child a {
 nav ul li a.active {
 	background: canvas;
 }
+nav ul li a:hover {
+	background: var(--hover-color);
+}
 nav ul li a:focus {
 	z-index: 1;
 }
