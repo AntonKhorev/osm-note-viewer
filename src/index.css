@@ -146,6 +146,7 @@ nav ul li {
 	line-height: 2rem;
 }
 nav ul li a {
+	position: relative;
 	display: block;
 	padding: 0 1rem;
 	border-left: solid 1px #CCC;
@@ -163,6 +164,9 @@ nav ul li:first-child a {
 }
 nav ul li a.active {
 	background: canvas;
+}
+nav ul li a:focus {
+	z-index: 1;
 }
 
 .panel {
