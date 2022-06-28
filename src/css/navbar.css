@@ -1,0 +1,62 @@
+nav {
+	position: relative;
+	box-sizing: border-box;
+	padding: 1rem 3rem 0 3rem;
+	z-index: 1;
+}
+nav button.reset,
+nav button.flip {
+	top: .5rem;
+}
+nav button.reset:hover,
+nav button.flip:hover {
+	outline: auto;
+}
+nav button.reset {
+	right: .5rem;
+}
+nav button.flip {
+	left: .5rem;
+	--flip-ver-part-visibility: visible;
+}
+body.flipped nav button.flip {
+	--flip-ver-part-visibility: hidden;
+	--flip-hor-part-visibility: visible;
+}
+nav ul {
+	display: flex;
+	margin: 0;
+	padding: 0;
+}
+nav ul li {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	line-height: 2rem;
+}
+nav ul li a {
+	position: relative;
+	display: block;
+	padding: 0 1rem;
+	border-left: solid 1px #CCC;
+	border-right: solid 1px #CCC;
+	border-top: solid 1px #CCC;
+	border-top-left-radius: 8px;
+	border-top-right-radius: 8px;
+	margin-bottom: -1px;
+	margin-left: -1px;
+	background: var(--inset-background-color);
+	text-decoration: none;
+}
+nav ul li:first-child a {
+	margin-left: 0;
+}
+nav ul li a.active {
+	background: canvas;
+}
+nav ul li a:hover {
+	background: var(--hover-color);
+}
+nav ul li a:focus {
+	z-index: 1;
+}

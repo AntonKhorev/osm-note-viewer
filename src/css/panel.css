@@ -1,0 +1,263 @@
+.panel {
+	position: relative;
+	padding: .5rem;
+	border-top: solid 1px var(--frame-color);
+	border-bottom: solid 1px var(--frame-color);
+}
+.panel + .panel {
+	border-top: none;
+}
+.panel div {
+	margin: .5rem 0;
+}
+.panel label.inline {
+	white-space: nowrap;
+}
+
+.panel.fetch .request,
+.more .request {
+	opacity: .7;
+	font-size: .9em;
+}
+.panel.fetch:not(.show-requests) .request,
+.more:not(.show-requests) .request {
+	display: none;
+}
+.panel.fetch .fetch-dialog:not(.active) {
+	display: none;
+}
+
+.panel.command {
+	--gap: 8px;  /* used in info tips */
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--gap);
+}
+.panel.command div,
+.panel.command details.tool {
+	margin: 0;
+	line-height: 1.4em;
+}
+.panel.command details.tool {
+	outline: none;
+}
+@keyframes tool-ping-fade {
+	from {
+		outline-color: var(--click-color);
+	}
+	to {
+		outline-color: transparent;
+	}
+}
+.panel.command details.tool.ping {
+	animation-name: tool-ping-fade;
+	animation-duration: 1s;
+	outline-style: solid;
+}
+.panel.command details.tool summary {
+	display: inline;
+}
+.panel.command details.tool summary::before {
+	content: '+';
+	display: inline-block;
+	width: 1em;
+	height: 1em;
+	line-height: 1em;
+	text-align: center;
+}
+.panel.command details.tool summary:hover::before {
+	background: var(--hover-color);
+}
+.panel.command details.tool[open] summary::before {
+	content: '−';
+}
+.panel.command details.tool[open] summary::after {
+	content: ':';
+	width: 1ex;
+	display: inline-block;
+}
+.panel.command details.tool button.info {
+	--info-size: 20px;
+	--info-height-with-tip: calc(var(--info-size) + var(--gap) + 1px);
+	display: inline-block;
+	position: relative;
+	vertical-align: bottom;
+	border: none;
+	padding: 0;
+	margin: 0;
+	background: none;
+	width: var(--info-size);
+	height: var(--info-size);
+	overflow: hidden;
+}
+.panel.command details.tool button.info > svg {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: var(--info-size);
+	height: var(--info-height-with-tip);
+}
+.panel.command details.tool button.info:not(.open) {
+	cursor: help;
+}
+.panel.command details.tool button.info:hover {
+	--tools-info-hover-part-visibility: visible;
+}
+.panel.command details.tool button.info.open {
+	margin-bottom: calc(-1px - var(--gap));
+	height: var(--info-height-with-tip);
+	--tools-info-tip-part-visibility: visible;
+}
+.panel.command details.tool button.info.open:hover {
+	--tools-info-close-hover-part-visibility: visible;
+}
+.panel.command details.tool form {
+	display: contents;
+}
+.panel.command details.info {
+	width: calc(100% + 1rem);
+	display: none;
+	margin: 0 -.5rem;
+	border-top: solid 1px #AAA;
+	border-bottom: solid 1px #AAA;
+	padding: 0 .5rem;
+	background: var(--inset-background-color);
+}
+.panel.command details.info p {
+	margin: .5rem 0;
+}
+.panel.command details.info[open] {
+	display: block;
+}
+.panel.command details.info summary {
+	display: none;
+}
+.panel.command [class|=icon] > span {
+	display: none;
+}
+.panel.command [class|=icon] > svg {
+	vertical-align: middle;
+}
+.panel.command button[disabled] [class|=icon] {
+	opacity: .5;
+}
+.panel.command [class|=icon-map] > svg {
+	width: 19px;
+	height: 13px;
+}
+.panel.command [class|=icon-notes] > svg {
+	width: 9px;
+	height: 13px;
+}
+.panel.command .icon-map-area {
+	--tools-map-area-part-visibility: visible;
+}
+.panel.command .icon-map-center {
+	--tools-map-center-part-visibility: visible;
+}
+
+.panel input:invalid:not(.no-invalid-indication),
+.panel textarea:invalid:not(.no-invalid-indication) {
+	border: solid 2px var(--error-color);
+	border-radius: 3px;
+}
+.panel .major-input input[type=text],
+.panel .major-input textarea,
+.panel .major-input button {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+}
+.panel .major-input textarea {
+	resize: vertical;
+}
+.panel .major-input button {
+	padding: .3rem;
+}
+.panel .text-button-input {
+	position: relative;
+}
+.panel .text-button-input input[type=text] {
+	display: block;
+	box-sizing: border-box;
+	width: calc(100% - 5rem);
+}
+.panel .text-button-input button {
+	display: block;
+	box-sizing: border-box;
+	width: 4.5rem;
+	position: absolute;
+	bottom: 0;
+	right: 0;
+}
+.panel button.error {
+	color: var(--error-color);
+	box-shadow: 0px 0px 0px 1px var(--error-color);
+}
+.panel fieldset {
+	margin-left: 0;
+	margin-right: 0;
+}
+.panel .major-input label.file-reader {
+	--file-reader-border-width: 2px;
+}
+.panel .major-input label.file-reader {
+	display: grid;
+	align-content: center;
+}
+.panel .major-input label.file-reader .over {
+	margin: 2px;
+	grid-row: 1;
+	grid-column: 1;
+	z-index: 1;
+	pointer-events: none;
+	background: var(--file-reader-background-color);
+	display: grid;
+	place-items: center;
+}
+.panel .major-input label.file-reader:focus-within .over {
+	z-index: -1;
+}
+.panel .major-input label.file-reader .colon {
+	display: none;
+}
+.panel .major-input label.file-reader input {
+	display: block;
+	padding: 3rem;
+	background: var(--file-reader-background-color);
+	text-align: center;
+	grid-row: 1;
+	grid-column: 1;
+	border: dashed var(--file-reader-border-width) var(--file-reader-passive-border-color);
+	border-radius: 2px;
+}
+.panel .major-input label.file-reader input.active {
+	border: dashed var(--file-reader-border-width) var(--file-reader-active-border-color);
+}
+
+.more div {
+	margin: 1em;
+}
+.more button {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	padding: .3rem;
+}
+.more .error {
+	background: var(--error-background-color);
+}
+.more pre {
+	margin: 1rem 0 0 0;
+	padding: 1rem;
+	background: var(--inset-background-color);
+	overflow-x: scroll;
+}
+.examples dd {
+	margin: .5em 0 .5em 2em;
+	padding: .5em;
+	background: var(--inset-background-color);
+}
+.examples code {
+	white-space: pre-wrap;
+}
