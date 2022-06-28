@@ -111,7 +111,9 @@ button.global > svg {
 
 nav {
 	position: relative;
-	min-height: 3rem;
+	box-sizing: border-box;
+	padding: 1rem 3rem 0 3rem;
+	z-index: 1;
 }
 nav button.reset,
 nav button.flip {
@@ -132,8 +134,31 @@ body.flipped nav button.flip {
 	--flip-ver-part-visibility: hidden;
 	--flip-hor-part-visibility: visible;
 }
-nav ul a.active {
-	background: yellow;
+nav ul {
+	display: flex;
+	margin: 0;
+	padding: 0;
+}
+nav ul li {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	line-height: 2rem;
+}
+nav ul li a {
+	display: block;
+	padding: 0 1rem;
+	border-right: solid 1px #CCC;
+	border-top: solid 1px #CCC;
+	margin-bottom: -1px;
+	background: #DDD;
+	text-decoration: none;
+}
+nav ul li:first-child a {
+	border-left: solid 1px #CCC;
+}
+nav ul li a.active {
+	background: #FFF;
 }
 
 .panel {
