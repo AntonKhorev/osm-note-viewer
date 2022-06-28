@@ -113,7 +113,7 @@ export default class NoteFetchPanel {
 			fetcher.start(
 				db,
 				noteTable,$moreContainer,
-				dialog.$limitSelect,dialog.getAutoloadChecker(),
+				dialog.$limitSelect,dialog.getAutoLoadChecker(),
 				(disabled: boolean) => dialog.disableFetchControl(disabled),
 				moreButtonIntersectionObservers,
 				query,

@@ -1,4 +1,4 @@
-import {NoteFetchDialog} from './base'
+import {NoteFetchDialog, mixinWithAutoLoadCheckbox} from './base'
 import {NoteQuery, NoteIdsQuery} from '../query'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../util'
 
@@ -8,7 +8,7 @@ const ol=(...ss: Array<string|HTMLElement>)=>makeElement('ol')()(...ss)
 const ul=(...ss: Array<string|HTMLElement>)=>makeElement('ul')()(...ss)
 const li=(...ss: Array<string|HTMLElement>)=>makeElement('li')()(...ss)
 
-export class NoteXmlFetchDialog extends NoteFetchDialog {
+export class NoteXmlFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
 	shortTitle=`XML`
 	title=`Load an XML file containing note ids, then fetch them`
 	private $neisForm=document.createElement('form')
@@ -18,7 +18,6 @@ export class NoteXmlFetchDialog extends NoteFetchDialog {
 	protected $selectorInput=document.createElement('input')
 	protected $attributeInput=document.createElement('input')
 	protected $fileInput=document.createElement('input')
-	protected $autoLoadCheckbox=document.createElement('input')
 	protected $fetchFileInput=document.createElement('input')
 	protected writeExtraForms() {
 		this.$neisForm.id='neis-form'
@@ -36,9 +35,6 @@ export class NoteXmlFetchDialog extends NoteFetchDialog {
 	}
 	disableFetchControl(disabled: boolean): void {
 		this.$fetchFileInput.disabled=disabled
-	}
-	getAutoloadChecker(): {checked: boolean} {
-		return this.$autoLoadCheckbox
 	}
 	protected writePrependedFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void {
 		$legend.textContent=`Get note feed from resultmaps.neis-one.org`

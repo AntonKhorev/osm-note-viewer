@@ -57,7 +57,7 @@ export abstract class NoteFetchDialog {
 		return false
 	}
 	abstract disableFetchControl(disabled: boolean): void
-	abstract getAutoloadChecker(): {checked:boolean}
+	abstract getAutoLoadChecker(): {checked:boolean}
 	protected updateRequest(): void {
 		const knownTypes: {[type:string]:string} = {
 			json: `https://wiki.openstreetmap.org/wiki/GeoJSON`,
@@ -154,14 +154,27 @@ export abstract class NoteFetchDialog {
 	protected abstract listQueryChangingInputs(): Array<HTMLInputElement|HTMLSelectElement>
 }
 
-export abstract class NoteButtonFetchDialog extends NoteFetchDialog {
-	protected $fetchButton=document.createElement('button')
-	protected makeFetchControlDiv(): HTMLDivElement {
-		this.$fetchButton.textContent=`Fetch notes`
-		this.$fetchButton.type='submit'
-		return makeDiv('major-input')(this.$fetchButton)
+export function mixinWithAutoLoadCheckbox<T extends abstract new (...args: any[]) => any>(c: T) {
+	abstract class WithAutoLoadCheckbox extends c {
+		protected $autoLoadCheckbox=document.createElement('input')
+		getAutoLoadChecker(): {checked: boolean} {
+			return this.$autoLoadCheckbox
+		}
 	}
-	disableFetchControl(disabled: boolean): void {
-		this.$fetchButton.disabled=disabled
+	return WithAutoLoadCheckbox
+}
+
+export function mixinWithFetchButton<T extends abstract new (...args: any[]) => any>(c: T) {
+	abstract class WithFetchButton extends c {
+		protected $fetchButton=document.createElement('button')
+		protected makeFetchControlDiv(): HTMLDivElement {
+			this.$fetchButton.textContent=`Fetch notes`
+			this.$fetchButton.type='submit'
+			return makeDiv('major-input')(this.$fetchButton)
+		}
+		disableFetchControl(disabled: boolean): void {
+			this.$fetchButton.disabled=disabled
+		}
 	}
+	return WithFetchButton
 }

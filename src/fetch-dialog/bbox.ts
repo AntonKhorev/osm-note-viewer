@@ -1,4 +1,4 @@
-import {NoteButtonFetchDialog} from './base'
+import {NoteFetchDialog, mixinWithFetchButton} from './base'
 import {NoteMap} from '../map'
 import {NoteQuery, makeNoteBboxQueryFromValues} from '../query'
 import {NominatimBbox, NominatimBboxFetcher} from '../nominatim'
@@ -9,7 +9,7 @@ const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
 const rq=(param: string)=>makeElement('span')('request')(` (`,code(param),` parameter)`)
 const spanRequest=(...ss: Array<string|HTMLElement>)=>makeElement('span')('request')(...ss)
 
-export class NoteBboxFetchDialog extends NoteButtonFetchDialog {
+export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 	shortTitle=`BBox`
 	title=`Get notes inside rectangular area`
 	private $nominatimForm=document.createElement('form')
@@ -36,7 +36,7 @@ export class NoteBboxFetchDialog extends NoteButtonFetchDialog {
 	) {
 		super(getRequestUrls,submitQuery)
 	}
-	getAutoloadChecker(): {checked: boolean} {
+	getAutoLoadChecker(): {checked: boolean} {
 		return {checked: false}
 	}
 	populateInputs(query: NoteQuery|undefined): void {
