@@ -148,14 +148,18 @@ nav ul li {
 nav ul li a {
 	display: block;
 	padding: 0 1rem;
+	border-left: solid 1px #CCC;
 	border-right: solid 1px #CCC;
 	border-top: solid 1px #CCC;
+	border-top-left-radius: 8px;
+	border-top-right-radius: 8px;
 	margin-bottom: -1px;
+	margin-left: -1px;
 	background: #DDD;
 	text-decoration: none;
 }
 nav ul li:first-child a {
-	border-left: solid 1px #CCC;
+	margin-left: 0;
 }
 nav ul li a.active {
 	background: #FFF;
