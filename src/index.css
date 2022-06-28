@@ -155,14 +155,14 @@ nav ul li a {
 	border-top-right-radius: 8px;
 	margin-bottom: -1px;
 	margin-left: -1px;
-	background: #DDD;
+	background: var(--inset-background-color);
 	text-decoration: none;
 }
 nav ul li:first-child a {
 	margin-left: 0;
 }
 nav ul li a.active {
-	background: #FFF;
+	background: canvas;
 }
 
 .panel {
