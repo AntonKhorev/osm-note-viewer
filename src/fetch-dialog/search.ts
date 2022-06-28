@@ -10,6 +10,7 @@ const rq=(param: string)=>makeElement('span')('request')(` (`,code(param),` para
 const rq2=(param1: string, param2: string)=>makeElement('span')('request')(` (`,code(param1),` or `,code(param2),` parameter)`)
 
 export class NoteSearchFetchDialog extends NoteButtonFetchDialog {
+	shortTitle=`Search`
 	title=`Search notes for user / text / date range`
 	protected $userInput=document.createElement('input')
 	protected $textInput=document.createElement('input')
@@ -18,7 +19,10 @@ export class NoteSearchFetchDialog extends NoteButtonFetchDialog {
 	protected $statusSelect=document.createElement('select')
 	protected $sortSelect=document.createElement('select')
 	protected $orderSelect=document.createElement('select')
-	$autoLoadCheckbox=document.createElement('input')
+	protected $autoLoadCheckbox=document.createElement('input')
+	getAutoloadChecker(): {checked: boolean} {
+		return this.$autoLoadCheckbox
+	}
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{
 			$fieldset.append(makeDiv('request')(

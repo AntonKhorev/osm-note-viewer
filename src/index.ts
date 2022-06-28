@@ -2,6 +2,7 @@ import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
 import {NoteMap} from './map'
 import FigureDialog from './figure'
+import Navbar from './navbar'
 import NoteFetchPanel from './fetch-panel'
 import NoteFilterPanel from './filter-panel'
 import ExtrasPanel from './extras-panel'
@@ -58,6 +59,7 @@ async function main() {
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
 
+	const $navbarContainer=document.createElement('nav')
 	const $fetchContainer=makeDiv('panel','fetch')()
 	const $filterContainer=makeDiv('panel','fetch')()
 	const $extrasContainer=makeDiv('panel')()
@@ -68,7 +70,7 @@ async function main() {
 	const $figureDialog=document.createElement('dialog')
 	$figureDialog.classList.add('figure')
 
-	const $scrollingPart=makeDiv('scrolling')($fetchContainer,$filterContainer,$extrasContainer,$notesContainer,$moreContainer)
+	const $scrollingPart=makeDiv('scrolling')($navbarContainer,$fetchContainer,$filterContainer,$extrasContainer,$notesContainer,$moreContainer)
 	const $stickyPart=makeDiv('sticky')($toolContainer)
 
 	const $textSide=makeDiv('text-side')($scrollingPart,$stickyPart)
@@ -80,41 +82,14 @@ async function main() {
 	const scrollRestorer=new ScrollRestorer($scrollingPart)
 	const map=new NoteMap($mapContainer)
 	const figureDialog=new FigureDialog($figureDialog)
-	writeFlipLayoutButton(storage,$fetchContainer,map)
-	writeResetButton($fetchContainer)
+	const navbar=new Navbar(storage,$navbarContainer,map)
 	const extrasPanel=new ExtrasPanel(storage,db,$extrasContainer)
 	const filterPanel=new NoteFilterPanel($filterContainer)
 	const fetchPanel=new NoteFetchPanel(
 		storage,db,
 		$fetchContainer,$notesContainer,$moreContainer,$toolContainer,
-		filterPanel,map,figureDialog,
+		navbar,filterPanel,map,figureDialog,
 		()=>scrollRestorer.run($notesContainer)
 	)
 	scrollRestorer.run($notesContainer)
-}
-
-function writeFlipLayoutButton(storage: NoteViewerStorage, $container: HTMLElement, map: NoteMap): void {
-	const $button=document.createElement('button')
-	$button.classList.add('global','flip')
-	$button.innerHTML=`<svg><title>Flip layout</title><use href="#flip" /></svg>`
-	$button.addEventListener('click',()=>{
-		document.body.classList.toggle('flipped')
-		if (document.body.classList.contains('flipped')) {
-			storage.setItem('flipped','1')
-		} else {
-			storage.removeItem('flipped')
-		}
-		map.invalidateSize()
-	})
-	$container.append($button)
-}
-
-function writeResetButton($container: HTMLElement): void {
-	const $button=document.createElement('button')
-	$button.classList.add('global','reset')
-	$button.innerHTML=`<svg><title>Reset query</title><use href="#reset" /></svg>`
-	$button.addEventListener('click',()=>{
-		location.href=location.pathname+location.search
-	})
-	$container.append($button)
 }

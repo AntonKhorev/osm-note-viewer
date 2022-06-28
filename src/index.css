@@ -109,6 +109,33 @@ button.global > svg {
 	height: 100%;
 }
 
+nav {
+	position: relative;
+	min-height: 3rem;
+}
+nav button.reset,
+nav button.flip {
+	top: .5rem;
+}
+nav button.reset:hover,
+nav button.flip:hover {
+	outline: auto;
+}
+nav button.reset {
+	right: .5rem;
+}
+nav button.flip {
+	left: .5rem;
+	--flip-ver-part-visibility: visible;
+}
+body.flipped nav button.flip {
+	--flip-ver-part-visibility: hidden;
+	--flip-hor-part-visibility: visible;
+}
+nav ul a.active {
+	background: yellow;
+}
+
 .panel {
 	position: relative;
 	padding: .5rem;
@@ -125,28 +152,6 @@ button.global > svg {
 	white-space: nowrap;
 }
 
-.panel.fetch {
-	padding: .5rem 3rem;
-}
-.panel.fetch button.reset,
-.panel.fetch button.flip {
-	top: .5rem;
-}
-.panel.fetch button.reset:hover,
-.panel.fetch button.flip:hover {
-	outline: auto;
-}
-.panel.fetch button.reset {
-	right: .5rem;
-}
-.panel.fetch button.flip {
-	left: .5rem;
-	--flip-ver-part-visibility: visible;
-}
-body.flipped .panel.fetch button.flip {
-	--flip-ver-part-visibility: hidden;
-	--flip-hor-part-visibility: visible;
-}
 .panel.fetch .request,
 .more .request {
 	opacity: .7;
@@ -154,6 +159,9 @@ body.flipped .panel.fetch button.flip {
 }
 .panel.fetch:not(.show-requests) .request,
 .more:not(.show-requests) .request {
+	display: none;
+}
+.panel.fetch .fetch-dialog:not(.active) {
 	display: none;
 }
 

@@ -10,6 +10,7 @@ const rq=(param: string)=>makeElement('span')('request')(` (`,code(param),` para
 const spanRequest=(...ss: Array<string|HTMLElement>)=>makeElement('span')('request')(...ss)
 
 export class NoteBboxFetchDialog extends NoteButtonFetchDialog {
+	shortTitle=`BBox`
 	title=`Get notes inside rectangular area`
 	private $nominatimForm=document.createElement('form')
 	private $nominatimInput=document.createElement('input')
@@ -25,7 +26,7 @@ export class NoteBboxFetchDialog extends NoteButtonFetchDialog {
 		...makeDumbCache() // TODO real cache in db
 	)
 	protected $bboxInput=document.createElement('input')
-	$trackMapCheckbox=document.createElement('input')
+	protected $trackMapCheckbox=document.createElement('input')
 	protected $statusSelect=document.createElement('select')
 	private $nominatimRequestOutput=document.createElement('output')
 	constructor(
@@ -35,13 +36,19 @@ export class NoteBboxFetchDialog extends NoteButtonFetchDialog {
 	) {
 		super(getRequestUrls,submitQuery)
 	}
+	getAutoloadChecker(): {checked: boolean} {
+		return {checked: false}
+	}
 	populateInputs(query: NoteQuery|undefined): void {
 		super.populateInputs(query)
 		this.updateNominatimRequest()
 	}
+	needToSuppressFitNotes(): boolean {
+		return this.$trackMapCheckbox.checked
+	}
 	protected writeExtraForms() {
 		this.$nominatimForm.id='nominatim-form'
-		this.$details.append(this.$nominatimForm)
+		this.$section.append(this.$nominatimForm)
 	}
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{

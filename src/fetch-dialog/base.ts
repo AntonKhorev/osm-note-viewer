@@ -10,8 +10,9 @@ export interface NoteFetchDialogSharedCheckboxes {
 }
 
 export abstract class NoteFetchDialog {
+	abstract shortTitle: string
 	abstract title: string
-	protected $details=document.createElement('details')
+	$section=document.createElement('section')
 	protected $form=document.createElement('form')
 	$limitSelect=document.createElement('select')
 	private $requestOutput=document.createElement('output')
@@ -20,8 +21,9 @@ export abstract class NoteFetchDialog {
 		protected submitQuery: (query: NoteQuery) => void
 	) {}
 	write($container: HTMLElement, $sharedCheckboxes: NoteFetchDialogSharedCheckboxes, initialQuery: NoteQuery|undefined) {
-		const $summary=document.createElement('summary')
-		$summary.textContent=this.title
+		this.$section.classList.add('fetch-dialog')
+		const $heading=document.createElement('h2')
+		$heading.textContent=this.title
 		const appendIfExists=(...$es: Array<HTMLElement|undefined>)=>{
 			for (const $e of $es) {
 				if ($e) this.$form.append($e)
@@ -43,26 +45,20 @@ export abstract class NoteFetchDialog {
 			if (!query) return
 			this.submitQuery(query)
 		})
-		this.$details.addEventListener('toggle',()=>{ // keep only one dialog open
-			if (!this.$details.open) return
-			for (const $otherDetails of $container.querySelectorAll('details')) {
-				if ($otherDetails==this.$details) continue
-				if (!$otherDetails.open) continue
-				$otherDetails.open=false
-			}
-		})
-		this.$details.append($summary,this.$form)
+		this.$section.append($heading,this.$form)
 		this.writeExtraForms()
-		$container.append(this.$details)
-	}
-	open(): void {
-		this.$details.open=true
+		$container.append(this.$section)
 	}
 	populateInputs(query: NoteQuery|undefined): void {
 		this.populateInputsWithoutUpdatingRequest(query)
 		this.updateRequest()
 	}
-	protected updateRequest() {
+	needToSuppressFitNotes(): boolean {
+		return false
+	}
+	abstract disableFetchControl(disabled: boolean): void
+	abstract getAutoloadChecker(): {checked:boolean}
+	protected updateRequest(): void {
 		const knownTypes: {[type:string]:string} = {
 			json: `https://wiki.openstreetmap.org/wiki/GeoJSON`,
 			gpx: `https://www.topografix.com/GPX/1/1/`, // gpx on osm wiki talks mostly about tracks
@@ -159,10 +155,13 @@ export abstract class NoteFetchDialog {
 }
 
 export abstract class NoteButtonFetchDialog extends NoteFetchDialog {
-	$fetchButton=document.createElement('button')
+	protected $fetchButton=document.createElement('button')
 	protected makeFetchControlDiv(): HTMLDivElement {
 		this.$fetchButton.textContent=`Fetch notes`
 		this.$fetchButton.type='submit'
 		return makeDiv('major-input')(this.$fetchButton)
+	}
+	disableFetchControl(disabled: boolean): void {
+		this.$fetchButton.disabled=disabled
 	}
 }

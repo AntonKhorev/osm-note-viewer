@@ -58,7 +58,7 @@ class FetchState {
 	}
 }
 
-abstract class NoteFetcher {
+export abstract class NoteFetcher {
 	getRequestUrls(query: NoteQuery, limit: number): [type: string, url: string][] {
 		const pathAndParameters=this.getRequestUrlPathAndParameters(query,limit)
 		if (pathAndParameters==null) return []
