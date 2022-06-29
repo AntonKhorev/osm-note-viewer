@@ -53,7 +53,11 @@ function makeResetButton(): HTMLButtonElement {
 	$button.classList.add('global','reset')
 	$button.innerHTML=`<svg><title>Reset query</title><use href="#reset" /></svg>`
 	$button.addEventListener('click',()=>{
-		location.href=location.pathname+location.search // +'#' // TODO try push state
+		location.href=location.pathname+location.search
+		// TODO this would have worked better, if it also cleared the notes table:
+		// const url=location.pathname+location.search
+		// location.href=url+'#'
+		// history.replaceState(null,'',url)
 	})
 	return $button
 }
