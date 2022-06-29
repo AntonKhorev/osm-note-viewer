@@ -72,7 +72,6 @@ export abstract class NoteFetcher {
 		if (parameters) url+='?'+parameters
 		return url
 	}
-	private $requestOutput=document.createElement('output')
 	private limitUpdater: ()=>void = ()=>{}
 	private resetLimitUpdater() {
 		this.limitUpdater=()=>{}
@@ -107,15 +106,16 @@ export abstract class NoteFetcher {
 		let nFullyFilteredFetches=0
 		let holdOffAutoLoad=false
 		const rewriteLoadMoreButton=(): HTMLButtonElement => {
+			const $requestOutput=document.createElement('output')
 			this.limitUpdater=()=>{
 				const limit=getLimit($limitSelect)
 				const fetchDetails=getCycleFetchDetails(...fetchState.getNextCycleArguments(limit))
 				if (fetchDetails.pathAndParametersList.length==0) {
-					this.$requestOutput.replaceChildren(`no request`)
+					$requestOutput.replaceChildren(`no request`)
 					return
 				}
 				const url=this.constructUrl(...fetchDetails.pathAndParametersList[0])
-				this.$requestOutput.replaceChildren(makeElement('code')()(
+				$requestOutput.replaceChildren(makeElement('code')()(
 					makeLink(url,url)
 				))
 			}
@@ -126,7 +126,7 @@ export abstract class NoteFetcher {
 			$button.addEventListener('click',fetchCycle)
 			$moreContainer.append(
 				makeDiv()($button),
-				makeDiv('request')(`Resulting request: `,this.$requestOutput)
+				makeDiv('request')(`Resulting request: `,$requestOutput)
 			)
 			return $button
 		}
