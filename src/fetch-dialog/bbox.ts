@@ -1,4 +1,4 @@
-import {NoteFetchDialog, mixinWithFetchButton} from './base'
+import {NoteFetchDialog, NoteFetchDialogSharedCheckboxes, mixinWithFetchButton} from './base'
 import {NoteMap} from '../map'
 import {NoteQuery, makeNoteBboxQueryFromValues} from '../query'
 import {NominatimBbox, NominatimBboxFetcher} from '../nominatim'
@@ -30,11 +30,12 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 	protected $statusSelect=document.createElement('select')
 	private $nominatimRequestOutput=document.createElement('output')
 	constructor(
+		$sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
 		getRequestUrls: (query: NoteQuery, limit: number) => [type: string, url: string][],
 		submitQuery: (query: NoteQuery) => void,
 		private map: NoteMap
 	) {
-		super(getRequestUrls,submitQuery)
+		super($sharedCheckboxes,getRequestUrls,submitQuery)
 	}
 	getAutoLoadChecker(): {checked: boolean} {
 		return {checked: false}

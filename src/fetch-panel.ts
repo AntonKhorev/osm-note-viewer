@@ -44,14 +44,15 @@ export default class NoteFetchPanel {
 				startFetcher(query,true,fetcher,dialog)
 			})
 			dialog.$limitSelect.addEventListener('input',()=>searchFetcher.limitWasUpdated())
-			dialog.write($container,$sharedCheckboxes,hashQuery)
+			dialog.write($container)
+			dialog.populateInputs(hashQuery)
 			navbar.addTab(dialog.shortTitle,dialog.$section)
 			return dialog
 		}
-		const searchDialog=makeSearchDialog(searchFetcher,(getRequestUrls,submitQuery)=>new NoteSearchFetchDialog(getRequestUrls,submitQuery))
-		const bboxDialog=makeSearchDialog(bboxFetcher,(getRequestUrls,submitQuery)=>new NoteBboxFetchDialog(getRequestUrls,submitQuery,map))
-		const xmlDialog=makeSearchDialog(idsFetcher,(getRequestUrls,submitQuery)=>new NoteXmlFetchDialog(getRequestUrls,submitQuery))
-		const plaintextDialog=makeSearchDialog(idsFetcher,(getRequestUrls,submitQuery)=>new NotePlaintextFetchDialog(getRequestUrls,submitQuery))
+		const searchDialog=makeSearchDialog(searchFetcher,(getRequestUrls,submitQuery)=>new NoteSearchFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery))
+		const bboxDialog=makeSearchDialog(bboxFetcher,(getRequestUrls,submitQuery)=>new NoteBboxFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery,map))
+		const xmlDialog=makeSearchDialog(idsFetcher,(getRequestUrls,submitQuery)=>new NoteXmlFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery))
+		const plaintextDialog=makeSearchDialog(idsFetcher,(getRequestUrls,submitQuery)=>new NotePlaintextFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery))
 		
 		handleSharedCheckboxes($sharedCheckboxes.showImages,state=>noteTable?.setShowImages(state))
 		handleSharedCheckboxes($sharedCheckboxes.showRequests,state=>{

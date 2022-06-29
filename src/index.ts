@@ -5,7 +5,6 @@ import FigureDialog from './figure'
 import Navbar from './navbar'
 import NoteFetchPanel from './fetch-panel'
 import NoteFilterPanel from './filter-panel'
-import ExtrasPanel from './extras-panel'
 import {makeDiv} from './util'
 
 const scrollRestorerEnabled=true
@@ -62,7 +61,6 @@ async function main() {
 	const $navbarContainer=document.createElement('nav')
 	const $fetchContainer=makeDiv('panel','fetch')()
 	const $filterContainer=makeDiv('panel','fetch')()
-	const $extrasContainer=makeDiv('panel')()
 	const $notesContainer=makeDiv('notes')()
 	const $moreContainer=makeDiv('more')()
 	const $toolContainer=makeDiv('panel','command')()
@@ -70,7 +68,7 @@ async function main() {
 	const $figureDialog=document.createElement('dialog')
 	$figureDialog.classList.add('figure')
 
-	const $scrollingPart=makeDiv('scrolling')($navbarContainer,$fetchContainer,$filterContainer,$extrasContainer,$notesContainer,$moreContainer)
+	const $scrollingPart=makeDiv('scrolling')($navbarContainer,$fetchContainer,$filterContainer,$notesContainer,$moreContainer)
 	const $stickyPart=makeDiv('sticky')($toolContainer)
 
 	const $textSide=makeDiv('text-side')($scrollingPart,$stickyPart)
@@ -83,7 +81,6 @@ async function main() {
 	const map=new NoteMap($mapContainer)
 	const figureDialog=new FigureDialog($figureDialog)
 	const navbar=new Navbar(storage,$navbarContainer,map)
-	const extrasPanel=new ExtrasPanel(storage,db,$extrasContainer)
 	const filterPanel=new NoteFilterPanel($filterContainer)
 	const fetchPanel=new NoteFetchPanel(
 		storage,db,

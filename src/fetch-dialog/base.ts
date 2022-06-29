@@ -9,21 +9,33 @@ export interface NoteFetchDialogSharedCheckboxes {
 	showRequests: HTMLInputElement[]
 }
 
-export abstract class NoteFetchDialog {
+export abstract class NavDialog {
 	abstract shortTitle: string
 	abstract title: string
 	$section=document.createElement('section')
+	write($container: HTMLElement) {
+		this.$section.classList.add('fetch-dialog')
+		const $heading=document.createElement('h2')
+		$heading.textContent=this.title
+		this.$section.append($heading)
+		this.writeSectionContent($container)
+		$container.append(this.$section)
+	}
+	abstract writeSectionContent($container: HTMLElement): void
+}
+
+export abstract class NoteFetchDialog extends NavDialog {
 	protected $form=document.createElement('form')
 	$limitSelect=document.createElement('select')
 	private $requestOutput=document.createElement('output')
 	constructor(
+		private $sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
 		private getRequestUrls: (query: NoteQuery, limit: number) => [type: string, url: string][],
 		protected submitQuery: (query: NoteQuery) => void
-	) {}
-	write($container: HTMLElement, $sharedCheckboxes: NoteFetchDialogSharedCheckboxes, initialQuery: NoteQuery|undefined) {
-		this.$section.classList.add('fetch-dialog')
-		const $heading=document.createElement('h2')
-		$heading.textContent=this.title
+	) {
+		super()
+	}
+	writeSectionContent($container: HTMLElement) {
 		const appendIfExists=(...$es: Array<HTMLElement|undefined>)=>{
 			for (const $e of $es) {
 				if ($e) this.$form.append($e)
@@ -32,11 +44,10 @@ export abstract class NoteFetchDialog {
 		appendIfExists(
 			this.makePrependedFieldset(),
 			this.makeScopeAndOrderFieldset(),
-			this.makeDownloadModeFieldset($sharedCheckboxes),
+			this.makeDownloadModeFieldset(),
 			this.makeFetchControlDiv(),
 			this.makeRequestDiv()
 		)
-		this.populateInputs(initialQuery)
 		this.addEventListeners()
 		this.addRequestChangeListeners()
 		this.$form.addEventListener('submit',(ev)=>{
@@ -45,9 +56,8 @@ export abstract class NoteFetchDialog {
 			if (!query) return
 			this.submitQuery(query)
 		})
-		this.$section.append($heading,this.$form)
+		this.$section.append(this.$form)
 		this.writeExtraForms()
-		$container.append(this.$section)
 	}
 	populateInputs(query: NoteQuery|undefined): void {
 		this.populateInputsWithoutUpdatingRequest(query)
@@ -113,7 +123,7 @@ export abstract class NoteFetchDialog {
 		$fieldset.prepend($legend)
 		return $fieldset
 	}
-	private makeDownloadModeFieldset($sharedCheckboxes: NoteFetchDialogSharedCheckboxes): HTMLFieldSetElement|undefined {
+	private makeDownloadModeFieldset(): HTMLFieldSetElement|undefined {
 		const $fieldset=document.createElement('fieldset')
 		// TODO (re)store input values
 		const $legend=document.createElement('legend')
@@ -122,13 +132,13 @@ export abstract class NoteFetchDialog {
 		this.writeDownloadModeFieldset($fieldset,$legend)
 		const $showImagesCheckbox=document.createElement('input')
 		$showImagesCheckbox.type='checkbox'
-		$sharedCheckboxes.showImages.push($showImagesCheckbox)
+		this.$sharedCheckboxes.showImages.push($showImagesCheckbox)
 		$fieldset.append(makeDiv()(makeLabel()(
 			$showImagesCheckbox,` Load and show images from StreetComplete`
 		)))
 		const $showRequestsCheckbox=document.createElement('input')
 		$showRequestsCheckbox.type='checkbox'
-		$sharedCheckboxes.showRequests.push($showRequestsCheckbox)
+		this.$sharedCheckboxes.showRequests.push($showRequestsCheckbox)
 		$fieldset.append(makeDiv()(makeLabel()(
 			$showRequestsCheckbox,` Show request parameters and URLs`
 		)))
