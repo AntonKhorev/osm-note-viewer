@@ -54,7 +54,7 @@ export default class AboutDialog extends NavDialog {
 				const $row=$table.insertRow()
 				insertCell().append('fetch')
 				insertCell().append('mode')
-				insertCell().append('user')
+				insertCell().append('content')
 				insertCell().append('last access')
 				function insertCell() {
 					const $th=document.createElement('th')
@@ -70,8 +70,21 @@ export default class AboutDialog extends NavDialog {
 				$row.insertCell().append(searchParams.get('mode')??'(outdated/invalid)')
 				const $userCell=$row.insertCell()
 				const username=searchParams.get('display_name')
-				if (username) $userCell.append(makeUserNameLink(username))
-				$row.insertCell().append(String(new Date(fetchEntry.accessTimestamp)))
+				const ids=searchParams.get('ids')
+				if (username) {
+					$userCell.append(`user `,makeUserNameLink(username))
+				} else if (ids) {
+					const match=ids.match(/\d+/)
+					if (match) {
+						const [id]=match
+						$userCell.append(
+							`note `,
+							makeLink(id,`https://www.openstreetmap.org/note/${encodeURIComponent(id)}`),
+							`, ...`
+						)
+					}
+				}
+				$row.insertCell().append(new Date(fetchEntry.accessTimestamp).toISOString())
 				const $deleteButton=document.createElement('button')
 				$deleteButton.textContent=`Delete`
 				$deleteButton.addEventListener('click',async()=>{
