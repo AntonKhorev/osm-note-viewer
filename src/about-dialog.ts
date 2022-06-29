@@ -1,15 +1,18 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB, {FetchEntry} from './db'
 import {NavDialog} from './navbar'
-import {makeDiv, makeLink, makeUserNameLink} from './util'
+import {makeElement, makeDiv, makeLink, makeUserNameLink} from './util'
 
 export default class AboutDialog extends NavDialog {
 	shortTitle=`About`
-	title=`Extra information`
+	title=`About`
 	constructor(private storage: NoteViewerStorage, private db: NoteViewerDB) {
 		super()
 	}
 	writeSectionContent() {
+		const writeSubheading=(s:string)=>{
+			this.$section.append(makeElement('h3')()(s))
+		}
 		const writeBlock = (makeBlockContents: ()=>Array<HTMLElement|string>): HTMLElement => {
 			const $block=makeDiv()(...makeBlockContents())
 			this.$section.append($block)
@@ -20,6 +23,16 @@ export default class AboutDialog extends NavDialog {
 			$code.textContent=s
 			return $code
 		}
+		writeBlock(()=>{
+			const result: Array<HTMLElement|string> = []
+			result.push(makeElement('strong')()(`note-viewer`))
+			const build=document.body.dataset.build
+			if (build) result.push(` build ${build}`)
+			result.push(` — `)
+			result.push(makeLink(`source code`,`https://github.com/AntonKhorev/osm-note-viewer`))
+			return result
+		})
+		writeSubheading(`Storage`)
 		const $updateFetchesButton=document.createElement('button')
 		writeBlock(()=>{
 			$updateFetchesButton.textContent=`Update stored fetch list`
@@ -78,6 +91,7 @@ export default class AboutDialog extends NavDialog {
 			})
 			return [$clearButton]
 		})
+		writeSubheading(`Extra information`)
 		writeBlock(()=>[
 			`User query have whitespace trimmed, then the remaining part starting with `,makeCode(`#`),` is treated as a user id; containing `,makeCode(`/`),`is treated as a URL, anything else as a username. `,
 			`This works because usernames can't contain any of these characters: `,makeCode(`/;.,?%#`),` , can't have leading/trailing whitespace, have to be between 3 and 255 characters in length.`
@@ -100,9 +114,6 @@ export default class AboutDialog extends NavDialog {
 		writeBlock(()=>[
 			`Other documentation: `,
 			makeLink(`Overpass queries`,`https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`)
-		])
-		writeBlock(()=>[
-			makeLink(`Source code`,`https://github.com/AntonKhorev/osm-note-viewer`)
 		])
 	}
 }

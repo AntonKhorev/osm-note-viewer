@@ -34,6 +34,7 @@ await fs.mkdir('dist')
 	const encodedFavicon=Buffer.from(favicon).toString('base64')
 	const htmlContents=await fs.readFile('src/index.html','utf-8')
 	const patchedHtmlContents=htmlContents
+		.replace(`<body>`,`<body data-build="${new Date().toISOString()}">`)
 		.replace(`<!-- {embed svgs} -->`,embeddedSvgs)
 		.replace(`<!-- {embed favicon} -->`,`<link rel=icon href="data:image/svg+xml;charset=utf-8;base64,${encodedFavicon}">`)
 	await fs.writeFile('dist/index.html',patchedHtmlContents)
