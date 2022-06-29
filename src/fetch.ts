@@ -316,7 +316,7 @@ export class NoteIdsFetcher extends NoteFetcher {
 	protected getRequestUrlPathAndParameters(query: NoteQuery, limit: number): [path:string,parameters:string]|undefined {
 		if (query.mode!='ids') return
 		if (query.ids.length==0) return
-		return ['',String(query.ids[0])] // TODO actually going to do several requests, can list them here somehow?
+		return [String(query.ids[0]),''] // TODO actually going to do several requests, can list them here somehow?
 	}
 	protected getGetCycleFetchDetails(query: NoteQuery): (
 		(limit: number, lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined) => NoteFetchDetails
