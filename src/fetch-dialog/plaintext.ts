@@ -1,5 +1,5 @@
 import {NoteIdsFetchDialog, mixinWithFetchButton} from './base'
-import {NoteQuery, NoteIdsQuery} from '../query'
+import {NoteQuery, makeNoteIdsQueryFromValue} from '../query'
 import {makeDiv, makeLabel} from '../util'
 
 export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) {
@@ -30,14 +30,7 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 		this.$idsTextarea.value=query.ids.join()
 	}
 	protected constructQuery(): NoteQuery | undefined {
-		const ids: number[] = []
-		for (const idString of this.$idsTextarea.value.matchAll(/\d+/g)) {
-			ids.push(Number(idString))
-		}
-		return {
-			mode: 'ids',
-			ids
-		}
+		return makeNoteIdsQueryFromValue(this.$idsTextarea.value)
 	}
 	protected listQueryChangingInputs() {
 		return [this.$idsTextarea]

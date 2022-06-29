@@ -120,6 +120,17 @@ export function makeNoteBboxQueryFromValues(
 	}
 }
 
+export function makeNoteIdsQueryFromValue(idsValue: string): NoteIdsQuery {
+	const ids: number[] = []
+	for (const idString of idsValue.matchAll(/\d+/g)) {
+		ids.push(Number(idString))
+	}
+	return {
+		mode: 'ids',
+		ids
+	}
+}
+
 export function makeNoteQueryFromHash(queryString: string): NoteQuery | undefined {
 	const paramString = (queryString[0]=='#')
 		? queryString.slice(1)
@@ -137,6 +148,8 @@ export function makeNoteQueryFromHash(queryString: string): NoteQuery | undefine
 		return makeNoteBboxQueryFromValues(
 			searchParams.get('bbox')||'',searchParams.get('closed')||''
 		)
+	} else if (mode=='ids') {
+		return makeNoteIdsQueryFromValue(searchParams.get('ids')||'')
 	} else {
 		return undefined
 	}
@@ -169,9 +182,13 @@ export function makeNoteQueryString(query: NoteQuery, withMode: boolean = true):
 			['bbox',query.bbox],
 			['closed',query.closed]
 		)
+	} else if (query.mode=='ids') {
+		parameters.push(
+			['ids',query.ids.join('.')] // ',' gets urlencoded as '%2C', ';' as '%3B' etc; separator candidates are '.', '-', '_'; let's pick '.' because its horizontally shorter
+		)
 	} else {
 		return ''
-	} // TODO make ids query string
+	}
 	return parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
 }
 
