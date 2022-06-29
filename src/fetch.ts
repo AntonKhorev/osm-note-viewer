@@ -110,6 +110,10 @@ export abstract class NoteFetcher {
 			this.limitUpdater=()=>{
 				const limit=getLimit($limitSelect)
 				const fetchDetails=getCycleFetchDetails(...fetchState.getNextCycleArguments(limit))
+				if (fetchDetails.pathAndParametersList.length==0) {
+					this.$requestOutput.replaceChildren(`no request`)
+					return
+				}
 				const url=this.constructUrl(...fetchDetails.pathAndParametersList[0])
 				this.$requestOutput.replaceChildren(makeElement('code')()(
 					makeLink(url,url)
