@@ -53,7 +53,7 @@ function makeResetButton(): HTMLButtonElement {
 	$button.classList.add('global','reset')
 	$button.innerHTML=`<svg><title>Reset query</title><use href="#reset" /></svg>`
 	$button.addEventListener('click',()=>{
-		location.href=location.pathname+location.search
+		location.href=location.pathname+location.search // +'#' // TODO try push state
 	})
 	return $button
 }

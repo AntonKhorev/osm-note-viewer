@@ -129,7 +129,6 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 	}
 	protected populateInputsWithoutUpdatingRequest(query: NoteQuery | undefined): void {
 		if (query && query.mode!='bbox') return
-		// TODO why populate on empty query?
 		this.$bboxInput.value=query?.bbox ?? ''
 		this.$statusSelect.value=query ? String(query.closed) : '-1'
 	}

@@ -18,7 +18,6 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 	protected $selectorInput=document.createElement('input')
 	protected $attributeInput=document.createElement('input')
 	protected $fileInput=document.createElement('input')
-	protected $fetchFileInput=document.createElement('input')
 	protected writeExtraForms() {
 		this.$neisForm.id='neis-form'
 		this.$neisForm.action=`https://resultmaps.neis-one.org/osm-notes-country-feed`
@@ -26,15 +25,15 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 		this.$section.append(this.$neisForm)
 	}
 	protected makeFetchControlDiv(): HTMLDivElement {
-		this.$fetchFileInput.type='file'
+		this.$fileInput.type='file'
 		return makeDiv('major-input')(makeLabel('file-reader')(
 			makeElement('span')('over')(`Read XML file`),
 			makeElement('span')('colon')(`:`),` `,
-			this.$fetchFileInput
+			this.$fileInput
 		))
 	}
 	disableFetchControl(disabled: boolean): void {
-		this.$fetchFileInput.disabled=disabled
+		this.$fileInput.disabled=disabled
 	}
 	protected writePrependedFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void {
 		$legend.textContent=`Get note feed from resultmaps.neis-one.org`
@@ -120,7 +119,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 		}
 	}
 	protected populateInputsWithoutUpdatingRequest(query: NoteQuery | undefined): void {
-		return // query not stored
+		return // TODO clear inputs
 	}
 	protected addEventListeners(): void {
 		this.$neisForm.addEventListener('submit',()=>{
@@ -136,16 +135,16 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 				this.$selectorInput.setCustomValidity(`has to be a valid css selector`)
 			}
 		})
-		this.$fetchFileInput.ondragenter=()=>{
-			this.$fetchFileInput.classList.add('active')
+		this.$fileInput.ondragenter=()=>{
+			this.$fileInput.classList.add('active')
 		}
-		this.$fetchFileInput.ondragleave=()=>{
-			this.$fetchFileInput.classList.remove('active')
+		this.$fileInput.ondragleave=()=>{
+			this.$fileInput.classList.remove('active')
 		}
-		this.$fetchFileInput.addEventListener('change',()=>{
-			this.$fetchFileInput.classList.remove('active')
+		this.$fileInput.addEventListener('change',()=>{
+			this.$fileInput.classList.remove('active')
 			if (!this.$form.reportValidity()) return // doesn't display validity message on drag&drop in Firefox, works ok in Chrome
-			const files=this.$fetchFileInput.files
+			const files=this.$fileInput.files
 			if (!files) return
 			const [file]=files
 			const reader=new FileReader()

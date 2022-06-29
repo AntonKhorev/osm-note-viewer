@@ -82,6 +82,8 @@ export default class NoteFetchPanel {
 		function populateInputs(query: NoteQuery | undefined): void {
 			searchDialog.populateInputs(query)
 			bboxDialog.populateInputs(query)
+			xmlDialog.populateInputs(query)
+			plaintextDialog.populateInputs(query)
 		}
 		function resetNoteDependents(): void {
 			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
@@ -100,8 +102,9 @@ export default class NoteFetchPanel {
 				return [searchFetcher,searchDialog]
 			} else if (query.mode=='bbox') {
 				return [bboxFetcher,bboxDialog]
+			} else if (query.mode=='ids') {
+				return [idsFetcher,plaintextDialog]
 			}
-			// TODO ids fetcher and plaintext dialog for ids query
 		}
 		function startFetcher(query: NoteQuery, clearStore: boolean, fetcher: NoteFetcher, dialog: NoteFetchDialog): void {
 			figureDialog.close()

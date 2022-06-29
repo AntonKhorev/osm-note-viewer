@@ -16,15 +16,30 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 		}
 	}
 	protected addEventListeners(): void {
-		// TODO listen to textarea changes, parse and validate
+		this.$idsTextarea.addEventListener('input',()=>{
+			const match=this.$idsTextarea.value.match(/\d+/)
+			if (!match) {
+				this.$idsTextarea.setCustomValidity(`should contain at least one number`)
+			} else {
+				this.$idsTextarea.setCustomValidity('')
+			}
+		})
 	}
 	protected populateInputsWithoutUpdatingRequest(query: NoteQuery | undefined): void {
-		// TODO update textarea from ids query - need to decide on formatting
+		if (!query || query.mode!='ids') return
+		this.$idsTextarea.value=query.ids.join()
 	}
 	protected constructQuery(): NoteQuery | undefined {
-		return undefined // TODO make ids query
+		const ids: number[] = []
+		for (const idString of this.$idsTextarea.value.matchAll(/\d+/g)) {
+			ids.push(Number(idString))
+		}
+		return {
+			mode: 'ids',
+			ids
+		}
 	}
-	protected listQueryChangingInputs(): Array<HTMLInputElement|HTMLSelectElement> {
-		return [] // TODO return textarea once query construction is on
+	protected listQueryChangingInputs() {
+		return [this.$idsTextarea]
 	}
 }

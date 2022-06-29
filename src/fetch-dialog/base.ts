@@ -148,10 +148,13 @@ export abstract class NoteFetchDialog {
 	protected abstract writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void
 	protected abstract writeDownloadModeFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void
 	protected writeExtraForms(): void {}
+	/**
+	 * Populates inputs on matching query; clears inputs on undefined
+	 */
 	protected abstract populateInputsWithoutUpdatingRequest(query: NoteQuery|undefined): void
 	protected abstract addEventListeners(): void
 	protected abstract constructQuery(): NoteQuery | undefined
-	protected abstract listQueryChangingInputs(): Array<HTMLInputElement|HTMLSelectElement>
+	protected abstract listQueryChangingInputs(): Array<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>
 }
 
 export function mixinWithAutoLoadCheckbox<T extends abstract new (...args: any[]) => any>(c: T) {

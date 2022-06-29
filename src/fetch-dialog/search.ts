@@ -93,7 +93,6 @@ export class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoa
 	}
 	protected populateInputsWithoutUpdatingRequest(query: NoteQuery | undefined): void {
 		if (query && query.mode!='search') return
-		// TODO why populate on empty query?
 		if (query?.display_name) {
 			this.$userInput.value=query.display_name
 		} else if (query?.user) {

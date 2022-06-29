@@ -171,7 +171,7 @@ export function makeNoteQueryString(query: NoteQuery, withMode: boolean = true):
 		)
 	} else {
 		return ''
-	}
+	} // TODO make ids query string
 	return parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
 }
 
