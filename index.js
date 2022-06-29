@@ -645,21 +645,34 @@ class FigureDialog {
     }
 }
 
+class NavDialog {
+    constructor() {
+        this.$section = document.createElement('section');
+    }
+    write($container) {
+        this.$section.classList.add('nav-dialog');
+        const $heading = document.createElement('h2');
+        $heading.textContent = this.title;
+        this.$section.append($heading);
+        this.writeSectionContent();
+        $container.append(this.$section);
+    }
+}
 class Navbar {
     constructor(storage, $container, map) {
         this.$tabList = document.createElement('ul');
         this.tabs = new Map();
         $container.append(this.$tabList, makeFlipLayoutButton(storage, map), makeResetButton());
     }
-    addTab(shortTitle, $section) {
-        const id = 'section-' + shortTitle;
-        $section.id = id;
-        const $a = makeLink(shortTitle, '#' + id);
-        this.$tabList.append(makeElement('li')()($a));
-        this.tabs.set(shortTitle, [$a, $section]);
+    addTab(dialog, push = false) {
+        const id = 'section-' + dialog.shortTitle;
+        dialog.$section.id = id;
+        const $a = makeLink(dialog.shortTitle, '#' + id);
+        this.$tabList.append(makeElement('li')(...(push ? ['push'] : []))($a));
+        this.tabs.set(dialog.shortTitle, [$a, dialog.$section]);
         $a.addEventListener('click', ev => {
             ev.preventDefault();
-            this.openTab(shortTitle);
+            this.openTab(dialog.shortTitle);
         });
     }
     openTab(targetShortTitle) {
@@ -692,8 +705,141 @@ function makeResetButton() {
     $button.innerHTML = `<svg><title>Reset query</title><use href="#reset" /></svg>`;
     $button.addEventListener('click', () => {
         location.href = location.pathname + location.search;
+        // TODO this would have worked better, if it also cleared the notes table:
+        // const url=location.pathname+location.search
+        // location.href=url+'#'
+        // history.replaceState(null,'',url)
     });
     return $button;
+}
+
+class AboutDialog extends NavDialog {
+    constructor(storage, db) {
+        super();
+        this.storage = storage;
+        this.db = db;
+        this.shortTitle = `About`;
+        this.title = `About`;
+    }
+    writeSectionContent() {
+        const writeSubheading = (s) => {
+            this.$section.append(makeElement('h3')()(s));
+        };
+        const writeBlock = (makeBlockContents) => {
+            const $block = makeDiv()(...makeBlockContents());
+            this.$section.append($block);
+            return $block;
+        };
+        const makeCode = (s) => {
+            const $code = document.createElement('code');
+            $code.textContent = s;
+            return $code;
+        };
+        writeBlock(() => {
+            const result = [];
+            result.push(makeElement('strong')()(`note-viewer`));
+            const build = document.body.dataset.build;
+            if (build)
+                result.push(` build ${build}`);
+            result.push(` — `);
+            result.push(makeLink(`source code`, `https://github.com/AntonKhorev/osm-note-viewer`));
+            return result;
+        });
+        writeSubheading(`Storage`);
+        const $updateFetchesButton = document.createElement('button');
+        writeBlock(() => {
+            $updateFetchesButton.textContent = `Update stored fetch list`;
+            return [$updateFetchesButton];
+        });
+        const $fetchesContainer = writeBlock(() => {
+            return [`Click Update button above to see stored fetches`];
+        });
+        $updateFetchesButton.addEventListener('click', async () => {
+            $updateFetchesButton.disabled = true;
+            let fetchEntries = [];
+            try {
+                fetchEntries = await this.db.view();
+            }
+            catch { }
+            $updateFetchesButton.disabled = false;
+            $fetchesContainer.innerHTML = '';
+            const $table = document.createElement('table');
+            {
+                const $row = $table.insertRow();
+                insertCell().append('fetch');
+                insertCell().append('mode');
+                insertCell().append('content');
+                insertCell().append('last access');
+                function insertCell() {
+                    const $th = document.createElement('th');
+                    $row.append($th);
+                    return $th;
+                }
+            }
+            let n = 0;
+            for (const fetchEntry of fetchEntries) {
+                const $row = $table.insertRow();
+                $row.insertCell().append(makeLink(`[${++n}]`, '#' + fetchEntry.queryString));
+                const searchParams = new URLSearchParams(fetchEntry.queryString);
+                $row.insertCell().append(searchParams.get('mode') ?? '(outdated/invalid)');
+                const $userCell = $row.insertCell();
+                const username = searchParams.get('display_name');
+                const ids = searchParams.get('ids');
+                if (username) {
+                    $userCell.append(`user `, makeUserNameLink(username));
+                }
+                else if (ids) {
+                    const match = ids.match(/\d+/);
+                    if (match) {
+                        const [id] = match;
+                        $userCell.append(`note `, makeLink(id, `https://www.openstreetmap.org/note/${encodeURIComponent(id)}`), `, ...`);
+                    }
+                }
+                $row.insertCell().append(new Date(fetchEntry.accessTimestamp).toISOString());
+                const $deleteButton = document.createElement('button');
+                $deleteButton.textContent = `Delete`;
+                $deleteButton.addEventListener('click', async () => {
+                    $deleteButton.disabled = true;
+                    await this.db.delete(fetchEntry);
+                    $updateFetchesButton.click();
+                });
+                $row.insertCell().append($deleteButton);
+            }
+            $fetchesContainer.append($table);
+        });
+        writeBlock(() => {
+            const $clearButton = document.createElement('button');
+            $clearButton.textContent = `Clear settings`;
+            $clearButton.addEventListener('click', () => {
+                this.storage.clear();
+            });
+            return [$clearButton];
+        });
+        writeSubheading(`Extra information`);
+        writeBlock(() => [
+            `User query have whitespace trimmed, then the remaining part starting with `, makeCode(`#`), ` is treated as a user id; containing `, makeCode(`/`), `is treated as a URL, anything else as a username. `,
+            `This works because usernames can't contain any of these characters: `, makeCode(`/;.,?%#`), ` , can't have leading/trailing whitespace, have to be between 3 and 255 characters in length.`
+        ]);
+        writeBlock(() => [
+            `Notes implementation code: `,
+            makeLink(`notes api controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`),
+            ` (db search query is build there), `,
+            makeLink(`notes controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/notes_controller.rb`),
+            ` (paginated user notes query is build there), `,
+            makeLink(`note model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note.rb`),
+            `, `,
+            makeLink(`note comment model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note_comment.rb`),
+            ` in `,
+            makeLink(`Rails Port`, `https://wiki.openstreetmap.org/wiki/The_Rails_Port`),
+            ` (not implemented in `,
+            makeLink(`CGIMap`, `https://wiki.openstreetmap.org/wiki/Cgimap`),
+            `)`
+        ]);
+        writeBlock(() => [
+            `Other documentation: `,
+            makeLink(`Overpass queries`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`)
+        ]);
+    }
 }
 
 class LooseParserListener {
@@ -3291,6 +3437,16 @@ function makeNoteBboxQueryFromValues(bboxValue, closedValue) {
         return -1;
     }
 }
+function makeNoteIdsQueryFromValue(idsValue) {
+    const ids = [];
+    for (const idString of idsValue.matchAll(/\d+/g)) {
+        ids.push(Number(idString));
+    }
+    return {
+        mode: 'ids',
+        ids
+    };
+}
 function makeNoteQueryFromHash(queryString) {
     const paramString = (queryString[0] == '#')
         ? queryString.slice(1)
@@ -3303,6 +3459,9 @@ function makeNoteQueryFromHash(queryString) {
     }
     else if (mode == 'bbox') {
         return makeNoteBboxQueryFromValues(searchParams.get('bbox') || '', searchParams.get('closed') || '');
+    }
+    else if (mode == 'ids') {
+        return makeNoteIdsQueryFromValue(searchParams.get('ids') || '');
     }
     else {
         return undefined;
@@ -3333,6 +3492,10 @@ function makeNoteQueryString(query, withMode = true) {
     }
     else if (query.mode == 'bbox') {
         parameters.push(['bbox', query.bbox], ['closed', query.closed]);
+    }
+    else if (query.mode == 'ids') {
+        parameters.push(['ids', query.ids.join('.')] // ',' gets urlencoded as '%2C', ';' as '%3B' etc; separator candidates are '.', '-', '_'; let's pick '.' because its horizontally shorter
+        );
     }
     else {
         return '';
@@ -3503,7 +3666,6 @@ class FetchState {
 }
 class NoteFetcher {
     constructor() {
-        this.$requestOutput = document.createElement('output');
         this.limitUpdater = () => { };
     }
     getRequestUrls(query, limit) {
@@ -3550,18 +3712,23 @@ class NoteFetcher {
         let nFullyFilteredFetches = 0;
         let holdOffAutoLoad = false;
         const rewriteLoadMoreButton = () => {
+            const $requestOutput = document.createElement('output');
             this.limitUpdater = () => {
                 const limit = getLimit($limitSelect);
                 const fetchDetails = getCycleFetchDetails(...fetchState.getNextCycleArguments(limit));
+                if (fetchDetails.pathAndParametersList.length == 0) {
+                    $requestOutput.replaceChildren(`no request`);
+                    return;
+                }
                 const url = this.constructUrl(...fetchDetails.pathAndParametersList[0]);
-                this.$requestOutput.replaceChildren(makeElement('code')()(makeLink(url, url)));
+                $requestOutput.replaceChildren(makeElement('code')()(makeLink(url, url)));
             };
             this.limitUpdater();
             $moreContainer.innerHTML = '';
             const $button = document.createElement('button');
             $button.textContent = `Load more notes`;
             $button.addEventListener('click', fetchCycle);
-            $moreContainer.append(makeDiv()($button), makeDiv('request')(`Resulting request: `, this.$requestOutput));
+            $moreContainer.append(makeDiv()($button), makeDiv('request')(`Resulting request: `, $requestOutput));
             return $button;
         };
         const fetchCycle = async () => {
@@ -3748,7 +3915,7 @@ class NoteIdsFetcher extends NoteFetcher {
             return;
         if (query.ids.length == 0)
             return;
-        return ['', String(query.ids[0])]; // TODO actually going to do several requests, can list them here somehow?
+        return [String(query.ids[0]), '']; // TODO actually going to do several requests, can list them here somehow?
     }
     getGetCycleFetchDetails(query) {
         if (query.mode != 'ids')
@@ -3832,27 +3999,24 @@ function getLimit($limitSelect) {
 
 const sup = (...ss) => makeElement('sup')()(...ss);
 const code$2 = (...ss) => makeElement('code')()(...ss);
-class NoteFetchDialog {
-    constructor(getRequestUrls, submitQuery) {
+class NoteFetchDialog extends NavDialog {
+    constructor($sharedCheckboxes, getRequestUrls, submitQuery) {
+        super();
+        this.$sharedCheckboxes = $sharedCheckboxes;
         this.getRequestUrls = getRequestUrls;
         this.submitQuery = submitQuery;
-        this.$section = document.createElement('section');
         this.$form = document.createElement('form');
         this.$limitSelect = document.createElement('select');
         this.$requestOutput = document.createElement('output');
     }
-    write($container, $sharedCheckboxes, initialQuery) {
-        this.$section.classList.add('fetch-dialog');
-        const $heading = document.createElement('h2');
-        $heading.textContent = this.title;
+    writeSectionContent() {
         const appendIfExists = (...$es) => {
             for (const $e of $es) {
                 if ($e)
                     this.$form.append($e);
             }
         };
-        appendIfExists(this.makePrependedFieldset(), this.makeScopeAndOrderFieldset(), this.makeDownloadModeFieldset($sharedCheckboxes), this.makeFetchControlDiv(), this.makeRequestDiv());
-        this.populateInputs(initialQuery);
+        appendIfExists(this.makePrependedFieldset(), this.makeScopeAndOrderFieldset(), this.makeDownloadModeFieldset(), this.makeFetchControlDiv(), this.makeRequestDiv());
         this.addEventListeners();
         this.addRequestChangeListeners();
         this.$form.addEventListener('submit', (ev) => {
@@ -3862,9 +4026,8 @@ class NoteFetchDialog {
                 return;
             this.submitQuery(query);
         });
-        this.$section.append($heading, this.$form);
+        this.$section.append(this.$form);
         this.writeExtraForms();
-        $container.append(this.$section);
     }
     populateInputs(query) {
         this.populateInputsWithoutUpdatingRequest(query);
@@ -3932,7 +4095,7 @@ class NoteFetchDialog {
         $fieldset.prepend($legend);
         return $fieldset;
     }
-    makeDownloadModeFieldset($sharedCheckboxes) {
+    makeDownloadModeFieldset() {
         const $fieldset = document.createElement('fieldset');
         // TODO (re)store input values
         const $legend = document.createElement('legend');
@@ -3941,11 +4104,11 @@ class NoteFetchDialog {
         this.writeDownloadModeFieldset($fieldset, $legend);
         const $showImagesCheckbox = document.createElement('input');
         $showImagesCheckbox.type = 'checkbox';
-        $sharedCheckboxes.showImages.push($showImagesCheckbox);
+        this.$sharedCheckboxes.showImages.push($showImagesCheckbox);
         $fieldset.append(makeDiv()(makeLabel()($showImagesCheckbox, ` Load and show images from StreetComplete`)));
         const $showRequestsCheckbox = document.createElement('input');
         $showRequestsCheckbox.type = 'checkbox';
-        $sharedCheckboxes.showRequests.push($showRequestsCheckbox);
+        this.$sharedCheckboxes.showRequests.push($showRequestsCheckbox);
         $fieldset.append(makeDiv()(makeLabel()($showRequestsCheckbox, ` Show request parameters and URLs`)));
         return $fieldset;
     }
@@ -3961,18 +4124,46 @@ class NoteFetchDialog {
     writePrependedFieldset($fieldset, $legend) { }
     writeExtraForms() { }
 }
-class NoteButtonFetchDialog extends NoteFetchDialog {
-    constructor() {
-        super(...arguments);
-        this.$fetchButton = document.createElement('button');
+function mixinWithAutoLoadCheckbox(c) {
+    class WithAutoLoadCheckbox extends c {
+        constructor() {
+            super(...arguments);
+            this.$autoLoadCheckbox = document.createElement('input');
+        }
+        getAutoLoadChecker() {
+            return this.$autoLoadCheckbox;
+        }
     }
-    makeFetchControlDiv() {
-        this.$fetchButton.textContent = `Fetch notes`;
-        this.$fetchButton.type = 'submit';
-        return makeDiv('major-input')(this.$fetchButton);
+    return WithAutoLoadCheckbox;
+}
+function mixinWithFetchButton(c) {
+    class WithFetchButton extends c {
+        constructor() {
+            super(...arguments);
+            this.$fetchButton = document.createElement('button');
+        }
+        makeFetchControlDiv() {
+            this.$fetchButton.textContent = `Fetch notes`;
+            this.$fetchButton.type = 'submit';
+            return makeDiv('major-input')(this.$fetchButton);
+        }
+        disableFetchControl(disabled) {
+            this.$fetchButton.disabled = disabled;
+        }
     }
-    disableFetchControl(disabled) {
-        this.$fetchButton.disabled = disabled;
+    return WithFetchButton;
+}
+class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
+    writeDownloadModeFieldset($fieldset) {
+        {
+            this.$limitSelect.append(new Option('5'), new Option('20'));
+            $fieldset.append(makeDiv()(`Download these `, makeLabel()(`in batches of `, this.$limitSelect, ` notes`, makeElement('span')('request')(` (will make this many API requests each time it downloads more notes)`))));
+        }
+        {
+            this.$autoLoadCheckbox.type = 'checkbox';
+            this.$autoLoadCheckbox.checked = true;
+            $fieldset.append(makeDiv()(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
+        }
     }
 }
 
@@ -3980,7 +4171,7 @@ const em$2 = (...ss) => makeElement('em')()(...ss);
 const code$1 = (...ss) => makeElement('code')()(...ss);
 const rq$1 = (param) => makeElement('span')('request')(` (`, code$1(param), ` parameter)`);
 const rq2 = (param1, param2) => makeElement('span')('request')(` (`, code$1(param1), ` or `, code$1(param2), ` parameter)`);
-class NoteSearchFetchDialog extends NoteButtonFetchDialog {
+class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoadCheckbox(NoteFetchDialog)) {
     constructor() {
         super(...arguments);
         this.shortTitle = `Search`;
@@ -3992,10 +4183,6 @@ class NoteSearchFetchDialog extends NoteButtonFetchDialog {
         this.$statusSelect = document.createElement('select');
         this.$sortSelect = document.createElement('select');
         this.$orderSelect = document.createElement('select');
-        this.$autoLoadCheckbox = document.createElement('input');
-    }
-    getAutoloadChecker() {
-        return this.$autoLoadCheckbox;
     }
     writeScopeAndOrderFieldset($fieldset) {
         {
@@ -4041,7 +4228,6 @@ class NoteSearchFetchDialog extends NoteButtonFetchDialog {
     populateInputsWithoutUpdatingRequest(query) {
         if (query && query.mode != 'search')
             return;
-        // TODO why populate on empty query?
         if (query?.display_name) {
             this.$userInput.value = query.display_name;
         }
@@ -4142,9 +4328,9 @@ const em$1 = (...ss) => makeElement('em')()(...ss);
 const code = (...ss) => makeElement('code')()(...ss);
 const rq = (param) => makeElement('span')('request')(` (`, code(param), ` parameter)`);
 const spanRequest = (...ss) => makeElement('span')('request')(...ss);
-class NoteBboxFetchDialog extends NoteButtonFetchDialog {
-    constructor(getRequestUrls, submitQuery, map) {
-        super(getRequestUrls, submitQuery);
+class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
+    constructor($sharedCheckboxes, getRequestUrls, submitQuery, map) {
+        super($sharedCheckboxes, getRequestUrls, submitQuery);
         this.map = map;
         this.shortTitle = `BBox`;
         this.title = `Get notes inside rectangular area`;
@@ -4164,7 +4350,7 @@ class NoteBboxFetchDialog extends NoteButtonFetchDialog {
         this.$statusSelect = document.createElement('select');
         this.$nominatimRequestOutput = document.createElement('output');
     }
-    getAutoloadChecker() {
+    getAutoLoadChecker() {
         return { checked: false };
     }
     populateInputs(query) {
@@ -4225,7 +4411,6 @@ class NoteBboxFetchDialog extends NoteButtonFetchDialog {
     populateInputsWithoutUpdatingRequest(query) {
         if (query && query.mode != 'bbox')
             return;
-        // TODO why populate on empty query?
         this.$bboxInput.value = query?.bbox ?? '';
         this.$statusSelect.value = query ? String(query.closed) : '-1';
     }
@@ -4314,7 +4499,7 @@ const p = (...ss) => makeElement('p')()(...ss);
 const ol = (...ss) => makeElement('ol')()(...ss);
 const ul = (...ss) => makeElement('ul')()(...ss);
 const li = (...ss) => makeElement('li')()(...ss);
-class NoteXmlFetchDialog extends NoteFetchDialog {
+class NoteXmlFetchDialog extends NoteIdsFetchDialog {
     constructor() {
         super(...arguments);
         this.shortTitle = `XML`;
@@ -4326,8 +4511,6 @@ class NoteXmlFetchDialog extends NoteFetchDialog {
         this.$selectorInput = document.createElement('input');
         this.$attributeInput = document.createElement('input');
         this.$fileInput = document.createElement('input');
-        this.$autoLoadCheckbox = document.createElement('input');
-        this.$fetchFileInput = document.createElement('input');
     }
     writeExtraForms() {
         this.$neisForm.id = 'neis-form';
@@ -4336,14 +4519,11 @@ class NoteXmlFetchDialog extends NoteFetchDialog {
         this.$section.append(this.$neisForm);
     }
     makeFetchControlDiv() {
-        this.$fetchFileInput.type = 'file';
-        return makeDiv('major-input')(makeLabel('file-reader')(makeElement('span')('over')(`Read XML file`), makeElement('span')('colon')(`:`), ` `, this.$fetchFileInput));
+        this.$fileInput.type = 'file';
+        return makeDiv('major-input')(makeLabel('file-reader')(makeElement('span')('over')(`Read XML file`), makeElement('span')('colon')(`:`), ` `, this.$fileInput));
     }
     disableFetchControl(disabled) {
-        this.$fetchFileInput.disabled = disabled;
-    }
-    getAutoloadChecker() {
-        return this.$autoLoadCheckbox;
+        this.$fileInput.disabled = disabled;
     }
     writePrependedFieldset($fieldset, $legend) {
         $legend.textContent = `Get note feed from resultmaps.neis-one.org`;
@@ -4389,19 +4569,8 @@ class NoteXmlFetchDialog extends NoteFetchDialog {
             $fieldset.append(makeDiv('major-input')(makeLabel()(`Attribute of matched XML elements containing note id (leave blank if note id is in text content): `, this.$attributeInput)));
         }
     }
-    writeDownloadModeFieldset($fieldset) {
-        {
-            this.$limitSelect.append(new Option('5'), new Option('20'));
-            $fieldset.append(makeDiv()(`Download these `, makeLabel()(`in batches of `, this.$limitSelect, ` notes`, makeElement('span')('request')(` (will make this many API requests each time it downloads more notes)`))));
-        }
-        {
-            this.$autoLoadCheckbox.type = 'checkbox';
-            this.$autoLoadCheckbox.checked = true;
-            $fieldset.append(makeDiv()(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
-        }
-    }
     populateInputsWithoutUpdatingRequest(query) {
-        return; // query not stored
+        return; // TODO clear inputs
     }
     addEventListeners() {
         this.$neisForm.addEventListener('submit', () => {
@@ -4418,17 +4587,17 @@ class NoteXmlFetchDialog extends NoteFetchDialog {
                 this.$selectorInput.setCustomValidity(`has to be a valid css selector`);
             }
         });
-        this.$fetchFileInput.ondragenter = () => {
-            this.$fetchFileInput.classList.add('active');
+        this.$fileInput.ondragenter = () => {
+            this.$fileInput.classList.add('active');
         };
-        this.$fetchFileInput.ondragleave = () => {
-            this.$fetchFileInput.classList.remove('active');
+        this.$fileInput.ondragleave = () => {
+            this.$fileInput.classList.remove('active');
         };
-        this.$fetchFileInput.addEventListener('change', () => {
-            this.$fetchFileInput.classList.remove('active');
+        this.$fileInput.addEventListener('change', () => {
+            this.$fileInput.classList.remove('active');
             if (!this.$form.reportValidity())
                 return; // doesn't display validity message on drag&drop in Firefox, works ok in Chrome
-            const files = this.$fetchFileInput.files;
+            const files = this.$fileInput.files;
             if (!files)
                 return;
             const [file] = files;
@@ -4740,6 +4909,44 @@ const neisCountries = [
     'Zimbabwe',
 ];
 
+class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) {
+    constructor() {
+        super(...arguments);
+        this.shortTitle = `Plaintext`;
+        this.title = `Fetch notes by ids from unstructured text`;
+        this.$idsTextarea = document.createElement('textarea');
+    }
+    writeScopeAndOrderFieldset($fieldset) {
+        {
+            this.$idsTextarea.required = true;
+            this.$idsTextarea.rows = 10;
+            $fieldset.append(makeDiv('major-input')(makeLabel()(`Note ids separated by anything: `, this.$idsTextarea)));
+        }
+    }
+    addEventListeners() {
+        this.$idsTextarea.addEventListener('input', () => {
+            const match = this.$idsTextarea.value.match(/\d+/);
+            if (!match) {
+                this.$idsTextarea.setCustomValidity(`should contain at least one number`);
+            }
+            else {
+                this.$idsTextarea.setCustomValidity('');
+            }
+        });
+    }
+    populateInputsWithoutUpdatingRequest(query) {
+        if (!query || query.mode != 'ids')
+            return;
+        this.$idsTextarea.value = query.ids.join();
+    }
+    constructQuery() {
+        return makeNoteIdsQueryFromValue(this.$idsTextarea.value);
+    }
+    listQueryChangingInputs() {
+        return [this.$idsTextarea];
+    }
+}
+
 class NoteFetchPanel {
     constructor(storage, db, $container, $notesContainer, $moreContainer, $toolContainer, navbar, filterPanel, map, figureDialog, restoreScrollPosition) {
         let noteTable;
@@ -4759,13 +4966,18 @@ class NoteFetchPanel {
                 startFetcher(query, true, fetcher, dialog);
             });
             dialog.$limitSelect.addEventListener('input', () => searchFetcher.limitWasUpdated());
-            dialog.write($container, $sharedCheckboxes, hashQuery);
-            navbar.addTab(dialog.shortTitle, dialog.$section);
+            dialog.write($container);
+            dialog.populateInputs(hashQuery);
+            navbar.addTab(dialog);
             return dialog;
         };
-        const searchDialog = makeSearchDialog(searchFetcher, (getRequestUrls, submitQuery) => new NoteSearchFetchDialog(getRequestUrls, submitQuery));
-        const bboxDialog = makeSearchDialog(bboxFetcher, (getRequestUrls, submitQuery) => new NoteBboxFetchDialog(getRequestUrls, submitQuery, map));
-        makeSearchDialog(idsFetcher, (getRequestUrls, submitQuery) => new NoteXmlFetchDialog(getRequestUrls, submitQuery));
+        const searchDialog = makeSearchDialog(searchFetcher, (getRequestUrls, submitQuery) => new NoteSearchFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery));
+        const bboxDialog = makeSearchDialog(bboxFetcher, (getRequestUrls, submitQuery) => new NoteBboxFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery, map));
+        const xmlDialog = makeSearchDialog(idsFetcher, (getRequestUrls, submitQuery) => new NoteXmlFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery));
+        const plaintextDialog = makeSearchDialog(idsFetcher, (getRequestUrls, submitQuery) => new NotePlaintextFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery));
+        const aboutDialog = new AboutDialog(storage, db);
+        aboutDialog.write($container);
+        navbar.addTab(aboutDialog, true);
         handleSharedCheckboxes($sharedCheckboxes.showImages, state => noteTable?.setShowImages(state));
         handleSharedCheckboxes($sharedCheckboxes.showRequests, state => {
             $container.classList.toggle('show-requests', state);
@@ -4787,16 +4999,19 @@ class NoteFetchPanel {
                 if (initial)
                     navbar.openTab(searchDialog.shortTitle);
             }
-            else if (query.mode == 'search') {
-                navbar.openTab(searchDialog.shortTitle);
-            }
-            else if (query.mode == 'bbox') {
-                navbar.openTab(bboxDialog.shortTitle);
+            else {
+                const fetcherAndDialog = getFetcherAndDialogFromQuery(query);
+                if (!fetcherAndDialog)
+                    return;
+                const [, dialog] = fetcherAndDialog;
+                navbar.openTab(dialog.shortTitle);
             }
         }
         function populateInputs(query) {
             searchDialog.populateInputs(query);
             bboxDialog.populateInputs(query);
+            xmlDialog.populateInputs(query);
+            plaintextDialog.populateInputs(query);
         }
         function resetNoteDependents() {
             while (moreButtonIntersectionObservers.length > 0)
@@ -4820,11 +5035,14 @@ class NoteFetchPanel {
             else if (query.mode == 'bbox') {
                 return [bboxFetcher, bboxDialog];
             }
+            else if (query.mode == 'ids') {
+                return [idsFetcher, plaintextDialog];
+            }
         }
         function startFetcher(query, clearStore, fetcher, dialog) {
             figureDialog.close();
             resetNoteDependents();
-            if (query?.mode != 'search' && query?.mode != 'bbox' && query?.mode != 'ids')
+            if (query.mode != 'search' && query.mode != 'bbox' && query.mode != 'ids')
                 return;
             filterPanel.unsubscribe();
             const toolPanel = new ToolPanel($toolContainer, map, figureDialog, storage);
@@ -4832,7 +5050,7 @@ class NoteFetchPanel {
             filterPanel.subscribe(noteFilter => noteTable?.updateFilter(noteFilter));
             if (dialog.needToSuppressFitNotes())
                 map.needToFitNotes = false;
-            fetcher.start(db, noteTable, $moreContainer, dialog.$limitSelect, dialog.getAutoloadChecker(), (disabled) => dialog.disableFetchControl(disabled), moreButtonIntersectionObservers, query, clearStore);
+            fetcher.start(db, noteTable, $moreContainer, dialog.$limitSelect, dialog.getAutoLoadChecker(), (disabled) => dialog.disableFetchControl(disabled), moreButtonIntersectionObservers, query, clearStore);
         }
         function handleSharedCheckboxes($checkboxes, stateChangeListener) {
             for (const $checkbox of $checkboxes) {
@@ -5142,22 +5360,14 @@ class NoteFilterPanel {
             $form.append($details);
         }
         {
-            const $div = document.createElement('div');
-            $div.classList.add('major-input');
             $textarea.rows = 5;
-            const $label = document.createElement('label');
-            $label.append(`Filter:`, $textarea);
-            $div.append($label);
-            $form.append($div);
+            $form.append(makeDiv('major-input')(makeLabel()(`Filter: `, $textarea)));
         }
         {
-            const $div = document.createElement('div');
-            $div.classList.add('major-input');
             $button.textContent = `Apply filter`;
             $button.type = 'submit';
             $button.disabled = true;
-            $div.append($button);
-            $form.append($div);
+            $form.append(makeDiv('major-input')($button));
         }
         $textarea.addEventListener('input', () => {
             $button.disabled = this.noteFilter.isSameQuery($textarea.value);
@@ -5191,119 +5401,6 @@ class NoteFilterPanel {
     }
     unsubscribe() {
         this.callback = undefined;
-    }
-}
-
-class ExtrasPanel {
-    constructor(storage, db, $container) {
-        this.storage = storage;
-        this.db = db;
-        this.$container = $container;
-        this.$container.innerHTML = '';
-        const $details = document.createElement('details');
-        {
-            const $summary = document.createElement('summary');
-            $summary.textContent = `Extra information`;
-            $details.append($summary);
-        }
-        const $updateFetchesButton = document.createElement('button');
-        writeBlock(() => {
-            $updateFetchesButton.textContent = `Update stored fetch list`;
-            return [$updateFetchesButton];
-        });
-        const $fetchesContainer = writeBlock(() => {
-            return [`Click Update button above to see stored fetches`];
-        });
-        $updateFetchesButton.addEventListener('click', async () => {
-            $updateFetchesButton.disabled = true;
-            let fetchEntries = [];
-            try {
-                fetchEntries = await this.db.view();
-            }
-            catch { }
-            $updateFetchesButton.disabled = false;
-            $fetchesContainer.innerHTML = '';
-            const $table = document.createElement('table');
-            {
-                const $row = $table.insertRow();
-                insertCell().append('fetch');
-                insertCell().append('mode');
-                insertCell().append('user');
-                insertCell().append('last access');
-                function insertCell() {
-                    const $th = document.createElement('th');
-                    $row.append($th);
-                    return $th;
-                }
-            }
-            let n = 0;
-            for (const fetchEntry of fetchEntries) {
-                const $row = $table.insertRow();
-                $row.insertCell().append(makeLink(`[${++n}]`, '#' + fetchEntry.queryString));
-                const searchParams = new URLSearchParams(fetchEntry.queryString);
-                $row.insertCell().append(searchParams.get('mode') ?? '(outdated/invalid)');
-                const $userCell = $row.insertCell();
-                const username = searchParams.get('display_name');
-                if (username)
-                    $userCell.append(makeUserNameLink(username));
-                $row.insertCell().append(String(new Date(fetchEntry.accessTimestamp)));
-                const $deleteButton = document.createElement('button');
-                $deleteButton.textContent = `Delete`;
-                $deleteButton.addEventListener('click', async () => {
-                    $deleteButton.disabled = true;
-                    await this.db.delete(fetchEntry);
-                    $updateFetchesButton.click();
-                });
-                $row.insertCell().append($deleteButton);
-            }
-            $fetchesContainer.append($table);
-        });
-        writeBlock(() => {
-            const $clearButton = document.createElement('button');
-            $clearButton.textContent = `Clear settings`;
-            $clearButton.addEventListener('click', () => {
-                this.storage.clear();
-            });
-            return [$clearButton];
-        });
-        writeBlock(() => [
-            `User query have whitespace trimmed, then the remaining part starting with `, makeCode(`#`), ` is treated as a user id; containing `, makeCode(`/`), `is treated as a URL, anything else as a username. `,
-            `This works because usernames can't contain any of these characters: `, makeCode(`/;.,?%#`), ` , can't have leading/trailing whitespace, have to be between 3 and 255 characters in length.`
-        ]);
-        writeBlock(() => [
-            `Notes implementation code: `,
-            makeLink(`notes api controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`),
-            ` (db search query is build there), `,
-            makeLink(`notes controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/notes_controller.rb`),
-            ` (paginated user notes query is build there), `,
-            makeLink(`note model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note.rb`),
-            `, `,
-            makeLink(`note comment model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note_comment.rb`),
-            ` in `,
-            makeLink(`Rails Port`, `https://wiki.openstreetmap.org/wiki/The_Rails_Port`),
-            ` (not implemented in `,
-            makeLink(`CGIMap`, `https://wiki.openstreetmap.org/wiki/Cgimap`),
-            `)`
-        ]);
-        writeBlock(() => [
-            `Other documentation: `,
-            makeLink(`Overpass queries`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`)
-        ]);
-        writeBlock(() => [
-            makeLink(`Source code`, `https://github.com/AntonKhorev/osm-note-viewer`)
-        ]);
-        function writeBlock(makeBlockContents) {
-            const $block = document.createElement('div');
-            $block.append(...makeBlockContents());
-            $details.append($block);
-            return $block;
-        }
-        function makeCode(s) {
-            const $code = document.createElement('code');
-            $code.textContent = s;
-            return $code;
-        }
-        this.$container.append($details);
     }
 }
 
@@ -5360,14 +5457,13 @@ async function main() {
     const $navbarContainer = document.createElement('nav');
     const $fetchContainer = makeDiv('panel', 'fetch')();
     const $filterContainer = makeDiv('panel', 'fetch')();
-    const $extrasContainer = makeDiv('panel')();
     const $notesContainer = makeDiv('notes')();
     const $moreContainer = makeDiv('more')();
     const $toolContainer = makeDiv('panel', 'command')();
     const $mapContainer = makeDiv('map')();
     const $figureDialog = document.createElement('dialog');
     $figureDialog.classList.add('figure');
-    const $scrollingPart = makeDiv('scrolling')($navbarContainer, $fetchContainer, $filterContainer, $extrasContainer, $notesContainer, $moreContainer);
+    const $scrollingPart = makeDiv('scrolling')($navbarContainer, $fetchContainer, $filterContainer, $notesContainer, $moreContainer);
     const $stickyPart = makeDiv('sticky')($toolContainer);
     const $textSide = makeDiv('text-side')($scrollingPart, $stickyPart);
     const $graphicSide = makeDiv('graphic-side')($mapContainer, $figureDialog);
@@ -5379,7 +5475,6 @@ async function main() {
     const map = new NoteMap($mapContainer);
     const figureDialog = new FigureDialog($figureDialog);
     const navbar = new Navbar(storage, $navbarContainer, map);
-    new ExtrasPanel(storage, db, $extrasContainer);
     const filterPanel = new NoteFilterPanel($filterContainer);
     new NoteFetchPanel(storage, db, $fetchContainer, $notesContainer, $moreContainer, $toolContainer, navbar, filterPanel, map, figureDialog, () => scrollRestorer.run($notesContainer));
     scrollRestorer.run($notesContainer);

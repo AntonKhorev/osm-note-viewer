@@ -1,3 +1,4 @@
+/*** css/common.css ***/
 :root {
 	--frame-color: #CCC;
 	--hover-color: #DEF;
@@ -109,6 +110,42 @@ button.global > svg {
 	height: 100%;
 }
 
+.loose-parser-popup {
+	--item-height: 20px;
+	--item-width: 90px;
+	display: none;
+	position: fixed;
+	z-index: 1;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	border: solid 1px var(--frame-color);
+	font-size: .9em;
+	opacity: .9;
+}
+.loose-parser-popup.open {
+	display: block;
+}
+.loose-parser-popup a {
+	display: flex;
+	box-sizing: border-box;
+	width: var(--item-width);
+	height: var(--item-height);
+	align-items: center;
+	padding-left: 5px;
+	background: var(--popup-item-background);
+}
+.loose-parser-popup li.main a {
+	height: calc(2*var(--item-height));
+	border-top: solid 1px var(--frame-color);
+	border-bottom: solid 1px var(--frame-color);
+	background: var(--popup-main-item-background);
+}
+.loose-parser-popup a:link:hover {
+	background: var(--hover-color);
+}
+
+/*** css/navbar.css ***/
 nav {
 	position: relative;
 	box-sizing: border-box;
@@ -118,6 +155,7 @@ nav {
 nav button.reset,
 nav button.flip {
 	top: .5rem;
+	z-index: 2;
 }
 nav button.reset:hover,
 nav button.flip:hover {
@@ -145,6 +183,9 @@ nav ul li {
 	padding: 0;
 	line-height: 2rem;
 }
+nav ul li.push {
+	margin-left: auto;
+}
 nav ul li a {
 	position: relative;
 	display: block;
@@ -156,6 +197,7 @@ nav ul li a {
 	border-top-right-radius: 8px;
 	margin-bottom: -1px;
 	margin-left: -1px;
+	color: var(--semi-link-color);
 	background: var(--inset-background-color);
 	text-decoration: none;
 }
@@ -165,10 +207,18 @@ nav ul li:first-child a {
 nav ul li a.active {
 	background: canvas;
 }
+nav ul li a:hover {
+	background: var(--hover-color);
+}
 nav ul li a:focus {
 	z-index: 1;
 }
 
+.nav-dialog:not(.active) {
+	display: none;
+}
+
+/*** css/panel.css ***/
 .panel {
 	position: relative;
 	padding: .5rem;
@@ -192,9 +242,6 @@ nav ul li a:focus {
 }
 .panel.fetch:not(.show-requests) .request,
 .more:not(.show-requests) .request {
-	display: none;
-}
-.panel.fetch .fetch-dialog:not(.active) {
 	display: none;
 }
 
@@ -406,6 +453,34 @@ nav ul li a:focus {
 	border: dashed var(--file-reader-border-width) var(--file-reader-active-border-color);
 }
 
+.more div {
+	margin: 1em;
+}
+.more button {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	padding: .3rem;
+}
+.more .error {
+	background: var(--error-background-color);
+}
+.more pre {
+	margin: 1rem 0 0 0;
+	padding: 1rem;
+	background: var(--inset-background-color);
+	overflow-x: scroll;
+}
+.examples dd {
+	margin: .5em 0 .5em 2em;
+	padding: .5em;
+	background: var(--inset-background-color);
+}
+.examples code {
+	white-space: pre-wrap;
+}
+
+/*** css/notes.css ***/
 .notes table {
 	border-collapse: collapse;
 	margin: 0 2px;
@@ -526,68 +601,7 @@ body.flipped .notes td.note-user {
 	overflow: hidden;
 }
 
-.more div {
-	margin: 1em;
-}
-.more button {
-	display: block;
-	box-sizing: border-box;
-	width: 100%;
-	padding: .3rem;
-}
-.more .error {
-	background: var(--error-background-color);
-}
-.more pre {
-	margin: 1rem 0 0 0;
-	padding: 1rem;
-	background: var(--inset-background-color);
-	overflow-x: scroll;
-}
-.examples dd {
-	margin: .5em 0 .5em 2em;
-	padding: .5em;
-	background: var(--inset-background-color);
-}
-.examples code {
-	white-space: pre-wrap;
-}
-
-.loose-parser-popup {
-	--item-height: 20px;
-	--item-width: 90px;
-	display: none;
-	position: fixed;
-	z-index: 1;
-	list-style: none;
-	margin: 0;
-	padding: 0;
-	border: solid 1px var(--frame-color);
-	font-size: .9em;
-	opacity: .9;
-}
-.loose-parser-popup.open {
-	display: block;
-}
-.loose-parser-popup a {
-	display: flex;
-	box-sizing: border-box;
-	width: var(--item-width);
-	height: var(--item-height);
-	align-items: center;
-	padding-left: 5px;
-	background: var(--popup-item-background);
-}
-.loose-parser-popup li.main a {
-	height: calc(2*var(--item-height));
-	border-top: solid 1px var(--frame-color);
-	border-bottom: solid 1px var(--frame-color);
-	background: var(--popup-main-item-background);
-}
-.loose-parser-popup a:link:hover {
-	background: var(--hover-color);
-}
-
+/*** css/map.css ***/
 .map {
 	width: 100%;
 	height: 100%;
@@ -659,6 +673,7 @@ body.flipped .notes td.note-user {
 	margin: var(--block-gap) 0;
 }
 
+/*** css/figure.css ***/
 dialog.figure {
 	position: absolute;
 	inset: 0;
@@ -731,3 +746,4 @@ dialog.figure button:focus {
 	opacity: 1;
 	animation: none;
 }
+
