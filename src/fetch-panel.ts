@@ -56,7 +56,7 @@ export default class NoteFetchPanel {
 		const plaintextDialog=makeSearchDialog(idsFetcher,(getRequestUrls,submitQuery)=>new NotePlaintextFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery))
 		const aboutDialog=new AboutDialog(storage,db)
 		aboutDialog.write($container)
-		navbar.addTab(aboutDialog)
+		navbar.addTab(aboutDialog,true)
 		
 		handleSharedCheckboxes($sharedCheckboxes.showImages,state=>noteTable?.setShowImages(state))
 		handleSharedCheckboxes($sharedCheckboxes.showRequests,state=>{

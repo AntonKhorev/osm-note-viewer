@@ -7,6 +7,7 @@ nav {
 nav button.reset,
 nav button.flip {
 	top: .5rem;
+	z-index: 2;
 }
 nav button.reset:hover,
 nav button.flip:hover {
@@ -34,6 +35,9 @@ nav ul li {
 	padding: 0;
 	line-height: 2rem;
 }
+nav ul li.push {
+	margin-left: auto;
+}
 nav ul li a {
 	position: relative;
 	display: block;
@@ -45,6 +49,7 @@ nav ul li a {
 	border-top-right-radius: 8px;
 	margin-bottom: -1px;
 	margin-left: -1px;
+	color: var(--semi-link-color);
 	background: var(--inset-background-color);
 	text-decoration: none;
 }

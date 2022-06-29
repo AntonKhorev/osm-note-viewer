@@ -27,11 +27,11 @@ export default class Navbar {
 			makeResetButton()
 		)
 	}
-	addTab(dialog: NavDialog) {
+	addTab(dialog: NavDialog, push: boolean = false) {
 		const id='section-'+dialog.shortTitle
 		dialog.$section.id=id
 		const $a=makeLink(dialog.shortTitle,'#'+id)
-		this.$tabList.append(makeElement('li')()($a))
+		this.$tabList.append(makeElement('li')(...(push?['push']:[]))($a))
 		this.tabs.set(dialog.shortTitle,[$a,dialog.$section])
 		$a.addEventListener('click',ev=>{
 			ev.preventDefault()
