@@ -2,6 +2,7 @@ import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
 import {NoteMap} from './map'
 import Navbar from './navbar'
+import AboutDialog from './about-dialog'
 import FigureDialog from './figure'
 import NoteTable from './table'
 import NoteFilterPanel from './filter-panel'
@@ -46,13 +47,16 @@ export default class NoteFetchPanel {
 			dialog.$limitSelect.addEventListener('input',()=>searchFetcher.limitWasUpdated())
 			dialog.write($container)
 			dialog.populateInputs(hashQuery)
-			navbar.addTab(dialog.shortTitle,dialog.$section)
+			navbar.addTab(dialog)
 			return dialog
 		}
 		const searchDialog=makeSearchDialog(searchFetcher,(getRequestUrls,submitQuery)=>new NoteSearchFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery))
 		const bboxDialog=makeSearchDialog(bboxFetcher,(getRequestUrls,submitQuery)=>new NoteBboxFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery,map))
 		const xmlDialog=makeSearchDialog(idsFetcher,(getRequestUrls,submitQuery)=>new NoteXmlFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery))
 		const plaintextDialog=makeSearchDialog(idsFetcher,(getRequestUrls,submitQuery)=>new NotePlaintextFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery))
+		const aboutDialog=new AboutDialog(storage,db)
+		aboutDialog.write($container)
+		navbar.addTab(aboutDialog)
 		
 		handleSharedCheckboxes($sharedCheckboxes.showImages,state=>noteTable?.setShowImages(state))
 		handleSharedCheckboxes($sharedCheckboxes.showRequests,state=>{

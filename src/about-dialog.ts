@@ -1,18 +1,24 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB, {FetchEntry} from './db'
-import {makeLink, makeUserNameLink} from './util'
+import {NavDialog} from './navbar'
+import {makeDiv, makeLink, makeUserNameLink} from './util'
 
-export default class ExtrasPanel {
-	constructor(
-		private storage: NoteViewerStorage, private db: NoteViewerDB, 
-		private $container: HTMLElement
-	) {
-		this.$container.innerHTML=''
-		const $details=document.createElement('details')
-		{
-			const $summary=document.createElement('summary')
-			$summary.textContent=`Extra information`
-			$details.append($summary)
+export default class AboutDialog extends NavDialog {
+	shortTitle=`About`
+	title=`Extra information`
+	constructor(private storage: NoteViewerStorage, private db: NoteViewerDB) {
+		super()
+	}
+	writeSectionContent() {
+		const writeBlock = (makeBlockContents: ()=>Array<HTMLElement|string>): HTMLElement => {
+			const $block=makeDiv()(...makeBlockContents())
+			this.$section.append($block)
+			return $block
+		}
+		const makeCode = (s: string): HTMLElement => {
+			const $code=document.createElement('code')
+			$code.textContent=s
+			return $code
 		}
 		const $updateFetchesButton=document.createElement('button')
 		writeBlock(()=>{
@@ -98,17 +104,5 @@ export default class ExtrasPanel {
 		writeBlock(()=>[
 			makeLink(`Source code`,`https://github.com/AntonKhorev/osm-note-viewer`)
 		])
-		function writeBlock(makeBlockContents: ()=>Array<Node|string>): HTMLElement {
-			const $block=document.createElement('div')
-			$block.append(...makeBlockContents())
-			$details.append($block)
-			return $block
-		}
-		function makeCode(s: string): HTMLElement {
-			const $code=document.createElement('code')
-			$code.textContent=s
-			return $code
-		}
-		this.$container.append($details)
 	}
 }

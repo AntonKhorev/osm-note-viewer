@@ -2,6 +2,21 @@ import NoteViewerStorage from './storage'
 import {NoteMap} from './map'
 import {makeElement, makeLink} from './util'
 
+export abstract class NavDialog {
+	abstract shortTitle: string
+	abstract title: string
+	$section=document.createElement('section')
+	write($container: HTMLElement) {
+		this.$section.classList.add('nav-dialog')
+		const $heading=document.createElement('h2')
+		$heading.textContent=this.title
+		this.$section.append($heading)
+		this.writeSectionContent()
+		$container.append(this.$section)
+	}
+	abstract writeSectionContent(): void
+}
+
 export default class Navbar {
 	private readonly $tabList=document.createElement('ul')
 	private readonly tabs: Map<string,[$navlink:HTMLAnchorElement,$section:HTMLElement]> = new Map()
@@ -12,15 +27,15 @@ export default class Navbar {
 			makeResetButton()
 		)
 	}
-	addTab(shortTitle: string, $section: HTMLElement) {
-		const id='section-'+shortTitle
-		$section.id=id
-		const $a=makeLink(shortTitle,'#'+id)
+	addTab(dialog: NavDialog) {
+		const id='section-'+dialog.shortTitle
+		dialog.$section.id=id
+		const $a=makeLink(dialog.shortTitle,'#'+id)
 		this.$tabList.append(makeElement('li')()($a))
-		this.tabs.set(shortTitle,[$a,$section])
+		this.tabs.set(dialog.shortTitle,[$a,dialog.$section])
 		$a.addEventListener('click',ev=>{
 			ev.preventDefault()
-			this.openTab(shortTitle)
+			this.openTab(dialog.shortTitle)
 		})
 	}
 	openTab(targetShortTitle: string) {

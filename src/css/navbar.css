@@ -60,3 +60,7 @@ nav ul li a:hover {
 nav ul li a:focus {
 	z-index: 1;
 }
+
+.nav-dialog:not(.active) {
+	display: none;
+}

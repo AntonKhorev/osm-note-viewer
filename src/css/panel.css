@@ -23,9 +23,6 @@
 .more:not(.show-requests) .request {
 	display: none;
 }
-.panel.fetch .fetch-dialog:not(.active) {
-	display: none;
-}
 
 .panel.command {
 	--gap: 8px;  /* used in info tips */

@@ -1,3 +1,4 @@
+import {NavDialog} from '../navbar'
 import {NoteQuery} from '../query'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../util'
 
@@ -7,21 +8,6 @@ const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
 export interface NoteFetchDialogSharedCheckboxes {
 	showImages: HTMLInputElement[]
 	showRequests: HTMLInputElement[]
-}
-
-export abstract class NavDialog {
-	abstract shortTitle: string
-	abstract title: string
-	$section=document.createElement('section')
-	write($container: HTMLElement) {
-		this.$section.classList.add('fetch-dialog')
-		const $heading=document.createElement('h2')
-		$heading.textContent=this.title
-		this.$section.append($heading)
-		this.writeSectionContent($container)
-		$container.append(this.$section)
-	}
-	abstract writeSectionContent($container: HTMLElement): void
 }
 
 export abstract class NoteFetchDialog extends NavDialog {
@@ -35,7 +21,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 	) {
 		super()
 	}
-	writeSectionContent($container: HTMLElement) {
+	writeSectionContent() {
 		const appendIfExists=(...$es: Array<HTMLElement|undefined>)=>{
 			for (const $e of $es) {
 				if ($e) this.$form.append($e)
