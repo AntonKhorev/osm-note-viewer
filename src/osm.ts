@@ -355,7 +355,11 @@ function getDate(timestamp: string, outputDate: (readableDate:string)=>HTMLEleme
 }
 
 function getUser(data: OsmBase): HTMLElement {
-	return makeUserLink(data.uid,data.user)
+	const $a=makeUserLink(data.uid,data.user)
+	$a.classList.add('listened')
+	$a.dataset.userName=data.user
+	$a.dataset.userId=String(data.uid)
+	return $a
 }
 
 function getTags(tags: {[key:string]:string}|undefined, skipKey?: string): HTMLElement|null {
