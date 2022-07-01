@@ -6,30 +6,13 @@ import {makeLink} from './util'
 export default class CommentWriter {
 	wrappedOsmLinkClickListener: (this: HTMLAnchorElement, ev: MouseEvent) => void
 	wrappedImageLinkClickListener: (this: HTMLAnchorElement, ev: MouseEvent) => void
-	constructor(
-		map: NoteMap, figureDialog: FigureDialog,
-		pingNoteSection: ($noteSection: HTMLTableSectionElement) => void
-	) {
+	constructor(map: NoteMap, figureDialog: FigureDialog) {
 		this.wrappedOsmLinkClickListener=function(this: HTMLAnchorElement, ev: MouseEvent){
 			const $a=this
-			if (handleNote($a.dataset.noteId)) {
-				ev.preventDefault()
-				ev.stopPropagation()
-				return
-			}
 			if (handleMap($a.dataset.zoom,$a.dataset.lat,$a.dataset.lon)) {
 				ev.preventDefault()
 				ev.stopPropagation()
 				return
-			}
-			function handleNote(noteId: string|undefined): boolean {
-				if (!noteId) return false
-				const $noteSection=document.getElementById(`note-`+noteId)
-				if (!($noteSection instanceof HTMLTableSectionElement)) return false
-				if ($noteSection.classList.contains('hidden')) return false
-				figureDialog.close()
-				pingNoteSection($noteSection)
-				return true
 			}
 			function handleMap(zoom: string|undefined, lat: string|undefined, lon: string|undefined): boolean {
 				if (!(zoom && lat && lon)) return false
@@ -106,7 +89,6 @@ export default class CommentWriter {
 	}
 	installOsmClickListenerAfterDatasets($a: HTMLAnchorElement, suppressUpdateNoteLink=false): void {
 		$a.classList.add('listened','osm')
-		if (!suppressUpdateNoteLink && $a.classList.contains('other-note')) updateNoteLink($a)
 		$a.addEventListener('click',this.wrappedOsmLinkClickListener)
 	}
 }
@@ -117,13 +99,6 @@ export function handleShowImagesUpdate($table: HTMLTableElement, showImages: boo
 		const $img=$a.firstChild
 		if (!($img instanceof HTMLImageElement)) continue
 		if (showImages && !$img.src) $img.src=$a.href // don't remove src when showImages is disabled, otherwise will reload all images when src is set back
-	}
-}
-
-export function handleNotesUpdate($table: HTMLTableElement): void {
-	for (const $a of $table.querySelectorAll('td.note-comment a.other-note')) {
-		if (!($a instanceof HTMLAnchorElement)) continue
-		updateNoteLink($a)
 	}
 }
 
@@ -145,20 +120,6 @@ function makeActiveTimeElement(text: string, dateTime: string, title?: string): 
 	$time.dateTime=dateTime
 	if (title) $time.title=title
 	return $time
-}
-
-function updateNoteLink($a: HTMLAnchorElement): void {
-	const $noteSection=document.getElementById(`note-`+$a.dataset.noteId)
-	if (!($noteSection instanceof HTMLTableSectionElement)) {
-		$a.classList.add('absent')
-		$a.title=`The note is not downloaded`
-	} else if ($noteSection.classList.contains('hidden')) {
-		$a.classList.add('absent')
-		$a.title=`The note is filtered out`
-	} else {
-		$a.classList.remove('absent')
-		$a.title=''
-	}
 }
 
 function imageCommentHoverListener(this: HTMLElement, ev: MouseEvent): void {

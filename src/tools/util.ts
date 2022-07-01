@@ -129,10 +129,7 @@ export class ParseTool extends Tool {
 		`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`
 	)]}
 	getTool(callbacks: ToolCallbacks, map: NoteMap, figureDialog: FigureDialog): ToolElements {
-		const commentWriter=new CommentWriter(
-			map,figureDialog,
-			()=>{} // TODO ping note section
-		)
+		const commentWriter=new CommentWriter(map,figureDialog)
 		const $input=document.createElement('input')
 		$input.type='text'
 		$input.size=50

@@ -1,5 +1,6 @@
 export default class GlobalEventListener {
 	userListener?: ($a: HTMLAnchorElement, uid: number, username?: string) => void
+	noteListener?: ($a: HTMLAnchorElement, noteId: string) => void
 	elementListener?: ($a: HTMLAnchorElement, elementType: string, elementId: string) => void
 	changesetListener?: ($a: HTMLAnchorElement, changesetId: string) => void
 	timestampListener?: (timestamp: string) => void
@@ -8,7 +9,11 @@ export default class GlobalEventListener {
 			if (!(ev.target instanceof HTMLElement)) return
 			const $e=ev.target.closest('a.listened, time.listened')
 			if ($e instanceof HTMLAnchorElement) {
-				if (this.userListener && $e.dataset.userId) {
+				if (this.noteListener && $e.dataset.noteId) {
+					ev.preventDefault()
+					ev.stopPropagation()
+					this.noteListener($e,$e.dataset.noteId)
+				} else if (this.userListener && $e.dataset.userId) {
 					ev.preventDefault()
 					ev.stopPropagation()
 					this.userListener($e,Number($e.dataset.userId),$e.dataset.userName)

@@ -102,6 +102,9 @@ async function main() {
 		$notesContainer,toolPanel,map,filterPanel.noteFilter,
 		figureDialog
 	)
+	globalEventsListener.noteListener=($a,noteId)=>{
+		noteTable.pingNoteFromLink($a,noteId)
+	}
 	const fetchPanel=new NoteFetchPanel(
 		storage,db,globalEventsListener,
 		$fetchContainer,$moreContainer,

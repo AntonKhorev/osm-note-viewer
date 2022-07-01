@@ -4,7 +4,7 @@ import LooseParserListener from './loose-listen'
 import LooseParserPopup from './loose-popup'
 import parseLoose from './loose'
 import FigureDialog from './figure'
-import CommentWriter, {handleShowImagesUpdate, handleNotesUpdate, makeDateOutput} from './comment-writer'
+import CommentWriter, {handleShowImagesUpdate, makeDateOutput} from './comment-writer'
 import ToolPanel from './tool-panel'
 import NoteFilter from './filter'
 import {toReadableDate} from './query-date'
@@ -75,10 +75,7 @@ export default class NoteTable {
 			that.noteMarkerClickListener(this)
 		}
 		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver(toolPanel,map,this.noteSectionLayerIdVisibility)
-		this.commentWriter=new CommentWriter(
-			this.map,figureDialog,
-			$noteSection=>this.focusOnNote($noteSection)
-		)
+		this.commentWriter=new CommentWriter(this.map,figureDialog)
 		$container.append(this.$table)
 		this.reset()
 		const looseParserPopup=new LooseParserPopup($container,($a)=>this.commentWriter.installOsmClickListenerAfterDatasets($a))
@@ -89,6 +86,8 @@ export default class NoteTable {
 		})
 	}
 	reset(): void {
+		this.notesById.clear()
+		this.usersById.clear()
 		this.noteSectionVisibilityObserver.disconnect()
 		this.$table.innerHTML=''
 		this.toolPanel.receiveNoteCounts(0,0)
@@ -128,7 +127,6 @@ export default class NoteTable {
 		}
 		this.toolPanel.receiveNoteCounts(nFetched,nVisible)
 		this.updateCheckboxDependents()
-		handleNotesUpdate(this.$table)
 	}
 	/**
 	 * @returns number of added notes that passed through the filter
@@ -230,7 +228,6 @@ export default class NoteTable {
 			if (!$noteSection.classList.contains('hidden')) nVisible++
 		}
 		this.toolPanel.receiveNoteCounts(nFetched,nVisible)
-		handleNotesUpdate(this.$table)
 		return nUnfilteredNotes
 	}
 	getVisibleNoteIds(): number[] {
@@ -250,10 +247,24 @@ export default class NoteTable {
 		}
 		return ids
 	}
-	setShowImages(showImages: boolean) {
+	setShowImages(showImages: boolean): void {
 		this.showImages=showImages
 		this.$table.classList.toggle('with-images',showImages)
 		handleShowImagesUpdate(this.$table,showImages)
+	}
+	pingNoteFromLink($a: HTMLAnchorElement, noteId: string): void {
+		const $noteSection=document.getElementById(`note-`+noteId) // TODO look in $table
+		if (!($noteSection instanceof HTMLTableSectionElement)) {
+			$a.classList.add('absent')
+			$a.title=`The note is not downloaded`
+		} else if ($noteSection.classList.contains('hidden')) {
+			$a.classList.add('absent')
+			$a.title=`The note is filtered out`
+		} else {
+			$a.classList.remove('absent')
+			$a.title=''
+			this.focusOnNote($noteSection)
+		}
 	}
 	private writeTableHeader(): void {
 		const $header=this.$table.createTHead()
