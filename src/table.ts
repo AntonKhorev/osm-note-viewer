@@ -232,11 +232,18 @@ export default class NoteTable {
 	}
 	getVisibleNoteIds(): number[] {
 		const ids: number[] = []
-		for (const $noteSection of this.$table.tBodies) {
-			const idString=$noteSection.dataset.noteId
-			if (!idString) continue
-			if ($noteSection.classList.contains('hidden')) continue
-			ids.push(Number(idString))
+		for (const [,id] of this.listVisibleNoteSectionsWithIds()) {
+			ids.push(id)
+		}
+		return ids
+	}
+	getSelectedNoteIds(): number[] {
+		const ids: number[] = []
+		for (const [$noteSection,id] of this.listVisibleNoteSectionsWithIds()) {
+			const $checkbox=$noteSection.querySelector('.note-checkbox input')
+			if (!($checkbox instanceof HTMLInputElement)) continue
+			if (!$checkbox.checked) continue
+			ids.push(id)
 		}
 		return ids
 	}
@@ -395,6 +402,13 @@ export default class NoteTable {
 	}
 	private listVisibleNoteSections(): NodeListOf<HTMLTableSectionElement> {
 		return this.$table.querySelectorAll('tbody:not(.hidden)')
+	}
+	private *listVisibleNoteSectionsWithIds(): Generator<[HTMLTableSectionElement,number]> {
+		for (const $noteSection of this.listVisibleNoteSections()) {
+			const idString=$noteSection.dataset.noteId
+			if (!idString) continue
+			yield [$noteSection,Number(idString)]
+		}
 	}
 	/**
 	 * range including $fromSection but excluding $toSection

@@ -7,6 +7,7 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 	shortTitle=`Plaintext`
 	title=`Fetch notes by ids from unstructured text`
 	protected $idsTextarea=document.createElement('textarea')
+	private $copySelectedCheckbox=document.createElement('input')
 	private $copyButton=document.createElement('button')
 	constructor(
 		$sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
@@ -24,9 +25,11 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 				`Note ids separated by anything: `,this.$idsTextarea
 			)))
 		}{
+			this.$copySelectedCheckbox.type='checkbox'
 			this.$copyButton.type='button'
 			this.$copyButton.textContent=`Copy note ids from table below`
-			$fieldset.append(makeDiv('major-input')(
+			$fieldset.append(makeDiv('checkbox-button-input')(
+				this.$copySelectedCheckbox,' ',
 				this.$copyButton
 			))
 		}
@@ -41,8 +44,16 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 			}
 		}
 		this.$idsTextarea.addEventListener('input',validateIds)
+		this.$copySelectedCheckbox.addEventListener('input',()=>{
+			this.$copyButton.textContent=`Copy${
+				this.$copySelectedCheckbox.checked ? ' selected' : ''
+			} note ids from table below`
+		})
 		this.$copyButton.addEventListener('click',()=>{
-			const ids=this.noteTable.getVisibleNoteIds()
+			const ids=(this.$copySelectedCheckbox.checked
+				? this.noteTable.getSelectedNoteIds()
+				: this.noteTable.getVisibleNoteIds()
+			)
 			this.$idsTextarea.value=ids.join()
 			validateIds()
 		})

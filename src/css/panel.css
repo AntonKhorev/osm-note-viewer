@@ -1,3 +1,7 @@
+:root {
+	--major-button-padding: .3rem;
+}
+
 .panel {
 	position: relative;
 	padding: .5rem;
@@ -169,7 +173,7 @@
 	resize: vertical;
 }
 .panel .major-input button {
-	padding: .3rem;
+	padding: var(--major-button-padding);
 }
 .panel .text-button-input {
 	position: relative;
@@ -186,6 +190,14 @@
 	position: absolute;
 	bottom: 0;
 	right: 0;
+}
+.panel .checkbox-button-input {
+	display: flex;
+	gap: .5em;
+}
+.panel .checkbox-button-input button {
+	flex-grow: 1;
+	padding: var(--major-button-padding);
 }
 .panel button.error {
 	color: var(--error-color);
@@ -239,7 +251,7 @@
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
-	padding: .3rem;
+	padding: var(--major-button-padding);
 }
 .more .error {
 	background: var(--error-background-color);
