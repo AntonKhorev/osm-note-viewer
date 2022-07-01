@@ -188,7 +188,11 @@ export default class NoteTable {
 					if (comment.uid!=null) {
 						const username=users[comment.uid]
 						if (username!=null) {
-							$cell.append(makeUserNameLink(username))
+							const $a=makeUserNameLink(username)
+							$a.classList.add('listened')
+							$a.dataset.userName=username
+							$a.dataset.userId=String(comment.uid)
+							$cell.append($a)
 						} else {
 							$cell.append(`#${comment.uid}`)
 						}

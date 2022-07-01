@@ -1,5 +1,6 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
+import GlobalEventsListener from './events'
 import {NoteMap} from './map'
 import FigureDialog from './figure'
 import Navbar from './navbar'
@@ -59,6 +60,7 @@ main()
 async function main() {
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
+	const globalEventsListener=new GlobalEventsListener()
 
 	const $navbarContainer=document.createElement('nav')
 	const $fetchContainer=makeDiv('panel','fetch')()
@@ -90,9 +92,9 @@ async function main() {
 		figureDialog
 	)
 	const fetchPanel=new NoteFetchPanel(
-		storage,db,
+		storage,db,globalEventsListener,
 		$fetchContainer,$moreContainer,
-		navbar,filterPanel,toolPanel,
+		navbar,filterPanel,
 		noteTable,map,figureDialog,
 		()=>scrollRestorer.run($notesContainer)
 	)

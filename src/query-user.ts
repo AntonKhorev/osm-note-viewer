@@ -102,3 +102,21 @@ export function toUserQuery(value: string): UserQuery {
 		username: s
 	}
 }
+
+export function makeUserQueryFromUserNameAndId(username: string|undefined|null, uid: number|undefined|null): UserQuery {
+	if (username!=null) {
+		return {
+			userType: 'name',
+			username
+		}
+	} else if (uid!=null && Number.isInteger(uid)) {
+		return {
+			userType: 'id',
+			uid
+		}
+	} else {
+		return {
+			userType: 'empty'
+		}
+	}
+}

@@ -1,5 +1,5 @@
 import {Note, NoteComment} from './data'
-import {UserQuery, toUserQuery} from './query-user'
+import {UserQuery, toUserQuery, makeUserQueryFromUserNameAndId} from './query-user'
 import {toDateQuery, toUrlDate} from './query-date'
 
 const defaultLowerDate=Date.parse('2001-01-01 00:00:00Z')/1000
@@ -29,26 +29,8 @@ export interface NoteIdsQuery {
 
 export type NoteQuery = NoteSearchQuery | NoteBboxQuery | NoteIdsQuery
 
-function makeUserQueryFromDisplayNameAndUser(display_name: string|undefined|null, user: number|undefined|null): UserQuery {
-	if (display_name!=null) {
-		return {
-			userType: 'name',
-			username: display_name
-		}
-	} else if (user!=null && Number.isInteger(user)) {
-		return {
-			userType: 'id',
-			uid: user
-		}
-	} else {
-		return {
-			userType: 'empty'
-		}
-	}
-}
-
 export function makeUserQueryFromNoteSearchQuery(query: NoteSearchQuery): UserQuery {
-	return makeUserQueryFromDisplayNameAndUser(query.display_name,query.user)
+	return makeUserQueryFromUserNameAndId(query.display_name,query.user)
 }
 
 function makeNoteSearchQueryFromUserQueryAndValues(
@@ -138,7 +120,7 @@ export function makeNoteQueryFromHash(queryString: string): NoteQuery | undefine
 	const searchParams=new URLSearchParams(paramString)
 	const mode=searchParams.get('mode')
 	if (mode=='search') {
-		const userQuery=makeUserQueryFromDisplayNameAndUser(searchParams.get('display_name'),Number(searchParams.get('user')||undefined))
+		const userQuery=makeUserQueryFromUserNameAndId(searchParams.get('display_name'),Number(searchParams.get('user')||undefined))
 		return makeNoteSearchQueryFromUserQueryAndValues(
 			userQuery,
 			searchParams.get('q')||'',searchParams.get('from')||'',searchParams.get('to')||'',

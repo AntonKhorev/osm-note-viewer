@@ -1,13 +1,13 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
+import GlobalEventsListener from './events'
 import {NoteMap} from './map'
 import Navbar from './navbar'
 import AboutDialog from './about-dialog'
 import FigureDialog from './figure'
 import NoteTable from './table'
 import NoteFilterPanel from './filter-panel'
-import ToolPanel from './tool-panel'
-import {NoteQuery, makeNoteQueryFromHash, makeNoteQueryString} from './query'
+import {NoteQuery, NoteSearchQuery, makeNoteQueryFromHash, makeNoteQueryString} from './query'
 import {NoteFetcher, NoteSearchFetcher, NoteBboxFetcher, NoteIdsFetcher} from './fetch'
 import {NoteFetchDialogSharedCheckboxes,
 	NoteFetchDialog, NoteSearchFetchDialog, NoteBboxFetchDialog, NoteXmlFetchDialog, NotePlaintextFetchDialog
@@ -15,9 +15,9 @@ import {NoteFetchDialogSharedCheckboxes,
 
 export default class NoteFetchPanel {
 	constructor(
-		storage: NoteViewerStorage, db: NoteViewerDB,
+		storage: NoteViewerStorage, db: NoteViewerDB, globalEventsListener: GlobalEventsListener,
 		$container: HTMLElement, $moreContainer: HTMLElement,
-		navbar: Navbar, filterPanel: NoteFilterPanel, toolPanel: ToolPanel,
+		navbar: Navbar, filterPanel: NoteFilterPanel,
 		noteTable: NoteTable, map: NoteMap, figureDialog: FigureDialog,
 		restoreScrollPosition: ()=>void
 	) {
@@ -81,6 +81,24 @@ export default class NoteFetchPanel {
 		openQueryDialog(hashQuery,true)
 		modifyHistory(hashQuery,false)
 		startFetcherFromQuery(hashQuery,false)
+
+		globalEventsListener.userListener=(uid: number, username?:string)=>{
+			const query: NoteSearchQuery = {
+				mode: 'search',
+				closed: -1,
+				sort: 'created_at',
+				order: 'newest',
+			}
+			if (username!=null) {
+				query.display_name=username
+			} else {
+				query.user=uid
+			}
+			openQueryDialog(query,false)
+			populateInputs(query)
+			searchDialog.$section.scrollIntoView()
+		}
+		
 		function openQueryDialog(query: NoteQuery | undefined, initial: boolean): void {
 			if (!query) {
 				if (initial) navbar.openTab(searchDialog.shortTitle)
