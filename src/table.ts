@@ -24,10 +24,11 @@ export default class NoteTable {
 	private notesById = new Map<number,Note>() // in the future these might be windowed to limit the amount of stuff on one page
 	private usersById = new Map<number,string>()
 	private commentWriter: CommentWriter
+	private showImages: boolean = false
 	constructor(
-		$container: HTMLElement, 
+		$container: HTMLElement,
 		private toolPanel: ToolPanel, private map: NoteMap, private filter: NoteFilter,
-		figureDialog: FigureDialog, private showImages: boolean
+		figureDialog: FigureDialog
 	) {
 		toolPanel.onCommentsViewChange=(onlyFirst:boolean,oneLine:boolean)=>{
 			this.$table.classList.toggle('only-first-comments',onlyFirst)
@@ -79,40 +80,20 @@ export default class NoteTable {
 			$noteSection=>this.focusOnNote($noteSection),
 			timestamp=>toolPanel.receiveTimestamp(timestamp)
 		)
-		this.$table.classList.toggle('with-images',showImages)
 		$container.append(this.$table)
-		{
-			const $header=this.$table.createTHead()
-			const $row=$header.insertRow()
-			const $checkboxCell=makeHeaderCell('')
-			this.$selectAllCheckbox.type='checkbox'
-			this.$selectAllCheckbox.title=`check/uncheck all`
-			this.$selectAllCheckbox.addEventListener('click',this.wrappedAllNotesCheckboxClickListener)
-			$checkboxCell.append(this.$selectAllCheckbox)
-			const $actionCell=makeHeaderCell('?')
-			$actionCell.title=`action performed along with adding the comment; number of comments`
-			$actionCell.classList.add('note-action')
-			$row.append(
-				$checkboxCell,
-				makeHeaderCell('id'),
-				makeHeaderCell('date'),
-				makeHeaderCell('user'),
-				$actionCell,
-				makeHeaderCell('comment')
-			)
-		}
-		function makeHeaderCell(text: string): HTMLTableCellElement {
-			const $cell=document.createElement('th')
-			$cell.textContent=text
-			return $cell
-		}
-		this.updateCheckboxDependents()
+		this.reset()
 		const looseParserPopup=new LooseParserPopup($container,($a)=>this.commentWriter.installOsmClickListenerAfterDatasets($a))
 		this.looseParserListener=new LooseParserListener((x,y,text)=>{
 			const parseResult=parseLoose(text)
 			if (!parseResult) return
 			looseParserPopup.open(x,y,...parseResult)
 		})
+	}
+	reset(): void {
+		this.noteSectionVisibilityObserver.disconnect()
+		this.$table.innerHTML=''
+		this.toolPanel.receiveNoteCounts(0,0)
+		this.updateCheckboxDependents()
 	}
 	updateFilter(filter: NoteFilter): void {
 		let nFetched=0
@@ -164,6 +145,7 @@ export default class NoteTable {
 			this.usersById.set(Number(uid),username)
 		}
 		// output table
+		if (this.$table.childElementCount==0) this.writeTableHeader()
 		let nUnfilteredNotes=0
 		const getUsername=(uid:number)=>users[uid]
 		for (const note of noteSequence) {
@@ -252,6 +234,31 @@ export default class NoteTable {
 		this.showImages=showImages
 		this.$table.classList.toggle('with-images',showImages)
 		handleShowImagesUpdate(this.$table,showImages)
+	}
+	private writeTableHeader(): void {
+		const $header=this.$table.createTHead()
+		const $row=$header.insertRow()
+		const $checkboxCell=makeHeaderCell('')
+		this.$selectAllCheckbox.type='checkbox'
+		this.$selectAllCheckbox.title=`check/uncheck all`
+		this.$selectAllCheckbox.addEventListener('click',this.wrappedAllNotesCheckboxClickListener)
+		$checkboxCell.append(this.$selectAllCheckbox)
+		const $actionCell=makeHeaderCell('?')
+		$actionCell.title=`action performed along with adding the comment; number of comments`
+		$actionCell.classList.add('note-action')
+		$row.append(
+			$checkboxCell,
+			makeHeaderCell('id'),
+			makeHeaderCell('date'),
+			makeHeaderCell('user'),
+			$actionCell,
+			makeHeaderCell('comment')
+		)
+		function makeHeaderCell(text: string): HTMLTableCellElement {
+			const $cell=document.createElement('th')
+			$cell.textContent=text
+			return $cell
+		}
 	}
 	private writeNote(note: Note, isVisible: boolean): HTMLTableSectionElement {
 		const marker=new NoteMarker(note)
@@ -443,6 +450,9 @@ class NoteSectionVisibilityObserver {
 	}
 	observe($noteSection: HTMLTableSectionElement): void {
 		this.intersectionObserver.observe($noteSection)
+	}
+	disconnect() {
+		this.intersectionObserver.disconnect()
 	}
 	haltMapFitting(): void {
 		clearTimeout(this.visibilityTimeoutId)

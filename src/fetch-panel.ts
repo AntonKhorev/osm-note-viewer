@@ -16,12 +16,11 @@ import {NoteFetchDialogSharedCheckboxes,
 export default class NoteFetchPanel {
 	constructor(
 		storage: NoteViewerStorage, db: NoteViewerDB,
-		$container: HTMLElement,
-		$notesContainer: HTMLElement, $moreContainer: HTMLElement, $toolContainer: HTMLElement,
-		navbar: Navbar,
-		filterPanel: NoteFilterPanel, map: NoteMap, figureDialog: FigureDialog, restoreScrollPosition: ()=>void
+		$container: HTMLElement, $moreContainer: HTMLElement,
+		navbar: Navbar, filterPanel: NoteFilterPanel, toolPanel: ToolPanel,
+		noteTable: NoteTable, map: NoteMap, figureDialog: FigureDialog,
+		restoreScrollPosition: ()=>void
 	) {
-		let noteTable: NoteTable | undefined
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
 		const $sharedCheckboxes: NoteFetchDialogSharedCheckboxes = {
 			showImages: [],
@@ -58,7 +57,7 @@ export default class NoteFetchPanel {
 		aboutDialog.write($container)
 		navbar.addTab(aboutDialog,true)
 		
-		handleSharedCheckboxes($sharedCheckboxes.showImages,state=>noteTable?.setShowImages(state))
+		handleSharedCheckboxes($sharedCheckboxes.showImages,state=>noteTable.setShowImages(state))
 		handleSharedCheckboxes($sharedCheckboxes.showRequests,state=>{
 			$container.classList.toggle('show-requests',state)
 			$moreContainer.classList.toggle('show-requests',state)
@@ -93,8 +92,7 @@ export default class NoteFetchPanel {
 		function resetNoteDependents(): void {
 			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
 			map.clearNotes()
-			$notesContainer.innerHTML=``
-			$toolContainer.innerHTML=``
+			noteTable.reset()
 		}
 		function startFetcherFromQuery(query: NoteQuery|undefined, clearStore: boolean): void {
 			if (!query) return
@@ -116,12 +114,7 @@ export default class NoteFetchPanel {
 			resetNoteDependents()
 			if (query.mode!='search' && query.mode!='bbox' && query.mode!='ids') return
 			filterPanel.unsubscribe()
-			const toolPanel=new ToolPanel($toolContainer,map,figureDialog,storage)
-			noteTable=new NoteTable(
-				$notesContainer,toolPanel,map,filterPanel.noteFilter,
-				figureDialog,$sharedCheckboxes.showImages[0]?.checked
-			)
-			filterPanel.subscribe(noteFilter=>noteTable?.updateFilter(noteFilter))
+			filterPanel.subscribe(noteFilter=>noteTable.updateFilter(noteFilter))
 			if (dialog.needToSuppressFitNotes()) map.needToFitNotes=false
 			fetcher.start(
 				db,

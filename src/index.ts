@@ -5,6 +5,8 @@ import FigureDialog from './figure'
 import Navbar from './navbar'
 import NoteFetchPanel from './fetch-panel'
 import NoteFilterPanel from './filter-panel'
+import NoteTable from './table'
+import ToolPanel from './tool-panel'
 import {makeDiv} from './util'
 
 const scrollRestorerEnabled=true
@@ -82,10 +84,16 @@ async function main() {
 	const figureDialog=new FigureDialog($figureDialog)
 	const navbar=new Navbar(storage,$navbarContainer,map)
 	const filterPanel=new NoteFilterPanel($filterContainer)
+	const toolPanel=new ToolPanel($toolContainer,map,figureDialog,storage)
+	const noteTable=new NoteTable(
+		$notesContainer,toolPanel,map,filterPanel.noteFilter,
+		figureDialog
+	)
 	const fetchPanel=new NoteFetchPanel(
 		storage,db,
-		$fetchContainer,$notesContainer,$moreContainer,$toolContainer,
-		navbar,filterPanel,map,figureDialog,
+		$fetchContainer,$moreContainer,
+		navbar,filterPanel,toolPanel,
+		noteTable,map,figureDialog,
 		()=>scrollRestorer.run($notesContainer)
 	)
 	scrollRestorer.run($notesContainer)
