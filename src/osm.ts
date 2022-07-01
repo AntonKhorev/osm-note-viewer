@@ -383,8 +383,10 @@ function getTags(tags: {[key:string]:string}|undefined, skipKey?: string): HTMLE
 		for (let j=0;i<tagList.length&&j<tagBatchSize;i++,j++) {
 			const [k,v]=tagList[i]
 			const $row=$table.insertRow()
-			$row.insertCell().textContent=k
-			$row.insertCell().textContent=v // TODO what if tag value too long?
+			const $keyCell=$row.insertCell()
+			$keyCell.textContent=k
+			if (k.length>30) $keyCell.classList.add('long')
+			$row.insertCell().textContent=v
 		}
 		if (i<tagList.length) {
 			if (!$button) {

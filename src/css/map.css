@@ -62,6 +62,10 @@
 	background: var(--tag-key-background-color);
 	border-right: solid 1px var(--frame-color);
 }
+.map .osm-element-popup-contents figure tr td:not(:first-child),
+.map .osm-element-popup-contents figure tr td.long { /* can't select all key cells because they will get wrapped at the expense of long value cells */
+	word-wrap: anywhere;
+}
 .map .osm-element-popup-contents button {
 	display: block;
 	box-sizing: border-box;
