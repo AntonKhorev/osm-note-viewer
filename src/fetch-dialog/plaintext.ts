@@ -19,12 +19,6 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 	}
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{
-			this.$idsTextarea.required=true
-			this.$idsTextarea.rows=10
-			$fieldset.append(makeDiv('major-input')(makeLabel()(
-				`Note ids separated by anything: `,this.$idsTextarea
-			)))
-		}{
 			this.$copySelectedCheckbox.type='checkbox'
 			this.$copyButton.type='button'
 			this.$copyButton.textContent=`Copy note ids from table below`
@@ -32,6 +26,12 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 				this.$copySelectedCheckbox,' ',
 				this.$copyButton
 			))
+		}{
+			this.$idsTextarea.required=true
+			this.$idsTextarea.rows=10
+			$fieldset.append(makeDiv('major-input')(makeLabel()(
+				`Note ids separated by anything: `,this.$idsTextarea
+			)))
 		}
 	}
 	protected addEventListeners(): void {
