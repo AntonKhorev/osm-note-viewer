@@ -100,7 +100,6 @@ interface OsmChangeset extends OsmBase {
 	maxlon?: number
 }
 
-
 function isOsmChangeset(c: any): c is OsmChangeset {
 	if (!isOsmBase(c)) return false
 	if (typeof c.created_at != 'string') return false
@@ -123,7 +122,7 @@ function isOsmChangeset(c: any): c is OsmChangeset {
 const e=makeEscapeTag(encodeURIComponent)
 
 export async function downloadAndShowChangeset(
-	$a: HTMLAnchorElement, map: NoteMap, outputDate: (readableDate:string)=>HTMLElement,
+	$a: HTMLAnchorElement, map: NoteMap,
 	changesetId: string
 ): Promise<void> {
 	downloadCommon($a,map,async()=>{
@@ -141,7 +140,7 @@ export async function downloadAndShowChangeset(
 		addGeometryToMap(
 			map,
 			makeChangesetGeometry(changeset),
-			()=>makeChangesetPopupContents(outputDate,changeset)
+			()=>makeChangesetPopupContents(changeset)
 		)
 	})
 	function makeChangesetGeometry(changeset: OsmChangeset): L.Layer {
@@ -159,7 +158,7 @@ export async function downloadAndShowChangeset(
 }
 
 export async function downloadAndShowElement(
-	$a: HTMLAnchorElement, map: NoteMap, outputDate: (readableDate:string)=>HTMLElement,
+	$a: HTMLAnchorElement, map: NoteMap,
 	elementType: OsmElement['type'], elementId: string
 ): Promise<void> {
 	downloadCommon($a,map,async()=>{
@@ -183,19 +182,19 @@ export async function downloadAndShowElement(
 			addGeometryToMap(
 				map,
 				makeNodeGeometry(element),
-				()=>makeElementPopupContents(outputDate,element)
+				()=>makeElementPopupContents(element)
 			)
 		} else if (isOsmWayElement(element)) {
 			addGeometryToMap(
 				map,
 				makeWayGeometry(element,elements),
-				()=>makeElementPopupContents(outputDate,element)
+				()=>makeElementPopupContents(element)
 			)
 		} else if (isOsmRelationElement(element)) {
 			addGeometryToMap(
 				map,
 				makeRelationGeometry(element,elements),
-				()=>makeElementPopupContents(outputDate,element)
+				()=>makeElementPopupContents(element)
 			)
 		} else {
 			throw new TypeError(`OSM API error: requested element has unknown type`) // shouldn't happen
@@ -282,7 +281,7 @@ function getElementsFromOsmApiResponse(data: any): OsmElementMap {
 	return {node,way,relation}
 }
 
-function makeChangesetPopupContents(outputDate: (readableDate:string)=>HTMLElement, changeset: OsmChangeset): HTMLElement[] {
+function makeChangesetPopupContents(changeset: OsmChangeset): HTMLElement[] {
 	const contents: HTMLElement[] = []
 	const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
 	const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
@@ -296,9 +295,9 @@ function makeChangesetPopupContents(outputDate: (readableDate:string)=>HTMLEleme
 	)
 	const $p=p()
 	if (changeset.closed_at) {$p.append(
-		`Closed on `,getDate(changeset.closed_at,outputDate)
+		`Closed on `,getDate(changeset.closed_at)
 	)} else {$p.append(
-		`Created on `,getDate(changeset.created_at,outputDate)
+		`Created on `,getDate(changeset.created_at)
 	)}
 	$p.append(
 		` by `,getUser(changeset)
@@ -309,7 +308,7 @@ function makeChangesetPopupContents(outputDate: (readableDate:string)=>HTMLEleme
 	return contents
 }
 
-function makeElementPopupContents(outputDate: (readableDate:string)=>HTMLElement, element: OsmElement): HTMLElement[] {
+function makeElementPopupContents(element: OsmElement): HTMLElement[] {
 	const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
 	const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
 	const elementHref=e`https://www.openstreetmap.org/${element.type}/${element.id}`
@@ -321,7 +320,7 @@ function makeElementPopupContents(outputDate: (readableDate:string)=>HTMLElement
 			makeLink(`Edit`,e`https://www.openstreetmap.org/edit?${element.type}=${element.id}`)
 		),
 		p(
-			`Edited on `,getDate(element.timestamp,outputDate),
+			`Edited on `,getDate(element.timestamp),
 			` by `,getUser(element),
 			` · Changeset #`,makeLink(String(element.changeset),e`https://www.openstreetmap.org/changeset/${element.changeset}`)
 		)
@@ -349,9 +348,13 @@ function capitalize(s: string): string {
 	return s[0].toUpperCase()+s.slice(1)
 }
 
-function getDate(timestamp: string, outputDate: (readableDate:string)=>HTMLElement): HTMLElement {
-	const readableDate=timestamp.replace('T',' ').replace('Z','') // TODO replace date output fn with active element fn
-	return outputDate(readableDate)
+function getDate(timestamp: string): HTMLElement {
+	const readableDate=timestamp.replace('T',' ').replace('Z','')
+	const $time=document.createElement('time')
+	$time.classList.add('listened')
+	$time.textContent=readableDate
+	$time.dateTime=timestamp
+	return $time
 }
 
 function getUser(data: OsmBase): HTMLElement {

@@ -112,11 +112,7 @@ export class OverpassDirectTool extends OverpassTool {
 				const url=`https://www.openstreetmap.org/node/`+encodeURIComponent(closestNodeId)
 				const $a=makeLink(`link`,url)
 				$output.replaceChildren($a)
-				downloadAndShowElement(
-					$a,map,
-					makeDateOutput,
-					'node',closestNodeId
-				)
+				downloadAndShowElement($a,map,'node',closestNodeId)
 			} finally {
 				$button.disabled=false
 			}

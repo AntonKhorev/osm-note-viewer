@@ -45,22 +45,14 @@ export default class CommentWriter {
 			function handleChangeset(changesetId: string|undefined): boolean {
 				if (!changesetId) return false
 				figureDialog.close()
-				downloadAndShowChangeset(
-					$a,map,
-					(readableDate)=>makeDateOutput(readableDate),
-					changesetId
-				)
+				downloadAndShowChangeset($a,map,changesetId)
 				return true
 			}
 			function handleElement(elementType: string|undefined, elementId: string|undefined): boolean {
 				if (!elementId) return false
 				if (elementType!='node' && elementType!='way' && elementType!='relation') return false
 				figureDialog.close()
-				downloadAndShowElement(
-					$a,map,
-					(readableDate)=>makeDateOutput(readableDate),
-					elementType,elementId
-				)
+				downloadAndShowElement($a,map,elementType,elementId)
 				return true
 			}
 			function handleMap(zoom: string|undefined, lat: string|undefined, lon: string|undefined): boolean {
