@@ -131,8 +131,7 @@ export class ParseTool extends Tool {
 	getTool(callbacks: ToolCallbacks, map: NoteMap, figureDialog: FigureDialog): ToolElements {
 		const commentWriter=new CommentWriter(
 			map,figureDialog,
-			()=>{}, // TODO ping note section
-			(timestamp)=>callbacks.onTimestampChange(this,timestamp)
+			()=>{} // TODO ping note section
 		)
 		const $input=document.createElement('input')
 		$input.type='text'

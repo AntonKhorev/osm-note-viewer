@@ -112,13 +112,9 @@ export class OverpassDirectTool extends OverpassTool {
 				const url=`https://www.openstreetmap.org/node/`+encodeURIComponent(closestNodeId)
 				const $a=makeLink(`link`,url)
 				$output.replaceChildren($a)
-				const that=this
 				downloadAndShowElement(
 					$a,map,
-					(readableDate)=>makeDateOutput(readableDate,function(){
-						that.timestamp=this.dateTime
-						callbacks.onTimestampChange(that,this.dateTime)
-					}),
+					makeDateOutput,
 					'node',closestNodeId
 				)
 			} finally {

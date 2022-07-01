@@ -1,5 +1,6 @@
-import type {Note} from './data'
 import NoteViewerStorage from './storage'
+import GlobalEventsListener from './events'
+import type {Note} from './data'
 import {NoteMap} from './map'
 import FigureDialog from './figure'
 import {Tool, ToolFitMode, ToolCallbacks, toolMakerSequence} from './tools'
@@ -37,7 +38,11 @@ export default class ToolPanel {
 	private toolBroadcaster: ToolBroadcaster
 	#fitMode: ToolFitMode
 	onCommentsViewChange?: (onlyFirst:boolean,oneLine:boolean)=>void
-	constructor($container: HTMLElement, map: NoteMap, figureDialog: FigureDialog, storage: NoteViewerStorage) {
+	constructor(
+		storage: NoteViewerStorage, globalEventsListener: GlobalEventsListener,
+		$container: HTMLElement,
+		map: NoteMap, figureDialog: FigureDialog
+	) {
 		const tools: [tool:Tool,$tool:HTMLDetailsElement][] = []
 		const toolCallbacks: ToolCallbacks = {
 			onFitModeChange: (fromTool,fitMode)=>this.#fitMode=fitMode,
@@ -103,15 +108,15 @@ export default class ToolPanel {
 			tools.push([tool,$toolDetails])
 		}
 		this.toolBroadcaster=new ToolBroadcaster(tools)
+		globalEventsListener.timestampListener=(timestamp: string)=>{
+			this.toolBroadcaster.broadcastTimestampChange(null,timestamp)
+		}
 	}
 	receiveNoteCounts(nFetched: number, nVisible: number) { // TODO receive one object with all/visible/selected notes
 		this.toolBroadcaster.broadcastNoteCountsChange(null,nFetched,nVisible)
 	}
 	receiveSelectedNotes(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): void {
 		this.toolBroadcaster.broadcastSelectedNotesChange(null,selectedNotes,selectedNoteUsers)
-	}
-	receiveTimestamp(timestamp: string): void {
-		this.toolBroadcaster.broadcastTimestampChange(null,timestamp)
 	}
 	get fitMode(): ToolFitMode {
 		return this.#fitMode

@@ -7,25 +7,32 @@ import {makeLink} from './util'
 export default class CommentWriter {
 	wrappedOsmLinkClickListener: (this: HTMLAnchorElement, ev: MouseEvent) => void
 	wrappedImageLinkClickListener: (this: HTMLAnchorElement, ev: MouseEvent) => void
-	wrappedActiveTimeElementClickListener: (this: HTMLTimeElement, ev: MouseEvent) => void
 	constructor(
 		map: NoteMap, figureDialog: FigureDialog,
-		pingNoteSection: ($noteSection: HTMLTableSectionElement) => void,
-		receiveTimestamp: (timestamp: string) => void
+		pingNoteSection: ($noteSection: HTMLTableSectionElement) => void
 	) {
-		const that=this
-		this.wrappedActiveTimeElementClickListener=function(this: HTMLTimeElement, ev: MouseEvent){
-			ev.stopPropagation()
-			receiveTimestamp(this.dateTime)
-		}
 		this.wrappedOsmLinkClickListener=function(this: HTMLAnchorElement, ev: MouseEvent){
 			const $a=this
-			ev.preventDefault()
-			ev.stopPropagation()
-			if (handleNote($a.dataset.noteId)) return
-			if (handleChangeset($a.dataset.changesetId)) return
-			if (handleElement($a.dataset.elementType,$a.dataset.elementId)) return
-			handleMap($a.dataset.zoom,$a.dataset.lat,$a.dataset.lon)
+			if (handleNote($a.dataset.noteId)) {
+				ev.preventDefault()
+				ev.stopPropagation()
+				return
+			}
+			if (handleChangeset($a.dataset.changesetId)) {
+				ev.preventDefault()
+				ev.stopPropagation()
+				return
+			}
+			if (handleElement($a.dataset.elementType,$a.dataset.elementId)) {
+				ev.preventDefault()
+				ev.stopPropagation()
+				return
+			}
+			if (handleMap($a.dataset.zoom,$a.dataset.lat,$a.dataset.lon)) {
+				ev.preventDefault()
+				ev.stopPropagation()
+				return
+			}
 			function handleNote(noteId: string|undefined): boolean {
 				if (!noteId) return false
 				const $noteSection=document.getElementById(`note-`+noteId)
@@ -40,7 +47,7 @@ export default class CommentWriter {
 				figureDialog.close()
 				downloadAndShowChangeset(
 					$a,map,
-					(readableDate)=>makeDateOutput(readableDate,that.wrappedActiveTimeElementClickListener),
+					(readableDate)=>makeDateOutput(readableDate),
 					changesetId
 				)
 				return true
@@ -51,7 +58,7 @@ export default class CommentWriter {
 				figureDialog.close()
 				downloadAndShowElement(
 					$a,map,
-					(readableDate)=>makeDateOutput(readableDate,that.wrappedActiveTimeElementClickListener),
+					(readableDate)=>makeDateOutput(readableDate),
 					elementType,elementId
 				)
 				return true
@@ -114,7 +121,6 @@ export default class CommentWriter {
 				inlineElements.push($a)
 			} else if (item.type=='date') {
 				const $time=makeActiveTimeElement(item.text,item.text)
-				$time.addEventListener('click',this.wrappedActiveTimeElementClickListener)
 				inlineElements.push($time)
 			} else {
 				inlineElements.push(item.text)
@@ -153,12 +159,10 @@ export function handleNotesUpdate($table: HTMLTableElement): void {
 	}
 }
 
-export function makeDateOutput(readableDate: string, activeTimeElementClickListener: (this: HTMLTimeElement, ev: MouseEvent) => void): HTMLElement {
+export function makeDateOutput(readableDate: string): HTMLElement {
 	const [readableDateWithoutTime]=readableDate.split(' ',1)
 	if (readableDate && readableDateWithoutTime) {
-		const $time=makeActiveTimeElement(readableDateWithoutTime,`${readableDate.replace(' ','T')}Z`,`${readableDate} UTC`)
-		$time.addEventListener('click',activeTimeElementClickListener)
-		return $time
+		return makeActiveTimeElement(readableDateWithoutTime,`${readableDate.replace(' ','T')}Z`,`${readableDate} UTC`)
 	} else {
 		const $unknownDateTime=document.createElement('span')
 		$unknownDateTime.textContent=`?`

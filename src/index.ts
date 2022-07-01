@@ -86,7 +86,7 @@ async function main() {
 	const figureDialog=new FigureDialog($figureDialog)
 	const navbar=new Navbar(storage,$navbarContainer,map)
 	const filterPanel=new NoteFilterPanel($filterContainer)
-	const toolPanel=new ToolPanel($toolContainer,map,figureDialog,storage)
+	const toolPanel=new ToolPanel(storage,globalEventsListener,$toolContainer,map,figureDialog)
 	const noteTable=new NoteTable(
 		$notesContainer,toolPanel,map,filterPanel.noteFilter,
 		figureDialog

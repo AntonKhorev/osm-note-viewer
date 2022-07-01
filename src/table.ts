@@ -77,8 +77,7 @@ export default class NoteTable {
 		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver(toolPanel,map,this.noteSectionLayerIdVisibility)
 		this.commentWriter=new CommentWriter(
 			this.map,figureDialog,
-			$noteSection=>this.focusOnNote($noteSection),
-			timestamp=>toolPanel.receiveTimestamp(timestamp)
+			$noteSection=>this.focusOnNote($noteSection)
 		)
 		$container.append(this.$table)
 		this.reset()
@@ -181,7 +180,7 @@ export default class NoteTable {
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-date')
-					$cell.append(makeDateOutput(toReadableDate(comment.date),this.commentWriter.wrappedActiveTimeElementClickListener))
+					$cell.append(makeDateOutput(toReadableDate(comment.date)))
 				}{
 					const $cell=$row.insertCell()
 					$cell.classList.add('note-user')
