@@ -42,6 +42,7 @@ export default class LooseParserPopup {
 			$a.dataset.elementType=type
 			$a.dataset.elementId=String(id)
 		}
+		$a.classList.add('listened','osm')
 		return $a
 	}
 }
