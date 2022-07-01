@@ -1,4 +1,5 @@
-import {NoteIdsFetchDialog, mixinWithFetchButton} from './base'
+import {NoteIdsFetchDialog, NoteFetchDialogSharedCheckboxes, mixinWithFetchButton} from './base'
+import NoteTable from '../table'
 import {NoteQuery, makeNoteIdsQueryFromValue} from '../query'
 import {makeDiv, makeLabel} from '../util'
 
@@ -6,6 +7,15 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 	shortTitle=`Plaintext`
 	title=`Fetch notes by ids from unstructured text`
 	protected $idsTextarea=document.createElement('textarea')
+	private $copyButton=document.createElement('button')
+	constructor(
+		$sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
+		getRequestUrls: (query: NoteQuery, limit: number) => [type: string, url: string][],
+		submitQuery: (query: NoteQuery) => void,
+		private noteTable: NoteTable
+	) {
+		super($sharedCheckboxes,getRequestUrls,submitQuery)
+	}
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{
 			this.$idsTextarea.required=true
@@ -13,16 +23,28 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 			$fieldset.append(makeDiv('major-input')(makeLabel()(
 				`Note ids separated by anything: `,this.$idsTextarea
 			)))
+		}{
+			this.$copyButton.type='button'
+			this.$copyButton.textContent=`Copy note ids from table below`
+			$fieldset.append(makeDiv('major-input')(
+				this.$copyButton
+			))
 		}
 	}
 	protected addEventListeners(): void {
-		this.$idsTextarea.addEventListener('input',()=>{
+		const validateIds=()=>{
 			const match=this.$idsTextarea.value.match(/\d+/)
 			if (!match) {
 				this.$idsTextarea.setCustomValidity(`should contain at least one number`)
 			} else {
 				this.$idsTextarea.setCustomValidity('')
 			}
+		}
+		this.$idsTextarea.addEventListener('input',validateIds)
+		this.$copyButton.addEventListener('click',()=>{
+			const ids=this.noteTable.getVisibleNoteIds()
+			this.$idsTextarea.value=ids.join()
+			validateIds()
 		})
 	}
 	protected populateInputsWithoutUpdatingRequest(query: NoteQuery | undefined): void {

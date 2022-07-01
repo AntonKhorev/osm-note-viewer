@@ -230,6 +230,16 @@ export default class NoteTable {
 		handleNotesUpdate(this.$table)
 		return nUnfilteredNotes
 	}
+	getVisibleNoteIds(): number[] {
+		const ids: number[] = []
+		for (const $noteSection of this.$table.tBodies) {
+			const idString=$noteSection.dataset.noteId
+			if (!idString) continue
+			if ($noteSection.classList.contains('hidden')) continue
+			ids.push(Number(idString))
+		}
+		return ids
+	}
 	setShowImages(showImages: boolean) {
 		this.showImages=showImages
 		this.$table.classList.toggle('with-images',showImages)

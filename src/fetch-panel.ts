@@ -49,10 +49,18 @@ export default class NoteFetchPanel {
 			navbar.addTab(dialog)
 			return dialog
 		}
-		const searchDialog=makeSearchDialog(searchFetcher,(getRequestUrls,submitQuery)=>new NoteSearchFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery))
-		const bboxDialog=makeSearchDialog(bboxFetcher,(getRequestUrls,submitQuery)=>new NoteBboxFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery,map))
-		const xmlDialog=makeSearchDialog(idsFetcher,(getRequestUrls,submitQuery)=>new NoteXmlFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery))
-		const plaintextDialog=makeSearchDialog(idsFetcher,(getRequestUrls,submitQuery)=>new NotePlaintextFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery))
+		const searchDialog=makeSearchDialog(searchFetcher,
+			(getRequestUrls,submitQuery)=>new NoteSearchFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery)
+		)
+		const bboxDialog=makeSearchDialog(bboxFetcher,
+			(getRequestUrls,submitQuery)=>new NoteBboxFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery,map)
+		)
+		const xmlDialog=makeSearchDialog(idsFetcher,
+			(getRequestUrls,submitQuery)=>new NoteXmlFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery)
+		)
+		const plaintextDialog=makeSearchDialog(idsFetcher,
+			(getRequestUrls,submitQuery)=>new NotePlaintextFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery,noteTable)
+		)
 		const aboutDialog=new AboutDialog(storage,db)
 		aboutDialog.write($container)
 		navbar.addTab(aboutDialog,true)
