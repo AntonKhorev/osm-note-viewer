@@ -842,826 +842,92 @@ class AboutDialog extends NavDialog {
     }
 }
 
-class LooseParserListener {
-    constructor(callback) {
-        this.hadSelectionOnMouseDown = false;
-        const that = this;
-        this.mouseDownListener = function (ev) {
-            that.x = ev.pageX;
-            that.y = ev.pageY;
-            that.hadSelectionOnMouseDown = !!getValidSelection()?.toString();
+function toUserQuery(value) {
+    const s = value.trim();
+    if (s == '')
+        return {
+            userType: 'empty'
         };
-        this.mouseUpListener = function (ev) {
-            const samePlace = that.x == ev.pageX && that.y == ev.pageY;
-            that.x = that.y = undefined;
-            if (samePlace && that.hadSelectionOnMouseDown)
-                return; // had something selected and made a single click
-            const selectedText = getExtendedSelectionText(this, samePlace); // need to extend the selected text when the selection is a result of a double-click
-            if (!selectedText)
-                return;
-            callback(ev.pageX, ev.pageY, selectedText);
-        };
-        function getValidSelection() {
-            const selection = document.getSelection();
-            if (!selection)
-                return null;
-            if (selection.rangeCount != 1)
-                return null;
-            return selection;
+    if (s[0] == '#') {
+        let match;
+        if (match = s.match(/^#\s*(\d+)$/)) {
+            const [, uid] = match;
+            return {
+                userType: 'id',
+                uid: Number(uid)
+            };
         }
-        function getExtendedSelectionText(startNode, needToExtend) {
-            const selection = getValidSelection();
-            if (!selection)
-                return '';
-            const selectionText = selection.toString();
-            if (!needToExtend || !selectionText)
-                return selectionText;
-            if (selection.anchorNode == null || selection.anchorOffset == null ||
-                selection.focusNode == null || selection.focusOffset == null)
-                return '';
-            const t1 = getExtendedSelectionTextToNodeAndOffset(startNode, selection.anchorNode, selection.anchorOffset);
-            const t2 = getExtendedSelectionTextToNodeAndOffset(startNode, selection.focusNode, selection.focusOffset);
-            if (t1.length > t2.length) {
-                return t1;
-            }
-            else {
-                return t2;
-            }
-        }
-        function getExtendedSelectionTextToNodeAndOffset(startNode, node, offset) {
-            const range = document.createRange();
-            range.setStart(startNode, 0);
-            range.setEnd(node, offset);
-            return range.toString();
-        }
-    }
-    listen($target) {
-        $target.addEventListener('mousedown', this.mouseDownListener);
-        $target.addEventListener('mouseup', this.mouseUpListener);
-    }
-}
-
-const e$2 = makeEscapeTag(encodeURIComponent);
-const makeItem = makeElement('li')();
-const makeITEM = makeElement('li')('main');
-class LooseParserPopup {
-    constructor($container, installClickListener) {
-        this.installClickListener = installClickListener;
-        this.$popup = document.createElement('ul');
-        this.$popup.classList.add('loose-parser-popup');
-        this.$popup.onmouseleave = () => {
-            this.$popup.classList.remove('open');
-            this.$popup.innerHTML = '';
-        };
-        $container.append(this.$popup);
-    }
-    open(x, y, id, type) {
-        const itemHeight = 20;
-        const itemWidth = 90;
-        this.$popup.style.left = `${x - 0.75 * itemWidth}px`;
-        this.$popup.style.top = `${y - 2 * itemHeight}px`;
-        this.$popup.innerHTML = '';
-        this.$popup.append(makeItem(makeElement('a')()(`#${id}`)));
-        this.$popup.append(makeITEM(this.makeLink(id, type)));
-        const types = ['note', 'changeset', 'node', 'way', 'relation'];
-        for (const type of types) {
-            this.$popup.append(makeItem(this.makeLink(id, type)));
-        }
-        this.$popup.classList.add('open');
-    }
-    makeLink(id, type) {
-        if (type == null)
-            return makeElement('a')()('?');
-        const $a = makeElement('a')()(type);
-        $a.href = e$2 `https://www.openstreetmap.org/${type}/${id}`;
-        if (type == 'note') {
-            $a.classList.add('other-note');
-            $a.dataset.noteId = String(id);
-        }
-        else if (type == 'changeset') {
-            $a.dataset.changesetId = String(id);
+        else if (match = s.match(/^#\s*\d*(.)/)) {
+            const [, c] = match;
+            return {
+                userType: 'invalid',
+                message: `uid cannot contain non-digits, found ${c}`
+            };
         }
         else {
-            $a.dataset.elementType = type;
-            $a.dataset.elementId = String(id);
-        }
-        this.installClickListener($a);
-        return $a;
-    }
-}
-
-function parseLoose(text) {
-    const match = text.match(/^(.*?)([0-9]+)\s*$/s);
-    if (!match)
-        return null;
-    const [, prefix, idString] = match;
-    return [Number(idString), getType(prefix)];
-}
-function getType(text) {
-    const types = ['note', 'changeset', 'node', 'way', 'relation'];
-    let bestType = undefined;
-    let bestIndex = -1;
-    const lowercaseText = text.toLowerCase();
-    for (const type of types) {
-        const index = lowercaseText.lastIndexOf(type);
-        if (index > bestIndex) {
-            bestIndex = index;
-            bestType = type;
+            return {
+                userType: 'invalid',
+                message: `uid cannot be empty`
+            };
         }
     }
-    return bestType;
-}
-
-function getCommentItems(commentText) {
-    const matchRegExp = new RegExp(`(?<before>.*?)(?<text>` +
-        `(?<date>\\d\\d\\d\\d-\\d\\d-\\d\\d[T ]\\d\\d:\\d\\d:\\d\\dZ)` +
-        `|` +
-        `(?<link>https?://(?:` +
-        `(?<image>westnordost\.de/p/[0-9]+\.jpg)` +
-        '|' +
-        `(?<osm>(?:www\\.)?(?:osm|openstreetmap)\\.org/` +
-        `(?<path>(?<osmType>node|way|relation|changeset|note)/(?<id>[0-9]+))?` +
-        `(?<hash>#[-0-9a-zA-Z/.=&]+)?` + // only need hash at root or at recognized path
-        `)` +
-        `))` +
-        `)`, 'sy');
-    const items = [];
-    let idx = 0;
-    while (true) {
-        idx = matchRegExp.lastIndex;
-        const match = matchRegExp.exec(commentText);
-        if (!match || !match.groups)
-            break;
-        pushTextItem(match.groups.before);
-        items.push(getMatchItem(match.groups));
-    }
-    pushTextItem(commentText.slice(idx));
-    return collapseTextItems(items);
-    function pushTextItem(text) {
-        if (text == '')
-            return;
-        items.push({
-            type: 'text',
-            text
-        });
-    }
-    function collapseTextItems(inputItems) {
-        const outputItems = [];
-        let tailTextItem;
-        for (const item of inputItems) {
-            if (item.type == 'text') {
-                if (tailTextItem) {
-                    tailTextItem.text += item.text;
+    if (s.includes('/')) {
+        try {
+            const url = new URL(s);
+            if (url.host == 'www.openstreetmap.org' ||
+                url.host == 'openstreetmap.org' ||
+                url.host == 'www.osm.org' ||
+                url.host == 'osm.org') {
+                const [, userPathDir, userPathEnd] = url.pathname.split('/');
+                if (userPathDir == 'user' && userPathEnd) {
+                    const username = decodeURIComponent(userPathEnd);
+                    return {
+                        userType: 'name',
+                        username
+                    };
                 }
-                else {
-                    outputItems.push(item);
-                    tailTextItem = item;
+                return {
+                    userType: 'invalid',
+                    message: `OSM URL has to include username`
+                };
+            }
+            else if (url.host == `api.openstreetmap.org`) {
+                const [, apiDir, apiVersionDir, apiCall, apiValue] = url.pathname.split('/');
+                if (apiDir == 'api' && apiVersionDir == '0.6' && apiCall == 'user') {
+                    const [uidString] = apiValue.split('.');
+                    const uid = Number(uidString);
+                    if (Number.isInteger(uid))
+                        return {
+                            userType: 'id',
+                            uid
+                        };
                 }
+                return {
+                    userType: 'invalid',
+                    message: `OSM API URL has to be "api/0.6/user/..."`
+                };
             }
             else {
-                outputItems.push(item);
-                tailTextItem = undefined;
-            }
-        }
-        return outputItems;
-    }
-}
-function getMatchItem(groups) {
-    const baseItem = {
-        text: groups.text
-    };
-    if (groups.date) {
-        return {
-            ...baseItem,
-            type: 'date',
-        };
-    }
-    else if (groups.link) {
-        const linkItem = {
-            ...baseItem,
-            type: 'link',
-            href: groups.link
-        };
-        if (groups.image) {
-            return {
-                ...linkItem,
-                link: 'image'
-            };
-        }
-        else if (groups.osm) {
-            const osmItem = {
-                ...linkItem,
-                link: 'osm',
-                href: rewriteOsmHref(groups.path, groups.hash),
-                map: getMap(groups.hash)
-            };
-            if (groups.osmType && groups.id) {
-                if (groups.osmType == 'node' || groups.osmType == 'way' || groups.osmType == 'relation') {
-                    return {
-                        ...osmItem,
-                        osm: 'element',
-                        element: groups.osmType,
-                        id: Number(groups.id)
-                    };
-                }
-                else if (groups.osmType == 'changeset' || groups.osmType == 'note') {
-                    return {
-                        ...osmItem,
-                        osm: groups.osmType,
-                        id: Number(groups.id)
-                    };
-                }
-            }
-            else if (osmItem.map) { // only make root links if they have map hash, otherwise they may not even be a root links
+                let domainString = `was given ${url.host}`;
+                if (!url.host)
+                    domainString = `no domain was given`;
                 return {
-                    ...osmItem,
-                    osm: 'root'
+                    userType: 'invalid',
+                    message: `URL has to be of an OSM domain, ${domainString}`
                 };
             }
         }
+        catch {
+            return {
+                userType: 'invalid',
+                message: `string containing / character has to be a valid URL`
+            };
+        }
     }
     return {
-        ...baseItem,
-        type: 'text'
+        userType: 'name',
+        username: s
     };
-}
-function rewriteOsmHref(path, hash) {
-    let href = `https://www.openstreetmap.org/`; // changes osm.org and other redirected paths to canonical
-    if (path)
-        href += path;
-    if (hash)
-        href += hash;
-    return href;
-}
-function getMap(hash) {
-    if (!hash)
-        return;
-    const params = new URLSearchParams(hash.slice(1));
-    const map = params.get('map');
-    if (!map)
-        return;
-    const match = map.match(new RegExp('([0-9.]+)/(-?[0-9.]+)/(-?[0-9.]+)'));
-    if (!match)
-        return;
-    const [, zoom, lat, lon] = match;
-    return [zoom, lat, lon];
-}
-
-function isOsmBase(d) {
-    if (!d)
-        return false;
-    if (!Number.isInteger(d.id))
-        return false;
-    if (d.user != null && (typeof d.user != 'string'))
-        return false;
-    if (!Number.isInteger(d.uid))
-        return false;
-    if (d.tags != null && (typeof d.tags != 'object'))
-        return false;
-    return true;
-}
-function isOsmElementBase(e) {
-    if (!isOsmBase(e))
-        return false;
-    if (e.type != 'node' && e.type != 'way' && e.type != 'relation')
-        return false;
-    if (typeof e.timestamp != 'string')
-        return false;
-    if (!Number.isInteger(e.version))
-        return false;
-    if (!Number.isInteger(e.changeset))
-        return false;
-    return true;
-}
-function isOsmNodeElement(e) {
-    if (!isOsmElementBase(e))
-        return false;
-    if (e.type != 'node')
-        return false;
-    if (typeof e.lat != 'number')
-        return false;
-    if (typeof e.lon != 'number')
-        return false;
-    return true;
-}
-function isOsmWayElement(e) {
-    if (!isOsmElementBase(e))
-        return false;
-    if (e.type != 'way')
-        return false;
-    const nodes = e.nodes;
-    if (!Array.isArray(nodes))
-        return false;
-    if (!nodes.every(v => Number.isInteger(v)))
-        return false;
-    return true;
-}
-function isOsmRelationElement(e) {
-    if (!isOsmElementBase(e))
-        return false;
-    if (e.type != 'relation')
-        return false;
-    const members = e.members;
-    if (!Array.isArray(members))
-        return false;
-    if (!members.every(m => (m &&
-        (m.type == 'node' || m.type == 'way' || m.type == 'relation') &&
-        Number.isInteger(m.ref) &&
-        (typeof m.role == 'string'))))
-        return false;
-    return true;
-}
-function isOsmChangeset(c) {
-    if (!isOsmBase(c))
-        return false;
-    if (typeof c.created_at != 'string')
-        return false;
-    if (c.closed_at != null && (typeof c.closed_at != 'string'))
-        return false;
-    if (c.minlat == null && c.minlon == null &&
-        c.maxlat == null && c.maxlon == null) {
-        return true;
-    }
-    else if (Number.isFinite(c.minlat) && Number.isFinite(c.minlon) &&
-        Number.isFinite(c.maxlat) && Number.isFinite(c.maxlon)) {
-        return true;
-    }
-    else {
-        return false;
-    }
-}
-const e$1 = makeEscapeTag(encodeURIComponent);
-async function downloadAndShowChangeset($a, map, outputDate, changesetId) {
-    downloadCommon($a, map, async () => {
-        const url = e$1 `https://api.openstreetmap.org/api/0.6/changeset/${changesetId}.json`;
-        const response = await fetch(url);
-        if (!response.ok) {
-            if (response.status == 404) {
-                throw new TypeError(`changeset doesn't exist`);
-            }
-            else {
-                throw new TypeError(`OSM API error: unsuccessful response`);
-            }
-        }
-        const data = await response.json();
-        const changeset = getChangesetFromOsmApiResponse(data);
-        addGeometryToMap(map, makeChangesetGeometry(changeset), () => makeChangesetPopupContents(outputDate, changeset));
-    });
-    function makeChangesetGeometry(changeset) {
-        if (changeset.minlat == null || changeset.minlon == null ||
-            changeset.maxlat == null || changeset.maxlon == null) {
-            throw new TypeError(`changeset is empty`);
-        }
-        return L.rectangle([
-            [changeset.minlat, changeset.minlon],
-            [changeset.maxlat, changeset.maxlon]
-        ]);
-    }
-}
-async function downloadAndShowElement($a, map, outputDate, elementType, elementId) {
-    downloadCommon($a, map, async () => {
-        const fullBit = (elementType == 'node' ? '' : '/full');
-        const url = e$1 `https://api.openstreetmap.org/api/0.6/${elementType}/${elementId}` + `${fullBit}.json`;
-        const response = await fetch(url);
-        if (!response.ok) {
-            if (response.status == 404) {
-                throw new TypeError(`element doesn't exist`);
-            }
-            else if (response.status == 410) {
-                throw new TypeError(`element was deleted`);
-            }
-            else {
-                throw new TypeError(`OSM API error: unsuccessful response`);
-            }
-        }
-        const data = await response.json();
-        const elements = getElementsFromOsmApiResponse(data);
-        const element = elements[elementType][elementId];
-        if (!element)
-            throw new TypeError(`OSM API error: requested element not found in response data`);
-        if (isOsmNodeElement(element)) {
-            addGeometryToMap(map, makeNodeGeometry(element), () => makeElementPopupContents(outputDate, element));
-        }
-        else if (isOsmWayElement(element)) {
-            addGeometryToMap(map, makeWayGeometry(element, elements), () => makeElementPopupContents(outputDate, element));
-        }
-        else if (isOsmRelationElement(element)) {
-            addGeometryToMap(map, makeRelationGeometry(element, elements), () => makeElementPopupContents(outputDate, element));
-        }
-        else {
-            throw new TypeError(`OSM API error: requested element has unknown type`); // shouldn't happen
-        }
-    });
-    function makeNodeGeometry(node) {
-        return L.circleMarker([node.lat, node.lon]);
-    }
-    function makeWayGeometry(way, elements) {
-        const coords = [];
-        for (const id of way.nodes) {
-            const node = elements.node[id];
-            if (!node)
-                throw new TypeError(`OSM API error: referenced element not found in response data`);
-            coords.push([node.lat, node.lon]);
-        }
-        return L.polyline(coords);
-    }
-    function makeRelationGeometry(relation, elements) {
-        const geometry = L.featureGroup();
-        for (const member of relation.members) {
-            if (member.type == 'node') {
-                const node = elements.node[member.ref];
-                if (!node)
-                    throw new TypeError(`OSM API error: referenced element not found in response data`);
-                geometry.addLayer(makeNodeGeometry(node));
-            }
-            else if (member.type == 'way') {
-                const way = elements.way[member.ref];
-                if (!way)
-                    throw new TypeError(`OSM API error: referenced element not found in response data`);
-                geometry.addLayer(makeWayGeometry(way, elements));
-            }
-            // TODO indicate that there might be relations, their data may be incomplete
-        }
-        return geometry;
-    }
-}
-async function downloadCommon($a, map, downloadSpecific) {
-    $a.classList.add('loading');
-    try {
-        // TODO cancel already running response
-        await downloadSpecific();
-        $a.classList.remove('absent');
-        $a.title = '';
-    }
-    catch (ex) {
-        map.elementLayer.clearLayers();
-        $a.classList.add('absent');
-        if (ex instanceof TypeError) {
-            $a.title = ex.message;
-        }
-        else {
-            $a.title = `unknown error ${ex}`;
-        }
-    }
-    finally {
-        $a.classList.remove('loading');
-    }
-}
-function getChangesetFromOsmApiResponse(data) {
-    if (!data)
-        throw new TypeError(`OSM API error: invalid response data`);
-    const changesetArray = data.elements;
-    if (!Array.isArray(changesetArray))
-        throw new TypeError(`OSM API error: invalid response data`);
-    if (changesetArray.length != 1)
-        throw new TypeError(`OSM API error: invalid response data`);
-    const changeset = changesetArray[0];
-    if (!isOsmChangeset(changeset))
-        throw new TypeError(`OSM API error: invalid changeset in response data`);
-    return changeset;
-}
-function getElementsFromOsmApiResponse(data) {
-    const node = {};
-    const way = {};
-    const relation = {};
-    if (!data)
-        throw new TypeError(`OSM API error: invalid response data`);
-    const elementArray = data.elements;
-    if (!Array.isArray(elementArray))
-        throw new TypeError(`OSM API error: invalid response data`);
-    for (const element of elementArray) {
-        if (isOsmNodeElement(element)) {
-            node[element.id] = element;
-        }
-        else if (isOsmWayElement(element)) {
-            way[element.id] = element;
-        }
-        else if (isOsmRelationElement(element)) {
-            relation[element.id] = element;
-        }
-        else {
-            throw new TypeError(`OSM API error: invalid element in response data`);
-        }
-    }
-    return { node, way, relation };
-}
-function makeChangesetPopupContents(outputDate, changeset) {
-    const contents = [];
-    const p = (...s) => makeElement('p')()(...s);
-    const h = (...s) => p(makeElement('strong')()(...s));
-    const c = (...s) => p(makeElement('em')()(...s));
-    const changesetHref = e$1 `https://www.openstreetmap.org/changeset/${changeset.id}`;
-    contents.push(h(`Changeset: `, makeLink(String(changeset.id), changesetHref)));
-    if (changeset.tags?.comment)
-        contents.push(c(changeset.tags.comment));
-    const $p = p();
-    if (changeset.closed_at) {
-        $p.append(`Closed on `, getDate(changeset.closed_at, outputDate));
-    }
-    else {
-        $p.append(`Created on `, getDate(changeset.created_at, outputDate));
-    }
-    $p.append(` by `, getUser(changeset));
-    contents.push($p);
-    const $tags = getTags(changeset.tags, 'comment');
-    if ($tags)
-        contents.push($tags);
-    return contents;
-}
-function makeElementPopupContents(outputDate, element) {
-    const p = (...s) => makeElement('p')()(...s);
-    const h = (...s) => p(makeElement('strong')()(...s));
-    const elementHref = e$1 `https://www.openstreetmap.org/${element.type}/${element.id}`;
-    const contents = [
-        h(capitalize(element.type) + `: `, makeLink(getElementName(element), elementHref)),
-        h(`Version #${element.version} · `, makeLink(`View History`, elementHref + '/history'), ` · `, makeLink(`Edit`, e$1 `https://www.openstreetmap.org/edit?${element.type}=${element.id}`)),
-        p(`Edited on `, getDate(element.timestamp, outputDate), ` by `, getUser(element), ` · Changeset #`, makeLink(String(element.changeset), e$1 `https://www.openstreetmap.org/changeset/${element.changeset}`))
-    ];
-    const $tags = getTags(element.tags);
-    if ($tags)
-        contents.push($tags);
-    return contents;
-}
-function addGeometryToMap(map, geometry, makePopupContents) {
-    const popupWriter = () => {
-        const $removeButton = document.createElement('button');
-        $removeButton.textContent = `Remove from map view`;
-        $removeButton.onclick = () => {
-            map.elementLayer.clearLayers();
-        };
-        return makeDiv('osm-element-popup-contents')(...makePopupContents(), $removeButton);
-    };
-    map.addOsmElement(geometry, popupWriter);
-}
-function capitalize(s) {
-    return s[0].toUpperCase() + s.slice(1);
-}
-function getDate(timestamp, outputDate) {
-    const readableDate = timestamp.replace('T', ' ').replace('Z', ''); // TODO replace date output fn with active element fn
-    return outputDate(readableDate);
-}
-function getUser(data) {
-    return makeUserLink(data.uid, data.user);
-}
-function getTags(tags, skipKey) {
-    if (!tags)
-        return null;
-    const tagBatchSize = 10;
-    const tagList = Object.entries(tags).filter(([k, v]) => k != skipKey);
-    if (tagList.length <= 0)
-        return null;
-    let i = 0;
-    let $button;
-    const $figure = document.createElement('figure');
-    const $figcaption = document.createElement('figcaption');
-    $figcaption.textContent = `Tags`;
-    const $table = document.createElement('table');
-    $figure.append($figcaption, $table);
-    writeTagBatch();
-    return $figure;
-    function writeTagBatch() {
-        for (let j = 0; i < tagList.length && j < tagBatchSize; i++, j++) {
-            const [k, v] = tagList[i];
-            const $row = $table.insertRow();
-            $row.insertCell().textContent = k;
-            $row.insertCell().textContent = v; // TODO what if tag value too long?
-        }
-        if (i < tagList.length) {
-            if (!$button) {
-                $button = document.createElement('button');
-                $figure.append($button);
-                $button.onclick = writeTagBatch;
-            }
-            const nTagsLeft = tagList.length - i;
-            const nTagsToShowNext = Math.min(nTagsLeft, tagBatchSize);
-            $button.textContent = `Show ${nTagsToShowNext} / ${nTagsLeft} more tags`;
-        }
-        else {
-            $button?.remove();
-        }
-    }
-}
-function getElementName(element) {
-    if (element.tags?.name) {
-        return `${element.tags.name} (${element.id})`;
-    }
-    else {
-        return String(element.id);
-    }
-}
-
-class CommentWriter {
-    constructor(map, figureDialog, pingNoteSection, receiveTimestamp) {
-        const that = this;
-        this.wrappedActiveTimeElementClickListener = function (ev) {
-            ev.stopPropagation();
-            receiveTimestamp(this.dateTime);
-        };
-        this.wrappedOsmLinkClickListener = function (ev) {
-            const $a = this;
-            ev.preventDefault();
-            ev.stopPropagation();
-            if (handleNote($a.dataset.noteId))
-                return;
-            if (handleChangeset($a.dataset.changesetId))
-                return;
-            if (handleElement($a.dataset.elementType, $a.dataset.elementId))
-                return;
-            handleMap($a.dataset.zoom, $a.dataset.lat, $a.dataset.lon);
-            function handleNote(noteId) {
-                if (!noteId)
-                    return false;
-                const $noteSection = document.getElementById(`note-` + noteId);
-                if (!($noteSection instanceof HTMLTableSectionElement))
-                    return false;
-                if ($noteSection.classList.contains('hidden'))
-                    return false;
-                figureDialog.close();
-                pingNoteSection($noteSection);
-                return true;
-            }
-            function handleChangeset(changesetId) {
-                if (!changesetId)
-                    return false;
-                figureDialog.close();
-                downloadAndShowChangeset($a, map, (readableDate) => makeDateOutput(readableDate, that.wrappedActiveTimeElementClickListener), changesetId);
-                return true;
-            }
-            function handleElement(elementType, elementId) {
-                if (!elementId)
-                    return false;
-                if (elementType != 'node' && elementType != 'way' && elementType != 'relation')
-                    return false;
-                figureDialog.close();
-                downloadAndShowElement($a, map, (readableDate) => makeDateOutput(readableDate, that.wrappedActiveTimeElementClickListener), elementType, elementId);
-                return true;
-            }
-            function handleMap(zoom, lat, lon) {
-                if (!(zoom && lat && lon))
-                    return false;
-                figureDialog.close();
-                map.panAndZoomTo([Number(lat), Number(lon)], Number(zoom));
-                return true;
-            }
-        };
-        this.wrappedImageLinkClickListener = function (ev) {
-            const $a = this;
-            ev.preventDefault();
-            ev.stopPropagation();
-            figureDialog.toggle($a.href);
-        };
-    }
-    makeCommentElements(commentText, showImages = false) {
-        const inlineElements = [];
-        const imageElements = [];
-        for (const item of getCommentItems(commentText)) {
-            if (item.type == 'link' && item.link == 'image') {
-                const $inlineLink = makeLink(item.href, item.href);
-                $inlineLink.classList.add('listened', 'image', 'inline');
-                $inlineLink.addEventListener('click', this.wrappedImageLinkClickListener);
-                inlineElements.push($inlineLink);
-                const $img = document.createElement('img');
-                $img.loading = 'lazy'; // this + display:none is not enough to surely stop the browser from accessing the image link
-                if (showImages)
-                    $img.src = item.href; // therefore only set the link if user agreed to loading
-                $img.alt = `attached photo`;
-                $img.addEventListener('error', imageErrorHandler);
-                const $floatLink = document.createElement('a');
-                $floatLink.classList.add('listened', 'image', 'float');
-                $floatLink.href = item.href;
-                $floatLink.append($img);
-                $floatLink.addEventListener('click', this.wrappedImageLinkClickListener);
-                imageElements.push($floatLink);
-            }
-            else if (item.type == 'link' && item.link == 'osm') {
-                const $a = makeLink(item.text, item.href);
-                if (item.map)
-                    [$a.dataset.zoom, $a.dataset.lat, $a.dataset.lon] = item.map;
-                if (item.osm == 'element') {
-                    $a.dataset.elementType = item.element;
-                    $a.dataset.elementId = String(item.id);
-                }
-                if (item.osm == 'changeset') {
-                    $a.classList.add('changeset');
-                    $a.dataset.changesetId = String(item.id);
-                }
-                if (item.osm == 'note') {
-                    $a.classList.add('other-note');
-                    $a.dataset.noteId = String(item.id);
-                }
-                this.installOsmClickListenerAfterDatasets($a, true); // suppress note link updates because handleNotesUpdate() is going to be run anyway - TODO: or not if ran from parse tool?
-                inlineElements.push($a);
-            }
-            else if (item.type == 'date') {
-                const $time = makeActiveTimeElement(item.text, item.text);
-                $time.addEventListener('click', this.wrappedActiveTimeElementClickListener);
-                inlineElements.push($time);
-            }
-            else {
-                inlineElements.push(item.text);
-            }
-        }
-        return [inlineElements, imageElements];
-    }
-    writeComment($cell, commentText, showImages) {
-        const [inlineElements, imageElements] = this.makeCommentElements(commentText, showImages);
-        if (imageElements.length > 0) {
-            $cell.addEventListener('mouseover', imageCommentHoverListener);
-            $cell.addEventListener('mouseout', imageCommentHoverListener);
-        }
-        $cell.append(...imageElements, ...inlineElements);
-    }
-    installOsmClickListenerAfterDatasets($a, suppressUpdateNoteLink = false) {
-        $a.classList.add('listened', 'osm');
-        if (!suppressUpdateNoteLink && $a.classList.contains('other-note'))
-            updateNoteLink($a);
-        $a.addEventListener('click', this.wrappedOsmLinkClickListener);
-    }
-}
-function handleShowImagesUpdate($table, showImages) {
-    for (const $a of $table.querySelectorAll('td.note-comment a.image.float')) {
-        if (!($a instanceof HTMLAnchorElement))
-            continue;
-        const $img = $a.firstChild;
-        if (!($img instanceof HTMLImageElement))
-            continue;
-        if (showImages && !$img.src)
-            $img.src = $a.href; // don't remove src when showImages is disabled, otherwise will reload all images when src is set back
-    }
-}
-function handleNotesUpdate($table) {
-    for (const $a of $table.querySelectorAll('td.note-comment a.other-note')) {
-        if (!($a instanceof HTMLAnchorElement))
-            continue;
-        updateNoteLink($a);
-    }
-}
-function makeDateOutput(readableDate, activeTimeElementClickListener) {
-    const [readableDateWithoutTime] = readableDate.split(' ', 1);
-    if (readableDate && readableDateWithoutTime) {
-        const $time = makeActiveTimeElement(readableDateWithoutTime, `${readableDate.replace(' ', 'T')}Z`, `${readableDate} UTC`);
-        $time.addEventListener('click', activeTimeElementClickListener);
-        return $time;
-    }
-    else {
-        const $unknownDateTime = document.createElement('span');
-        $unknownDateTime.textContent = `?`;
-        return $unknownDateTime;
-    }
-}
-function makeActiveTimeElement(text, dateTime, title) {
-    const $time = document.createElement('time');
-    $time.classList.add('listened');
-    $time.textContent = text;
-    $time.dateTime = dateTime;
-    if (title)
-        $time.title = title;
-    return $time;
-}
-function updateNoteLink($a) {
-    const $noteSection = document.getElementById(`note-` + $a.dataset.noteId);
-    if (!($noteSection instanceof HTMLTableSectionElement)) {
-        $a.classList.add('absent');
-        $a.title = `The note is not downloaded`;
-    }
-    else if ($noteSection.classList.contains('hidden')) {
-        $a.classList.add('absent');
-        $a.title = `The note is filtered out`;
-    }
-    else {
-        $a.classList.remove('absent');
-        $a.title = '';
-    }
-}
-function imageCommentHoverListener(ev) {
-    const $targetLink = getTargetLink();
-    if (!$targetLink)
-        return;
-    const $floats = this.querySelectorAll('a.image.float');
-    const $inlines = this.querySelectorAll('a.image.inline');
-    for (let i = 0; i < $floats.length && i < $inlines.length; i++) {
-        if ($floats[i] == $targetLink) {
-            modifyTwinLink($inlines[i]);
-            return;
-        }
-        if ($inlines[i] == $targetLink) {
-            modifyTwinLink($floats[i]);
-            return;
-        }
-    }
-    function getTargetLink() {
-        if (ev.target instanceof HTMLAnchorElement)
-            return ev.target;
-        if (!(ev.target instanceof HTMLElement))
-            return null;
-        return ev.target.closest('a');
-    }
-    function modifyTwinLink($a) {
-        $a.classList.toggle('active', ev.type == 'mouseover');
-    }
-}
-function imageErrorHandler() {
-    this.removeAttribute('alt'); // render broken image icon
 }
 
 function toReadableDate(date) {
@@ -1780,1570 +1046,6 @@ function toDateQuery(readableDate) {
             date: Date.parse(completedReadableDate) / 1000
         };
     }
-}
-
-class NoteTable {
-    constructor($container, toolPanel, map, filter, figureDialog, showImages) {
-        this.toolPanel = toolPanel;
-        this.map = map;
-        this.filter = filter;
-        this.showImages = showImages;
-        this.$table = document.createElement('table');
-        this.$selectAllCheckbox = document.createElement('input');
-        this.noteSectionLayerIdVisibility = new Map();
-        this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
-        this.usersById = new Map();
-        toolPanel.onCommentsViewChange = (onlyFirst, oneLine) => {
-            this.$table.classList.toggle('only-first-comments', onlyFirst);
-            this.$table.classList.toggle('one-line-comments', oneLine);
-        };
-        const that = this;
-        let $clickReadyNoteSection;
-        this.wrappedNoteSectionListeners = [
-            ['mouseenter', function () {
-                    that.activateNote('hover', this);
-                }],
-            ['mouseleave', function () {
-                    that.deactivateNote('hover', this);
-                }],
-            ['mousemove', function () {
-                    $clickReadyNoteSection = undefined; // ideally should be reset by 'selectstart' event, however Chrome fires it even if no mouse drag has happened
-                    if (!this.classList.contains('active-click'))
-                        return;
-                    resetFadeAnimation(this, 'active-click-fade');
-                }],
-            ['animationend', function () {
-                    that.deactivateNote('click', this);
-                }],
-            ['mousedown', function () {
-                    $clickReadyNoteSection = this;
-                }],
-            // ['selectstart',function(){
-            // 	$clickReadyNoteSection=undefined // Chrome is too eager to fire this event, have to cancel click from 'mousemove' instead
-            // }],
-            ['click', function () {
-                    if ($clickReadyNoteSection == this) {
-                        figureDialog.close();
-                        that.focusOnNote(this, true);
-                    }
-                    $clickReadyNoteSection = undefined;
-                }]
-        ];
-        this.wrappedNoteCheckboxClickListener = function (ev) {
-            that.noteCheckboxClickListener(this, ev);
-        };
-        this.wrappedAllNotesCheckboxClickListener = function (ev) {
-            that.allNotesCheckboxClickListener(this, ev);
-        };
-        this.wrappedNoteMarkerClickListener = function () {
-            that.noteMarkerClickListener(this);
-        };
-        this.noteSectionVisibilityObserver = new NoteSectionVisibilityObserver(toolPanel, map, this.noteSectionLayerIdVisibility);
-        this.commentWriter = new CommentWriter(this.map, figureDialog, $noteSection => this.focusOnNote($noteSection), timestamp => toolPanel.receiveTimestamp(timestamp));
-        this.$table.classList.toggle('with-images', showImages);
-        $container.append(this.$table);
-        {
-            const $header = this.$table.createTHead();
-            const $row = $header.insertRow();
-            const $checkboxCell = makeHeaderCell('');
-            this.$selectAllCheckbox.type = 'checkbox';
-            this.$selectAllCheckbox.title = `check/uncheck all`;
-            this.$selectAllCheckbox.addEventListener('click', this.wrappedAllNotesCheckboxClickListener);
-            $checkboxCell.append(this.$selectAllCheckbox);
-            const $actionCell = makeHeaderCell('?');
-            $actionCell.title = `action performed along with adding the comment; number of comments`;
-            $actionCell.classList.add('note-action');
-            $row.append($checkboxCell, makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), $actionCell, makeHeaderCell('comment'));
-        }
-        function makeHeaderCell(text) {
-            const $cell = document.createElement('th');
-            $cell.textContent = text;
-            return $cell;
-        }
-        this.updateCheckboxDependents();
-        const looseParserPopup = new LooseParserPopup($container, ($a) => this.commentWriter.installOsmClickListenerAfterDatasets($a));
-        this.looseParserListener = new LooseParserListener((x, y, text) => {
-            const parseResult = parseLoose(text);
-            if (!parseResult)
-                return;
-            looseParserPopup.open(x, y, ...parseResult);
-        });
-    }
-    updateFilter(filter) {
-        let nFetched = 0;
-        let nVisible = 0;
-        this.filter = filter;
-        const getUsername = (uid) => this.usersById.get(uid);
-        for (const $noteSection of this.$table.tBodies) {
-            const noteId = Number($noteSection.dataset.noteId);
-            const note = this.notesById.get(noteId);
-            const layerId = Number($noteSection.dataset.layerId);
-            if (note == null)
-                continue;
-            nFetched++;
-            if (this.filter.matchNote(note, getUsername)) {
-                nVisible++;
-                const marker = this.map.filteredNoteLayer.getLayer(layerId);
-                if (marker) {
-                    this.map.filteredNoteLayer.removeLayer(marker);
-                    this.map.noteLayer.addLayer(marker);
-                }
-                $noteSection.classList.remove('hidden');
-            }
-            else {
-                this.deactivateNote('click', $noteSection);
-                this.deactivateNote('hover', $noteSection);
-                const marker = this.map.noteLayer.getLayer(layerId);
-                if (marker) {
-                    this.map.noteLayer.removeLayer(marker);
-                    this.map.filteredNoteLayer.addLayer(marker);
-                }
-                $noteSection.classList.add('hidden');
-                const $checkbox = $noteSection.querySelector('.note-checkbox input');
-                if ($checkbox instanceof HTMLInputElement)
-                    $checkbox.checked = false;
-            }
-        }
-        this.toolPanel.receiveNoteCounts(nFetched, nVisible);
-        this.updateCheckboxDependents();
-        handleNotesUpdate(this.$table);
-    }
-    /**
-     * @returns number of added notes that passed through the filter
-     */
-    addNotes(notes, users) {
-        // remember notes and users
-        const noteSequence = [];
-        for (const note of notes) {
-            noteSequence.push(note);
-            this.notesById.set(note.id, note);
-        }
-        for (const [uid, username] of Object.entries(users)) {
-            this.usersById.set(Number(uid), username);
-        }
-        // output table
-        let nUnfilteredNotes = 0;
-        const getUsername = (uid) => users[uid];
-        for (const note of noteSequence) {
-            const isVisible = this.filter.matchNote(note, getUsername);
-            if (isVisible)
-                nUnfilteredNotes++;
-            const $noteSection = this.writeNote(note, isVisible);
-            let $row = $noteSection.insertRow();
-            const nComments = note.comments.length;
-            {
-                const $cell = $row.insertCell();
-                $cell.classList.add('note-checkbox');
-                if (nComments > 1)
-                    $cell.rowSpan = nComments;
-                const $checkbox = document.createElement('input');
-                $checkbox.type = 'checkbox';
-                $checkbox.title = `shift+click to check/uncheck a range`;
-                $checkbox.addEventListener('click', this.wrappedNoteCheckboxClickListener);
-                $cell.append($checkbox);
-            }
-            {
-                const $cell = $row.insertCell();
-                if (nComments > 1)
-                    $cell.rowSpan = nComments;
-                const $a = document.createElement('a');
-                $a.href = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
-                $a.textContent = `${note.id}`;
-                $cell.append($a);
-            }
-            let iComment = 0;
-            for (const comment of note.comments) {
-                {
-                    if (iComment > 0) {
-                        $row = $noteSection.insertRow();
-                    }
-                }
-                {
-                    const $cell = $row.insertCell();
-                    $cell.classList.add('note-date');
-                    $cell.append(makeDateOutput(toReadableDate(comment.date), this.commentWriter.wrappedActiveTimeElementClickListener));
-                }
-                {
-                    const $cell = $row.insertCell();
-                    $cell.classList.add('note-user');
-                    if (comment.uid != null) {
-                        const username = users[comment.uid];
-                        if (username != null) {
-                            $cell.append(makeUserNameLink(username));
-                        }
-                        else {
-                            $cell.append(`#${comment.uid}`);
-                        }
-                    }
-                }
-                {
-                    let svgs = `<svg class="icon-status-${getActionClass(comment.action)}">` +
-                        `<title>${comment.action}</title><use href="#table-note" />` +
-                        `</svg>`;
-                    if (note.comments.length > 1) {
-                        svgs += ` <svg class="icon-comments-count">` +
-                            `<title>number of additional comments</title><use href="#table-comments" /><text x="8" y="8">${note.comments.length - 1}</text>` +
-                            `</svg>`;
-                    }
-                    const $cell = $row.insertCell();
-                    $cell.classList.add('note-action');
-                    $cell.innerHTML = svgs;
-                }
-                {
-                    const $cell = $row.insertCell();
-                    $cell.classList.add('note-comment');
-                    this.commentWriter.writeComment($cell, comment.text, this.showImages);
-                    this.looseParserListener.listen($cell);
-                }
-                iComment++;
-            }
-        }
-        if (this.toolPanel.fitMode == 'allNotes') {
-            this.map.fitNotes();
-        }
-        else {
-            this.map.fitNotesIfNeeded();
-        }
-        let nFetched = 0;
-        let nVisible = 0;
-        for (const $noteSection of this.$table.tBodies) {
-            if (!$noteSection.dataset.noteId)
-                continue;
-            nFetched++;
-            if (!$noteSection.classList.contains('hidden'))
-                nVisible++;
-        }
-        this.toolPanel.receiveNoteCounts(nFetched, nVisible);
-        handleNotesUpdate(this.$table);
-        return nUnfilteredNotes;
-    }
-    setShowImages(showImages) {
-        this.showImages = showImages;
-        this.$table.classList.toggle('with-images', showImages);
-        handleShowImagesUpdate(this.$table, showImages);
-    }
-    writeNote(note, isVisible) {
-        const marker = new NoteMarker(note);
-        const parentLayer = (isVisible ? this.map.noteLayer : this.map.filteredNoteLayer);
-        marker.addTo(parentLayer);
-        marker.on('click', this.wrappedNoteMarkerClickListener);
-        const layerId = this.map.noteLayer.getLayerId(marker);
-        const $noteSection = this.$table.createTBody();
-        if (!isVisible)
-            $noteSection.classList.add('hidden');
-        $noteSection.id = `note-${note.id}`;
-        $noteSection.classList.add(getStatusClass(note.status));
-        $noteSection.dataset.layerId = String(layerId);
-        $noteSection.dataset.noteId = String(note.id);
-        for (const [event, listener] of this.wrappedNoteSectionListeners) {
-            $noteSection.addEventListener(event, listener);
-        }
-        this.noteSectionLayerIdVisibility.set(layerId, false);
-        this.noteSectionVisibilityObserver.observe($noteSection);
-        if (isVisible) {
-            if (this.$selectAllCheckbox.checked) {
-                this.$selectAllCheckbox.checked = false;
-                this.$selectAllCheckbox.indeterminate = true;
-            }
-        }
-        return $noteSection;
-    }
-    noteMarkerClickListener(marker) {
-        const $noteSection = document.getElementById(`note-` + marker.noteId);
-        if (!($noteSection instanceof HTMLTableSectionElement))
-            return;
-        this.focusOnNote($noteSection);
-    }
-    noteCheckboxClickListener($checkbox, ev) {
-        ev.stopPropagation();
-        const $clickedNoteSection = $checkbox.closest('tbody');
-        if ($clickedNoteSection) {
-            if (ev.shiftKey && this.$lastClickedNoteSection) {
-                for (const $section of this.listVisibleNoteSectionsInRange(this.$lastClickedNoteSection, $clickedNoteSection)) {
-                    const $checkboxInRange = $section.querySelector('.note-checkbox input');
-                    if ($checkboxInRange instanceof HTMLInputElement)
-                        $checkboxInRange.checked = $checkbox.checked;
-                }
-            }
-            this.$lastClickedNoteSection = $clickedNoteSection;
-        }
-        this.updateCheckboxDependents();
-    }
-    allNotesCheckboxClickListener($allCheckbox, ev) {
-        for (const $noteSection of this.listVisibleNoteSections()) {
-            const $checkbox = $noteSection.querySelector('.note-checkbox input');
-            if (!($checkbox instanceof HTMLInputElement))
-                continue;
-            $checkbox.checked = $allCheckbox.checked;
-        }
-        this.updateCheckboxDependents();
-    }
-    focusOnNote($noteSection, isSectionClicked = false) {
-        this.activateNote('click', $noteSection);
-        this.noteSectionVisibilityObserver.haltMapFitting(); // otherwise scrollIntoView() may ruin note pan/zoom - it may cause observer to fire after exiting this function
-        if (!isSectionClicked)
-            $noteSection.scrollIntoView({ block: 'nearest' });
-        const layerId = Number($noteSection.dataset.layerId);
-        const marker = this.map.noteLayer.getLayer(layerId);
-        if (!(marker instanceof L.Marker))
-            return;
-        const z1 = this.map.zoom;
-        const z2 = this.map.maxZoom;
-        if (this.map.isCloseEnoughToCenter(marker.getLatLng()) && z1 < z2) {
-            const nextZoom = Math.min(z2, z1 + Math.ceil((z2 - z1) / 2));
-            this.map.panAndZoomTo(marker.getLatLng(), nextZoom);
-        }
-        else {
-            this.map.panTo(marker.getLatLng());
-        }
-    }
-    deactivateNote(type, $noteSection) {
-        $noteSection.classList.remove('active-' + type);
-        const layerId = Number($noteSection.dataset.layerId);
-        const marker = this.map.noteLayer.getLayer(layerId);
-        if (!(marker instanceof L.Marker))
-            return;
-        marker.getElement()?.classList.remove('active-' + type);
-        if ($noteSection.classList.contains('active-hover') || $noteSection.classList.contains('active-click'))
-            return;
-        marker.setZIndexOffset(0);
-    }
-    activateNote(type, $noteSection) {
-        let alreadyActive = false;
-        for (const $otherNoteSection of this.$table.querySelectorAll('tbody.active-' + type)) {
-            if (!($otherNoteSection instanceof HTMLTableSectionElement))
-                continue;
-            if ($otherNoteSection == $noteSection) {
-                alreadyActive = true;
-                if (type == 'click')
-                    resetFadeAnimation($noteSection, 'active-click-fade');
-            }
-            else {
-                this.deactivateNote(type, $otherNoteSection);
-            }
-        }
-        if (alreadyActive)
-            return;
-        const layerId = Number($noteSection.dataset.layerId);
-        const marker = this.map.noteLayer.getLayer(layerId);
-        if (!(marker instanceof L.Marker))
-            return;
-        marker.setZIndexOffset(1000);
-        marker.getElement()?.classList.add('active-' + type);
-        $noteSection.classList.add('active-' + type);
-    }
-    updateCheckboxDependents() {
-        const checkedNotes = [];
-        const checkedNoteUsers = new Map();
-        let hasUnchecked = false;
-        for (const $noteSection of this.listVisibleNoteSections()) {
-            const $checkbox = $noteSection.querySelector('.note-checkbox input');
-            if (!($checkbox instanceof HTMLInputElement))
-                continue;
-            if (!$checkbox.checked) {
-                hasUnchecked = true;
-                continue;
-            }
-            const noteId = Number($noteSection.dataset.noteId);
-            const note = this.notesById.get(noteId);
-            if (!note)
-                continue;
-            checkedNotes.push(note);
-            for (const comment of note.comments) {
-                if (comment.uid == null)
-                    continue;
-                const username = this.usersById.get(comment.uid);
-                if (username == null)
-                    continue;
-                checkedNoteUsers.set(comment.uid, username);
-            }
-        }
-        let hasChecked = checkedNotes.length > 0;
-        this.$selectAllCheckbox.indeterminate = hasChecked && hasUnchecked;
-        this.$selectAllCheckbox.checked = hasChecked && !hasUnchecked;
-        this.toolPanel.receiveSelectedNotes(checkedNotes, checkedNoteUsers);
-    }
-    listVisibleNoteSections() {
-        return this.$table.querySelectorAll('tbody:not(.hidden)');
-    }
-    /**
-     * range including $fromSection but excluding $toSection
-     * excludes $toSection if equals to $fromSection
-     */
-    *listVisibleNoteSectionsInRange($fromSection, $toSection) {
-        const $sections = this.listVisibleNoteSections();
-        let i = 0;
-        let $guardSection;
-        for (; i < $sections.length; i++) {
-            const $section = $sections[i];
-            if ($section == $fromSection) {
-                $guardSection = $toSection;
-                break;
-            }
-            if ($section == $toSection) {
-                $guardSection = $fromSection;
-                break;
-            }
-        }
-        if (!$guardSection)
-            return;
-        for (; i < $sections.length; i++) {
-            const $section = $sections[i];
-            if ($section != $toSection) {
-                yield $section;
-            }
-            if ($section == $guardSection) {
-                return;
-            }
-        }
-    }
-}
-class NoteSectionVisibilityObserver {
-    constructor(toolPanel, map, noteSectionLayerIdVisibility) {
-        this.isMapFittingHalted = false;
-        const noteSectionVisibilityHandler = () => {
-            const visibleLayerIds = [];
-            for (const [layerId, visibility] of noteSectionLayerIdVisibility) {
-                if (visibility)
-                    visibleLayerIds.push(layerId);
-            }
-            map.showNoteTrack(visibleLayerIds);
-            if (!this.isMapFittingHalted && toolPanel.fitMode == 'inViewNotes')
-                map.fitNoteTrack();
-        };
-        this.intersectionObserver = new IntersectionObserver((entries) => {
-            for (const entry of entries) {
-                if (!(entry.target instanceof HTMLElement))
-                    continue;
-                const layerId = entry.target.dataset.layerId;
-                if (layerId == null)
-                    continue;
-                noteSectionLayerIdVisibility.set(Number(layerId), entry.isIntersecting);
-            }
-            clearTimeout(this.visibilityTimeoutId);
-            this.visibilityTimeoutId = setTimeout(noteSectionVisibilityHandler);
-        });
-    }
-    observe($noteSection) {
-        this.intersectionObserver.observe($noteSection);
-    }
-    haltMapFitting() {
-        clearTimeout(this.visibilityTimeoutId);
-        clearTimeout(this.haltingTimeoutId);
-        this.isMapFittingHalted = true;
-        this.haltingTimeoutId = setTimeout(() => {
-            this.isMapFittingHalted = false;
-        }, 100);
-    }
-}
-function getStatusClass(status) {
-    if (status == 'open') {
-        return 'open';
-    }
-    else if (status == 'closed' || status == 'hidden') {
-        return 'closed';
-    }
-    else {
-        return 'other';
-    }
-}
-function getActionClass(action) {
-    if (action == 'opened' || action == 'reopened') {
-        return 'open';
-    }
-    else if (action == 'closed' || action == 'hidden') {
-        return 'closed';
-    }
-    else {
-        return 'other';
-    }
-}
-
-/*! *****************************************************************************
-Copyright (c) Microsoft Corporation.
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
-REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
-AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
-INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
-LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
-OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
-PERFORMANCE OF THIS SOFTWARE.
-***************************************************************************** */
-
-function __classPrivateFieldGet(receiver, state, kind, f) {
-    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a getter");
-    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
-    return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
-}
-
-function __classPrivateFieldSet(receiver, state, value, kind, f) {
-    if (kind === "m") throw new TypeError("Private method is not writable");
-    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
-    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
-    return (kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value)), value;
-}
-
-class Tool {
-    constructor(id, name, title) {
-        this.id = id;
-        this.name = name;
-        this.title = title;
-        this.$buttonsRequiringSelectedNotes = [];
-    }
-    getInfo() { return undefined; }
-    onTimestampChange(timestamp) { return false; }
-    onNoteCountsChange(nFetched, nVisible) { return false; }
-    onSelectedNotesChange(selectedNotes, selectedNoteUsers) {
-        let reactedToButtons = false;
-        if (this.$buttonsRequiringSelectedNotes.length > 0) {
-            for (const $button of this.$buttonsRequiringSelectedNotes) {
-                $button.disabled = selectedNotes.length <= 0;
-            }
-            reactedToButtons = true;
-        }
-        const reactedToOthers = this.onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers);
-        return reactedToButtons || reactedToOthers;
-    }
-    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) { return false; }
-    makeRequiringSelectedNotesButton() {
-        const $button = document.createElement('button');
-        $button.disabled = true;
-        this.$buttonsRequiringSelectedNotes.push($button);
-        return $button;
-    }
-}
-function makeMapIcon(type) {
-    const $span = document.createElement('span');
-    $span.innerHTML = `<span class='icon-map-${type}'><svg><use href="#tools-map" /></svg><span>map ${type}</span></span>`;
-    return $span;
-}
-function makeNotesIcon(type) {
-    const $span = document.createElement('span');
-    $span.innerHTML = `<span class='icon-notes-${type}'><svg><use href="#tools-notes" /></svg><span>${type} notes</span></span>`;
-    return $span;
-}
-
-const p$5 = (...ss) => makeElement('p')()(...ss);
-const em$5 = (s) => makeElement('em')()(s);
-const dfn$1 = (s) => makeElement('dfn')()(s);
-const ul$2 = (...ss) => makeElement('ul')()(...ss);
-const li$2 = (...ss) => makeElement('li')()(...ss);
-const label = (...ss) => makeElement('label')('inline')(...ss);
-class AutozoomTool extends Tool {
-    constructor() {
-        super('autozoom', `Map autozoom`, `Pan and zoom the map to visible notes`);
-    }
-    getInfo() {
-        return [p$5(`Pan and zoom the map to notes in the table. `, `Can be used as `, em$5(`zoom to data`), ` for notes layer if `, dfn$1(`to all visible notes`), ` is selected. `), p$5(dfn$1(`To notes on screen in table`), ` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `, `This option is convenient to use when `, em$5(`Track between notes`), ` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`)];
-    }
-    getTool(callbacks, map) {
-        const $fitModeSelect = document.createElement('select');
-        $fitModeSelect.append(new Option('is disabled', 'none'), new Option('to notes on screen in table', 'inViewNotes'), new Option('to all visible notes', 'allNotes'));
-        $fitModeSelect.onchange = () => {
-            if ($fitModeSelect.value == 'allNotes') {
-                callbacks.onFitModeChange(this, $fitModeSelect.value);
-                map.fitNotes();
-            }
-            else if ($fitModeSelect.value == 'inViewNotes') {
-                callbacks.onFitModeChange(this, $fitModeSelect.value);
-                map.fitNoteTrack();
-            }
-            else {
-                callbacks.onFitModeChange(this, undefined);
-            }
-        };
-        return [$fitModeSelect];
-    }
-}
-class CommentsTool extends Tool {
-    constructor() {
-        super('comments', `Table comments`, `Change how comments are displayed in notes table`);
-    }
-    getTool(callbacks, map) {
-        const $onlyFirstCommentsCheckbox = document.createElement('input');
-        $onlyFirstCommentsCheckbox.type = 'checkbox';
-        const $oneLineCommentsCheckbox = document.createElement('input');
-        $oneLineCommentsCheckbox.type = 'checkbox';
-        $onlyFirstCommentsCheckbox.onchange = $oneLineCommentsCheckbox.onchange = () => {
-            callbacks.onCommentsViewChange(this, $onlyFirstCommentsCheckbox.checked, $oneLineCommentsCheckbox.checked);
-        };
-        return [
-            `show `,
-            label($onlyFirstCommentsCheckbox, ` only 1st`), `; `,
-            label($oneLineCommentsCheckbox, ` on 1 line`),
-        ];
-    }
-}
-class TimestampTool extends Tool {
-    constructor() {
-        super('timestamp', `Timestamp for historic queries`);
-        this.$timestampInput = document.createElement('input');
-    }
-    getInfo() {
-        return [p$5(`Allows to select a timestamp for use with `, em$5(`Overpass`), ` and `, em$5(`Overpass turbo`), ` commands. `, `You can either enter the timestamp in ISO format (or anything else that Overpass understands) manually here click on a date of/in a note comment. `, `If present, a `, makeLink(`date setting`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL#date`), ` is added to Overpass queries. `, `The idea is to allow for examining the OSM data at the moment some note was opened/commented/closed to evaluate if this action was correct.`), p$5(`Timestamps inside note comments are usually generated by apps like `, makeLink(`MAPS.ME`, `https://wiki.openstreetmap.org/wiki/MAPS.ME`), ` to indicate their OSM data version.`)];
-    }
-    getTool(callbacks) {
-        // this.$timestampInput.type='datetime-local' // no standard datetime input for now because they're being difficult with UTC and 24-hour format.
-        // this.$timestampInput.step='1'
-        this.$timestampInput.type = 'text';
-        this.$timestampInput.size = 20;
-        this.$timestampInput.oninput = () => {
-            callbacks.onTimestampChange(this, this.$timestampInput.value);
-        };
-        const $clearButton = document.createElement('button');
-        $clearButton.type = 'reset';
-        $clearButton.textContent = 'Clear';
-        const $form = makeElement('form')()(this.$timestampInput, ` `, $clearButton);
-        $form.onreset = () => {
-            callbacks.onTimestampChange(this, '');
-        };
-        return [$form];
-    }
-    onTimestampChange(timestamp) {
-        this.$timestampInput.value = timestamp;
-        return true;
-    }
-}
-class ParseTool extends Tool {
-    constructor() {
-        super('parse', `Parse links`);
-    }
-    getInfo() {
-        return [p$5(`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →.`, `Currently detected active elements are: `), ul$2(li$2(`links to images made in `, makeLink(`StreetComplete`, `https://wiki.openstreetmap.org/wiki/StreetComplete`)), li$2(`links to OSM notes (clicking the output link is not yet implemented)`), li$2(`links to OSM changesets`), li$2(`links to OSM elements`), li$2(`ISO-formatted timestamps`)), p$5(`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`)];
-    }
-    getTool(callbacks, map, figureDialog) {
-        const commentWriter = new CommentWriter(map, figureDialog, () => { }, // TODO ping note section
-        (timestamp) => callbacks.onTimestampChange(this, timestamp));
-        const $input = document.createElement('input');
-        $input.type = 'text';
-        $input.size = 50;
-        $input.classList.add('complicated');
-        const $parseButton = document.createElement('button');
-        $parseButton.type = 'submit';
-        $parseButton.textContent = 'Parse';
-        const $clearButton = document.createElement('button');
-        $clearButton.type = 'reset';
-        $clearButton.textContent = 'Clear';
-        const $output = document.createElement('code');
-        $output.append(getFirstActiveElement([]));
-        const $form = makeElement('form')()($input, ` `, $parseButton, ` `, $clearButton);
-        $form.onsubmit = (ev) => {
-            ev.preventDefault();
-            const [elements] = commentWriter.makeCommentElements($input.value);
-            $output.replaceChildren(getFirstActiveElement(elements));
-        };
-        $form.onreset = () => {
-            $output.replaceChildren(getFirstActiveElement([]));
-        };
-        return [$form, ` → `, $output];
-        function getFirstActiveElement(elements) {
-            for (const element of elements) {
-                if (element instanceof HTMLAnchorElement) {
-                    element.textContent = `link`;
-                    return element;
-                }
-                else if (element instanceof HTMLTimeElement) {
-                    element.textContent = `date`;
-                    return element;
-                }
-            }
-            return `none`;
-        }
-    }
-}
-class CountTool extends Tool {
-    constructor() {
-        super('counts', `Note counts`);
-        this.$fetchedNoteCount = document.createElement('output');
-        this.$visibleNoteCount = document.createElement('output');
-        this.$selectedNoteCount = document.createElement('output');
-    }
-    getTool() {
-        this.$fetchedNoteCount.textContent = '0';
-        this.$visibleNoteCount.textContent = '0';
-        this.$selectedNoteCount.textContent = '0';
-        return [
-            this.$fetchedNoteCount, ` fetched, `,
-            this.$visibleNoteCount, ` visible, `,
-            this.$selectedNoteCount, ` selected`
-        ];
-    }
-    onNoteCountsChange(nFetched, nVisible) {
-        this.$fetchedNoteCount.textContent = String(nFetched);
-        this.$visibleNoteCount.textContent = String(nVisible);
-        return true;
-    }
-    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) {
-        this.$selectedNoteCount.textContent = String(selectedNotes.length);
-        return true;
-    }
-}
-class LegendTool extends Tool {
-    constructor() {
-        super('legend', `Legend`, `What do icons in command panel mean`);
-    }
-    getTool() {
-        return [
-            makeMapIcon('center'), ` = map center, `, makeMapIcon('area'), ` = map area, `, makeNotesIcon('selected'), ` = selected notes`
-        ];
-    }
-}
-class SettingsTool extends Tool {
-    constructor() {
-        super('settings', `⚙️`, `Settings`);
-    }
-    getTool(callbacks) {
-        const $openAllButton = document.createElement('button');
-        $openAllButton.textContent = `+ open all tools`;
-        $openAllButton.onclick = () => callbacks.onToolOpenToggle(this, true);
-        const $closeAllButton = document.createElement('button');
-        $closeAllButton.textContent = `− close all tools`;
-        $closeAllButton.onclick = () => callbacks.onToolOpenToggle(this, false);
-        return [$openAllButton, ` `, $closeAllButton];
-    }
-}
-
-const p$4 = (...ss) => makeElement('p')()(...ss);
-class OverpassTool extends Tool {
-    constructor() {
-        super(...arguments);
-        this.timestamp = '';
-    }
-    onTimestampChange(timestamp) {
-        this.timestamp = timestamp;
-        return true;
-    }
-    getOverpassQueryPreamble(map) {
-        const bounds = map.bounds;
-        let query = '';
-        if (this.timestamp)
-            query += `[date:"${this.timestamp}"]\n`;
-        query += `[bbox:${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}]\n`;
-        query += `;\n`;
-        return query;
-    }
-}
-class OverpassTurboTool extends OverpassTool {
-    constructor() {
-        super('overpass-turbo', `Overpass turbo`);
-    }
-    getInfo() {
-        return [p$4(`Some Overpass queries to run from `, makeLink(`Overpass turbo`, 'https://wiki.openstreetmap.org/wiki/Overpass_turbo'), `, web UI for Overpass API. `, `Useful to inspect historic data at the time a particular note comment was made.`)];
-    }
-    getTool(callbacks, map) {
-        const $overpassButtons = [];
-        const buttonClickListener = (withRelations, onlyAround) => {
-            const e = makeEscapeTag(encodeURIComponent);
-            let query = this.getOverpassQueryPreamble(map);
-            if (withRelations) {
-                query += `nwr`;
-            }
-            else {
-                query += `nw`;
-            }
-            if (onlyAround) {
-                const radius = 10;
-                query += `(around:${radius},${map.lat},${map.lon})`;
-            }
-            query += `;\n`;
-            query += `out meta geom;`;
-            const location = `${map.lat};${map.lon};${map.zoom}`;
-            const url = e `https://overpass-turbo.eu/?C=${location}&Q=${query}`;
-            open(url, 'overpass-turbo');
-        };
-        {
-            const $button = document.createElement('button');
-            $button.append(`Load `, makeMapIcon('area'), ` without relations`);
-            $button.onclick = () => buttonClickListener(false, false);
-            $overpassButtons.push($button);
-        }
-        {
-            const $button = document.createElement('button');
-            $button.append(`Load `, makeMapIcon('area'), ` with relations`);
-            $button.title = `May fetch large unwanted relations like routes.`;
-            $button.onclick = () => buttonClickListener(true, false);
-            $overpassButtons.push($button);
-        }
-        {
-            const $button = document.createElement('button');
-            $button.append(`Load around `, makeMapIcon('center'));
-            $button.onclick = () => buttonClickListener(false, true);
-            $overpassButtons.push($button);
-        }
-        const result = [];
-        for (const $button of $overpassButtons) {
-            result.push(` `, $button);
-        }
-        return result;
-    }
-}
-class OverpassDirectTool extends OverpassTool {
-    constructor() {
-        super('overpass', `Overpass`);
-    }
-    getInfo() {
-        return [p$4(`Query `, makeLink(`Overpass API`, 'https://wiki.openstreetmap.org/wiki/Overpass_API'), ` without going through Overpass turbo. `, `Shows results on the map. Also gives link to the element page on the OSM website.`)];
-    }
-    getTool(callbacks, map) {
-        const $button = document.createElement('button');
-        $button.append(`Find closest node to `, makeMapIcon('center'));
-        const $output = document.createElement('code');
-        $output.textContent = `none`;
-        $button.onclick = async () => {
-            $button.disabled = true;
-            $output.textContent = `none`;
-            try {
-                const radius = 10;
-                let query = this.getOverpassQueryPreamble(map);
-                query += `node(around:${radius},${map.lat},${map.lon});\n`;
-                query += `out skel;`;
-                const doc = await makeOverpassQuery($button, query);
-                if (!doc)
-                    return;
-                const closestNodeId = getClosestNodeId(doc, map.lat, map.lon);
-                if (!closestNodeId) {
-                    $button.classList.add('error');
-                    $button.title = `Could not find nodes nearby`;
-                    return;
-                }
-                const url = `https://www.openstreetmap.org/node/` + encodeURIComponent(closestNodeId);
-                const $a = makeLink(`link`, url);
-                $output.replaceChildren($a);
-                const that = this;
-                downloadAndShowElement($a, map, (readableDate) => makeDateOutput(readableDate, function () {
-                    that.timestamp = this.dateTime;
-                    callbacks.onTimestampChange(that, this.dateTime);
-                }), 'node', closestNodeId);
-            }
-            finally {
-                $button.disabled = false;
-            }
-        };
-        return [$button, ` → `, $output];
-    }
-}
-async function makeOverpassQuery($button, query) {
-    try {
-        const response = await fetch(`https://www.overpass-api.de/api/interpreter`, {
-            method: 'POST',
-            body: new URLSearchParams({ data: query })
-        });
-        const text = await response.text();
-        if (!response.ok) {
-            setError(`receiving the following message: ${text}`);
-            return;
-        }
-        clearError();
-        return new DOMParser().parseFromString(text, 'text/xml');
-    }
-    catch (ex) {
-        if (ex instanceof TypeError) {
-            setError(`with the following error before receiving a response: ${ex.message}`);
-        }
-        else {
-            setError(`for unknown reason`);
-        }
-    }
-    function setError(reason) {
-        $button.classList.add('error');
-        $button.title = `Overpass query failed ${reason}`;
-    }
-    function clearError() {
-        $button.classList.remove('error');
-        $button.title = '';
-    }
-}
-function getClosestNodeId(doc, centerLat, centerLon) {
-    let closestNodeId;
-    let closestNodeDistanceSquared = Infinity;
-    for (const node of doc.querySelectorAll('node')) {
-        const lat = Number(node.getAttribute('lat'));
-        const lon = Number(node.getAttribute('lon'));
-        const id = node.getAttribute('id');
-        if (!Number.isFinite(lat) || !Number.isFinite(lon) || !id)
-            continue;
-        const distanceSquared = (lat - centerLat) ** 2 + (lon - centerLon) ** 2;
-        if (distanceSquared < closestNodeDistanceSquared) {
-            closestNodeDistanceSquared = distanceSquared;
-            closestNodeId = id;
-        }
-    }
-    return closestNodeId;
-}
-
-const p$3 = (...ss) => makeElement('p')()(...ss);
-const em$4 = (s) => makeElement('em')()(s);
-class RcTool extends Tool {
-    constructor() {
-        super('rc', `RC`, `JOSM (or another editor) Remote Control`);
-        this.selectedNotes = [];
-    }
-    getInfo() {
-        return [p$3(`Load note/map data to an editor with `, makeLink(`remote control`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl'), `.`)];
-    }
-    getTool(callbacks, map) {
-        const e = makeEscapeTag(encodeURIComponent);
-        const $loadNotesButton = this.makeRequiringSelectedNotesButton();
-        $loadNotesButton.append(`Load `, makeNotesIcon('selected'));
-        $loadNotesButton.onclick = async () => {
-            for (const { id } of this.selectedNotes) {
-                const noteUrl = e `https://www.openstreetmap.org/note/${id}`;
-                const rcUrl = e `http://127.0.0.1:8111/import?url=${noteUrl}`;
-                const success = await openRcUrl($loadNotesButton, rcUrl);
-                if (!success)
-                    break;
-            }
-        };
-        const $loadMapButton = document.createElement('button');
-        $loadMapButton.append(`Load `, makeMapIcon('area'));
-        $loadMapButton.onclick = () => {
-            const bounds = map.bounds;
-            const rcUrl = e `http://127.0.0.1:8111/load_and_zoom` +
-                `?left=${bounds.getWest()}&right=${bounds.getEast()}` +
-                `&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`;
-            openRcUrl($loadMapButton, rcUrl);
-        };
-        return [$loadNotesButton, ` `, $loadMapButton];
-    }
-    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) {
-        this.selectedNotes = selectedNotes;
-        return true;
-    }
-}
-class IdTool extends Tool {
-    constructor() {
-        super('id', `iD`);
-    }
-    getInfo() {
-        return [p$3(`Follow your notes by zooming from one place to another in one `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), ` window. `, `It could be faster to do first here in note-viewer than in iD directly because note-viewer won't try to download more data during panning. `, `After zooming in note-viewer, click the `, em$4(`Open`), ` button to open this location in iD. `, `When you go back to note-viewer, zoom to another place and click the `, em$4(`Open`), ` button for the second time, the already opened iD instance zooms to that place. `, `Your edits are not lost between such zooms.`), p$3(`Technical details: this is an attempt to make something like `, em$4(`remote control`), ` in iD editor. `, `Convincing iD to load notes has proven to be tricky. `, `Your best chance of seeing the selected notes is importing them as a `, em$4(`gpx`), ` file. `, `See `, makeLink(`this diary post`, `https://www.openstreetmap.org/user/Anton%20Khorev/diary/398991`), ` for further explanations.`), p$3(`Zooming/panning is easier to do, and that's what is currently implemented. `, `It's not without quirks however. You'll notice that the iD window opened from here doesn't have the OSM website header. `, `This is because the editor is opened at `, makeLink(`/id`, `https://www.openstreetmap.org/id`), ` url instead of `, makeLink(`/edit`, `https://www.openstreetmap.org/edit`), `. `, `It has to be done because otherwise iD won't listen to `, em$4(`#map`), ` changes in the webpage location.`)];
-    }
-    getTool(callbacks, map) {
-        // limited to what hashchange() lets you do here https://github.com/openstreetmap/iD/blob/develop/modules/behavior/hash.js
-        // which is zooming/panning
-        const $zoomButton = document.createElement('button');
-        $zoomButton.append(`Open `, makeMapIcon('center'));
-        $zoomButton.onclick = () => {
-            const e = makeEscapeTag(encodeURIComponent);
-            const url = e `https://www.openstreetmap.org/id#map=${map.zoom}/${map.lat}/${map.lon}`;
-            open(url, 'id');
-        };
-        return [$zoomButton];
-    }
-}
-async function openRcUrl($button, rcUrl) {
-    try {
-        const response = await fetch(rcUrl);
-        if (response.ok) {
-            clearError();
-            return true;
-        }
-    }
-    catch { }
-    setError();
-    return false;
-    function setError() {
-        $button.classList.add('error');
-        $button.title = 'Remote control command failed. Make sure you have an editor open and remote control enabled.';
-    }
-    function clearError() {
-        $button.classList.remove('error');
-        $button.title = '';
-    }
-}
-
-const p$2 = (...ss) => makeElement('p')()(...ss);
-const em$3 = (s) => makeElement('em')()(s);
-const dfn = (s) => makeElement('dfn')()(s);
-const code$3 = (s) => makeElement('code')()(s);
-const ul$1 = (...ss) => makeElement('ul')()(...ss);
-const li$1 = (...ss) => makeElement('li')()(...ss);
-class ExportTool extends Tool {
-    constructor() {
-        super(...arguments);
-        this.selectedNotes = [];
-        this.selectedNoteUsers = new Map();
-    }
-    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) {
-        this.selectedNotes = selectedNotes;
-        this.selectedNoteUsers = selectedNoteUsers;
-        return true;
-    }
-    getInfo() {
-        return [
-            ...this.getInfoWithoutDragAndDrop(),
-            p$2(`Instead of clicking the `, em$3(`Export`), ` button, you can drag it and drop into a place that accepts data sent by `, makeLink(`Drag and Drop API`, `https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`), `. `, `Not many places actually do, and those who do often can handle only plaintext. `, `That's why there's a type selector, with which plaintext format can be forced on transmitted data.`)
-        ];
-    }
-    getTool() {
-        const $optionSelects = Object.fromEntries(Object.entries(this.describeOptions()).map(([key, valuesWithTexts]) => {
-            const $select = document.createElement('select');
-            $select.append(...valuesWithTexts.map(([value, text]) => new Option(text, value)));
-            return [key, $select];
-        }));
-        const $dataTypeSelect = document.createElement('select');
-        $dataTypeSelect.append(...this.listDataTypes().map(type => new Option(type)));
-        const $exportNotesButton = this.makeRequiringSelectedNotesButton();
-        $exportNotesButton.append(`Export `, makeNotesIcon('selected'));
-        $exportNotesButton.onclick = () => {
-            const data = this.generateData(getOptionValues());
-            const filename = this.generateFilename();
-            const file = new File([data], filename);
-            const $a = document.createElement('a');
-            $a.href = URL.createObjectURL(file);
-            $a.download = filename;
-            $a.click();
-            URL.revokeObjectURL($a.href);
-        };
-        $exportNotesButton.draggable = true;
-        $exportNotesButton.ondragstart = (ev) => {
-            const data = this.generateData(getOptionValues());
-            if (!ev.dataTransfer)
-                return;
-            ev.dataTransfer.setData($dataTypeSelect.value, data);
-        };
-        return [
-            $exportNotesButton, ` `,
-            ...this.writeOptions($optionSelects), `, `,
-            makeLabel('inline')(`set `, $dataTypeSelect, ` type in drag and drop events`)
-        ];
-        function getOptionValues() {
-            return Object.fromEntries(Object.entries($optionSelects).map(([key, $select]) => [key, $select.value]));
-        }
-    }
-    getCommentStrings(comments, all) {
-        const ts = [];
-        for (const comment of comments) {
-            let t = '';
-            if (comment.uid) {
-                const username = this.selectedNoteUsers.get(comment.uid);
-                if (username != null) {
-                    t += `${username}`;
-                }
-                else {
-                    t += `user #${comment.uid}`;
-                }
-            }
-            else {
-                t += `anonymous user`;
-            }
-            if (all)
-                t += ` ${comment.action}`;
-            t += ` at ${toReadableDate(comment.date)}`;
-            if (comment.text)
-                t += `: ${comment.text}`;
-            ts.push(t);
-            if (!all)
-                break;
-        }
-        return ts;
-    }
-}
-class GpxTool extends ExportTool {
-    constructor() {
-        super('gpx', `GPX`);
-    }
-    getInfoWithoutDragAndDrop() {
-        return [p$2(`Export selected notes in `, makeLink(`GPX`, 'https://wiki.openstreetmap.org/wiki/GPX'), ` (GPS exchange) format. `, `During the export, each selected note is treated as a waypoint with its name set to note id, description set to comments and link pointing to note's page on the OSM website. `, `This allows OSM notes to be used in applications that can't show them directly. `, `Also it allows a particular selection of notes to be shown if an application can't filter them. `, `One example of such app is `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), `. `, `Unfortunately iD doesn't fully understand the gpx format and can't show links associated with waypoints. `, `You'll have to enable the notes layer in iD and compare its note marker with waypoint markers from the gpx file.`), p$2(`By default only the `, dfn(`first comment`), ` is added to waypoint descriptions. `, `This is because some apps such as iD and especially `, makeLink(`JOSM`, `https://wiki.openstreetmap.org/wiki/JOSM`), ` try to render the entire description in one line next to the waypoint marker, cluttering the map.`), p$2(`It's possible to pretend that note waypoints are connected by a `, makeLink(`route`, `https://www.topografix.com/GPX/1/1/#type_rteType`), ` by using the `, dfn(`connected by route`), ` option. `, `This may help to go from a note to the next one in an app by visually following the route line. `, `There's also the `, dfn(`connected by track`), ` option in case the app makes it easier to work with `, makeLink(`tracks`, `https://www.topografix.com/GPX/1/1/#type_trkType`), ` than with the routes.`)];
-    }
-    describeOptions() {
-        return {
-            connect: [
-                ['no', `without connections`],
-                ['rte', `connected by route`],
-                ['trk', `connected by track`],
-            ],
-            commentQuantity: [
-                ['first', `first comment`],
-                ['all', `all comments`],
-            ]
-        };
-    }
-    writeOptions($selects) {
-        return [
-            makeLabel('inline')(`as waypoints `, $selects.connect), ` `,
-            makeLabel('inline')(`with `, $selects.commentQuantity, ` in descriptions`),
-        ];
-    }
-    listDataTypes() {
-        return ['text/xml', 'application/gpx+xml', 'text/plain'];
-    }
-    generateFilename() {
-        return 'notes.gpx';
-    }
-    generateData(options) {
-        const e = makeEscapeTag(escapeXml);
-        const getPoints = (pointTag, getDetails = () => '') => {
-            let gpx = '';
-            for (const note of this.selectedNotes) {
-                const firstComment = note.comments[0];
-                gpx += e `<${pointTag} lat="${note.lat}" lon="${note.lon}">\n`;
-                if (firstComment)
-                    gpx += e `<time>${toUrlDate(firstComment.date)}</time>\n`;
-                gpx += getDetails(note);
-                gpx += e `</${pointTag}>\n`;
-            }
-            return gpx;
-        };
-        let gpx = e `<?xml version="1.0" encoding="UTF-8" ?>\n`;
-        gpx += e `<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">\n`;
-        // TODO <name>selected notes of user A</name>
-        gpx += getPoints('wpt', note => {
-            let gpx = '';
-            gpx += e `<name>${note.id}</name>\n`;
-            if (note.comments.length > 0) {
-                gpx += `<desc>`;
-                gpx += this.getCommentStrings(note.comments, options.commentQuantity == 'all').map(escapeXml).join(`&#xA;\n`); // JOSM wants this kind of double newline, otherwise no space between comments is rendered
-                gpx += `</desc>\n`;
-            }
-            const noteUrl = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
-            gpx += e `<link href="${noteUrl}">\n`;
-            gpx += e `<text>note #${note.id} on osm</text>\n`;
-            gpx += e `</link>\n`;
-            gpx += e `<type>${note.status}</type>\n`;
-            return gpx;
-        });
-        if (options.connect == 'rte') {
-            gpx += `<rte>\n`;
-            gpx += getPoints('rtept');
-            gpx += `</rte>\n`;
-        }
-        if (options.connect == 'trk') {
-            gpx += `<trk><trkseg>\n`;
-            gpx += getPoints('trkpt');
-            gpx += `</trkseg></trk>\n`;
-        }
-        gpx += `</gpx>\n`;
-        return gpx;
-    }
-}
-class GeoJsonTool extends ExportTool {
-    constructor() {
-        super('geojson', `GeoJSON`);
-    }
-    getInfoWithoutDragAndDrop() {
-        return [p$2(`Export selected notes in `, makeLink(`GeoJSON`, 'https://wiki.openstreetmap.org/wiki/GeoJSON'), ` format. `, `The exact features and properties exported are made to be close to OSM API `, code$3(`.json`), ` output:`), ul$1(li$1(`the entire note collection is represented as a `, makeLink(`FeatureCollection`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.3')), li$1(`each note is represented as a `, makeLink(`Point`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.2'), ` `, makeLink(`Feature`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.2'))), p$2(`There are few differences to OSM API output, not including modifications using tool options described later:`), ul$1(li$1(`comments don't have `, code$3(`html`), ` property, their content is available only as plaintext`), li$1(`dates may be incorrect in case of hidden note comments (something that happens very rarely)`)), p$2(`Like GPX exports, this tool allows OSM notes to be used in applications that can't show them directly. `, `Also it allows a particular selection of notes to be shown if an application can't filter them. `, `One example of such app is `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), `. `, `Given that GeoJSON specification doesn't define what goes into feature properties, the support for rendering notes this way is lower than the one of GPX export. `, `Particularly neither iD nor JOSM seem to render any labels for note markers. `, `Also clicking the marker in JOSM is not going to open the note webpage. `, `On the other hand there's more clarity about how to to display properties outside of the editor map view. `, `All of the properties are displayed like `, makeLink(`OSM tags`, 'https://wiki.openstreetmap.org/wiki/Tags'), `, which opens some possibilities: `), ul$1(li$1(`properties are editable in JOSM with a possibility to save results to a file`), li$1(`it's possible to access the note URL in iD, something that was impossible with GPX format`)), p$2(`While accessing the URLs, note that they are OSM API URLs, not the website URLs you might expect. `, `This is how OSM API outputs them. `, `Since that might be inconvenient, there's an `, dfn(`OSM website URLs`), ` option. `, `With it you're able to select the note url in iD by triple-clicking its value.`), p$2(`Another consequence of displaying properties like tags is that they work best when they are strings. `, `OSM tags are strings, and that's what editors expect to display in their tag views. `, `When used for properties of notes, there's one non-string property: `, em$3(`comments`), `. `, `iD is unable to display it. `, `If you want to force comments to be represented by strings, like in GPX exports, there's an options for that. `, `There's also option to output each comment as a separate property, making it easier to see them all in the tags table.`), p$2(`It's possible to pretend that note points are connected by a `, makeLink(`LineString`, `https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.4`), ` by using the `, dfn(`connected by line`), ` option. `, `This may help to go from a note to the next one in an app by visually following the route line. `, `However, enabling the line makes it difficult to click on note points in iD.`)];
-    }
-    describeOptions() {
-        return {
-            connect: [
-                ['no', `without connections`],
-                ['line', `connected by line`],
-            ],
-            urls: [
-                ['api', `OSM API`],
-                ['web', `OSM website`],
-            ],
-            commentQuantity: [
-                ['all', `all comments`],
-                ['first', `first comment`],
-            ],
-            commentType: [
-                ['array', `array property`],
-                ['string', `string property`],
-                ['strings', `separate string properties`],
-            ],
-        };
-    }
-    writeOptions($selects) {
-        return [
-            makeLabel('inline')(`as points `, $selects.connect), ` `,
-            makeLabel('inline')(`with `, $selects.urls, ` URLs in properties`), ` and `,
-            makeLabel('inline')($selects.commentQuantity, ` of each note `),
-            makeLabel('inline')(`written as `, $selects.commentType),
-        ];
-    }
-    listDataTypes() {
-        return ['application/json', 'application/geo+json', 'text/plain'];
-    }
-    generateFilename() {
-        return 'notes.geojson'; // JOSM doesn't like .json
-    }
-    generateData(options) {
-        // https://github.com/openstreetmap/openstreetmap-website/blob/master/app/views/api/notes/_note.json.jbuilder
-        const self = this;
-        const e = makeEscapeTag(encodeURIComponent);
-        const features = this.selectedNotes.map(note => ({
-            type: 'Feature',
-            geometry: {
-                type: 'Point',
-                coordinates: [note.lon, note.lat]
-            },
-            properties: {
-                id: note.id,
-                ...generateNoteUrls(note),
-                ...generateNoteDates(note),
-                status: note.status,
-                ...generateNoteComments(note.comments),
-            }
-        }));
-        if (options.connect == 'line' && this.selectedNotes.length > 1) {
-            features.push({
-                type: 'Feature',
-                geometry: {
-                    type: 'LineString',
-                    coordinates: this.selectedNotes.map(note => [note.lon, note.lat]),
-                },
-                properties: null
-            });
-        }
-        const featureCollection = {
-            type: 'FeatureCollection',
-            features
-        };
-        return JSON.stringify(featureCollection, undefined, 2);
-        function generateNoteUrls(note) {
-            if (options.urls == 'web')
-                return {
-                    url: e `https://www.openstreetmap.org/note/${note.id}`
-                };
-            const urlBase = e `https://api.openstreetmap.org/api/0.6/notes/${note.id}`;
-            const result = {
-                url: urlBase + `.json`
-            };
-            if (note.status == 'closed') {
-                result.reopen_url = urlBase + `/reopen.json`;
-            }
-            else {
-                result.comment_url = urlBase + `/comment.json`;
-                result.close_url = urlBase + `/close.json`;
-            }
-            return result;
-        }
-        function generateNoteDates(note) {
-            const result = {};
-            if (note.comments.length > 0) {
-                result.date_created = formatDate(note.comments[0].date);
-                if (note.status == 'closed') {
-                    const closeComment = lastCloseComment(note);
-                    if (closeComment) {
-                        result.closed_at = formatDate(closeComment.date);
-                    }
-                }
-            }
-            return result;
-        }
-        function generateNoteComments(comments) {
-            if (comments.length == 0)
-                return {};
-            if (options.commentType == 'strings') {
-                return Object.fromEntries(self.getCommentStrings(comments, options.commentQuantity == 'all').map((v, i) => ['comment' + (i > 0 ? i + 1 : ''), v.replace(/\n/g, '\n ')]));
-            }
-            else if (options.commentType == 'string') {
-                return {
-                    comments: self.getCommentStrings(comments, options.commentQuantity == 'all').join(`; `).replace(/\n/g, '\n ')
-                };
-            }
-            else {
-                const toPropObject = (comment) => ({
-                    date: formatDate(comment.date),
-                    ...generateCommentUserProperties(comment),
-                    action: comment.action,
-                    text: comment.text
-                });
-                if (options.commentQuantity == 'all') {
-                    return {
-                        comments: comments.map(toPropObject)
-                    };
-                }
-                else {
-                    return {
-                        comments: [toPropObject(comments[0])]
-                    };
-                }
-            }
-        }
-        function generateCommentUserProperties(comment) {
-            const result = {};
-            if (comment.uid == null)
-                return result;
-            result.uid = comment.uid;
-            const username = self.selectedNoteUsers.get(comment.uid);
-            if (username == null)
-                return result;
-            result.user = username;
-            if (options.urls == 'web') {
-                result.user_url = e `https://www.openstreetmap.org/user/${username}`;
-            }
-            else {
-                result.user_url = e `https://api.openstreetmap.org/user/${username}`;
-            }
-            return result;
-        }
-        function lastCloseComment(note) {
-            for (let i = note.comments.length - 1; i >= 0; i--) {
-                if (note.comments[i].action == 'closed')
-                    return note.comments[i];
-            }
-        }
-        function formatDate(date) {
-            return toReadableDate(date) + ' UTC';
-        }
-    }
-}
-
-const p$1 = (...ss) => makeElement('p')()(...ss);
-class StreetViewTool extends Tool {
-    getTool(callbacks, map) {
-        const $viewButton = document.createElement('button');
-        $viewButton.append(`Open `, makeMapIcon('center'));
-        $viewButton.onclick = () => {
-            open(this.generateUrl(map), this.id);
-        };
-        return [$viewButton];
-    }
-}
-class YandexPanoramasTool extends StreetViewTool {
-    constructor() {
-        super('yandex-panoramas', `Y.Panoramas`, `Yandex.Panoramas (Яндекс.Панорамы)`);
-    }
-    getInfo() {
-        return [p$1(`Open a map location in `, makeLink(`Yandex.Panoramas`, 'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B'), ` street view. `, `Could be useful to find out if an object mentioned in a note existed at a certain point of time. `, `Yandex.Panoramas have a year selector in the upper right corner. Use it to get a photo made close to the date of interest.`)];
-    }
-    generateUrl(map) {
-        const e = makeEscapeTag(encodeURIComponent);
-        const coords = map.lon + ',' + map.lat;
-        return e `https://yandex.ru/maps/?ll=${coords}&panorama%5Bpoint%5D=${coords}&z=${map.zoom}`; // 'll' is required if 'z' argument is present
-    }
-}
-class MapillaryTool extends StreetViewTool {
-    constructor() {
-        super('mapillary', `Mapillary`);
-    }
-    getInfo() {
-        return [p$1(`Open a map location in `, makeLink(`Mapillary`, 'https://wiki.openstreetmap.org/wiki/Mapillary'), `. `, `Not yet fully implemented. The idea is to jump straight to the best available photo, but in order to do that, Mapillary API has to be queried for available photos. That's impossible to do without an API key.`)];
-    }
-    generateUrl(map) {
-        const e = makeEscapeTag(encodeURIComponent);
-        return e `https://www.mapillary.com/app/?lat=${map.lat}&lng=${map.lon}&z=${map.zoom}&focus=photo`;
-    }
-}
-
-const toolMakerSequence = [
-    () => new AutozoomTool, () => new CommentsTool,
-    () => new TimestampTool, () => new ParseTool,
-    () => new OverpassTurboTool, () => new OverpassDirectTool,
-    () => new RcTool, () => new IdTool,
-    () => new GpxTool, () => new GeoJsonTool,
-    () => new YandexPanoramasTool, () => new MapillaryTool,
-    () => new CountTool, () => new LegendTool, () => new SettingsTool
-];
-
-var _ToolPanel_fitMode;
-class ToolBroadcaster {
-    constructor(tools) {
-        this.tools = tools;
-        this.sources = new Set();
-    }
-    broadcastTimestampChange(fromTool, timestamp) {
-        this.broadcast(fromTool, tool => tool.onTimestampChange(timestamp));
-    }
-    broadcastNoteCountsChange(fromTool, nFetched, nVisible) {
-        this.broadcast(fromTool, tool => tool.onNoteCountsChange(nFetched, nVisible));
-    }
-    broadcastSelectedNotesChange(fromTool, selectedNotes, selectedNoteUsers) {
-        this.broadcast(fromTool, tool => tool.onSelectedNotesChange(selectedNotes, selectedNoteUsers));
-    }
-    broadcast(fromTool, sendMessageToTool) {
-        if (fromTool) {
-            if (this.sources.has(fromTool))
-                return;
-            this.sources.add(fromTool);
-        }
-        for (const [tool, $tool] of this.tools) {
-            if (this.sources.has(tool))
-                continue;
-            const reacted = sendMessageToTool(tool);
-            if (reacted)
-                startOrResetFadeAnimation($tool, 'tool-ping-fade', 'ping');
-        }
-        if (fromTool) {
-            this.sources.delete(fromTool);
-        }
-    }
-}
-class ToolPanel {
-    constructor($container, map, figureDialog, storage) {
-        _ToolPanel_fitMode.set(this, void 0);
-        const tools = [];
-        const toolCallbacks = {
-            onFitModeChange: (fromTool, fitMode) => __classPrivateFieldSet(this, _ToolPanel_fitMode, fitMode, "f"),
-            onCommentsViewChange: (fromTool, onlyFirst, oneLine) => this.onCommentsViewChange?.(onlyFirst, oneLine),
-            onTimestampChange: (fromTool, timestamp) => {
-                this.toolBroadcaster.broadcastTimestampChange(fromTool, timestamp);
-            },
-            onToolOpenToggle: (fromTool, setToOpen) => {
-                for (const [, $tool] of tools)
-                    $tool.open = setToOpen;
-            }
-        };
-        for (const makeTool of toolMakerSequence) {
-            const tool = makeTool();
-            const storageKey = 'commands-' + tool.id;
-            const $toolDetails = document.createElement('details');
-            $toolDetails.classList.add('tool');
-            $toolDetails.open = !!storage.getItem(storageKey);
-            const $toolSummary = document.createElement('summary');
-            $toolSummary.textContent = tool.name;
-            if (tool.title)
-                $toolSummary.title = tool.title;
-            $toolDetails.addEventListener('toggle', () => {
-                if ($toolDetails.open) {
-                    storage.setItem(storageKey, '1');
-                }
-                else {
-                    storage.removeItem(storageKey);
-                }
-            });
-            $toolDetails.append($toolSummary, ...tool.getTool(toolCallbacks, map, figureDialog));
-            $toolDetails.addEventListener('animationend', toolAnimationEndListener);
-            const infoElements = tool.getInfo();
-            if (infoElements) {
-                const $infoDetails = document.createElement('details');
-                $infoDetails.classList.add('info');
-                const $infoSummary = document.createElement('summary');
-                $infoSummary.textContent = `${tool.name} info`;
-                $infoDetails.append($infoSummary, ...infoElements);
-                const $infoButton = document.createElement('button');
-                $infoButton.classList.add('info');
-                $infoButton.innerHTML = `<svg><title>Tool info</title><use href="#tools-info" /></svg>`;
-                const updateInfoButton = () => {
-                    if ($infoDetails.open) {
-                        $infoButton.classList.add('open');
-                    }
-                    else {
-                        $infoButton.classList.remove('open');
-                    }
-                };
-                updateInfoButton();
-                $infoButton.addEventListener('click', () => {
-                    $infoDetails.open = !$infoDetails.open;
-                });
-                $infoDetails.addEventListener('toggle', () => {
-                    updateInfoButton();
-                });
-                $toolDetails.addEventListener('toggle', () => {
-                    if ($toolDetails.open)
-                        return;
-                    $infoDetails.open = false;
-                });
-                $toolDetails.append(` `, $infoButton);
-                $container.append($toolDetails, $infoDetails);
-            }
-            else {
-                $container.append($toolDetails);
-            }
-            tools.push([tool, $toolDetails]);
-        }
-        this.toolBroadcaster = new ToolBroadcaster(tools);
-    }
-    receiveNoteCounts(nFetched, nVisible) {
-        this.toolBroadcaster.broadcastNoteCountsChange(null, nFetched, nVisible);
-    }
-    receiveSelectedNotes(selectedNotes, selectedNoteUsers) {
-        this.toolBroadcaster.broadcastSelectedNotesChange(null, selectedNotes, selectedNoteUsers);
-    }
-    receiveTimestamp(timestamp) {
-        this.toolBroadcaster.broadcastTimestampChange(null, timestamp);
-    }
-    get fitMode() {
-        return __classPrivateFieldGet(this, _ToolPanel_fitMode, "f");
-    }
-}
-_ToolPanel_fitMode = new WeakMap();
-function toolAnimationEndListener() {
-    this.classList.remove('ping');
-}
-
-function toUserQuery(value) {
-    const s = value.trim();
-    if (s == '')
-        return {
-            userType: 'empty'
-        };
-    if (s[0] == '#') {
-        let match;
-        if (match = s.match(/^#\s*(\d+)$/)) {
-            const [, uid] = match;
-            return {
-                userType: 'id',
-                uid: Number(uid)
-            };
-        }
-        else if (match = s.match(/^#\s*\d*(.)/)) {
-            const [, c] = match;
-            return {
-                userType: 'invalid',
-                message: `uid cannot contain non-digits, found ${c}`
-            };
-        }
-        else {
-            return {
-                userType: 'invalid',
-                message: `uid cannot be empty`
-            };
-        }
-    }
-    if (s.includes('/')) {
-        try {
-            const url = new URL(s);
-            if (url.host == 'www.openstreetmap.org' ||
-                url.host == 'openstreetmap.org' ||
-                url.host == 'www.osm.org' ||
-                url.host == 'osm.org') {
-                const [, userPathDir, userPathEnd] = url.pathname.split('/');
-                if (userPathDir == 'user' && userPathEnd) {
-                    const username = decodeURIComponent(userPathEnd);
-                    return {
-                        userType: 'name',
-                        username
-                    };
-                }
-                return {
-                    userType: 'invalid',
-                    message: `OSM URL has to include username`
-                };
-            }
-            else if (url.host == `api.openstreetmap.org`) {
-                const [, apiDir, apiVersionDir, apiCall, apiValue] = url.pathname.split('/');
-                if (apiDir == 'api' && apiVersionDir == '0.6' && apiCall == 'user') {
-                    const [uidString] = apiValue.split('.');
-                    const uid = Number(uidString);
-                    if (Number.isInteger(uid))
-                        return {
-                            userType: 'id',
-                            uid
-                        };
-                }
-                return {
-                    userType: 'invalid',
-                    message: `OSM API URL has to be "api/0.6/user/..."`
-                };
-            }
-            else {
-                let domainString = `was given ${url.host}`;
-                if (!url.host)
-                    domainString = `no domain was given`;
-                return {
-                    userType: 'invalid',
-                    message: `URL has to be of an OSM domain, ${domainString}`
-                };
-            }
-        }
-        catch {
-            return {
-                userType: 'invalid',
-                message: `string containing / character has to be a valid URL`
-            };
-        }
-    }
-    return {
-        userType: 'name',
-        username: s
-    };
 }
 
 const defaultLowerDate = Date.parse('2001-01-01 00:00:00Z') / 1000;
@@ -3623,7 +1325,7 @@ function transformFeatureToNote(noteFeature, users) {
     }
 }
 
-const e = makeEscapeTag(encodeURIComponent);
+const e$2 = makeEscapeTag(encodeURIComponent);
 const maxSingleAutoLoadLimit = 200;
 const maxTotalAutoLoadLimit = 1000;
 const maxFullyFilteredFetches = 10;
@@ -3882,17 +1584,17 @@ class NoteBboxFetcher extends NoteFeatureCollectionFetcher {
     getRequestUrlPathAndParameters(query, limit) {
         if (query.mode != 'bbox')
             return;
-        return ['', this.getRequestUrlParametersWithoutLimit(query) + e `&limit=${limit}`];
+        return ['', this.getRequestUrlParametersWithoutLimit(query) + e$2 `&limit=${limit}`];
     }
     getRequestUrlParametersWithoutLimit(query) {
-        return e `bbox=${query.bbox}&closed=${query.closed}`;
+        return e$2 `bbox=${query.bbox}&closed=${query.closed}`;
     }
     getGetCycleFetchDetails(query) {
         if (query.mode != 'bbox')
             return;
         const parametersWithoutLimit = this.getRequestUrlParametersWithoutLimit(query);
         return (limit, lastNote, prevLastNote, lastLimit) => ({
-            pathAndParametersList: [['', parametersWithoutLimit + e `&limit=${limit}`]],
+            pathAndParametersList: [['', parametersWithoutLimit + e$2 `&limit=${limit}`]],
             limit
         });
     }
@@ -3998,7 +1700,7 @@ function getLimit($limitSelect) {
 }
 
 const sup = (...ss) => makeElement('sup')()(...ss);
-const code$2 = (...ss) => makeElement('code')()(...ss);
+const code$3 = (...ss) => makeElement('code')()(...ss);
 class NoteFetchDialog extends NavDialog {
     constructor($sharedCheckboxes, getRequestUrls, submitQuery) {
         super();
@@ -4059,7 +1761,7 @@ class NoteFetchDialog extends NavDialog {
             return;
         }
         const [[mainType, mainUrl], ...otherRequestUrls] = requestUrls;
-        this.$requestOutput.replaceChildren(code$2(makeLink(mainUrl, mainUrl)), ` in ${mainType} format`);
+        this.$requestOutput.replaceChildren(code$3(makeLink(mainUrl, mainUrl)), ` in ${mainType} format`);
         appendLinkIfKnown(mainType);
         if (otherRequestUrls.length > 0) {
             this.$requestOutput.append(` or other formats: `);
@@ -4072,7 +1774,7 @@ class NoteFetchDialog extends NavDialog {
             else {
                 this.$requestOutput.append(`, `);
             }
-            this.$requestOutput.append(code$2(makeLink(type, url)));
+            this.$requestOutput.append(code$3(makeLink(type, url)));
             appendLinkIfKnown(type);
         }
     }
@@ -4167,10 +1869,10 @@ class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
     }
 }
 
-const em$2 = (...ss) => makeElement('em')()(...ss);
-const code$1 = (...ss) => makeElement('code')()(...ss);
-const rq$1 = (param) => makeElement('span')('request')(` (`, code$1(param), ` parameter)`);
-const rq2 = (param1, param2) => makeElement('span')('request')(` (`, code$1(param1), ` or `, code$1(param2), ` parameter)`);
+const em$5 = (...ss) => makeElement('em')()(...ss);
+const code$2 = (...ss) => makeElement('code')()(...ss);
+const rq$1 = (param) => makeElement('span')('request')(` (`, code$2(param), ` parameter)`);
+const rq2 = (param1, param2) => makeElement('span')('request')(` (`, code$2(param1), ` or `, code$2(param2), ` parameter)`);
 class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoadCheckbox(NoteFetchDialog)) {
     constructor() {
         super(...arguments);
@@ -4186,7 +1888,7 @@ class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoadCheckb
     }
     writeScopeAndOrderFieldset($fieldset) {
         {
-            $fieldset.append(makeDiv('request')(`Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`), ` request at `, code$1(`https://api.openstreetmap.org/api/0.6/notes/search?`, em$2(`parameters`)), `; see `, em$2(`parameters`), ` below.`));
+            $fieldset.append(makeDiv('request')(`Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`), ` request at `, code$2(`https://api.openstreetmap.org/api/0.6/notes/search?`, em$5(`parameters`)), `; see `, em$5(`parameters`), ` below.`));
         }
         {
             this.$userInput.type = 'text';
@@ -4324,9 +2026,9 @@ class NominatimBboxFetcher {
     }
 }
 
-const em$1 = (...ss) => makeElement('em')()(...ss);
-const code = (...ss) => makeElement('code')()(...ss);
-const rq = (param) => makeElement('span')('request')(` (`, code(param), ` parameter)`);
+const em$4 = (...ss) => makeElement('em')()(...ss);
+const code$1 = (...ss) => makeElement('code')()(...ss);
+const rq = (param) => makeElement('span')('request')(` (`, code$1(param), ` parameter)`);
 const spanRequest = (...ss) => makeElement('span')('request')(...ss);
 class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
     constructor($sharedCheckboxes, getRequestUrls, submitQuery, map) {
@@ -4366,13 +2068,13 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
     }
     writeScopeAndOrderFieldset($fieldset) {
         {
-            $fieldset.append(makeDiv('request')(`Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code(`https://api.openstreetmap.org/api/0.6/notes?`, em$1(`parameters`)), `; see `, em$1(`parameters`), ` below.`));
+            $fieldset.append(makeDiv('request')(`Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code$1(`https://api.openstreetmap.org/api/0.6/notes?`, em$4(`parameters`)), `; see `, em$4(`parameters`), ` below.`));
         }
         {
             this.$bboxInput.type = 'text';
             this.$bboxInput.name = 'bbox';
             this.$bboxInput.required = true; // otherwise could submit empty bbox without entering anything
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`Bounding box (`, tip(`left`, `western-most (min) longitude`), `, `, tip(`bottom`, `southern-most (min) latitude`), `, `, tip(`right`, `eastern-most (max) longitude`), `, `, tip(`top`, `northern-most (max) latitude`), `)`, rq('bbox'), spanRequest(` (also `, code('west'), `, `, code('south'), `, `, code('east'), `, `, code('north'), ` Nominatim parameters)`), `: `, this.$bboxInput)));
+            $fieldset.append(makeDiv('major-input')(makeLabel()(`Bounding box (`, tip(`left`, `western-most (min) longitude`), `, `, tip(`bottom`, `southern-most (min) latitude`), `, `, tip(`right`, `eastern-most (max) longitude`), `, `, tip(`top`, `northern-most (max) latitude`), `)`, rq('bbox'), spanRequest(` (also `, code$1('west'), `, `, code$1('south'), `, `, code$1('east'), `, `, code$1('north'), ` Nominatim parameters)`), `: `, this.$bboxInput)));
             function tip(text, title) {
                 const $span = document.createElement('span');
                 $span.textContent = text;
@@ -4386,7 +2088,7 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
             $fieldset.append(makeDiv()(makeLabel()(this.$trackMapCheckbox, ` Update bounding box value with current map area`)));
         }
         {
-            $fieldset.append(makeDiv('request')(`Make `, makeLink(`Nominatim search query`, `https://nominatim.org/release-docs/develop/api/Search/`), ` at `, code(this.nominatimBboxFetcher.urlBase + '?', em$1(`parameters`)), `; see `, em$1(`parameters`), ` above and below.`));
+            $fieldset.append(makeDiv('request')(`Make `, makeLink(`Nominatim search query`, `https://nominatim.org/release-docs/develop/api/Search/`), ` at `, code$1(this.nominatimBboxFetcher.urlBase + '?', em$4(`parameters`)), `; see `, em$4(`parameters`), ` above and below.`));
             this.$nominatimInput.type = 'text';
             this.$nominatimInput.required = true;
             this.$nominatimInput.classList.add('no-invalid-indication'); // because it's inside another form that doesn't require it, don't indicate that it's invalid
@@ -4394,7 +2096,7 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
             this.$nominatimInput.setAttribute('form', 'nominatim-form');
             this.$nominatimButton.textContent = 'Get';
             this.$nominatimButton.setAttribute('form', 'nominatim-form');
-            $fieldset.append(makeDiv('text-button-input')(makeLabel()(`Or get bounding box by place name from Nominatim`, spanRequest(` (`, code('q'), ` Nominatim parameter)`), `: `, this.$nominatimInput), this.$nominatimButton));
+            $fieldset.append(makeDiv('text-button-input')(makeLabel()(`Or get bounding box by place name from Nominatim`, spanRequest(` (`, code$1('q'), ` Nominatim parameter)`), `: `, this.$nominatimInput), this.$nominatimButton));
             $fieldset.append(makeDiv('request')(`Resulting Nominatim request: `, this.$nominatimRequestOutput));
         }
         {
@@ -4483,7 +2185,7 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
     updateNominatimRequest() {
         const bounds = this.map.bounds;
         const url = this.nominatimBboxFetcher.getUrl(this.$nominatimInput.value, bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth());
-        this.$nominatimRequestOutput.replaceChildren(code(makeLink(url, url)));
+        this.$nominatimRequestOutput.replaceChildren(code$1(makeLink(url, url)));
     }
 }
 function makeDumbCache() {
@@ -4494,11 +2196,11 @@ function makeDumbCache() {
     ];
 }
 
-const em = (...ss) => makeElement('em')()(...ss);
-const p = (...ss) => makeElement('p')()(...ss);
+const em$3 = (...ss) => makeElement('em')()(...ss);
+const p$5 = (...ss) => makeElement('p')()(...ss);
 const ol = (...ss) => makeElement('ol')()(...ss);
-const ul = (...ss) => makeElement('ul')()(...ss);
-const li = (...ss) => makeElement('li')()(...ss);
+const ul$2 = (...ss) => makeElement('ul')()(...ss);
+const li$2 = (...ss) => makeElement('li')()(...ss);
 class NoteXmlFetchDialog extends NoteIdsFetchDialog {
     constructor() {
         super(...arguments);
@@ -4528,7 +2230,7 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
     writePrependedFieldset($fieldset, $legend) {
         $legend.textContent = `Get note feed from resultmaps.neis-one.org`;
         {
-            $fieldset.append(makeDiv()(ol(li(`Select a country and a note status, then click `, em(`Download feed file`), `. `, `After this one of the following things will happen, depending on your browser: `, ul(li(`The feed file is downloaded, which is what you want.`), li(`Browser opens a new tab with the feed file. In this case manually save the page.`)), `Also the `, em(`selector`), ` and `, em(`attribute`), ` fields below are updated to extract note ids from this feed.`), li(`Open the file with one of these two methods: `, ul(li(`Click the `, em(`Read XML file`), ` area and use a file picker dialog.`), li(`Drag and drop the file from browser downloads panel/window into the `, em(`Read XML file`), ` area. This is likely a faster method.`)))), p(`Unfortunately these steps of downloading/opening a file cannot be avoided because `, makeLink(`neis-one.org`, `https://resultmaps.neis-one.org/osm-notes`), ` server is not configured to let its data to be accessed by browser scripts.`)));
+            $fieldset.append(makeDiv()(ol(li$2(`Select a country and a note status, then click `, em$3(`Download feed file`), `. `, `After this one of the following things will happen, depending on your browser: `, ul$2(li$2(`The feed file is downloaded, which is what you want.`), li$2(`Browser opens a new tab with the feed file. In this case manually save the page.`)), `Also the `, em$3(`selector`), ` and `, em$3(`attribute`), ` fields below are updated to extract note ids from this feed.`), li$2(`Open the file with one of these two methods: `, ul$2(li$2(`Click the `, em$3(`Read XML file`), ` area and use a file picker dialog.`), li$2(`Drag and drop the file from browser downloads panel/window into the `, em$3(`Read XML file`), ` area. This is likely a faster method.`)))), p$5(`Unfortunately these steps of downloading/opening a file cannot be avoided because `, makeLink(`neis-one.org`, `https://resultmaps.neis-one.org/osm-notes`), ` server is not configured to let its data to be accessed by browser scripts.`)));
             this.$neisCountryInput.type = 'text';
             this.$neisCountryInput.required = true;
             this.$neisCountryInput.classList.add('no-invalid-indication'); // because it's inside another form that doesn't require it, don't indicate that it's invalid
@@ -4555,7 +2257,7 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
     writeScopeAndOrderFieldset($fieldset, $legend) {
         $legend.textContent = `Or read custom XML file`;
         {
-            $fieldset.append(makeDiv('request')(`Load an arbitrary XML file containing note ids or links. `, `Elements containing the ids are selected by a `, makeLink(`css selector`, `https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors`), ` provided below. `, `Inside the elements ids are looked for in an `, em(`attribute`), ` if specified below, or in text content. `, `After that download each note `, makeLink(`by its id`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Read:_GET_/api/0.6/notes/#id`), `.`));
+            $fieldset.append(makeDiv('request')(`Load an arbitrary XML file containing note ids or links. `, `Elements containing the ids are selected by a `, makeLink(`css selector`, `https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors`), ` provided below. `, `Inside the elements ids are looked for in an `, em$3(`attribute`), ` if specified below, or in text content. `, `After that download each note `, makeLink(`by its id`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Read:_GET_/api/0.6/notes/#id`), `.`));
         }
         {
             this.$selectorInput.type = 'text';
@@ -4910,11 +2612,14 @@ const neisCountries = [
 ];
 
 class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) {
-    constructor() {
-        super(...arguments);
+    constructor($sharedCheckboxes, getRequestUrls, submitQuery, noteTable) {
+        super($sharedCheckboxes, getRequestUrls, submitQuery);
+        this.noteTable = noteTable;
         this.shortTitle = `Plaintext`;
         this.title = `Fetch notes by ids from unstructured text`;
         this.$idsTextarea = document.createElement('textarea');
+        this.$copySelectedCheckbox = document.createElement('input');
+        this.$copyButton = document.createElement('button');
     }
     writeScopeAndOrderFieldset($fieldset) {
         {
@@ -4922,9 +2627,15 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
             this.$idsTextarea.rows = 10;
             $fieldset.append(makeDiv('major-input')(makeLabel()(`Note ids separated by anything: `, this.$idsTextarea)));
         }
+        {
+            this.$copySelectedCheckbox.type = 'checkbox';
+            this.$copyButton.type = 'button';
+            this.$copyButton.textContent = `Copy note ids from table below`;
+            $fieldset.append(makeDiv('checkbox-button-input')(this.$copySelectedCheckbox, ' ', this.$copyButton));
+        }
     }
     addEventListeners() {
-        this.$idsTextarea.addEventListener('input', () => {
+        const validateIds = () => {
             const match = this.$idsTextarea.value.match(/\d+/);
             if (!match) {
                 this.$idsTextarea.setCustomValidity(`should contain at least one number`);
@@ -4932,6 +2643,17 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
             else {
                 this.$idsTextarea.setCustomValidity('');
             }
+        };
+        this.$idsTextarea.addEventListener('input', validateIds);
+        this.$copySelectedCheckbox.addEventListener('input', () => {
+            this.$copyButton.textContent = `Copy${this.$copySelectedCheckbox.checked ? ' selected' : ''} note ids from table below`;
+        });
+        this.$copyButton.addEventListener('click', () => {
+            const ids = (this.$copySelectedCheckbox.checked
+                ? this.noteTable.getSelectedNoteIds()
+                : this.noteTable.getVisibleNoteIds());
+            this.$idsTextarea.value = ids.join();
+            validateIds();
         });
     }
     populateInputsWithoutUpdatingRequest(query) {
@@ -4948,8 +2670,7 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
 }
 
 class NoteFetchPanel {
-    constructor(storage, db, $container, $notesContainer, $moreContainer, $toolContainer, navbar, filterPanel, map, figureDialog, restoreScrollPosition) {
-        let noteTable;
+    constructor(storage, db, $container, $moreContainer, navbar, filterPanel, toolPanel, noteTable, map, figureDialog, restoreScrollPosition) {
         const moreButtonIntersectionObservers = [];
         const $sharedCheckboxes = {
             showImages: [],
@@ -4974,11 +2695,11 @@ class NoteFetchPanel {
         const searchDialog = makeSearchDialog(searchFetcher, (getRequestUrls, submitQuery) => new NoteSearchFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery));
         const bboxDialog = makeSearchDialog(bboxFetcher, (getRequestUrls, submitQuery) => new NoteBboxFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery, map));
         const xmlDialog = makeSearchDialog(idsFetcher, (getRequestUrls, submitQuery) => new NoteXmlFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery));
-        const plaintextDialog = makeSearchDialog(idsFetcher, (getRequestUrls, submitQuery) => new NotePlaintextFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery));
+        const plaintextDialog = makeSearchDialog(idsFetcher, (getRequestUrls, submitQuery) => new NotePlaintextFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery, noteTable));
         const aboutDialog = new AboutDialog(storage, db);
         aboutDialog.write($container);
         navbar.addTab(aboutDialog, true);
-        handleSharedCheckboxes($sharedCheckboxes.showImages, state => noteTable?.setShowImages(state));
+        handleSharedCheckboxes($sharedCheckboxes.showImages, state => noteTable.setShowImages(state));
         handleSharedCheckboxes($sharedCheckboxes.showRequests, state => {
             $container.classList.toggle('show-requests', state);
             $moreContainer.classList.toggle('show-requests', state);
@@ -5017,8 +2738,7 @@ class NoteFetchPanel {
             while (moreButtonIntersectionObservers.length > 0)
                 moreButtonIntersectionObservers.pop()?.disconnect();
             map.clearNotes();
-            $notesContainer.innerHTML = ``;
-            $toolContainer.innerHTML = ``;
+            noteTable.reset();
         }
         function startFetcherFromQuery(query, clearStore) {
             if (!query)
@@ -5045,9 +2765,7 @@ class NoteFetchPanel {
             if (query.mode != 'search' && query.mode != 'bbox' && query.mode != 'ids')
                 return;
             filterPanel.unsubscribe();
-            const toolPanel = new ToolPanel($toolContainer, map, figureDialog, storage);
-            noteTable = new NoteTable($notesContainer, toolPanel, map, filterPanel.noteFilter, figureDialog, $sharedCheckboxes.showImages[0]?.checked);
-            filterPanel.subscribe(noteFilter => noteTable?.updateFilter(noteFilter));
+            filterPanel.subscribe(noteFilter => noteTable.updateFilter(noteFilter));
             if (dialog.needToSuppressFitNotes())
                 map.needToFitNotes = false;
             fetcher.start(db, noteTable, $moreContainer, dialog.$limitSelect, dialog.getAutoLoadChecker(), (disabled) => dialog.disableFetchControl(disabled), moreButtonIntersectionObservers, query, clearStore);
@@ -5404,6 +3122,2341 @@ class NoteFilterPanel {
     }
 }
 
+class LooseParserListener {
+    constructor(callback) {
+        this.hadSelectionOnMouseDown = false;
+        const that = this;
+        this.mouseDownListener = function (ev) {
+            that.x = ev.pageX;
+            that.y = ev.pageY;
+            that.hadSelectionOnMouseDown = !!getValidSelection()?.toString();
+        };
+        this.mouseUpListener = function (ev) {
+            const samePlace = that.x == ev.pageX && that.y == ev.pageY;
+            that.x = that.y = undefined;
+            if (samePlace && that.hadSelectionOnMouseDown)
+                return; // had something selected and made a single click
+            const selectedText = getExtendedSelectionText(this, samePlace); // need to extend the selected text when the selection is a result of a double-click
+            if (!selectedText)
+                return;
+            callback(ev.pageX, ev.pageY, selectedText);
+        };
+        function getValidSelection() {
+            const selection = document.getSelection();
+            if (!selection)
+                return null;
+            if (selection.rangeCount != 1)
+                return null;
+            return selection;
+        }
+        function getExtendedSelectionText(startNode, needToExtend) {
+            const selection = getValidSelection();
+            if (!selection)
+                return '';
+            const selectionText = selection.toString();
+            if (!needToExtend || !selectionText)
+                return selectionText;
+            if (selection.anchorNode == null || selection.anchorOffset == null ||
+                selection.focusNode == null || selection.focusOffset == null)
+                return '';
+            const t1 = getExtendedSelectionTextToNodeAndOffset(startNode, selection.anchorNode, selection.anchorOffset);
+            const t2 = getExtendedSelectionTextToNodeAndOffset(startNode, selection.focusNode, selection.focusOffset);
+            if (t1.length > t2.length) {
+                return t1;
+            }
+            else {
+                return t2;
+            }
+        }
+        function getExtendedSelectionTextToNodeAndOffset(startNode, node, offset) {
+            const range = document.createRange();
+            range.setStart(startNode, 0);
+            range.setEnd(node, offset);
+            return range.toString();
+        }
+    }
+    listen($target) {
+        $target.addEventListener('mousedown', this.mouseDownListener);
+        $target.addEventListener('mouseup', this.mouseUpListener);
+    }
+}
+
+const e$1 = makeEscapeTag(encodeURIComponent);
+const makeItem = makeElement('li')();
+const makeITEM = makeElement('li')('main');
+class LooseParserPopup {
+    constructor($container, installClickListener) {
+        this.installClickListener = installClickListener;
+        this.$popup = document.createElement('ul');
+        this.$popup.classList.add('loose-parser-popup');
+        this.$popup.onmouseleave = () => {
+            this.$popup.classList.remove('open');
+            this.$popup.innerHTML = '';
+        };
+        $container.append(this.$popup);
+    }
+    open(x, y, id, type) {
+        const itemHeight = 20;
+        const itemWidth = 90;
+        this.$popup.style.left = `${x - 0.75 * itemWidth}px`;
+        this.$popup.style.top = `${y - 2 * itemHeight}px`;
+        this.$popup.innerHTML = '';
+        this.$popup.append(makeItem(makeElement('a')()(`#${id}`)));
+        this.$popup.append(makeITEM(this.makeLink(id, type)));
+        const types = ['note', 'changeset', 'node', 'way', 'relation'];
+        for (const type of types) {
+            this.$popup.append(makeItem(this.makeLink(id, type)));
+        }
+        this.$popup.classList.add('open');
+    }
+    makeLink(id, type) {
+        if (type == null)
+            return makeElement('a')()('?');
+        const $a = makeElement('a')()(type);
+        $a.href = e$1 `https://www.openstreetmap.org/${type}/${id}`;
+        if (type == 'note') {
+            $a.classList.add('other-note');
+            $a.dataset.noteId = String(id);
+        }
+        else if (type == 'changeset') {
+            $a.dataset.changesetId = String(id);
+        }
+        else {
+            $a.dataset.elementType = type;
+            $a.dataset.elementId = String(id);
+        }
+        this.installClickListener($a);
+        return $a;
+    }
+}
+
+function parseLoose(text) {
+    const match = text.match(/^(.*?)([0-9]+)\s*$/s);
+    if (!match)
+        return null;
+    const [, prefix, idString] = match;
+    return [Number(idString), getType(prefix)];
+}
+function getType(text) {
+    const types = ['note', 'changeset', 'node', 'way', 'relation'];
+    let bestType = undefined;
+    let bestIndex = -1;
+    const lowercaseText = text.toLowerCase();
+    for (const type of types) {
+        const index = lowercaseText.lastIndexOf(type);
+        if (index > bestIndex) {
+            bestIndex = index;
+            bestType = type;
+        }
+    }
+    return bestType;
+}
+
+function getCommentItems(commentText) {
+    const matchRegExp = new RegExp(`(?<before>.*?)(?<text>` +
+        `(?<date>\\d\\d\\d\\d-\\d\\d-\\d\\d[T ]\\d\\d:\\d\\d:\\d\\dZ)` +
+        `|` +
+        `(?<link>https?://(?:` +
+        `(?<image>westnordost\.de/p/[0-9]+\.jpg)` +
+        '|' +
+        `(?<osm>(?:www\\.)?(?:osm|openstreetmap)\\.org/` +
+        `(?<path>(?<osmType>node|way|relation|changeset|note)/(?<id>[0-9]+))?` +
+        `(?<hash>#[-0-9a-zA-Z/.=&]+)?` + // only need hash at root or at recognized path
+        `)` +
+        `))` +
+        `)`, 'sy');
+    const items = [];
+    let idx = 0;
+    while (true) {
+        idx = matchRegExp.lastIndex;
+        const match = matchRegExp.exec(commentText);
+        if (!match || !match.groups)
+            break;
+        pushTextItem(match.groups.before);
+        items.push(getMatchItem(match.groups));
+    }
+    pushTextItem(commentText.slice(idx));
+    return collapseTextItems(items);
+    function pushTextItem(text) {
+        if (text == '')
+            return;
+        items.push({
+            type: 'text',
+            text
+        });
+    }
+    function collapseTextItems(inputItems) {
+        const outputItems = [];
+        let tailTextItem;
+        for (const item of inputItems) {
+            if (item.type == 'text') {
+                if (tailTextItem) {
+                    tailTextItem.text += item.text;
+                }
+                else {
+                    outputItems.push(item);
+                    tailTextItem = item;
+                }
+            }
+            else {
+                outputItems.push(item);
+                tailTextItem = undefined;
+            }
+        }
+        return outputItems;
+    }
+}
+function getMatchItem(groups) {
+    const baseItem = {
+        text: groups.text
+    };
+    if (groups.date) {
+        return {
+            ...baseItem,
+            type: 'date',
+        };
+    }
+    else if (groups.link) {
+        const linkItem = {
+            ...baseItem,
+            type: 'link',
+            href: groups.link
+        };
+        if (groups.image) {
+            return {
+                ...linkItem,
+                link: 'image'
+            };
+        }
+        else if (groups.osm) {
+            const osmItem = {
+                ...linkItem,
+                link: 'osm',
+                href: rewriteOsmHref(groups.path, groups.hash),
+                map: getMap(groups.hash)
+            };
+            if (groups.osmType && groups.id) {
+                if (groups.osmType == 'node' || groups.osmType == 'way' || groups.osmType == 'relation') {
+                    return {
+                        ...osmItem,
+                        osm: 'element',
+                        element: groups.osmType,
+                        id: Number(groups.id)
+                    };
+                }
+                else if (groups.osmType == 'changeset' || groups.osmType == 'note') {
+                    return {
+                        ...osmItem,
+                        osm: groups.osmType,
+                        id: Number(groups.id)
+                    };
+                }
+            }
+            else if (osmItem.map) { // only make root links if they have map hash, otherwise they may not even be a root links
+                return {
+                    ...osmItem,
+                    osm: 'root'
+                };
+            }
+        }
+    }
+    return {
+        ...baseItem,
+        type: 'text'
+    };
+}
+function rewriteOsmHref(path, hash) {
+    let href = `https://www.openstreetmap.org/`; // changes osm.org and other redirected paths to canonical
+    if (path)
+        href += path;
+    if (hash)
+        href += hash;
+    return href;
+}
+function getMap(hash) {
+    if (!hash)
+        return;
+    const params = new URLSearchParams(hash.slice(1));
+    const map = params.get('map');
+    if (!map)
+        return;
+    const match = map.match(new RegExp('([0-9.]+)/(-?[0-9.]+)/(-?[0-9.]+)'));
+    if (!match)
+        return;
+    const [, zoom, lat, lon] = match;
+    return [zoom, lat, lon];
+}
+
+function isOsmBase(d) {
+    if (!d)
+        return false;
+    if (!Number.isInteger(d.id))
+        return false;
+    if (d.user != null && (typeof d.user != 'string'))
+        return false;
+    if (!Number.isInteger(d.uid))
+        return false;
+    if (d.tags != null && (typeof d.tags != 'object'))
+        return false;
+    return true;
+}
+function isOsmElementBase(e) {
+    if (!isOsmBase(e))
+        return false;
+    if (e.type != 'node' && e.type != 'way' && e.type != 'relation')
+        return false;
+    if (typeof e.timestamp != 'string')
+        return false;
+    if (!Number.isInteger(e.version))
+        return false;
+    if (!Number.isInteger(e.changeset))
+        return false;
+    return true;
+}
+function isOsmNodeElement(e) {
+    if (!isOsmElementBase(e))
+        return false;
+    if (e.type != 'node')
+        return false;
+    if (typeof e.lat != 'number')
+        return false;
+    if (typeof e.lon != 'number')
+        return false;
+    return true;
+}
+function isOsmWayElement(e) {
+    if (!isOsmElementBase(e))
+        return false;
+    if (e.type != 'way')
+        return false;
+    const nodes = e.nodes;
+    if (!Array.isArray(nodes))
+        return false;
+    if (!nodes.every(v => Number.isInteger(v)))
+        return false;
+    return true;
+}
+function isOsmRelationElement(e) {
+    if (!isOsmElementBase(e))
+        return false;
+    if (e.type != 'relation')
+        return false;
+    const members = e.members;
+    if (!Array.isArray(members))
+        return false;
+    if (!members.every(m => (m &&
+        (m.type == 'node' || m.type == 'way' || m.type == 'relation') &&
+        Number.isInteger(m.ref) &&
+        (typeof m.role == 'string'))))
+        return false;
+    return true;
+}
+function isOsmChangeset(c) {
+    if (!isOsmBase(c))
+        return false;
+    if (typeof c.created_at != 'string')
+        return false;
+    if (c.closed_at != null && (typeof c.closed_at != 'string'))
+        return false;
+    if (c.minlat == null && c.minlon == null &&
+        c.maxlat == null && c.maxlon == null) {
+        return true;
+    }
+    else if (Number.isFinite(c.minlat) && Number.isFinite(c.minlon) &&
+        Number.isFinite(c.maxlat) && Number.isFinite(c.maxlon)) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+const e = makeEscapeTag(encodeURIComponent);
+async function downloadAndShowChangeset($a, map, outputDate, changesetId) {
+    downloadCommon($a, map, async () => {
+        const url = e `https://api.openstreetmap.org/api/0.6/changeset/${changesetId}.json`;
+        const response = await fetch(url);
+        if (!response.ok) {
+            if (response.status == 404) {
+                throw new TypeError(`changeset doesn't exist`);
+            }
+            else {
+                throw new TypeError(`OSM API error: unsuccessful response`);
+            }
+        }
+        const data = await response.json();
+        const changeset = getChangesetFromOsmApiResponse(data);
+        addGeometryToMap(map, makeChangesetGeometry(changeset), () => makeChangesetPopupContents(outputDate, changeset));
+    });
+    function makeChangesetGeometry(changeset) {
+        if (changeset.minlat == null || changeset.minlon == null ||
+            changeset.maxlat == null || changeset.maxlon == null) {
+            throw new TypeError(`changeset is empty`);
+        }
+        return L.rectangle([
+            [changeset.minlat, changeset.minlon],
+            [changeset.maxlat, changeset.maxlon]
+        ]);
+    }
+}
+async function downloadAndShowElement($a, map, outputDate, elementType, elementId) {
+    downloadCommon($a, map, async () => {
+        const fullBit = (elementType == 'node' ? '' : '/full');
+        const url = e `https://api.openstreetmap.org/api/0.6/${elementType}/${elementId}` + `${fullBit}.json`;
+        const response = await fetch(url);
+        if (!response.ok) {
+            if (response.status == 404) {
+                throw new TypeError(`element doesn't exist`);
+            }
+            else if (response.status == 410) {
+                throw new TypeError(`element was deleted`);
+            }
+            else {
+                throw new TypeError(`OSM API error: unsuccessful response`);
+            }
+        }
+        const data = await response.json();
+        const elements = getElementsFromOsmApiResponse(data);
+        const element = elements[elementType][elementId];
+        if (!element)
+            throw new TypeError(`OSM API error: requested element not found in response data`);
+        if (isOsmNodeElement(element)) {
+            addGeometryToMap(map, makeNodeGeometry(element), () => makeElementPopupContents(outputDate, element));
+        }
+        else if (isOsmWayElement(element)) {
+            addGeometryToMap(map, makeWayGeometry(element, elements), () => makeElementPopupContents(outputDate, element));
+        }
+        else if (isOsmRelationElement(element)) {
+            addGeometryToMap(map, makeRelationGeometry(element, elements), () => makeElementPopupContents(outputDate, element));
+        }
+        else {
+            throw new TypeError(`OSM API error: requested element has unknown type`); // shouldn't happen
+        }
+    });
+    function makeNodeGeometry(node) {
+        return L.circleMarker([node.lat, node.lon]);
+    }
+    function makeWayGeometry(way, elements) {
+        const coords = [];
+        for (const id of way.nodes) {
+            const node = elements.node[id];
+            if (!node)
+                throw new TypeError(`OSM API error: referenced element not found in response data`);
+            coords.push([node.lat, node.lon]);
+        }
+        return L.polyline(coords);
+    }
+    function makeRelationGeometry(relation, elements) {
+        const geometry = L.featureGroup();
+        for (const member of relation.members) {
+            if (member.type == 'node') {
+                const node = elements.node[member.ref];
+                if (!node)
+                    throw new TypeError(`OSM API error: referenced element not found in response data`);
+                geometry.addLayer(makeNodeGeometry(node));
+            }
+            else if (member.type == 'way') {
+                const way = elements.way[member.ref];
+                if (!way)
+                    throw new TypeError(`OSM API error: referenced element not found in response data`);
+                geometry.addLayer(makeWayGeometry(way, elements));
+            }
+            // TODO indicate that there might be relations, their data may be incomplete
+        }
+        return geometry;
+    }
+}
+async function downloadCommon($a, map, downloadSpecific) {
+    $a.classList.add('loading');
+    try {
+        // TODO cancel already running response
+        await downloadSpecific();
+        $a.classList.remove('absent');
+        $a.title = '';
+    }
+    catch (ex) {
+        map.elementLayer.clearLayers();
+        $a.classList.add('absent');
+        if (ex instanceof TypeError) {
+            $a.title = ex.message;
+        }
+        else {
+            $a.title = `unknown error ${ex}`;
+        }
+    }
+    finally {
+        $a.classList.remove('loading');
+    }
+}
+function getChangesetFromOsmApiResponse(data) {
+    if (!data)
+        throw new TypeError(`OSM API error: invalid response data`);
+    const changesetArray = data.elements;
+    if (!Array.isArray(changesetArray))
+        throw new TypeError(`OSM API error: invalid response data`);
+    if (changesetArray.length != 1)
+        throw new TypeError(`OSM API error: invalid response data`);
+    const changeset = changesetArray[0];
+    if (!isOsmChangeset(changeset))
+        throw new TypeError(`OSM API error: invalid changeset in response data`);
+    return changeset;
+}
+function getElementsFromOsmApiResponse(data) {
+    const node = {};
+    const way = {};
+    const relation = {};
+    if (!data)
+        throw new TypeError(`OSM API error: invalid response data`);
+    const elementArray = data.elements;
+    if (!Array.isArray(elementArray))
+        throw new TypeError(`OSM API error: invalid response data`);
+    for (const element of elementArray) {
+        if (isOsmNodeElement(element)) {
+            node[element.id] = element;
+        }
+        else if (isOsmWayElement(element)) {
+            way[element.id] = element;
+        }
+        else if (isOsmRelationElement(element)) {
+            relation[element.id] = element;
+        }
+        else {
+            throw new TypeError(`OSM API error: invalid element in response data`);
+        }
+    }
+    return { node, way, relation };
+}
+function makeChangesetPopupContents(outputDate, changeset) {
+    const contents = [];
+    const p = (...s) => makeElement('p')()(...s);
+    const h = (...s) => p(makeElement('strong')()(...s));
+    const c = (...s) => p(makeElement('em')()(...s));
+    const changesetHref = e `https://www.openstreetmap.org/changeset/${changeset.id}`;
+    contents.push(h(`Changeset: `, makeLink(String(changeset.id), changesetHref)));
+    if (changeset.tags?.comment)
+        contents.push(c(changeset.tags.comment));
+    const $p = p();
+    if (changeset.closed_at) {
+        $p.append(`Closed on `, getDate(changeset.closed_at, outputDate));
+    }
+    else {
+        $p.append(`Created on `, getDate(changeset.created_at, outputDate));
+    }
+    $p.append(` by `, getUser(changeset));
+    contents.push($p);
+    const $tags = getTags(changeset.tags, 'comment');
+    if ($tags)
+        contents.push($tags);
+    return contents;
+}
+function makeElementPopupContents(outputDate, element) {
+    const p = (...s) => makeElement('p')()(...s);
+    const h = (...s) => p(makeElement('strong')()(...s));
+    const elementHref = e `https://www.openstreetmap.org/${element.type}/${element.id}`;
+    const contents = [
+        h(capitalize(element.type) + `: `, makeLink(getElementName(element), elementHref)),
+        h(`Version #${element.version} · `, makeLink(`View History`, elementHref + '/history'), ` · `, makeLink(`Edit`, e `https://www.openstreetmap.org/edit?${element.type}=${element.id}`)),
+        p(`Edited on `, getDate(element.timestamp, outputDate), ` by `, getUser(element), ` · Changeset #`, makeLink(String(element.changeset), e `https://www.openstreetmap.org/changeset/${element.changeset}`))
+    ];
+    const $tags = getTags(element.tags);
+    if ($tags)
+        contents.push($tags);
+    return contents;
+}
+function addGeometryToMap(map, geometry, makePopupContents) {
+    const popupWriter = () => {
+        const $removeButton = document.createElement('button');
+        $removeButton.textContent = `Remove from map view`;
+        $removeButton.onclick = () => {
+            map.elementLayer.clearLayers();
+        };
+        return makeDiv('osm-element-popup-contents')(...makePopupContents(), $removeButton);
+    };
+    map.addOsmElement(geometry, popupWriter);
+}
+function capitalize(s) {
+    return s[0].toUpperCase() + s.slice(1);
+}
+function getDate(timestamp, outputDate) {
+    const readableDate = timestamp.replace('T', ' ').replace('Z', ''); // TODO replace date output fn with active element fn
+    return outputDate(readableDate);
+}
+function getUser(data) {
+    return makeUserLink(data.uid, data.user);
+}
+function getTags(tags, skipKey) {
+    if (!tags)
+        return null;
+    const tagBatchSize = 10;
+    const tagList = Object.entries(tags).filter(([k, v]) => k != skipKey);
+    if (tagList.length <= 0)
+        return null;
+    let i = 0;
+    let $button;
+    const $figure = document.createElement('figure');
+    const $figcaption = document.createElement('figcaption');
+    $figcaption.textContent = `Tags`;
+    const $table = document.createElement('table');
+    $figure.append($figcaption, $table);
+    writeTagBatch();
+    return $figure;
+    function writeTagBatch() {
+        for (let j = 0; i < tagList.length && j < tagBatchSize; i++, j++) {
+            const [k, v] = tagList[i];
+            const $row = $table.insertRow();
+            $row.insertCell().textContent = k;
+            $row.insertCell().textContent = v; // TODO what if tag value too long?
+        }
+        if (i < tagList.length) {
+            if (!$button) {
+                $button = document.createElement('button');
+                $figure.append($button);
+                $button.onclick = writeTagBatch;
+            }
+            const nTagsLeft = tagList.length - i;
+            const nTagsToShowNext = Math.min(nTagsLeft, tagBatchSize);
+            $button.textContent = `Show ${nTagsToShowNext} / ${nTagsLeft} more tags`;
+        }
+        else {
+            $button?.remove();
+        }
+    }
+}
+function getElementName(element) {
+    if (element.tags?.name) {
+        return `${element.tags.name} (${element.id})`;
+    }
+    else {
+        return String(element.id);
+    }
+}
+
+class CommentWriter {
+    constructor(map, figureDialog, pingNoteSection, receiveTimestamp) {
+        const that = this;
+        this.wrappedActiveTimeElementClickListener = function (ev) {
+            ev.stopPropagation();
+            receiveTimestamp(this.dateTime);
+        };
+        this.wrappedOsmLinkClickListener = function (ev) {
+            const $a = this;
+            ev.preventDefault();
+            ev.stopPropagation();
+            if (handleNote($a.dataset.noteId))
+                return;
+            if (handleChangeset($a.dataset.changesetId))
+                return;
+            if (handleElement($a.dataset.elementType, $a.dataset.elementId))
+                return;
+            handleMap($a.dataset.zoom, $a.dataset.lat, $a.dataset.lon);
+            function handleNote(noteId) {
+                if (!noteId)
+                    return false;
+                const $noteSection = document.getElementById(`note-` + noteId);
+                if (!($noteSection instanceof HTMLTableSectionElement))
+                    return false;
+                if ($noteSection.classList.contains('hidden'))
+                    return false;
+                figureDialog.close();
+                pingNoteSection($noteSection);
+                return true;
+            }
+            function handleChangeset(changesetId) {
+                if (!changesetId)
+                    return false;
+                figureDialog.close();
+                downloadAndShowChangeset($a, map, (readableDate) => makeDateOutput(readableDate, that.wrappedActiveTimeElementClickListener), changesetId);
+                return true;
+            }
+            function handleElement(elementType, elementId) {
+                if (!elementId)
+                    return false;
+                if (elementType != 'node' && elementType != 'way' && elementType != 'relation')
+                    return false;
+                figureDialog.close();
+                downloadAndShowElement($a, map, (readableDate) => makeDateOutput(readableDate, that.wrappedActiveTimeElementClickListener), elementType, elementId);
+                return true;
+            }
+            function handleMap(zoom, lat, lon) {
+                if (!(zoom && lat && lon))
+                    return false;
+                figureDialog.close();
+                map.panAndZoomTo([Number(lat), Number(lon)], Number(zoom));
+                return true;
+            }
+        };
+        this.wrappedImageLinkClickListener = function (ev) {
+            const $a = this;
+            ev.preventDefault();
+            ev.stopPropagation();
+            figureDialog.toggle($a.href);
+        };
+    }
+    makeCommentElements(commentText, showImages = false) {
+        const inlineElements = [];
+        const imageElements = [];
+        for (const item of getCommentItems(commentText)) {
+            if (item.type == 'link' && item.link == 'image') {
+                const $inlineLink = makeLink(item.href, item.href);
+                $inlineLink.classList.add('listened', 'image', 'inline');
+                $inlineLink.addEventListener('click', this.wrappedImageLinkClickListener);
+                inlineElements.push($inlineLink);
+                const $img = document.createElement('img');
+                $img.loading = 'lazy'; // this + display:none is not enough to surely stop the browser from accessing the image link
+                if (showImages)
+                    $img.src = item.href; // therefore only set the link if user agreed to loading
+                $img.alt = `attached photo`;
+                $img.addEventListener('error', imageErrorHandler);
+                const $floatLink = document.createElement('a');
+                $floatLink.classList.add('listened', 'image', 'float');
+                $floatLink.href = item.href;
+                $floatLink.append($img);
+                $floatLink.addEventListener('click', this.wrappedImageLinkClickListener);
+                imageElements.push($floatLink);
+            }
+            else if (item.type == 'link' && item.link == 'osm') {
+                const $a = makeLink(item.text, item.href);
+                if (item.map)
+                    [$a.dataset.zoom, $a.dataset.lat, $a.dataset.lon] = item.map;
+                if (item.osm == 'element') {
+                    $a.dataset.elementType = item.element;
+                    $a.dataset.elementId = String(item.id);
+                }
+                if (item.osm == 'changeset') {
+                    $a.classList.add('changeset');
+                    $a.dataset.changesetId = String(item.id);
+                }
+                if (item.osm == 'note') {
+                    $a.classList.add('other-note');
+                    $a.dataset.noteId = String(item.id);
+                }
+                this.installOsmClickListenerAfterDatasets($a, true); // suppress note link updates because handleNotesUpdate() is going to be run anyway - TODO: or not if ran from parse tool?
+                inlineElements.push($a);
+            }
+            else if (item.type == 'date') {
+                const $time = makeActiveTimeElement(item.text, item.text);
+                $time.addEventListener('click', this.wrappedActiveTimeElementClickListener);
+                inlineElements.push($time);
+            }
+            else {
+                inlineElements.push(item.text);
+            }
+        }
+        return [inlineElements, imageElements];
+    }
+    writeComment($cell, commentText, showImages) {
+        const [inlineElements, imageElements] = this.makeCommentElements(commentText, showImages);
+        if (imageElements.length > 0) {
+            $cell.addEventListener('mouseover', imageCommentHoverListener);
+            $cell.addEventListener('mouseout', imageCommentHoverListener);
+        }
+        $cell.append(...imageElements, ...inlineElements);
+    }
+    installOsmClickListenerAfterDatasets($a, suppressUpdateNoteLink = false) {
+        $a.classList.add('listened', 'osm');
+        if (!suppressUpdateNoteLink && $a.classList.contains('other-note'))
+            updateNoteLink($a);
+        $a.addEventListener('click', this.wrappedOsmLinkClickListener);
+    }
+}
+function handleShowImagesUpdate($table, showImages) {
+    for (const $a of $table.querySelectorAll('td.note-comment a.image.float')) {
+        if (!($a instanceof HTMLAnchorElement))
+            continue;
+        const $img = $a.firstChild;
+        if (!($img instanceof HTMLImageElement))
+            continue;
+        if (showImages && !$img.src)
+            $img.src = $a.href; // don't remove src when showImages is disabled, otherwise will reload all images when src is set back
+    }
+}
+function handleNotesUpdate($table) {
+    for (const $a of $table.querySelectorAll('td.note-comment a.other-note')) {
+        if (!($a instanceof HTMLAnchorElement))
+            continue;
+        updateNoteLink($a);
+    }
+}
+function makeDateOutput(readableDate, activeTimeElementClickListener) {
+    const [readableDateWithoutTime] = readableDate.split(' ', 1);
+    if (readableDate && readableDateWithoutTime) {
+        const $time = makeActiveTimeElement(readableDateWithoutTime, `${readableDate.replace(' ', 'T')}Z`, `${readableDate} UTC`);
+        $time.addEventListener('click', activeTimeElementClickListener);
+        return $time;
+    }
+    else {
+        const $unknownDateTime = document.createElement('span');
+        $unknownDateTime.textContent = `?`;
+        return $unknownDateTime;
+    }
+}
+function makeActiveTimeElement(text, dateTime, title) {
+    const $time = document.createElement('time');
+    $time.classList.add('listened');
+    $time.textContent = text;
+    $time.dateTime = dateTime;
+    if (title)
+        $time.title = title;
+    return $time;
+}
+function updateNoteLink($a) {
+    const $noteSection = document.getElementById(`note-` + $a.dataset.noteId);
+    if (!($noteSection instanceof HTMLTableSectionElement)) {
+        $a.classList.add('absent');
+        $a.title = `The note is not downloaded`;
+    }
+    else if ($noteSection.classList.contains('hidden')) {
+        $a.classList.add('absent');
+        $a.title = `The note is filtered out`;
+    }
+    else {
+        $a.classList.remove('absent');
+        $a.title = '';
+    }
+}
+function imageCommentHoverListener(ev) {
+    const $targetLink = getTargetLink();
+    if (!$targetLink)
+        return;
+    const $floats = this.querySelectorAll('a.image.float');
+    const $inlines = this.querySelectorAll('a.image.inline');
+    for (let i = 0; i < $floats.length && i < $inlines.length; i++) {
+        if ($floats[i] == $targetLink) {
+            modifyTwinLink($inlines[i]);
+            return;
+        }
+        if ($inlines[i] == $targetLink) {
+            modifyTwinLink($floats[i]);
+            return;
+        }
+    }
+    function getTargetLink() {
+        if (ev.target instanceof HTMLAnchorElement)
+            return ev.target;
+        if (!(ev.target instanceof HTMLElement))
+            return null;
+        return ev.target.closest('a');
+    }
+    function modifyTwinLink($a) {
+        $a.classList.toggle('active', ev.type == 'mouseover');
+    }
+}
+function imageErrorHandler() {
+    this.removeAttribute('alt'); // render broken image icon
+}
+
+class NoteTable {
+    constructor($container, toolPanel, map, filter, figureDialog) {
+        this.toolPanel = toolPanel;
+        this.map = map;
+        this.filter = filter;
+        this.$table = document.createElement('table');
+        this.$selectAllCheckbox = document.createElement('input');
+        this.noteSectionLayerIdVisibility = new Map();
+        this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
+        this.usersById = new Map();
+        this.showImages = false;
+        toolPanel.onCommentsViewChange = (onlyFirst, oneLine) => {
+            this.$table.classList.toggle('only-first-comments', onlyFirst);
+            this.$table.classList.toggle('one-line-comments', oneLine);
+        };
+        const that = this;
+        let $clickReadyNoteSection;
+        this.wrappedNoteSectionListeners = [
+            ['mouseenter', function () {
+                    that.activateNote('hover', this);
+                }],
+            ['mouseleave', function () {
+                    that.deactivateNote('hover', this);
+                }],
+            ['mousemove', function () {
+                    $clickReadyNoteSection = undefined; // ideally should be reset by 'selectstart' event, however Chrome fires it even if no mouse drag has happened
+                    if (!this.classList.contains('active-click'))
+                        return;
+                    resetFadeAnimation(this, 'active-click-fade');
+                }],
+            ['animationend', function () {
+                    that.deactivateNote('click', this);
+                }],
+            ['mousedown', function () {
+                    $clickReadyNoteSection = this;
+                }],
+            // ['selectstart',function(){
+            // 	$clickReadyNoteSection=undefined // Chrome is too eager to fire this event, have to cancel click from 'mousemove' instead
+            // }],
+            ['click', function () {
+                    if ($clickReadyNoteSection == this) {
+                        figureDialog.close();
+                        that.focusOnNote(this, true);
+                    }
+                    $clickReadyNoteSection = undefined;
+                }]
+        ];
+        this.wrappedNoteCheckboxClickListener = function (ev) {
+            that.noteCheckboxClickListener(this, ev);
+        };
+        this.wrappedAllNotesCheckboxClickListener = function (ev) {
+            that.allNotesCheckboxClickListener(this, ev);
+        };
+        this.wrappedNoteMarkerClickListener = function () {
+            that.noteMarkerClickListener(this);
+        };
+        this.noteSectionVisibilityObserver = new NoteSectionVisibilityObserver(toolPanel, map, this.noteSectionLayerIdVisibility);
+        this.commentWriter = new CommentWriter(this.map, figureDialog, $noteSection => this.focusOnNote($noteSection), timestamp => toolPanel.receiveTimestamp(timestamp));
+        $container.append(this.$table);
+        this.reset();
+        const looseParserPopup = new LooseParserPopup($container, ($a) => this.commentWriter.installOsmClickListenerAfterDatasets($a));
+        this.looseParserListener = new LooseParserListener((x, y, text) => {
+            const parseResult = parseLoose(text);
+            if (!parseResult)
+                return;
+            looseParserPopup.open(x, y, ...parseResult);
+        });
+    }
+    reset() {
+        this.noteSectionVisibilityObserver.disconnect();
+        this.$table.innerHTML = '';
+        this.toolPanel.receiveNoteCounts(0, 0);
+        this.updateCheckboxDependents();
+    }
+    updateFilter(filter) {
+        let nFetched = 0;
+        let nVisible = 0;
+        this.filter = filter;
+        const getUsername = (uid) => this.usersById.get(uid);
+        for (const $noteSection of this.$table.tBodies) {
+            const noteId = Number($noteSection.dataset.noteId);
+            const note = this.notesById.get(noteId);
+            const layerId = Number($noteSection.dataset.layerId);
+            if (note == null)
+                continue;
+            nFetched++;
+            if (this.filter.matchNote(note, getUsername)) {
+                nVisible++;
+                const marker = this.map.filteredNoteLayer.getLayer(layerId);
+                if (marker) {
+                    this.map.filteredNoteLayer.removeLayer(marker);
+                    this.map.noteLayer.addLayer(marker);
+                }
+                $noteSection.classList.remove('hidden');
+            }
+            else {
+                this.deactivateNote('click', $noteSection);
+                this.deactivateNote('hover', $noteSection);
+                const marker = this.map.noteLayer.getLayer(layerId);
+                if (marker) {
+                    this.map.noteLayer.removeLayer(marker);
+                    this.map.filteredNoteLayer.addLayer(marker);
+                }
+                $noteSection.classList.add('hidden');
+                const $checkbox = $noteSection.querySelector('.note-checkbox input');
+                if ($checkbox instanceof HTMLInputElement)
+                    $checkbox.checked = false;
+            }
+        }
+        this.toolPanel.receiveNoteCounts(nFetched, nVisible);
+        this.updateCheckboxDependents();
+        handleNotesUpdate(this.$table);
+    }
+    /**
+     * @returns number of added notes that passed through the filter
+     */
+    addNotes(notes, users) {
+        // remember notes and users
+        const noteSequence = [];
+        for (const note of notes) {
+            noteSequence.push(note);
+            this.notesById.set(note.id, note);
+        }
+        for (const [uid, username] of Object.entries(users)) {
+            this.usersById.set(Number(uid), username);
+        }
+        // output table
+        if (this.$table.childElementCount == 0)
+            this.writeTableHeader();
+        let nUnfilteredNotes = 0;
+        const getUsername = (uid) => users[uid];
+        for (const note of noteSequence) {
+            const isVisible = this.filter.matchNote(note, getUsername);
+            if (isVisible)
+                nUnfilteredNotes++;
+            const $noteSection = this.writeNote(note, isVisible);
+            let $row = $noteSection.insertRow();
+            const nComments = note.comments.length;
+            {
+                const $cell = $row.insertCell();
+                $cell.classList.add('note-checkbox');
+                if (nComments > 1)
+                    $cell.rowSpan = nComments;
+                const $checkbox = document.createElement('input');
+                $checkbox.type = 'checkbox';
+                $checkbox.title = `shift+click to check/uncheck a range`;
+                $checkbox.addEventListener('click', this.wrappedNoteCheckboxClickListener);
+                $cell.append($checkbox);
+            }
+            {
+                const $cell = $row.insertCell();
+                if (nComments > 1)
+                    $cell.rowSpan = nComments;
+                const $a = document.createElement('a');
+                $a.href = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
+                $a.textContent = `${note.id}`;
+                $cell.append($a);
+            }
+            let iComment = 0;
+            for (const comment of note.comments) {
+                {
+                    if (iComment > 0) {
+                        $row = $noteSection.insertRow();
+                    }
+                }
+                {
+                    const $cell = $row.insertCell();
+                    $cell.classList.add('note-date');
+                    $cell.append(makeDateOutput(toReadableDate(comment.date), this.commentWriter.wrappedActiveTimeElementClickListener));
+                }
+                {
+                    const $cell = $row.insertCell();
+                    $cell.classList.add('note-user');
+                    if (comment.uid != null) {
+                        const username = users[comment.uid];
+                        if (username != null) {
+                            $cell.append(makeUserNameLink(username));
+                        }
+                        else {
+                            $cell.append(`#${comment.uid}`);
+                        }
+                    }
+                }
+                {
+                    let svgs = `<svg class="icon-status-${getActionClass(comment.action)}">` +
+                        `<title>${comment.action}</title><use href="#table-note" />` +
+                        `</svg>`;
+                    if (note.comments.length > 1) {
+                        svgs += ` <svg class="icon-comments-count">` +
+                            `<title>number of additional comments</title><use href="#table-comments" /><text x="8" y="8">${note.comments.length - 1}</text>` +
+                            `</svg>`;
+                    }
+                    const $cell = $row.insertCell();
+                    $cell.classList.add('note-action');
+                    $cell.innerHTML = svgs;
+                }
+                {
+                    const $cell = $row.insertCell();
+                    $cell.classList.add('note-comment');
+                    this.commentWriter.writeComment($cell, comment.text, this.showImages);
+                    this.looseParserListener.listen($cell);
+                }
+                iComment++;
+            }
+        }
+        if (this.toolPanel.fitMode == 'allNotes') {
+            this.map.fitNotes();
+        }
+        else {
+            this.map.fitNotesIfNeeded();
+        }
+        let nFetched = 0;
+        let nVisible = 0;
+        for (const $noteSection of this.$table.tBodies) {
+            if (!$noteSection.dataset.noteId)
+                continue;
+            nFetched++;
+            if (!$noteSection.classList.contains('hidden'))
+                nVisible++;
+        }
+        this.toolPanel.receiveNoteCounts(nFetched, nVisible);
+        handleNotesUpdate(this.$table);
+        return nUnfilteredNotes;
+    }
+    getVisibleNoteIds() {
+        const ids = [];
+        for (const [, id] of this.listVisibleNoteSectionsWithIds()) {
+            ids.push(id);
+        }
+        return ids;
+    }
+    getSelectedNoteIds() {
+        const ids = [];
+        for (const [$noteSection, id] of this.listVisibleNoteSectionsWithIds()) {
+            const $checkbox = $noteSection.querySelector('.note-checkbox input');
+            if (!($checkbox instanceof HTMLInputElement))
+                continue;
+            if (!$checkbox.checked)
+                continue;
+            ids.push(id);
+        }
+        return ids;
+    }
+    setShowImages(showImages) {
+        this.showImages = showImages;
+        this.$table.classList.toggle('with-images', showImages);
+        handleShowImagesUpdate(this.$table, showImages);
+    }
+    writeTableHeader() {
+        const $header = this.$table.createTHead();
+        const $row = $header.insertRow();
+        const $checkboxCell = makeHeaderCell('');
+        this.$selectAllCheckbox.type = 'checkbox';
+        this.$selectAllCheckbox.title = `check/uncheck all`;
+        this.$selectAllCheckbox.addEventListener('click', this.wrappedAllNotesCheckboxClickListener);
+        $checkboxCell.append(this.$selectAllCheckbox);
+        const $actionCell = makeHeaderCell('?');
+        $actionCell.title = `action performed along with adding the comment; number of comments`;
+        $actionCell.classList.add('note-action');
+        $row.append($checkboxCell, makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), $actionCell, makeHeaderCell('comment'));
+        function makeHeaderCell(text) {
+            const $cell = document.createElement('th');
+            $cell.textContent = text;
+            return $cell;
+        }
+    }
+    writeNote(note, isVisible) {
+        const marker = new NoteMarker(note);
+        const parentLayer = (isVisible ? this.map.noteLayer : this.map.filteredNoteLayer);
+        marker.addTo(parentLayer);
+        marker.on('click', this.wrappedNoteMarkerClickListener);
+        const layerId = this.map.noteLayer.getLayerId(marker);
+        const $noteSection = this.$table.createTBody();
+        if (!isVisible)
+            $noteSection.classList.add('hidden');
+        $noteSection.id = `note-${note.id}`;
+        $noteSection.classList.add(getStatusClass(note.status));
+        $noteSection.dataset.layerId = String(layerId);
+        $noteSection.dataset.noteId = String(note.id);
+        for (const [event, listener] of this.wrappedNoteSectionListeners) {
+            $noteSection.addEventListener(event, listener);
+        }
+        this.noteSectionLayerIdVisibility.set(layerId, false);
+        this.noteSectionVisibilityObserver.observe($noteSection);
+        if (isVisible) {
+            if (this.$selectAllCheckbox.checked) {
+                this.$selectAllCheckbox.checked = false;
+                this.$selectAllCheckbox.indeterminate = true;
+            }
+        }
+        return $noteSection;
+    }
+    noteMarkerClickListener(marker) {
+        const $noteSection = document.getElementById(`note-` + marker.noteId);
+        if (!($noteSection instanceof HTMLTableSectionElement))
+            return;
+        this.focusOnNote($noteSection);
+    }
+    noteCheckboxClickListener($checkbox, ev) {
+        ev.stopPropagation();
+        const $clickedNoteSection = $checkbox.closest('tbody');
+        if ($clickedNoteSection) {
+            if (ev.shiftKey && this.$lastClickedNoteSection) {
+                for (const $section of this.listVisibleNoteSectionsInRange(this.$lastClickedNoteSection, $clickedNoteSection)) {
+                    const $checkboxInRange = $section.querySelector('.note-checkbox input');
+                    if ($checkboxInRange instanceof HTMLInputElement)
+                        $checkboxInRange.checked = $checkbox.checked;
+                }
+            }
+            this.$lastClickedNoteSection = $clickedNoteSection;
+        }
+        this.updateCheckboxDependents();
+    }
+    allNotesCheckboxClickListener($allCheckbox, ev) {
+        for (const $noteSection of this.listVisibleNoteSections()) {
+            const $checkbox = $noteSection.querySelector('.note-checkbox input');
+            if (!($checkbox instanceof HTMLInputElement))
+                continue;
+            $checkbox.checked = $allCheckbox.checked;
+        }
+        this.updateCheckboxDependents();
+    }
+    focusOnNote($noteSection, isSectionClicked = false) {
+        this.activateNote('click', $noteSection);
+        this.noteSectionVisibilityObserver.haltMapFitting(); // otherwise scrollIntoView() may ruin note pan/zoom - it may cause observer to fire after exiting this function
+        if (!isSectionClicked)
+            $noteSection.scrollIntoView({ block: 'nearest' });
+        const layerId = Number($noteSection.dataset.layerId);
+        const marker = this.map.noteLayer.getLayer(layerId);
+        if (!(marker instanceof L.Marker))
+            return;
+        const z1 = this.map.zoom;
+        const z2 = this.map.maxZoom;
+        if (this.map.isCloseEnoughToCenter(marker.getLatLng()) && z1 < z2) {
+            const nextZoom = Math.min(z2, z1 + Math.ceil((z2 - z1) / 2));
+            this.map.panAndZoomTo(marker.getLatLng(), nextZoom);
+        }
+        else {
+            this.map.panTo(marker.getLatLng());
+        }
+    }
+    deactivateNote(type, $noteSection) {
+        $noteSection.classList.remove('active-' + type);
+        const layerId = Number($noteSection.dataset.layerId);
+        const marker = this.map.noteLayer.getLayer(layerId);
+        if (!(marker instanceof L.Marker))
+            return;
+        marker.getElement()?.classList.remove('active-' + type);
+        if ($noteSection.classList.contains('active-hover') || $noteSection.classList.contains('active-click'))
+            return;
+        marker.setZIndexOffset(0);
+    }
+    activateNote(type, $noteSection) {
+        let alreadyActive = false;
+        for (const $otherNoteSection of this.$table.querySelectorAll('tbody.active-' + type)) {
+            if (!($otherNoteSection instanceof HTMLTableSectionElement))
+                continue;
+            if ($otherNoteSection == $noteSection) {
+                alreadyActive = true;
+                if (type == 'click')
+                    resetFadeAnimation($noteSection, 'active-click-fade');
+            }
+            else {
+                this.deactivateNote(type, $otherNoteSection);
+            }
+        }
+        if (alreadyActive)
+            return;
+        const layerId = Number($noteSection.dataset.layerId);
+        const marker = this.map.noteLayer.getLayer(layerId);
+        if (!(marker instanceof L.Marker))
+            return;
+        marker.setZIndexOffset(1000);
+        marker.getElement()?.classList.add('active-' + type);
+        $noteSection.classList.add('active-' + type);
+    }
+    updateCheckboxDependents() {
+        const checkedNotes = [];
+        const checkedNoteUsers = new Map();
+        let hasUnchecked = false;
+        for (const $noteSection of this.listVisibleNoteSections()) {
+            const $checkbox = $noteSection.querySelector('.note-checkbox input');
+            if (!($checkbox instanceof HTMLInputElement))
+                continue;
+            if (!$checkbox.checked) {
+                hasUnchecked = true;
+                continue;
+            }
+            const noteId = Number($noteSection.dataset.noteId);
+            const note = this.notesById.get(noteId);
+            if (!note)
+                continue;
+            checkedNotes.push(note);
+            for (const comment of note.comments) {
+                if (comment.uid == null)
+                    continue;
+                const username = this.usersById.get(comment.uid);
+                if (username == null)
+                    continue;
+                checkedNoteUsers.set(comment.uid, username);
+            }
+        }
+        let hasChecked = checkedNotes.length > 0;
+        this.$selectAllCheckbox.indeterminate = hasChecked && hasUnchecked;
+        this.$selectAllCheckbox.checked = hasChecked && !hasUnchecked;
+        this.toolPanel.receiveSelectedNotes(checkedNotes, checkedNoteUsers);
+    }
+    listVisibleNoteSections() {
+        return this.$table.querySelectorAll('tbody:not(.hidden)');
+    }
+    *listVisibleNoteSectionsWithIds() {
+        for (const $noteSection of this.listVisibleNoteSections()) {
+            const idString = $noteSection.dataset.noteId;
+            if (!idString)
+                continue;
+            yield [$noteSection, Number(idString)];
+        }
+    }
+    /**
+     * range including $fromSection but excluding $toSection
+     * excludes $toSection if equals to $fromSection
+     */
+    *listVisibleNoteSectionsInRange($fromSection, $toSection) {
+        const $sections = this.listVisibleNoteSections();
+        let i = 0;
+        let $guardSection;
+        for (; i < $sections.length; i++) {
+            const $section = $sections[i];
+            if ($section == $fromSection) {
+                $guardSection = $toSection;
+                break;
+            }
+            if ($section == $toSection) {
+                $guardSection = $fromSection;
+                break;
+            }
+        }
+        if (!$guardSection)
+            return;
+        for (; i < $sections.length; i++) {
+            const $section = $sections[i];
+            if ($section != $toSection) {
+                yield $section;
+            }
+            if ($section == $guardSection) {
+                return;
+            }
+        }
+    }
+}
+class NoteSectionVisibilityObserver {
+    constructor(toolPanel, map, noteSectionLayerIdVisibility) {
+        this.isMapFittingHalted = false;
+        const noteSectionVisibilityHandler = () => {
+            const visibleLayerIds = [];
+            for (const [layerId, visibility] of noteSectionLayerIdVisibility) {
+                if (visibility)
+                    visibleLayerIds.push(layerId);
+            }
+            map.showNoteTrack(visibleLayerIds);
+            if (!this.isMapFittingHalted && toolPanel.fitMode == 'inViewNotes')
+                map.fitNoteTrack();
+        };
+        this.intersectionObserver = new IntersectionObserver((entries) => {
+            for (const entry of entries) {
+                if (!(entry.target instanceof HTMLElement))
+                    continue;
+                const layerId = entry.target.dataset.layerId;
+                if (layerId == null)
+                    continue;
+                noteSectionLayerIdVisibility.set(Number(layerId), entry.isIntersecting);
+            }
+            clearTimeout(this.visibilityTimeoutId);
+            this.visibilityTimeoutId = setTimeout(noteSectionVisibilityHandler);
+        });
+    }
+    observe($noteSection) {
+        this.intersectionObserver.observe($noteSection);
+    }
+    disconnect() {
+        this.intersectionObserver.disconnect();
+    }
+    haltMapFitting() {
+        clearTimeout(this.visibilityTimeoutId);
+        clearTimeout(this.haltingTimeoutId);
+        this.isMapFittingHalted = true;
+        this.haltingTimeoutId = setTimeout(() => {
+            this.isMapFittingHalted = false;
+        }, 100);
+    }
+}
+function getStatusClass(status) {
+    if (status == 'open') {
+        return 'open';
+    }
+    else if (status == 'closed' || status == 'hidden') {
+        return 'closed';
+    }
+    else {
+        return 'other';
+    }
+}
+function getActionClass(action) {
+    if (action == 'opened' || action == 'reopened') {
+        return 'open';
+    }
+    else if (action == 'closed' || action == 'hidden') {
+        return 'closed';
+    }
+    else {
+        return 'other';
+    }
+}
+
+/*! *****************************************************************************
+Copyright (c) Microsoft Corporation.
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+***************************************************************************** */
+
+function __classPrivateFieldGet(receiver, state, kind, f) {
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a getter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
+    return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
+}
+
+function __classPrivateFieldSet(receiver, state, value, kind, f) {
+    if (kind === "m") throw new TypeError("Private method is not writable");
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
+    return (kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value)), value;
+}
+
+class Tool {
+    constructor(id, name, title) {
+        this.id = id;
+        this.name = name;
+        this.title = title;
+        this.$buttonsRequiringSelectedNotes = [];
+    }
+    getInfo() { return undefined; }
+    onTimestampChange(timestamp) { return false; }
+    onNoteCountsChange(nFetched, nVisible) { return false; }
+    onSelectedNotesChange(selectedNotes, selectedNoteUsers) {
+        let reactedToButtons = false;
+        if (this.$buttonsRequiringSelectedNotes.length > 0) {
+            for (const $button of this.$buttonsRequiringSelectedNotes) {
+                $button.disabled = selectedNotes.length <= 0;
+            }
+            reactedToButtons = true;
+        }
+        const reactedToOthers = this.onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers);
+        return reactedToButtons || reactedToOthers;
+    }
+    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) { return false; }
+    makeRequiringSelectedNotesButton() {
+        const $button = document.createElement('button');
+        $button.disabled = true;
+        this.$buttonsRequiringSelectedNotes.push($button);
+        return $button;
+    }
+}
+function makeMapIcon(type) {
+    const $span = document.createElement('span');
+    $span.innerHTML = `<span class='icon-map-${type}'><svg><use href="#tools-map" /></svg><span>map ${type}</span></span>`;
+    return $span;
+}
+function makeNotesIcon(type) {
+    const $span = document.createElement('span');
+    $span.innerHTML = `<span class='icon-notes-${type}'><svg><use href="#tools-notes" /></svg><span>${type} notes</span></span>`;
+    return $span;
+}
+
+const p$4 = (...ss) => makeElement('p')()(...ss);
+const em$2 = (s) => makeElement('em')()(s);
+const dfn$1 = (s) => makeElement('dfn')()(s);
+const ul$1 = (...ss) => makeElement('ul')()(...ss);
+const li$1 = (...ss) => makeElement('li')()(...ss);
+const label = (...ss) => makeElement('label')('inline')(...ss);
+class AutozoomTool extends Tool {
+    constructor() {
+        super('autozoom', `Map autozoom`, `Pan and zoom the map to visible notes`);
+    }
+    getInfo() {
+        return [p$4(`Pan and zoom the map to notes in the table. `, `Can be used as `, em$2(`zoom to data`), ` for notes layer if `, dfn$1(`to all visible notes`), ` is selected. `), p$4(dfn$1(`To notes on screen in table`), ` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `, `This option is convenient to use when `, em$2(`Track between notes`), ` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`)];
+    }
+    getTool(callbacks, map) {
+        const $fitModeSelect = document.createElement('select');
+        $fitModeSelect.append(new Option('is disabled', 'none'), new Option('to notes on screen in table', 'inViewNotes'), new Option('to all visible notes', 'allNotes'));
+        $fitModeSelect.onchange = () => {
+            if ($fitModeSelect.value == 'allNotes') {
+                callbacks.onFitModeChange(this, $fitModeSelect.value);
+                map.fitNotes();
+            }
+            else if ($fitModeSelect.value == 'inViewNotes') {
+                callbacks.onFitModeChange(this, $fitModeSelect.value);
+                map.fitNoteTrack();
+            }
+            else {
+                callbacks.onFitModeChange(this, undefined);
+            }
+        };
+        return [$fitModeSelect];
+    }
+}
+class CommentsTool extends Tool {
+    constructor() {
+        super('comments', `Table comments`, `Change how comments are displayed in notes table`);
+    }
+    getTool(callbacks, map) {
+        const $onlyFirstCommentsCheckbox = document.createElement('input');
+        $onlyFirstCommentsCheckbox.type = 'checkbox';
+        const $oneLineCommentsCheckbox = document.createElement('input');
+        $oneLineCommentsCheckbox.type = 'checkbox';
+        $onlyFirstCommentsCheckbox.onchange = $oneLineCommentsCheckbox.onchange = () => {
+            callbacks.onCommentsViewChange(this, $onlyFirstCommentsCheckbox.checked, $oneLineCommentsCheckbox.checked);
+        };
+        return [
+            `show `,
+            label($onlyFirstCommentsCheckbox, ` only 1st`), `; `,
+            label($oneLineCommentsCheckbox, ` on 1 line`),
+        ];
+    }
+}
+class TimestampTool extends Tool {
+    constructor() {
+        super('timestamp', `Timestamp for historic queries`);
+        this.$timestampInput = document.createElement('input');
+    }
+    getInfo() {
+        return [p$4(`Allows to select a timestamp for use with `, em$2(`Overpass`), ` and `, em$2(`Overpass turbo`), ` commands. `, `You can either enter the timestamp in ISO format (or anything else that Overpass understands) manually here click on a date of/in a note comment. `, `If present, a `, makeLink(`date setting`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL#date`), ` is added to Overpass queries. `, `The idea is to allow for examining the OSM data at the moment some note was opened/commented/closed to evaluate if this action was correct.`), p$4(`Timestamps inside note comments are usually generated by apps like `, makeLink(`MAPS.ME`, `https://wiki.openstreetmap.org/wiki/MAPS.ME`), ` to indicate their OSM data version.`)];
+    }
+    getTool(callbacks) {
+        // this.$timestampInput.type='datetime-local' // no standard datetime input for now because they're being difficult with UTC and 24-hour format.
+        // this.$timestampInput.step='1'
+        this.$timestampInput.type = 'text';
+        this.$timestampInput.size = 20;
+        this.$timestampInput.oninput = () => {
+            callbacks.onTimestampChange(this, this.$timestampInput.value);
+        };
+        const $clearButton = document.createElement('button');
+        $clearButton.type = 'reset';
+        $clearButton.textContent = 'Clear';
+        const $form = makeElement('form')()(this.$timestampInput, ` `, $clearButton);
+        $form.onreset = () => {
+            callbacks.onTimestampChange(this, '');
+        };
+        return [$form];
+    }
+    onTimestampChange(timestamp) {
+        this.$timestampInput.value = timestamp;
+        return true;
+    }
+}
+class ParseTool extends Tool {
+    constructor() {
+        super('parse', `Parse links`);
+    }
+    getInfo() {
+        return [p$4(`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →.`, `Currently detected active elements are: `), ul$1(li$1(`links to images made in `, makeLink(`StreetComplete`, `https://wiki.openstreetmap.org/wiki/StreetComplete`)), li$1(`links to OSM notes (clicking the output link is not yet implemented)`), li$1(`links to OSM changesets`), li$1(`links to OSM elements`), li$1(`ISO-formatted timestamps`)), p$4(`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`)];
+    }
+    getTool(callbacks, map, figureDialog) {
+        const commentWriter = new CommentWriter(map, figureDialog, () => { }, // TODO ping note section
+        (timestamp) => callbacks.onTimestampChange(this, timestamp));
+        const $input = document.createElement('input');
+        $input.type = 'text';
+        $input.size = 50;
+        $input.classList.add('complicated');
+        const $parseButton = document.createElement('button');
+        $parseButton.type = 'submit';
+        $parseButton.textContent = 'Parse';
+        const $clearButton = document.createElement('button');
+        $clearButton.type = 'reset';
+        $clearButton.textContent = 'Clear';
+        const $output = document.createElement('code');
+        $output.append(getFirstActiveElement([]));
+        const $form = makeElement('form')()($input, ` `, $parseButton, ` `, $clearButton);
+        $form.onsubmit = (ev) => {
+            ev.preventDefault();
+            const [elements] = commentWriter.makeCommentElements($input.value);
+            $output.replaceChildren(getFirstActiveElement(elements));
+        };
+        $form.onreset = () => {
+            $output.replaceChildren(getFirstActiveElement([]));
+        };
+        return [$form, ` → `, $output];
+        function getFirstActiveElement(elements) {
+            for (const element of elements) {
+                if (element instanceof HTMLAnchorElement) {
+                    element.textContent = `link`;
+                    return element;
+                }
+                else if (element instanceof HTMLTimeElement) {
+                    element.textContent = `date`;
+                    return element;
+                }
+            }
+            return `none`;
+        }
+    }
+}
+class CountTool extends Tool {
+    constructor() {
+        super('counts', `Note counts`);
+        this.$fetchedNoteCount = document.createElement('output');
+        this.$visibleNoteCount = document.createElement('output');
+        this.$selectedNoteCount = document.createElement('output');
+    }
+    getTool() {
+        this.$fetchedNoteCount.textContent = '0';
+        this.$visibleNoteCount.textContent = '0';
+        this.$selectedNoteCount.textContent = '0';
+        return [
+            this.$fetchedNoteCount, ` fetched, `,
+            this.$visibleNoteCount, ` visible, `,
+            this.$selectedNoteCount, ` selected`
+        ];
+    }
+    onNoteCountsChange(nFetched, nVisible) {
+        this.$fetchedNoteCount.textContent = String(nFetched);
+        this.$visibleNoteCount.textContent = String(nVisible);
+        return true;
+    }
+    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) {
+        this.$selectedNoteCount.textContent = String(selectedNotes.length);
+        return true;
+    }
+}
+class LegendTool extends Tool {
+    constructor() {
+        super('legend', `Legend`, `What do icons in command panel mean`);
+    }
+    getTool() {
+        return [
+            makeMapIcon('center'), ` = map center, `, makeMapIcon('area'), ` = map area, `, makeNotesIcon('selected'), ` = selected notes`
+        ];
+    }
+}
+class SettingsTool extends Tool {
+    constructor() {
+        super('settings', `⚙️`, `Settings`);
+    }
+    getTool(callbacks) {
+        const $openAllButton = document.createElement('button');
+        $openAllButton.textContent = `+ open all tools`;
+        $openAllButton.onclick = () => callbacks.onToolOpenToggle(this, true);
+        const $closeAllButton = document.createElement('button');
+        $closeAllButton.textContent = `− close all tools`;
+        $closeAllButton.onclick = () => callbacks.onToolOpenToggle(this, false);
+        return [$openAllButton, ` `, $closeAllButton];
+    }
+}
+
+const p$3 = (...ss) => makeElement('p')()(...ss);
+class OverpassTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.timestamp = '';
+    }
+    onTimestampChange(timestamp) {
+        this.timestamp = timestamp;
+        return true;
+    }
+    getOverpassQueryPreamble(map) {
+        const bounds = map.bounds;
+        let query = '';
+        if (this.timestamp)
+            query += `[date:"${this.timestamp}"]\n`;
+        query += `[bbox:${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}]\n`;
+        query += `;\n`;
+        return query;
+    }
+}
+class OverpassTurboTool extends OverpassTool {
+    constructor() {
+        super('overpass-turbo', `Overpass turbo`);
+    }
+    getInfo() {
+        return [p$3(`Some Overpass queries to run from `, makeLink(`Overpass turbo`, 'https://wiki.openstreetmap.org/wiki/Overpass_turbo'), `, web UI for Overpass API. `, `Useful to inspect historic data at the time a particular note comment was made.`)];
+    }
+    getTool(callbacks, map) {
+        const $overpassButtons = [];
+        const buttonClickListener = (withRelations, onlyAround) => {
+            const e = makeEscapeTag(encodeURIComponent);
+            let query = this.getOverpassQueryPreamble(map);
+            if (withRelations) {
+                query += `nwr`;
+            }
+            else {
+                query += `nw`;
+            }
+            if (onlyAround) {
+                const radius = 10;
+                query += `(around:${radius},${map.lat},${map.lon})`;
+            }
+            query += `;\n`;
+            query += `out meta geom;`;
+            const location = `${map.lat};${map.lon};${map.zoom}`;
+            const url = e `https://overpass-turbo.eu/?C=${location}&Q=${query}`;
+            open(url, 'overpass-turbo');
+        };
+        {
+            const $button = document.createElement('button');
+            $button.append(`Load `, makeMapIcon('area'), ` without relations`);
+            $button.onclick = () => buttonClickListener(false, false);
+            $overpassButtons.push($button);
+        }
+        {
+            const $button = document.createElement('button');
+            $button.append(`Load `, makeMapIcon('area'), ` with relations`);
+            $button.title = `May fetch large unwanted relations like routes.`;
+            $button.onclick = () => buttonClickListener(true, false);
+            $overpassButtons.push($button);
+        }
+        {
+            const $button = document.createElement('button');
+            $button.append(`Load around `, makeMapIcon('center'));
+            $button.onclick = () => buttonClickListener(false, true);
+            $overpassButtons.push($button);
+        }
+        const result = [];
+        for (const $button of $overpassButtons) {
+            result.push(` `, $button);
+        }
+        return result;
+    }
+}
+class OverpassDirectTool extends OverpassTool {
+    constructor() {
+        super('overpass', `Overpass`);
+    }
+    getInfo() {
+        return [p$3(`Query `, makeLink(`Overpass API`, 'https://wiki.openstreetmap.org/wiki/Overpass_API'), ` without going through Overpass turbo. `, `Shows results on the map. Also gives link to the element page on the OSM website.`)];
+    }
+    getTool(callbacks, map) {
+        const $button = document.createElement('button');
+        $button.append(`Find closest node to `, makeMapIcon('center'));
+        const $output = document.createElement('code');
+        $output.textContent = `none`;
+        $button.onclick = async () => {
+            $button.disabled = true;
+            $output.textContent = `none`;
+            try {
+                const radius = 10;
+                let query = this.getOverpassQueryPreamble(map);
+                query += `node(around:${radius},${map.lat},${map.lon});\n`;
+                query += `out skel;`;
+                const doc = await makeOverpassQuery($button, query);
+                if (!doc)
+                    return;
+                const closestNodeId = getClosestNodeId(doc, map.lat, map.lon);
+                if (!closestNodeId) {
+                    $button.classList.add('error');
+                    $button.title = `Could not find nodes nearby`;
+                    return;
+                }
+                const url = `https://www.openstreetmap.org/node/` + encodeURIComponent(closestNodeId);
+                const $a = makeLink(`link`, url);
+                $output.replaceChildren($a);
+                const that = this;
+                downloadAndShowElement($a, map, (readableDate) => makeDateOutput(readableDate, function () {
+                    that.timestamp = this.dateTime;
+                    callbacks.onTimestampChange(that, this.dateTime);
+                }), 'node', closestNodeId);
+            }
+            finally {
+                $button.disabled = false;
+            }
+        };
+        return [$button, ` → `, $output];
+    }
+}
+async function makeOverpassQuery($button, query) {
+    try {
+        const response = await fetch(`https://www.overpass-api.de/api/interpreter`, {
+            method: 'POST',
+            body: new URLSearchParams({ data: query })
+        });
+        const text = await response.text();
+        if (!response.ok) {
+            setError(`receiving the following message: ${text}`);
+            return;
+        }
+        clearError();
+        return new DOMParser().parseFromString(text, 'text/xml');
+    }
+    catch (ex) {
+        if (ex instanceof TypeError) {
+            setError(`with the following error before receiving a response: ${ex.message}`);
+        }
+        else {
+            setError(`for unknown reason`);
+        }
+    }
+    function setError(reason) {
+        $button.classList.add('error');
+        $button.title = `Overpass query failed ${reason}`;
+    }
+    function clearError() {
+        $button.classList.remove('error');
+        $button.title = '';
+    }
+}
+function getClosestNodeId(doc, centerLat, centerLon) {
+    let closestNodeId;
+    let closestNodeDistanceSquared = Infinity;
+    for (const node of doc.querySelectorAll('node')) {
+        const lat = Number(node.getAttribute('lat'));
+        const lon = Number(node.getAttribute('lon'));
+        const id = node.getAttribute('id');
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) || !id)
+            continue;
+        const distanceSquared = (lat - centerLat) ** 2 + (lon - centerLon) ** 2;
+        if (distanceSquared < closestNodeDistanceSquared) {
+            closestNodeDistanceSquared = distanceSquared;
+            closestNodeId = id;
+        }
+    }
+    return closestNodeId;
+}
+
+const p$2 = (...ss) => makeElement('p')()(...ss);
+const em$1 = (s) => makeElement('em')()(s);
+class RcTool extends Tool {
+    constructor() {
+        super('rc', `RC`, `JOSM (or another editor) Remote Control`);
+        this.selectedNotes = [];
+    }
+    getInfo() {
+        return [p$2(`Load note/map data to an editor with `, makeLink(`remote control`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl'), `.`)];
+    }
+    getTool(callbacks, map) {
+        const e = makeEscapeTag(encodeURIComponent);
+        const $loadNotesButton = this.makeRequiringSelectedNotesButton();
+        $loadNotesButton.append(`Load `, makeNotesIcon('selected'));
+        $loadNotesButton.onclick = async () => {
+            for (const { id } of this.selectedNotes) {
+                const noteUrl = e `https://www.openstreetmap.org/note/${id}`;
+                const rcUrl = e `http://127.0.0.1:8111/import?url=${noteUrl}`;
+                const success = await openRcUrl($loadNotesButton, rcUrl);
+                if (!success)
+                    break;
+            }
+        };
+        const $loadMapButton = document.createElement('button');
+        $loadMapButton.append(`Load `, makeMapIcon('area'));
+        $loadMapButton.onclick = () => {
+            const bounds = map.bounds;
+            const rcUrl = e `http://127.0.0.1:8111/load_and_zoom` +
+                `?left=${bounds.getWest()}&right=${bounds.getEast()}` +
+                `&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`;
+            openRcUrl($loadMapButton, rcUrl);
+        };
+        return [$loadNotesButton, ` `, $loadMapButton];
+    }
+    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) {
+        this.selectedNotes = selectedNotes;
+        return true;
+    }
+}
+class IdTool extends Tool {
+    constructor() {
+        super('id', `iD`);
+    }
+    getInfo() {
+        return [p$2(`Follow your notes by zooming from one place to another in one `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), ` window. `, `It could be faster to do first here in note-viewer than in iD directly because note-viewer won't try to download more data during panning. `, `After zooming in note-viewer, click the `, em$1(`Open`), ` button to open this location in iD. `, `When you go back to note-viewer, zoom to another place and click the `, em$1(`Open`), ` button for the second time, the already opened iD instance zooms to that place. `, `Your edits are not lost between such zooms.`), p$2(`Technical details: this is an attempt to make something like `, em$1(`remote control`), ` in iD editor. `, `Convincing iD to load notes has proven to be tricky. `, `Your best chance of seeing the selected notes is importing them as a `, em$1(`gpx`), ` file. `, `See `, makeLink(`this diary post`, `https://www.openstreetmap.org/user/Anton%20Khorev/diary/398991`), ` for further explanations.`), p$2(`Zooming/panning is easier to do, and that's what is currently implemented. `, `It's not without quirks however. You'll notice that the iD window opened from here doesn't have the OSM website header. `, `This is because the editor is opened at `, makeLink(`/id`, `https://www.openstreetmap.org/id`), ` url instead of `, makeLink(`/edit`, `https://www.openstreetmap.org/edit`), `. `, `It has to be done because otherwise iD won't listen to `, em$1(`#map`), ` changes in the webpage location.`)];
+    }
+    getTool(callbacks, map) {
+        // limited to what hashchange() lets you do here https://github.com/openstreetmap/iD/blob/develop/modules/behavior/hash.js
+        // which is zooming/panning
+        const $zoomButton = document.createElement('button');
+        $zoomButton.append(`Open `, makeMapIcon('center'));
+        $zoomButton.onclick = () => {
+            const e = makeEscapeTag(encodeURIComponent);
+            const url = e `https://www.openstreetmap.org/id#map=${map.zoom}/${map.lat}/${map.lon}`;
+            open(url, 'id');
+        };
+        return [$zoomButton];
+    }
+}
+async function openRcUrl($button, rcUrl) {
+    try {
+        const response = await fetch(rcUrl);
+        if (response.ok) {
+            clearError();
+            return true;
+        }
+    }
+    catch { }
+    setError();
+    return false;
+    function setError() {
+        $button.classList.add('error');
+        $button.title = 'Remote control command failed. Make sure you have an editor open and remote control enabled.';
+    }
+    function clearError() {
+        $button.classList.remove('error');
+        $button.title = '';
+    }
+}
+
+const p$1 = (...ss) => makeElement('p')()(...ss);
+const em = (s) => makeElement('em')()(s);
+const dfn = (s) => makeElement('dfn')()(s);
+const code = (s) => makeElement('code')()(s);
+const ul = (...ss) => makeElement('ul')()(...ss);
+const li = (...ss) => makeElement('li')()(...ss);
+class ExportTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.selectedNotes = [];
+        this.selectedNoteUsers = new Map();
+    }
+    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) {
+        this.selectedNotes = selectedNotes;
+        this.selectedNoteUsers = selectedNoteUsers;
+        return true;
+    }
+    getInfo() {
+        return [
+            ...this.getInfoWithoutDragAndDrop(),
+            p$1(`Instead of clicking the `, em(`Export`), ` button, you can drag it and drop into a place that accepts data sent by `, makeLink(`Drag and Drop API`, `https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`), `. `, `Not many places actually do, and those who do often can handle only plaintext. `, `That's why there's a type selector, with which plaintext format can be forced on transmitted data.`)
+        ];
+    }
+    getTool() {
+        const $optionSelects = Object.fromEntries(Object.entries(this.describeOptions()).map(([key, valuesWithTexts]) => {
+            const $select = document.createElement('select');
+            $select.append(...valuesWithTexts.map(([value, text]) => new Option(text, value)));
+            return [key, $select];
+        }));
+        const $dataTypeSelect = document.createElement('select');
+        $dataTypeSelect.append(...this.listDataTypes().map(type => new Option(type)));
+        const $exportNotesButton = this.makeRequiringSelectedNotesButton();
+        $exportNotesButton.append(`Export `, makeNotesIcon('selected'));
+        $exportNotesButton.onclick = () => {
+            const data = this.generateData(getOptionValues());
+            const filename = this.generateFilename();
+            const file = new File([data], filename);
+            const $a = document.createElement('a');
+            $a.href = URL.createObjectURL(file);
+            $a.download = filename;
+            $a.click();
+            URL.revokeObjectURL($a.href);
+        };
+        $exportNotesButton.draggable = true;
+        $exportNotesButton.ondragstart = (ev) => {
+            const data = this.generateData(getOptionValues());
+            if (!ev.dataTransfer)
+                return;
+            ev.dataTransfer.setData($dataTypeSelect.value, data);
+        };
+        return [
+            $exportNotesButton, ` `,
+            ...this.writeOptions($optionSelects), `, `,
+            makeLabel('inline')(`set `, $dataTypeSelect, ` type in drag and drop events`)
+        ];
+        function getOptionValues() {
+            return Object.fromEntries(Object.entries($optionSelects).map(([key, $select]) => [key, $select.value]));
+        }
+    }
+    getCommentStrings(comments, all) {
+        const ts = [];
+        for (const comment of comments) {
+            let t = '';
+            if (comment.uid) {
+                const username = this.selectedNoteUsers.get(comment.uid);
+                if (username != null) {
+                    t += `${username}`;
+                }
+                else {
+                    t += `user #${comment.uid}`;
+                }
+            }
+            else {
+                t += `anonymous user`;
+            }
+            if (all)
+                t += ` ${comment.action}`;
+            t += ` at ${toReadableDate(comment.date)}`;
+            if (comment.text)
+                t += `: ${comment.text}`;
+            ts.push(t);
+            if (!all)
+                break;
+        }
+        return ts;
+    }
+}
+class GpxTool extends ExportTool {
+    constructor() {
+        super('gpx', `GPX`);
+    }
+    getInfoWithoutDragAndDrop() {
+        return [p$1(`Export selected notes in `, makeLink(`GPX`, 'https://wiki.openstreetmap.org/wiki/GPX'), ` (GPS exchange) format. `, `During the export, each selected note is treated as a waypoint with its name set to note id, description set to comments and link pointing to note's page on the OSM website. `, `This allows OSM notes to be used in applications that can't show them directly. `, `Also it allows a particular selection of notes to be shown if an application can't filter them. `, `One example of such app is `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), `. `, `Unfortunately iD doesn't fully understand the gpx format and can't show links associated with waypoints. `, `You'll have to enable the notes layer in iD and compare its note marker with waypoint markers from the gpx file.`), p$1(`By default only the `, dfn(`first comment`), ` is added to waypoint descriptions. `, `This is because some apps such as iD and especially `, makeLink(`JOSM`, `https://wiki.openstreetmap.org/wiki/JOSM`), ` try to render the entire description in one line next to the waypoint marker, cluttering the map.`), p$1(`It's possible to pretend that note waypoints are connected by a `, makeLink(`route`, `https://www.topografix.com/GPX/1/1/#type_rteType`), ` by using the `, dfn(`connected by route`), ` option. `, `This may help to go from a note to the next one in an app by visually following the route line. `, `There's also the `, dfn(`connected by track`), ` option in case the app makes it easier to work with `, makeLink(`tracks`, `https://www.topografix.com/GPX/1/1/#type_trkType`), ` than with the routes.`)];
+    }
+    describeOptions() {
+        return {
+            connect: [
+                ['no', `without connections`],
+                ['rte', `connected by route`],
+                ['trk', `connected by track`],
+            ],
+            commentQuantity: [
+                ['first', `first comment`],
+                ['all', `all comments`],
+            ]
+        };
+    }
+    writeOptions($selects) {
+        return [
+            makeLabel('inline')(`as waypoints `, $selects.connect), ` `,
+            makeLabel('inline')(`with `, $selects.commentQuantity, ` in descriptions`),
+        ];
+    }
+    listDataTypes() {
+        return ['text/xml', 'application/gpx+xml', 'text/plain'];
+    }
+    generateFilename() {
+        return 'notes.gpx';
+    }
+    generateData(options) {
+        const e = makeEscapeTag(escapeXml);
+        const getPoints = (pointTag, getDetails = () => '') => {
+            let gpx = '';
+            for (const note of this.selectedNotes) {
+                const firstComment = note.comments[0];
+                gpx += e `<${pointTag} lat="${note.lat}" lon="${note.lon}">\n`;
+                if (firstComment)
+                    gpx += e `<time>${toUrlDate(firstComment.date)}</time>\n`;
+                gpx += getDetails(note);
+                gpx += e `</${pointTag}>\n`;
+            }
+            return gpx;
+        };
+        let gpx = e `<?xml version="1.0" encoding="UTF-8" ?>\n`;
+        gpx += e `<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1">\n`;
+        // TODO <name>selected notes of user A</name>
+        gpx += getPoints('wpt', note => {
+            let gpx = '';
+            gpx += e `<name>${note.id}</name>\n`;
+            if (note.comments.length > 0) {
+                gpx += `<desc>`;
+                gpx += this.getCommentStrings(note.comments, options.commentQuantity == 'all').map(escapeXml).join(`&#xA;\n`); // JOSM wants this kind of double newline, otherwise no space between comments is rendered
+                gpx += `</desc>\n`;
+            }
+            const noteUrl = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
+            gpx += e `<link href="${noteUrl}">\n`;
+            gpx += e `<text>note #${note.id} on osm</text>\n`;
+            gpx += e `</link>\n`;
+            gpx += e `<type>${note.status}</type>\n`;
+            return gpx;
+        });
+        if (options.connect == 'rte') {
+            gpx += `<rte>\n`;
+            gpx += getPoints('rtept');
+            gpx += `</rte>\n`;
+        }
+        if (options.connect == 'trk') {
+            gpx += `<trk><trkseg>\n`;
+            gpx += getPoints('trkpt');
+            gpx += `</trkseg></trk>\n`;
+        }
+        gpx += `</gpx>\n`;
+        return gpx;
+    }
+}
+class GeoJsonTool extends ExportTool {
+    constructor() {
+        super('geojson', `GeoJSON`);
+    }
+    getInfoWithoutDragAndDrop() {
+        return [p$1(`Export selected notes in `, makeLink(`GeoJSON`, 'https://wiki.openstreetmap.org/wiki/GeoJSON'), ` format. `, `The exact features and properties exported are made to be close to OSM API `, code(`.json`), ` output:`), ul(li(`the entire note collection is represented as a `, makeLink(`FeatureCollection`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.3')), li(`each note is represented as a `, makeLink(`Point`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.2'), ` `, makeLink(`Feature`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.2'))), p$1(`There are few differences to OSM API output, not including modifications using tool options described later:`), ul(li(`comments don't have `, code(`html`), ` property, their content is available only as plaintext`), li(`dates may be incorrect in case of hidden note comments (something that happens very rarely)`)), p$1(`Like GPX exports, this tool allows OSM notes to be used in applications that can't show them directly. `, `Also it allows a particular selection of notes to be shown if an application can't filter them. `, `One example of such app is `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), `. `, `Given that GeoJSON specification doesn't define what goes into feature properties, the support for rendering notes this way is lower than the one of GPX export. `, `Particularly neither iD nor JOSM seem to render any labels for note markers. `, `Also clicking the marker in JOSM is not going to open the note webpage. `, `On the other hand there's more clarity about how to to display properties outside of the editor map view. `, `All of the properties are displayed like `, makeLink(`OSM tags`, 'https://wiki.openstreetmap.org/wiki/Tags'), `, which opens some possibilities: `), ul(li(`properties are editable in JOSM with a possibility to save results to a file`), li(`it's possible to access the note URL in iD, something that was impossible with GPX format`)), p$1(`While accessing the URLs, note that they are OSM API URLs, not the website URLs you might expect. `, `This is how OSM API outputs them. `, `Since that might be inconvenient, there's an `, dfn(`OSM website URLs`), ` option. `, `With it you're able to select the note url in iD by triple-clicking its value.`), p$1(`Another consequence of displaying properties like tags is that they work best when they are strings. `, `OSM tags are strings, and that's what editors expect to display in their tag views. `, `When used for properties of notes, there's one non-string property: `, em(`comments`), `. `, `iD is unable to display it. `, `If you want to force comments to be represented by strings, like in GPX exports, there's an options for that. `, `There's also option to output each comment as a separate property, making it easier to see them all in the tags table.`), p$1(`It's possible to pretend that note points are connected by a `, makeLink(`LineString`, `https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.4`), ` by using the `, dfn(`connected by line`), ` option. `, `This may help to go from a note to the next one in an app by visually following the route line. `, `However, enabling the line makes it difficult to click on note points in iD.`)];
+    }
+    describeOptions() {
+        return {
+            connect: [
+                ['no', `without connections`],
+                ['line', `connected by line`],
+            ],
+            urls: [
+                ['api', `OSM API`],
+                ['web', `OSM website`],
+            ],
+            commentQuantity: [
+                ['all', `all comments`],
+                ['first', `first comment`],
+            ],
+            commentType: [
+                ['array', `array property`],
+                ['string', `string property`],
+                ['strings', `separate string properties`],
+            ],
+        };
+    }
+    writeOptions($selects) {
+        return [
+            makeLabel('inline')(`as points `, $selects.connect), ` `,
+            makeLabel('inline')(`with `, $selects.urls, ` URLs in properties`), ` and `,
+            makeLabel('inline')($selects.commentQuantity, ` of each note `),
+            makeLabel('inline')(`written as `, $selects.commentType),
+        ];
+    }
+    listDataTypes() {
+        return ['application/json', 'application/geo+json', 'text/plain'];
+    }
+    generateFilename() {
+        return 'notes.geojson'; // JOSM doesn't like .json
+    }
+    generateData(options) {
+        // https://github.com/openstreetmap/openstreetmap-website/blob/master/app/views/api/notes/_note.json.jbuilder
+        const self = this;
+        const e = makeEscapeTag(encodeURIComponent);
+        const features = this.selectedNotes.map(note => ({
+            type: 'Feature',
+            geometry: {
+                type: 'Point',
+                coordinates: [note.lon, note.lat]
+            },
+            properties: {
+                id: note.id,
+                ...generateNoteUrls(note),
+                ...generateNoteDates(note),
+                status: note.status,
+                ...generateNoteComments(note.comments),
+            }
+        }));
+        if (options.connect == 'line' && this.selectedNotes.length > 1) {
+            features.push({
+                type: 'Feature',
+                geometry: {
+                    type: 'LineString',
+                    coordinates: this.selectedNotes.map(note => [note.lon, note.lat]),
+                },
+                properties: null
+            });
+        }
+        const featureCollection = {
+            type: 'FeatureCollection',
+            features
+        };
+        return JSON.stringify(featureCollection, undefined, 2);
+        function generateNoteUrls(note) {
+            if (options.urls == 'web')
+                return {
+                    url: e `https://www.openstreetmap.org/note/${note.id}`
+                };
+            const urlBase = e `https://api.openstreetmap.org/api/0.6/notes/${note.id}`;
+            const result = {
+                url: urlBase + `.json`
+            };
+            if (note.status == 'closed') {
+                result.reopen_url = urlBase + `/reopen.json`;
+            }
+            else {
+                result.comment_url = urlBase + `/comment.json`;
+                result.close_url = urlBase + `/close.json`;
+            }
+            return result;
+        }
+        function generateNoteDates(note) {
+            const result = {};
+            if (note.comments.length > 0) {
+                result.date_created = formatDate(note.comments[0].date);
+                if (note.status == 'closed') {
+                    const closeComment = lastCloseComment(note);
+                    if (closeComment) {
+                        result.closed_at = formatDate(closeComment.date);
+                    }
+                }
+            }
+            return result;
+        }
+        function generateNoteComments(comments) {
+            if (comments.length == 0)
+                return {};
+            if (options.commentType == 'strings') {
+                return Object.fromEntries(self.getCommentStrings(comments, options.commentQuantity == 'all').map((v, i) => ['comment' + (i > 0 ? i + 1 : ''), v.replace(/\n/g, '\n ')]));
+            }
+            else if (options.commentType == 'string') {
+                return {
+                    comments: self.getCommentStrings(comments, options.commentQuantity == 'all').join(`; `).replace(/\n/g, '\n ')
+                };
+            }
+            else {
+                const toPropObject = (comment) => ({
+                    date: formatDate(comment.date),
+                    ...generateCommentUserProperties(comment),
+                    action: comment.action,
+                    text: comment.text
+                });
+                if (options.commentQuantity == 'all') {
+                    return {
+                        comments: comments.map(toPropObject)
+                    };
+                }
+                else {
+                    return {
+                        comments: [toPropObject(comments[0])]
+                    };
+                }
+            }
+        }
+        function generateCommentUserProperties(comment) {
+            const result = {};
+            if (comment.uid == null)
+                return result;
+            result.uid = comment.uid;
+            const username = self.selectedNoteUsers.get(comment.uid);
+            if (username == null)
+                return result;
+            result.user = username;
+            if (options.urls == 'web') {
+                result.user_url = e `https://www.openstreetmap.org/user/${username}`;
+            }
+            else {
+                result.user_url = e `https://api.openstreetmap.org/user/${username}`;
+            }
+            return result;
+        }
+        function lastCloseComment(note) {
+            for (let i = note.comments.length - 1; i >= 0; i--) {
+                if (note.comments[i].action == 'closed')
+                    return note.comments[i];
+            }
+        }
+        function formatDate(date) {
+            return toReadableDate(date) + ' UTC';
+        }
+    }
+}
+
+const p = (...ss) => makeElement('p')()(...ss);
+class StreetViewTool extends Tool {
+    getTool(callbacks, map) {
+        const $viewButton = document.createElement('button');
+        $viewButton.append(`Open `, makeMapIcon('center'));
+        $viewButton.onclick = () => {
+            open(this.generateUrl(map), this.id);
+        };
+        return [$viewButton];
+    }
+}
+class YandexPanoramasTool extends StreetViewTool {
+    constructor() {
+        super('yandex-panoramas', `Y.Panoramas`, `Yandex.Panoramas (Яндекс.Панорамы)`);
+    }
+    getInfo() {
+        return [p(`Open a map location in `, makeLink(`Yandex.Panoramas`, 'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B'), ` street view. `, `Could be useful to find out if an object mentioned in a note existed at a certain point of time. `, `Yandex.Panoramas have a year selector in the upper right corner. Use it to get a photo made close to the date of interest.`)];
+    }
+    generateUrl(map) {
+        const e = makeEscapeTag(encodeURIComponent);
+        const coords = map.lon + ',' + map.lat;
+        return e `https://yandex.ru/maps/?ll=${coords}&panorama%5Bpoint%5D=${coords}&z=${map.zoom}`; // 'll' is required if 'z' argument is present
+    }
+}
+class MapillaryTool extends StreetViewTool {
+    constructor() {
+        super('mapillary', `Mapillary`);
+    }
+    getInfo() {
+        return [p(`Open a map location in `, makeLink(`Mapillary`, 'https://wiki.openstreetmap.org/wiki/Mapillary'), `. `, `Not yet fully implemented. The idea is to jump straight to the best available photo, but in order to do that, Mapillary API has to be queried for available photos. That's impossible to do without an API key.`)];
+    }
+    generateUrl(map) {
+        const e = makeEscapeTag(encodeURIComponent);
+        return e `https://www.mapillary.com/app/?lat=${map.lat}&lng=${map.lon}&z=${map.zoom}&focus=photo`;
+    }
+}
+
+const toolMakerSequence = [
+    () => new AutozoomTool, () => new CommentsTool,
+    () => new TimestampTool, () => new ParseTool,
+    () => new OverpassTurboTool, () => new OverpassDirectTool,
+    () => new RcTool, () => new IdTool,
+    () => new GpxTool, () => new GeoJsonTool,
+    () => new YandexPanoramasTool, () => new MapillaryTool,
+    () => new CountTool, () => new LegendTool, () => new SettingsTool
+];
+
+var _ToolPanel_fitMode;
+class ToolBroadcaster {
+    constructor(tools) {
+        this.tools = tools;
+        this.sources = new Set();
+    }
+    broadcastTimestampChange(fromTool, timestamp) {
+        this.broadcast(fromTool, tool => tool.onTimestampChange(timestamp));
+    }
+    broadcastNoteCountsChange(fromTool, nFetched, nVisible) {
+        this.broadcast(fromTool, tool => tool.onNoteCountsChange(nFetched, nVisible));
+    }
+    broadcastSelectedNotesChange(fromTool, selectedNotes, selectedNoteUsers) {
+        this.broadcast(fromTool, tool => tool.onSelectedNotesChange(selectedNotes, selectedNoteUsers));
+    }
+    broadcast(fromTool, sendMessageToTool) {
+        if (fromTool) {
+            if (this.sources.has(fromTool))
+                return;
+            this.sources.add(fromTool);
+        }
+        for (const [tool, $tool] of this.tools) {
+            if (this.sources.has(tool))
+                continue;
+            const reacted = sendMessageToTool(tool);
+            if (reacted)
+                startOrResetFadeAnimation($tool, 'tool-ping-fade', 'ping');
+        }
+        if (fromTool) {
+            this.sources.delete(fromTool);
+        }
+    }
+}
+class ToolPanel {
+    constructor($container, map, figureDialog, storage) {
+        _ToolPanel_fitMode.set(this, void 0);
+        const tools = [];
+        const toolCallbacks = {
+            onFitModeChange: (fromTool, fitMode) => __classPrivateFieldSet(this, _ToolPanel_fitMode, fitMode, "f"),
+            onCommentsViewChange: (fromTool, onlyFirst, oneLine) => this.onCommentsViewChange?.(onlyFirst, oneLine),
+            onTimestampChange: (fromTool, timestamp) => {
+                this.toolBroadcaster.broadcastTimestampChange(fromTool, timestamp);
+            },
+            onToolOpenToggle: (fromTool, setToOpen) => {
+                for (const [, $tool] of tools)
+                    $tool.open = setToOpen;
+            }
+        };
+        for (const makeTool of toolMakerSequence) {
+            const tool = makeTool();
+            const storageKey = 'commands-' + tool.id;
+            const $toolDetails = document.createElement('details');
+            $toolDetails.classList.add('tool');
+            $toolDetails.open = !!storage.getItem(storageKey);
+            const $toolSummary = document.createElement('summary');
+            $toolSummary.textContent = tool.name;
+            if (tool.title)
+                $toolSummary.title = tool.title;
+            $toolDetails.addEventListener('toggle', () => {
+                if ($toolDetails.open) {
+                    storage.setItem(storageKey, '1');
+                }
+                else {
+                    storage.removeItem(storageKey);
+                }
+            });
+            $toolDetails.append($toolSummary, ...tool.getTool(toolCallbacks, map, figureDialog));
+            $toolDetails.addEventListener('animationend', toolAnimationEndListener);
+            const infoElements = tool.getInfo();
+            if (infoElements) {
+                const $infoDetails = document.createElement('details');
+                $infoDetails.classList.add('info');
+                const $infoSummary = document.createElement('summary');
+                $infoSummary.textContent = `${tool.name} info`;
+                $infoDetails.append($infoSummary, ...infoElements);
+                const $infoButton = document.createElement('button');
+                $infoButton.classList.add('info');
+                $infoButton.innerHTML = `<svg><title>Tool info</title><use href="#tools-info" /></svg>`;
+                const updateInfoButton = () => {
+                    if ($infoDetails.open) {
+                        $infoButton.classList.add('open');
+                    }
+                    else {
+                        $infoButton.classList.remove('open');
+                    }
+                };
+                updateInfoButton();
+                $infoButton.addEventListener('click', () => {
+                    $infoDetails.open = !$infoDetails.open;
+                });
+                $infoDetails.addEventListener('toggle', () => {
+                    updateInfoButton();
+                });
+                $toolDetails.addEventListener('toggle', () => {
+                    if ($toolDetails.open)
+                        return;
+                    $infoDetails.open = false;
+                });
+                $toolDetails.append(` `, $infoButton);
+                $container.append($toolDetails, $infoDetails);
+            }
+            else {
+                $container.append($toolDetails);
+            }
+            tools.push([tool, $toolDetails]);
+        }
+        this.toolBroadcaster = new ToolBroadcaster(tools);
+    }
+    receiveNoteCounts(nFetched, nVisible) {
+        this.toolBroadcaster.broadcastNoteCountsChange(null, nFetched, nVisible);
+    }
+    receiveSelectedNotes(selectedNotes, selectedNoteUsers) {
+        this.toolBroadcaster.broadcastSelectedNotesChange(null, selectedNotes, selectedNoteUsers);
+    }
+    receiveTimestamp(timestamp) {
+        this.toolBroadcaster.broadcastTimestampChange(null, timestamp);
+    }
+    get fitMode() {
+        return __classPrivateFieldGet(this, _ToolPanel_fitMode, "f");
+    }
+}
+_ToolPanel_fitMode = new WeakMap();
+function toolAnimationEndListener() {
+    this.classList.remove('ping');
+}
+
 class ScrollRestorer {
     constructor($scrollingPart) {
         this.$scrollingPart = $scrollingPart;
@@ -5476,6 +5529,8 @@ async function main() {
     const figureDialog = new FigureDialog($figureDialog);
     const navbar = new Navbar(storage, $navbarContainer, map);
     const filterPanel = new NoteFilterPanel($filterContainer);
-    new NoteFetchPanel(storage, db, $fetchContainer, $notesContainer, $moreContainer, $toolContainer, navbar, filterPanel, map, figureDialog, () => scrollRestorer.run($notesContainer));
+    const toolPanel = new ToolPanel($toolContainer, map, figureDialog, storage);
+    const noteTable = new NoteTable($notesContainer, toolPanel, map, filterPanel.noteFilter, figureDialog);
+    new NoteFetchPanel(storage, db, $fetchContainer, $moreContainer, navbar, filterPanel, toolPanel, noteTable, map, figureDialog, () => scrollRestorer.run($notesContainer));
     scrollRestorer.run($notesContainer);
 }
