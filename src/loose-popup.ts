@@ -7,7 +7,7 @@ const makeITEM=makeElement('li')('main')
 
 export default class LooseParserPopup {
 	private $popup=document.createElement('ul')
-	constructor($container: HTMLElement, private installClickListener: ($a:HTMLAnchorElement)=>void) {
+	constructor($container: HTMLElement) {
 		this.$popup.classList.add('loose-parser-popup')
 		this.$popup.onmouseleave=()=>{
 			this.$popup.classList.remove('open')
@@ -42,7 +42,6 @@ export default class LooseParserPopup {
 			$a.dataset.elementType=type
 			$a.dataset.elementId=String(id)
 		}
-		this.installClickListener($a)
 		return $a
 	}
 }

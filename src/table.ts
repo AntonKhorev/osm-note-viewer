@@ -75,10 +75,10 @@ export default class NoteTable {
 			that.noteMarkerClickListener(this)
 		}
 		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver(toolPanel,map,this.noteSectionLayerIdVisibility)
-		this.commentWriter=new CommentWriter(this.map,figureDialog)
+		this.commentWriter=new CommentWriter(figureDialog)
 		$container.append(this.$table)
 		this.reset()
-		const looseParserPopup=new LooseParserPopup($container,($a)=>this.commentWriter.installOsmClickListenerAfterDatasets($a))
+		const looseParserPopup=new LooseParserPopup($container)
 		this.looseParserListener=new LooseParserListener((x,y,text)=>{
 			const parseResult=parseLoose(text)
 			if (!parseResult) return

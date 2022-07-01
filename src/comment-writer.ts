@@ -1,26 +1,10 @@
 import getCommentItems from './comment'
-import {NoteMap} from './map'
 import FigureDialog from './figure'
 import {makeLink} from './util'
 
 export default class CommentWriter {
-	wrappedOsmLinkClickListener: (this: HTMLAnchorElement, ev: MouseEvent) => void
 	wrappedImageLinkClickListener: (this: HTMLAnchorElement, ev: MouseEvent) => void
-	constructor(map: NoteMap, figureDialog: FigureDialog) {
-		this.wrappedOsmLinkClickListener=function(this: HTMLAnchorElement, ev: MouseEvent){
-			const $a=this
-			if (handleMap($a.dataset.zoom,$a.dataset.lat,$a.dataset.lon)) {
-				ev.preventDefault()
-				ev.stopPropagation()
-				return
-			}
-			function handleMap(zoom: string|undefined, lat: string|undefined, lon: string|undefined): boolean {
-				if (!(zoom && lat && lon)) return false
-				figureDialog.close()
-				map.panAndZoomTo([Number(lat),Number(lon)],Number(zoom))
-				return true
-			}
-		}
+	constructor(figureDialog: FigureDialog) {
 		this.wrappedImageLinkClickListener=function(this: HTMLAnchorElement, ev: MouseEvent){
 			const $a=this
 			ev.preventDefault()
@@ -68,7 +52,7 @@ export default class CommentWriter {
 					$a.classList.add('other-note')
 					$a.dataset.noteId=String(item.id)
 				}
-				this.installOsmClickListenerAfterDatasets($a,true) // suppress note link updates because handleNotesUpdate() is going to be run anyway - TODO: or not if ran from parse tool?
+				$a.classList.add('listened','osm')
 				inlineElements.push($a)
 			} else if (item.type=='date') {
 				const $time=makeActiveTimeElement(item.text,item.text)
@@ -86,10 +70,6 @@ export default class CommentWriter {
 			$cell.addEventListener('mouseout',imageCommentHoverListener)
 		}
 		$cell.append(...imageElements,...inlineElements)
-	}
-	installOsmClickListenerAfterDatasets($a: HTMLAnchorElement, suppressUpdateNoteLink=false): void {
-		$a.classList.add('listened','osm')
-		$a.addEventListener('click',this.wrappedOsmLinkClickListener)
 	}
 }
 

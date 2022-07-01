@@ -94,6 +94,10 @@ async function main() {
 		figureDialog.close()
 		downloadAndShowChangeset($a,map,changesetId)
 	}
+	globalEventsListener.mapListener=($a,zoom,lat,lon)=>{
+		figureDialog.close()
+		map.panAndZoomTo([Number(lat),Number(lon)],Number(zoom))
+	}
 
 	const navbar=new Navbar(storage,$navbarContainer,map)
 	const filterPanel=new NoteFilterPanel($filterContainer)

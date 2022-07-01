@@ -3,6 +3,7 @@ export default class GlobalEventListener {
 	noteListener?: ($a: HTMLAnchorElement, noteId: string) => void
 	elementListener?: ($a: HTMLAnchorElement, elementType: string, elementId: string) => void
 	changesetListener?: ($a: HTMLAnchorElement, changesetId: string) => void
+	mapListener?: ($a: HTMLAnchorElement, zoom: string, lat: string, lon: string) => void
 	timestampListener?: (timestamp: string) => void
 	constructor() {
 		document.body.addEventListener('click',ev=>{
@@ -10,22 +11,20 @@ export default class GlobalEventListener {
 			const $e=ev.target.closest('a.listened, time.listened')
 			if ($e instanceof HTMLAnchorElement) {
 				if (this.noteListener && $e.dataset.noteId) {
-					ev.preventDefault()
-					ev.stopPropagation()
 					this.noteListener($e,$e.dataset.noteId)
 				} else if (this.userListener && $e.dataset.userId) {
-					ev.preventDefault()
-					ev.stopPropagation()
 					this.userListener($e,Number($e.dataset.userId),$e.dataset.userName)
 				} else if (this.elementListener && $e.dataset.elementType && $e.dataset.elementId) {
-					ev.preventDefault()
-					ev.stopPropagation()
 					this.elementListener($e,$e.dataset.elementType,$e.dataset.elementId)
 				} else if (this.changesetListener && $e.dataset.changesetId) {
-					ev.preventDefault()
-					ev.stopPropagation()
 					this.changesetListener($e,$e.dataset.changesetId)
+				} else if (this.mapListener && $e.dataset.zoom && $e.dataset.lat && $e.dataset.lon) {
+					this.mapListener($e,$e.dataset.zoom,$e.dataset.lat,$e.dataset.lon)
+				} else {
+					return // don't stop event propagation
 				}
+				ev.preventDefault()
+				ev.stopPropagation()
 			} else if ($e instanceof HTMLTimeElement) {
 				if (this.timestampListener && $e.dateTime) {
 					ev.stopPropagation()
