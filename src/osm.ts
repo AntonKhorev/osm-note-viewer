@@ -322,7 +322,7 @@ function makeElementPopupContents(element: OsmElement): HTMLElement[] {
 		p(
 			`Edited on `,getDate(element.timestamp),
 			` by `,getUser(element),
-			` · Changeset #`,makeLink(String(element.changeset),e`https://www.openstreetmap.org/changeset/${element.changeset}`)
+			` · Changeset #`,getChangeset(element.changeset)
 		)
 	]
 	const $tags=getTags(element.tags)
@@ -362,6 +362,14 @@ function getUser(data: OsmBase): HTMLElement {
 	$a.classList.add('listened')
 	$a.dataset.userName=data.user
 	$a.dataset.userId=String(data.uid)
+	return $a
+}
+
+function getChangeset(changesetId: number): HTMLElement {
+	const cid=String(changesetId)
+	const $a=makeLink(cid,e`https://www.openstreetmap.org/changeset/${cid}`)
+	$a.classList.add('listened')
+	$a.dataset.changesetId=cid
 	return $a
 }
 
