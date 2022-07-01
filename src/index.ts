@@ -8,6 +8,7 @@ import NoteFetchPanel from './fetch-panel'
 import NoteFilterPanel from './filter-panel'
 import NoteTable from './table'
 import ToolPanel from './tool-panel'
+import {downloadAndShowChangeset, downloadAndShowElement} from './osm'
 import {makeDiv} from './util'
 
 const scrollRestorerEnabled=true
@@ -84,6 +85,16 @@ async function main() {
 	const scrollRestorer=new ScrollRestorer($scrollingPart)
 	const map=new NoteMap($mapContainer)
 	const figureDialog=new FigureDialog($figureDialog)
+	globalEventsListener.elementListener=($a,elementType,elementId)=>{
+		if (elementType!='node' && elementType!='way' && elementType!='relation') return false
+		figureDialog.close()
+		downloadAndShowElement($a,map,elementType,elementId)
+	}
+	globalEventsListener.changesetListener=($a,changesetId)=>{
+		figureDialog.close()
+		downloadAndShowChangeset($a,map,changesetId)
+	}
+
 	const navbar=new Navbar(storage,$navbarContainer,map)
 	const filterPanel=new NoteFilterPanel($filterContainer)
 	const toolPanel=new ToolPanel(storage,globalEventsListener,$toolContainer,map,figureDialog)

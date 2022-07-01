@@ -1,7 +1,6 @@
 import getCommentItems from './comment'
 import {NoteMap} from './map'
 import FigureDialog from './figure'
-import {downloadAndShowChangeset, downloadAndShowElement} from './osm'
 import {makeLink} from './util'
 
 export default class CommentWriter {
@@ -18,16 +17,6 @@ export default class CommentWriter {
 				ev.stopPropagation()
 				return
 			}
-			if (handleChangeset($a.dataset.changesetId)) {
-				ev.preventDefault()
-				ev.stopPropagation()
-				return
-			}
-			if (handleElement($a.dataset.elementType,$a.dataset.elementId)) {
-				ev.preventDefault()
-				ev.stopPropagation()
-				return
-			}
 			if (handleMap($a.dataset.zoom,$a.dataset.lat,$a.dataset.lon)) {
 				ev.preventDefault()
 				ev.stopPropagation()
@@ -40,19 +29,6 @@ export default class CommentWriter {
 				if ($noteSection.classList.contains('hidden')) return false
 				figureDialog.close()
 				pingNoteSection($noteSection)
-				return true
-			}
-			function handleChangeset(changesetId: string|undefined): boolean {
-				if (!changesetId) return false
-				figureDialog.close()
-				downloadAndShowChangeset($a,map,changesetId)
-				return true
-			}
-			function handleElement(elementType: string|undefined, elementId: string|undefined): boolean {
-				if (!elementId) return false
-				if (elementType!='node' && elementType!='way' && elementType!='relation') return false
-				figureDialog.close()
-				downloadAndShowElement($a,map,elementType,elementId)
 				return true
 			}
 			function handleMap(zoom: string|undefined, lat: string|undefined, lon: string|undefined): boolean {

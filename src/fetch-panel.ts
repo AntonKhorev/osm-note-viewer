@@ -82,7 +82,7 @@ export default class NoteFetchPanel {
 		modifyHistory(hashQuery,false)
 		startFetcherFromQuery(hashQuery,false)
 
-		globalEventsListener.userListener=(uid: number, username?:string)=>{
+		globalEventsListener.userListener=(_, uid: number, username?:string)=>{
 			const query: NoteSearchQuery = {
 				mode: 'search',
 				closed: -1,
