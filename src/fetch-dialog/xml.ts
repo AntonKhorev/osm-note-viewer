@@ -11,18 +11,42 @@ const li=(...ss: Array<string|HTMLElement>)=>makeElement('li')()(...ss)
 export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 	shortTitle=`XML`
 	title=`Load an XML file containing note ids, then fetch them`
-	private $neisForm=document.createElement('form')
-	private $neisCountryInput=document.createElement('input')
-	private $neisStatusSelect=document.createElement('select')
-	private $neisButton=document.createElement('button')
+	private readonly $neisForm=document.createElement('form')
+		private readonly $neisCountryInput=document.createElement('input')
+		private readonly $neisStatusSelect=document.createElement('select')
+	private readonly $neisFeedForm=document.createElement('form')
+		private readonly $neisFeedCountryInput=document.createElement('input')
+		private readonly $neisFeedStatusInput=document.createElement('input')
+	private readonly $neisCustomForm=document.createElement('form')
+		private readonly $neisCustomCountryInput=document.createElement('input')
+		private readonly $neisCustomStatusInput=document.createElement('input')
+	private readonly $neisButton=document.createElement('button')
 	protected $selectorInput=document.createElement('input')
 	protected $attributeInput=document.createElement('input')
 	protected $fileInput=document.createElement('input')
 	protected writeExtraForms() {
+		this.$neisFeedForm.action=`https://resultmaps.neis-one.org/osm-notes-country-feed`
+		this.$neisFeedForm.target='_blank' // if browser chooses to navigate instead of download, open a new window; file download can't be forced without cooperation from server
+		this.$neisFeedForm.append(
+			hideInput(this.$neisFeedCountryInput,'c'),
+			hideInput(this.$neisFeedStatusInput,'a')
+		)
+		this.$neisCustomForm.action=`https://resultmaps.neis-one.org/osm-notes-country-custom`
+		this.$neisCustomForm.target='_blank'
+		this.$neisCustomForm.append(
+			hideInput(this.$neisCustomCountryInput,'c'),
+			hideInput(this.$neisCustomStatusInput,'query')
+		)
 		this.$neisForm.id='neis-form'
-		this.$neisForm.action=`https://resultmaps.neis-one.org/osm-notes-country-feed`
-		this.$neisForm.target='_blank' // if browser chooses to navigate instead of download, open a new window; file download can't be forced without cooperation from server
-		this.$section.append(this.$neisForm)
+		this.$section.append(
+			this.$neisForm,
+			this.$neisFeedForm,this.$neisCustomForm // fully hidden forms, need to be inserted into document anyway otherwise submit doesn't work
+		)
+		function hideInput($input: HTMLInputElement, name: string): HTMLInputElement {
+			$input.name=name
+			$input.type='hidden'
+			return $input
+		}
 	}
 	protected makeFetchControlDiv(): HTMLDivElement {
 		this.$fileInput.type='file'
@@ -64,7 +88,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 			this.$neisCountryInput.type='text'
 			this.$neisCountryInput.required=true
 			this.$neisCountryInput.classList.add('no-invalid-indication') // because it's inside another form that doesn't require it, don't indicate that it's invalid
-			this.$neisCountryInput.name='c'
+			this.$neisCountryInput.name='country'
 			this.$neisCountryInput.setAttribute('form','neis-form')
 			const $datalist=document.createElement('datalist')
 			$datalist.id='neis-countries-list'
@@ -76,10 +100,11 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 				`Country: `,this.$neisCountryInput,$datalist
 			)))
 		}{
-			this.$neisStatusSelect.name='a'
+			this.$neisStatusSelect.name='status'
 			this.$neisStatusSelect.setAttribute('form','neis-form')
 			this.$neisStatusSelect.append(
-				...neisStatuses.map(c=>new Option(c))
+				...neisFeedStatuses.map(status=>new Option(`${status} (up to a week old)`,status)),
+				new Option(`last updated 500`,'custom')
 			)
 			$fieldset.append(makeDiv()(
 				`Get `,makeLabel()(
@@ -122,9 +147,21 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 		return // TODO clear inputs
 	}
 	protected addEventListeners(): void {
-		this.$neisForm.addEventListener('submit',()=>{
-			this.$selectorInput.value='entry link'
-			this.$attributeInput.value='href'
+		this.$neisForm.addEventListener('submit',ev=>{
+			ev.preventDefault()
+			if (this.$neisStatusSelect.value=='custom') {
+				this.$selectorInput.value='td:nth-child(2)' // td:nth-child(2):not(:empty) - but empty values are skipped anyway
+				this.$attributeInput.value=''
+				this.$neisCustomCountryInput.value=this.$neisCountryInput.value
+				this.$neisCustomStatusInput.value=''
+				this.$neisCustomForm.submit()
+			} else {
+				this.$selectorInput.value='entry link'
+				this.$attributeInput.value='href'
+				this.$neisFeedCountryInput.value=this.$neisCountryInput.value
+				this.$neisFeedStatusInput.value=this.$neisStatusSelect.value
+				this.$neisFeedForm.submit()
+			}
 		})
 		this.$selectorInput.addEventListener('input',()=>{
 			const selector=this.$selectorInput.value
@@ -147,12 +184,13 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 			const files=this.$fileInput.files
 			if (!files) return
 			const [file]=files
+			const fileType=(file.type=='text/html'?'text/html':'text/xml')
 			const reader=new FileReader()
 			reader.readAsText(file)
 			reader.onload=()=>{
 				if (typeof reader.result != 'string') return
 				const parser=new DOMParser()
-				const xmlDoc=parser.parseFromString(reader.result,'text/xml')
+				const xmlDoc=parser.parseFromString(reader.result,fileType)
 				const selector=this.$selectorInput.value
 				const attribute=this.$attributeInput.value
 				const $elements=xmlDoc.querySelectorAll(selector)
@@ -188,7 +226,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 	}
 }
 
-const neisStatuses=[
+const neisFeedStatuses=[
 	'opened',
 	'commented',
 	'reopened',
