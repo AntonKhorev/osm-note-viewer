@@ -1,7 +1,5 @@
 import {Tool, ToolElements, ToolCallbacks, makeMapIcon} from './base'
 import {NoteMap} from '../map'
-import {downloadAndShowElement} from '../osm'
-import {makeDateOutput} from '../comment-writer'
 import {makeElement, makeLink, makeEscapeTag} from '../util'
 
 type InfoElements = Array<string|HTMLElement>
@@ -111,8 +109,10 @@ export class OverpassDirectTool extends OverpassTool {
 				}
 				const url=`https://www.openstreetmap.org/node/`+encodeURIComponent(closestNodeId)
 				const $a=makeLink(`link`,url)
+				$a.dataset.elementType='node'
+				$a.dataset.elementId=String(closestNodeId)
+				$a.classList.add('listened','osm')
 				$output.replaceChildren($a)
-				downloadAndShowElement($a,map,'node',closestNodeId)
 			} finally {
 				$button.disabled=false
 			}
