@@ -19,7 +19,6 @@ export default class NoteTable {
 	private looseParserListener: LooseParserListener
 	private $table = document.createElement('table')
 	private $selectAllCheckbox = document.createElement('input')
-	private noteSectionLayerIdVisibility=new Map<number,boolean>()
 	private $lastClickedNoteSection: HTMLTableSectionElement | undefined
 	private notesById = new Map<number,Note>() // in the future these might be windowed to limit the amount of stuff on one page
 	private usersById = new Map<number,string>()
@@ -74,7 +73,17 @@ export default class NoteTable {
 		this.wrappedNoteMarkerClickListener=function(){
 			that.noteMarkerClickListener(this)
 		}
-		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver(toolPanel,map,this.noteSectionLayerIdVisibility)
+		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver(toolPanel,map,(noteIds)=>{
+			const layerIds: number[] = []
+			for (const noteId of noteIds) {
+				const $noteSection=document.getElementById(`note-`+noteId) // TODO look in $table
+				if (!($noteSection instanceof HTMLTableSectionElement)) continue
+				if (!$noteSection.dataset.layerId) continue
+				const layerId=Number($noteSection.dataset.layerId)
+				layerIds.push(layerId)
+			}
+			return layerIds
+		})
 		this.commentWriter=new CommentWriter(figureDialog)
 		$container.append(this.$table)
 		this.reset()
@@ -149,6 +158,8 @@ export default class NoteTable {
 			const isVisible=this.filter.matchNote(note,getUsername)
 			if (isVisible) nUnfilteredNotes++
 			const $noteSection=this.$table.createTBody()
+			$noteSection.dataset.noteId=String(note.id)
+			this.noteSectionVisibilityObserver.observe($noteSection)
 			this.writeNote($noteSection,note,users,isVisible)
 		}
 		if (this.toolPanel.fitMode=='allNotes') {
@@ -253,12 +264,9 @@ export default class NoteTable {
 		$noteSection.id=`note-${note.id}`
 		$noteSection.classList.add(getStatusClass(note.status))
 		$noteSection.dataset.layerId=String(layerId)
-		$noteSection.dataset.noteId=String(note.id)
 		for (const [event,listener] of this.wrappedNoteSectionListeners) {
 			$noteSection.addEventListener(event,listener)
 		}
-		this.noteSectionLayerIdVisibility.set(layerId,false)
-		this.noteSectionVisibilityObserver.observe($noteSection)
 		if (isVisible) {
 			if (this.$selectAllCheckbox.checked) {
 				this.$selectAllCheckbox.checked=false
@@ -490,34 +498,38 @@ class NoteSectionVisibilityObserver {
 	private visibilityTimeoutId: number | undefined
 	private haltingTimeoutId: number | undefined
 	private isMapFittingHalted: boolean = false
-	constructor(
-		toolPanel: ToolPanel, map: NoteMap,
-		noteSectionLayerIdVisibility: Map<number,boolean>
-	) {
+	private noteIdVisibility = new Map<number,boolean>()
+	constructor(toolPanel: ToolPanel, map: NoteMap, getLayerIds: (noteIds:number[])=>number[]) {
 		const noteSectionVisibilityHandler=()=>{
-			const visibleLayerIds:number[]=[]
-			for (const [layerId,visibility] of noteSectionLayerIdVisibility) {
-				if (visibility) visibleLayerIds.push(layerId)
+			const visibleNoteIds: number[] = []
+			for (const [noteId,visibility] of this.noteIdVisibility) {
+				if (visibility) visibleNoteIds.push(noteId)
 			}
-			map.showNoteTrack(visibleLayerIds)
+			map.showNoteTrack(getLayerIds(visibleNoteIds))
 			if (!this.isMapFittingHalted && toolPanel.fitMode=='inViewNotes') map.fitNoteTrack()
 		}
 		this.intersectionObserver=new IntersectionObserver((entries)=>{
 			for (const entry of entries) {
-				if (!(entry.target instanceof HTMLElement)) continue
-				const layerId=entry.target.dataset.layerId
-				if (layerId==null) continue
-				noteSectionLayerIdVisibility.set(Number(layerId),entry.isIntersecting)
+				const $noteSection=entry.target
+				if (!($noteSection instanceof HTMLElement)) continue
+				if (!$noteSection.dataset.noteId) continue
+				const noteId=Number($noteSection.dataset.noteId)
+				if (!this.noteIdVisibility.has(noteId)) continue
+				this.noteIdVisibility.set(noteId,entry.isIntersecting)
 			}
 			clearTimeout(this.visibilityTimeoutId)
 			this.visibilityTimeoutId=setTimeout(noteSectionVisibilityHandler)
 		})
 	}
 	observe($noteSection: HTMLTableSectionElement): void {
+		if (!$noteSection.dataset.noteId) return
+		const noteId=Number($noteSection.dataset.noteId)
+		this.noteIdVisibility.set(noteId,false)
 		this.intersectionObserver.observe($noteSection)
 	}
 	disconnect() {
 		this.intersectionObserver.disconnect()
+		this.noteIdVisibility.clear()
 	}
 	haltMapFitting(): void {
 		clearTimeout(this.visibilityTimeoutId)
