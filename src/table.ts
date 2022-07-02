@@ -148,74 +148,10 @@ export default class NoteTable {
 		for (const note of noteSequence) {
 			const isVisible=this.filter.matchNote(note,getUsername)
 			if (isVisible) nUnfilteredNotes++
-			const $noteSection=this.writeNote(note,isVisible)
-			let $row=$noteSection.insertRow()
-			const nComments=note.comments.length
-			{
-				const $cell=$row.insertCell()
-				$cell.classList.add('note-checkbox')
-				if (nComments>1) $cell.rowSpan=nComments
-				const $checkbox=document.createElement('input')
-				$checkbox.type='checkbox'
-				$checkbox.title=`shift+click to check/uncheck a range`
-				$checkbox.addEventListener('click',this.wrappedNoteCheckboxClickListener)
-				$cell.append($checkbox)
-			}
-			{
-				const $cell=$row.insertCell()
-				if (nComments>1) $cell.rowSpan=nComments
-				const $a=document.createElement('a')
-				$a.href=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.id)
-				$a.dataset.noteId=$a.textContent=`${note.id}`
-				$a.dataset.self='yes'
-				$a.classList.add('listened')
-				$cell.append($a)
-			}
-			let iComment=0
-			for (const comment of note.comments) {
-				{
-					if (iComment>0) {
-						$row=$noteSection.insertRow()
-					}
-				}{
-					const $cell=$row.insertCell()
-					$cell.classList.add('note-date')
-					$cell.append(makeDateOutput(toReadableDate(comment.date)))
-				}{
-					const $cell=$row.insertCell()
-					$cell.classList.add('note-user')
-					if (comment.uid!=null) {
-						const username=users[comment.uid]
-						if (username!=null) {
-							const $a=makeUserNameLink(username)
-							$a.classList.add('listened')
-							$a.dataset.userName=username
-							$a.dataset.userId=String(comment.uid)
-							$cell.append($a)
-						} else {
-							$cell.append(`#${comment.uid}`)
-						}
-					}
-				}{
-					let svgs=`<svg class="icon-status-${getActionClass(comment.action)}">`+
-						`<title>${comment.action}</title><use href="#table-note" />`+
-					`</svg>`
-					if (note.comments.length>1) {
-						svgs+=` <svg class="icon-comments-count">`+
-							`<title>number of additional comments</title><use href="#table-comments" /><text x="8" y="8">${note.comments.length-1}</text>`+
-						`</svg>`
-					}
-					const $cell=$row.insertCell()
-					$cell.classList.add('note-action')
-					$cell.innerHTML=svgs
-				}{
-					const $cell=$row.insertCell()
-					$cell.classList.add('note-comment')
-					this.commentWriter.writeComment($cell,comment.text,this.showImages)
-					this.looseParserListener.listen($cell)
-				}
-				iComment++
-			}
+			const $noteSection=this.$table.createTBody()
+			const marker=new NoteMarker(note)
+			marker.on('click',this.wrappedNoteMarkerClickListener)
+			this.writeNote($noteSection,marker,note,users,isVisible)
 		}
 		if (this.toolPanel.fitMode=='allNotes') {
 			this.map.fitNotes()
@@ -233,7 +169,21 @@ export default class NoteTable {
 		return nUnfilteredNotes
 	}
 	replaceNote(note: Note, users: Users): void {
-		console.log('TODO replace note',note,users) ///
+		const $noteSection=document.getElementById(`note-`+note.id) // TODO look in $table
+		if (!($noteSection instanceof HTMLTableSectionElement)) return
+		const layerId=Number($noteSection.dataset.layerId)
+		const marker=this.map.noteLayer.getLayer(layerId)
+		if (!(marker instanceof NoteMarker)) return
+		// remember note and users
+		this.notesById.set(note.id,note)
+		for (const [uid,username] of Object.entries(users)) {
+			this.usersById.set(Number(uid),username)
+		}
+		// output table section
+		$noteSection.innerHTML=''
+		const getUsername=(uid:number)=>users[uid]
+		const isVisible=this.filter.matchNote(note,getUsername)
+		this.writeNote($noteSection,marker,note,users,isVisible)
 	}
 	getVisibleNoteIds(): number[] {
 		const ids: number[] = []
@@ -296,13 +246,13 @@ export default class NoteTable {
 			return $cell
 		}
 	}
-	private writeNote(note: Note, isVisible: boolean): HTMLTableSectionElement {
-		const marker=new NoteMarker(note)
+	private writeNote(
+		$noteSection: HTMLTableSectionElement, marker: NoteMarker,
+		note: Note, users: Users, isVisible: boolean
+	): void {
 		const parentLayer=(isVisible ? this.map.noteLayer : this.map.filteredNoteLayer)
 		marker.addTo(parentLayer)
-		marker.on('click',this.wrappedNoteMarkerClickListener)
 		const layerId=this.map.noteLayer.getLayerId(marker)
-		const $noteSection=this.$table.createTBody()
 		if (!isVisible) $noteSection.classList.add('hidden')
 		$noteSection.id=`note-${note.id}`
 		$noteSection.classList.add(getStatusClass(note.status))
@@ -319,7 +269,73 @@ export default class NoteTable {
 				this.$selectAllCheckbox.indeterminate=true
 			}
 		}
-		return $noteSection
+		let $row=$noteSection.insertRow()
+		const nComments=note.comments.length
+		{
+			const $cell=$row.insertCell()
+			$cell.classList.add('note-checkbox')
+			if (nComments>1) $cell.rowSpan=nComments
+			const $checkbox=document.createElement('input')
+			$checkbox.type='checkbox'
+			$checkbox.title=`shift+click to check/uncheck a range`
+			$checkbox.addEventListener('click',this.wrappedNoteCheckboxClickListener)
+			$cell.append($checkbox)
+		}
+		{
+			const $cell=$row.insertCell()
+			if (nComments>1) $cell.rowSpan=nComments
+			const $a=document.createElement('a')
+			$a.href=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.id)
+			$a.dataset.noteId=$a.textContent=`${note.id}`
+			$a.dataset.self='yes'
+			$a.classList.add('listened')
+			$cell.append($a)
+		}
+		let iComment=0
+		for (const comment of note.comments) {
+			{
+				if (iComment>0) {
+					$row=$noteSection.insertRow()
+				}
+			}{
+				const $cell=$row.insertCell()
+				$cell.classList.add('note-date')
+				$cell.append(makeDateOutput(toReadableDate(comment.date)))
+			}{
+				const $cell=$row.insertCell()
+				$cell.classList.add('note-user')
+				if (comment.uid!=null) {
+					const username=users[comment.uid]
+					if (username!=null) {
+						const $a=makeUserNameLink(username)
+						$a.classList.add('listened')
+						$a.dataset.userName=username
+						$a.dataset.userId=String(comment.uid)
+						$cell.append($a)
+					} else {
+						$cell.append(`#${comment.uid}`)
+					}
+				}
+			}{
+				let svgs=`<svg class="icon-status-${getActionClass(comment.action)}">`+
+					`<title>${comment.action}</title><use href="#table-note" />`+
+				`</svg>`
+				if (note.comments.length>1) {
+					svgs+=` <svg class="icon-comments-count">`+
+						`<title>number of additional comments</title><use href="#table-comments" /><text x="8" y="8">${note.comments.length-1}</text>`+
+					`</svg>`
+				}
+				const $cell=$row.insertCell()
+				$cell.classList.add('note-action')
+				$cell.innerHTML=svgs
+			}{
+				const $cell=$row.insertCell()
+				$cell.classList.add('note-comment')
+				this.commentWriter.writeComment($cell,comment.text,this.showImages)
+				this.looseParserListener.listen($cell)
+			}
+			iComment++
+		}
 	}
 	private noteMarkerClickListener(marker: NoteMarker): void {
 		const $noteSection=document.getElementById(`note-`+marker.noteId)
