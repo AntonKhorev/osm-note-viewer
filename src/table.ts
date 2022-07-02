@@ -149,9 +149,7 @@ export default class NoteTable {
 			const isVisible=this.filter.matchNote(note,getUsername)
 			if (isVisible) nUnfilteredNotes++
 			const $noteSection=this.$table.createTBody()
-			const marker=new NoteMarker(note)
-			marker.on('click',this.wrappedNoteMarkerClickListener)
-			this.writeNote($noteSection,marker,note,users,isVisible)
+			this.writeNote($noteSection,note,users,isVisible)
 		}
 		if (this.toolPanel.fitMode=='allNotes') {
 			this.map.fitNotes()
@@ -167,6 +165,8 @@ export default class NoteTable {
 		const layerId=Number($noteSection.dataset.layerId)
 		const marker=this.map.noteLayer.getLayer(layerId)
 		if (!(marker instanceof NoteMarker)) return
+		this.map.noteLayer.removeLayer(marker)
+		this.map.filteredNoteLayer.removeLayer(marker)
 		// remember note and users
 		this.notesById.set(note.id,note)
 		for (const [uid,username] of Object.entries(users)) {
@@ -176,7 +176,7 @@ export default class NoteTable {
 		$noteSection.innerHTML=''
 		const getUsername=(uid:number)=>users[uid]
 		const isVisible=this.filter.matchNote(note,getUsername)
-		this.writeNote($noteSection,marker,note,users,isVisible)
+		this.writeNote($noteSection,note,users,isVisible)
 		this.sendNoteCountsUpdate() // TODO only do if visibility changed
 	}
 	getVisibleNoteIds(): number[] {
@@ -241,11 +241,13 @@ export default class NoteTable {
 		}
 	}
 	private writeNote(
-		$noteSection: HTMLTableSectionElement, marker: NoteMarker,
+		$noteSection: HTMLTableSectionElement,
 		note: Note, users: Users, isVisible: boolean
 	): void {
+		const marker=new NoteMarker(note)
 		const parentLayer=(isVisible ? this.map.noteLayer : this.map.filteredNoteLayer)
 		marker.addTo(parentLayer)
+		marker.on('click',this.wrappedNoteMarkerClickListener)
 		const layerId=this.map.noteLayer.getLayerId(marker)
 		if (!isVisible) $noteSection.classList.add('hidden')
 		$noteSection.id=`note-${note.id}`
