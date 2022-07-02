@@ -229,7 +229,6 @@ export abstract class NoteFetcher {
 		$a.classList.add('loading')
 		try {
 			const url=e`https://api.openstreetmap.org/api/0.6/notes/${noteId}.json`
-			// TODO
 			const response=await fetch(url)
 			if (!response.ok) throw new TypeError(`note reload failed`)
 			const data=await response.json()

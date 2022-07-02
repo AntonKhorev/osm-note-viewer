@@ -276,8 +276,7 @@ export default class NoteTable {
 			$checkbox.title=`shift+click to check/uncheck a range`
 			$checkbox.addEventListener('click',this.wrappedNoteCheckboxClickListener)
 			$cell.append($checkbox)
-		}
-		{
+		}{
 			const $cell=$row.insertCell()
 			if (nComments>1) $cell.rowSpan=nComments
 			const $a=document.createElement('a')
@@ -285,6 +284,7 @@ export default class NoteTable {
 			$a.dataset.noteId=$a.textContent=`${note.id}`
 			$a.dataset.self='yes'
 			$a.classList.add('listened')
+			$a.title=`click to reload the note if you know it was updated or want to check it`
 			$cell.append($a)
 		}
 		let iComment=0
