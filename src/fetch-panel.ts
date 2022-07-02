@@ -14,13 +14,15 @@ import {NoteFetchDialogSharedCheckboxes,
 } from './fetch-dialog'
 
 export default class NoteFetchPanel {
+	private runningFetcher?: NoteFetcher
 	constructor(
 		storage: NoteViewerStorage, db: NoteViewerDB, globalEventsListener: GlobalEventsListener,
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		navbar: Navbar, filterPanel: NoteFilterPanel,
-		noteTable: NoteTable, map: NoteMap, figureDialog: FigureDialog,
+		private noteTable: NoteTable, map: NoteMap, figureDialog: FigureDialog,
 		restoreScrollPosition: ()=>void
 	) {
+		const self=this
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
 		const $sharedCheckboxes: NoteFetchDialogSharedCheckboxes = {
 			showImages: [],
@@ -142,6 +144,7 @@ export default class NoteFetchPanel {
 			filterPanel.unsubscribe()
 			filterPanel.subscribe(noteFilter=>noteTable.updateFilter(noteFilter))
 			if (dialog.needToSuppressFitNotes()) map.needToFitNotes=false
+			self.runningFetcher=fetcher
 			fetcher.start(
 				db,
 				noteTable,$moreContainer,
@@ -164,6 +167,10 @@ export default class NoteFetchPanel {
 				stateChangeListener(state)
 			}
 		}
+	}
+	updateNote($a: HTMLAnchorElement, noteId: number): void {
+		if (!this.runningFetcher) return
+		this.runningFetcher.updateNote($a,noteId,this.noteTable)
 	}
 }
 

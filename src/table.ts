@@ -166,7 +166,9 @@ export default class NoteTable {
 				if (nComments>1) $cell.rowSpan=nComments
 				const $a=document.createElement('a')
 				$a.href=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.id)
-				$a.textContent=`${note.id}`
+				$a.dataset.noteId=$a.textContent=`${note.id}`
+				$a.dataset.self='yes'
+				$a.classList.add('listened')
 				$cell.append($a)
 			}
 			let iComment=0
@@ -229,6 +231,9 @@ export default class NoteTable {
 		}
 		this.toolPanel.receiveNoteCounts(nFetched,nVisible)
 		return nUnfilteredNotes
+	}
+	replaceNote(note: Note, users: Users): void {
+		console.log('TODO replace note',note,users) ///
 	}
 	getVisibleNoteIds(): number[] {
 		const ids: number[] = []

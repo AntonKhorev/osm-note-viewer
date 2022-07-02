@@ -224,6 +224,34 @@ export abstract class NoteFetcher {
 			$moreContainer.append(makeDiv()($button))
 		}
 	}
+	async updateNote($a: HTMLAnchorElement, noteId: number, noteTable: NoteTable) {
+		// TODO update db
+		$a.classList.add('loading')
+		try {
+			const url=e`https://api.openstreetmap.org/api/0.6/notes/${noteId}.json`
+			// TODO
+			const response=await fetch(url)
+			if (!response.ok) throw new TypeError(`note reload failed`)
+			const data=await response.json()
+			if (!isNoteFeature(data)) throw new TypeError(`note reload received invalid data`)
+			const [newNotes,newUsers]=transformFeatureToNotesAndUsers(data)
+			if (newNotes.length!=1) throw new TypeError(`note reload received unexpected number of notes`)
+			const [newNote]=newNotes
+			if (newNote.id!=noteId) throw new TypeError(`note reload received unexpected note`)
+			$a.classList.remove('absent')
+			$a.title=''
+			noteTable.replaceNote(newNote,newUsers)
+		} catch (ex) {
+			$a.classList.add('absent')
+			if (ex instanceof TypeError) {
+				$a.title=ex.message
+			} else {
+				$a.title=`unknown error ${ex}`
+			}
+		} finally {
+			$a.classList.remove('loading')
+		}
+	}
 	protected abstract getRequestUrlBase(): string
 	protected abstract getRequestUrlPathAndParameters(query: NoteQuery, limit: number): [path:string,parameters:string]|undefined
 	protected abstract getGetCycleFetchDetails(query: NoteQuery): (

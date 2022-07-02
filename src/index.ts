@@ -116,5 +116,8 @@ async function main() {
 		noteTable,map,figureDialog,
 		()=>scrollRestorer.run($notesContainer)
 	)
+	globalEventsListener.noteSelfListener=($a,noteId)=>{
+		fetchPanel.updateNote($a,Number(noteId))
+	}
 	scrollRestorer.run($notesContainer)
 }
