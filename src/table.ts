@@ -158,14 +158,7 @@ export default class NoteTable {
 		} else {
 			this.map.fitNotesIfNeeded()
 		}
-		let nFetched=0
-		let nVisible=0
-		for (const $noteSection of this.$table.tBodies) {
-			if (!$noteSection.dataset.noteId) continue
-			nFetched++
-			if (!$noteSection.classList.contains('hidden')) nVisible++
-		}
-		this.toolPanel.receiveNoteCounts(nFetched,nVisible)
+		this.sendNoteCountsUpdate()
 		return nUnfilteredNotes
 	}
 	replaceNote(note: Note, users: Users): void {
@@ -184,6 +177,7 @@ export default class NoteTable {
 		const getUsername=(uid:number)=>users[uid]
 		const isVisible=this.filter.matchNote(note,getUsername)
 		this.writeNote($noteSection,marker,note,users,isVisible)
+		this.sendNoteCountsUpdate() // TODO only do if visibility changed
 	}
 	getVisibleNoteIds(): number[] {
 		const ids: number[] = []
@@ -336,6 +330,16 @@ export default class NoteTable {
 			}
 			iComment++
 		}
+	}
+	private sendNoteCountsUpdate(): void {
+		let nFetched=0
+		let nVisible=0
+		for (const $noteSection of this.$table.tBodies) {
+			if (!$noteSection.dataset.noteId) continue
+			nFetched++
+			if (!$noteSection.classList.contains('hidden')) nVisible++
+		}
+		this.toolPanel.receiveNoteCounts(nFetched,nVisible)
 	}
 	private noteMarkerClickListener(marker: NoteMarker): void {
 		const $noteSection=document.getElementById(`note-`+marker.noteId)
