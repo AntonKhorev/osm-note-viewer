@@ -104,11 +104,12 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 			this.$neisStatusSelect.setAttribute('form','neis-form')
 			this.$neisStatusSelect.append(
 				...neisFeedStatuses.map(status=>new Option(`${status} (up to a week old)`,status)),
-				new Option(`last updated 500`,'custom')
+				new Option(`last updated 500`,'custom'),
+				new Option(`last open 10000`,'custom-open'),
 			)
 			$fieldset.append(makeDiv()(
-				`Get `,makeLabel()(
-					`feed of `,this.$neisStatusSelect,` notes`
+				makeLabel()(
+					`Get `,this.$neisStatusSelect,` notes`
 				),` for this country`
 			))
 		}{
@@ -149,11 +150,11 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 	protected addEventListeners(): void {
 		this.$neisForm.addEventListener('submit',ev=>{
 			ev.preventDefault()
-			if (this.$neisStatusSelect.value=='custom') {
+			if (this.$neisStatusSelect.value=='custom' || this.$neisStatusSelect.value=='custom-open') {
 				this.$selectorInput.value='td:nth-child(2)' // td:nth-child(2):not(:empty) - but empty values are skipped anyway
 				this.$attributeInput.value=''
 				this.$neisCustomCountryInput.value=this.$neisCountryInput.value
-				this.$neisCustomStatusInput.value=''
+				this.$neisCustomStatusInput.value=this.$neisStatusSelect.value=='custom-open'?'open':''
 				this.$neisCustomForm.submit()
 			} else {
 				this.$selectorInput.value='entry link'
