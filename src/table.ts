@@ -97,6 +97,7 @@ export default class NoteTable {
 	reset(): void {
 		this.notesById.clear()
 		this.usersById.clear()
+		this.$lastClickedNoteSection=undefined
 		this.noteSectionVisibilityObserver.disconnect()
 		this.$table.innerHTML=''
 		this.toolPanel.receiveNoteCounts(0,0)
