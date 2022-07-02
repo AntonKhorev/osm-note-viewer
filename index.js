@@ -256,7 +256,10 @@ class GlobalEventListener {
                 return;
             const $e = ev.target.closest('a.listened, time.listened');
             if ($e instanceof HTMLAnchorElement) {
-                if (this.noteListener && $e.dataset.noteId) {
+                if (this.noteSelfListener && $e.dataset.noteId && $e.dataset.self) {
+                    this.noteSelfListener($e, $e.dataset.noteId);
+                }
+                else if (this.noteListener && $e.dataset.noteId) {
                     this.noteListener($e, $e.dataset.noteId);
                 }
                 else if (this.userListener && $e.dataset.userId) {
@@ -1582,6 +1585,40 @@ class NoteFetcher {
             $moreContainer.append(makeDiv()($button));
         }
     }
+    async updateNote($a, noteId, noteTable) {
+        // TODO update db
+        $a.classList.add('loading');
+        try {
+            const url = e$2 `https://api.openstreetmap.org/api/0.6/notes/${noteId}.json`;
+            const response = await fetch(url);
+            if (!response.ok)
+                throw new TypeError(`note reload failed`);
+            const data = await response.json();
+            if (!isNoteFeature(data))
+                throw new TypeError(`note reload received invalid data`);
+            const [newNotes, newUsers] = transformFeatureToNotesAndUsers(data);
+            if (newNotes.length != 1)
+                throw new TypeError(`note reload received unexpected number of notes`);
+            const [newNote] = newNotes;
+            if (newNote.id != noteId)
+                throw new TypeError(`note reload received unexpected note`);
+            $a.classList.remove('absent');
+            $a.title = '';
+            noteTable.replaceNote(newNote, newUsers);
+        }
+        catch (ex) {
+            $a.classList.add('absent');
+            if (ex instanceof TypeError) {
+                $a.title = ex.message;
+            }
+            else {
+                $a.title = `unknown error ${ex}`;
+            }
+        }
+        finally {
+            $a.classList.remove('loading');
+        }
+    }
 }
 class NoteFeatureCollectionFetcher extends NoteFetcher {
     accumulateDownloadedData(downloadedNotes, downloadedUsers, data) {
@@ -2247,16 +2284,32 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
         this.$neisForm = document.createElement('form');
         this.$neisCountryInput = document.createElement('input');
         this.$neisStatusSelect = document.createElement('select');
+        this.$neisFeedForm = document.createElement('form');
+        this.$neisFeedCountryInput = document.createElement('input');
+        this.$neisFeedStatusInput = document.createElement('input');
+        this.$neisCustomForm = document.createElement('form');
+        this.$neisCustomCountryInput = document.createElement('input');
+        this.$neisCustomStatusInput = document.createElement('input');
         this.$neisButton = document.createElement('button');
         this.$selectorInput = document.createElement('input');
         this.$attributeInput = document.createElement('input');
         this.$fileInput = document.createElement('input');
     }
     writeExtraForms() {
+        this.$neisFeedForm.action = `https://resultmaps.neis-one.org/osm-notes-country-feed`;
+        this.$neisFeedForm.target = '_blank'; // if browser chooses to navigate instead of download, open a new window; file download can't be forced without cooperation from server
+        this.$neisFeedForm.append(hideInput(this.$neisFeedCountryInput, 'c'), hideInput(this.$neisFeedStatusInput, 'a'));
+        this.$neisCustomForm.action = `https://resultmaps.neis-one.org/osm-notes-country-custom`;
+        this.$neisCustomForm.target = '_blank';
+        this.$neisCustomForm.append(hideInput(this.$neisCustomCountryInput, 'c'), hideInput(this.$neisCustomStatusInput, 'query'));
         this.$neisForm.id = 'neis-form';
-        this.$neisForm.action = `https://resultmaps.neis-one.org/osm-notes-country-feed`;
-        this.$neisForm.target = '_blank'; // if browser chooses to navigate instead of download, open a new window; file download can't be forced without cooperation from server
-        this.$section.append(this.$neisForm);
+        this.$section.append(this.$neisForm, this.$neisFeedForm, this.$neisCustomForm // fully hidden forms, need to be inserted into document anyway otherwise submit doesn't work
+        );
+        function hideInput($input, name) {
+            $input.name = name;
+            $input.type = 'hidden';
+            return $input;
+        }
     }
     makeFetchControlDiv() {
         this.$fileInput.type = 'file';
@@ -2272,7 +2325,7 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
             this.$neisCountryInput.type = 'text';
             this.$neisCountryInput.required = true;
             this.$neisCountryInput.classList.add('no-invalid-indication'); // because it's inside another form that doesn't require it, don't indicate that it's invalid
-            this.$neisCountryInput.name = 'c';
+            this.$neisCountryInput.name = 'country';
             this.$neisCountryInput.setAttribute('form', 'neis-form');
             const $datalist = document.createElement('datalist');
             $datalist.id = 'neis-countries-list';
@@ -2281,10 +2334,10 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
             $fieldset.append(makeDiv('major-input')(makeLabel()(`Country: `, this.$neisCountryInput, $datalist)));
         }
         {
-            this.$neisStatusSelect.name = 'a';
+            this.$neisStatusSelect.name = 'status';
             this.$neisStatusSelect.setAttribute('form', 'neis-form');
-            this.$neisStatusSelect.append(...neisStatuses.map(c => new Option(c)));
-            $fieldset.append(makeDiv()(`Get `, makeLabel()(`feed of `, this.$neisStatusSelect, ` notes`), ` for this country`));
+            this.$neisStatusSelect.append(...neisFeedStatuses.map(status => new Option(`${status} (up to a week old)`, status)), new Option(`last updated 500`, 'custom'), new Option(`last open 10000`, 'custom-open'));
+            $fieldset.append(makeDiv()(makeLabel()(`Get `, this.$neisStatusSelect, ` notes`), ` for this country`));
         }
         {
             this.$neisButton.textContent = 'Download feed file and populate XML fields below';
@@ -2313,9 +2366,22 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
         return; // TODO clear inputs
     }
     addEventListeners() {
-        this.$neisForm.addEventListener('submit', () => {
-            this.$selectorInput.value = 'entry link';
-            this.$attributeInput.value = 'href';
+        this.$neisForm.addEventListener('submit', ev => {
+            ev.preventDefault();
+            if (this.$neisStatusSelect.value == 'custom' || this.$neisStatusSelect.value == 'custom-open') {
+                this.$selectorInput.value = 'td:nth-child(2)'; // td:nth-child(2):not(:empty) - but empty values are skipped anyway
+                this.$attributeInput.value = '';
+                this.$neisCustomCountryInput.value = this.$neisCountryInput.value;
+                this.$neisCustomStatusInput.value = this.$neisStatusSelect.value == 'custom-open' ? 'open' : '';
+                this.$neisCustomForm.submit();
+            }
+            else {
+                this.$selectorInput.value = 'entry link';
+                this.$attributeInput.value = 'href';
+                this.$neisFeedCountryInput.value = this.$neisCountryInput.value;
+                this.$neisFeedStatusInput.value = this.$neisStatusSelect.value;
+                this.$neisFeedForm.submit();
+            }
         });
         this.$selectorInput.addEventListener('input', () => {
             const selector = this.$selectorInput.value;
@@ -2341,13 +2407,14 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
             if (!files)
                 return;
             const [file] = files;
+            const fileType = (file.type == 'text/html' ? 'text/html' : 'text/xml');
             const reader = new FileReader();
             reader.readAsText(file);
             reader.onload = () => {
                 if (typeof reader.result != 'string')
                     return;
                 const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(reader.result, 'text/xml');
+                const xmlDoc = parser.parseFromString(reader.result, fileType);
                 const selector = this.$selectorInput.value;
                 const attribute = this.$attributeInput.value;
                 const $elements = xmlDoc.querySelectorAll(selector);
@@ -2385,7 +2452,7 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
         return [];
     }
 }
-const neisStatuses = [
+const neisFeedStatuses = [
     'opened',
     'commented',
     'reopened',
@@ -2661,15 +2728,15 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
     }
     writeScopeAndOrderFieldset($fieldset) {
         {
-            this.$idsTextarea.required = true;
-            this.$idsTextarea.rows = 10;
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`Note ids separated by anything: `, this.$idsTextarea)));
-        }
-        {
             this.$copySelectedCheckbox.type = 'checkbox';
             this.$copyButton.type = 'button';
             this.$copyButton.textContent = `Copy note ids from table below`;
             $fieldset.append(makeDiv('checkbox-button-input')(this.$copySelectedCheckbox, ' ', this.$copyButton));
+        }
+        {
+            this.$idsTextarea.required = true;
+            this.$idsTextarea.rows = 10;
+            $fieldset.append(makeDiv('major-input')(makeLabel()(`Note ids separated by anything: `, this.$idsTextarea)));
         }
     }
     addEventListeners() {
@@ -2709,6 +2776,8 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
 
 class NoteFetchPanel {
     constructor(storage, db, globalEventsListener, $container, $moreContainer, navbar, filterPanel, noteTable, map, figureDialog, restoreScrollPosition) {
+        this.noteTable = noteTable;
+        const self = this;
         const moreButtonIntersectionObservers = [];
         const $sharedCheckboxes = {
             showImages: [],
@@ -2823,6 +2892,7 @@ class NoteFetchPanel {
             filterPanel.subscribe(noteFilter => noteTable.updateFilter(noteFilter));
             if (dialog.needToSuppressFitNotes())
                 map.needToFitNotes = false;
+            self.runningFetcher = fetcher;
             fetcher.start(db, noteTable, $moreContainer, dialog.$limitSelect, dialog.getAutoLoadChecker(), (disabled) => dialog.disableFetchControl(disabled), moreButtonIntersectionObservers, query, clearStore);
         }
         function handleSharedCheckboxes($checkboxes, stateChangeListener) {
@@ -2837,6 +2907,11 @@ class NoteFetchPanel {
                 stateChangeListener(state);
             }
         }
+    }
+    updateNote($a, noteId) {
+        if (!this.runningFetcher)
+            return;
+        this.runningFetcher.updateNote($a, noteId, this.noteTable);
     }
 }
 function modifyHistory(query, push) {
@@ -3579,7 +3654,6 @@ class NoteTable {
         this.filter = filter;
         this.$table = document.createElement('table');
         this.$selectAllCheckbox = document.createElement('input');
-        this.noteSectionLayerIdVisibility = new Map();
         this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
         this.usersById = new Map();
         this.showImages = false;
@@ -3628,7 +3702,19 @@ class NoteTable {
         this.wrappedNoteMarkerClickListener = function () {
             that.noteMarkerClickListener(this);
         };
-        this.noteSectionVisibilityObserver = new NoteSectionVisibilityObserver(toolPanel, map, this.noteSectionLayerIdVisibility);
+        this.noteSectionVisibilityObserver = new NoteSectionVisibilityObserver(toolPanel, map, (noteIds) => {
+            const layerIds = [];
+            for (const noteId of noteIds) {
+                const $noteSection = document.getElementById(`note-` + noteId); // TODO look in $table
+                if (!($noteSection instanceof HTMLTableSectionElement))
+                    continue;
+                if (!$noteSection.dataset.layerId)
+                    continue;
+                const layerId = Number($noteSection.dataset.layerId);
+                layerIds.push(layerId);
+            }
+            return layerIds;
+        });
         this.commentWriter = new CommentWriter(figureDialog);
         $container.append(this.$table);
         this.reset();
@@ -3643,6 +3729,7 @@ class NoteTable {
     reset() {
         this.notesById.clear();
         this.usersById.clear();
+        this.$lastClickedNoteSection = undefined;
         this.noteSectionVisibilityObserver.disconnect();
         this.$table.innerHTML = '';
         this.toolPanel.receiveNoteCounts(0, 0);
@@ -3708,79 +3795,10 @@ class NoteTable {
             const isVisible = this.filter.matchNote(note, getUsername);
             if (isVisible)
                 nUnfilteredNotes++;
-            const $noteSection = this.writeNote(note, isVisible);
-            let $row = $noteSection.insertRow();
-            const nComments = note.comments.length;
-            {
-                const $cell = $row.insertCell();
-                $cell.classList.add('note-checkbox');
-                if (nComments > 1)
-                    $cell.rowSpan = nComments;
-                const $checkbox = document.createElement('input');
-                $checkbox.type = 'checkbox';
-                $checkbox.title = `shift+click to check/uncheck a range`;
-                $checkbox.addEventListener('click', this.wrappedNoteCheckboxClickListener);
-                $cell.append($checkbox);
-            }
-            {
-                const $cell = $row.insertCell();
-                if (nComments > 1)
-                    $cell.rowSpan = nComments;
-                const $a = document.createElement('a');
-                $a.href = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
-                $a.textContent = `${note.id}`;
-                $cell.append($a);
-            }
-            let iComment = 0;
-            for (const comment of note.comments) {
-                {
-                    if (iComment > 0) {
-                        $row = $noteSection.insertRow();
-                    }
-                }
-                {
-                    const $cell = $row.insertCell();
-                    $cell.classList.add('note-date');
-                    $cell.append(makeDateOutput(toReadableDate(comment.date)));
-                }
-                {
-                    const $cell = $row.insertCell();
-                    $cell.classList.add('note-user');
-                    if (comment.uid != null) {
-                        const username = users[comment.uid];
-                        if (username != null) {
-                            const $a = makeUserNameLink(username);
-                            $a.classList.add('listened');
-                            $a.dataset.userName = username;
-                            $a.dataset.userId = String(comment.uid);
-                            $cell.append($a);
-                        }
-                        else {
-                            $cell.append(`#${comment.uid}`);
-                        }
-                    }
-                }
-                {
-                    let svgs = `<svg class="icon-status-${getActionClass(comment.action)}">` +
-                        `<title>${comment.action}</title><use href="#table-note" />` +
-                        `</svg>`;
-                    if (note.comments.length > 1) {
-                        svgs += ` <svg class="icon-comments-count">` +
-                            `<title>number of additional comments</title><use href="#table-comments" /><text x="8" y="8">${note.comments.length - 1}</text>` +
-                            `</svg>`;
-                    }
-                    const $cell = $row.insertCell();
-                    $cell.classList.add('note-action');
-                    $cell.innerHTML = svgs;
-                }
-                {
-                    const $cell = $row.insertCell();
-                    $cell.classList.add('note-comment');
-                    this.commentWriter.writeComment($cell, comment.text, this.showImages);
-                    this.looseParserListener.listen($cell);
-                }
-                iComment++;
-            }
+            const $noteSection = this.$table.createTBody();
+            $noteSection.dataset.noteId = String(note.id);
+            this.noteSectionVisibilityObserver.observe($noteSection);
+            this.writeNote($noteSection, note, users, isVisible);
         }
         if (this.toolPanel.fitMode == 'allNotes') {
             this.map.fitNotes();
@@ -3788,17 +3806,30 @@ class NoteTable {
         else {
             this.map.fitNotesIfNeeded();
         }
-        let nFetched = 0;
-        let nVisible = 0;
-        for (const $noteSection of this.$table.tBodies) {
-            if (!$noteSection.dataset.noteId)
-                continue;
-            nFetched++;
-            if (!$noteSection.classList.contains('hidden'))
-                nVisible++;
-        }
-        this.toolPanel.receiveNoteCounts(nFetched, nVisible);
+        this.sendNoteCountsUpdate();
         return nUnfilteredNotes;
+    }
+    replaceNote(note, users) {
+        const $noteSection = document.getElementById(`note-` + note.id); // TODO look in $table
+        if (!($noteSection instanceof HTMLTableSectionElement))
+            return;
+        const layerId = Number($noteSection.dataset.layerId);
+        const marker = this.map.noteLayer.getLayer(layerId);
+        if (!(marker instanceof NoteMarker))
+            return;
+        this.map.noteLayer.removeLayer(marker);
+        this.map.filteredNoteLayer.removeLayer(marker);
+        // remember note and users
+        this.notesById.set(note.id, note);
+        for (const [uid, username] of Object.entries(users)) {
+            this.usersById.set(Number(uid), username);
+        }
+        // output table section
+        $noteSection.innerHTML = '';
+        const getUsername = (uid) => users[uid];
+        const isVisible = this.filter.matchNote(note, getUsername);
+        this.writeNote($noteSection, note, users, isVisible);
+        this.sendNoteCountsUpdate(); // TODO only do if visibility changed
     }
     getVisibleNoteIds() {
         const ids = [];
@@ -3858,31 +3889,113 @@ class NoteTable {
             return $cell;
         }
     }
-    writeNote(note, isVisible) {
+    writeNote($noteSection, note, users, isVisible) {
         const marker = new NoteMarker(note);
         const parentLayer = (isVisible ? this.map.noteLayer : this.map.filteredNoteLayer);
         marker.addTo(parentLayer);
         marker.on('click', this.wrappedNoteMarkerClickListener);
         const layerId = this.map.noteLayer.getLayerId(marker);
-        const $noteSection = this.$table.createTBody();
         if (!isVisible)
             $noteSection.classList.add('hidden');
         $noteSection.id = `note-${note.id}`;
         $noteSection.classList.add(getStatusClass(note.status));
         $noteSection.dataset.layerId = String(layerId);
-        $noteSection.dataset.noteId = String(note.id);
         for (const [event, listener] of this.wrappedNoteSectionListeners) {
             $noteSection.addEventListener(event, listener);
         }
-        this.noteSectionLayerIdVisibility.set(layerId, false);
-        this.noteSectionVisibilityObserver.observe($noteSection);
         if (isVisible) {
             if (this.$selectAllCheckbox.checked) {
                 this.$selectAllCheckbox.checked = false;
                 this.$selectAllCheckbox.indeterminate = true;
             }
         }
-        return $noteSection;
+        let $row = $noteSection.insertRow();
+        const nComments = note.comments.length;
+        {
+            const $cell = $row.insertCell();
+            $cell.classList.add('note-checkbox');
+            if (nComments > 1)
+                $cell.rowSpan = nComments;
+            const $checkbox = document.createElement('input');
+            $checkbox.type = 'checkbox';
+            $checkbox.title = `shift+click to check/uncheck a range`;
+            $checkbox.addEventListener('click', this.wrappedNoteCheckboxClickListener);
+            $cell.append($checkbox);
+        }
+        {
+            const $cell = $row.insertCell();
+            if (nComments > 1)
+                $cell.rowSpan = nComments;
+            const $a = document.createElement('a');
+            $a.href = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
+            $a.dataset.noteId = $a.textContent = `${note.id}`;
+            $a.dataset.self = 'yes';
+            $a.classList.add('listened');
+            $a.title = `click to reload the note if you know it was updated or want to check it`;
+            $cell.append($a);
+        }
+        let iComment = 0;
+        for (const comment of note.comments) {
+            {
+                if (iComment > 0) {
+                    $row = $noteSection.insertRow();
+                }
+            }
+            {
+                const $cell = $row.insertCell();
+                $cell.classList.add('note-date');
+                $cell.append(makeDateOutput(toReadableDate(comment.date)));
+            }
+            {
+                const $cell = $row.insertCell();
+                $cell.classList.add('note-user');
+                if (comment.uid != null) {
+                    const username = users[comment.uid];
+                    if (username != null) {
+                        const $a = makeUserNameLink(username);
+                        $a.classList.add('listened');
+                        $a.dataset.userName = username;
+                        $a.dataset.userId = String(comment.uid);
+                        $cell.append($a);
+                    }
+                    else {
+                        $cell.append(`#${comment.uid}`);
+                    }
+                }
+            }
+            {
+                let svgs = `<svg class="icon-status-${getActionClass(comment.action)}">` +
+                    `<title>${comment.action}</title><use href="#table-note" />` +
+                    `</svg>`;
+                if (note.comments.length > 1) {
+                    svgs += ` <svg class="icon-comments-count">` +
+                        `<title>number of additional comments</title><use href="#table-comments" /><text x="8" y="8">${note.comments.length - 1}</text>` +
+                        `</svg>`;
+                }
+                const $cell = $row.insertCell();
+                $cell.classList.add('note-action');
+                $cell.innerHTML = svgs;
+            }
+            {
+                const $cell = $row.insertCell();
+                $cell.classList.add('note-comment');
+                this.commentWriter.writeComment($cell, comment.text, this.showImages);
+                this.looseParserListener.listen($cell);
+            }
+            iComment++;
+        }
+    }
+    sendNoteCountsUpdate() {
+        let nFetched = 0;
+        let nVisible = 0;
+        for (const $noteSection of this.$table.tBodies) {
+            if (!$noteSection.dataset.noteId)
+                continue;
+            nFetched++;
+            if (!$noteSection.classList.contains('hidden'))
+                nVisible++;
+        }
+        this.toolPanel.receiveNoteCounts(nFetched, nVisible);
     }
     noteMarkerClickListener(marker) {
         const $noteSection = document.getElementById(`note-` + marker.noteId);
@@ -4043,36 +4156,45 @@ class NoteTable {
     }
 }
 class NoteSectionVisibilityObserver {
-    constructor(toolPanel, map, noteSectionLayerIdVisibility) {
+    constructor(toolPanel, map, getLayerIds) {
         this.isMapFittingHalted = false;
+        this.noteIdVisibility = new Map();
         const noteSectionVisibilityHandler = () => {
-            const visibleLayerIds = [];
-            for (const [layerId, visibility] of noteSectionLayerIdVisibility) {
+            const visibleNoteIds = [];
+            for (const [noteId, visibility] of this.noteIdVisibility) {
                 if (visibility)
-                    visibleLayerIds.push(layerId);
+                    visibleNoteIds.push(noteId);
             }
-            map.showNoteTrack(visibleLayerIds);
+            map.showNoteTrack(getLayerIds(visibleNoteIds));
             if (!this.isMapFittingHalted && toolPanel.fitMode == 'inViewNotes')
                 map.fitNoteTrack();
         };
         this.intersectionObserver = new IntersectionObserver((entries) => {
             for (const entry of entries) {
-                if (!(entry.target instanceof HTMLElement))
+                const $noteSection = entry.target;
+                if (!($noteSection instanceof HTMLElement))
                     continue;
-                const layerId = entry.target.dataset.layerId;
-                if (layerId == null)
+                if (!$noteSection.dataset.noteId)
                     continue;
-                noteSectionLayerIdVisibility.set(Number(layerId), entry.isIntersecting);
+                const noteId = Number($noteSection.dataset.noteId);
+                if (!this.noteIdVisibility.has(noteId))
+                    continue;
+                this.noteIdVisibility.set(noteId, entry.isIntersecting);
             }
             clearTimeout(this.visibilityTimeoutId);
             this.visibilityTimeoutId = setTimeout(noteSectionVisibilityHandler);
         });
     }
     observe($noteSection) {
+        if (!$noteSection.dataset.noteId)
+            return;
+        const noteId = Number($noteSection.dataset.noteId);
+        this.noteIdVisibility.set(noteId, false);
         this.intersectionObserver.observe($noteSection);
     }
     disconnect() {
         this.intersectionObserver.disconnect();
+        this.noteIdVisibility.clear();
     }
     haltMapFitting() {
         clearTimeout(this.visibilityTimeoutId);
@@ -5553,6 +5675,9 @@ async function main() {
     globalEventsListener.noteListener = ($a, noteId) => {
         noteTable.pingNoteFromLink($a, noteId);
     };
-    new NoteFetchPanel(storage, db, globalEventsListener, $fetchContainer, $moreContainer, navbar, filterPanel, noteTable, map, figureDialog, () => scrollRestorer.run($notesContainer));
+    const fetchPanel = new NoteFetchPanel(storage, db, globalEventsListener, $fetchContainer, $moreContainer, navbar, filterPanel, noteTable, map, figureDialog, () => scrollRestorer.run($notesContainer));
+    globalEventsListener.noteSelfListener = ($a, noteId) => {
+        fetchPanel.updateNote($a, Number(noteId));
+    };
     scrollRestorer.run($notesContainer);
 }
