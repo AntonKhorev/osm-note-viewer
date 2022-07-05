@@ -113,10 +113,7 @@ export function makeNoteIdsQueryFromValue(idsValue: string): NoteIdsQuery {
 	}
 }
 
-export function makeNoteQueryFromHash(queryString: string): NoteQuery | undefined {
-	const paramString = (queryString[0]=='#')
-		? queryString.slice(1)
-		: queryString
+export function makeNoteQueryFromHash(paramString: string): NoteQuery | undefined {
 	const searchParams=new URLSearchParams(paramString)
 	const mode=searchParams.get('mode')
 	if (mode=='search') {

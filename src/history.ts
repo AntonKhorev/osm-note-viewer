@@ -1,6 +1,8 @@
 const scrollRestorerEnabled=true // almost works without this, just won't restore position correctly on forward
 
 export default class GlobalHistory {
+	onMapHashChange?: (mapHash: string) => void
+	onQueryHashChange?: (queryHash: string) => void
 	private rememberScrollPosition=false
 	constructor(
 		private readonly $scrollingPart: HTMLElement,
@@ -19,6 +21,15 @@ export default class GlobalHistory {
 			rememberScrollPositionTimeoutId=setTimeout(replaceScrollPositionInHistory,50)
 			// TODO save more panel open/closed state... actually all panels open/closed states - Firefox does that, Chrome doesn't
 			// ... or save some other kind of position relative to notes table instead of scroll
+		})
+		window.addEventListener('hashchange',()=>{
+			const [queryHash,mapHash]=this.getQueryAndMapHashes()
+			if (this.onMapHashChange && mapHash) {
+				this.onMapHashChange(mapHash)
+			}
+			if (this.onQueryHashChange) {
+				this.onQueryHashChange(queryHash)
+			}
 		})
 	}
 	restoreScrollPosition(): void {
@@ -48,5 +59,44 @@ export default class GlobalHistory {
 			}
 		})
 		resizeObserver.observe(this.$resizeObservationTarget) // observing $scrollingPart won't work because its size doesn't change
+	}
+	getQueryHash(): string {
+		return this.getQueryAndMapHashes()[0]
+	}
+	setQueryHash(queryHash: string, push: boolean): void {
+		let canonicalQueryHash=''
+		if (queryHash) {
+			canonicalQueryHash='#'+queryHash
+		}
+		if (canonicalQueryHash!=location.hash) {
+			const url=canonicalQueryHash||location.pathname+location.search
+			if (push) {
+				history.pushState(null,'',url)
+			} else {
+				history.replaceState(null,'',url)
+			}
+		}
+	}
+	setMapHash(mapHash: string): void {
+		const searchParams=this.getSearchParams()
+		// searchParams.set('map',mapHash)
+		// const canonicalHash='#'+searchParams.toString() // nope because escapes '/' in map param
+		searchParams.delete('map')
+		const queryHash=searchParams.toString()
+		const canonicalHash='#'+queryHash+(queryHash?'&':'')+'map='+mapHash
+		history.replaceState(null,'',canonicalHash)
+	}
+	private getQueryAndMapHashes(): [queryHash: string, mapHash: string|null] {
+		const searchParams=this.getSearchParams()
+		const mapHash=searchParams.get('map')
+		searchParams.delete('map')
+		const queryHash=searchParams.toString()
+		return [queryHash,mapHash]
+	}
+	private getSearchParams(): URLSearchParams {
+		const paramString = (location.hash[0]=='#')
+			? location.hash.slice(1)
+			: location.hash
+		return new URLSearchParams(paramString)
 	}
 }

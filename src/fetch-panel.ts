@@ -21,7 +21,7 @@ export default class NoteFetchPanel {
 		globalEventsListener: GlobalEventsListener, globalHistory: GlobalHistory,
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		navbar: Navbar, filterPanel: NoteFilterPanel,
-		private noteTable: NoteTable, map: NoteMap, figureDialog: FigureDialog,
+		private noteTable: NoteTable, map: NoteMap, figureDialog: FigureDialog
 	) {
 		const self=this
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
@@ -29,7 +29,7 @@ export default class NoteFetchPanel {
 			showImages: [],
 			showRequests: []
 		}
-		const hashQuery=makeNoteQueryFromHash(location.hash)
+		const hashQuery=makeNoteQueryFromHash(globalHistory.getQueryHash())
 
 		// make fetchers and dialogs
 		const searchFetcher=new NoteSearchFetcher()
@@ -73,14 +73,14 @@ export default class NoteFetchPanel {
 			$container.classList.toggle('show-requests',state)
 			$moreContainer.classList.toggle('show-requests',state)
 		})
-		window.addEventListener('hashchange',()=>{
-			const query=makeNoteQueryFromHash(location.hash)
+		globalHistory.onQueryHashChange=(queryHash: string)=>{
+			const query=makeNoteQueryFromHash(queryHash)
 			openQueryDialog(query,false)
 			modifyHistory(query,false) // in case location was edited manually
 			populateInputs(query)
 			startFetcherFromQuery(query,false)
 			globalHistory.restoreScrollPosition()
-		})
+		}
 		openQueryDialog(hashQuery,true)
 		modifyHistory(hashQuery,false)
 		startFetcherFromQuery(hashQuery,false)
@@ -168,25 +168,15 @@ export default class NoteFetchPanel {
 				stateChangeListener(state)
 			}
 		}
+		function modifyHistory(query: NoteQuery|undefined, push: boolean): void {
+			const queryHash = query
+				? makeNoteQueryString(query)
+				: ''
+			globalHistory.setQueryHash(queryHash,push)
+		}
 	}
 	updateNote($a: HTMLAnchorElement, noteId: number): void {
 		if (!this.runningFetcher) return
 		this.runningFetcher.updateNote($a,noteId,this.noteTable)
-	}
-}
-
-function modifyHistory(query: NoteQuery | undefined, push: boolean): void {
-	let canonicalQueryHash=''
-	if (query) {
-		const queryString=makeNoteQueryString(query)
-		if (queryString) canonicalQueryHash='#'+queryString
-	}
-	if (canonicalQueryHash!=location.hash) {
-		const url=canonicalQueryHash||location.pathname+location.search
-		if (push) {
-			history.pushState(null,'',url)
-		} else {
-			history.replaceState(null,'',url)
-		}
 	}
 }

@@ -40,6 +40,14 @@ async function main() {
 
 	const globalHistory=new GlobalHistory($scrollingPart,$notesContainer)
 	const map=new NoteMap($mapContainer)
+	map.onMoveEnd(()=>{
+		globalHistory.setMapHash(`${map.zoom}/${map.lat}/${map.lon}`)
+	})
+	globalHistory.onMapHashChange=(mapHash: string)=>{
+		const [zoom,lat,lon]=mapHash.split('/')
+		console.log('TODO update map',[zoom,lat,lon]) ///
+	}
+	// TODO trigger initial map move
 	const figureDialog=new FigureDialog($figureDialog)
 	globalEventsListener.elementListener=($a,elementType,elementId)=>{
 		if (elementType!='node' && elementType!='way' && elementType!='relation') return false
