@@ -11,17 +11,22 @@ import ToolPanel from './tool-panel'
 import {downloadAndShowChangeset, downloadAndShowElement} from './osm'
 import {makeDiv} from './util'
 
-const scrollRestorerEnabled=true
+const scrollRestorerEnabled=true // almost works without this, just won't restore position correctly on forward
 
 class ScrollRestorer {
 	private rememberScrollPosition=false
 	constructor(private $scrollingPart: HTMLElement) {
 		if (!scrollRestorerEnabled) return
 		history.scrollRestoration='manual'
-		$scrollingPart.addEventListener('scroll',()=>{
-			if (!this.rememberScrollPosition) return
+		const replaceScrollPositionInHistory=()=>{
 			const scrollPosition=$scrollingPart.scrollTop
 			history.replaceState({scrollPosition},'')
+		}
+		let rememberScrollPositionTimeoutId: number
+		$scrollingPart.addEventListener('scroll',()=>{
+			if (!this.rememberScrollPosition) return
+			clearTimeout(rememberScrollPositionTimeoutId)
+			rememberScrollPositionTimeoutId=setTimeout(replaceScrollPositionInHistory,50)
 			// TODO save more panel open/closed state... actually all panels open/closed states - Firefox does that, Chrome doesn't
 			// ... or save some other kind of position relative to notes table instead of scroll
 		})
