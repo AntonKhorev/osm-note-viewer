@@ -84,7 +84,7 @@ export default class NoteTable {
 			}
 			return layerIds
 		})
-		this.commentWriter=new CommentWriter(figureDialog)
+		this.commentWriter=new CommentWriter()
 		$container.append(this.$table)
 		this.reset()
 		const looseParserPopup=new LooseParserPopup($container)

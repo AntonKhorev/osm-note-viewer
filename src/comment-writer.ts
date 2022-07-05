@@ -1,17 +1,7 @@
 import getCommentItems from './comment'
-import FigureDialog from './figure'
 import {makeLink} from './util'
 
 export default class CommentWriter {
-	wrappedImageLinkClickListener: (this: HTMLAnchorElement, ev: MouseEvent) => void
-	constructor(figureDialog: FigureDialog) {
-		this.wrappedImageLinkClickListener=function(this: HTMLAnchorElement, ev: MouseEvent){
-			const $a=this
-			ev.preventDefault()
-			ev.stopPropagation()
-			figureDialog.toggle($a.href)
-		}
-	}
 	makeCommentElements(
 		commentText: string, showImages=false
 	): [
@@ -24,7 +14,6 @@ export default class CommentWriter {
 			if (item.type=='link' && item.link=='image') {
 				const $inlineLink=makeLink(item.href,item.href)
 				$inlineLink.classList.add('listened','image','inline')
-				$inlineLink.addEventListener('click',this.wrappedImageLinkClickListener)
 				inlineElements.push($inlineLink)
 				const $img=document.createElement('img')
 				$img.loading='lazy' // this + display:none is not enough to surely stop the browser from accessing the image link
@@ -35,7 +24,6 @@ export default class CommentWriter {
 				$floatLink.classList.add('listened','image','float')
 				$floatLink.href=item.href
 				$floatLink.append($img)
-				$floatLink.addEventListener('click',this.wrappedImageLinkClickListener)
 				imageElements.push($floatLink)
 			} else if (item.type=='link' && item.link=='osm') {
 				const $a=makeLink(item.text,item.href)

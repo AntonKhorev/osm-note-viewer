@@ -98,6 +98,9 @@ async function main() {
 		figureDialog.close()
 		map.panAndZoomTo([Number(lat),Number(lon)],Number(zoom))
 	}
+	globalEventsListener.imageListener=($a)=>{
+		figureDialog.toggle($a.href)
+	}
 
 	const navbar=new Navbar(storage,$navbarContainer,map)
 	const filterPanel=new NoteFilterPanel($filterContainer)
