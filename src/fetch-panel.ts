@@ -1,6 +1,7 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
 import GlobalEventsListener from './events'
+import GlobalHistory from './history'
 import {NoteMap} from './map'
 import Navbar from './navbar'
 import AboutDialog from './about-dialog'
@@ -16,11 +17,11 @@ import {NoteFetchDialogSharedCheckboxes,
 export default class NoteFetchPanel {
 	private runningFetcher?: NoteFetcher
 	constructor(
-		storage: NoteViewerStorage, db: NoteViewerDB, globalEventsListener: GlobalEventsListener,
+		storage: NoteViewerStorage, db: NoteViewerDB,
+		globalEventsListener: GlobalEventsListener, globalHistory: GlobalHistory,
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		navbar: Navbar, filterPanel: NoteFilterPanel,
 		private noteTable: NoteTable, map: NoteMap, figureDialog: FigureDialog,
-		restoreScrollPosition: ()=>void
 	) {
 		const self=this
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
@@ -78,7 +79,7 @@ export default class NoteFetchPanel {
 			modifyHistory(query,false) // in case location was edited manually
 			populateInputs(query)
 			startFetcherFromQuery(query,false)
-			restoreScrollPosition()
+			globalHistory.restoreScrollPosition()
 		})
 		openQueryDialog(hashQuery,true)
 		modifyHistory(hashQuery,false)

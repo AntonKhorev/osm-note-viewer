@@ -1,6 +1,7 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
 import GlobalEventsListener from './events'
+import GlobalHistory from './history'
 import {NoteMap} from './map'
 import FigureDialog from './figure'
 import Navbar from './navbar'
@@ -10,56 +11,6 @@ import NoteTable from './table'
 import ToolPanel from './tool-panel'
 import {downloadAndShowChangeset, downloadAndShowElement} from './osm'
 import {makeDiv} from './util'
-
-const scrollRestorerEnabled=true // almost works without this, just won't restore position correctly on forward
-
-class ScrollRestorer {
-	private rememberScrollPosition=false
-	constructor(private $scrollingPart: HTMLElement) {
-		if (!scrollRestorerEnabled) return
-		history.scrollRestoration='manual'
-		const replaceScrollPositionInHistory=()=>{
-			const scrollPosition=$scrollingPart.scrollTop
-			history.replaceState({scrollPosition},'')
-		}
-		let rememberScrollPositionTimeoutId: number
-		$scrollingPart.addEventListener('scroll',()=>{
-			if (!this.rememberScrollPosition) return
-			clearTimeout(rememberScrollPositionTimeoutId)
-			rememberScrollPositionTimeoutId=setTimeout(replaceScrollPositionInHistory,50)
-			// TODO save more panel open/closed state... actually all panels open/closed states - Firefox does that, Chrome doesn't
-			// ... or save some other kind of position relative to notes table instead of scroll
-		})
-	}
-	run($resizeObservationTarget: HTMLElement): void {
-		if (!scrollRestorerEnabled) return
-		// requestAnimationFrame and setTimeout(...,0) don't work very well: https://stackoverflow.com/a/38029067
-		// ResizeObserver works better: https://stackoverflow.com/a/66172042
-		this.rememberScrollPosition=false
-		let nRestoreScrollPositionAttempts=0
-		const tryToRestoreScrollPosition: ()=>boolean = ()=>{
-			if (++nRestoreScrollPositionAttempts>10) return true
-			if (!history.state) return true
-			const needToScrollTo=history.state.scrollPosition
-			if (typeof needToScrollTo != 'number') return true
-			const canScrollTo=this.$scrollingPart.scrollHeight-this.$scrollingPart.clientHeight
-			if (needToScrollTo>canScrollTo) return false
-			this.$scrollingPart.scrollTop=needToScrollTo
-			return true
-		}
-		if (tryToRestoreScrollPosition()) {
-			this.rememberScrollPosition=true
-			return
-		}
-		const resizeObserver=new ResizeObserver(()=>{
-			if (tryToRestoreScrollPosition()) {
-				resizeObserver.disconnect()
-				this.rememberScrollPosition=true
-			}
-		})
-		resizeObserver.observe($resizeObservationTarget) // observing $scrollingPart won't work because its size doesn't change
-	}
-}
 
 main()
 
@@ -87,7 +38,7 @@ async function main() {
 	if (flipped) document.body.classList.add('flipped')
 	document.body.append($textSide,$graphicSide)
 
-	const scrollRestorer=new ScrollRestorer($scrollingPart)
+	const globalHistory=new GlobalHistory($scrollingPart,$notesContainer)
 	const map=new NoteMap($mapContainer)
 	const figureDialog=new FigureDialog($figureDialog)
 	globalEventsListener.elementListener=($a,elementType,elementId)=>{
@@ -118,14 +69,13 @@ async function main() {
 		noteTable.pingNoteFromLink($a,noteId)
 	}
 	const fetchPanel=new NoteFetchPanel(
-		storage,db,globalEventsListener,
+		storage,db,globalEventsListener,globalHistory,
 		$fetchContainer,$moreContainer,
 		navbar,filterPanel,
-		noteTable,map,figureDialog,
-		()=>scrollRestorer.run($notesContainer)
+		noteTable,map,figureDialog
 	)
 	globalEventsListener.noteSelfListener=($a,noteId)=>{
 		fetchPanel.updateNote($a,Number(noteId))
 	}
-	scrollRestorer.run($notesContainer)
+	globalHistory.restoreScrollPosition()
 }
