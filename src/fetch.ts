@@ -17,29 +17,31 @@ class FetchState {
 	lastNote: Note | undefined
 	prevLastNote: Note | undefined
 	lastLimit: number | undefined
+	lastTriedPath: string | undefined
 	recordInitialData( // TODO make it ctor
 		initialNotes: Note[], initialUsers: Users
 	) {
 		this.recordData(initialNotes,initialUsers)
 	}
 	recordCycleData(
-		newNotes: Note[], newUsers: Users, usedLimit: number
-	): [
-		unseenNotes: Note[], unseenUsers: Users
-	] {
-		return this.recordData(newNotes,newUsers,usedLimit)
-	}
-	getNextCycleArguments(limit: number): [
-		limit: number, lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined
-	] {
-		return [limit,this.lastNote,this.prevLastNote,this.lastLimit]
-	}
-	private recordData(
-		newNotes: Note[], newUsers: Users, usedLimit?: number
+		newNotes: Note[], newUsers: Users, usedLimit: number, lastTriedPath: string|undefined
 	): [
 		unseenNotes: Note[], unseenUsers: Users
 	] {
 		this.lastLimit=usedLimit
+		if (lastTriedPath!=null) this.lastTriedPath=lastTriedPath
+		return this.recordData(newNotes,newUsers)
+	}
+	getNextCycleArguments(limit: number): [
+		limit: number, lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined, lastTriedPath: string|undefined
+	] {
+		return [limit,this.lastNote,this.prevLastNote,this.lastLimit,this.lastTriedPath]
+	}
+	private recordData(
+		newNotes: Note[], newUsers: Users
+	): [
+		unseenNotes: Note[], unseenUsers: Users
+	] {
 		this.prevLastNote=this.lastNote
 		const unseenNotes: Note[] = []
 		const unseenUsers: Users ={}
@@ -91,6 +93,8 @@ export abstract class NoteFetcher {
 		this.resetLimitUpdater()
 		const getCycleFetchDetails=this.getGetCycleFetchDetails(query)
 		if (!getCycleFetchDetails) return // shouldn't happen
+		const continueCycle=this.getContinueCycle(query,$moreContainer)
+		if (!continueCycle) return // shouldn't happen - and it should be in ctor probably
 		const fetchState=new FetchState()
 		const queryString=makeNoteQueryString(query)
 		const fetchEntry: FetchEntry|null = await(async()=>{
@@ -143,10 +147,16 @@ export abstract class NoteFetcher {
 			try {
 				const downloadedNotes: Note[] = []
 				const downloadedUsers: Users = {}
+				let lastTriedPath: string|undefined
 				for (const pathAndParameters of fetchDetails.pathAndParametersList) {
-					const url=this.constructUrl(...pathAndParameters)
+					const [path,parameters]=pathAndParameters
+					lastTriedPath=path
+					const url=this.constructUrl(path,parameters)
 					const response=await fetch(url)
 					if (!response.ok) {
+						if (response.status==410) { // likely hidden note in ids query
+							continue // TODO report it
+						}
 						const responseText=await response.text()
 						rewriteFetchErrorMessage($moreContainer,query,`received the following error response`,responseText)
 						return
@@ -157,14 +167,14 @@ export abstract class NoteFetcher {
 						return
 					}
 				}
-				const [unseenNotes,unseenUsers]=fetchState.recordCycleData(downloadedNotes,downloadedUsers,fetchDetails.limit)
+				const [unseenNotes,unseenUsers]=fetchState.recordCycleData(downloadedNotes,downloadedUsers,fetchDetails.limit,lastTriedPath)
 				if (fetchEntry) await db.save(fetchEntry,fetchState.notes.values(),unseenNotes,fetchState.users,unseenUsers)
 				if (!noteTable && fetchState.notes.size<=0) {
 					rewriteMessage($moreContainer,`No matching notes found`)
 					return
 				}
 				addNewNotesToTable(unseenNotes)
-				if (!this.continueCycle(fetchState.notes,fetchDetails,downloadedNotes,$moreContainer)) return
+				if (!continueCycle(fetchState.notes,fetchDetails,downloadedNotes,fetchState.lastTriedPath)) return
 				const nextFetchDetails=getCycleFetchDetails(...fetchState.getNextCycleArguments(limit))
 				const $moreButton=rewriteLoadMoreButton()
 				if (holdOffAutoLoad) {
@@ -254,14 +264,12 @@ export abstract class NoteFetcher {
 	protected abstract getRequestUrlBase(): string
 	protected abstract getRequestUrlPathAndParameters(query: NoteQuery, limit: number): [path:string,parameters:string]|undefined
 	protected abstract getGetCycleFetchDetails(query: NoteQuery): (
-		(limit: number, lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined) => NoteFetchDetails
+		(limit: number, lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined, lastTriedPath: string|undefined) => NoteFetchDetails
 	) | undefined
 	protected abstract accumulateDownloadedData(downloadedNotes: Note[], downloadedUsers: Users, data: any): boolean
-	protected abstract continueCycle(
-		notes: Map<number,Note>,
-		fetchDetails: NoteFetchDetails, downloadedNotes: Note[],
-		$moreContainer: HTMLElement
-	): boolean
+	protected abstract getContinueCycle(query: NoteQuery, $moreContainer: HTMLElement): (
+		(notes: Map<number,Note>, fetchDetails: NoteFetchDetails, downloadedNotes: Note[], lastTriedPath: string|undefined) => boolean
+	) | undefined
 }
 
 abstract class NoteFeatureCollectionFetcher extends NoteFetcher {
@@ -283,21 +291,21 @@ export class NoteSearchFetcher extends NoteFeatureCollectionFetcher {
 		return getNextFetchDetails(query,limit).pathAndParametersList[0]
 	}
 	protected getGetCycleFetchDetails(query: NoteQuery): (
-		(limit: number, lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined) => NoteFetchDetails
+		(limit: number, lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined, lastTriedPath: string|undefined) => NoteFetchDetails
 	) | undefined {
 		if (query.mode!='search') return
-		return (limit,lastNote,prevLastNote,lastLimit)=>getNextFetchDetails(query,limit,lastNote,prevLastNote,lastLimit)
+		return (limit,lastNote,prevLastNote,lastLimit,lastTriedPath)=>getNextFetchDetails(query,limit,lastNote,prevLastNote,lastLimit)
 	}
-	protected continueCycle(
-		notes: Map<number,Note>,
-		fetchDetails: NoteFetchDetails, downloadedNotes: Note[],
-		$moreContainer: HTMLElement
-	): boolean {
-		if (downloadedNotes.length<fetchDetails.limit) {
-			rewriteMessage($moreContainer,`Got all ${notes.size} notes`)
-			return false
+	protected getContinueCycle(query: NoteQuery, $moreContainer: HTMLElement): (
+		(notes: Map<number,Note>, fetchDetails: NoteFetchDetails, downloadedNotes: Note[], lastTriedPath: string|undefined) => boolean
+	) | undefined {
+		return (notes,fetchDetails,downloadedNotes,lastTriedPath)=>{
+			if (downloadedNotes.length<fetchDetails.limit) {
+				rewriteMessage($moreContainer,`Got all ${notes.size} notes`)
+				return false
+			}
+			return true
 		}
-		return true
 	}
 }
 
@@ -313,26 +321,26 @@ export class NoteBboxFetcher extends NoteFeatureCollectionFetcher {
 		return e`bbox=${query.bbox}&closed=${query.closed}`
 	}
 	protected getGetCycleFetchDetails(query: NoteQuery): (
-		(limit: number, lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined) => NoteFetchDetails
+		(limit: number, lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined, lastTriedPath: string|undefined) => NoteFetchDetails
 	) | undefined {
 		if (query.mode!='bbox') return
 		const parametersWithoutLimit=this.getRequestUrlParametersWithoutLimit(query)
-		return (limit,lastNote,prevLastNote,lastLimit)=>({
+		return (limit,lastNote,prevLastNote,lastLimit,lastTriedPath)=>({
 			pathAndParametersList: [['',parametersWithoutLimit+e`&limit=${limit}`]],
 			limit
 		})
 	}
-	protected continueCycle(
-		notes: Map<number,Note>,
-		fetchDetails: NoteFetchDetails, downloadedNotes: Note[],
-		$moreContainer: HTMLElement
-	): boolean {
-		if (notes.size<fetchDetails.limit) {
-			rewriteMessage($moreContainer,`Got all ${notes.size} notes in the area`)
-		} else {
-			rewriteMessage($moreContainer,`Got all ${notes.size} requested notes`)
+	protected getContinueCycle(query: NoteQuery, $moreContainer: HTMLElement): (
+		(notes: Map<number,Note>, fetchDetails: NoteFetchDetails, downloadedNotes: Note[], lastTriedPath: string|undefined) => boolean
+	) | undefined {
+		return (notes,fetchDetails,downloadedNotes,lastTriedPath)=>{
+			if (notes.size<fetchDetails.limit) {
+				rewriteMessage($moreContainer,`Got all ${notes.size} notes in the area`)
+			} else {
+				rewriteMessage($moreContainer,`Got all ${notes.size} requested notes`)
+			}
+			return false
 		}
-		return false
 	}
 }
 
@@ -346,18 +354,24 @@ export class NoteIdsFetcher extends NoteFetcher {
 		return [String(query.ids[0]),''] // TODO actually going to do several requests, can list them here somehow?
 	}
 	protected getGetCycleFetchDetails(query: NoteQuery): (
-		(limit: number, lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined) => NoteFetchDetails
+		(limit: number, lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined, lastTriedPath: string|undefined) => NoteFetchDetails
 	) | undefined {
 		if (query.mode!='ids') return
 		const uniqueIds=new Set<number>()
 		for (const id of query.ids) uniqueIds.add(id)
-		return (limit,lastNote,prevLastNote,lastLimit)=>{
+		return (limit,lastNote,prevLastNote,lastLimit,lastTriedPath)=>{
+			const lastTriedId=Number(lastTriedPath)
 			let skip=true
 			const pathAndParametersList: [path: string, parameters: string][] = []
 			for (const id of uniqueIds) {
 				if (pathAndParametersList.length>=limit) break
 				if (skip) {
-					if (lastNote) {
+					if (lastTriedPath) {
+						if (id==lastTriedId) {
+							skip=false
+						}
+						continue
+					} else if (lastNote) { // was restored from db w/o yet making any fetch
 						if (id==lastNote.id) {
 							skip=false
 						}
@@ -381,16 +395,24 @@ export class NoteIdsFetcher extends NoteFetcher {
 		Object.assign(downloadedUsers,newUsers)
 		return true
 	}
-	protected continueCycle(
-		notes: Map<number,Note>,
-		fetchDetails: NoteFetchDetails, downloadedNotes: Note[],
-		$moreContainer: HTMLElement
-	): boolean {
-		if (downloadedNotes.length<fetchDetails.limit) {
-			rewriteMessage($moreContainer,`Got all ${notes.size} notes`)
-			return false
+	protected getContinueCycle(query: NoteQuery, $moreContainer: HTMLElement): (
+		(notes: Map<number,Note>, fetchDetails: NoteFetchDetails, downloadedNotes: Note[], lastTriedPath: string|undefined) => boolean
+	) | undefined {
+		if (query.mode!='ids') return
+		let lastId: number
+		const uniqueIds=new Set<number>()
+		for (const id of query.ids) {
+			if (uniqueIds.has(id)) continue
+			lastId=id
+			uniqueIds.add(id)
 		}
-		return true
+		return (notes,fetchDetails,downloadedNotes,lastTriedPath)=>{
+			if (lastTriedPath!=null && Number(lastTriedPath)==lastId) {
+				rewriteMessage($moreContainer,`Got all ${notes.size} notes`)
+				return false
+			}
+			return true
+		}
 	}
 }
 
