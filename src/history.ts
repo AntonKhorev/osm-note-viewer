@@ -28,7 +28,7 @@ export default class GlobalHistory {
 				this.onMapHashChange(mapHash)
 			}
 			if (this.onQueryHashChange) {
-				this.onQueryHashChange(queryHash)
+				this.onQueryHashChange(queryHash) // TODO don't run if only map hash changed? or don't zoom to notes if map hash present?
 			}
 		})
 	}
@@ -63,14 +63,16 @@ export default class GlobalHistory {
 	getQueryHash(): string {
 		return this.getQueryAndMapHashes()[0]
 	}
-	setQueryHash(queryHash: string, push: boolean): void {
-		let canonicalQueryHash=''
-		if (queryHash) {
-			canonicalQueryHash='#'+queryHash
+	setQueryHash(queryHash: string, pushStateAndRemoveMapHash: boolean): void {
+		let mapHash=''
+		if (!pushStateAndRemoveMapHash) {
+			const searchParams=this.getSearchParams()
+			mapHash=searchParams.get('map')??''
 		}
-		if (canonicalQueryHash!=location.hash) {
-			const url=canonicalQueryHash||location.pathname+location.search
-			if (push) {
+		const fullHash=this.getFullHash(queryHash,mapHash)
+		if (fullHash!=location.hash) {
+			const url=fullHash||location.pathname+location.search
+			if (pushStateAndRemoveMapHash) {
 				history.pushState(null,'',url)
 			} else {
 				history.replaceState(null,'',url)
@@ -79,12 +81,9 @@ export default class GlobalHistory {
 	}
 	setMapHash(mapHash: string): void {
 		const searchParams=this.getSearchParams()
-		// searchParams.set('map',mapHash)
-		// const canonicalHash='#'+searchParams.toString() // nope because escapes '/' in map param
 		searchParams.delete('map')
 		const queryHash=searchParams.toString()
-		const canonicalHash='#'+queryHash+(queryHash?'&':'')+'map='+mapHash
-		history.replaceState(null,'',canonicalHash)
+		history.replaceState(null,'',this.getFullHash(queryHash,mapHash))
 	}
 	private getQueryAndMapHashes(): [queryHash: string, mapHash: string|null] {
 		const searchParams=this.getSearchParams()
@@ -98,5 +97,14 @@ export default class GlobalHistory {
 			? location.hash.slice(1)
 			: location.hash
 		return new URLSearchParams(paramString)
+	}
+	private getFullHash(queryHash: string, mapHash: string): string {
+		let fullHash=queryHash
+		if (mapHash) {
+			if (fullHash) fullHash+='&'
+			fullHash+='map='+mapHash // avoid escaping '/' chars
+		}
+		if (fullHash) fullHash='#'+fullHash
+		return fullHash
 	}
 }
