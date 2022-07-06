@@ -274,6 +274,9 @@ class GlobalEventListener {
                 else if (this.mapListener && $e.dataset.zoom && $e.dataset.lat && $e.dataset.lon) {
                     this.mapListener($e, $e.dataset.zoom, $e.dataset.lat, $e.dataset.lon);
                 }
+                else if (this.imageListener && $e.classList.contains('image')) {
+                    this.imageListener($e);
+                }
                 else {
                     return; // don't stop event propagation
                 }
@@ -287,6 +290,129 @@ class GlobalEventListener {
                 }
             }
         }, true); // need to capture event before it bubbles to note table sections
+    }
+}
+
+class GlobalHistory {
+    constructor($scrollingPart, $resizeObservationTarget) {
+        this.$scrollingPart = $scrollingPart;
+        this.$resizeObservationTarget = $resizeObservationTarget;
+        this.rememberScrollPosition = false;
+        history.scrollRestoration = 'manual';
+        const replaceScrollPositionInHistory = () => {
+            const scrollPosition = $scrollingPart.scrollTop;
+            history.replaceState({ scrollPosition }, '');
+        };
+        let rememberScrollPositionTimeoutId;
+        $scrollingPart.addEventListener('scroll', () => {
+            if (!this.rememberScrollPosition)
+                return;
+            clearTimeout(rememberScrollPositionTimeoutId);
+            rememberScrollPositionTimeoutId = setTimeout(replaceScrollPositionInHistory, 50);
+            // TODO save more panel open/closed state... actually all panels open/closed states - Firefox does that, Chrome doesn't
+            // ... or save some other kind of position relative to notes table instead of scroll
+        });
+        window.addEventListener('hashchange', () => {
+            const [queryHash, mapHash] = this.getQueryAndMapHashes();
+            if (this.onMapHashChange && mapHash) {
+                this.onMapHashChange(mapHash);
+            }
+            if (this.onQueryHashChange) {
+                this.onQueryHashChange(queryHash); // TODO don't run if only map hash changed? or don't zoom to notes if map hash present?
+            }
+        });
+    }
+    triggerInitialMapHashChange() {
+        const [queryHash, mapHash] = this.getQueryAndMapHashes();
+        if (this.onMapHashChange && mapHash) {
+            this.onMapHashChange(mapHash);
+        }
+    }
+    restoreScrollPosition() {
+        // requestAnimationFrame and setTimeout(...,0) don't work very well: https://stackoverflow.com/a/38029067
+        // ResizeObserver works better: https://stackoverflow.com/a/66172042
+        this.rememberScrollPosition = false;
+        let nRestoreScrollPositionAttempts = 0;
+        const tryToRestoreScrollPosition = () => {
+            if (++nRestoreScrollPositionAttempts > 10)
+                return true;
+            if (!history.state)
+                return true;
+            const needToScrollTo = history.state.scrollPosition;
+            if (typeof needToScrollTo != 'number')
+                return true;
+            const canScrollTo = this.$scrollingPart.scrollHeight - this.$scrollingPart.clientHeight;
+            if (needToScrollTo > canScrollTo)
+                return false;
+            this.$scrollingPart.scrollTop = needToScrollTo;
+            return true;
+        };
+        if (tryToRestoreScrollPosition()) {
+            this.rememberScrollPosition = true;
+            return;
+        }
+        const resizeObserver = new ResizeObserver(() => {
+            if (tryToRestoreScrollPosition()) {
+                resizeObserver.disconnect();
+                this.rememberScrollPosition = true;
+            }
+        });
+        resizeObserver.observe(this.$resizeObservationTarget); // observing $scrollingPart won't work because its size doesn't change
+    }
+    getQueryHash() {
+        return this.getQueryAndMapHashes()[0];
+    }
+    setQueryHash(queryHash, pushStateAndRemoveMapHash) {
+        let mapHash = '';
+        if (!pushStateAndRemoveMapHash) {
+            const searchParams = this.getSearchParams();
+            mapHash = searchParams.get('map') ?? '';
+        }
+        const fullHash = this.getFullHash(queryHash, mapHash);
+        if (fullHash != location.hash) {
+            const url = fullHash || location.pathname + location.search;
+            if (pushStateAndRemoveMapHash) {
+                history.pushState(null, '', url);
+            }
+            else {
+                history.replaceState(null, '', url);
+            }
+        }
+    }
+    hasMapHash() {
+        const searchParams = this.getSearchParams();
+        const mapHash = searchParams.get('map');
+        return !!mapHash;
+    }
+    setMapHash(mapHash) {
+        const searchParams = this.getSearchParams();
+        searchParams.delete('map');
+        const queryHash = searchParams.toString();
+        history.replaceState(null, '', this.getFullHash(queryHash, mapHash));
+    }
+    getQueryAndMapHashes() {
+        const searchParams = this.getSearchParams();
+        const mapHash = searchParams.get('map');
+        searchParams.delete('map');
+        const queryHash = searchParams.toString();
+        return [queryHash, mapHash];
+    }
+    getSearchParams() {
+        const paramString = (location.hash[0] == '#')
+            ? location.hash.slice(1)
+            : location.hash;
+        return new URLSearchParams(paramString);
+    }
+    getFullHash(queryHash, mapHash) {
+        let fullHash = queryHash;
+        if (mapHash) {
+            if (fullHash)
+                fullHash += '&';
+            fullHash += 'map=' + mapHash; // avoid escaping '/' chars
+        }
+        if (fullHash)
+            fullHash = '#' + fullHash;
+        return fullHash;
     }
 }
 
@@ -1190,10 +1316,7 @@ function makeNoteIdsQueryFromValue(idsValue) {
         ids
     };
 }
-function makeNoteQueryFromHash(queryString) {
-    const paramString = (queryString[0] == '#')
-        ? queryString.slice(1)
-        : queryString;
+function makeNoteQueryFromHash(paramString) {
     const searchParams = new URLSearchParams(paramString);
     const mode = searchParams.get('mode');
     if (mode == 'search') {
@@ -1380,14 +1503,16 @@ class FetchState {
     initialNotes, initialUsers) {
         this.recordData(initialNotes, initialUsers);
     }
-    recordCycleData(newNotes, newUsers, usedLimit) {
-        return this.recordData(newNotes, newUsers, usedLimit);
+    recordCycleData(newNotes, newUsers, usedLimit, lastTriedPath) {
+        this.lastLimit = usedLimit;
+        if (lastTriedPath != null)
+            this.lastTriedPath = lastTriedPath;
+        return this.recordData(newNotes, newUsers);
     }
     getNextCycleArguments(limit) {
-        return [limit, this.lastNote, this.prevLastNote, this.lastLimit];
+        return [limit, this.lastNote, this.prevLastNote, this.lastLimit, this.lastTriedPath];
     }
-    recordData(newNotes, newUsers, usedLimit) {
-        this.lastLimit = usedLimit;
+    recordData(newNotes, newUsers) {
         this.prevLastNote = this.lastNote;
         const unseenNotes = [];
         const unseenUsers = {};
@@ -1438,6 +1563,9 @@ class NoteFetcher {
         const getCycleFetchDetails = this.getGetCycleFetchDetails(query);
         if (!getCycleFetchDetails)
             return; // shouldn't happen
+        const continueCycle = this.getContinueCycle(query, $moreContainer);
+        if (!continueCycle)
+            return; // shouldn't happen - and it should be in ctor probably
         const fetchState = new FetchState();
         const queryString = makeNoteQueryString(query);
         const fetchEntry = await (async () => {
@@ -1488,10 +1616,16 @@ class NoteFetcher {
             try {
                 const downloadedNotes = [];
                 const downloadedUsers = {};
+                let lastTriedPath;
                 for (const pathAndParameters of fetchDetails.pathAndParametersList) {
-                    const url = this.constructUrl(...pathAndParameters);
+                    const [path, parameters] = pathAndParameters;
+                    lastTriedPath = path;
+                    const url = this.constructUrl(path, parameters);
                     const response = await fetch(url);
                     if (!response.ok) {
+                        if (response.status == 410) { // likely hidden note in ids query
+                            continue; // TODO report it
+                        }
                         const responseText = await response.text();
                         rewriteFetchErrorMessage($moreContainer, query, `received the following error response`, responseText);
                         return;
@@ -1502,7 +1636,7 @@ class NoteFetcher {
                         return;
                     }
                 }
-                const [unseenNotes, unseenUsers] = fetchState.recordCycleData(downloadedNotes, downloadedUsers, fetchDetails.limit);
+                const [unseenNotes, unseenUsers] = fetchState.recordCycleData(downloadedNotes, downloadedUsers, fetchDetails.limit, lastTriedPath);
                 if (fetchEntry)
                     await db.save(fetchEntry, fetchState.notes.values(), unseenNotes, fetchState.users, unseenUsers);
                 if (!noteTable && fetchState.notes.size <= 0) {
@@ -1510,7 +1644,7 @@ class NoteFetcher {
                     return;
                 }
                 addNewNotesToTable(unseenNotes);
-                if (!this.continueCycle(fetchState.notes, fetchDetails, downloadedNotes, $moreContainer))
+                if (!continueCycle(fetchState.notes, fetchDetails, downloadedNotes, fetchState.lastTriedPath))
                     return;
                 const nextFetchDetails = getCycleFetchDetails(...fetchState.getNextCycleArguments(limit));
                 const $moreButton = rewriteLoadMoreButton();
@@ -1642,14 +1776,16 @@ class NoteSearchFetcher extends NoteFeatureCollectionFetcher {
     getGetCycleFetchDetails(query) {
         if (query.mode != 'search')
             return;
-        return (limit, lastNote, prevLastNote, lastLimit) => getNextFetchDetails(query, limit, lastNote, prevLastNote, lastLimit);
+        return (limit, lastNote, prevLastNote, lastLimit, lastTriedPath) => getNextFetchDetails(query, limit, lastNote, prevLastNote, lastLimit);
     }
-    continueCycle(notes, fetchDetails, downloadedNotes, $moreContainer) {
-        if (downloadedNotes.length < fetchDetails.limit) {
-            rewriteMessage($moreContainer, `Got all ${notes.size} notes`);
-            return false;
-        }
-        return true;
+    getContinueCycle(query, $moreContainer) {
+        return (notes, fetchDetails, downloadedNotes, lastTriedPath) => {
+            if (downloadedNotes.length < fetchDetails.limit) {
+                rewriteMessage($moreContainer, `Got all ${notes.size} notes`);
+                return false;
+            }
+            return true;
+        };
     }
 }
 class NoteBboxFetcher extends NoteFeatureCollectionFetcher {
@@ -1668,19 +1804,21 @@ class NoteBboxFetcher extends NoteFeatureCollectionFetcher {
         if (query.mode != 'bbox')
             return;
         const parametersWithoutLimit = this.getRequestUrlParametersWithoutLimit(query);
-        return (limit, lastNote, prevLastNote, lastLimit) => ({
+        return (limit, lastNote, prevLastNote, lastLimit, lastTriedPath) => ({
             pathAndParametersList: [['', parametersWithoutLimit + e$2 `&limit=${limit}`]],
             limit
         });
     }
-    continueCycle(notes, fetchDetails, downloadedNotes, $moreContainer) {
-        if (notes.size < fetchDetails.limit) {
-            rewriteMessage($moreContainer, `Got all ${notes.size} notes in the area`);
-        }
-        else {
-            rewriteMessage($moreContainer, `Got all ${notes.size} requested notes`);
-        }
-        return false;
+    getContinueCycle(query, $moreContainer) {
+        return (notes, fetchDetails, downloadedNotes, lastTriedPath) => {
+            if (notes.size < fetchDetails.limit) {
+                rewriteMessage($moreContainer, `Got all ${notes.size} notes in the area`);
+            }
+            else {
+                rewriteMessage($moreContainer, `Got all ${notes.size} requested notes`);
+            }
+            return false;
+        };
     }
 }
 class NoteIdsFetcher extends NoteFetcher {
@@ -1700,14 +1838,21 @@ class NoteIdsFetcher extends NoteFetcher {
         const uniqueIds = new Set();
         for (const id of query.ids)
             uniqueIds.add(id);
-        return (limit, lastNote, prevLastNote, lastLimit) => {
+        return (limit, lastNote, prevLastNote, lastLimit, lastTriedPath) => {
+            const lastTriedId = Number(lastTriedPath);
             let skip = true;
             const pathAndParametersList = [];
             for (const id of uniqueIds) {
                 if (pathAndParametersList.length >= limit)
                     break;
                 if (skip) {
-                    if (lastNote) {
+                    if (lastTriedPath) {
+                        if (id == lastTriedId) {
+                            skip = false;
+                        }
+                        continue;
+                    }
+                    else if (lastNote) { // was restored from db w/o yet making any fetch
                         if (id == lastNote.id) {
                             skip = false;
                         }
@@ -1733,12 +1878,24 @@ class NoteIdsFetcher extends NoteFetcher {
         Object.assign(downloadedUsers, newUsers);
         return true;
     }
-    continueCycle(notes, fetchDetails, downloadedNotes, $moreContainer) {
-        if (downloadedNotes.length < fetchDetails.limit) {
-            rewriteMessage($moreContainer, `Got all ${notes.size} notes`);
-            return false;
+    getContinueCycle(query, $moreContainer) {
+        if (query.mode != 'ids')
+            return;
+        let lastId;
+        const uniqueIds = new Set();
+        for (const id of query.ids) {
+            if (uniqueIds.has(id))
+                continue;
+            lastId = id;
+            uniqueIds.add(id);
         }
-        return true;
+        return (notes, fetchDetails, downloadedNotes, lastTriedPath) => {
+            if (lastTriedPath != null && Number(lastTriedPath) == lastId) {
+                rewriteMessage($moreContainer, `Got all ${notes.size} notes`);
+                return false;
+            }
+            return true;
+        };
     }
 }
 function rewriteMessage($container, ...items) {
@@ -2775,7 +2932,7 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
 }
 
 class NoteFetchPanel {
-    constructor(storage, db, globalEventsListener, $container, $moreContainer, navbar, filterPanel, noteTable, map, figureDialog, restoreScrollPosition) {
+    constructor(storage, db, globalEventsListener, globalHistory, $container, $moreContainer, navbar, filterPanel, noteTable, map, figureDialog) {
         this.noteTable = noteTable;
         const self = this;
         const moreButtonIntersectionObservers = [];
@@ -2783,7 +2940,7 @@ class NoteFetchPanel {
             showImages: [],
             showRequests: []
         };
-        const hashQuery = makeNoteQueryFromHash(location.hash);
+        const hashQuery = makeNoteQueryFromHash(globalHistory.getQueryHash());
         // make fetchers and dialogs
         const searchFetcher = new NoteSearchFetcher();
         const bboxFetcher = new NoteBboxFetcher();
@@ -2791,7 +2948,7 @@ class NoteFetchPanel {
         const makeSearchDialog = (fetcher, fetchDialogCtor) => {
             const dialog = fetchDialogCtor((query, limit) => fetcher.getRequestUrls(query, limit), (query) => {
                 modifyHistory(query, true);
-                startFetcher(query, true, fetcher, dialog);
+                startFetcher(query, true, false, fetcher, dialog);
             });
             dialog.$limitSelect.addEventListener('input', () => searchFetcher.limitWasUpdated());
             dialog.write($container);
@@ -2811,17 +2968,18 @@ class NoteFetchPanel {
             $container.classList.toggle('show-requests', state);
             $moreContainer.classList.toggle('show-requests', state);
         });
-        window.addEventListener('hashchange', () => {
-            const query = makeNoteQueryFromHash(location.hash);
+        globalHistory.onQueryHashChange = (queryHash) => {
+            const query = makeNoteQueryFromHash(queryHash);
             openQueryDialog(query, false);
             modifyHistory(query, false); // in case location was edited manually
             populateInputs(query);
-            startFetcherFromQuery(query, false);
-            restoreScrollPosition();
-        });
+            startFetcherFromQuery(query, false, false);
+            globalHistory.restoreScrollPosition();
+        };
         openQueryDialog(hashQuery, true);
         modifyHistory(hashQuery, false);
-        startFetcherFromQuery(hashQuery, false);
+        startFetcherFromQuery(hashQuery, false, globalHistory.hasMapHash() // when just opened a note-viewer page with map hash set - if query is set too, don't fit its result, keep the map hash
+        );
         globalEventsListener.userListener = (_, uid, username) => {
             const query = {
                 mode: 'search',
@@ -2864,13 +3022,13 @@ class NoteFetchPanel {
             map.clearNotes();
             noteTable.reset();
         }
-        function startFetcherFromQuery(query, clearStore) {
+        function startFetcherFromQuery(query, clearStore, suppressFitNotes) {
             if (!query)
                 return;
             const fetcherAndDialog = getFetcherAndDialogFromQuery(query);
             if (!fetcherAndDialog)
                 return;
-            startFetcher(query, clearStore, ...fetcherAndDialog);
+            startFetcher(query, clearStore, suppressFitNotes, ...fetcherAndDialog);
         }
         function getFetcherAndDialogFromQuery(query) {
             if (query.mode == 'search') {
@@ -2883,15 +3041,16 @@ class NoteFetchPanel {
                 return [idsFetcher, plaintextDialog];
             }
         }
-        function startFetcher(query, clearStore, fetcher, dialog) {
+        function startFetcher(query, clearStore, suppressFitNotes, fetcher, dialog) {
             figureDialog.close();
             resetNoteDependents();
             if (query.mode != 'search' && query.mode != 'bbox' && query.mode != 'ids')
                 return;
             filterPanel.unsubscribe();
             filterPanel.subscribe(noteFilter => noteTable.updateFilter(noteFilter));
-            if (dialog.needToSuppressFitNotes())
+            if (dialog.needToSuppressFitNotes() || suppressFitNotes) {
                 map.needToFitNotes = false;
+            }
             self.runningFetcher = fetcher;
             fetcher.start(db, noteTable, $moreContainer, dialog.$limitSelect, dialog.getAutoLoadChecker(), (disabled) => dialog.disableFetchControl(disabled), moreButtonIntersectionObservers, query, clearStore);
         }
@@ -2907,28 +3066,17 @@ class NoteFetchPanel {
                 stateChangeListener(state);
             }
         }
+        function modifyHistory(query, push) {
+            const queryHash = query
+                ? makeNoteQueryString(query)
+                : '';
+            globalHistory.setQueryHash(queryHash, push);
+        }
     }
     updateNote($a, noteId) {
         if (!this.runningFetcher)
             return;
         this.runningFetcher.updateNote($a, noteId, this.noteTable);
-    }
-}
-function modifyHistory(query, push) {
-    let canonicalQueryHash = '';
-    if (query) {
-        const queryString = makeNoteQueryString(query);
-        if (queryString)
-            canonicalQueryHash = '#' + queryString;
-    }
-    if (canonicalQueryHash != location.hash) {
-        const url = canonicalQueryHash || location.pathname + location.search;
-        if (push) {
-            history.pushState(null, '', url);
-        }
-        else {
-            history.replaceState(null, '', url);
-        }
     }
 }
 
@@ -3517,14 +3665,6 @@ function getMap(hash) {
 }
 
 class CommentWriter {
-    constructor(figureDialog) {
-        this.wrappedImageLinkClickListener = function (ev) {
-            const $a = this;
-            ev.preventDefault();
-            ev.stopPropagation();
-            figureDialog.toggle($a.href);
-        };
-    }
     makeCommentElements(commentText, showImages = false) {
         const inlineElements = [];
         const imageElements = [];
@@ -3532,7 +3672,6 @@ class CommentWriter {
             if (item.type == 'link' && item.link == 'image') {
                 const $inlineLink = makeLink(item.href, item.href);
                 $inlineLink.classList.add('listened', 'image', 'inline');
-                $inlineLink.addEventListener('click', this.wrappedImageLinkClickListener);
                 inlineElements.push($inlineLink);
                 const $img = document.createElement('img');
                 $img.loading = 'lazy'; // this + display:none is not enough to surely stop the browser from accessing the image link
@@ -3544,7 +3683,6 @@ class CommentWriter {
                 $floatLink.classList.add('listened', 'image', 'float');
                 $floatLink.href = item.href;
                 $floatLink.append($img);
-                $floatLink.addEventListener('click', this.wrappedImageLinkClickListener);
                 imageElements.push($floatLink);
             }
             else if (item.type == 'link' && item.link == 'osm') {
@@ -3715,7 +3853,7 @@ class NoteTable {
             }
             return layerIds;
         });
-        this.commentWriter = new CommentWriter(figureDialog);
+        this.commentWriter = new CommentWriter();
         $container.append(this.$table);
         this.reset();
         const looseParserPopup = new LooseParserPopup($container);
@@ -4385,7 +4523,7 @@ class ParseTool extends Tool {
         return [p$4(`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →.`, `Currently detected active elements are: `), ul$1(li$1(`links to images made in `, makeLink(`StreetComplete`, `https://wiki.openstreetmap.org/wiki/StreetComplete`)), li$1(`links to OSM notes (clicking the output link is not yet implemented)`), li$1(`links to OSM changesets`), li$1(`links to OSM elements`), li$1(`ISO-formatted timestamps`)), p$4(`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`)];
     }
     getTool(callbacks, map, figureDialog) {
-        const commentWriter = new CommentWriter(figureDialog);
+        const commentWriter = new CommentWriter();
         const $input = document.createElement('input');
         $input.type = 'text';
         $input.size = 50;
@@ -5585,52 +5723,6 @@ function getElementName(element) {
     }
 }
 
-class ScrollRestorer {
-    constructor($scrollingPart) {
-        this.$scrollingPart = $scrollingPart;
-        this.rememberScrollPosition = false;
-        history.scrollRestoration = 'manual';
-        $scrollingPart.addEventListener('scroll', () => {
-            if (!this.rememberScrollPosition)
-                return;
-            const scrollPosition = $scrollingPart.scrollTop;
-            history.replaceState({ scrollPosition }, '');
-            // TODO save more panel open/closed state... actually all panels open/closed states - Firefox does that, Chrome doesn't
-            // ... or save some other kind of position relative to notes table instead of scroll
-        });
-    }
-    run($resizeObservationTarget) {
-        // requestAnimationFrame and setTimeout(...,0) don't work very well: https://stackoverflow.com/a/38029067
-        // ResizeObserver works better: https://stackoverflow.com/a/66172042
-        this.rememberScrollPosition = false;
-        let nRestoreScrollPositionAttempts = 0;
-        const tryToRestoreScrollPosition = () => {
-            if (++nRestoreScrollPositionAttempts > 10)
-                return true;
-            if (!history.state)
-                return true;
-            const needToScrollTo = history.state.scrollPosition;
-            if (typeof needToScrollTo != 'number')
-                return true;
-            const canScrollTo = this.$scrollingPart.scrollHeight - this.$scrollingPart.clientHeight;
-            if (needToScrollTo > canScrollTo)
-                return false;
-            this.$scrollingPart.scrollTop = needToScrollTo;
-            return true;
-        };
-        if (tryToRestoreScrollPosition()) {
-            this.rememberScrollPosition = true;
-            return;
-        }
-        const resizeObserver = new ResizeObserver(() => {
-            if (tryToRestoreScrollPosition()) {
-                resizeObserver.disconnect();
-                this.rememberScrollPosition = true;
-            }
-        });
-        resizeObserver.observe($resizeObservationTarget); // observing $scrollingPart won't work because its size doesn't change
-    }
-}
 main();
 async function main() {
     const storage = new NoteViewerStorage('osm-note-viewer-');
@@ -5653,8 +5745,18 @@ async function main() {
     if (flipped)
         document.body.classList.add('flipped');
     document.body.append($textSide, $graphicSide);
-    const scrollRestorer = new ScrollRestorer($scrollingPart);
+    const globalHistory = new GlobalHistory($scrollingPart, $notesContainer);
     const map = new NoteMap($mapContainer);
+    map.onMoveEnd(() => {
+        globalHistory.setMapHash(`${map.zoom}/${map.lat}/${map.lon}`);
+    });
+    globalHistory.onMapHashChange = (mapHash) => {
+        const [zoomString, latString, lonString] = mapHash.split('/');
+        if (zoomString && latString && lonString) {
+            map.panAndZoomTo([Number(latString), Number(lonString)], Number(zoomString));
+        }
+    };
+    globalHistory.triggerInitialMapHashChange();
     const figureDialog = new FigureDialog($figureDialog);
     globalEventsListener.elementListener = ($a, elementType, elementId) => {
         if (elementType != 'node' && elementType != 'way' && elementType != 'relation')
@@ -5670,6 +5772,9 @@ async function main() {
         figureDialog.close();
         map.panAndZoomTo([Number(lat), Number(lon)], Number(zoom));
     };
+    globalEventsListener.imageListener = ($a) => {
+        figureDialog.toggle($a.href);
+    };
     const navbar = new Navbar(storage, $navbarContainer, map);
     const filterPanel = new NoteFilterPanel($filterContainer);
     const toolPanel = new ToolPanel(storage, globalEventsListener, $toolContainer, map, figureDialog);
@@ -5677,9 +5782,9 @@ async function main() {
     globalEventsListener.noteListener = ($a, noteId) => {
         noteTable.pingNoteFromLink($a, noteId);
     };
-    const fetchPanel = new NoteFetchPanel(storage, db, globalEventsListener, $fetchContainer, $moreContainer, navbar, filterPanel, noteTable, map, figureDialog, () => scrollRestorer.run($notesContainer));
+    const fetchPanel = new NoteFetchPanel(storage, db, globalEventsListener, globalHistory, $fetchContainer, $moreContainer, navbar, filterPanel, noteTable, map, figureDialog);
     globalEventsListener.noteSelfListener = ($a, noteId) => {
         fetchPanel.updateNote($a, Number(noteId));
     };
-    scrollRestorer.run($notesContainer);
+    globalHistory.restoreScrollPosition();
 }
