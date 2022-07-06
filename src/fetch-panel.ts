@@ -44,7 +44,7 @@ export default class NoteFetchPanel {
 		): NoteFetchDialog => {
 			const dialog=fetchDialogCtor((query,limit)=>fetcher.getRequestUrls(query,limit),(query)=>{
 				modifyHistory(query,true)
-				startFetcher(query,true,fetcher,dialog)
+				startFetcher(query,true,false,fetcher,dialog)
 			})
 			dialog.$limitSelect.addEventListener('input',()=>searchFetcher.limitWasUpdated())
 			dialog.write($container)
@@ -78,12 +78,15 @@ export default class NoteFetchPanel {
 			openQueryDialog(query,false)
 			modifyHistory(query,false) // in case location was edited manually
 			populateInputs(query)
-			startFetcherFromQuery(query,false)
+			startFetcherFromQuery(query,false,false)
 			globalHistory.restoreScrollPosition()
 		}
 		openQueryDialog(hashQuery,true)
 		modifyHistory(hashQuery,false)
-		startFetcherFromQuery(hashQuery,false)
+		startFetcherFromQuery(
+			hashQuery,false,
+			globalHistory.hasMapHash() // when just opened a note-viewer page with map hash set - if query is set too, don't fit its result, keep the map hash
+		)
 
 		globalEventsListener.userListener=(_, uid: number, username?:string)=>{
 			const query: NoteSearchQuery = {
@@ -123,11 +126,11 @@ export default class NoteFetchPanel {
 			map.clearNotes()
 			noteTable.reset()
 		}
-		function startFetcherFromQuery(query: NoteQuery|undefined, clearStore: boolean): void {
+		function startFetcherFromQuery(query: NoteQuery|undefined, clearStore: boolean, suppressFitNotes: boolean): void {
 			if (!query) return
 			const fetcherAndDialog=getFetcherAndDialogFromQuery(query)
 			if (!fetcherAndDialog) return
-			startFetcher(query,clearStore,...fetcherAndDialog)
+			startFetcher(query,clearStore,suppressFitNotes,...fetcherAndDialog)
 		}
 		function getFetcherAndDialogFromQuery(query: NoteQuery): [NoteFetcher,NoteFetchDialog]|undefined {
 			if (query.mode=='search') {
@@ -138,13 +141,18 @@ export default class NoteFetchPanel {
 				return [idsFetcher,plaintextDialog]
 			}
 		}
-		function startFetcher(query: NoteQuery, clearStore: boolean, fetcher: NoteFetcher, dialog: NoteFetchDialog): void {
+		function startFetcher(
+			query: NoteQuery, clearStore: boolean, suppressFitNotes: boolean,
+			fetcher: NoteFetcher, dialog: NoteFetchDialog
+		): void {
 			figureDialog.close()
 			resetNoteDependents()
 			if (query.mode!='search' && query.mode!='bbox' && query.mode!='ids') return
 			filterPanel.unsubscribe()
 			filterPanel.subscribe(noteFilter=>noteTable.updateFilter(noteFilter))
-			if (dialog.needToSuppressFitNotes()) map.needToFitNotes=false
+			if (dialog.needToSuppressFitNotes() || suppressFitNotes) {
+				map.needToFitNotes=false
+			}
 			self.runningFetcher=fetcher
 			fetcher.start(
 				db,

@@ -85,6 +85,11 @@ export default class GlobalHistory {
 			}
 		}
 	}
+	hasMapHash(): boolean {
+		const searchParams=this.getSearchParams()
+		const mapHash=searchParams.get('map')
+		return !!mapHash
+	}
 	setMapHash(mapHash: string): void {
 		const searchParams=this.getSearchParams()
 		searchParams.delete('map')
