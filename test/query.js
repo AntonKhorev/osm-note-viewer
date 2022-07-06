@@ -19,7 +19,7 @@ describe("query module / makeNoteQueryFromHash()",()=>{
 		assert.equal(query,undefined)
 	})
 	it("builds default query for empty search",()=>{
-		const query=makeNoteQueryFromHash(`#mode=search`)
+		const query=makeNoteQueryFromHash(`mode=search`)
 		assert.deepEqual(query,{
 			mode: 'search',
 			closed: -1,
@@ -28,7 +28,7 @@ describe("query module / makeNoteQueryFromHash()",()=>{
 		})
 	})
 	it("builds default query for username",()=>{
-		const query=makeNoteQueryFromHash(`#mode=search&display_name=Some%20User`)
+		const query=makeNoteQueryFromHash(`mode=search&display_name=Some%20User`)
 		assert.deepEqual(query,{
 			mode: 'search',
 			display_name: 'Some User',
