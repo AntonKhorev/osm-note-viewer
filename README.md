@@ -66,6 +66,10 @@ note-viewer can be added to [OSM Smart Menu](https://wiki.openstreetmap.org/wiki
 
     https://antonkhorev.github.io/osm-note-viewer/#mode=search&display_name={osm_user_name}
 
+You can also add a template for opening a map location:
+
+    https://antonkhorev.github.io/osm-note-viewer/#map={zoom}/{latitude}/{longitude}
+
 ## Installation
 
 If you don't want to run note-viewer from github, you can run if off any server that can serve static files, including a local filesystem (`file:///`). The files that are [served by github][github-host] are in the [`gh-pages` branch of the repository](https://github.com/AntonKhorev/osm-note-viewer/tree/gh-pages). You can download all of them [here](https://github.com/AntonKhorev/osm-note-viewer/archive/refs/heads/gh-pages.zip).
