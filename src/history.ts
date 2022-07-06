@@ -32,6 +32,12 @@ export default class GlobalHistory {
 			}
 		})
 	}
+	triggerInitialMapHashChange() {
+		const [queryHash,mapHash]=this.getQueryAndMapHashes()
+		if (this.onMapHashChange && mapHash) {
+			this.onMapHashChange(mapHash)
+		}
+	}
 	restoreScrollPosition(): void {
 		if (!scrollRestorerEnabled) return
 		// requestAnimationFrame and setTimeout(...,0) don't work very well: https://stackoverflow.com/a/38029067

@@ -44,10 +44,12 @@ async function main() {
 		globalHistory.setMapHash(`${map.zoom}/${map.lat}/${map.lon}`)
 	})
 	globalHistory.onMapHashChange=(mapHash: string)=>{
-		const [zoom,lat,lon]=mapHash.split('/')
-		console.log('TODO update map',[zoom,lat,lon]) ///
+		const [zoomString,latString,lonString]=mapHash.split('/')
+		if (zoomString && latString && lonString) {
+			map.panAndZoomTo([Number(latString),Number(lonString)],Number(zoomString))
+		}
 	}
-	// TODO trigger initial map move
+	globalHistory.triggerInitialMapHashChange()
 	const figureDialog=new FigureDialog($figureDialog)
 	globalEventsListener.elementListener=($a,elementType,elementId)=>{
 		if (elementType!='node' && elementType!='way' && elementType!='relation') return false
