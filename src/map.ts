@@ -157,9 +157,25 @@ export class NoteMap {
 		if (this.freezeMovements) {
 			const popup=L.popup({autoPan:false}).setContent(popupWriter)
 			geometry.bindPopup(popup).openPopup()
-			popup.options.offset=calculateOffsetsToFit(this.leafletMap,popup)
-			popup.update() // apply offset
-			geometry.bindPopup(popup,{offset:[0,0]}) // forget offset for subsequent clicks - would need to recalculate it for every click but how?
+			const onOpenPopup=()=>{
+				const $popupContainer=popup.getElement()
+				if (!$popupContainer) return
+				const offsetWithTip=calculateOffsetsToFit(this.leafletMap,$popupContainer)
+				if (offsetWithTip[0]||offsetWithTip[1]) {
+					hidePopupTip($popupContainer)
+					const offsetWithoutTip=calculateOffsetsToFit(this.leafletMap,$popupContainer)
+					popup.options.offset=offsetWithoutTip
+					popup.update()
+				}
+			}
+			const onClosePopup=()=>{
+				geometry.bindPopup(popup,{offset:[0,0]})
+				const $popupContainer=popup.getElement()
+				if (!$popupContainer) return
+				restorePopupTip($popupContainer)
+			}
+			geometry.on('popupopen',onOpenPopup).on('popupclose',onClosePopup)
+			onOpenPopup()
 		} else if (geometry instanceof L.CircleMarker) {
 			this.queuedPopup=[layerId,popupWriter]
 			const minZoomForNode=10
@@ -254,16 +270,30 @@ function *noteCommentsToStates(comments: NoteComment[]): Iterable<boolean> {
 	}
 }
 
+function hidePopupTip($popupContainer: HTMLElement): void {
+	$popupContainer.style.marginBottom='0'
+	const $tip=$popupContainer.querySelector('.leaflet-popup-tip-container')
+	if ($tip instanceof HTMLElement) {
+		$tip.style.display='none'
+	}
+}
+
+function restorePopupTip($popupContainer: HTMLElement): void {
+	$popupContainer.style.removeProperty('margin-bottom')
+	const $tip=$popupContainer.querySelector('.leaflet-popup-tip-container')
+	if ($tip instanceof HTMLElement) {
+		$tip.style.removeProperty('display')
+	}
+}
+
 // see _adjustPan() in leaflet's Popup class
-function calculateOffsetsToFit(map: L.Map, popup: L.Popup): [dx: number, dy: number] {
-	const container=popup.getElement()
-	if (!container) return [0,0]
-	const containerWidth=container.offsetWidth
+function calculateOffsetsToFit(map: L.Map, $popupContainer: HTMLElement): [dx: number, dy: number] {
+	const containerWidth=$popupContainer.offsetWidth
 	const containerLeft=-Math.round(containerWidth/2)
-	const marginBottom=parseInt(L.DomUtil.getStyle(container,'marginBottom')??'0',10) // contains tip that is better thrown away
-	const containerHeight=container.offsetHeight+marginBottom
+	const marginBottom=parseInt(L.DomUtil.getStyle($popupContainer,'marginBottom')??'0',10) // contains tip that is better thrown away
+	const containerHeight=$popupContainer.offsetHeight+marginBottom
 	const containerBottom=0
-	const containerAddPos=L.DomUtil.getPosition(container)
+	const containerAddPos=L.DomUtil.getPosition($popupContainer)
 	const layerPos=new L.Point(containerLeft,-containerHeight-containerBottom)
 	layerPos.x+=containerAddPos.x
 	layerPos.y+=containerAddPos.y
