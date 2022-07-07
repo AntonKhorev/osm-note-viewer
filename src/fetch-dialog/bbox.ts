@@ -25,8 +25,8 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 		},
 		...makeDumbCache() // TODO real cache in db
 	)
+	private $trackMapSelect=document.createElement('select')
 	protected $bboxInput=document.createElement('input')
-	protected $trackMapCheckbox=document.createElement('input')
 	protected $statusSelect=document.createElement('select')
 	private $nominatimRequestOutput=document.createElement('output')
 	constructor(
@@ -45,7 +45,7 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 		this.updateNominatimRequest()
 	}
 	needToSuppressFitNotes(): boolean {
-		return this.$trackMapCheckbox.checked
+		return this.$trackMapSelect.value!='nothing'
 	}
 	protected writeExtraForms() {
 		this.$nominatimForm.id='nominatim-form'
@@ -56,6 +56,15 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 			$fieldset.append(makeDiv('request')(
 				`Get `,makeLink(`notes by bounding box`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`),
 				` request at `,code(`https://api.openstreetmap.org/api/0.6/notes?`,em(`parameters`)),`; see `,em(`parameters`),` below.`
+			))
+		}{
+			this.$trackMapSelect.append(
+				new Option(`Do nothing`,'nothing'),
+				new Option(`Update bounding box input`,'bbox',true,true),
+				new Option(`Fetch notes`,'fetch'),
+			)
+			$fieldset.append(makeDiv()(
+				makeLabel('inline')(this.$trackMapSelect,` on map view changes`)
 			))
 		}{
 			this.$bboxInput.type='text'
@@ -76,12 +85,6 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 				$span.title=title
 				return $span
 			}
-		}{
-			this.$trackMapCheckbox.type='checkbox'
-			this.$trackMapCheckbox.checked=true
-			$fieldset.append(makeDiv()(makeLabel()(
-				this.$trackMapCheckbox,` Update bounding box value with current map area`
-			)))
 		}{
 			$fieldset.append(makeDiv('request')(
 				`Make `,makeLink(`Nominatim search query`,`https://nominatim.org/release-docs/develop/api/Search/`),
@@ -143,20 +146,24 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 			this.$bboxInput.setCustomValidity('')
 			return true
 		}
-		const copyBounds=()=>{
-			if (!this.$trackMapCheckbox.checked) return
-			const bounds=this.map.bounds
-			// (left,bottom,right,top)
-			this.$bboxInput.value=bounds.getWest()+','+bounds.getSouth()+','+bounds.getEast()+','+bounds.getNorth()
-			validateBounds()
-			this.updateRequest()
-			this.updateNominatimRequest()
+		const trackMap=()=>{
+			if (this.$trackMapSelect.value=='bbox' || this.$trackMapSelect.value=='fetch') {
+				const bounds=this.map.bounds
+				// (left,bottom,right,top)
+				this.$bboxInput.value=bounds.getWest()+','+bounds.getSouth()+','+bounds.getEast()+','+bounds.getNorth()
+				validateBounds()
+				this.updateRequest()
+				this.updateNominatimRequest()
+			}
+			if (this.$trackMapSelect.value=='fetch') { // TODO only if bbox dialog is enabled
+				this.$form.requestSubmit()
+			}
 		}
-		this.map.onMoveEnd(copyBounds)
-		this.$trackMapCheckbox.addEventListener('input',copyBounds)
+		this.map.onMoveEnd(trackMap)
+		this.$trackMapSelect.addEventListener('input',trackMap)
 		this.$bboxInput.addEventListener('input',()=>{
 			if (!validateBounds()) return
-			this.$trackMapCheckbox.checked=false
+			this.$trackMapSelect.value='nothing'
 		})
 		this.$bboxInput.addEventListener('input',()=>this.updateNominatimRequest())
 		this.$nominatimInput.addEventListener('input',()=>this.updateNominatimRequest())
@@ -176,7 +183,7 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 				validateBounds()
 				this.updateRequest()
 				this.updateNominatimRequest()
-				this.$trackMapCheckbox.checked=false
+				this.$trackMapSelect.value='nothing'
 				this.map.fitBounds([[Number(minLat),Number(minLon)],[Number(maxLat),Number(maxLon)]])
 			} catch (ex) {
 				this.$nominatimButton.classList.add('error')
