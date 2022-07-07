@@ -158,7 +158,8 @@ export class NoteMap {
 			const popup=L.popup({autoPan:false}).setContent(popupWriter)
 			geometry.bindPopup(popup).openPopup()
 			popup.options.offset=calculateOffsetsToFit(this.leafletMap,popup)
-			popup.update()
+			popup.update() // apply offset
+			geometry.bindPopup(popup,{offset:[0,0]}) // forget offset for subsequent clicks - would need to recalculate it for every click but how?
 		} else if (geometry instanceof L.CircleMarker) {
 			this.queuedPopup=[layerId,popupWriter]
 			const minZoomForNode=10
