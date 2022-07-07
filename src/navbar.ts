@@ -14,6 +14,9 @@ export abstract class NavDialog {
 		this.writeSectionContent()
 		$container.append(this.$section)
 	}
+	isOpen(): boolean {
+		return this.$section.classList.contains('active')
+	}
 	abstract writeSectionContent(): void
 }
 

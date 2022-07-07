@@ -172,7 +172,7 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 				this.updateRequest()
 				this.updateNominatimRequest()
 			}
-			if (this.$trackMapSelect.value=='fetch' && this.map.zoom>=8) { // TODO only if bbox dialog is enabled
+			if (this.isOpen() && this.$trackMapSelect.value=='fetch' && this.map.zoom>=8) {
 				this.$form.requestSubmit()
 			}
 		}
