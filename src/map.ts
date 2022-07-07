@@ -285,7 +285,7 @@ function restorePopupTip($popupContainer: HTMLElement): void {
 	}
 }
 
-// see _adjustPan() in leaflet's Popup class
+// logic borrowed from _adjustPan() in leaflet's Popup class
 function calculateOffsetsToFit(map: L.Map, $popupContainer: HTMLElement): [dx: number, dy: number] {
 	const containerWidth=$popupContainer.offsetWidth
 	const containerLeft=-Math.round(containerWidth/2)
@@ -300,18 +300,17 @@ function calculateOffsetsToFit(map: L.Map, $popupContainer: HTMLElement): [dx: n
 	const size=map.getSize()
 	let dx=0
 	let dy=0
-	// copypasted from leaflet:
-	if (containerPos.x + containerWidth  > size.x) { // right
-		dx = containerPos.x + containerWidth - size.x;
+	if (containerPos.x+containerWidth>size.x) { // right
+		dx=containerPos.x+containerWidth-size.x
 	}
-	if (containerPos.x - dx  < 0) { // left
-		dx = containerPos.x ;
+	if (containerPos.x-dx<0) { // left
+		dx=containerPos.x
 	}
-	if (containerPos.y + containerHeight > size.y) { // bottom
-		dy = containerPos.y + containerHeight - size.y ;
+	if (containerPos.y+containerHeight>size.y) { // bottom
+		dy=containerPos.y+containerHeight-size.y
 	}
-	if (containerPos.y - dy < 0) { // top
-		dy = containerPos.y;
+	if (containerPos.y-dy<0) { // top
+		dy=containerPos.y
 	}
 	return [-dx,-dy]
 }
