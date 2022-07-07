@@ -1,4 +1,4 @@
-import { LatLngBounds } from 'leaflet'
+import { LatLngBounds, LatLngBoundsExpression } from 'leaflet'
 import type {Note, NoteComment} from './data'
 import {escapeXml, makeEscapeTag} from './util'
 
@@ -63,6 +63,7 @@ export class NoteMap {
 	filteredNoteLayer: L.FeatureGroup
 	trackLayer: L.FeatureGroup
 	needToFitNotes: boolean = false
+	freezeMovements: boolean = false
 	private queuedPopup: [layerId: number, writer: ()=>HTMLElement] | undefined
 	constructor($container: HTMLElement) {
 		this.leafletMap=L.map($container,{
@@ -114,7 +115,7 @@ export class NoteMap {
 	fitNotes(): void {
 		const bounds=this.noteLayer.getBounds()
 		if (!bounds.isValid()) return
-		this.leafletMap.fitBounds(bounds)
+		this.fitBoundsIfNotFrozen(bounds)
 		this.needToFitNotes=false
 	}
 	fitNotesIfNeeded(): void {
@@ -146,7 +147,7 @@ export class NoteMap {
 	}
 	fitNoteTrack(): void {
 		const bounds=this.trackLayer.getBounds() // invalid if track is empty; track is empty when no notes are in table view
-		if (bounds.isValid()) this.leafletMap.fitBounds(bounds)
+		if (bounds.isValid()) this.fitBoundsIfNotFrozen(bounds)
 	}
 	addOsmElement(geometry: L.Layer, popupWriter: ()=>HTMLElement): void {
 		// TODO zoom on second click, like with notes
@@ -158,28 +159,28 @@ export class NoteMap {
 			this.queuedPopup=[layerId,popupWriter]
 			const minZoomForNode=10
 			if (this.zoom<minZoomForNode) {
-				this.leafletMap.flyTo(geometry.getLatLng(),minZoomForNode,{duration:.5})
+				this.flyToIfNotFrozen(geometry.getLatLng(),minZoomForNode,{duration:.5})
 			} else {
-				this.leafletMap.panTo(geometry.getLatLng())
+				this.panToIfNotFrozen(geometry.getLatLng())
 			}
 		} else {
 			const bounds=this.elementLayer.getBounds()
 			if (bounds.isValid()) {
 				this.queuedPopup=[layerId,popupWriter]
-				this.leafletMap.fitBounds(bounds)
+				this.fitBoundsIfNotFrozen(bounds)
 			} else {
 				geometry.bindPopup(popupWriter).openPopup()
 			}
 		}
 	}
 	fitBounds(bounds: L.LatLngBoundsExpression): void {
-		this.leafletMap.fitBounds(bounds)
+		this.fitBoundsIfNotFrozen(bounds)
 	}
 	panTo(latlng: L.LatLngExpression): void {
-		this.leafletMap.panTo(latlng)
+		this.panToIfNotFrozen(latlng)
 	}
 	panAndZoomTo(latlng: L.LatLngExpression, zoom: number): void {
-		this.leafletMap.flyTo(latlng,zoom,{duration:.5}) // default duration is too long despite docs saying it's 0.25
+		this.flyToIfNotFrozen(latlng,zoom,{duration:.5}) // default duration is too long despite docs saying it's 0.25
 	}
 	isCloseEnoughToCenter(latlng: L.LatLngExpression): boolean {
 		const inputPt=this.leafletMap.latLngToContainerPoint(latlng)
@@ -198,11 +199,23 @@ export class NoteMap {
 	get lon(): number {
 		return this.leafletMap.getCenter().lng
 	}
-	get bounds(): LatLngBounds {
+	get bounds(): L.LatLngBounds {
 		return this.leafletMap.getBounds()
 	}
-	onMoveEnd(fn: L.LeafletEventHandlerFn) {
+	onMoveEnd(fn: L.LeafletEventHandlerFn): void {
 		this.leafletMap.on('moveend',fn)
+	}
+	private fitBoundsIfNotFrozen(bounds: L.LatLngBoundsExpression): void {
+		if (this.freezeMovements) return
+		this.leafletMap.fitBounds(bounds)
+	}
+	private panToIfNotFrozen(latlng: L.LatLngExpression): void {
+		if (this.freezeMovements) return
+		this.leafletMap.panTo(latlng)
+	}
+	private flyToIfNotFrozen(latlng: L.LatLngExpression, zoom?: number|undefined, options?: L.ZoomPanOptions|undefined): void {
+		if (this.freezeMovements) return
+		this.leafletMap.flyTo(latlng,zoom,options)
 	}
 }
 

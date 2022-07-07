@@ -1,4 +1,4 @@
-import {NoteFetchDialog, NoteFetchDialogSharedCheckboxes, mixinWithFetchButton} from './base'
+import {NoteFetchDialog, NoteFetchDialogSharedCheckboxes, MapFreezeMode, mixinWithFetchButton} from './base'
 import {NoteMap} from '../map'
 import {NoteQuery, makeNoteBboxQueryFromValues} from '../query'
 import {NominatimBbox, NominatimBboxFetcher} from '../nominatim'
@@ -45,8 +45,10 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 		super.populateInputs(query)
 		this.updateNominatimRequest()
 	}
-	needToSuppressFitNotes(): boolean {
-		return this.$trackMapSelect.value!='nothing'
+	get mapFreezeMode(): MapFreezeMode {
+		if (this.$trackMapSelect.value=='fetch') return 'full'
+		if (this.$trackMapSelect.value=='bbox') return 'initial'
+		return 'no'
 	}
 	protected writeExtraForms() {
 		this.$nominatimForm.id='nominatim-form'

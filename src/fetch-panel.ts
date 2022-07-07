@@ -150,9 +150,11 @@ export default class NoteFetchPanel {
 			if (query.mode!='search' && query.mode!='bbox' && query.mode!='ids') return
 			filterPanel.unsubscribe()
 			filterPanel.subscribe(noteFilter=>noteTable.updateFilter(noteFilter))
-			if (dialog.needToSuppressFitNotes() || suppressFitNotes) {
+			console.log('freeze mode:',dialog.mapFreezeMode) ///
+			if (dialog.mapFreezeMode!='no' || suppressFitNotes) {
 				map.needToFitNotes=false
 			}
+			map.freezeMovements=dialog.mapFreezeMode=='full'
 			self.runningFetcher=fetcher
 			fetcher.start(
 				db,
