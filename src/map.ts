@@ -156,7 +156,6 @@ export class NoteMap {
 		// geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
 		if (this.freezeMovements) {
 			const popup=L.popup({autoPan:false}).setContent(popupWriter)
-			geometry.bindPopup(popup).openPopup()
 			const onOpenPopup=()=>{
 				const $popupContainer=popup.getElement()
 				if (!$popupContainer) return
@@ -175,7 +174,7 @@ export class NoteMap {
 				restorePopupTip($popupContainer)
 			}
 			geometry.on('popupopen',onOpenPopup).on('popupclose',onClosePopup)
-			onOpenPopup()
+			geometry.bindPopup(popup).openPopup()
 		} else if (geometry instanceof L.CircleMarker) {
 			this.queuedPopup=[layerId,popupWriter]
 			const minZoomForNode=10
