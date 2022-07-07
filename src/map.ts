@@ -155,7 +155,9 @@ export class NoteMap {
 		this.elementLayer.addLayer(geometry)
 		const layerId=this.elementLayer.getLayerId(geometry)
 		// geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
-		if (geometry instanceof L.CircleMarker) {
+		if (this.freezeMovements) {
+			geometry.bindPopup(popupWriter,{autoPan:false}).openPopup() // don't need to bother about wrong spot because map is frozen
+		} else if (geometry instanceof L.CircleMarker) {
 			this.queuedPopup=[layerId,popupWriter]
 			const minZoomForNode=10
 			if (this.zoom<minZoomForNode) {
