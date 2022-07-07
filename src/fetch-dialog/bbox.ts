@@ -117,7 +117,7 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 		{
 			this.$limitSelect.append(
 				new Option('20'),
-				new Option('100'),
+				new Option('100','100',true,true), // default limit because no progressive loads possible
 				new Option('500'),
 				new Option('2500'),
 				new Option('10000')
