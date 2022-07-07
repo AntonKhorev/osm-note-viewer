@@ -26,6 +26,7 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 		...makeDumbCache() // TODO real cache in db
 	)
 	private $trackMapSelect=document.createElement('select')
+	private $trackMapZoomNotice=makeElement('span')('notice')()
 	protected $bboxInput=document.createElement('input')
 	protected $statusSelect=document.createElement('select')
 	private $nominatimRequestOutput=document.createElement('output')
@@ -64,7 +65,8 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 				new Option(`Fetch notes`,'fetch'),
 			)
 			$fieldset.append(makeDiv()(
-				makeLabel('inline')(this.$trackMapSelect,` on map view changes`)
+				makeLabel('inline')(this.$trackMapSelect,` on map view changes`),` `,
+				this.$trackMapZoomNotice
 			))
 		}{
 			this.$bboxInput.type='text'
@@ -146,7 +148,22 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 			this.$bboxInput.setCustomValidity('')
 			return true
 		}
+		const updateTrackMapZoomNotice=()=>{
+			if (this.$trackMapSelect.value!='fetch') {
+				this.$trackMapZoomNotice.classList.remove('error')
+				this.$trackMapZoomNotice.innerText=''
+			} else {
+				if (this.map.zoom>=8) {
+					this.$trackMapZoomNotice.classList.remove('error')
+					this.$trackMapZoomNotice.innerText=`(fetching will stop on zooms lower than 8)`
+				} else {
+					this.$trackMapZoomNotice.classList.add('error')
+					this.$trackMapZoomNotice.innerText=`(fetching will start on zooms 8 or higher)`
+				}
+			}
+		}
 		const trackMap=()=>{
+			updateTrackMapZoomNotice()
 			if (this.$trackMapSelect.value=='bbox' || this.$trackMapSelect.value=='fetch') {
 				const bounds=this.map.bounds
 				// (left,bottom,right,top)
@@ -155,10 +172,11 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 				this.updateRequest()
 				this.updateNominatimRequest()
 			}
-			if (this.$trackMapSelect.value=='fetch') { // TODO only if bbox dialog is enabled
+			if (this.$trackMapSelect.value=='fetch' && this.map.zoom>=8) { // TODO only if bbox dialog is enabled
 				this.$form.requestSubmit()
 			}
 		}
+		updateTrackMapZoomNotice()
 		this.map.onMoveEnd(trackMap)
 		this.$trackMapSelect.addEventListener('input',trackMap)
 		this.$bboxInput.addEventListener('input',()=>{

@@ -27,6 +27,9 @@
 .more:not(.show-requests) .request {
 	display: none;
 }
+.panel.fetch .notice.error {
+	color: var(--error-color);
+}
 
 .panel.command {
 	--gap: 8px;  /* used in info tips */
