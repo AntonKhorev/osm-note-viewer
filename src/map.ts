@@ -1,4 +1,3 @@
-import { LatLngBounds, LatLngBoundsExpression } from 'leaflet'
 import type {Note, NoteComment} from './data'
 import {escapeXml, makeEscapeTag} from './util'
 
@@ -156,7 +155,10 @@ export class NoteMap {
 		const layerId=this.elementLayer.getLayerId(geometry)
 		// geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
 		if (this.freezeMovements) {
-			geometry.bindPopup(popupWriter,{autoPan:false}).openPopup() // don't need to bother about wrong spot because map is frozen
+			const popup=L.popup({autoPan:false}).setContent(popupWriter)
+			geometry.bindPopup(popup).openPopup()
+			popup.options.offset=calculateOffsetsToFit(this.leafletMap,popup)
+			popup.update()
 		} else if (geometry instanceof L.CircleMarker) {
 			this.queuedPopup=[layerId,popupWriter]
 			const minZoomForNode=10
@@ -249,4 +251,37 @@ function *noteCommentsToStates(comments: NoteComment[]): Iterable<boolean> {
 		}
 		yield currentState
 	}
+}
+
+// see _adjustPan() in leaflet's Popup class
+function calculateOffsetsToFit(map: L.Map, popup: L.Popup): [dx: number, dy: number] {
+	const container=popup.getElement()
+	if (!container) return [0,0]
+	const containerWidth=container.offsetWidth
+	const containerLeft=-Math.round(containerWidth/2)
+	const marginBottom=parseInt(L.DomUtil.getStyle(container,'marginBottom')??'0',10) // contains tip that is better thrown away
+	const containerHeight=container.offsetHeight+marginBottom
+	const containerBottom=0
+	const containerAddPos=L.DomUtil.getPosition(container)
+	const layerPos=new L.Point(containerLeft,-containerHeight-containerBottom)
+	layerPos.x+=containerAddPos.x
+	layerPos.y+=containerAddPos.y
+	const containerPos=map.layerPointToContainerPoint(layerPos)
+	const size=map.getSize()
+	let dx=0
+	let dy=0
+	// copypasted from leaflet:
+	if (containerPos.x + containerWidth  > size.x) { // right
+		dx = containerPos.x + containerWidth - size.x;
+	}
+	if (containerPos.x - dx  < 0) { // left
+		dx = containerPos.x ;
+	}
+	if (containerPos.y + containerHeight > size.y) { // bottom
+		dy = containerPos.y + containerHeight - size.y ;
+	}
+	if (containerPos.y - dy < 0) { // top
+		dy = containerPos.y;
+	}
+	return [-dx,-dy]
 }
