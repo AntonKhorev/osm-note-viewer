@@ -35,7 +35,7 @@ export default class NoteFetchPanel {
 		const searchFetcher=new NoteSearchFetcher()
 		const bboxFetcher=new NoteBboxFetcher()
 		const idsFetcher=new NoteIdsFetcher()
-		const makeSearchDialog = (
+		const makeFetchDialog = (
 			fetcher: NoteFetcher,
 			fetchDialogCtor: (
 				getRequestUrls: (query: NoteQuery, limit: number) => [type: string, url: string][],
@@ -46,22 +46,22 @@ export default class NoteFetchPanel {
 				modifyHistory(query,true)
 				startFetcher(query,true,false,fetcher,dialog)
 			})
-			dialog.$limitSelect.addEventListener('input',()=>searchFetcher.limitWasUpdated())
+			dialog.$limitSelect.addEventListener('input',()=>fetcher.limitWasUpdated())
 			dialog.write($container)
 			dialog.populateInputs(hashQuery)
 			navbar.addTab(dialog)
 			return dialog
 		}
-		const searchDialog=makeSearchDialog(searchFetcher,
+		const searchDialog=makeFetchDialog(searchFetcher,
 			(getRequestUrls,submitQuery)=>new NoteSearchFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery)
 		)
-		const bboxDialog=makeSearchDialog(bboxFetcher,
+		const bboxDialog=makeFetchDialog(bboxFetcher,
 			(getRequestUrls,submitQuery)=>new NoteBboxFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery,map)
 		)
-		const xmlDialog=makeSearchDialog(idsFetcher,
+		const xmlDialog=makeFetchDialog(idsFetcher,
 			(getRequestUrls,submitQuery)=>new NoteXmlFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery)
 		)
-		const plaintextDialog=makeSearchDialog(idsFetcher,
+		const plaintextDialog=makeFetchDialog(idsFetcher,
 			(getRequestUrls,submitQuery)=>new NotePlaintextFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery,noteTable)
 		)
 		const aboutDialog=new AboutDialog(storage,db)
