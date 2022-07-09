@@ -52,11 +52,12 @@ export default class Navbar {
 		}
 		for (const [shortTitle,[$a,dialog]] of this.tabs) {
 			const willBeActive=shortTitle==targetShortTitle
-			if (willBeActive && !dialog.isOpen()) {
-				dialog.onOpen()
-			}
+			const willCallOnOpen=(willBeActive && !dialog.isOpen())
 			$a.classList.toggle('active',willBeActive)
 			dialog.$section.classList.toggle('active',willBeActive)
+			if (willCallOnOpen) {
+				dialog.onOpen()
+			}
 		}
 	}
 }
