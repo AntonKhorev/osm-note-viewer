@@ -55,6 +55,8 @@ export class NoteMarker extends L.Marker {
 	}
 }
 
+export type NoteMapFreezeMode = 'no' | 'initial' | 'full'
+
 export class NoteMap {
 	private leafletMap: L.Map
 	elementLayer: L.FeatureGroup
@@ -62,7 +64,7 @@ export class NoteMap {
 	filteredNoteLayer: L.FeatureGroup
 	trackLayer: L.FeatureGroup
 	needToFitNotes: boolean = false
-	freezeMovements: boolean = false
+	freezeMode: NoteMapFreezeMode = 'no'
 	private queuedPopup: [layerId: number, writer: ()=>HTMLElement] | undefined
 	constructor($container: HTMLElement) {
 		this.leafletMap=L.map($container,{
@@ -109,7 +111,7 @@ export class NoteMap {
 		this.noteLayer.clearLayers()
 		this.filteredNoteLayer.clearLayers()
 		this.trackLayer.clearLayers()
-		this.needToFitNotes=true
+		this.needToFitNotes=this.freezeMode=='no'
 	}
 	fitNotes(): void {
 		const bounds=this.noteLayer.getBounds()
@@ -154,7 +156,7 @@ export class NoteMap {
 		this.elementLayer.addLayer(geometry)
 		const layerId=this.elementLayer.getLayerId(geometry)
 		// geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
-		if (this.freezeMovements) {
+		if (this.freezeMode=='full') {
 			const popup=L.popup({autoPan:false}).setContent(popupWriter)
 			let restorePopupTipTimeoutId: number|undefined
 			const onOpenPopup=()=>{
@@ -236,15 +238,15 @@ export class NoteMap {
 		this.leafletMap.on('moveend',fn)
 	}
 	private fitBoundsIfNotFrozen(bounds: L.LatLngBoundsExpression): void {
-		if (this.freezeMovements) return
+		if (this.freezeMode=='full') return
 		this.leafletMap.fitBounds(bounds)
 	}
 	private panToIfNotFrozen(latlng: L.LatLngExpression): void {
-		if (this.freezeMovements) return
+		if (this.freezeMode=='full') return
 		this.leafletMap.panTo(latlng)
 	}
 	private flyToIfNotFrozen(latlng: L.LatLngExpression, zoom?: number|undefined, options?: L.ZoomPanOptions|undefined): void {
-		if (this.freezeMovements) return
+		if (this.freezeMode=='full') return
 		this.leafletMap.flyTo(latlng,zoom,options)
 	}
 }

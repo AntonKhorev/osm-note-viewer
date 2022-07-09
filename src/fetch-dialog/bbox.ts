@@ -1,5 +1,5 @@
-import {NoteFetchDialog, NoteFetchDialogSharedCheckboxes, MapFreezeMode, mixinWithFetchButton} from './base'
-import {NoteMap} from '../map'
+import {NoteFetchDialog, NoteFetchDialogSharedCheckboxes, mixinWithFetchButton} from './base'
+import {NoteMap, NoteMapFreezeMode} from '../map'
 import {NoteQuery, makeNoteBboxQueryFromValues} from '../query'
 import {NominatimBbox, NominatimBboxFetcher} from '../nominatim'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../util'
@@ -44,11 +44,6 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 	populateInputs(query: NoteQuery|undefined): void {
 		super.populateInputs(query)
 		this.updateNominatimRequest()
-	}
-	get mapFreezeMode(): MapFreezeMode {
-		if (this.$trackMapSelect.value=='fetch') return 'full'
-		if (this.$trackMapSelect.value=='bbox') return 'initial'
-		return 'no'
 	}
 	protected writeExtraForms() {
 		this.$nominatimForm.id='nominatim-form'
@@ -165,6 +160,7 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 			}
 		}
 		const trackMap=()=>{
+			this.updateMapFreezeMode() // only required when $trackMapSelect changes
 			updateTrackMapZoomNotice()
 			if (this.$trackMapSelect.value=='bbox' || this.$trackMapSelect.value=='fetch') {
 				const bounds=this.map.bounds
@@ -227,7 +223,21 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 			this.$bboxInput,this.$statusSelect
 		]
 	}
-	private updateNominatimRequest() {
+	onOpen(): void {
+		this.updateMapFreezeMode()
+	}
+	onClose(): void {
+		this.map.freezeMode='no'
+	}
+	private updateMapFreezeMode(): void {
+		const getMapFreezeMode: ()=>NoteMapFreezeMode = ()=>{
+			if (this.$trackMapSelect.value=='fetch') return 'full'
+			if (this.$trackMapSelect.value=='bbox') return 'initial'
+			return 'no'
+		}
+		this.map.freezeMode=getMapFreezeMode()
+	}
+	private updateNominatimRequest(): void {
 		const bounds=this.map.bounds
 		const url=this.nominatimBboxFetcher.getUrl(
 			this.$nominatimInput.value,

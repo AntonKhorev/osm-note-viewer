@@ -5,8 +5,6 @@ import {makeElement, makeLink, makeDiv, makeLabel} from '../util'
 const sup=(...ss: Array<string|HTMLElement>)=>makeElement('sup')()(...ss)
 const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
 
-export type MapFreezeMode = 'no' | 'initial' | 'full'
-
 export interface NoteFetchDialogSharedCheckboxes {
 	showImages: HTMLInputElement[]
 	showRequests: HTMLInputElement[]
@@ -50,9 +48,6 @@ export abstract class NoteFetchDialog extends NavDialog {
 	populateInputs(query: NoteQuery|undefined): void {
 		this.populateInputsWithoutUpdatingRequest(query)
 		this.updateRequest()
-	}
-	get mapFreezeMode(): MapFreezeMode {
-		return 'no'
 	}
 	abstract disableFetchControl(disabled: boolean): void
 	abstract getAutoLoadChecker(): {checked:boolean}

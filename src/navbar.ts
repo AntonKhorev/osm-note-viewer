@@ -17,12 +17,14 @@ export abstract class NavDialog {
 	isOpen(): boolean {
 		return this.$section.classList.contains('active')
 	}
+	onOpen(): void {}
+	onClose(): void {}
 	abstract writeSectionContent(): void
 }
 
 export default class Navbar {
 	private readonly $tabList=document.createElement('ul')
-	private readonly tabs: Map<string,[$navlink:HTMLAnchorElement,$section:HTMLElement]> = new Map()
+	private readonly tabs: Map<string,[$navlink:HTMLAnchorElement,dialog:NavDialog]> = new Map()
 	constructor(storage: NoteViewerStorage, $container: HTMLElement, map: NoteMap) {
 		$container.append(
 			this.$tabList,
@@ -35,17 +37,26 @@ export default class Navbar {
 		dialog.$section.id=id
 		const $a=makeLink(dialog.shortTitle,'#'+id)
 		this.$tabList.append(makeElement('li')(...(push?['push']:[]))($a))
-		this.tabs.set(dialog.shortTitle,[$a,dialog.$section])
+		this.tabs.set(dialog.shortTitle,[$a,dialog])
 		$a.addEventListener('click',ev=>{
 			ev.preventDefault()
 			this.openTab(dialog.shortTitle)
 		})
 	}
 	openTab(targetShortTitle: string) {
-		for (const [shortTitle,[$a,$section]] of this.tabs) {
-			const isActive=shortTitle==targetShortTitle
-			$a.classList.toggle('active',isActive)
-			$section.classList.toggle('active',isActive)
+		for (const [shortTitle,[$a,dialog]] of this.tabs) {
+			const willBeActive=shortTitle==targetShortTitle
+			if (!willBeActive && dialog.isOpen()) {
+				dialog.onClose()
+			}
+		}
+		for (const [shortTitle,[$a,dialog]] of this.tabs) {
+			const willBeActive=shortTitle==targetShortTitle
+			if (willBeActive && !dialog.isOpen()) {
+				dialog.onOpen()
+			}
+			$a.classList.toggle('active',willBeActive)
+			dialog.$section.classList.toggle('active',willBeActive)
 		}
 	}
 }
