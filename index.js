@@ -1700,14 +1700,16 @@ class NoteFetcher {
                     return;
                 }
                 const url = this.constructUrl(...fetchDetails.pathAndParametersList[0]);
-                $requestOutput.replaceChildren(makeElement('code')()(makeLink(url, url)));
+                const $a = makeLink(url, url);
+                $a.classList.add('request');
+                $requestOutput.replaceChildren(makeElement('code')()($a));
             };
             this.limitUpdater();
             $moreContainer.innerHTML = '';
             const $button = document.createElement('button');
             $button.textContent = `Load more notes`;
             $button.addEventListener('click', fetchCycle);
-            $moreContainer.append(makeDiv()($button), makeDiv('request')(`Resulting request: `, $requestOutput));
+            $moreContainer.append(makeDiv()($button), makeDiv('advanced')(`Resulting request: `, $requestOutput));
             return $button;
         };
         const fetchCycle = async () => {
@@ -2099,7 +2101,9 @@ class NoteFetchDialog extends NavDialog {
             return;
         }
         const [[mainType, mainUrl], ...otherRequestUrls] = requestUrls;
-        this.$requestOutput.replaceChildren(code$3(makeLink(mainUrl, mainUrl)), ` in ${mainType} format`);
+        const $a = makeLink(mainUrl, mainUrl);
+        $a.classList.add('request');
+        this.$requestOutput.replaceChildren(code$3($a), ` in ${mainType} format`);
         appendLinkIfKnown(mainType);
         if (otherRequestUrls.length > 0) {
             this.$requestOutput.append(` or other formats: `);
@@ -2146,14 +2150,14 @@ class NoteFetchDialog extends NavDialog {
         $showImagesCheckbox.type = 'checkbox';
         this.$sharedCheckboxes.showImages.push($showImagesCheckbox);
         $fieldset.append(makeDiv()(makeLabel()($showImagesCheckbox, ` Load and show images from StreetComplete`)));
-        const $showRequestsCheckbox = document.createElement('input');
-        $showRequestsCheckbox.type = 'checkbox';
-        this.$sharedCheckboxes.showRequests.push($showRequestsCheckbox);
-        $fieldset.append(makeDiv()(makeLabel()($showRequestsCheckbox, ` Show request parameters and URLs`)));
+        const $advancedModeCheckbox = document.createElement('input');
+        $advancedModeCheckbox.type = 'checkbox';
+        this.$sharedCheckboxes.advancedMode.push($advancedModeCheckbox);
+        $fieldset.append(makeDiv()(makeLabel()($advancedModeCheckbox, ` Advanced mode`)));
         return $fieldset;
     }
     makeRequestDiv() {
-        return makeDiv('request')(`Resulting request: `, this.$requestOutput);
+        return makeDiv('advanced')(`Resulting request: `, this.$requestOutput);
     }
     addRequestChangeListeners() {
         for (const $input of this.listQueryChangingInputs()) {
@@ -2197,7 +2201,7 @@ class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
     writeDownloadModeFieldset($fieldset) {
         {
             this.$limitSelect.append(new Option('5'), new Option('20'));
-            $fieldset.append(makeDiv()(`Download these `, makeLabel()(`in batches of `, this.$limitSelect, ` notes`, makeElement('span')('request')(` (will make this many API requests each time it downloads more notes)`))));
+            $fieldset.append(makeDiv()(`Download these `, makeLabel()(`in batches of `, this.$limitSelect, ` notes`, makeElement('span')('advanced')(` (will make this many API requests each time it downloads more notes)`))));
         }
         {
             this.$autoLoadCheckbox.type = 'checkbox';
@@ -2209,8 +2213,8 @@ class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
 
 const em$5 = (...ss) => makeElement('em')()(...ss);
 const code$2 = (...ss) => makeElement('code')()(...ss);
-const rq$1 = (param) => makeElement('span')('request')(` (`, code$2(param), ` parameter)`);
-const rq2 = (param1, param2) => makeElement('span')('request')(` (`, code$2(param1), ` or `, code$2(param2), ` parameter)`);
+const rq$1 = (param) => makeElement('span')('advanced')(` (`, code$2(param), ` parameter)`);
+const rq2 = (param1, param2) => makeElement('span')('advanced')(` (`, code$2(param1), ` or `, code$2(param2), ` parameter)`);
 class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoadCheckbox(NoteFetchDialog)) {
     constructor() {
         super(...arguments);
@@ -2226,7 +2230,7 @@ class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoadCheckb
     }
     writeScopeAndOrderFieldset($fieldset) {
         {
-            $fieldset.append(makeDiv('request')(`Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`), ` request at `, code$2(`https://api.openstreetmap.org/api/0.6/notes/search?`, em$5(`parameters`)), `; see `, em$5(`parameters`), ` below.`));
+            $fieldset.append(makeDiv('advanced')(`Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`), ` request at `, code$2(`https://api.openstreetmap.org/api/0.6/notes/search?`, em$5(`parameters`)), `; see `, em$5(`parameters`), ` below.`));
         }
         {
             this.$userInput.type = 'text';
@@ -2366,8 +2370,8 @@ class NominatimBboxFetcher {
 
 const em$4 = (...ss) => makeElement('em')()(...ss);
 const code$1 = (...ss) => makeElement('code')()(...ss);
-const rq = (param) => makeElement('span')('request')(` (`, code$1(param), ` parameter)`);
-const spanRequest = (...ss) => makeElement('span')('request')(...ss);
+const rq = (param) => makeElement('span')('advanced')(` (`, code$1(param), ` parameter)`);
+const spanRequest = (...ss) => makeElement('span')('advanced')(...ss);
 class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
     constructor($sharedCheckboxes, getRequestUrls, submitQuery, map) {
         super($sharedCheckboxes, getRequestUrls, submitQuery);
@@ -2407,7 +2411,7 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
     }
     writeScopeAndOrderFieldset($fieldset) {
         {
-            $fieldset.append(makeDiv('request')(`Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code$1(`https://api.openstreetmap.org/api/0.6/notes?`, em$4(`parameters`)), `; see `, em$4(`parameters`), ` below.`));
+            $fieldset.append(makeDiv('advanced')(`Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code$1(`https://api.openstreetmap.org/api/0.6/notes?`, em$4(`parameters`)), `; see `, em$4(`parameters`), ` below.`));
         }
         {
             this.$trackMapSelect.append(new Option(`Do nothing`, 'nothing'), new Option(`Update bounding box input`, 'bbox', true, true), new Option(`Fetch notes`, 'fetch'));
@@ -2426,7 +2430,7 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
             }
         }
         {
-            $fieldset.append(makeDiv('request')(`Make `, makeLink(`Nominatim search query`, `https://nominatim.org/release-docs/develop/api/Search/`), ` at `, code$1(this.nominatimBboxFetcher.urlBase + '?', em$4(`parameters`)), `; see `, em$4(`parameters`), ` above and below.`));
+            $fieldset.append(makeDiv('advanced')(`Make `, makeLink(`Nominatim search query`, `https://nominatim.org/release-docs/develop/api/Search/`), ` at `, code$1(this.nominatimBboxFetcher.urlBase + '?', em$4(`parameters`)), `; see `, em$4(`parameters`), ` above and below.`));
             this.$nominatimInput.type = 'text';
             this.$nominatimInput.required = true;
             this.$nominatimInput.classList.add('no-invalid-indication'); // because it's inside another form that doesn't require it, don't indicate that it's invalid
@@ -2435,7 +2439,7 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
             this.$nominatimButton.textContent = 'Get';
             this.$nominatimButton.setAttribute('form', 'nominatim-form');
             $fieldset.append(makeDiv('text-button-input')(makeLabel()(`Or get bounding box by place name from Nominatim`, spanRequest(` (`, code$1('q'), ` Nominatim parameter)`), `: `, this.$nominatimInput), this.$nominatimButton));
-            $fieldset.append(makeDiv('request')(`Resulting Nominatim request: `, this.$nominatimRequestOutput));
+            $fieldset.append(makeDiv('advanced')(`Resulting Nominatim request: `, this.$nominatimRequestOutput));
         }
         {
             this.$statusSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
@@ -2582,7 +2586,9 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
     updateNominatimRequest() {
         const bounds = this.map.bounds;
         const url = this.nominatimBboxFetcher.getUrl(this.$nominatimInput.value, bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth());
-        this.$nominatimRequestOutput.replaceChildren(code$1(makeLink(url, url)));
+        const $a = makeLink(url, url);
+        $a.classList.add('request');
+        this.$nominatimRequestOutput.replaceChildren(code$1($a));
     }
 }
 function makeDumbCache() {
@@ -2670,7 +2676,7 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
     writeScopeAndOrderFieldset($fieldset, $legend) {
         $legend.textContent = `Or read custom XML file`;
         {
-            $fieldset.append(makeDiv('request')(`Load an arbitrary XML file containing note ids or links. `, `Elements containing the ids are selected by a `, makeLink(`css selector`, `https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors`), ` provided below. `, `Inside the elements ids are looked for in an `, em$3(`attribute`), ` if specified below, or in text content. `, `After that download each note `, makeLink(`by its id`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Read:_GET_/api/0.6/notes/#id`), `.`));
+            $fieldset.append(makeDiv('advanced')(`Load an arbitrary XML file containing note ids or links. `, `Elements containing the ids are selected by a `, makeLink(`css selector`, `https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors`), ` provided below. `, `Inside the elements ids are looked for in an `, em$3(`attribute`), ` if specified below, or in text content. `, `After that download each note `, makeLink(`by its id`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Read:_GET_/api/0.6/notes/#id`), `.`));
         }
         {
             this.$selectorInput.type = 'text';
@@ -3103,35 +3109,35 @@ class NoteFetchPanel {
         const moreButtonIntersectionObservers = [];
         const $sharedCheckboxes = {
             showImages: [],
-            showRequests: []
+            advancedMode: []
         };
         const hashQuery = makeNoteQueryFromHash(globalHistory.getQueryHash());
         // make fetchers and dialogs
         const searchFetcher = new NoteSearchFetcher();
         const bboxFetcher = new NoteBboxFetcher();
         const idsFetcher = new NoteIdsFetcher();
-        const makeSearchDialog = (fetcher, fetchDialogCtor) => {
+        const makeFetchDialog = (fetcher, fetchDialogCtor) => {
             const dialog = fetchDialogCtor((query, limit) => fetcher.getRequestUrls(query, limit), (query) => {
                 modifyHistory(query, true);
                 startFetcher(query, true, false, fetcher, dialog);
             });
-            dialog.$limitSelect.addEventListener('input', () => searchFetcher.limitWasUpdated());
+            dialog.$limitSelect.addEventListener('input', () => fetcher.limitWasUpdated());
             dialog.write($container);
             dialog.populateInputs(hashQuery);
             navbar.addTab(dialog);
             return dialog;
         };
-        const searchDialog = makeSearchDialog(searchFetcher, (getRequestUrls, submitQuery) => new NoteSearchFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery));
-        const bboxDialog = makeSearchDialog(bboxFetcher, (getRequestUrls, submitQuery) => new NoteBboxFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery, map));
-        const xmlDialog = makeSearchDialog(idsFetcher, (getRequestUrls, submitQuery) => new NoteXmlFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery));
-        const plaintextDialog = makeSearchDialog(idsFetcher, (getRequestUrls, submitQuery) => new NotePlaintextFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery, noteTable));
+        const searchDialog = makeFetchDialog(searchFetcher, (getRequestUrls, submitQuery) => new NoteSearchFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery));
+        const bboxDialog = makeFetchDialog(bboxFetcher, (getRequestUrls, submitQuery) => new NoteBboxFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery, map));
+        const xmlDialog = makeFetchDialog(idsFetcher, (getRequestUrls, submitQuery) => new NoteXmlFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery));
+        const plaintextDialog = makeFetchDialog(idsFetcher, (getRequestUrls, submitQuery) => new NotePlaintextFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery, noteTable));
         const aboutDialog = new AboutDialog(storage, db);
         aboutDialog.write($container);
         navbar.addTab(aboutDialog, true);
         handleSharedCheckboxes($sharedCheckboxes.showImages, state => noteTable.setShowImages(state));
-        handleSharedCheckboxes($sharedCheckboxes.showRequests, state => {
-            $container.classList.toggle('show-requests', state);
-            $moreContainer.classList.toggle('show-requests', state);
+        handleSharedCheckboxes($sharedCheckboxes.advancedMode, state => {
+            $container.classList.toggle('advanced-mode', state);
+            $moreContainer.classList.toggle('advanced-mode', state);
         });
         globalHistory.onQueryHashChange = (queryHash) => {
             const query = makeNoteQueryFromHash(queryHash);

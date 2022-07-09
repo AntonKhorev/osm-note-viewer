@@ -239,13 +239,17 @@ nav ul li a:focus {
 	white-space: nowrap;
 }
 
-.panel.fetch .request,
-.more .request {
+.panel.fetch .advanced,
+.more .advanced {
 	opacity: .7;
 	font-size: .9em;
 }
-.panel.fetch:not(.show-requests) .request,
-.more:not(.show-requests) .request {
+.panel.fetch a.request,
+.more a.request {
+	word-wrap: anywhere;
+}
+.panel.fetch:not(.advanced-mode) .advanced,
+.more:not(.advanced-mode) .advanced {
 	display: none;
 }
 .panel.fetch .notice.error {
