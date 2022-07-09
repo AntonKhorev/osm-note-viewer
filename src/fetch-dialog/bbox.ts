@@ -6,8 +6,8 @@ import {makeElement, makeLink, makeDiv, makeLabel} from '../util'
 
 const em=(...ss: Array<string|HTMLElement>)=>makeElement('em')()(...ss)
 const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
-const rq=(param: string)=>makeElement('span')('request')(` (`,code(param),` parameter)`)
-const spanRequest=(...ss: Array<string|HTMLElement>)=>makeElement('span')('request')(...ss)
+const rq=(param: string)=>makeElement('span')('advanced')(` (`,code(param),` parameter)`)
+const spanRequest=(...ss: Array<string|HTMLElement>)=>makeElement('span')('advanced')(...ss)
 
 export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 	shortTitle=`BBox`
@@ -55,7 +55,7 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 	}
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{
-			$fieldset.append(makeDiv('request')(
+			$fieldset.append(makeDiv('advanced')(
 				`Get `,makeLink(`notes by bounding box`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`),
 				` request at `,code(`https://api.openstreetmap.org/api/0.6/notes?`,em(`parameters`)),`; see `,em(`parameters`),` below.`
 			))
@@ -89,7 +89,7 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 				return $span
 			}
 		}{
-			$fieldset.append(makeDiv('request')(
+			$fieldset.append(makeDiv('advanced')(
 				`Make `,makeLink(`Nominatim search query`,`https://nominatim.org/release-docs/develop/api/Search/`),
 				` at `,code(this.nominatimBboxFetcher.urlBase+'?',em(`parameters`)),`; see `,em(`parameters`),` above and below.`
 			))
@@ -104,7 +104,7 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 				`Or get bounding box by place name from Nominatim`,spanRequest(` (`,code('q'),` Nominatim parameter)`),`: `,
 				this.$nominatimInput
 			),this.$nominatimButton))
-			$fieldset.append(makeDiv('request')(`Resulting Nominatim request: `,this.$nominatimRequestOutput))
+			$fieldset.append(makeDiv('advanced')(`Resulting Nominatim request: `,this.$nominatimRequestOutput))
 		}{
 			this.$statusSelect.append(
 				new Option(`both open and closed`,'-1'),

@@ -123,7 +123,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void {
 		$legend.textContent=`Or read custom XML file`
 		{
-			$fieldset.append(makeDiv('request')(
+			$fieldset.append(makeDiv('advanced')(
 				`Load an arbitrary XML file containing note ids or links. `,
 				`Elements containing the ids are selected by a `,makeLink(`css selector`,`https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors`),` provided below. `,
 				`Inside the elements ids are looked for in an `,em(`attribute`),` if specified below, or in text content. `,

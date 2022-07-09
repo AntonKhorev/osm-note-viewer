@@ -6,8 +6,8 @@ import {makeElement, makeLink, makeDiv, makeLabel} from '../util'
 
 const em=(...ss: Array<string|HTMLElement>)=>makeElement('em')()(...ss)
 const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
-const rq=(param: string)=>makeElement('span')('request')(` (`,code(param),` parameter)`)
-const rq2=(param1: string, param2: string)=>makeElement('span')('request')(` (`,code(param1),` or `,code(param2),` parameter)`)
+const rq=(param: string)=>makeElement('span')('advanced')(` (`,code(param),` parameter)`)
+const rq2=(param1: string, param2: string)=>makeElement('span')('advanced')(` (`,code(param1),` or `,code(param2),` parameter)`)
 
 export class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoadCheckbox(NoteFetchDialog)) {
 	shortTitle=`Search`
@@ -21,7 +21,7 @@ export class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoa
 	protected $orderSelect=document.createElement('select')
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{
-			$fieldset.append(makeDiv('request')(
+			$fieldset.append(makeDiv('advanced')(
 				`Make a `,makeLink(`search for notes`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`),
 				` request at `,code(`https://api.openstreetmap.org/api/0.6/notes/search?`,em(`parameters`)),`; see `,em(`parameters`),` below.`
 			))

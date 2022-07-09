@@ -7,7 +7,7 @@ const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
 
 export interface NoteFetchDialogSharedCheckboxes {
 	showImages: HTMLInputElement[]
-	showRequests: HTMLInputElement[]
+	advancedMode: HTMLInputElement[]
 }
 
 export abstract class NoteFetchDialog extends NavDialog {
@@ -120,16 +120,16 @@ export abstract class NoteFetchDialog extends NavDialog {
 		$fieldset.append(makeDiv()(makeLabel()(
 			$showImagesCheckbox,` Load and show images from StreetComplete`
 		)))
-		const $showRequestsCheckbox=document.createElement('input')
-		$showRequestsCheckbox.type='checkbox'
-		this.$sharedCheckboxes.showRequests.push($showRequestsCheckbox)
+		const $advancedModeCheckbox=document.createElement('input')
+		$advancedModeCheckbox.type='checkbox'
+		this.$sharedCheckboxes.advancedMode.push($advancedModeCheckbox)
 		$fieldset.append(makeDiv()(makeLabel()(
-			$showRequestsCheckbox,` Show request parameters and URLs`
+			$advancedModeCheckbox,` Advanced mode`
 		)))
 		return $fieldset
 	}
 	private makeRequestDiv() {
-		return makeDiv('request')(`Resulting request: `,this.$requestOutput)
+		return makeDiv('advanced')(`Resulting request: `,this.$requestOutput)
 	}
 	private addRequestChangeListeners() {
 		for (const $input of this.listQueryChangingInputs()) {
@@ -187,7 +187,7 @@ export abstract class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteF
 				`Download these `,
 				makeLabel()(
 					`in batches of `,this.$limitSelect,` notes`,
-					makeElement('span')('request')(` (will make this many API requests each time it downloads more notes)`)
+					makeElement('span')('advanced')(` (will make this many API requests each time it downloads more notes)`)
 				)
 			))
 		}{

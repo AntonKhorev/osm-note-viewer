@@ -27,7 +27,7 @@ export default class NoteFetchPanel {
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
 		const $sharedCheckboxes: NoteFetchDialogSharedCheckboxes = {
 			showImages: [],
-			showRequests: []
+			advancedMode: []
 		}
 		const hashQuery=makeNoteQueryFromHash(globalHistory.getQueryHash())
 
@@ -69,9 +69,9 @@ export default class NoteFetchPanel {
 		navbar.addTab(aboutDialog,true)
 		
 		handleSharedCheckboxes($sharedCheckboxes.showImages,state=>noteTable.setShowImages(state))
-		handleSharedCheckboxes($sharedCheckboxes.showRequests,state=>{
-			$container.classList.toggle('show-requests',state)
-			$moreContainer.classList.toggle('show-requests',state)
+		handleSharedCheckboxes($sharedCheckboxes.advancedMode,state=>{
+			$container.classList.toggle('advanced-mode',state)
+			$moreContainer.classList.toggle('advanced-mode',state)
 		})
 		globalHistory.onQueryHashChange=(queryHash: string)=>{
 			const query=makeNoteQueryFromHash(queryHash)
