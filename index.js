@@ -551,6 +551,7 @@ class NoteMarker extends L.Marker {
 class NoteMap {
     constructor($container) {
         this.needToFitNotes = false;
+        this.freezeMode = 'no';
         this.leafletMap = L.map($container, {
             worldCopyJump: true
         });
@@ -593,13 +594,13 @@ class NoteMap {
         this.noteLayer.clearLayers();
         this.filteredNoteLayer.clearLayers();
         this.trackLayer.clearLayers();
-        this.needToFitNotes = true;
+        this.needToFitNotes = this.freezeMode == 'no';
     }
     fitNotes() {
         const bounds = this.noteLayer.getBounds();
         if (!bounds.isValid())
             return;
-        this.leafletMap.fitBounds(bounds);
+        this.fitBoundsIfNotFrozen(bounds);
         this.needToFitNotes = false;
     }
     fitNotesIfNeeded() {
@@ -634,7 +635,7 @@ class NoteMap {
     fitNoteTrack() {
         const bounds = this.trackLayer.getBounds(); // invalid if track is empty; track is empty when no notes are in table view
         if (bounds.isValid())
-            this.leafletMap.fitBounds(bounds);
+            this.fitBoundsIfNotFrozen(bounds);
     }
     addOsmElement(geometry, popupWriter) {
         // TODO zoom on second click, like with notes
@@ -642,21 +643,55 @@ class NoteMap {
         this.elementLayer.addLayer(geometry);
         const layerId = this.elementLayer.getLayerId(geometry);
         // geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
-        if (geometry instanceof L.CircleMarker) {
+        if (this.freezeMode == 'full') {
+            const popup = L.popup({ autoPan: false }).setContent(popupWriter);
+            let restorePopupTipTimeoutId;
+            const onOpenPopup = () => {
+                const $popupContainer = popup.getElement();
+                if (!$popupContainer)
+                    return;
+                if (restorePopupTipTimeoutId) {
+                    clearTimeout(restorePopupTipTimeoutId);
+                    restorePopupTipTimeoutId = undefined;
+                    restorePopupTip($popupContainer);
+                }
+                const offsetWithTip = calculateOffsetsToFit(this.leafletMap, $popupContainer);
+                if (offsetWithTip[0] || offsetWithTip[1]) {
+                    hidePopupTip($popupContainer);
+                    const offsetWithoutTip = calculateOffsetsToFit(this.leafletMap, $popupContainer);
+                    popup.options.offset = offsetWithoutTip;
+                    popup.update();
+                }
+            };
+            const onClosePopup = () => {
+                geometry.bindPopup(popup, { offset: [0, 0] });
+                const $popupContainer = popup.getElement();
+                if (!$popupContainer)
+                    return;
+                const fadeoutTransitionTime = 200;
+                restorePopupTipTimeoutId = setTimeout(() => {
+                    restorePopupTipTimeoutId = undefined;
+                    restorePopupTip($popupContainer);
+                }, fadeoutTransitionTime);
+            };
+            geometry.on('popupopen', onOpenPopup).on('popupclose', onClosePopup);
+            geometry.bindPopup(popup).openPopup();
+        }
+        else if (geometry instanceof L.CircleMarker) {
             this.queuedPopup = [layerId, popupWriter];
             const minZoomForNode = 10;
             if (this.zoom < minZoomForNode) {
-                this.leafletMap.flyTo(geometry.getLatLng(), minZoomForNode, { duration: .5 });
+                this.flyToIfNotFrozen(geometry.getLatLng(), minZoomForNode, { duration: .5 });
             }
             else {
-                this.leafletMap.panTo(geometry.getLatLng());
+                this.panToIfNotFrozen(geometry.getLatLng());
             }
         }
         else {
             const bounds = this.elementLayer.getBounds();
             if (bounds.isValid()) {
                 this.queuedPopup = [layerId, popupWriter];
-                this.leafletMap.fitBounds(bounds);
+                this.fitBoundsIfNotFrozen(bounds);
             }
             else {
                 geometry.bindPopup(popupWriter).openPopup();
@@ -664,13 +699,13 @@ class NoteMap {
         }
     }
     fitBounds(bounds) {
-        this.leafletMap.fitBounds(bounds);
+        this.fitBoundsIfNotFrozen(bounds);
     }
     panTo(latlng) {
-        this.leafletMap.panTo(latlng);
+        this.panToIfNotFrozen(latlng);
     }
     panAndZoomTo(latlng, zoom) {
-        this.leafletMap.flyTo(latlng, zoom, { duration: .5 }); // default duration is too long despite docs saying it's 0.25
+        this.flyToIfNotFrozen(latlng, zoom, { duration: .5 }); // default duration is too long despite docs saying it's 0.25
     }
     isCloseEnoughToCenter(latlng) {
         const inputPt = this.leafletMap.latLngToContainerPoint(latlng);
@@ -694,6 +729,21 @@ class NoteMap {
     }
     onMoveEnd(fn) {
         this.leafletMap.on('moveend', fn);
+    }
+    fitBoundsIfNotFrozen(bounds) {
+        if (this.freezeMode == 'full')
+            return;
+        this.leafletMap.fitBounds(bounds);
+    }
+    panToIfNotFrozen(latlng) {
+        if (this.freezeMode == 'full')
+            return;
+        this.leafletMap.panTo(latlng);
+    }
+    flyToIfNotFrozen(latlng, zoom, options) {
+        if (this.freezeMode == 'full')
+            return;
+        this.leafletMap.flyTo(latlng, zoom, options);
     }
 }
 class CrosshairLayer extends L.Layer {
@@ -723,6 +773,49 @@ function* noteCommentsToStates(comments) {
         }
         yield currentState;
     }
+}
+function hidePopupTip($popupContainer) {
+    $popupContainer.style.marginBottom = '0';
+    const $tip = $popupContainer.querySelector('.leaflet-popup-tip-container');
+    if ($tip instanceof HTMLElement) {
+        $tip.style.display = 'none';
+    }
+}
+function restorePopupTip($popupContainer) {
+    $popupContainer.style.removeProperty('margin-bottom');
+    const $tip = $popupContainer.querySelector('.leaflet-popup-tip-container');
+    if ($tip instanceof HTMLElement) {
+        $tip.style.removeProperty('display');
+    }
+}
+// logic borrowed from _adjustPan() in leaflet's Popup class
+function calculateOffsetsToFit(map, $popupContainer) {
+    const containerWidth = $popupContainer.offsetWidth;
+    const containerLeft = -Math.round(containerWidth / 2);
+    const marginBottom = parseInt(L.DomUtil.getStyle($popupContainer, 'marginBottom') ?? '0', 10); // contains tip that is better thrown away
+    const containerHeight = $popupContainer.offsetHeight + marginBottom;
+    const containerBottom = 0;
+    const containerAddPos = L.DomUtil.getPosition($popupContainer);
+    const layerPos = new L.Point(containerLeft, -containerHeight - containerBottom);
+    layerPos.x += containerAddPos.x;
+    layerPos.y += containerAddPos.y;
+    const containerPos = map.layerPointToContainerPoint(layerPos);
+    const size = map.getSize();
+    let dx = 0;
+    let dy = 0;
+    if (containerPos.x + containerWidth > size.x) { // right
+        dx = containerPos.x + containerWidth - size.x;
+    }
+    if (containerPos.x - dx < 0) { // left
+        dx = containerPos.x;
+    }
+    if (containerPos.y + containerHeight > size.y) { // bottom
+        dy = containerPos.y + containerHeight - size.y;
+    }
+    if (containerPos.y - dy < 0) { // top
+        dy = containerPos.y;
+    }
+    return [-dx, -dy];
 }
 
 class FigureDialog {
@@ -824,6 +917,11 @@ class NavDialog {
         this.writeSectionContent();
         $container.append(this.$section);
     }
+    isOpen() {
+        return this.$section.classList.contains('active');
+    }
+    onOpen() { }
+    onClose() { }
 }
 class Navbar {
     constructor(storage, $container, map) {
@@ -836,17 +934,27 @@ class Navbar {
         dialog.$section.id = id;
         const $a = makeLink(dialog.shortTitle, '#' + id);
         this.$tabList.append(makeElement('li')(...(push ? ['push'] : []))($a));
-        this.tabs.set(dialog.shortTitle, [$a, dialog.$section]);
+        this.tabs.set(dialog.shortTitle, [$a, dialog]);
         $a.addEventListener('click', ev => {
             ev.preventDefault();
             this.openTab(dialog.shortTitle);
         });
     }
     openTab(targetShortTitle) {
-        for (const [shortTitle, [$a, $section]] of this.tabs) {
-            const isActive = shortTitle == targetShortTitle;
-            $a.classList.toggle('active', isActive);
-            $section.classList.toggle('active', isActive);
+        for (const [shortTitle, [$a, dialog]] of this.tabs) {
+            const willBeActive = shortTitle == targetShortTitle;
+            if (!willBeActive && dialog.isOpen()) {
+                dialog.onClose();
+            }
+        }
+        for (const [shortTitle, [$a, dialog]] of this.tabs) {
+            const willBeActive = shortTitle == targetShortTitle;
+            const willCallOnOpen = (willBeActive && !dialog.isOpen());
+            $a.classList.toggle('active', willBeActive);
+            dialog.$section.classList.toggle('active', willBeActive);
+            if (willCallOnOpen) {
+                dialog.onOpen();
+            }
         }
     }
 }
@@ -1943,6 +2051,7 @@ class NoteFetchDialog extends NavDialog {
         this.$limitSelect = document.createElement('select');
         this.$requestOutput = document.createElement('output');
     }
+    resetFetch() { }
     writeSectionContent() {
         const appendIfExists = (...$es) => {
             for (const $e of $es) {
@@ -1966,9 +2075,6 @@ class NoteFetchDialog extends NavDialog {
     populateInputs(query) {
         this.populateInputsWithoutUpdatingRequest(query);
         this.updateRequest();
-    }
-    needToSuppressFitNotes() {
-        return false;
     }
     updateRequest() {
         const knownTypes = {
@@ -2279,10 +2385,14 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
             return response.json();
         }, ...makeDumbCache() // TODO real cache in db
         );
+        this.$trackMapSelect = document.createElement('select');
+        this.$trackMapZoomNotice = makeElement('span')('notice')();
         this.$bboxInput = document.createElement('input');
-        this.$trackMapCheckbox = document.createElement('input');
         this.$statusSelect = document.createElement('select');
         this.$nominatimRequestOutput = document.createElement('output');
+    }
+    resetFetch() {
+        this.mapBoundsForFreezeRestore = undefined;
     }
     getAutoLoadChecker() {
         return { checked: false };
@@ -2291,9 +2401,6 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
         super.populateInputs(query);
         this.updateNominatimRequest();
     }
-    needToSuppressFitNotes() {
-        return this.$trackMapCheckbox.checked;
-    }
     writeExtraForms() {
         this.$nominatimForm.id = 'nominatim-form';
         this.$section.append(this.$nominatimForm);
@@ -2301,6 +2408,10 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
     writeScopeAndOrderFieldset($fieldset) {
         {
             $fieldset.append(makeDiv('request')(`Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code$1(`https://api.openstreetmap.org/api/0.6/notes?`, em$4(`parameters`)), `; see `, em$4(`parameters`), ` below.`));
+        }
+        {
+            this.$trackMapSelect.append(new Option(`Do nothing`, 'nothing'), new Option(`Update bounding box input`, 'bbox', true, true), new Option(`Fetch notes`, 'fetch'));
+            $fieldset.append(makeDiv()(makeLabel('inline')(this.$trackMapSelect, ` on map view changes`), ` `, this.$trackMapZoomNotice));
         }
         {
             this.$bboxInput.type = 'text';
@@ -2313,11 +2424,6 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
                 $span.title = title;
                 return $span;
             }
-        }
-        {
-            this.$trackMapCheckbox.type = 'checkbox';
-            this.$trackMapCheckbox.checked = true;
-            $fieldset.append(makeDiv()(makeLabel()(this.$trackMapCheckbox, ` Update bounding box value with current map area`)));
         }
         {
             $fieldset.append(makeDiv('request')(`Make `, makeLink(`Nominatim search query`, `https://nominatim.org/release-docs/develop/api/Search/`), ` at `, code$1(this.nominatimBboxFetcher.urlBase + '?', em$4(`parameters`)), `; see `, em$4(`parameters`), ` above and below.`));
@@ -2338,7 +2444,8 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
     }
     writeDownloadModeFieldset($fieldset) {
         {
-            this.$limitSelect.append(new Option('20'), new Option('100'), new Option('500'), new Option('2500'), new Option('10000'));
+            this.$limitSelect.append(new Option('20'), new Option('100', '100', true, true), // default limit because no progressive loads possible
+            new Option('500'), new Option('2500'), new Option('10000'));
             $fieldset.append(makeDiv()(`Download `, makeLabel()(`at most `, this.$limitSelect, rq('limit'), ` notes`)));
         }
     }
@@ -2358,22 +2465,57 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
             this.$bboxInput.setCustomValidity('');
             return true;
         };
-        const copyBounds = () => {
-            if (!this.$trackMapCheckbox.checked)
-                return;
-            const bounds = this.map.bounds;
-            // (left,bottom,right,top)
-            this.$bboxInput.value = bounds.getWest() + ',' + bounds.getSouth() + ',' + bounds.getEast() + ',' + bounds.getNorth();
-            validateBounds();
-            this.updateRequest();
-            this.updateNominatimRequest();
+        const updateTrackMapZoomNotice = () => {
+            if (this.$trackMapSelect.value != 'fetch') {
+                this.$trackMapZoomNotice.classList.remove('error');
+                this.$trackMapZoomNotice.innerText = '';
+            }
+            else {
+                if (this.map.zoom >= 8) {
+                    this.$trackMapZoomNotice.classList.remove('error');
+                    this.$trackMapZoomNotice.innerText = `(fetching will stop on zooms lower than 8)`;
+                }
+                else {
+                    this.$trackMapZoomNotice.classList.add('error');
+                    this.$trackMapZoomNotice.innerText = `(fetching will start on zooms 8 or higher)`;
+                }
+            }
         };
-        this.map.onMoveEnd(copyBounds);
-        this.$trackMapCheckbox.addEventListener('input', copyBounds);
+        const trackMap = () => {
+            updateTrackMapZoomNotice();
+            if (this.$trackMapSelect.value == 'bbox' || this.$trackMapSelect.value == 'fetch') {
+                const bounds = this.map.bounds;
+                // (left,bottom,right,top)
+                this.$bboxInput.value = bounds.getWest() + ',' + bounds.getSouth() + ',' + bounds.getEast() + ',' + bounds.getNorth();
+                validateBounds();
+                this.updateRequest();
+                this.updateNominatimRequest();
+            }
+        };
+        const updateNotesIfNeeded = () => {
+            if (this.isOpen() && this.$trackMapSelect.value == 'fetch' && this.map.zoom >= 8) {
+                this.$form.requestSubmit();
+            }
+        };
+        updateTrackMapZoomNotice();
+        this.map.onMoveEnd(() => {
+            trackMap();
+            if (this.isOpen() && this.mapBoundsForFreezeRestore) {
+                this.mapBoundsForFreezeRestore = undefined;
+            }
+            else {
+                updateNotesIfNeeded();
+            }
+        });
+        this.$trackMapSelect.addEventListener('input', () => {
+            this.map.freezeMode = this.getMapFreezeMode(); // don't update freeze mode on map moves
+            trackMap();
+            updateNotesIfNeeded();
+        });
         this.$bboxInput.addEventListener('input', () => {
             if (!validateBounds())
                 return;
-            this.$trackMapCheckbox.checked = false;
+            this.$trackMapSelect.value = 'nothing';
         });
         this.$bboxInput.addEventListener('input', () => this.updateNominatimRequest());
         this.$nominatimInput.addEventListener('input', () => this.updateNominatimRequest());
@@ -2389,7 +2531,7 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
                 validateBounds();
                 this.updateRequest();
                 this.updateNominatimRequest();
-                this.$trackMapCheckbox.checked = false;
+                this.$trackMapSelect.value = 'nothing';
                 this.map.fitBounds([[Number(minLat), Number(minLon)], [Number(maxLat), Number(maxLon)]]);
             }
             catch (ex) {
@@ -2413,6 +2555,29 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
         return [
             this.$bboxInput, this.$statusSelect
         ];
+    }
+    onOpen() {
+        if (this.getMapFreezeMode() == 'full' && this.mapBoundsForFreezeRestore) {
+            this.map.fitBounds(this.mapBoundsForFreezeRestore); // assumes map is not yet frozen
+            // this.restoreMapBoundsForFreeze=undefined to be done in map move end listener
+        }
+        else {
+            this.mapBoundsForFreezeRestore = undefined;
+        }
+        this.map.freezeMode = this.getMapFreezeMode();
+    }
+    onClose() {
+        if (this.getMapFreezeMode() == 'full') {
+            this.mapBoundsForFreezeRestore = this.map.bounds;
+        }
+        this.map.freezeMode = 'no';
+    }
+    getMapFreezeMode() {
+        if (this.$trackMapSelect.value == 'fetch')
+            return 'full';
+        if (this.$trackMapSelect.value == 'bbox')
+            return 'initial';
+        return 'no';
     }
     updateNominatimRequest() {
         const bounds = this.map.bounds;
@@ -3016,12 +3181,6 @@ class NoteFetchPanel {
             xmlDialog.populateInputs(query);
             plaintextDialog.populateInputs(query);
         }
-        function resetNoteDependents() {
-            while (moreButtonIntersectionObservers.length > 0)
-                moreButtonIntersectionObservers.pop()?.disconnect();
-            map.clearNotes();
-            noteTable.reset();
-        }
         function startFetcherFromQuery(query, clearStore, suppressFitNotes) {
             if (!query)
                 return;
@@ -3042,13 +3201,17 @@ class NoteFetchPanel {
             }
         }
         function startFetcher(query, clearStore, suppressFitNotes, fetcher, dialog) {
-            figureDialog.close();
-            resetNoteDependents();
             if (query.mode != 'search' && query.mode != 'bbox' && query.mode != 'ids')
                 return;
-            filterPanel.unsubscribe();
+            bboxDialog.resetFetch(); // TODO run for all dialogs... for now only bboxDialog has meaningful action
+            figureDialog.close();
+            while (moreButtonIntersectionObservers.length > 0)
+                moreButtonIntersectionObservers.pop()?.disconnect();
+            map.clearNotes();
+            noteTable.reset();
+            filterPanel.unsubscribe(); // TODO still needed? table used to be reconstructed but now it's permanent
             filterPanel.subscribe(noteFilter => noteTable.updateFilter(noteFilter));
-            if (dialog.needToSuppressFitNotes() || suppressFitNotes) {
+            if (suppressFitNotes) {
                 map.needToFitNotes = false;
             }
             self.runningFetcher = fetcher;
