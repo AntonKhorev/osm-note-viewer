@@ -160,7 +160,6 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 			}
 		}
 		const trackMap=()=>{
-			this.updateMapFreezeMode() // only required when $trackMapSelect changes
 			updateTrackMapZoomNotice()
 			if (this.$trackMapSelect.value=='bbox' || this.$trackMapSelect.value=='fetch') {
 				const bounds=this.map.bounds
@@ -176,7 +175,10 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 		}
 		updateTrackMapZoomNotice()
 		this.map.onMoveEnd(trackMap)
-		this.$trackMapSelect.addEventListener('input',trackMap)
+		this.$trackMapSelect.addEventListener('input',()=>{
+			this.updateMapFreezeMode() // don't update freeze mode on map moves
+			trackMap()
+		})
 		this.$bboxInput.addEventListener('input',()=>{
 			if (!validateBounds()) return
 			this.$trackMapSelect.value='nothing'
