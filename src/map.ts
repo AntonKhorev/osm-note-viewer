@@ -156,9 +156,15 @@ export class NoteMap {
 		// geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
 		if (this.freezeMovements) {
 			const popup=L.popup({autoPan:false}).setContent(popupWriter)
+			let restorePopupTipTimeoutId: number|undefined
 			const onOpenPopup=()=>{
 				const $popupContainer=popup.getElement()
 				if (!$popupContainer) return
+				if (restorePopupTipTimeoutId) {
+					clearTimeout(restorePopupTipTimeoutId)
+					restorePopupTipTimeoutId=undefined
+					restorePopupTip($popupContainer)
+				}
 				const offsetWithTip=calculateOffsetsToFit(this.leafletMap,$popupContainer)
 				if (offsetWithTip[0]||offsetWithTip[1]) {
 					hidePopupTip($popupContainer)
@@ -171,7 +177,11 @@ export class NoteMap {
 				geometry.bindPopup(popup,{offset:[0,0]})
 				const $popupContainer=popup.getElement()
 				if (!$popupContainer) return
-				restorePopupTip($popupContainer)
+				const fadeoutTransitionTime=200
+				restorePopupTipTimeoutId=setTimeout(()=>{
+					restorePopupTipTimeoutId=undefined
+					restorePopupTip($popupContainer)
+				},fadeoutTransitionTime)
 			}
 			geometry.on('popupopen',onOpenPopup).on('popupclose',onClosePopup)
 			geometry.bindPopup(popup).openPopup()
