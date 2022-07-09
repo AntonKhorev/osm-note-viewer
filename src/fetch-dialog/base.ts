@@ -21,6 +21,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 	) {
 		super()
 	}
+	resetFetch() {}
 	writeSectionContent() {
 		const appendIfExists=(...$es: Array<HTMLElement|undefined>)=>{
 			for (const $e of $es) {

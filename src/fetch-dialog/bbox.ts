@@ -30,6 +30,7 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 	protected $bboxInput=document.createElement('input')
 	protected $statusSelect=document.createElement('select')
 	private $nominatimRequestOutput=document.createElement('output')
+	private mapBoundsForFreezeRestore: L.LatLngBounds|undefined
 	constructor(
 		$sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
 		getRequestUrls: (query: NoteQuery, limit: number) => [type: string, url: string][],
@@ -37,6 +38,9 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 		private map: NoteMap
 	) {
 		super($sharedCheckboxes,getRequestUrls,submitQuery)
+	}
+	resetFetch() {
+		this.mapBoundsForFreezeRestore=undefined
 	}
 	getAutoLoadChecker(): {checked: boolean} {
 		return {checked: false}
@@ -169,15 +173,25 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 				this.updateRequest()
 				this.updateNominatimRequest()
 			}
+		}
+		const updateNotesIfNeeded=()=>{
 			if (this.isOpen() && this.$trackMapSelect.value=='fetch' && this.map.zoom>=8) {
 				this.$form.requestSubmit()
 			}
 		}
 		updateTrackMapZoomNotice()
-		this.map.onMoveEnd(trackMap)
-		this.$trackMapSelect.addEventListener('input',()=>{
-			this.updateMapFreezeMode() // don't update freeze mode on map moves
+		this.map.onMoveEnd(()=>{
 			trackMap()
+			if (this.isOpen() && this.mapBoundsForFreezeRestore) {
+				this.mapBoundsForFreezeRestore=undefined
+			} else {
+				updateNotesIfNeeded()
+			}
+		})
+		this.$trackMapSelect.addEventListener('input',()=>{
+			this.map.freezeMode=this.getMapFreezeMode() // don't update freeze mode on map moves
+			trackMap()
+			updateNotesIfNeeded()
 		})
 		this.$bboxInput.addEventListener('input',()=>{
 			if (!validateBounds()) return
@@ -226,18 +240,24 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 		]
 	}
 	onOpen(): void {
-		this.updateMapFreezeMode()
+		if (this.getMapFreezeMode()=='full' && this.mapBoundsForFreezeRestore) {
+			this.map.fitBounds(this.mapBoundsForFreezeRestore) // assumes map is not yet frozen
+			// this.restoreMapBoundsForFreeze=undefined to be done in map move end listener
+		} else {
+			this.mapBoundsForFreezeRestore=undefined
+		}
+		this.map.freezeMode=this.getMapFreezeMode()
 	}
 	onClose(): void {
+		if (this.getMapFreezeMode()=='full') {
+			this.mapBoundsForFreezeRestore=this.map.bounds
+		}
 		this.map.freezeMode='no'
 	}
-	private updateMapFreezeMode(): void {
-		const getMapFreezeMode: ()=>NoteMapFreezeMode = ()=>{
-			if (this.$trackMapSelect.value=='fetch') return 'full'
-			if (this.$trackMapSelect.value=='bbox') return 'initial'
-			return 'no'
-		}
-		this.map.freezeMode=getMapFreezeMode()
+	private getMapFreezeMode(): NoteMapFreezeMode {
+		if (this.$trackMapSelect.value=='fetch') return 'full'
+		if (this.$trackMapSelect.value=='bbox') return 'initial'
+		return 'no'
 	}
 	private updateNominatimRequest(): void {
 		const bounds=this.map.bounds

@@ -121,11 +121,6 @@ export default class NoteFetchPanel {
 			xmlDialog.populateInputs(query)
 			plaintextDialog.populateInputs(query)
 		}
-		function resetNoteDependents(): void {
-			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
-			map.clearNotes()
-			noteTable.reset()
-		}
 		function startFetcherFromQuery(query: NoteQuery|undefined, clearStore: boolean, suppressFitNotes: boolean): void {
 			if (!query) return
 			const fetcherAndDialog=getFetcherAndDialogFromQuery(query)
@@ -145,10 +140,13 @@ export default class NoteFetchPanel {
 			query: NoteQuery, clearStore: boolean, suppressFitNotes: boolean,
 			fetcher: NoteFetcher, dialog: NoteFetchDialog
 		): void {
-			figureDialog.close()
-			resetNoteDependents()
 			if (query.mode!='search' && query.mode!='bbox' && query.mode!='ids') return
-			filterPanel.unsubscribe()
+			bboxDialog.resetFetch() // TODO run for all dialogs... for now only bboxDialog has meaningful action
+			figureDialog.close()
+			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
+			map.clearNotes()
+			noteTable.reset()
+			filterPanel.unsubscribe() // TODO still needed? table used to be reconstructed but now it's permanent
 			filterPanel.subscribe(noteFilter=>noteTable.updateFilter(noteFilter))
 			if (suppressFitNotes) {
 				map.needToFitNotes=false
