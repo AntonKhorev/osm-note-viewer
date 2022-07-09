@@ -74,7 +74,9 @@ export abstract class NoteFetchDialog extends NavDialog {
 			return
 		}
 		const [[mainType,mainUrl],...otherRequestUrls]=requestUrls
-		this.$requestOutput.replaceChildren(code(makeLink(mainUrl,mainUrl)),` in ${mainType} format`)
+		const $a=makeLink(mainUrl,mainUrl)
+		$a.classList.add('request')
+		this.$requestOutput.replaceChildren(code($a),` in ${mainType} format`)
 		appendLinkIfKnown(mainType)
 		if (otherRequestUrls.length>0) {
 			this.$requestOutput.append(` or other formats: `)

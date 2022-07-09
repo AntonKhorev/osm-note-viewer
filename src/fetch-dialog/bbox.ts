@@ -265,7 +265,9 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 			this.$nominatimInput.value,
 			bounds.getWest(),bounds.getSouth(),bounds.getEast(),bounds.getNorth()
 		)
-		this.$nominatimRequestOutput.replaceChildren(code(makeLink(url,url)))
+		const $a=makeLink(url,url)
+		$a.classList.add('request')
+		this.$nominatimRequestOutput.replaceChildren(code($a))
 	}
 }
 

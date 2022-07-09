@@ -119,9 +119,9 @@ export abstract class NoteFetcher {
 					return
 				}
 				const url=this.constructUrl(...fetchDetails.pathAndParametersList[0])
-				$requestOutput.replaceChildren(makeElement('code')()(
-					makeLink(url,url)
-				))
+				const $a=makeLink(url,url)
+				$a.classList.add('request')
+				$requestOutput.replaceChildren(makeElement('code')()($a))
 			}
 			this.limitUpdater()
 			$moreContainer.innerHTML=''
@@ -130,7 +130,7 @@ export abstract class NoteFetcher {
 			$button.addEventListener('click',fetchCycle)
 			$moreContainer.append(
 				makeDiv()($button),
-				makeDiv('request')(`Resulting request: `,$requestOutput)
+				makeDiv('advanced')(`Resulting request: `,$requestOutput)
 			)
 			return $button
 		}
