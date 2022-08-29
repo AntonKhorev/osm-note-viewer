@@ -495,57 +495,74 @@ function getFadeAnimation($element, animationName) {
 
 class NoteMarker extends L.Marker {
     constructor(note) {
-        const width = 25;
-        const height = 40;
-        const auraThickness = 4;
-        const r = width / 2;
-        const widthWithAura = width + auraThickness * 2;
-        const heightWithAura = height + auraThickness;
-        const rWithAura = widthWithAura / 2;
-        const nInnerCircles = 4;
-        const e = makeEscapeTag(escapeXml);
-        let html = ``;
-        html += e `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`;
-        html += e `<title>${note.status} note #${note.id}</title>`,
-            html += e `<path d="${computeMarkerOutlinePath(heightWithAura - .5, rWithAura - .5)}" class="aura" fill="none" />`;
-        html += e `<path d="${computeMarkerOutlinePath(height, r)}" fill="${note.status == 'open' ? 'red' : 'green'}" />`;
-        const states = [...noteCommentsToStates(note.comments)];
-        html += drawStateCircles(r, nInnerCircles, states.slice(-nInnerCircles, -1));
-        html += e `</svg>`;
-        const icon = L.divIcon({
-            html,
-            className: 'note-marker',
-            iconSize: [widthWithAura, heightWithAura],
-            iconAnchor: [(widthWithAura - 1) / 2, heightWithAura],
-        });
+        const icon = getNoteMarkerIcon(note, false);
         super([note.lat, note.lon], { icon });
         this.noteId = note.id;
-        function computeMarkerOutlinePath(height, r) {
-            const rp = height - r;
-            const y = r ** 2 / rp;
-            const x = Math.sqrt(r ** 2 - y ** 2);
-            const xf = x.toFixed(2);
-            const yf = y.toFixed(2);
-            return `M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z`;
-        }
-        function drawStateCircles(r, nInnerCircles, statesToDraw) {
-            const dcr = (r - .5) / nInnerCircles;
-            let html = ``;
-            for (let i = 2; i >= 0; i--) {
-                if (i >= statesToDraw.length)
-                    continue;
-                const cr = dcr * (i + 1);
-                html += e `<circle r="${cr}" fill="${color()}" stroke="white" />`;
-                function color() {
-                    if (i == 0 && states.length <= nInnerCircles)
-                        return 'white';
-                    if (statesToDraw[i])
-                        return 'red';
-                    return 'green';
-                }
+    }
+    updateIcon(note, isSelected) {
+        const icon = getNoteMarkerIcon(note, isSelected);
+        this.setIcon(icon);
+    }
+}
+function getNoteMarkerIcon(note, isSelected) {
+    const width = 25;
+    const height = 40;
+    const auraThickness = 4;
+    const r = width / 2;
+    const widthWithAura = width + auraThickness * 2;
+    const heightWithAura = height + auraThickness;
+    const rWithAura = widthWithAura / 2;
+    const nInnerCircles = 4;
+    const e = makeEscapeTag(escapeXml);
+    let html = ``;
+    html += e `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`;
+    html += e `<title>${note.status} note #${note.id}</title>`,
+        html += e `<path d="${computeMarkerOutlinePath(heightWithAura - .5, rWithAura - .5)}" class="aura" fill="none" />`;
+    html += e `<path d="${computeMarkerOutlinePath(height, r)}" fill="${note.status == 'open' ? 'red' : 'green'}" />`;
+    const states = [...noteCommentsToStates(note.comments)];
+    html += drawStateCircles(r, nInnerCircles, states.slice(-nInnerCircles, -1));
+    if (isSelected) {
+        html += drawCheckMark();
+    }
+    html += e `</svg>`;
+    return L.divIcon({
+        html,
+        className: 'note-marker',
+        iconSize: [widthWithAura, heightWithAura],
+        iconAnchor: [(widthWithAura - 1) / 2, heightWithAura],
+    });
+    function computeMarkerOutlinePath(height, r) {
+        const rp = height - r;
+        const y = r ** 2 / rp;
+        const x = Math.sqrt(r ** 2 - y ** 2);
+        const xf = x.toFixed(2);
+        const yf = y.toFixed(2);
+        return `M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z`;
+    }
+    function drawStateCircles(r, nInnerCircles, statesToDraw) {
+        const dcr = (r - .5) / nInnerCircles;
+        let html = ``;
+        for (let i = 2; i >= 0; i--) {
+            if (i >= statesToDraw.length)
+                continue;
+            const cr = dcr * (i + 1);
+            html += e `<circle r="${cr}" fill="${color()}" stroke="white" />`;
+            function color() {
+                if (i == 0 && states.length <= nInnerCircles)
+                    return 'white';
+                if (statesToDraw[i])
+                    return 'red';
+                return 'green';
             }
-            return html;
         }
+        return html;
+    }
+    function drawCheckMark() {
+        const path = `M-${r / 4},0 L0,${r / 4} L${r / 2},-${r / 4}`;
+        let html = ``;
+        html += e `<path d="${path}" fill="none" stroke-width="6" stroke-linecap="round" stroke="blue" />`;
+        html += e `<path d="${path}" fill="none" stroke-width="2" stroke-linecap="round" stroke="white" />`;
+        return html;
     }
 }
 class NoteMap {
@@ -560,13 +577,15 @@ class NoteMap {
             maxZoom: 19
         })).fitWorld();
         this.elementLayer = L.featureGroup().addTo(this.leafletMap);
-        this.noteLayer = L.featureGroup().addTo(this.leafletMap);
+        this.unselectedNoteLayer = L.featureGroup().addTo(this.leafletMap);
+        this.selectedNoteLayer = L.featureGroup().addTo(this.leafletMap);
         this.filteredNoteLayer = L.featureGroup();
         this.trackLayer = L.featureGroup().addTo(this.leafletMap);
         const crosshairLayer = new CrosshairLayer().addTo(this.leafletMap);
         const layersControl = L.control.layers();
         layersControl.addOverlay(this.elementLayer, `OSM elements`);
-        layersControl.addOverlay(this.noteLayer, `Notes`);
+        layersControl.addOverlay(this.unselectedNoteLayer, `Unselected notes`);
+        layersControl.addOverlay(this.selectedNoteLayer, `Selected notes`);
         layersControl.addOverlay(this.filteredNoteLayer, `Filtered notes`);
         layersControl.addOverlay(this.trackLayer, `Track between notes`);
         layersControl.addOverlay(crosshairLayer, `Crosshair`);
@@ -586,22 +605,66 @@ class NoteMap {
             }
         });
     }
+    addNoteMarker(marker, toLayer) {
+        marker.addTo(toLayer);
+        return toLayer.getLayerId(marker);
+    }
+    getNoteMarker(layerId) {
+        for (const layer of [this.unselectedNoteLayer, this.selectedNoteLayer, this.filteredNoteLayer]) {
+            const marker = layer.getLayer(layerId);
+            if (marker instanceof NoteMarker) {
+                return marker;
+            }
+        }
+    }
+    removeNoteMarker(layerId) {
+        for (const layer of [this.unselectedNoteLayer, this.selectedNoteLayer, this.filteredNoteLayer]) {
+            layer.removeLayer(layerId);
+        }
+    }
+    moveNoteMarkerToLayer(layerId, toLayer) {
+        for (const layer of [this.unselectedNoteLayer, this.selectedNoteLayer, this.filteredNoteLayer]) {
+            const marker = layer.getLayer(layerId);
+            if (marker instanceof NoteMarker) {
+                layer.removeLayer(marker);
+                toLayer.addLayer(marker);
+                return marker;
+            }
+        }
+    }
     invalidateSize() {
         this.leafletMap.invalidateSize();
     }
     clearNotes() {
         this.elementLayer.clearLayers();
-        this.noteLayer.clearLayers();
+        this.unselectedNoteLayer.clearLayers();
+        this.selectedNoteLayer.clearLayers();
         this.filteredNoteLayer.clearLayers();
         this.trackLayer.clearLayers();
         this.needToFitNotes = this.freezeMode == 'no';
     }
+    fitSelectedNotes() {
+        const bounds = this.selectedNoteLayer.getBounds();
+        if (bounds.isValid()) {
+            this.fitBoundsIfNotFrozen(bounds);
+        }
+    }
     fitNotes() {
-        const bounds = this.noteLayer.getBounds();
-        if (!bounds.isValid())
-            return;
-        this.fitBoundsIfNotFrozen(bounds);
-        this.needToFitNotes = false;
+        let bounds;
+        for (const layer of [this.unselectedNoteLayer, this.selectedNoteLayer, this.filteredNoteLayer]) {
+            if (!this.leafletMap.hasLayer(layer))
+                continue;
+            if (!bounds) {
+                bounds = layer.getBounds();
+            }
+            else {
+                bounds.extend(layer.getBounds());
+            }
+        }
+        if (bounds && bounds.isValid()) {
+            this.fitBoundsIfNotFrozen(bounds);
+            this.needToFitNotes = false;
+        }
     }
     fitNotesIfNeeded() {
         if (!this.needToFitNotes)
@@ -623,8 +686,8 @@ class NoteMap {
         this.trackLayer.clearLayers();
         const polylineCoords = [];
         for (const layerId of layerIds) {
-            const marker = this.noteLayer.getLayer(layerId);
-            if (!(marker instanceof L.Marker))
+            const marker = this.getNoteMarker(layerId);
+            if (!marker)
                 continue;
             const coords = marker.getLatLng();
             polylineCoords.push(coords);
@@ -4056,25 +4119,20 @@ class NoteTable {
             nFetched++;
             if (this.filter.matchNote(note, getUsername)) {
                 nVisible++;
-                const marker = this.map.filteredNoteLayer.getLayer(layerId);
-                if (marker) {
-                    this.map.filteredNoteLayer.removeLayer(marker);
-                    this.map.noteLayer.addLayer(marker);
+                let targetLayer = this.map.unselectedNoteLayer;
+                const $checkbox = $noteSection.querySelector('.note-checkbox input');
+                if ($checkbox instanceof HTMLInputElement && $checkbox.checked) {
+                    targetLayer = this.map.selectedNoteLayer;
                 }
+                this.map.moveNoteMarkerToLayer(layerId, targetLayer);
                 $noteSection.classList.remove('hidden');
             }
             else {
                 this.deactivateNote('click', $noteSection);
                 this.deactivateNote('hover', $noteSection);
-                const marker = this.map.noteLayer.getLayer(layerId);
-                if (marker) {
-                    this.map.noteLayer.removeLayer(marker);
-                    this.map.filteredNoteLayer.addLayer(marker);
-                }
+                this.map.moveNoteMarkerToLayer(layerId, this.map.filteredNoteLayer);
                 $noteSection.classList.add('hidden');
-                const $checkbox = $noteSection.querySelector('.note-checkbox input');
-                if ($checkbox instanceof HTMLInputElement)
-                    $checkbox.checked = false;
+                this.setNoteSelection($noteSection, false);
             }
         }
         this.toolPanel.receiveNoteCounts(nFetched, nVisible);
@@ -4121,11 +4179,7 @@ class NoteTable {
         if (!($noteSection instanceof HTMLTableSectionElement))
             return;
         const layerId = Number($noteSection.dataset.layerId);
-        const marker = this.map.noteLayer.getLayer(layerId);
-        if (!(marker instanceof NoteMarker))
-            return;
-        this.map.noteLayer.removeLayer(marker);
-        this.map.filteredNoteLayer.removeLayer(marker);
+        this.map.removeNoteMarker(layerId);
         // remember note and users
         this.notesById.set(note.id, note);
         for (const [uid, username] of Object.entries(users)) {
@@ -4198,10 +4252,9 @@ class NoteTable {
     }
     writeNote($noteSection, note, users, isVisible) {
         const marker = new NoteMarker(note);
-        const parentLayer = (isVisible ? this.map.noteLayer : this.map.filteredNoteLayer);
-        marker.addTo(parentLayer);
+        const parentLayer = (isVisible ? this.map.unselectedNoteLayer : this.map.filteredNoteLayer);
+        const layerId = this.map.addNoteMarker(marker, parentLayer);
         marker.on('click', this.wrappedNoteMarkerClickListener);
-        const layerId = this.map.noteLayer.getLayerId(marker);
         if (!isVisible)
             $noteSection.classList.add('hidden');
         $noteSection.id = `note-${note.id}`;
@@ -4314,11 +4367,10 @@ class NoteTable {
         ev.stopPropagation();
         const $clickedNoteSection = $checkbox.closest('tbody');
         if ($clickedNoteSection) {
+            this.setNoteSelection($clickedNoteSection, $checkbox.checked);
             if (ev.shiftKey && this.$lastClickedNoteSection) {
-                for (const $section of this.listVisibleNoteSectionsInRange(this.$lastClickedNoteSection, $clickedNoteSection)) {
-                    const $checkboxInRange = $section.querySelector('.note-checkbox input');
-                    if ($checkboxInRange instanceof HTMLInputElement)
-                        $checkboxInRange.checked = $checkbox.checked;
+                for (const $inRangeNoteSection of this.listVisibleNoteSectionsInRange(this.$lastClickedNoteSection, $clickedNoteSection)) {
+                    this.setNoteSelection($inRangeNoteSection, $checkbox.checked);
                 }
             }
             this.$lastClickedNoteSection = $clickedNoteSection;
@@ -4327,10 +4379,7 @@ class NoteTable {
     }
     allNotesCheckboxClickListener($allCheckbox, ev) {
         for (const $noteSection of this.listVisibleNoteSections()) {
-            const $checkbox = $noteSection.querySelector('.note-checkbox input');
-            if (!($checkbox instanceof HTMLInputElement))
-                continue;
-            $checkbox.checked = $allCheckbox.checked;
+            this.setNoteSelection($noteSection, $allCheckbox.checked);
         }
         this.updateCheckboxDependents();
     }
@@ -4340,8 +4389,8 @@ class NoteTable {
         if (!isSectionClicked)
             $noteSection.scrollIntoView({ block: 'nearest' });
         const layerId = Number($noteSection.dataset.layerId);
-        const marker = this.map.noteLayer.getLayer(layerId);
-        if (!(marker instanceof L.Marker))
+        const marker = this.map.getNoteMarker(layerId);
+        if (!marker)
             return;
         const z1 = this.map.zoom;
         const z2 = this.map.maxZoom;
@@ -4356,8 +4405,8 @@ class NoteTable {
     deactivateNote(type, $noteSection) {
         $noteSection.classList.remove('active-' + type);
         const layerId = Number($noteSection.dataset.layerId);
-        const marker = this.map.noteLayer.getLayer(layerId);
-        if (!(marker instanceof L.Marker))
+        const marker = this.map.getNoteMarker(layerId);
+        if (!marker)
             return;
         marker.getElement()?.classList.remove('active-' + type);
         if ($noteSection.classList.contains('active-hover') || $noteSection.classList.contains('active-click'))
@@ -4381,8 +4430,8 @@ class NoteTable {
         if (alreadyActive)
             return;
         const layerId = Number($noteSection.dataset.layerId);
-        const marker = this.map.noteLayer.getLayer(layerId);
-        if (!(marker instanceof L.Marker))
+        const marker = this.map.getNoteMarker(layerId);
+        if (!marker)
             return;
         marker.setZIndexOffset(1000);
         marker.getElement()?.classList.add('active-' + type);
@@ -4418,6 +4467,33 @@ class NoteTable {
         this.$selectAllCheckbox.indeterminate = hasChecked && hasUnchecked;
         this.$selectAllCheckbox.checked = hasChecked && !hasUnchecked;
         this.toolPanel.receiveSelectedNotes(checkedNotes, checkedNoteUsers);
+        if (this.toolPanel.fitMode == 'selectedNotes')
+            this.map.fitSelectedNotes();
+    }
+    setNoteSelection($noteSection, isSelected) {
+        const getTargetLayer = () => {
+            if ($noteSection.classList.contains('hidden')) {
+                return this.map.filteredNoteLayer;
+            }
+            else if (isSelected) {
+                return this.map.selectedNoteLayer;
+            }
+            else {
+                return this.map.unselectedNoteLayer;
+            }
+        };
+        const $checkbox = $noteSection.querySelector('.note-checkbox input');
+        if ($checkbox instanceof HTMLInputElement)
+            $checkbox.checked = isSelected;
+        const noteId = Number($noteSection.dataset.noteId);
+        const note = this.notesById.get(noteId);
+        if (!note)
+            return;
+        const layerId = Number($noteSection.dataset.layerId);
+        const marker = this.map.moveNoteMarkerToLayer(layerId, getTargetLayer());
+        if (!marker)
+            return;
+        marker.updateIcon(note, isSelected);
     }
     listVisibleNoteSections() {
         return this.$table.querySelectorAll('tbody:not(.hidden)');
@@ -4618,11 +4694,15 @@ class AutozoomTool extends Tool {
     }
     getTool(callbacks, map) {
         const $fitModeSelect = document.createElement('select');
-        $fitModeSelect.append(new Option('is disabled', 'none'), new Option('to notes on screen in table', 'inViewNotes'), new Option('to all visible notes', 'allNotes'));
+        $fitModeSelect.append(new Option('is disabled', 'none'), new Option('to selected notes', 'selectedNotes'), new Option('to notes on screen in table', 'inViewNotes'), new Option('to all visible notes', 'allNotes'));
         $fitModeSelect.onchange = () => {
             if ($fitModeSelect.value == 'allNotes') {
                 callbacks.onFitModeChange(this, $fitModeSelect.value);
                 map.fitNotes();
+            }
+            else if ($fitModeSelect.value == 'selectedNotes') {
+                callbacks.onFitModeChange(this, $fitModeSelect.value);
+                map.fitSelectedNotes();
             }
             else if ($fitModeSelect.value == 'inViewNotes') {
                 callbacks.onFitModeChange(this, $fitModeSelect.value);
