@@ -116,7 +116,12 @@ export default class NoteTable {
 			nFetched++
 			if (this.filter.matchNote(note,getUsername)) {
 				nVisible++
-				this.map.moveNoteMarkerToLayer(layerId,this.map.unselectedNoteLayer)
+				let targetLayer=this.map.unselectedNoteLayer
+				const $checkbox=$noteSection.querySelector('.note-checkbox input')
+				if ($checkbox instanceof HTMLInputElement && $checkbox.checked) {
+					targetLayer=this.map.selectedNoteLayer
+				}
+				this.map.moveNoteMarkerToLayer(layerId,targetLayer)
 				$noteSection.classList.remove('hidden')
 			} else {
 				this.deactivateNote('click',$noteSection)
