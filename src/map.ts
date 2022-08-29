@@ -65,7 +65,11 @@ function getNoteMarkerIcon(note: Note, isSelected: boolean): L.DivIcon {
 		return html
 	}
 	function drawCheckMark(): string {
-		return e`<path d="M-${r/4},0 L0,${r/4} L${r/2},-${r/4}" fill="none" stroke="blue" stroke-width="2" />`
+		const path=`M-${r/4},0 L0,${r/4} L${r/2},-${r/4}`
+		let html=``
+		html+=e`<path d="${path}" fill="none" stroke-width="6" stroke-linecap="round" stroke="blue" />`
+		html+=e`<path d="${path}" fill="none" stroke-width="2" stroke-linecap="round" stroke="white" />`
+		return html
 	}
 }
 
