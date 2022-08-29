@@ -78,7 +78,8 @@ export type NoteMapFreezeMode = 'no' | 'initial' | 'full'
 export class NoteMap {
 	private leafletMap: L.Map
 	elementLayer: L.FeatureGroup
-	noteLayer: L.FeatureGroup
+	unselectedNoteLayer: L.FeatureGroup
+	selectedNoteLayer: L.FeatureGroup
 	filteredNoteLayer: L.FeatureGroup
 	trackLayer: L.FeatureGroup
 	needToFitNotes: boolean = false
@@ -96,13 +97,15 @@ export class NoteMap {
 			}
 		)).fitWorld()
 		this.elementLayer=L.featureGroup().addTo(this.leafletMap)
-		this.noteLayer=L.featureGroup().addTo(this.leafletMap)
+		this.unselectedNoteLayer=L.featureGroup().addTo(this.leafletMap)
+		this.selectedNoteLayer=L.featureGroup().addTo(this.leafletMap)
 		this.filteredNoteLayer=L.featureGroup()
 		this.trackLayer=L.featureGroup().addTo(this.leafletMap)
 		const crosshairLayer=new CrosshairLayer().addTo(this.leafletMap)
 		const layersControl=L.control.layers()
 		layersControl.addOverlay(this.elementLayer,`OSM elements`)
-		layersControl.addOverlay(this.noteLayer,`Notes`)
+		layersControl.addOverlay(this.unselectedNoteLayer,`Unselected notes`)
+		layersControl.addOverlay(this.selectedNoteLayer,`Selected notes`)
 		layersControl.addOverlay(this.filteredNoteLayer,`Filtered notes`)
 		layersControl.addOverlay(this.trackLayer,`Track between notes`)
 		layersControl.addOverlay(crosshairLayer,`Crosshair`)
@@ -121,21 +124,57 @@ export class NoteMap {
 			}
 		})
 	}
+	addNoteMarker(marker: NoteMarker, toLayer: L.FeatureGroup): number {
+		marker.addTo(toLayer)
+		return toLayer.getLayerId(marker)
+	}
+	getNoteMarker(layerId: number): NoteMarker | undefined {
+		for (const layer of [this.unselectedNoteLayer,this.selectedNoteLayer,this.filteredNoteLayer]) {
+			const marker=layer.getLayer(layerId)
+			if (marker instanceof NoteMarker) {
+				return marker
+			}
+		}
+	}
+	removeNoteMarker(layerId: number): void {
+		for (const layer of [this.unselectedNoteLayer,this.selectedNoteLayer,this.filteredNoteLayer]) {
+			layer.removeLayer(layerId)
+		}
+	}
+	moveNoteMarkerToLayer(layerId: number, toLayer: L.FeatureGroup): NoteMarker | undefined {
+		for (const layer of [this.unselectedNoteLayer,this.selectedNoteLayer,this.filteredNoteLayer]) {
+			const marker=layer.getLayer(layerId)
+			if (marker instanceof NoteMarker) {
+				layer.removeLayer(marker)
+				toLayer.addLayer(marker)
+				return marker
+			}
+		}
+	}
 	invalidateSize(): void {
 		this.leafletMap.invalidateSize()
 	}
 	clearNotes(): void {
 		this.elementLayer.clearLayers()
-		this.noteLayer.clearLayers()
+		this.unselectedNoteLayer.clearLayers()
+		this.selectedNoteLayer.clearLayers()
 		this.filteredNoteLayer.clearLayers()
 		this.trackLayer.clearLayers()
 		this.needToFitNotes=this.freezeMode=='no'
 	}
 	fitNotes(): void {
-		const bounds=this.noteLayer.getBounds()
-		if (!bounds.isValid()) return
-		this.fitBoundsIfNotFrozen(bounds)
-		this.needToFitNotes=false
+		let bounds: L.LatLngBounds | undefined
+		for (const layer of [this.unselectedNoteLayer,this.selectedNoteLayer,this.filteredNoteLayer]) {
+			if (!bounds) {
+				bounds=layer.getBounds()
+			} else {
+				bounds.extend(layer.getBounds())
+			}
+		}
+		if (bounds && bounds.isValid()) {
+			this.fitBoundsIfNotFrozen(bounds)
+			this.needToFitNotes=false
+		}
 	}
 	fitNotesIfNeeded(): void {
 		if (!this.needToFitNotes) return
@@ -156,8 +195,8 @@ export class NoteMap {
 		this.trackLayer.clearLayers()
 		const polylineCoords: L.LatLng[] = []
 		for (const layerId of layerIds) {
-			const marker=this.noteLayer.getLayer(layerId)
-			if (!(marker instanceof L.Marker)) continue
+			const marker=this.getNoteMarker(layerId)
+			if (!marker) continue
 			const coords=marker.getLatLng()
 			polylineCoords.push(coords)
 			L.circleMarker(coords,nodeOptions).addTo(this.trackLayer)

@@ -116,20 +116,12 @@ export default class NoteTable {
 			nFetched++
 			if (this.filter.matchNote(note,getUsername)) {
 				nVisible++
-				const marker=this.map.filteredNoteLayer.getLayer(layerId)
-				if (marker) {
-					this.map.filteredNoteLayer.removeLayer(marker)
-					this.map.noteLayer.addLayer(marker)
-				}
+				this.map.moveNoteMarkerToLayer(layerId,this.map.unselectedNoteLayer)
 				$noteSection.classList.remove('hidden')
 			} else {
 				this.deactivateNote('click',$noteSection)
 				this.deactivateNote('hover',$noteSection)
-				const marker=this.map.noteLayer.getLayer(layerId)
-				if (marker) {
-					this.map.noteLayer.removeLayer(marker)
-					this.map.filteredNoteLayer.addLayer(marker)
-				}
+				this.map.moveNoteMarkerToLayer(layerId,this.map.filteredNoteLayer)
 				$noteSection.classList.add('hidden')
 				this.setNoteSelection($noteSection,false)
 			}
@@ -174,10 +166,7 @@ export default class NoteTable {
 		const $noteSection=document.getElementById(`note-`+note.id) // TODO look in $table
 		if (!($noteSection instanceof HTMLTableSectionElement)) return
 		const layerId=Number($noteSection.dataset.layerId)
-		const marker=this.map.noteLayer.getLayer(layerId)
-		if (!(marker instanceof NoteMarker)) return
-		this.map.noteLayer.removeLayer(marker)
-		this.map.filteredNoteLayer.removeLayer(marker)
+		this.map.removeNoteMarker(layerId)
 		// remember note and users
 		this.notesById.set(note.id,note)
 		for (const [uid,username] of Object.entries(users)) {
@@ -256,10 +245,9 @@ export default class NoteTable {
 		note: Note, users: Users, isVisible: boolean
 	): void {
 		const marker=new NoteMarker(note)
-		const parentLayer=(isVisible ? this.map.noteLayer : this.map.filteredNoteLayer)
-		marker.addTo(parentLayer)
+		const parentLayer=(isVisible ? this.map.unselectedNoteLayer : this.map.filteredNoteLayer)
+		const layerId=this.map.addNoteMarker(marker,parentLayer)
 		marker.on('click',this.wrappedNoteMarkerClickListener)
-		const layerId=this.map.noteLayer.getLayerId(marker)
 		if (!isVisible) $noteSection.classList.add('hidden')
 		$noteSection.id=`note-${note.id}`
 		$noteSection.classList.add(getStatusClass(note.status))
@@ -381,8 +369,8 @@ export default class NoteTable {
 		this.noteSectionVisibilityObserver.haltMapFitting() // otherwise scrollIntoView() may ruin note pan/zoom - it may cause observer to fire after exiting this function
 		if (!isSectionClicked) $noteSection.scrollIntoView({block:'nearest'})
 		const layerId=Number($noteSection.dataset.layerId)
-		const marker=this.map.noteLayer.getLayer(layerId)
-		if (!(marker instanceof L.Marker)) return
+		const marker=this.map.getNoteMarker(layerId)
+		if (!marker) return
 		const z1=this.map.zoom
 		const z2=this.map.maxZoom
 		if (this.map.isCloseEnoughToCenter(marker.getLatLng()) && z1<z2) {
@@ -395,8 +383,8 @@ export default class NoteTable {
 	private deactivateNote(type: 'hover'|'click', $noteSection: HTMLTableSectionElement): void {
 		$noteSection.classList.remove('active-'+type)
 		const layerId=Number($noteSection.dataset.layerId)
-		const marker=this.map.noteLayer.getLayer(layerId)
-		if (!(marker instanceof L.Marker)) return
+		const marker=this.map.getNoteMarker(layerId)
+		if (!marker) return
 		marker.getElement()?.classList.remove('active-'+type)
 		if ($noteSection.classList.contains('active-hover') || $noteSection.classList.contains('active-click')) return
 		marker.setZIndexOffset(0)
@@ -414,8 +402,8 @@ export default class NoteTable {
 		}
 		if (alreadyActive) return
 		const layerId=Number($noteSection.dataset.layerId)
-		const marker=this.map.noteLayer.getLayer(layerId)
-		if (!(marker instanceof L.Marker)) return
+		const marker=this.map.getNoteMarker(layerId)
+		if (!marker) return
 		marker.setZIndexOffset(1000)
 		marker.getElement()?.classList.add('active-'+type)
 		$noteSection.classList.add('active-'+type)
@@ -448,20 +436,23 @@ export default class NoteTable {
 		this.toolPanel.receiveSelectedNotes(checkedNotes,checkedNoteUsers)
 	}
 	private setNoteSelection($noteSection: HTMLTableSectionElement, isSelected: boolean): void {
-		const getMarkerFromAnyLayer=(layerId: number): NoteMarker | undefined => {
-			const marker=this.map.noteLayer.getLayer(layerId)
-			if (marker instanceof NoteMarker) return marker
-			const filteredMarker=this.map.filteredNoteLayer.getLayer(layerId)
-			if (filteredMarker instanceof NoteMarker) return filteredMarker
+		const getTargetLayer=()=>{
+			if ($noteSection.classList.contains('hidden')) {
+				return this.map.filteredNoteLayer
+			} else if (isSelected) {
+				return this.map.selectedNoteLayer
+			} else {
+				return this.map.unselectedNoteLayer
+			}
 		}
 		const $checkbox=$noteSection.querySelector('.note-checkbox input')
 		if ($checkbox instanceof HTMLInputElement) $checkbox.checked=isSelected
-		const layerId=Number($noteSection.dataset.layerId)
-		const marker=getMarkerFromAnyLayer(layerId)
-		if (!marker) return
 		const noteId=Number($noteSection.dataset.noteId)
 		const note=this.notesById.get(noteId)
 		if (!note) return
+		const layerId=Number($noteSection.dataset.layerId)
+		const marker=this.map.moveNoteMarkerToLayer(layerId,getTargetLayer())
+		if (!marker) return
 		marker.updateIcon(note,isSelected)
 	}
 	private listVisibleNoteSections(): NodeListOf<HTMLTableSectionElement> {
