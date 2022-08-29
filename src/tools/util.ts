@@ -31,6 +31,7 @@ export class AutozoomTool extends Tool {
 		const $fitModeSelect=document.createElement('select')
 		$fitModeSelect.append(
 			new Option('is disabled','none'),
+			new Option('to selected notes','selectedNotes'),
 			new Option('to notes on screen in table','inViewNotes'),
 			new Option('to all visible notes','allNotes')
 		)

@@ -131,8 +131,7 @@ export default class NoteTable {
 					this.map.filteredNoteLayer.addLayer(marker)
 				}
 				$noteSection.classList.add('hidden')
-				const $checkbox=$noteSection.querySelector('.note-checkbox input')
-				if ($checkbox instanceof HTMLInputElement) $checkbox.checked=false
+				this.setNoteSelection($noteSection,false)
 			}
 		}
 		this.toolPanel.receiveNoteCounts(nFetched,nVisible)
@@ -361,10 +360,10 @@ export default class NoteTable {
 		ev.stopPropagation()
 		const $clickedNoteSection=$checkbox.closest('tbody')
 		if ($clickedNoteSection) {
+			this.setNoteSelection($clickedNoteSection,$checkbox.checked)
 			if (ev.shiftKey && this.$lastClickedNoteSection) {
-				for (const $section of this.listVisibleNoteSectionsInRange(this.$lastClickedNoteSection,$clickedNoteSection)) {
-					const $checkboxInRange=$section.querySelector('.note-checkbox input')
-					if ($checkboxInRange instanceof HTMLInputElement) $checkboxInRange.checked=$checkbox.checked
+				for (const $inRangeNoteSection of this.listVisibleNoteSectionsInRange(this.$lastClickedNoteSection,$clickedNoteSection)) {
+					this.setNoteSelection($inRangeNoteSection,$checkbox.checked)
 				}
 			}
 			this.$lastClickedNoteSection=$clickedNoteSection
@@ -373,9 +372,7 @@ export default class NoteTable {
 	}
 	private allNotesCheckboxClickListener($allCheckbox: HTMLInputElement, ev: MouseEvent) {
 		for (const $noteSection of this.listVisibleNoteSections()) {
-			const $checkbox=$noteSection.querySelector('.note-checkbox input')
-			if (!($checkbox instanceof HTMLInputElement)) continue
-			$checkbox.checked=$allCheckbox.checked
+			this.setNoteSelection($noteSection,$allCheckbox.checked)
 		}
 		this.updateCheckboxDependents()
 	}
@@ -449,6 +446,23 @@ export default class NoteTable {
 		this.$selectAllCheckbox.indeterminate=hasChecked && hasUnchecked
 		this.$selectAllCheckbox.checked=hasChecked && !hasUnchecked
 		this.toolPanel.receiveSelectedNotes(checkedNotes,checkedNoteUsers)
+	}
+	private setNoteSelection($noteSection: HTMLTableSectionElement, isSelected: boolean): void {
+		const getMarkerFromAnyLayer=(layerId: number): NoteMarker | undefined => {
+			const marker=this.map.noteLayer.getLayer(layerId)
+			if (marker instanceof NoteMarker) return marker
+			const filteredMarker=this.map.filteredNoteLayer.getLayer(layerId)
+			if (filteredMarker instanceof NoteMarker) return filteredMarker
+		}
+		const $checkbox=$noteSection.querySelector('.note-checkbox input')
+		if ($checkbox instanceof HTMLInputElement) $checkbox.checked=isSelected
+		const layerId=Number($noteSection.dataset.layerId)
+		const marker=getMarkerFromAnyLayer(layerId)
+		if (!marker) return
+		const noteId=Number($noteSection.dataset.noteId)
+		const note=this.notesById.get(noteId)
+		if (!note) return
+		marker.updateIcon(note,isSelected)
 	}
 	private listVisibleNoteSections(): NodeListOf<HTMLTableSectionElement> {
 		return this.$table.querySelectorAll('tbody:not(.hidden)')
