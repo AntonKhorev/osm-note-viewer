@@ -434,6 +434,7 @@ export default class NoteTable {
 		this.$selectAllCheckbox.indeterminate=hasChecked && hasUnchecked
 		this.$selectAllCheckbox.checked=hasChecked && !hasUnchecked
 		this.toolPanel.receiveSelectedNotes(checkedNotes,checkedNoteUsers)
+		if (this.toolPanel.fitMode=='selectedNotes') this.map.fitSelectedNotes()
 	}
 	private setNoteSelection($noteSection: HTMLTableSectionElement, isSelected: boolean): void {
 		const getTargetLayer=()=>{

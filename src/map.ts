@@ -162,6 +162,12 @@ export class NoteMap {
 		this.trackLayer.clearLayers()
 		this.needToFitNotes=this.freezeMode=='no'
 	}
+	fitSelectedNotes(): void {
+		const bounds=this.selectedNoteLayer.getBounds()
+		if (bounds.isValid()) {
+			this.fitBoundsIfNotFrozen(bounds)
+		}
+	}
 	fitNotes(): void {
 		let bounds: L.LatLngBounds | undefined
 		for (const layer of [this.unselectedNoteLayer,this.selectedNoteLayer,this.filteredNoteLayer]) {

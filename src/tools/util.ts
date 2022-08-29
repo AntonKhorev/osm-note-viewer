@@ -39,6 +39,9 @@ export class AutozoomTool extends Tool {
 			if ($fitModeSelect.value=='allNotes') {
 				callbacks.onFitModeChange(this,$fitModeSelect.value)
 				map.fitNotes()
+			} else if ($fitModeSelect.value=='selectedNotes') {
+				callbacks.onFitModeChange(this,$fitModeSelect.value)
+				map.fitSelectedNotes()
 			} else if ($fitModeSelect.value=='inViewNotes') {
 				callbacks.onFitModeChange(this,$fitModeSelect.value)
 				map.fitNoteTrack()

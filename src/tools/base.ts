@@ -4,7 +4,7 @@ import FigureDialog from '../figure'
 
 export type ToolElements = Array<string|HTMLElement>
 
-export type ToolFitMode = 'allNotes' | 'inViewNotes' | undefined
+export type ToolFitMode = 'allNotes' | 'selectedNotes' | 'inViewNotes' | undefined
 
 export interface ToolCallbacks {
 	onFitModeChange(fromTool: Tool, fitMode: ToolFitMode): void
