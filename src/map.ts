@@ -171,6 +171,7 @@ export class NoteMap {
 	fitNotes(): void {
 		let bounds: L.LatLngBounds | undefined
 		for (const layer of [this.unselectedNoteLayer,this.selectedNoteLayer,this.filteredNoteLayer]) {
+			if (!this.leafletMap.hasLayer(layer)) continue
 			if (!bounds) {
 				bounds=layer.getBounds()
 			} else {
