@@ -51,7 +51,14 @@ export abstract class NoteFetchDialog extends NavDialog {
 		this.updateRequest()
 	}
 	abstract disableFetchControl(disabled: boolean): void
-	abstract getAutoLoadChecker(): {checked:boolean}
+	get getLimit(): ()=>number {
+		return ()=>{
+			const limit=Number(this.$limitSelect.value)
+			if (Number.isInteger(limit) && limit>=1 && limit<=10000) return limit
+			return 20
+		}
+	}
+	abstract get getAutoLoad(): ()=>boolean
 	protected updateRequest(): void {
 		const knownTypes: {[type:string]:string} = {
 			json: `https://wiki.openstreetmap.org/wiki/GeoJSON`,
@@ -156,8 +163,8 @@ export abstract class NoteFetchDialog extends NavDialog {
 export function mixinWithAutoLoadCheckbox<T extends abstract new (...args: any[]) => any>(c: T) {
 	abstract class WithAutoLoadCheckbox extends c {
 		protected $autoLoadCheckbox=document.createElement('input')
-		getAutoLoadChecker(): {checked: boolean} {
-			return this.$autoLoadCheckbox
+		get getAutoLoad(): ()=>boolean {
+			return ()=>this.$autoLoadCheckbox.checked
 		}
 	}
 	return WithAutoLoadCheckbox

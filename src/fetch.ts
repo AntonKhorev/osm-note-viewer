@@ -84,7 +84,7 @@ export abstract class NoteFetcher {
 	async start(
 		db: NoteViewerDB,
 		noteTable: NoteTable, $moreContainer: HTMLElement,
-		getLimit: ()=>number, $autoLoadCheckbox: {checked:boolean},
+		getLimit: ()=>number, getAutoLoad: ()=>boolean,
 		blockDownloads: (disabled: boolean) => void,
 		moreButtonIntersectionObservers: IntersectionObserver[],
 		query: NoteQuery,
@@ -190,7 +190,7 @@ export abstract class NoteFetcher {
 					const moreButtonIntersectionObserver=new IntersectionObserver((entries)=>{
 						if (entries.length<=0) return
 						if (!entries[0].isIntersecting) return
-						if (!$autoLoadCheckbox.checked) return
+						if (!getAutoLoad()) return
 						while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
 						$moreButton.click()
 					})

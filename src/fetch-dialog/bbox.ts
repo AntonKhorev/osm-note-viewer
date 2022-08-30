@@ -42,8 +42,8 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 	resetFetch() {
 		this.mapBoundsForFreezeRestore=undefined
 	}
-	getAutoLoadChecker(): {checked: boolean} {
-		return {checked: false}
+	get getAutoLoad(): ()=>boolean {
+		return ()=>false
 	}
 	populateInputs(query: NoteQuery|undefined): void {
 		super.populateInputs(query)
