@@ -74,12 +74,12 @@ export abstract class NoteFetcher {
 		if (parameters) url+='?'+parameters
 		return url
 	}
-	private limitUpdater: ()=>void = ()=>{}
-	private resetLimitUpdater() {
-		this.limitUpdater=()=>{}
+	private updateRequestHintInAdvancedMode: ()=>void = ()=>{}
+	private resetUpdateRequestHintInAdvancedMode() {
+		this.updateRequestHintInAdvancedMode=()=>{}
 	}
-	limitWasUpdated() {
-		this.limitUpdater()
+	reactToLimitUpdateForAdvancedMode() {
+		this.updateRequestHintInAdvancedMode()
 	}
 	async start(
 		db: NoteViewerDB,
@@ -90,7 +90,7 @@ export abstract class NoteFetcher {
 		query: NoteQuery,
 		clearStore: boolean
 	) {
-		this.resetLimitUpdater()
+		this.resetUpdateRequestHintInAdvancedMode()
 		const getCycleFetchDetails=this.getGetCycleFetchDetails(query)
 		if (!getCycleFetchDetails) return // shouldn't happen
 		const continueCycle=this.getContinueCycle(query,$moreContainer)
@@ -111,7 +111,7 @@ export abstract class NoteFetcher {
 		let holdOffAutoLoad=false
 		const rewriteLoadMoreButton=(): HTMLButtonElement => {
 			const $requestOutput=document.createElement('output')
-			this.limitUpdater=()=>{
+			this.updateRequestHintInAdvancedMode=()=>{
 				const limit=getLimit()
 				const fetchDetails=getCycleFetchDetails(...fetchState.getNextCycleArguments(limit))
 				if (fetchDetails.pathAndParametersList.length==0) {
@@ -123,7 +123,7 @@ export abstract class NoteFetcher {
 				$a.classList.add('request')
 				$requestOutput.replaceChildren(makeElement('code')()($a))
 			}
-			this.limitUpdater()
+			this.updateRequestHintInAdvancedMode()
 			$moreContainer.innerHTML=''
 			const $button=document.createElement('button')
 			$button.textContent=`Load more notes`

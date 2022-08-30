@@ -13,6 +13,7 @@ export interface NoteFetchDialogSharedCheckboxes {
 export abstract class NoteFetchDialog extends NavDialog {
 	limitChangeListener?: ()=>void
 	protected $form=document.createElement('form')
+	private $advancedModeCheckbox=document.createElement('input')
 	private $limitSelect=document.createElement('select')
 	private $limitInput=document.createElement('input')
 	protected abstract limitValues: number[]
@@ -55,7 +56,12 @@ export abstract class NoteFetchDialog extends NavDialog {
 	abstract disableFetchControl(disabled: boolean): void
 	get getLimit(): ()=>number {
 		return ()=>{
-			const limit=Number(this.$limitInput.value)
+			let limit: number
+			if (this.$advancedModeCheckbox.checked) {
+				limit=Number(this.$limitInput.value)
+			} else {
+				limit=Number(this.$limitSelect.value)
+			}
 			if (Number.isInteger(limit) && limit>=1 && limit<=10000) return limit
 			return this.limitDefaultValue
 		}
@@ -154,11 +160,10 @@ export abstract class NoteFetchDialog extends NavDialog {
 		$fieldset.append(makeDiv()(makeLabel()(
 			$showImagesCheckbox,` Load and show images from StreetComplete`
 		)))
-		const $advancedModeCheckbox=document.createElement('input')
-		$advancedModeCheckbox.type='checkbox'
-		this.$sharedCheckboxes.advancedMode.push($advancedModeCheckbox)
+		this.$advancedModeCheckbox.type='checkbox'
+		this.$sharedCheckboxes.advancedMode.push(this.$advancedModeCheckbox)
 		$fieldset.append(makeDiv()(makeLabel()(
-			$advancedModeCheckbox,` Advanced mode`
+			this.$advancedModeCheckbox,` Advanced mode`
 		)))
 		return $fieldset
 	}
@@ -175,9 +180,21 @@ export abstract class NoteFetchDialog extends NavDialog {
 			if (this.limitChangeListener) this.limitChangeListener()
 		})
 		this.$limitInput.addEventListener('input',()=>{
-			// TODO find closes value of select
+			this.$limitSelect.value=String(findClosestValue(Number(this.$limitInput.value),this.limitValues))
 			this.updateRequest()
 			if (this.limitChangeListener) this.limitChangeListener()
+			function findClosestValue(vTarget: number, vCandidates: number[]): number {
+				let dResult=Infinity
+				let vResult=vTarget
+				for (const vCandidate of vCandidates) {
+					const dCandidate=Math.abs(vTarget-vCandidate)
+					if (dCandidate<dResult) {
+						dResult=dCandidate
+						vResult=vCandidate
+					}
+				}
+				return vResult
+			}
 		})
 		this.$form.addEventListener('submit',(ev)=>{
 			ev.preventDefault()
@@ -185,6 +202,12 @@ export abstract class NoteFetchDialog extends NavDialog {
 			if (!query) return
 			this.submitQuery(query)
 		})
+	}
+	reactToAdvancedModeChange() {
+		if (this.$limitSelect.value!=this.$limitInput.value) {
+			this.updateRequest()
+			if (this.limitChangeListener) this.limitChangeListener()
+		}
 	}
 	protected abstract makeFetchControlDiv(): HTMLDivElement
 	protected writePrependedFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void {}

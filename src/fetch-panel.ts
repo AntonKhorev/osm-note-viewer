@@ -46,7 +46,7 @@ export default class NoteFetchPanel {
 				modifyHistory(query,true)
 				startFetcher(query,true,false,fetcher,dialog)
 			})
-			dialog.limitChangeListener=()=>fetcher.limitWasUpdated()
+			dialog.limitChangeListener=()=>fetcher.reactToLimitUpdateForAdvancedMode()
 			dialog.write($container)
 			dialog.populateInputs(hashQuery)
 			navbar.addTab(dialog)
@@ -70,6 +70,9 @@ export default class NoteFetchPanel {
 		
 		handleSharedCheckboxes($sharedCheckboxes.showImages,state=>noteTable.setShowImages(state))
 		handleSharedCheckboxes($sharedCheckboxes.advancedMode,state=>{
+			for (const dialog of [searchDialog,bboxDialog,xmlDialog,plaintextDialog]) {
+				dialog.reactToAdvancedModeChange()
+			}
 			$container.classList.toggle('advanced-mode',state)
 			$moreContainer.classList.toggle('advanced-mode',state)
 		})
