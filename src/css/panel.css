@@ -18,8 +18,8 @@
 	white-space: nowrap;
 }
 
-.panel.fetch .advanced,
-.more .advanced {
+.panel.fetch .advanced-hint,
+.more .advanced-hint {
 	opacity: .7;
 	font-size: .9em;
 }
@@ -27,8 +27,8 @@
 .more a.request {
 	word-wrap: anywhere;
 }
-.panel.fetch:not(.advanced-mode) .advanced,
-.more:not(.advanced-mode) .advanced {
+.panel.fetch:not(.advanced-mode) .advanced-hint,
+.more:not(.advanced-mode) .advanced-hint {
 	display: none;
 }
 .panel.fetch:not(.advanced-mode) .advanced-input {

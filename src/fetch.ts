@@ -130,7 +130,7 @@ export abstract class NoteFetcher {
 			$button.addEventListener('click',fetchCycle)
 			$moreContainer.append(
 				makeDiv()($button),
-				makeDiv('advanced')(`Resulting request: `,$requestOutput)
+				makeDiv('advanced-hint')(`Resulting request: `,$requestOutput)
 			)
 			return $button
 		}

@@ -149,7 +149,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 				this.limitLeadText,
 				makeLabel()(
 					this.limitLabelBeforeText,this.$limitInput,this.limitLabelAfterText,
-					makeElement('span')('advanced')(this.limitAdvancedText)
+					makeElement('span')('advanced-hint')(this.limitAdvancedText) // TODO restore parameter hint
 				)
 			))
 		}
@@ -168,7 +168,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 		return $fieldset
 	}
 	private makeRequestDiv() {
-		return makeDiv('advanced')(`Resulting request: `,this.$requestOutput)
+		return makeDiv('advanced-hint')(`Resulting request: `,this.$requestOutput)
 	}
 	private addCommonEventListeners() {
 		for (const $input of this.listQueryChangingInputs()) {
