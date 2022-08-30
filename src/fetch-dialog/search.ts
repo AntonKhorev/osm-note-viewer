@@ -71,14 +71,10 @@ export class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoa
 			))
 		}
 	}
+	protected limitValues=[20,100,500,2500]
+	protected limitDefaultValue=20
 	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
 		{
-			this.$limitSelect.append(
-				new Option('20'),
-				new Option('100'),
-				new Option('500'),
-				new Option('2500')
-			)
 			$fieldset.append(makeDiv()(
 				`Download these `,
 				makeLabel()(`in batches of `,this.$limitSelect,rq('limit'),` notes`)

@@ -14,6 +14,9 @@ export abstract class NoteFetchDialog extends NavDialog {
 	limitChangeListener?: ()=>void
 	protected $form=document.createElement('form')
 	protected $limitSelect=document.createElement('select')
+	// protected $limitInput=document.createElement('input')
+	protected abstract limitValues: number[]
+	protected abstract limitDefaultValue: number
 	private $requestOutput=document.createElement('output')
 	constructor(
 		private $sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
@@ -125,6 +128,11 @@ export abstract class NoteFetchDialog extends NavDialog {
 		// TODO (re)store input values
 		const $legend=document.createElement('legend')
 		$legend.textContent=`Download mode (can change anytime)`
+		for (const limitValue of this.limitValues) {
+			const value=String(limitValue)
+			const selected=limitValue==this.limitDefaultValue
+			this.$limitSelect.append(new Option(value,value,selected,selected))
+		}
 		$fieldset.append($legend)
 		this.writeDownloadModeFieldset($fieldset,$legend)
 		const $showImagesCheckbox=document.createElement('input')
@@ -190,12 +198,10 @@ export function mixinWithFetchButton<T extends abstract new (...args: any[]) => 
 }
 
 export abstract class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
+	protected limitValues=[5,20]
+	protected limitDefaultValue=5
 	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
 		{
-			this.$limitSelect.append(
-				new Option('5'),
-				new Option('20'),
-			)
 			$fieldset.append(makeDiv()(
 				`Download these `,
 				makeLabel()(
