@@ -84,7 +84,7 @@ export abstract class NoteFetcher {
 	async start(
 		db: NoteViewerDB,
 		noteTable: NoteTable, $moreContainer: HTMLElement,
-		$limitSelect: HTMLSelectElement, $autoLoadCheckbox: {checked:boolean},
+		getLimit: ()=>number, $autoLoadCheckbox: {checked:boolean},
 		blockDownloads: (disabled: boolean) => void,
 		moreButtonIntersectionObservers: IntersectionObserver[],
 		query: NoteQuery,
@@ -112,7 +112,7 @@ export abstract class NoteFetcher {
 		const rewriteLoadMoreButton=(): HTMLButtonElement => {
 			const $requestOutput=document.createElement('output')
 			this.limitUpdater=()=>{
-				const limit=getLimit($limitSelect)
+				const limit=getLimit()
 				const fetchDetails=getCycleFetchDetails(...fetchState.getNextCycleArguments(limit))
 				if (fetchDetails.pathAndParametersList.length==0) {
 					$requestOutput.replaceChildren(`no request`)
@@ -136,7 +136,7 @@ export abstract class NoteFetcher {
 		}
 		const fetchCycle=async()=>{
 			rewriteLoadingButton()
-			const limit=getLimit($limitSelect)
+			const limit=getLimit()
 			const fetchDetails=getCycleFetchDetails(...fetchState.getNextCycleArguments(limit))
 			if (fetchDetails==null) return
 			if (fetchDetails.limit>10000) {
@@ -443,10 +443,4 @@ function rewriteFetchErrorMessage($container: HTMLElement, query: NoteQuery, res
 	const $error=document.createElement('pre')
 	$error.textContent=fetchErrorText
 	$message.append($error)
-}
-
-function getLimit($limitSelect: HTMLSelectElement): number {
-	const limit=Number($limitSelect.value)
-	if (Number.isInteger(limit) && limit>=1 && limit<=10000) return limit
-	return 20
 }

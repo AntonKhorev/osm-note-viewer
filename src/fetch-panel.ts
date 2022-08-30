@@ -155,12 +155,17 @@ export default class NoteFetchPanel {
 			fetcher.start(
 				db,
 				noteTable,$moreContainer,
-				dialog.$limitSelect,dialog.getAutoLoadChecker(),
+				getLimit,dialog.getAutoLoadChecker(),
 				(disabled: boolean) => dialog.disableFetchControl(disabled),
 				moreButtonIntersectionObservers,
 				query,
 				clearStore
 			)
+			function getLimit(): number {
+				const limit=Number(dialog.$limitSelect.value)
+				if (Number.isInteger(limit) && limit>=1 && limit<=10000) return limit
+				return 20
+			}
 		}
 		function handleSharedCheckboxes($checkboxes: HTMLInputElement[], stateChangeListener: (state:boolean)=>void) {
 			for (const $checkbox of $checkboxes) {
