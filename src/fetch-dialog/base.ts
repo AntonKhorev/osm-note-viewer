@@ -13,7 +13,7 @@ export interface NoteFetchDialogSharedCheckboxes {
 export abstract class NoteFetchDialog extends NavDialog {
 	limitChangeListener?: ()=>void
 	protected $form=document.createElement('form')
-	private $advancedModeCheckbox=document.createElement('input')
+	protected $advancedModeCheckbox=document.createElement('input')
 	private $limitSelect=document.createElement('select')
 	private $limitInput=document.createElement('input')
 	protected abstract limitValues: number[]
