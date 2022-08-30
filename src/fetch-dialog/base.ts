@@ -21,7 +21,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 	protected abstract limitLeadText: string
 	protected abstract limitLabelBeforeText: string
 	protected abstract limitLabelAfterText: string
-	protected abstract limitAdvancedText: string
+	protected abstract limitIsParameter: boolean
 	private $requestOutput=document.createElement('output')
 	constructor(
 		private $sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
@@ -149,7 +149,10 @@ export abstract class NoteFetchDialog extends NavDialog {
 				this.limitLeadText,
 				makeLabel()(
 					this.limitLabelBeforeText,this.$limitInput,this.limitLabelAfterText,
-					makeElement('span')('advanced-hint')(this.limitAdvancedText) // TODO restore parameter hint
+					(this.limitIsParameter
+						? makeElement('span')('advanced-hint')(` (`,code('limit'),` parameter)`)
+						: makeElement('span')('advanced-hint')(` (will make this many API requests each time it downloads more notes)`)
+					)
 				)
 			))
 		}
@@ -254,7 +257,7 @@ export abstract class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteF
 	protected limitLeadText=`Download these `
 	protected limitLabelBeforeText=`in batches of `
 	protected limitLabelAfterText=` notes`
-	protected limitAdvancedText=` (will make this many API requests each time it downloads more notes)`
+	protected limitIsParameter=false
 	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
 		{
 			this.$autoLoadCheckbox.type='checkbox'

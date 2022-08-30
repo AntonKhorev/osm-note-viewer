@@ -76,7 +76,7 @@ export class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoa
 	protected limitLeadText=`Download these `
 	protected limitLabelBeforeText=`in batches of `
 	protected limitLabelAfterText=` notes`
-	protected limitAdvancedText=` (limit)`
+	protected limitIsParameter=true
 	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
 		{
 			this.$autoLoadCheckbox.type='checkbox'

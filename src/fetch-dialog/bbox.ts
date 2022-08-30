@@ -124,7 +124,7 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 	protected limitLeadText=`Download `
 	protected limitLabelBeforeText=`at most `
 	protected limitLabelAfterText=` notes`
-	protected limitAdvancedText=` (limit)`
+	protected limitIsParameter=true
 	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
 	}
 	protected populateInputsWithoutUpdatingRequest(query: NoteQuery | undefined): void {
