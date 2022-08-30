@@ -106,10 +106,6 @@ export default class AboutDialog extends NavDialog {
 		})
 		writeSubheading(`Extra information`)
 		writeBlock(()=>[
-			`User query have whitespace trimmed, then the remaining part starting with `,makeCode(`#`),` is treated as a user id; containing `,makeCode(`/`),`is treated as a URL, anything else as a username. `,
-			`This works because usernames can't contain any of these characters: `,makeCode(`/;.,?%#`),` , can't have leading/trailing whitespace, have to be between 3 and 255 characters in length.`
-		])
-		writeBlock(()=>[
 			`Notes implementation code: `,
 			makeLink(`notes api controller`,`https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`),
 			` (db search query is build there), `,

@@ -31,6 +31,13 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 				`OSM username, URL or #id`,rq2('display_name','user'),`: `,this.$userInput
 			)))
 		}{
+			$fieldset.append(makeDiv('advanced-hint')(
+				`If the value of the input above starts with `,code(`#`),`, its remaining part is treated as a user id which is passed to the API as the `,code('user'),` parameter. `,
+				`The value containing `,code(`/`),` is treated as a URL, if it's an OSM URL with a username in it this name is passed as the `,code('display_name'),` parameter. `,
+				`Other nonempty values are treated as usernames and also passed as `,code('display_name'),`. `,
+				`Ids and URLs can be unambiguously detected because usernames can't contain any of the following characters: `,code(`/;.,?%#`),`.`
+			))
+		}{
 			this.$textInput.type='text'
 			this.$textInput.name='text'
 			$fieldset.append(makeDiv('major-input')(makeLabel()(
