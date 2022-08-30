@@ -13,10 +13,14 @@ export interface NoteFetchDialogSharedCheckboxes {
 export abstract class NoteFetchDialog extends NavDialog {
 	limitChangeListener?: ()=>void
 	protected $form=document.createElement('form')
-	protected $limitSelect=document.createElement('select')
-	// protected $limitInput=document.createElement('input')
+	private $limitSelect=document.createElement('select')
+	// private $limitInput=document.createElement('input')
 	protected abstract limitValues: number[]
 	protected abstract limitDefaultValue: number
+	protected abstract limitLeadText: string
+	protected abstract limitLabelBeforeText: string
+	protected abstract limitLabelAfterText: string
+	protected abstract limitAdvancedText: string
 	private $requestOutput=document.createElement('output')
 	constructor(
 		private $sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
@@ -24,9 +28,6 @@ export abstract class NoteFetchDialog extends NavDialog {
 		protected submitQuery: (query: NoteQuery) => void
 	) {
 		super()
-		this.$limitSelect.addEventListener('input',()=>{
-			if (this.limitChangeListener) this.limitChangeListener()
-		})
 	}
 	resetFetch() {}
 	writeSectionContent() {
@@ -128,12 +129,24 @@ export abstract class NoteFetchDialog extends NavDialog {
 		// TODO (re)store input values
 		const $legend=document.createElement('legend')
 		$legend.textContent=`Download mode (can change anytime)`
-		for (const limitValue of this.limitValues) {
-			const value=String(limitValue)
-			const selected=limitValue==this.limitDefaultValue
-			this.$limitSelect.append(new Option(value,value,selected,selected))
-		}
 		$fieldset.append($legend)
+		{
+			for (const limitValue of this.limitValues) {
+				const value=String(limitValue)
+				const selected=limitValue==this.limitDefaultValue
+				this.$limitSelect.append(new Option(value,value,selected,selected))
+			}
+			$fieldset.append(makeDiv()(
+				this.limitLeadText,
+				makeLabel()(
+					this.limitLabelBeforeText,this.$limitSelect,this.limitLabelAfterText,
+					makeElement('span')('advanced')(this.limitAdvancedText)
+				)
+			))
+			this.$limitSelect.addEventListener('input',()=>{ // TODO group with other event listeners
+				if (this.limitChangeListener) this.limitChangeListener()
+			})
+		}
 		this.writeDownloadModeFieldset($fieldset,$legend)
 		const $showImagesCheckbox=document.createElement('input')
 		$showImagesCheckbox.type='checkbox'
@@ -200,16 +213,12 @@ export function mixinWithFetchButton<T extends abstract new (...args: any[]) => 
 export abstract class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
 	protected limitValues=[5,20]
 	protected limitDefaultValue=5
+	protected limitLeadText=`Download these `
+	protected limitLabelBeforeText=`in batches of `
+	protected limitLabelAfterText=` notes`
+	protected limitAdvancedText=` (will make this many API requests each time it downloads more notes)`
 	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
 		{
-			$fieldset.append(makeDiv()(
-				`Download these `,
-				makeLabel()(
-					`in batches of `,this.$limitSelect,` notes`,
-					makeElement('span')('advanced')(` (will make this many API requests each time it downloads more notes)`)
-				)
-			))
-		}{
 			this.$autoLoadCheckbox.type='checkbox'
 			this.$autoLoadCheckbox.checked=true
 			$fieldset.append(makeDiv()(makeLabel()(

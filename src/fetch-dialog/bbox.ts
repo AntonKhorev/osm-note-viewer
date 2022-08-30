@@ -121,13 +121,11 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 	}
 	protected limitValues=[20,100,500,2500,10000]
 	protected limitDefaultValue=100 // higher default limit because no progressive loads possible
+	protected limitLeadText=`Download `
+	protected limitLabelBeforeText=`at most `
+	protected limitLabelAfterText=` notes`
+	protected limitAdvancedText=` (limit)`
 	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
-		{
-			$fieldset.append(makeDiv()(
-				`Download `,
-				makeLabel()(`at most `,this.$limitSelect,rq('limit'),` notes`)
-			))
-		}
 	}
 	protected populateInputsWithoutUpdatingRequest(query: NoteQuery | undefined): void {
 		if (query && query.mode!='bbox') return
