@@ -25,16 +25,74 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 		]
 	}
 	protected listParameters(): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][] {
+		const makeTr=(cellType: 'th'|'td')=>(...sss: Array<Array<string|HTMLElement>>)=>makeElement('tr')()(...sss.map(ss=>makeElement(cellType)()(...ss)))
 		return [
-			['q',this.$textInput,[`Comment text search query`]],
-			['limit',this.$limitInput,[`Max number of notes to fetch`]],
-			['closed',this.$closedInput,[`Max number of days for closed note to be visible`]],
-			['display_name',this.$userInput,[`Name of a user interacting with a note`]],
-			['user',this.$userInput,[`Id of a user interacting with a note`]],
-			['from',this.$fromInput,[`Beginning of a date range`]],
-			['to',this.$toInput,[`End of a date range`]],
-			['sort',this.$sortSelect,[`Date to sort the notes`]],
-			['order',this.$orderSelect,[`Sort order`]],
+			['q',this.$textInput,[
+				`Comment text search query. `,
+				`This is an optional parameter, despite the OSM wiki saying that it's required, which is also suggested by the `,em(`search`),` API call name. `,
+				`Skipping this parameter disables text searching, all notes that fit other search criteria will go through. `,
+				`Searching is done with English stemming rules and may not work correctly for other languages.`
+			]],
+			['limit',this.$limitInput,[
+				`Max number of notes to fetch. `,
+				`For `,em(`search`),` mode it corresponds to the size of one batch of notes since it's possible to load additional batches by pressing the `,em(`Load more`),` button below the note table. `,
+				`This additional downloading is implemented by manipulating the requested date range.`
+			]],
+			['closed',this.$closedInput,[
+				`Max number of days for closed note to be visible. `,
+				`In `,em(`advanced mode`),` can be entered as a numeric value. `,
+				`When `,em(`advanced mode`),` is disabled this parameter is available as a dropdown menu with the following values: `,
+				makeElement('table')()(
+					makeTr('th')([`label`],[`value`],[`description`]),
+					makeTr('td')([em(`both open and closed`)],[code(`-1`)],[
+						`Special value to ignore how long ago notes were closed. `,
+						`This is the default value for `,em(`note-viewer`),` because it's the most useful one in conjunction with searching for a given user's notes.`
+					]),
+					makeTr('td')([em(`open and recently closed`)],[code(`7`)],[
+						`The most common value used in other apps like the OSM website.`
+					]),
+					makeTr('td')([em(`only open`)],[code(`0`)],[
+						`Ignore closed notes.`
+					])
+				)
+			]],
+			['display_name',this.$userInput,[
+				`Name of a user interacting with a note. `,
+				`Both this parameter and the next one are optional. `,
+				`Providing one of them limits the returned notes to those that were interacted by the given user. `,
+				`This interaction is not limited to creating the note, closing/reopening/commenting also counts. `,
+				`It makes no sense to provide both of these parameters because in this case `,code('user'),` is going to be ignored by the API, therefore `,em(`note-viewer`),`'s UI has only one input for both. `,
+				`Whether `,code('display_name'),` or `,code('user'),` is passed to the API depends on the input value. `,
+				`The `,code('display_name'),` parameter is passed if the input value contains `,code(`/`),` or doesn't start with `,code(`#`),`. `,
+				`Value containing `,code(`/`),` is interpreted as a URL. `,
+				`In case it's an OSM URL containing a username, this name is extracted and passed as `,code('display_name'),`. `,
+				`Value starting with `,code(`#`),` is treated as a user id, see the next parameter. `,
+				`Everything else is treated as a username.`
+			]],
+			['user',this.$userInput,[
+				`Id of a user interacting with a note. `,
+				`As stated above, the `,code('user'),` parameter is passed if the input value starts with `,code(`#`),`. `,
+				`In this case the remaining part of the value is treated as a user id number. `,
+				`Ids and URLs can be unambiguously detected in the input because usernames can't contain any of the following characters: `,code(`/;.,?%#`),`.`
+			]],
+			['from',this.$fromInput,[
+				`Beginning of a date range. `,
+				`This parameter is optional but if not provided the API will also ignore the `,code('to'),` parameter. `,
+				em(`Note-viewer`),` makes `,code('from'),` actually optional by providing a value far enough in the past if `,code('to'),` value is entered while `,code('from'),` value is not. `,
+				`Also both `,code('from'),` and `,code('to'),` parameters are altered in `,em(`Load more`),` fetches in order to limit the note selection to notes that are not yet downloaded.`
+			]],
+			['to',this.$toInput,[
+				`End of a date range.`
+			]],
+			['sort',this.$sortSelect,[
+				`Date to sort the notes. `,
+				`This can be either a create date or an update date. `,
+				`Sorting by update dates presents some technical difficulties which may lead to unexpected results if additional notes are loaded with `,em(`Load more`),`. `
+			]],
+			['order',this.$orderSelect,[
+				`Sort order. `,
+				`Ascending or descending.`
+			]],
 		]
 	}
 	protected writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void {
@@ -44,13 +102,6 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 			$fieldset.append(makeDiv('major-input')(makeLabel()(
 				`OSM username, URL or #id`,rq2('display_name','user'),`: `,this.$userInput
 			)))
-		}{
-			$fieldset.append(makeDiv('advanced-hint')(
-				`If the value of the input above starts with `,code(`#`),`, its remaining part is treated as a user id which is passed to the API as the `,code('user'),` parameter. `,
-				`The value containing `,code(`/`),` is treated as a URL, if it's an OSM URL with a username in it this name is passed as the `,code('display_name'),` parameter. `,
-				`Other nonempty values are treated as usernames and also passed as `,code('display_name'),`. `,
-				`Ids and URLs can be unambiguously detected because usernames can't contain any of the following characters: `,code(`/;.,?%#`),`.`
-			))
 		}{
 			this.$textInput.type='text'
 			this.$textInput.name='text'

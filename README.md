@@ -8,19 +8,7 @@ Try it out [here][github-host].
 
 ### Search notes for user / text / date range
 
-Get notes with [`/api/0.6/notes/search`][api-search] call.
-
-| parameter | note-viewer UI | notes |
-| --------- | -------------- | ----- |
-| `q` | *Comment text search query* | Despite the wiki saying that it's required, in fact it's optional. Skipping it disables text searching, all notes that fit other search criteria will go through.
-| `limit` | *Download these in batches of* | note-viewer doesn't consider it to be a part of a search query and may alter it while doing *Load more* fetches.
-| `closed` | *Fetch ... matching notes* | *both open and closed* = -1 (don't limit by closed note age like on user's notes pages), *open and recently closed* = 7 (the most common value), *only open* = 0 (for those who only care about unresolved notes)
-| `display_name` | *OSM username, URL or #id* | Optional. Won't limit returned notes by their user if not provided. A note's user is someone who commented it or performed any action such as opening or closing.
-| `user` | *OSM username, URL or #id* | Optional. Uses the same form field in note-viewer. To enter id, start with a hash sign (`#`). Note that osm usernames can't contain this character. Since `user` shares the same field with `display_name`, you can't provide both to the api, but that wouldn't made sense anyway. If the api receives both, `display_name` takes precedence.
-| `from` | *Date range: from* | Actually optional, unlike what the api expects. And the api requires `from` date if you provide `to` date, otherwise filtering by date is ignored. In note-viewer you can leave `from` blank and still use `to` as an upper limit. Also both `from` and `to` parameters are altered in *Load more* fetches in order to limit the note selection to notes that are not yet downloaded.
-| `to` | *Date range: to* |
-| `sort` | *sorted by ... date* |
-| `order` | *... first* |
+Get notes with [`/api/0.6/notes/search`][api-search] call. Enable *Advanced mode* to see how parameters of this call correspond to *note-viewer*'s form fields.
 
 Alternative tools:
 
