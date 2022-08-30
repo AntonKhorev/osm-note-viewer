@@ -31,8 +31,17 @@
 .more:not(.advanced-mode) .advanced {
 	display: none;
 }
+.panel.fetch:not(.advanced-mode) .advanced-input {
+	display: none;
+}
+.panel.fetch.advanced-mode .non-advanced-input {
+	display: none;
+}
 .panel.fetch .notice.error {
 	color: var(--error-color);
+}
+.panel.fetch input[type=number] {
+	width: 4em;
 }
 
 .panel.command {

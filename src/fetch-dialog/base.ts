@@ -14,7 +14,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 	limitChangeListener?: ()=>void
 	protected $form=document.createElement('form')
 	private $limitSelect=document.createElement('select')
-	// private $limitInput=document.createElement('input')
+	private $limitInput=document.createElement('input')
 	protected abstract limitValues: number[]
 	protected abstract limitDefaultValue: number
 	protected abstract limitLeadText: string
@@ -44,13 +44,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 			this.makeRequestDiv()
 		)
 		this.addEventListeners()
-		this.addRequestChangeListeners()
-		this.$form.addEventListener('submit',(ev)=>{
-			ev.preventDefault()
-			const query=this.constructQuery()
-			if (!query) return
-			this.submitQuery(query)
-		})
+		this.addCommonEventListeners()
 		this.$section.append(this.$form)
 		this.writeExtraForms()
 	}
@@ -61,9 +55,9 @@ export abstract class NoteFetchDialog extends NavDialog {
 	abstract disableFetchControl(disabled: boolean): void
 	get getLimit(): ()=>number {
 		return ()=>{
-			const limit=Number(this.$limitSelect.value)
+			const limit=Number(this.$limitInput.value)
 			if (Number.isInteger(limit) && limit>=1 && limit<=10000) return limit
-			return 20
+			return this.limitDefaultValue
 		}
 	}
 	abstract get getAutoLoad(): ()=>boolean
@@ -83,7 +77,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 			this.$requestOutput.replaceChildren(`invalid request`)
 			return
 		}
-		const requestUrls=this.getRequestUrls(query,Number(this.$limitSelect.value))
+		const requestUrls=this.getRequestUrls(query,this.getLimit())
 		if (requestUrls.length==0) {
 			this.$requestOutput.replaceChildren(`invalid request`)
 			return
@@ -136,16 +130,22 @@ export abstract class NoteFetchDialog extends NavDialog {
 				const selected=limitValue==this.limitDefaultValue
 				this.$limitSelect.append(new Option(value,value,selected,selected))
 			}
-			$fieldset.append(makeDiv()(
+			this.$limitInput.type='number'
+			this.$limitInput.min='1'
+			this.$limitInput.max='10000'
+			this.$limitInput.value=String(this.limitDefaultValue)
+			$fieldset.append(makeDiv('non-advanced-input')(
 				this.limitLeadText,
 				makeLabel()(
-					this.limitLabelBeforeText,this.$limitSelect,this.limitLabelAfterText,
+					this.limitLabelBeforeText,this.$limitSelect,this.limitLabelAfterText
+				)
+			),makeDiv('advanced-input')(
+				this.limitLeadText,
+				makeLabel()(
+					this.limitLabelBeforeText,this.$limitInput,this.limitLabelAfterText,
 					makeElement('span')('advanced')(this.limitAdvancedText)
 				)
 			))
-			this.$limitSelect.addEventListener('input',()=>{ // TODO group with other event listeners
-				if (this.limitChangeListener) this.limitChangeListener()
-			})
 		}
 		this.writeDownloadModeFieldset($fieldset,$legend)
 		const $showImagesCheckbox=document.createElement('input')
@@ -165,11 +165,26 @@ export abstract class NoteFetchDialog extends NavDialog {
 	private makeRequestDiv() {
 		return makeDiv('advanced')(`Resulting request: `,this.$requestOutput)
 	}
-	private addRequestChangeListeners() {
+	private addCommonEventListeners() {
 		for (const $input of this.listQueryChangingInputs()) {
 			$input.addEventListener('input',()=>this.updateRequest())
 		}
-		this.$limitSelect.addEventListener('input',()=>this.updateRequest())
+		this.$limitSelect.addEventListener('input',()=>{
+			this.$limitInput.value=this.$limitSelect.value
+			this.updateRequest()
+			if (this.limitChangeListener) this.limitChangeListener()
+		})
+		this.$limitInput.addEventListener('input',()=>{
+			// TODO find closes value of select
+			this.updateRequest()
+			if (this.limitChangeListener) this.limitChangeListener()
+		})
+		this.$form.addEventListener('submit',(ev)=>{
+			ev.preventDefault()
+			const query=this.constructQuery()
+			if (!query) return
+			this.submitQuery(query)
+		})
 	}
 	protected abstract makeFetchControlDiv(): HTMLDivElement
 	protected writePrependedFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void {}
