@@ -1,4 +1,4 @@
-import {NoteFetchDialog, NoteFetchDialogSharedCheckboxes, mixinWithFetchButton} from './base'
+import {NoteQueryFetchDialog, NoteFetchDialogSharedCheckboxes} from './base'
 import {NoteMap, NoteMapFreezeMode} from '../map'
 import {NoteQuery, makeNoteBboxQueryFromValues} from '../query'
 import {NominatimBbox, NominatimBboxFetcher} from '../nominatim'
@@ -9,7 +9,7 @@ const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
 const rq=(param: string)=>makeElement('span')('advanced-hint')(` (`,code(param),` parameter)`)
 const spanRequest=(...ss: Array<string|HTMLElement>)=>makeElement('span')('advanced-hint')(...ss)
 
-export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
+export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 	shortTitle=`BBox`
 	title=`Get notes inside rectangular area`
 	private $nominatimForm=document.createElement('form')
@@ -28,7 +28,6 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 	private $trackMapSelect=document.createElement('select')
 	private $trackMapZoomNotice=makeElement('span')('notice')()
 	protected $bboxInput=document.createElement('input')
-	protected $statusSelect=document.createElement('select')
 	private $nominatimRequestOutput=document.createElement('output')
 	private mapBoundsForFreezeRestore: L.LatLngBounds|undefined
 	constructor(
@@ -53,7 +52,7 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 		this.$nominatimForm.id='nominatim-form'
 		this.$section.append(this.$nominatimForm)
 	}
-	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
+	protected writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void {
 		{
 			$fieldset.append(makeDiv('advanced-hint')(
 				`Get `,makeLink(`notes by bounding box`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`),
@@ -105,19 +104,14 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 				this.$nominatimInput
 			),this.$nominatimButton))
 			$fieldset.append(makeDiv('advanced-hint')(`Resulting Nominatim request: `,this.$nominatimRequestOutput))
-		}{
-			this.$statusSelect.append(
-				new Option(`both open and closed`,'-1'),
-				new Option(`open and recently closed`,'7'),
-				new Option(`only open`,'0'),
-			)
-			$fieldset.append(makeDiv()(
-				`Fetch `,
-				makeLabel('inline')(this.$statusSelect,rq('closed'),` matching notes`),` `,
-				`sorted by last update date `,
-				`newest first`
-			))
 		}
+	}
+	appendToClosedLine($div: HTMLElement): void {
+		$div.append(
+			` `,
+			`sorted by last update date `,
+			`newest first`
+		)
 	}
 	protected limitValues=[20,100,500,2500,10000]
 	protected limitDefaultValue=100 // higher default limit because no progressive loads possible
@@ -127,12 +121,11 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 	protected limitIsParameter=true
 	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
 	}
-	protected populateInputsWithoutUpdatingRequest(query: NoteQuery | undefined): void {
+	protected populateInputsWithoutUpdatingRequestExceptForClosedInput(query: NoteQuery | undefined): void {
 		if (query && query.mode!='bbox') return
 		this.$bboxInput.value=query?.bbox ?? ''
-		this.$statusSelect.value=query ? String(query.closed) : '-1'
 	}
-	protected addEventListeners(): void {
+	protected addEventListenersBeforeClosedLine(): void {
 		const validateBounds=():boolean=>{
 			const splitValue=this.$bboxInput.value.split(',')
 			if (splitValue.length!=4) {
@@ -224,12 +217,12 @@ export class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
 	}
 	protected constructQuery(): NoteQuery | undefined {
 		return makeNoteBboxQueryFromValues(
-			this.$bboxInput.value,this.$statusSelect.value
+			this.$bboxInput.value,this.closedValue
 		)
 	}
 	protected listQueryChangingInputs(): Array<HTMLInputElement|HTMLSelectElement> {
 		return [
-			this.$bboxInput,this.$statusSelect
+			this.$bboxInput,this.$closedInput,this.$closedSelect
 		]
 	}
 	onOpen(): void {

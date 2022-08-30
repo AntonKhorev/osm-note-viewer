@@ -251,6 +251,66 @@ export function mixinWithFetchButton<T extends abstract new (...args: any[]) => 
 	return WithFetchButton
 }
 
+export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
+	protected $closedInput=document.createElement('input')
+	protected $closedSelect=document.createElement('select')
+	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
+		this.writeScopeAndOrderFieldsetBeforeClosedLine($fieldset)
+		this.$closedInput.type='number'
+		this.$closedInput.min='-1'
+		this.$closedInput.value='-1'
+		this.$closedSelect.append(
+			new Option(`both open and closed`,'-1'),
+			new Option(`open and recently closed`,'7'),
+			new Option(`only open`,'0'),
+		)
+		const $closedLine=makeDiv()(
+			`Fetch `,
+			makeElement('span')('non-advanced-input')(
+				this.$closedSelect
+			),
+			` matching notes `,
+			makeLabel('advanced-input')(
+				`closed no more than `,
+				this.$closedInput,
+				makeElement('span')('advanced-hint')(` (`,code('closed'),` parameter)`),
+				` days ago`
+			)
+		)
+		this.appendToClosedLine($closedLine)
+		$fieldset.append($closedLine)
+	}
+	protected abstract writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void
+	protected abstract appendToClosedLine($div: HTMLElement): void
+	protected addEventListeners(): void {
+		this.addEventListenersBeforeClosedLine()
+		this.$closedSelect.addEventListener('input',()=>{
+			this.$closedInput.value=this.$closedSelect.value
+		})
+		this.$closedInput.addEventListener('input',()=>{
+			this.$closedSelect.value=String(restrictClosedSelectValue(Number(this.$closedInput.value)))
+		})
+	}
+	protected abstract addEventListenersBeforeClosedLine(): void
+	protected populateInputsWithoutUpdatingRequest(query: NoteQuery|undefined): void {
+		this.populateInputsWithoutUpdatingRequestExceptForClosedInput(query)
+		if (query && (query.mode=='search' || query.mode=='bbox')) {
+			this.$closedInput.value=String(query.closed)
+			this.$closedSelect.value=String(restrictClosedSelectValue(query.closed))
+		} else {
+			this.$closedInput.value='-1'
+			this.$closedSelect.value='-1'
+		}
+	}
+	protected abstract populateInputsWithoutUpdatingRequestExceptForClosedInput(query: NoteQuery|undefined): void
+	protected get closedValue(): string {
+		return (this.$advancedModeCheckbox.checked
+			? this.$closedInput.value
+			: this.$closedSelect.value
+		)
+	}
+}
+
 export abstract class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
 	protected limitValues=[5,20]
 	protected limitDefaultValue=5
@@ -266,5 +326,15 @@ export abstract class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteF
 				this.$autoLoadCheckbox,` Automatically load more notes when scrolled to the end of the table`
 			)))
 		}
+	}
+}
+
+function restrictClosedSelectValue(v: number): number {
+	if (v<0) {
+		return -1
+	} else if (v<1) {
+		return 0
+	} else {
+		return 7
 	}
 }

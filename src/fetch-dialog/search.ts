@@ -1,4 +1,4 @@
-import {NoteFetchDialog, mixinWithAutoLoadCheckbox, mixinWithFetchButton} from './base'
+import {NoteQueryFetchDialog, mixinWithAutoLoadCheckbox} from './base'
 import {NoteQuery, makeNoteSearchQueryFromValues} from '../query'
 import {toUserQuery} from '../query-user'
 import {toDateQuery, toReadableDate} from '../query-date'
@@ -9,18 +9,16 @@ const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
 const rq=(param: string)=>makeElement('span')('advanced-hint')(` (`,code(param),` parameter)`)
 const rq2=(param1: string, param2: string)=>makeElement('span')('advanced-hint')(` (`,code(param1),` or `,code(param2),` parameter)`)
 
-export class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoadCheckbox(NoteFetchDialog)) {
+export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDialog) {
 	shortTitle=`Search`
 	title=`Search notes for user / text / date range`
 	protected $userInput=document.createElement('input')
 	protected $textInput=document.createElement('input')
 	protected $fromInput=document.createElement('input')
 	protected $toInput=document.createElement('input')
-	protected $closedInput=document.createElement('input')
-	protected $closedSelect=document.createElement('select')
 	protected $sortSelect=document.createElement('select')
 	protected $orderSelect=document.createElement('select')
-	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
+	protected writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void {
 		{
 			$fieldset.append(makeDiv('advanced-hint')(
 				`Make a `,makeLink(`search for notes`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`),
@@ -50,39 +48,22 @@ export class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoa
 				makeLabel()(`from`,rq('from'),` `,this.$fromInput),` `,
 				makeLabel()(`to`,rq('to'),` `,this.$toInput)
 			))
-		}{
-			this.$closedInput.type='number'
-			this.$closedInput.min='-1'
-			this.$closedInput.value='-1'
-			this.$closedSelect.append(
-				new Option(`both open and closed`,'-1'),
-				new Option(`open and recently closed`,'7'),
-				new Option(`only open`,'0'),
-			)
-			this.$sortSelect.append(
-				new Option(`creation`,'created_at'),
-				new Option(`last update`,'updated_at')
-			)
-			this.$orderSelect.append(
-				new Option('newest'),
-				new Option('oldest')
-			)
-			$fieldset.append(makeDiv()(
-				`Fetch `,
-				makeElement('span')('non-advanced-input')(
-					this.$closedSelect
-				),
-				` matching notes `,
-				makeLabel('advanced-input')(
-					`closed no more than `,
-					this.$closedInput,
-					rq('closed'),
-					` days ago`
-				),` `,
-				makeLabel('inline')(`sorted by `,this.$sortSelect,rq('sort'),` date`),`, `,
-				makeLabel('inline')(this.$orderSelect,rq('order'),` first`)
-			))
 		}
+	}
+	appendToClosedLine($div: HTMLElement): void {
+		this.$sortSelect.append(
+			new Option(`creation`,'created_at'),
+			new Option(`last update`,'updated_at')
+		)
+		this.$orderSelect.append(
+			new Option('newest'),
+			new Option('oldest')
+		)	
+		$div.append(
+			` `,
+			makeLabel('inline')(`sorted by `,this.$sortSelect,rq('sort'),` date`),`, `,
+			makeLabel('inline')(this.$orderSelect,rq('order'),` first`)
+		)
 	}
 	protected limitValues=[20,100,500,2500]
 	protected limitDefaultValue=20
@@ -99,7 +80,7 @@ export class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoa
 			)))
 		}
 	}
-	protected populateInputsWithoutUpdatingRequest(query: NoteQuery | undefined): void {
+	protected populateInputsWithoutUpdatingRequestExceptForClosedInput(query: NoteQuery | undefined): void {
 		if (query && query.mode!='search') return
 		if (query?.display_name) {
 			this.$userInput.value=query.display_name
@@ -111,16 +92,10 @@ export class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoa
 		this.$textInput.value=query?.q ?? ''
 		this.$fromInput.value=toReadableDate(query?.from)
 		this.$toInput.value=toReadableDate(query?.to)
-		this.$closedInput.value=query ? String(query.closed) : '-1'
-		if (query) {
-			this.$closedSelect.value=String(restrictClosedSelectValue(query.closed))
-		} else {
-			this.$closedSelect.value='-1'
-		}
 		this.$sortSelect.value=query?.sort ?? 'created_at'
 		this.$orderSelect.value=query?.order ?? 'newest'
 	}
-	protected addEventListeners(): void {
+	protected addEventListenersBeforeClosedLine(): void {
 		this.$userInput.addEventListener('input',()=>{
 			const userQuery=toUserQuery(this.$userInput.value)
 			if (userQuery.userType=='invalid') {
@@ -137,21 +112,11 @@ export class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoa
 				$input.setCustomValidity('')
 			}
 		})
-		this.$closedSelect.addEventListener('input',()=>{
-			this.$closedInput.value=this.$closedSelect.value
-		})
-		this.$closedInput.addEventListener('input',()=>{
-			this.$closedSelect.value=String(restrictClosedSelectValue(Number(this.$closedInput.value)))
-		})
 	}
 	protected constructQuery(): NoteQuery | undefined {
-		const closedValue=(this.$advancedModeCheckbox.checked
-			? this.$closedInput.value
-			: this.$closedSelect.value
-		)
 		return makeNoteSearchQueryFromValues(
 			this.$userInput.value,this.$textInput.value,this.$fromInput.value,this.$toInput.value,
-			closedValue,this.$sortSelect.value,this.$orderSelect.value
+			this.closedValue,this.$sortSelect.value,this.$orderSelect.value
 		)
 	}
 	protected listQueryChangingInputs(): Array<HTMLInputElement|HTMLSelectElement> {
@@ -159,15 +124,5 @@ export class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoa
 			this.$userInput,this.$textInput,this.$fromInput,this.$toInput,
 			this.$closedInput,this.$closedSelect,this.$sortSelect,this.$orderSelect
 		]
-	}
-}
-
-function restrictClosedSelectValue(v: number): number {
-	if (v<0) {
-		return -1
-	} else if (v<1) {
-		return 0
-	} else {
-		return 7
 	}
 }
