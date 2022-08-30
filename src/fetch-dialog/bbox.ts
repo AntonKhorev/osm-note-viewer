@@ -52,13 +52,21 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		this.$nominatimForm.id='nominatim-form'
 		this.$section.append(this.$nominatimForm)
 	}
+	protected makeLeadAdvancedHint(): Array<string|HTMLElement> {
+		return [
+			`Get `,makeLink(`notes by bounding box`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`),
+			` request at `,code(`https://api.openstreetmap.org/api/0.6/notes?`,em(`parameters`)),`; see `,em(`parameters`),` below.`
+		]
+	}
+	protected listParameters(): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][] {
+		return [
+			['bbox',this.$bboxInput,[`Bounding box`]],
+			['limit',this.$limitInput,[`Max number of notes to fetch`]],
+			['closed',this.$closedInput,[`Max number of days for closed note to be visible`]],
+		]
+	}
 	protected writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void {
 		{
-			$fieldset.append(makeDiv('advanced-hint')(
-				`Get `,makeLink(`notes by bounding box`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`),
-				` request at `,code(`https://api.openstreetmap.org/api/0.6/notes?`,em(`parameters`)),`; see `,em(`parameters`),` below.`
-			))
-		}{
 			this.$trackMapSelect.append(
 				new Option(`Do nothing`,'nothing'),
 				new Option(`Update bounding box input`,'bbox',true,true),

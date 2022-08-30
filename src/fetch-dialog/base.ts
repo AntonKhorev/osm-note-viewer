@@ -14,8 +14,8 @@ export abstract class NoteFetchDialog extends NavDialog {
 	limitChangeListener?: ()=>void
 	protected $form=document.createElement('form')
 	protected $advancedModeCheckbox=document.createElement('input')
-	private $limitSelect=document.createElement('select')
-	private $limitInput=document.createElement('input')
+	protected $limitSelect=document.createElement('select')
+	protected $limitInput=document.createElement('input')
 	protected abstract limitValues: number[]
 	protected abstract limitDefaultValue: number
 	protected abstract limitLeadText: string
@@ -255,31 +255,62 @@ export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetc
 	protected $closedInput=document.createElement('input')
 	protected $closedSelect=document.createElement('select')
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
+		{
+			$fieldset.append(makeDiv('advanced-hint')(
+				...this.makeLeadAdvancedHint()
+			))
+		}{
+			const $table=document.createElement('table')
+			{
+				const $row=$table.insertRow()
+				$row.append(
+					makeElement('th')()(`parameter`),
+					makeElement('th')()(`description`)
+				)
+			}
+			for (const [parameter,$input,descriptionItems] of this.listParameters()) {
+				const $row=$table.insertRow()
+				const $parameter=makeElement('code')('linked-parameter')(parameter) // TODO <a> or other focusable element
+				$parameter.onclick=()=>$input.focus()
+				$row.insertCell().append($parameter)
+				$row.insertCell().append(...descriptionItems)
+			}
+			$fieldset.append(makeDiv('advanced-hint')(
+				makeElement('details')()(
+					makeElement('summary')()(`Supported parameters`),
+					$table
+				)
+			))
+		}
 		this.writeScopeAndOrderFieldsetBeforeClosedLine($fieldset)
-		this.$closedInput.type='number'
-		this.$closedInput.min='-1'
-		this.$closedInput.value='-1'
-		this.$closedSelect.append(
-			new Option(`both open and closed`,'-1'),
-			new Option(`open and recently closed`,'7'),
-			new Option(`only open`,'0'),
-		)
-		const $closedLine=makeDiv()(
-			`Fetch `,
-			makeElement('span')('non-advanced-input')(
-				this.$closedSelect
-			),
-			` matching notes `,
-			makeLabel('advanced-input')(
-				`closed no more than `,
-				this.$closedInput,
-				makeElement('span')('advanced-hint')(` (`,code('closed'),` parameter)`),
-				` days ago`
+		{
+			this.$closedInput.type='number'
+			this.$closedInput.min='-1'
+			this.$closedInput.value='-1'
+			this.$closedSelect.append(
+				new Option(`both open and closed`,'-1'),
+				new Option(`open and recently closed`,'7'),
+				new Option(`only open`,'0'),
 			)
-		)
-		this.appendToClosedLine($closedLine)
-		$fieldset.append($closedLine)
+			const $closedLine=makeDiv()(
+				`Fetch `,
+				makeElement('span')('non-advanced-input')(
+					this.$closedSelect
+				),
+				` matching notes `,
+				makeLabel('advanced-input')(
+					`closed no more than `,
+					this.$closedInput,
+					makeElement('span')('advanced-hint')(` (`,code('closed'),` parameter)`),
+					` days ago`
+				)
+			)
+			this.appendToClosedLine($closedLine)
+			$fieldset.append($closedLine)
+		}
 	}
+	protected abstract makeLeadAdvancedHint(): Array<string|HTMLElement>
+	protected abstract listParameters(): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][]
 	protected abstract writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void
 	protected abstract appendToClosedLine($div: HTMLElement): void
 	protected addEventListeners(): void {

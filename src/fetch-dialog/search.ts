@@ -18,13 +18,27 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 	protected $toInput=document.createElement('input')
 	protected $sortSelect=document.createElement('select')
 	protected $orderSelect=document.createElement('select')
+	protected makeLeadAdvancedHint(): Array<string|HTMLElement> {
+		return [
+			`Make a `,makeLink(`search for notes`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`),
+			` request at `,code(`https://api.openstreetmap.org/api/0.6/notes/search?`,em(`parameters`)),`; see `,em(`parameters`),` below.`
+		]
+	}
+	protected listParameters(): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][] {
+		return [
+			['q',this.$textInput,[`Comment text search query`]],
+			['limit',this.$limitInput,[`Max number of notes to fetch`]],
+			['closed',this.$closedInput,[`Max number of days for closed note to be visible`]],
+			['display_name',this.$userInput,[`Name of a user interacting with a note`]],
+			['user',this.$userInput,[`Id of a user interacting with a note`]],
+			['from',this.$fromInput,[`Beginning of a date range`]],
+			['to',this.$toInput,[`End of a date range`]],
+			['sort',this.$sortSelect,[`Date to sort the notes`]],
+			['order',this.$orderSelect,[`Sort order`]],
+		]
+	}
 	protected writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void {
 		{
-			$fieldset.append(makeDiv('advanced-hint')(
-				`Make a `,makeLink(`search for notes`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`),
-				` request at `,code(`https://api.openstreetmap.org/api/0.6/notes/search?`,em(`parameters`)),`; see `,em(`parameters`),` below.`
-			))
-		}{
 			this.$userInput.type='text'
 			this.$userInput.name='user'
 			$fieldset.append(makeDiv('major-input')(makeLabel()(
