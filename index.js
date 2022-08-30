@@ -1705,7 +1705,7 @@ class FetchState {
 }
 class NoteFetcher {
     constructor() {
-        this.limitUpdater = () => { };
+        this.updateRequestHintInAdvancedMode = () => { };
     }
     getRequestUrls(query, limit) {
         const pathAndParameters = this.getRequestUrlPathAndParameters(query, limit);
@@ -1723,14 +1723,14 @@ class NoteFetcher {
             url += '?' + parameters;
         return url;
     }
-    resetLimitUpdater() {
-        this.limitUpdater = () => { };
+    resetUpdateRequestHintInAdvancedMode() {
+        this.updateRequestHintInAdvancedMode = () => { };
     }
-    limitWasUpdated() {
-        this.limitUpdater();
+    reactToLimitUpdateForAdvancedMode() {
+        this.updateRequestHintInAdvancedMode();
     }
-    async start(db, noteTable, $moreContainer, $limitSelect, $autoLoadCheckbox, blockDownloads, moreButtonIntersectionObservers, query, clearStore) {
-        this.resetLimitUpdater();
+    async start(db, noteTable, $moreContainer, getLimit, getAutoLoad, blockDownloads, moreButtonIntersectionObservers, query, clearStore) {
+        this.resetUpdateRequestHintInAdvancedMode();
         const getCycleFetchDetails = this.getGetCycleFetchDetails(query);
         if (!getCycleFetchDetails)
             return; // shouldn't happen
@@ -1755,8 +1755,8 @@ class NoteFetcher {
         let holdOffAutoLoad = false;
         const rewriteLoadMoreButton = () => {
             const $requestOutput = document.createElement('output');
-            this.limitUpdater = () => {
-                const limit = getLimit($limitSelect);
+            this.updateRequestHintInAdvancedMode = () => {
+                const limit = getLimit();
                 const fetchDetails = getCycleFetchDetails(...fetchState.getNextCycleArguments(limit));
                 if (fetchDetails.pathAndParametersList.length == 0) {
                     $requestOutput.replaceChildren(`no request`);
@@ -1767,17 +1767,17 @@ class NoteFetcher {
                 $a.classList.add('request');
                 $requestOutput.replaceChildren(makeElement('code')()($a));
             };
-            this.limitUpdater();
+            this.updateRequestHintInAdvancedMode();
             $moreContainer.innerHTML = '';
             const $button = document.createElement('button');
             $button.textContent = `Load more notes`;
             $button.addEventListener('click', fetchCycle);
-            $moreContainer.append(makeDiv()($button), makeDiv('advanced')(`Resulting request: `, $requestOutput));
+            $moreContainer.append(makeDiv()($button), makeDiv('advanced-hint')(`Resulting request: `, $requestOutput));
             return $button;
         };
         const fetchCycle = async () => {
             rewriteLoadingButton();
-            const limit = getLimit($limitSelect);
+            const limit = getLimit();
             const fetchDetails = getCycleFetchDetails(...fetchState.getNextCycleArguments(limit));
             if (fetchDetails == null)
                 return;
@@ -1840,7 +1840,7 @@ class NoteFetcher {
                             return;
                         if (!entries[0].isIntersecting)
                             return;
-                        if (!$autoLoadCheckbox.checked)
+                        if (!getAutoLoad())
                             return;
                         while (moreButtonIntersectionObservers.length > 0)
                             moreButtonIntersectionObservers.pop()?.disconnect();
@@ -2097,12 +2097,6 @@ function rewriteFetchErrorMessage($container, query, responseKindText, fetchErro
     $error.textContent = fetchErrorText;
     $message.append($error);
 }
-function getLimit($limitSelect) {
-    const limit = Number($limitSelect.value);
-    if (Number.isInteger(limit) && limit >= 1 && limit <= 10000)
-        return limit;
-    return 20;
-}
 
 const sup = (...ss) => makeElement('sup')()(...ss);
 const code$3 = (...ss) => makeElement('code')()(...ss);
@@ -2113,7 +2107,9 @@ class NoteFetchDialog extends NavDialog {
         this.getRequestUrls = getRequestUrls;
         this.submitQuery = submitQuery;
         this.$form = document.createElement('form');
+        this.$advancedModeCheckbox = document.createElement('input');
         this.$limitSelect = document.createElement('select');
+        this.$limitInput = document.createElement('input');
         this.$requestOutput = document.createElement('output');
     }
     resetFetch() { }
@@ -2126,20 +2122,27 @@ class NoteFetchDialog extends NavDialog {
         };
         appendIfExists(this.makePrependedFieldset(), this.makeScopeAndOrderFieldset(), this.makeDownloadModeFieldset(), this.makeFetchControlDiv(), this.makeRequestDiv());
         this.addEventListeners();
-        this.addRequestChangeListeners();
-        this.$form.addEventListener('submit', (ev) => {
-            ev.preventDefault();
-            const query = this.constructQuery();
-            if (!query)
-                return;
-            this.submitQuery(query);
-        });
+        this.addCommonEventListeners();
         this.$section.append(this.$form);
         this.writeExtraForms();
     }
     populateInputs(query) {
         this.populateInputsWithoutUpdatingRequest(query);
         this.updateRequest();
+    }
+    get getLimit() {
+        return () => {
+            let limit;
+            if (this.$advancedModeCheckbox.checked) {
+                limit = Number(this.$limitInput.value);
+            }
+            else {
+                limit = Number(this.$limitSelect.value);
+            }
+            if (Number.isInteger(limit) && limit >= 1 && limit <= 10000)
+                return limit;
+            return this.limitDefaultValue;
+        };
     }
     updateRequest() {
         const knownTypes = {
@@ -2158,7 +2161,7 @@ class NoteFetchDialog extends NavDialog {
             this.$requestOutput.replaceChildren(`invalid request`);
             return;
         }
-        const requestUrls = this.getRequestUrls(query, Number(this.$limitSelect.value));
+        const requestUrls = this.getRequestUrls(query, this.getLimit());
         if (requestUrls.length == 0) {
             this.$requestOutput.replaceChildren(`invalid request`);
             return;
@@ -2208,25 +2211,75 @@ class NoteFetchDialog extends NavDialog {
         const $legend = document.createElement('legend');
         $legend.textContent = `Download mode (can change anytime)`;
         $fieldset.append($legend);
+        {
+            for (const limitValue of this.limitValues) {
+                const value = String(limitValue);
+                const selected = limitValue == this.limitDefaultValue;
+                this.$limitSelect.append(new Option(value, value, selected, selected));
+            }
+            this.$limitInput.type = 'number';
+            this.$limitInput.min = '1';
+            this.$limitInput.max = '10000';
+            this.$limitInput.value = String(this.limitDefaultValue);
+            $fieldset.append(makeDiv('non-advanced-input')(this.limitLeadText, makeLabel()(this.limitLabelBeforeText, this.$limitSelect, this.limitLabelAfterText)), makeDiv('advanced-input')(this.limitLeadText, makeLabel()(this.limitLabelBeforeText, this.$limitInput, this.limitLabelAfterText, (this.limitIsParameter
+                ? makeElement('span')('advanced-hint')(` (`, code$3('limit'), ` parameter)`)
+                : makeElement('span')('advanced-hint')(` (will make this many API requests each time it downloads more notes)`)))));
+        }
         this.writeDownloadModeFieldset($fieldset, $legend);
         const $showImagesCheckbox = document.createElement('input');
         $showImagesCheckbox.type = 'checkbox';
         this.$sharedCheckboxes.showImages.push($showImagesCheckbox);
         $fieldset.append(makeDiv()(makeLabel()($showImagesCheckbox, ` Load and show images from StreetComplete`)));
-        const $advancedModeCheckbox = document.createElement('input');
-        $advancedModeCheckbox.type = 'checkbox';
-        this.$sharedCheckboxes.advancedMode.push($advancedModeCheckbox);
-        $fieldset.append(makeDiv()(makeLabel()($advancedModeCheckbox, ` Advanced mode`)));
+        this.$advancedModeCheckbox.type = 'checkbox';
+        this.$sharedCheckboxes.advancedMode.push(this.$advancedModeCheckbox);
+        $fieldset.append(makeDiv()(makeLabel()(this.$advancedModeCheckbox, ` Advanced mode`)));
         return $fieldset;
     }
     makeRequestDiv() {
-        return makeDiv('advanced')(`Resulting request: `, this.$requestOutput);
+        return makeDiv('advanced-hint')(`Resulting request: `, this.$requestOutput);
     }
-    addRequestChangeListeners() {
+    addCommonEventListeners() {
         for (const $input of this.listQueryChangingInputs()) {
             $input.addEventListener('input', () => this.updateRequest());
         }
-        this.$limitSelect.addEventListener('input', () => this.updateRequest());
+        this.$limitSelect.addEventListener('input', () => {
+            this.$limitInput.value = this.$limitSelect.value;
+            this.updateRequest();
+            if (this.limitChangeListener)
+                this.limitChangeListener();
+        });
+        this.$limitInput.addEventListener('input', () => {
+            this.$limitSelect.value = String(findClosestValue(Number(this.$limitInput.value), this.limitValues));
+            this.updateRequest();
+            if (this.limitChangeListener)
+                this.limitChangeListener();
+            function findClosestValue(vTarget, vCandidates) {
+                let dResult = Infinity;
+                let vResult = vTarget;
+                for (const vCandidate of vCandidates) {
+                    const dCandidate = Math.abs(vTarget - vCandidate);
+                    if (dCandidate < dResult) {
+                        dResult = dCandidate;
+                        vResult = vCandidate;
+                    }
+                }
+                return vResult;
+            }
+        });
+        this.$form.addEventListener('submit', (ev) => {
+            ev.preventDefault();
+            const query = this.constructQuery();
+            if (!query)
+                return;
+            this.submitQuery(query);
+        });
+    }
+    reactToAdvancedModeChange() {
+        if (this.$limitSelect.value != this.$limitInput.value) {
+            this.updateRequest();
+            if (this.limitChangeListener)
+                this.limitChangeListener();
+        }
     }
     writePrependedFieldset($fieldset, $legend) { }
     writeExtraForms() { }
@@ -2237,8 +2290,8 @@ function mixinWithAutoLoadCheckbox(c) {
             super(...arguments);
             this.$autoLoadCheckbox = document.createElement('input');
         }
-        getAutoLoadChecker() {
-            return this.$autoLoadCheckbox;
+        get getAutoLoad() {
+            return () => this.$autoLoadCheckbox.checked;
         }
     }
     return WithAutoLoadCheckbox;
@@ -2260,12 +2313,59 @@ function mixinWithFetchButton(c) {
     }
     return WithFetchButton;
 }
-class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
-    writeDownloadModeFieldset($fieldset) {
-        {
-            this.$limitSelect.append(new Option('5'), new Option('20'));
-            $fieldset.append(makeDiv()(`Download these `, makeLabel()(`in batches of `, this.$limitSelect, ` notes`, makeElement('span')('advanced')(` (will make this many API requests each time it downloads more notes)`))));
+class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
+    constructor() {
+        super(...arguments);
+        this.$closedInput = document.createElement('input');
+        this.$closedSelect = document.createElement('select');
+    }
+    writeScopeAndOrderFieldset($fieldset) {
+        this.writeScopeAndOrderFieldsetBeforeClosedLine($fieldset);
+        this.$closedInput.type = 'number';
+        this.$closedInput.min = '-1';
+        this.$closedInput.value = '-1';
+        this.$closedSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
+        const $closedLine = makeDiv()(`Fetch `, makeElement('span')('non-advanced-input')(this.$closedSelect), ` matching notes `, makeLabel('advanced-input')(`closed no more than `, this.$closedInput, makeElement('span')('advanced-hint')(` (`, code$3('closed'), ` parameter)`), ` days ago`));
+        this.appendToClosedLine($closedLine);
+        $fieldset.append($closedLine);
+    }
+    addEventListeners() {
+        this.addEventListenersBeforeClosedLine();
+        this.$closedSelect.addEventListener('input', () => {
+            this.$closedInput.value = this.$closedSelect.value;
+        });
+        this.$closedInput.addEventListener('input', () => {
+            this.$closedSelect.value = String(restrictClosedSelectValue(Number(this.$closedInput.value)));
+        });
+    }
+    populateInputsWithoutUpdatingRequest(query) {
+        this.populateInputsWithoutUpdatingRequestExceptForClosedInput(query);
+        if (query && (query.mode == 'search' || query.mode == 'bbox')) {
+            this.$closedInput.value = String(query.closed);
+            this.$closedSelect.value = String(restrictClosedSelectValue(query.closed));
         }
+        else {
+            this.$closedInput.value = '-1';
+            this.$closedSelect.value = '-1';
+        }
+    }
+    get closedValue() {
+        return (this.$advancedModeCheckbox.checked
+            ? this.$closedInput.value
+            : this.$closedSelect.value);
+    }
+}
+class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
+    constructor() {
+        super(...arguments);
+        this.limitValues = [5, 20];
+        this.limitDefaultValue = 5;
+        this.limitLeadText = `Download these `;
+        this.limitLabelBeforeText = `in batches of `;
+        this.limitLabelAfterText = ` notes`;
+        this.limitIsParameter = false;
+    }
+    writeDownloadModeFieldset($fieldset) {
         {
             this.$autoLoadCheckbox.type = 'checkbox';
             this.$autoLoadCheckbox.checked = true;
@@ -2273,12 +2373,23 @@ class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
         }
     }
 }
+function restrictClosedSelectValue(v) {
+    if (v < 0) {
+        return -1;
+    }
+    else if (v < 1) {
+        return 0;
+    }
+    else {
+        return 7;
+    }
+}
 
 const em$5 = (...ss) => makeElement('em')()(...ss);
 const code$2 = (...ss) => makeElement('code')()(...ss);
-const rq$1 = (param) => makeElement('span')('advanced')(` (`, code$2(param), ` parameter)`);
-const rq2 = (param1, param2) => makeElement('span')('advanced')(` (`, code$2(param1), ` or `, code$2(param2), ` parameter)`);
-class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoadCheckbox(NoteFetchDialog)) {
+const rq$1 = (param) => makeElement('span')('advanced-hint')(` (`, code$2(param), ` parameter)`);
+const rq2 = (param1, param2) => makeElement('span')('advanced-hint')(` (`, code$2(param1), ` or `, code$2(param2), ` parameter)`);
+class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDialog) {
     constructor() {
         super(...arguments);
         this.shortTitle = `Search`;
@@ -2287,13 +2398,18 @@ class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoadCheckb
         this.$textInput = document.createElement('input');
         this.$fromInput = document.createElement('input');
         this.$toInput = document.createElement('input');
-        this.$statusSelect = document.createElement('select');
         this.$sortSelect = document.createElement('select');
         this.$orderSelect = document.createElement('select');
+        this.limitValues = [20, 100, 500, 2500];
+        this.limitDefaultValue = 20;
+        this.limitLeadText = `Download these `;
+        this.limitLabelBeforeText = `in batches of `;
+        this.limitLabelAfterText = ` notes`;
+        this.limitIsParameter = true;
     }
-    writeScopeAndOrderFieldset($fieldset) {
+    writeScopeAndOrderFieldsetBeforeClosedLine($fieldset) {
         {
-            $fieldset.append(makeDiv('advanced')(`Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`), ` request at `, code$2(`https://api.openstreetmap.org/api/0.6/notes/search?`, em$5(`parameters`)), `; see `, em$5(`parameters`), ` below.`));
+            $fieldset.append(makeDiv('advanced-hint')(`Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`), ` request at `, code$2(`https://api.openstreetmap.org/api/0.6/notes/search?`, em$5(`parameters`)), `; see `, em$5(`parameters`), ` below.`));
         }
         {
             this.$userInput.type = 'text';
@@ -2314,25 +2430,20 @@ class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoadCheckb
             this.$toInput.name = 'to';
             $fieldset.append(makeDiv()(`Date range: `, makeLabel()(`from`, rq$1('from'), ` `, this.$fromInput), ` `, makeLabel()(`to`, rq$1('to'), ` `, this.$toInput)));
         }
-        {
-            this.$statusSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
-            this.$sortSelect.append(new Option(`creation`, 'created_at'), new Option(`last update`, 'updated_at'));
-            this.$orderSelect.append(new Option('newest'), new Option('oldest'));
-            $fieldset.append(makeDiv()(`Fetch `, makeLabel('inline')(this.$statusSelect, rq$1('closed'), ` matching notes`), ` `, makeLabel('inline')(`sorted by `, this.$sortSelect, rq$1('sort'), ` date`), `, `, makeLabel('inline')(this.$orderSelect, rq$1('order'), ` first`)));
-        }
+    }
+    appendToClosedLine($div) {
+        this.$sortSelect.append(new Option(`creation`, 'created_at'), new Option(`last update`, 'updated_at'));
+        this.$orderSelect.append(new Option('newest'), new Option('oldest'));
+        $div.append(` `, makeLabel('inline')(`sorted by `, this.$sortSelect, rq$1('sort'), ` date`), `, `, makeLabel('inline')(this.$orderSelect, rq$1('order'), ` first`));
     }
     writeDownloadModeFieldset($fieldset) {
-        {
-            this.$limitSelect.append(new Option('20'), new Option('100'), new Option('500'), new Option('2500'));
-            $fieldset.append(makeDiv()(`Download these `, makeLabel()(`in batches of `, this.$limitSelect, rq$1('limit'), ` notes`)));
-        }
         {
             this.$autoLoadCheckbox.type = 'checkbox';
             this.$autoLoadCheckbox.checked = true;
             $fieldset.append(makeDiv()(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
         }
     }
-    populateInputsWithoutUpdatingRequest(query) {
+    populateInputsWithoutUpdatingRequestExceptForClosedInput(query) {
         if (query && query.mode != 'search')
             return;
         if (query?.display_name) {
@@ -2347,11 +2458,10 @@ class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoadCheckb
         this.$textInput.value = query?.q ?? '';
         this.$fromInput.value = toReadableDate(query?.from);
         this.$toInput.value = toReadableDate(query?.to);
-        this.$statusSelect.value = query ? String(query.closed) : '-1';
         this.$sortSelect.value = query?.sort ?? 'created_at';
         this.$orderSelect.value = query?.order ?? 'newest';
     }
-    addEventListeners() {
+    addEventListenersBeforeClosedLine() {
         this.$userInput.addEventListener('input', () => {
             const userQuery = toUserQuery(this.$userInput.value);
             if (userQuery.userType == 'invalid') {
@@ -2373,12 +2483,12 @@ class NoteSearchFetchDialog extends mixinWithFetchButton(mixinWithAutoLoadCheckb
             });
     }
     constructQuery() {
-        return makeNoteSearchQueryFromValues(this.$userInput.value, this.$textInput.value, this.$fromInput.value, this.$toInput.value, this.$statusSelect.value, this.$sortSelect.value, this.$orderSelect.value);
+        return makeNoteSearchQueryFromValues(this.$userInput.value, this.$textInput.value, this.$fromInput.value, this.$toInput.value, this.closedValue, this.$sortSelect.value, this.$orderSelect.value);
     }
     listQueryChangingInputs() {
         return [
             this.$userInput, this.$textInput, this.$fromInput, this.$toInput,
-            this.$statusSelect, this.$sortSelect, this.$orderSelect
+            this.$closedInput, this.$closedSelect, this.$sortSelect, this.$orderSelect
         ];
     }
 }
@@ -2433,9 +2543,9 @@ class NominatimBboxFetcher {
 
 const em$4 = (...ss) => makeElement('em')()(...ss);
 const code$1 = (...ss) => makeElement('code')()(...ss);
-const rq = (param) => makeElement('span')('advanced')(` (`, code$1(param), ` parameter)`);
-const spanRequest = (...ss) => makeElement('span')('advanced')(...ss);
-class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
+const rq = (param) => makeElement('span')('advanced-hint')(` (`, code$1(param), ` parameter)`);
+const spanRequest = (...ss) => makeElement('span')('advanced-hint')(...ss);
+class NoteBboxFetchDialog extends NoteQueryFetchDialog {
     constructor($sharedCheckboxes, getRequestUrls, submitQuery, map) {
         super($sharedCheckboxes, getRequestUrls, submitQuery);
         this.map = map;
@@ -2455,14 +2565,19 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
         this.$trackMapSelect = document.createElement('select');
         this.$trackMapZoomNotice = makeElement('span')('notice')();
         this.$bboxInput = document.createElement('input');
-        this.$statusSelect = document.createElement('select');
         this.$nominatimRequestOutput = document.createElement('output');
+        this.limitValues = [20, 100, 500, 2500, 10000];
+        this.limitDefaultValue = 100; // higher default limit because no progressive loads possible
+        this.limitLeadText = `Download `;
+        this.limitLabelBeforeText = `at most `;
+        this.limitLabelAfterText = ` notes`;
+        this.limitIsParameter = true;
     }
     resetFetch() {
         this.mapBoundsForFreezeRestore = undefined;
     }
-    getAutoLoadChecker() {
-        return { checked: false };
+    get getAutoLoad() {
+        return () => false;
     }
     populateInputs(query) {
         super.populateInputs(query);
@@ -2472,9 +2587,9 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
         this.$nominatimForm.id = 'nominatim-form';
         this.$section.append(this.$nominatimForm);
     }
-    writeScopeAndOrderFieldset($fieldset) {
+    writeScopeAndOrderFieldsetBeforeClosedLine($fieldset) {
         {
-            $fieldset.append(makeDiv('advanced')(`Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code$1(`https://api.openstreetmap.org/api/0.6/notes?`, em$4(`parameters`)), `; see `, em$4(`parameters`), ` below.`));
+            $fieldset.append(makeDiv('advanced-hint')(`Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code$1(`https://api.openstreetmap.org/api/0.6/notes?`, em$4(`parameters`)), `; see `, em$4(`parameters`), ` below.`));
         }
         {
             this.$trackMapSelect.append(new Option(`Do nothing`, 'nothing'), new Option(`Update bounding box input`, 'bbox', true, true), new Option(`Fetch notes`, 'fetch'));
@@ -2493,7 +2608,7 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
             }
         }
         {
-            $fieldset.append(makeDiv('advanced')(`Make `, makeLink(`Nominatim search query`, `https://nominatim.org/release-docs/develop/api/Search/`), ` at `, code$1(this.nominatimBboxFetcher.urlBase + '?', em$4(`parameters`)), `; see `, em$4(`parameters`), ` above and below.`));
+            $fieldset.append(makeDiv('advanced-hint')(`Make `, makeLink(`Nominatim search query`, `https://nominatim.org/release-docs/develop/api/Search/`), ` at `, code$1(this.nominatimBboxFetcher.urlBase + '?', em$4(`parameters`)), `; see `, em$4(`parameters`), ` above and below.`));
             this.$nominatimInput.type = 'text';
             this.$nominatimInput.required = true;
             this.$nominatimInput.classList.add('no-invalid-indication'); // because it's inside another form that doesn't require it, don't indicate that it's invalid
@@ -2502,27 +2617,20 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
             this.$nominatimButton.textContent = 'Get';
             this.$nominatimButton.setAttribute('form', 'nominatim-form');
             $fieldset.append(makeDiv('text-button-input')(makeLabel()(`Or get bounding box by place name from Nominatim`, spanRequest(` (`, code$1('q'), ` Nominatim parameter)`), `: `, this.$nominatimInput), this.$nominatimButton));
-            $fieldset.append(makeDiv('advanced')(`Resulting Nominatim request: `, this.$nominatimRequestOutput));
+            $fieldset.append(makeDiv('advanced-hint')(`Resulting Nominatim request: `, this.$nominatimRequestOutput));
         }
-        {
-            this.$statusSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
-            $fieldset.append(makeDiv()(`Fetch `, makeLabel('inline')(this.$statusSelect, rq('closed'), ` matching notes`), ` `, `sorted by last update date `, `newest first`));
-        }
+    }
+    appendToClosedLine($div) {
+        $div.append(` `, `sorted by last update date `, `newest first`);
     }
     writeDownloadModeFieldset($fieldset) {
-        {
-            this.$limitSelect.append(new Option('20'), new Option('100', '100', true, true), // default limit because no progressive loads possible
-            new Option('500'), new Option('2500'), new Option('10000'));
-            $fieldset.append(makeDiv()(`Download `, makeLabel()(`at most `, this.$limitSelect, rq('limit'), ` notes`)));
-        }
     }
-    populateInputsWithoutUpdatingRequest(query) {
+    populateInputsWithoutUpdatingRequestExceptForClosedInput(query) {
         if (query && query.mode != 'bbox')
             return;
         this.$bboxInput.value = query?.bbox ?? '';
-        this.$statusSelect.value = query ? String(query.closed) : '-1';
     }
-    addEventListeners() {
+    addEventListenersBeforeClosedLine() {
         const validateBounds = () => {
             const splitValue = this.$bboxInput.value.split(',');
             if (splitValue.length != 4) {
@@ -2616,11 +2724,11 @@ class NoteBboxFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
         });
     }
     constructQuery() {
-        return makeNoteBboxQueryFromValues(this.$bboxInput.value, this.$statusSelect.value);
+        return makeNoteBboxQueryFromValues(this.$bboxInput.value, this.closedValue);
     }
     listQueryChangingInputs() {
         return [
-            this.$bboxInput, this.$statusSelect
+            this.$bboxInput, this.$closedInput, this.$closedSelect
         ];
     }
     onOpen() {
@@ -2739,7 +2847,7 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
     writeScopeAndOrderFieldset($fieldset, $legend) {
         $legend.textContent = `Or read custom XML file`;
         {
-            $fieldset.append(makeDiv('advanced')(`Load an arbitrary XML file containing note ids or links. `, `Elements containing the ids are selected by a `, makeLink(`css selector`, `https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors`), ` provided below. `, `Inside the elements ids are looked for in an `, em$3(`attribute`), ` if specified below, or in text content. `, `After that download each note `, makeLink(`by its id`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Read:_GET_/api/0.6/notes/#id`), `.`));
+            $fieldset.append(makeDiv('advanced-hint')(`Load an arbitrary XML file containing note ids or links. `, `Elements containing the ids are selected by a `, makeLink(`css selector`, `https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors`), ` provided below. `, `Inside the elements ids are looked for in an `, em$3(`attribute`), ` if specified below, or in text content. `, `After that download each note `, makeLink(`by its id`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Read:_GET_/api/0.6/notes/#id`), `.`));
         }
         {
             this.$selectorInput.type = 'text';
@@ -3184,7 +3292,7 @@ class NoteFetchPanel {
                 modifyHistory(query, true);
                 startFetcher(query, true, false, fetcher, dialog);
             });
-            dialog.$limitSelect.addEventListener('input', () => fetcher.limitWasUpdated());
+            dialog.limitChangeListener = () => fetcher.reactToLimitUpdateForAdvancedMode();
             dialog.write($container);
             dialog.populateInputs(hashQuery);
             navbar.addTab(dialog);
@@ -3199,6 +3307,9 @@ class NoteFetchPanel {
         navbar.addTab(aboutDialog, true);
         handleSharedCheckboxes($sharedCheckboxes.showImages, state => noteTable.setShowImages(state));
         handleSharedCheckboxes($sharedCheckboxes.advancedMode, state => {
+            for (const dialog of [searchDialog, bboxDialog, xmlDialog, plaintextDialog]) {
+                dialog.reactToAdvancedModeChange();
+            }
             $container.classList.toggle('advanced-mode', state);
             $moreContainer.classList.toggle('advanced-mode', state);
         });
@@ -3284,7 +3395,7 @@ class NoteFetchPanel {
                 map.needToFitNotes = false;
             }
             self.runningFetcher = fetcher;
-            fetcher.start(db, noteTable, $moreContainer, dialog.$limitSelect, dialog.getAutoLoadChecker(), (disabled) => dialog.disableFetchControl(disabled), moreButtonIntersectionObservers, query, clearStore);
+            fetcher.start(db, noteTable, $moreContainer, dialog.getLimit, dialog.getAutoLoad, (disabled) => dialog.disableFetchControl(disabled), moreButtonIntersectionObservers, query, clearStore);
         }
         function handleSharedCheckboxes($checkboxes, stateChangeListener) {
             for (const $checkbox of $checkboxes) {

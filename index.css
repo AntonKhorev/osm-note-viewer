@@ -239,8 +239,8 @@ nav ul li a:focus {
 	white-space: nowrap;
 }
 
-.panel.fetch .advanced,
-.more .advanced {
+.panel.fetch .advanced-hint,
+.more .advanced-hint {
 	opacity: .7;
 	font-size: .9em;
 }
@@ -248,12 +248,21 @@ nav ul li a:focus {
 .more a.request {
 	word-wrap: anywhere;
 }
-.panel.fetch:not(.advanced-mode) .advanced,
-.more:not(.advanced-mode) .advanced {
+.panel.fetch:not(.advanced-mode) .advanced-hint,
+.more:not(.advanced-mode) .advanced-hint {
+	display: none;
+}
+.panel.fetch:not(.advanced-mode) .advanced-input {
+	display: none;
+}
+.panel.fetch.advanced-mode .non-advanced-input {
 	display: none;
 }
 .panel.fetch .notice.error {
 	color: var(--error-color);
+}
+.panel.fetch input[type=number] {
+	width: 4em;
 }
 
 .panel.command {
