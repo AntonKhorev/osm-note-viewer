@@ -11,8 +11,9 @@ export interface NoteFetchDialogSharedCheckboxes {
 }
 
 export abstract class NoteFetchDialog extends NavDialog {
+	limitChangeListener?: ()=>void
 	protected $form=document.createElement('form')
-	$limitSelect=document.createElement('select')
+	protected $limitSelect=document.createElement('select')
 	private $requestOutput=document.createElement('output')
 	constructor(
 		private $sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
@@ -20,6 +21,9 @@ export abstract class NoteFetchDialog extends NavDialog {
 		protected submitQuery: (query: NoteQuery) => void
 	) {
 		super()
+		this.$limitSelect.addEventListener('input',()=>{
+			if (this.limitChangeListener) this.limitChangeListener()
+		})
 	}
 	resetFetch() {}
 	writeSectionContent() {

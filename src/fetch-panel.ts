@@ -46,7 +46,7 @@ export default class NoteFetchPanel {
 				modifyHistory(query,true)
 				startFetcher(query,true,false,fetcher,dialog)
 			})
-			dialog.$limitSelect.addEventListener('input',()=>fetcher.limitWasUpdated())
+			dialog.limitChangeListener=()=>fetcher.limitWasUpdated()
 			dialog.write($container)
 			dialog.populateInputs(hashQuery)
 			navbar.addTab(dialog)
