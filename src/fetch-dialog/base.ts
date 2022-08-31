@@ -2,6 +2,7 @@ import {NavDialog} from '../navbar'
 import {NoteQuery} from '../query'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../util'
 
+const em=(...ss: Array<string|HTMLElement>)=>makeElement('em')()(...ss)
 const sup=(...ss: Array<string|HTMLElement>)=>makeElement('sup')()(...ss)
 const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
 
@@ -268,7 +269,26 @@ export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetc
 					makeElement('th')()(`description`)
 				)
 			}
-			for (const [parameter,$input,descriptionItems] of this.listParameters()) {
+			const makeTr=(cellType: 'th'|'td')=>(...sss: Array<Array<string|HTMLElement>>)=>makeElement('tr')()(...sss.map(ss=>makeElement(cellType)()(...ss)))
+			const closedDescriptionItems: Array<string|HTMLElement> = [
+				`Max number of days for closed note to be visible. `,
+				`In `,em(`advanced mode`),` can be entered as a numeric value. `,
+				`When `,em(`advanced mode`),` is disabled this parameter is available as a dropdown menu with the following values: `,
+				makeElement('table')()(
+					makeTr('th')([`label`],[`value`],[`description`]),
+					makeTr('td')([em(`both open and closed`)],[code(`-1`)],[
+						`Special value to ignore how long ago notes were closed. `,
+						`This is the default value for `,em(`note-viewer`),` because it's the most useful one in conjunction with searching for a given user's notes.`
+					]),
+					makeTr('td')([em(`open and recently closed`)],[code(`7`)],[
+						`The most common value used in other apps like the OSM website.`
+					]),
+					makeTr('td')([em(`only open`)],[code(`0`)],[
+						`Ignore closed notes.`
+					])
+				)
+			]
+			for (const [parameter,$input,descriptionItems] of this.listParameters(closedDescriptionItems)) {
 				const $row=$table.insertRow()
 				const $parameter=makeElement('code')('linked-parameter')(parameter) // TODO <a> or other focusable element
 				$parameter.onclick=()=>$input.focus()
@@ -310,7 +330,7 @@ export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetc
 		}
 	}
 	protected abstract makeLeadAdvancedHint(): Array<string|HTMLElement>
-	protected abstract listParameters(): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][]
+	protected abstract listParameters(closedDescriptionItems: Array<string|HTMLElement>): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][]
 	protected abstract writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void
 	protected abstract appendToClosedLine($div: HTMLElement): void
 	protected addEventListeners(): void {

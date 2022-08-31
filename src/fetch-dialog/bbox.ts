@@ -58,11 +58,18 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 			` request at `,code(`https://api.openstreetmap.org/api/0.6/notes?`,em(`parameters`)),`; see `,em(`parameters`),` below.`
 		]
 	}
-	protected listParameters(): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][] {
+	protected listParameters(closedDescriptionItems: Array<string|HTMLElement>): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][] {
 		return [
-			['bbox',this.$bboxInput,[`Bounding box`]],
-			['limit',this.$limitInput,[`Max number of notes to fetch`]],
-			['closed',this.$closedInput,[`Max number of days for closed note to be visible`]],
+			['bbox',this.$bboxInput,[
+				`Bounding box. `,
+				`Expect `,em(`The maximum bbox size is ..., and your request was too large`),` error if the bounding box is too large.`
+			]],
+			['limit',this.$limitInput,[
+				`Max number of notes to fetch. `,
+				`For `,em(`bbox`),` mode is corresponds to a total number of notes, not just a batch size. `,
+				`It's impossible to download additional batches of notes because the API call used by this mode lacks date range parameters.`
+			]],
+			['closed',this.$closedInput,closedDescriptionItems],
 		]
 	}
 	protected writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void {

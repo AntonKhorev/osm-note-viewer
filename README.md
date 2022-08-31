@@ -23,15 +23,9 @@ Other alternatives for viewing user's notes:
 - [My OpenStreetMap Notes](https://my-notes.osm-hr.org/): shows only unresolved notes
 - [NotesReview](https://ent8r.github.io/NotesReview/), click *Filter*, enter username in *User*, select *Status* = *All*, set *Limit* to as high as possible: unfortunately the max limit is just 100
 
-### Get notes inside small rectangular area
+### Get notes inside rectangular area (Bbox)
 
-Get notes with [`/api/0.6/notes`][api-bbox] call, which is what happens if you enable the notes layer on the osm website. The word *small* mean that it may work for a city-sized area, but will likely fail on a country-sized one. The search functionality described above provides the opposite extreme by querying the entire planet.
-
-| parameter | note-viewer UI | notes |
-| --------- | -------------- | ----- |
-| `bbox` | *Bounding box* | If *Update bounding box value with current map area* is checked, current map area bounds are copied into this field. Expect *The maximum bbox size is ..., and your request was too large* error if the bounding box is too large.
-| `limit` | *Download at most ... notes* | No progressive downloading with *Load more* because it requires date ranges, and this api call doesn't have them.
-| `closed` | *Fetch ... matching notes* | Same as in the search call. Also there's no sorting and ordering because this api call doesn't have the required parameters.
+Get notes with [`/api/0.6/notes`][api-bbox] call, which is what happens if you enable the notes layer on the osm website. Enable *Advanced mode* to see parameter details. There's a limit on the area size. The request will work with city-sized areas, but may fail on country-sized ones. The search functionality described above provides the opposite extreme by querying the entire planet.
 
 Alternative tools:
 
