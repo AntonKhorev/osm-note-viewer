@@ -115,42 +115,42 @@ export default class NoteViewerDB {
 		})
 	}
 	/**
-	 * @returns true if fetch wasn't stale and data was saved
+	 * @returns updated fetch entry or null if fetch was stale and data wasn't saved
 	 */
-	addDataToFetch(timestamp: number, fetch: FetchEntry, allNotes: Iterable<Note>, newNotes: Note[], allUsers: Users, newUsers: Users): Promise<boolean> {
+	addDataToFetch(
+		timestamp: number, fetch: Readonly<FetchEntry>,
+		allNotes: Iterable<Note>, newNotes: Note[],
+		allUsers: Users, newUsers: Users
+	): Promise<FetchEntry|null> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction(['fetches','notes','users'],'readwrite')
+			tx.oncomplete=()=>resolve(null)
+			tx.onerror=()=>reject(new Error(`Database save error: ${tx.error}`))
 			const fetchStore=tx.objectStore('fetches')
 			const noteStore=tx.objectStore('notes')
 			const userStore=tx.objectStore('users')
 			const fetchRequest=fetchStore.get(fetch.timestamp)
 			fetchRequest.onsuccess=()=>{
-				fetch.writeTimestamp=fetch.accessTimestamp=timestamp
-				if (fetchRequest.result==null) {
-					fetchStore.put(fetch) // fails if there's another fetch with the same query
-					// TODO don't recreate fetch - return that the fetch is gone
-					writeNotesAndUsers(0,allNotes,allUsers)
-				} else {
-					const storedFetch: FetchEntry = fetchRequest.result
-					// if (storedFetch.writeTimestamp>fetch.writeTimestamp) {
-						// TODO write conflict if doesn't match
-						//	report that newNotes shouldn't be merged
-						//	then should receive oldNotes instead of newNotes and merge them here
-					// }
-					fetchStore.put(fetch)
-					const range=makeTimestampRange(fetch.timestamp)
-					const noteCursorRequest=noteStore.index('sequence').openCursor(range,'prev')
-					noteCursorRequest.onsuccess=()=>{
-						let sequenceNumber=0
-						const cursor=noteCursorRequest.result
-						if (cursor) sequenceNumber=cursor.value.sequenceNumber
-						writeNotesAndUsers(sequenceNumber,newNotes,newUsers)
-					}
+				if (fetchRequest.result==null) return
+				const storedFetch: FetchEntry = fetchRequest.result
+				// if (storedFetch.writeTimestamp>fetch.writeTimestamp) {
+					// TODO write conflict if doesn't match
+					//	report that newNotes shouldn't be merged
+					//	then should receive oldNotes instead of newNotes and merge them here
+				// }
+				storedFetch.writeTimestamp=storedFetch.accessTimestamp=timestamp
+				fetchStore.put(storedFetch)
+				tx.oncomplete=()=>resolve(storedFetch)
+				const range=makeTimestampRange(fetch.timestamp)
+				const noteCursorRequest=noteStore.index('sequence').openCursor(range,'prev')
+				noteCursorRequest.onsuccess=()=>{
+					let sequenceNumber=0
+					const cursor=noteCursorRequest.result
+					if (cursor) sequenceNumber=cursor.value.sequenceNumber
+					writeNotesAndUsers(sequenceNumber,newNotes,newUsers)
 				}
 			}
-			tx.oncomplete=()=>resolve(true)
-			tx.onerror=()=>reject(new Error(`Database save error: ${tx.error}`))
 			function writeNotesAndUsers(sequenceNumber: number, notes: Iterable<Note>, users: Users) {
 				for (const note of notes) {
 					sequenceNumber++

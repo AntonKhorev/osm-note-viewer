@@ -97,7 +97,7 @@ export abstract class NoteFetcher {
 		if (!continueCycle) return // shouldn't happen - and it should be in ctor probably
 		const fetchState=new FetchState()
 		const queryString=makeNoteQueryString(query) // empty string == don't know how to encode the query, thus won't save it to db
-		const fetchEntry: FetchEntry|null = await(async()=>{ // null fetch entry == don't save to db
+		let fetchEntry: FetchEntry|null = await(async()=>{ // null fetch entry == don't save to db
 			if (!queryString) return null
 			if (clearStore) {
 				return await db.getFetchWithClearedData(Date.now(),queryString)
@@ -132,9 +132,16 @@ export abstract class NoteFetcher {
 				makeDiv()($button),
 				makeDiv('advanced-hint')(`Resulting request: `,$requestOutput)
 			)
-			// TODO warn about not saving stuff to db
-			// empty query string == don't know how to save
-			// empty fetch entry == fetch got stale
+			if (!fetchEntry) {
+				$moreContainer.append(
+					makeDiv()(
+						`The fetch results are not saved locally because ${queryString
+							? `the fetch is stale (likely the same query was made in another browser tab)`
+							: `saving this query is not supported`
+						}.`
+					)
+				)
+			}
 			return $button
 		}
 		const fetchCycle=async()=>{
@@ -172,9 +179,7 @@ export abstract class NoteFetcher {
 					}
 				}
 				const [unseenNotes,unseenUsers]=fetchState.recordCycleData(downloadedNotes,downloadedUsers,fetchDetails.limit,lastTriedPath)
-				if (fetchEntry) await db.addDataToFetch(Date.now(),fetchEntry,fetchState.notes.values(),unseenNotes,fetchState.users,unseenUsers)
-				// TODO check if fetch wasn't cleared off as a result of write
-				// - if it was cleared: disable db saving; warn user that the data is not saved
+				if (fetchEntry) fetchEntry=await db.addDataToFetch(Date.now(),fetchEntry,fetchState.notes.values(),unseenNotes,fetchState.users,unseenUsers)
 				if (!noteTable && fetchState.notes.size<=0) {
 					rewriteMessage($moreContainer,`No matching notes found`)
 					return
