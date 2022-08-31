@@ -60,9 +60,13 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 		this.$fileInput.disabled=disabled
 	}
 	protected writePrependedFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void {
-		$legend.textContent=`Get note feed from resultmaps.neis-one.org`
+		$legend.append(
+			`Get notes in a country from `,
+			em(`resultmaps.neis-one.org`)
+		)
 		{
-			$fieldset.append(makeDiv()(
+			$fieldset.append(makeDiv()(makeElement('details')()(
+				makeElement('summary')()(`How to get notes from `,em(`resultmaps.neis-one.org`)),
 				ol(
 					li(
 						`Select a country and a note status, then click `,em(`Download feed file`),`. `,
@@ -84,7 +88,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 				p(
 					`Unfortunately these steps of downloading/opening a file cannot be avoided because `,makeLink(`neis-one.org`,`https://resultmaps.neis-one.org/osm-notes`),` server is not configured to let its data to be accessed by browser scripts.`
 				)
-			))
+			)))
 			this.$neisCountryInput.type='text'
 			this.$neisCountryInput.required=true
 			this.$neisCountryInput.classList.add('no-invalid-indication') // because it's inside another form that doesn't require it, don't indicate that it's invalid
