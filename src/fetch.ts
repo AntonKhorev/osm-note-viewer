@@ -100,9 +100,9 @@ export abstract class NoteFetcher {
 		const fetchEntry: FetchEntry|null = await(async()=>{
 			if (!queryString) return null
 			if (clearStore) {
-				return await db.clear(queryString)
+				return await db.getFetchWithClearedData(Date.now(),queryString)
 			} else {
-				const [fetchEntry,initialNotes,initialUsers]=await db.load(queryString) // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
+				const [fetchEntry,initialNotes,initialUsers]=await db.getFetchWithRestoredData(Date.now(),queryString) // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
 				fetchState.recordInitialData(initialNotes,initialUsers)
 				return fetchEntry
 			}
@@ -168,7 +168,7 @@ export abstract class NoteFetcher {
 					}
 				}
 				const [unseenNotes,unseenUsers]=fetchState.recordCycleData(downloadedNotes,downloadedUsers,fetchDetails.limit,lastTriedPath)
-				if (fetchEntry) await db.save(fetchEntry,fetchState.notes.values(),unseenNotes,fetchState.users,unseenUsers)
+				if (fetchEntry) await db.addDataToFetch(Date.now(),fetchEntry,fetchState.notes.values(),unseenNotes,fetchState.users,unseenUsers)
 				if (!noteTable && fetchState.notes.size<=0) {
 					rewriteMessage($moreContainer,`No matching notes found`)
 					return

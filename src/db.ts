@@ -29,7 +29,7 @@ export default class NoteViewerDB {
 			this.closed=true
 		}
 	}
-	view(): Promise<FetchEntry[]> {
+	listFetches(): Promise<FetchEntry[]> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction(['fetches'],'readonly')
@@ -38,7 +38,7 @@ export default class NoteViewerDB {
 			tx.onerror=()=>reject(new Error(`Database view error: ${tx.error}`))
 		})
 	}
-	delete(fetch: FetchEntry): Promise<void> {
+	deleteFetch(fetch: FetchEntry): Promise<void> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction(['fetches','notes','users'],'readwrite')
@@ -50,9 +50,8 @@ export default class NoteViewerDB {
 			tx.onerror=()=>reject(new Error(`Database delete error: ${tx.error}`))
 		})
 	}
-	clear(queryString: string): Promise<FetchEntry> {
+	getFetchWithClearedData(timestamp: number, queryString: string): Promise<FetchEntry> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
-		const timestamp=Date.now() // TODO receive all .now() from outside, probably as first arg
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction(['fetches','notes','users'],'readwrite')
 			cleanupOutdatedFetches(timestamp,tx)
@@ -77,9 +76,8 @@ export default class NoteViewerDB {
 			tx.onerror=()=>reject(new Error(`Database clear error: ${tx.error}`))
 		})
 	}
-	load(queryString: string): Promise<[fetch: FetchEntry, notes: Note[], users: Users]> {
+	getFetchWithRestoredData(timestamp: number, queryString: string): Promise<[fetch: FetchEntry, notes: Note[], users: Users]> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
-		const timestamp=Date.now()
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction(['fetches','notes','users'],'readwrite')
 			cleanupOutdatedFetches(timestamp,tx)
@@ -116,9 +114,8 @@ export default class NoteViewerDB {
 			tx.onerror=()=>reject(new Error(`Database read error: ${tx.error}`))
 		})
 	}
-	save(fetch: FetchEntry, allNotes: Iterable<Note>, newNotes: Note[], allUsers: Users, newUsers: Users): Promise<void> {
+	addDataToFetch(timestamp: number, fetch: FetchEntry, allNotes: Iterable<Note>, newNotes: Note[], allUsers: Users, newUsers: Users): Promise<void> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
-		const timestamp=Date.now()
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction(['fetches','notes','users'],'readwrite')
 			const fetchStore=tx.objectStore('fetches')

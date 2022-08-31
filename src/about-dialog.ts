@@ -45,7 +45,7 @@ export default class AboutDialog extends NavDialog {
 			$updateFetchesButton.disabled=true
 			let fetchEntries: FetchEntry[] =[]
 			try {
-				fetchEntries=await this.db.view()
+				fetchEntries=await this.db.listFetches()
 			} catch {}
 			$updateFetchesButton.disabled=false
 			$fetchesContainer.innerHTML=''
@@ -89,7 +89,7 @@ export default class AboutDialog extends NavDialog {
 				$deleteButton.textContent=`Delete`
 				$deleteButton.addEventListener('click',async()=>{
 					$deleteButton.disabled=true
-					await this.db.delete(fetchEntry)
+					await this.db.deleteFetch(fetchEntry)
 					$updateFetchesButton.click()
 				})
 				$row.insertCell().append($deleteButton)
