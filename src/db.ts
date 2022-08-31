@@ -114,7 +114,10 @@ export default class NoteViewerDB {
 			tx.onerror=()=>reject(new Error(`Database read error: ${tx.error}`))
 		})
 	}
-	addDataToFetch(timestamp: number, fetch: FetchEntry, allNotes: Iterable<Note>, newNotes: Note[], allUsers: Users, newUsers: Users): Promise<void> {
+	/**
+	 * @returns true if fetch wasn't stale and data was saved
+	 */
+	addDataToFetch(timestamp: number, fetch: FetchEntry, allNotes: Iterable<Note>, newNotes: Note[], allUsers: Users, newUsers: Users): Promise<boolean> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction(['fetches','notes','users'],'readwrite')
@@ -125,7 +128,8 @@ export default class NoteViewerDB {
 			fetchRequest.onsuccess=()=>{
 				fetch.writeTimestamp=fetch.accessTimestamp=timestamp
 				if (fetchRequest.result==null) {
-					fetchStore.put(fetch)
+					fetchStore.put(fetch) // fails if there's another fetch with the same query
+					// TODO don't recreate fetch - return that the fetch is gone
 					writeNotesAndUsers(0,allNotes,allUsers)
 				} else {
 					const storedFetch: FetchEntry = fetchRequest.result
@@ -145,7 +149,7 @@ export default class NoteViewerDB {
 					}
 				}
 			}
-			tx.oncomplete=()=>resolve()
+			tx.oncomplete=()=>resolve(true)
 			tx.onerror=()=>reject(new Error(`Database save error: ${tx.error}`))
 			function writeNotesAndUsers(sequenceNumber: number, notes: Iterable<Note>, users: Users) {
 				for (const note of notes) {
