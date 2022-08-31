@@ -1068,11 +1068,6 @@ class AboutDialog extends NavDialog {
             this.$section.append($block);
             return $block;
         };
-        const makeCode = (s) => {
-            const $code = document.createElement('code');
-            $code.textContent = s;
-            return $code;
-        };
         writeBlock(() => {
             const result = [];
             result.push(makeElement('strong')()(`note-viewer`));
@@ -1154,10 +1149,6 @@ class AboutDialog extends NavDialog {
             return [$clearButton];
         });
         writeSubheading(`Extra information`);
-        writeBlock(() => [
-            `User query have whitespace trimmed, then the remaining part starting with `, makeCode(`#`), ` is treated as a user id; containing `, makeCode(`/`), `is treated as a URL, anything else as a username. `,
-            `This works because usernames can't contain any of these characters: `, makeCode(`/;.,?%#`), ` , can't have leading/trailing whitespace, have to be between 3 and 255 characters in length.`
-        ]);
         writeBlock(() => [
             `Notes implementation code: `,
             makeLink(`notes api controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`),
@@ -2098,6 +2089,7 @@ function rewriteFetchErrorMessage($container, query, responseKindText, fetchErro
     $message.append($error);
 }
 
+const em$6 = (...ss) => makeElement('em')()(...ss);
 const sup = (...ss) => makeElement('sup')()(...ss);
 const code$3 = (...ss) => makeElement('code')()(...ss);
 class NoteFetchDialog extends NavDialog {
@@ -2320,14 +2312,48 @@ class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
         this.$closedSelect = document.createElement('select');
     }
     writeScopeAndOrderFieldset($fieldset) {
+        {
+            $fieldset.append(makeDiv('advanced-hint')(...this.makeLeadAdvancedHint()));
+        }
+        {
+            const $table = document.createElement('table');
+            {
+                const $row = $table.insertRow();
+                $row.append(makeElement('th')()(`parameter`), makeElement('th')()(`description`));
+            }
+            const makeTr = (cellType) => (...sss) => makeElement('tr')()(...sss.map(ss => makeElement(cellType)()(...ss)));
+            const closedDescriptionItems = [
+                `Max number of days for closed note to be visible. `,
+                `In `, em$6(`advanced mode`), ` can be entered as a numeric value. `,
+                `When `, em$6(`advanced mode`), ` is disabled this parameter is available as a dropdown menu with the following values: `,
+                makeElement('table')()(makeTr('th')([`label`], [`value`], [`description`]), makeTr('td')([em$6(`both open and closed`)], [code$3(`-1`)], [
+                    `Special value to ignore how long ago notes were closed. `,
+                    `This is the default value for `, em$6(`note-viewer`), ` because it's the most useful one in conjunction with searching for a given user's notes.`
+                ]), makeTr('td')([em$6(`open and recently closed`)], [code$3(`7`)], [
+                    `The most common value used in other apps like the OSM website.`
+                ]), makeTr('td')([em$6(`only open`)], [code$3(`0`)], [
+                    `Ignore closed notes.`
+                ]))
+            ];
+            for (const [parameter, $input, descriptionItems] of this.listParameters(closedDescriptionItems)) {
+                const $row = $table.insertRow();
+                const $parameter = makeElement('code')('linked-parameter')(parameter); // TODO <a> or other focusable element
+                $parameter.onclick = () => $input.focus();
+                $row.insertCell().append($parameter);
+                $row.insertCell().append(...descriptionItems);
+            }
+            $fieldset.append(makeDiv('advanced-hint')(makeElement('details')()(makeElement('summary')()(`Supported parameters`), $table)));
+        }
         this.writeScopeAndOrderFieldsetBeforeClosedLine($fieldset);
-        this.$closedInput.type = 'number';
-        this.$closedInput.min = '-1';
-        this.$closedInput.value = '-1';
-        this.$closedSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
-        const $closedLine = makeDiv()(`Fetch `, makeElement('span')('non-advanced-input')(this.$closedSelect), ` matching notes `, makeLabel('advanced-input')(`closed no more than `, this.$closedInput, makeElement('span')('advanced-hint')(` (`, code$3('closed'), ` parameter)`), ` days ago`));
-        this.appendToClosedLine($closedLine);
-        $fieldset.append($closedLine);
+        {
+            this.$closedInput.type = 'number';
+            this.$closedInput.min = '-1';
+            this.$closedInput.value = '-1';
+            this.$closedSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
+            const $closedLine = makeDiv()(`Fetch `, makeElement('span')('non-advanced-input')(this.$closedSelect), ` matching notes `, makeLabel('advanced-input')(`closed no more than `, this.$closedInput, makeElement('span')('advanced-hint')(` (`, code$3('closed'), ` parameter)`), ` days ago`));
+            this.appendToClosedLine($closedLine);
+            $fieldset.append($closedLine);
+        }
     }
     addEventListeners() {
         this.addEventListenersBeforeClosedLine();
@@ -2407,10 +2433,66 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         this.limitLabelAfterText = ` notes`;
         this.limitIsParameter = true;
     }
+    makeLeadAdvancedHint() {
+        return [
+            `Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`),
+            ` request at `, code$2(`https://api.openstreetmap.org/api/0.6/notes/search?`, em$5(`parameters`)), `; see `, em$5(`parameters`), ` below.`
+        ];
+    }
+    listParameters(closedDescriptionItems) {
+        return [
+            ['q', this.$textInput, [
+                    `Comment text search query. `,
+                    `This is an optional parameter, despite the OSM wiki saying that it's required, which is also suggested by the `, em$5(`search`), ` API call name. `,
+                    `Skipping this parameter disables text searching, all notes that fit other search criteria will go through. `,
+                    `Searching is done with English stemming rules and may not work correctly for other languages.`
+                ]],
+            ['limit', this.$limitInput, [
+                    `Max number of notes to fetch. `,
+                    `For `, em$5(`search`), ` mode it corresponds to the size of one batch of notes since it's possible to load additional batches by pressing the `, em$5(`Load more`), ` button below the note table. `,
+                    `This additional downloading is implemented by manipulating the requested date range.`
+                ]],
+            ['closed', this.$closedInput, closedDescriptionItems],
+            ['display_name', this.$userInput, [
+                    `Name of a user interacting with a note. `,
+                    `Both this parameter and the next one are optional. `,
+                    `Providing one of them limits the returned notes to those that were interacted by the given user. `,
+                    `This interaction is not limited to creating the note, closing/reopening/commenting also counts. `,
+                    `It makes no sense to provide both of these parameters because in this case `, code$2('user'), ` is going to be ignored by the API, therefore `, em$5(`note-viewer`), `'s UI has only one input for both. `,
+                    `Whether `, code$2('display_name'), ` or `, code$2('user'), ` is passed to the API depends on the input value. `,
+                    `The `, code$2('display_name'), ` parameter is passed if the input value contains `, code$2(`/`), ` or doesn't start with `, code$2(`#`), `. `,
+                    `Value containing `, code$2(`/`), ` is interpreted as a URL. `,
+                    `In case it's an OSM URL containing a username, this name is extracted and passed as `, code$2('display_name'), `. `,
+                    `Value starting with `, code$2(`#`), ` is treated as a user id, see the next parameter. `,
+                    `Everything else is treated as a username.`
+                ]],
+            ['user', this.$userInput, [
+                    `Id of a user interacting with a note. `,
+                    `As stated above, the `, code$2('user'), ` parameter is passed if the input value starts with `, code$2(`#`), `. `,
+                    `In this case the remaining part of the value is treated as a user id number. `,
+                    `Ids and URLs can be unambiguously detected in the input because usernames can't contain any of the following characters: `, code$2(`/;.,?%#`), `.`
+                ]],
+            ['from', this.$fromInput, [
+                    `Beginning of a date range. `,
+                    `This parameter is optional but if not provided the API will also ignore the `, code$2('to'), ` parameter. `,
+                    em$5(`Note-viewer`), ` makes `, code$2('from'), ` actually optional by providing a value far enough in the past if `, code$2('to'), ` value is entered while `, code$2('from'), ` value is not. `,
+                    `Also both `, code$2('from'), ` and `, code$2('to'), ` parameters are altered in `, em$5(`Load more`), ` fetches in order to limit the note selection to notes that are not yet downloaded.`
+                ]],
+            ['to', this.$toInput, [
+                    `End of a date range.`
+                ]],
+            ['sort', this.$sortSelect, [
+                    `Date to sort the notes. `,
+                    `This can be either a create date or an update date. `,
+                    `Sorting by update dates presents some technical difficulties which may lead to unexpected results if additional notes are loaded with `, em$5(`Load more`), `. `
+                ]],
+            ['order', this.$orderSelect, [
+                    `Sort order. `,
+                    `Ascending or descending.`
+                ]],
+        ];
+    }
     writeScopeAndOrderFieldsetBeforeClosedLine($fieldset) {
-        {
-            $fieldset.append(makeDiv('advanced-hint')(`Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`), ` request at `, code$2(`https://api.openstreetmap.org/api/0.6/notes/search?`, em$5(`parameters`)), `; see `, em$5(`parameters`), ` below.`));
-        }
         {
             this.$userInput.type = 'text';
             this.$userInput.name = 'user';
@@ -2587,10 +2669,27 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         this.$nominatimForm.id = 'nominatim-form';
         this.$section.append(this.$nominatimForm);
     }
+    makeLeadAdvancedHint() {
+        return [
+            `Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`),
+            ` request at `, code$1(`https://api.openstreetmap.org/api/0.6/notes?`, em$4(`parameters`)), `; see `, em$4(`parameters`), ` below.`
+        ];
+    }
+    listParameters(closedDescriptionItems) {
+        return [
+            ['bbox', this.$bboxInput, [
+                    `Bounding box. `,
+                    `Expect `, em$4(`The maximum bbox size is ..., and your request was too large`), ` error if the bounding box is too large.`
+                ]],
+            ['limit', this.$limitInput, [
+                    `Max number of notes to fetch. `,
+                    `For `, em$4(`bbox`), ` mode is corresponds to a total number of notes, not just a batch size. `,
+                    `It's impossible to download additional batches of notes because the API call used by this mode lacks date range parameters.`
+                ]],
+            ['closed', this.$closedInput, closedDescriptionItems],
+        ];
+    }
     writeScopeAndOrderFieldsetBeforeClosedLine($fieldset) {
-        {
-            $fieldset.append(makeDiv('advanced-hint')(`Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code$1(`https://api.openstreetmap.org/api/0.6/notes?`, em$4(`parameters`)), `; see `, em$4(`parameters`), ` below.`));
-        }
         {
             this.$trackMapSelect.append(new Option(`Do nothing`, 'nothing'), new Option(`Update bounding box input`, 'bbox', true, true), new Option(`Fetch notes`, 'fetch'));
             $fieldset.append(makeDiv()(makeLabel('inline')(this.$trackMapSelect, ` on map view changes`), ` `, this.$trackMapZoomNotice));

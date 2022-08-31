@@ -264,6 +264,21 @@ nav ul li a:focus {
 .panel.fetch input[type=number] {
 	width: 4em;
 }
+.panel.fetch .advanced-hint table {
+	border-collapse: collapse;
+}
+.panel.fetch .advanced-hint td {
+	border-top: solid 1px var(--frame-color);
+	padding: 4px 0 4px 8px;
+}
+.panel.fetch .advanced-hint td:first-child {
+	padding-left: 0;
+}
+.panel.fetch .advanced-hint .linked-parameter {
+	text-decoration: underline dotted 1px;
+	color: var(--semi-link-color);
+	cursor: pointer;
+}
 
 .panel.command {
 	--gap: 8px;  /* used in info tips */
