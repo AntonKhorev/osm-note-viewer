@@ -8,7 +8,7 @@ Try it out [here][github-host].
 
 ### Search notes for user / text / date range
 
-Get notes with [`/api/0.6/notes/search`][api-search] call. Enable *Advanced mode* to see how parameters of this call correspond to *note-viewer*'s form fields.
+Get notes with [`/api/0.6/notes/search`][api-search] call. Allows searching for notes containing a given text, modified by a given user, created/updated inside a given date range. Enable *Advanced mode* to see how parameters of this call correspond to *note-viewer*'s form fields.
 
 Alternative tools:
 
@@ -30,6 +30,10 @@ Get notes with [`/api/0.6/notes`][api-bbox] call, which is what happens if you e
 Alternative tools:
 
 - [ResultMaps/osm-notes](https://resultmaps.neis-one.org/osm-notes): has note webpages and feeds for countries. Notes are presented in a table without a map.
+
+### Get notes from a list of note ids
+
+Ids can be provided either directly as comma/space-separated list of numbers or in a HTML/XML file with a CSS selector specified to find them. There's a shortcut for extracting ids from [ResultMaps/osm-notes](https://resultmaps.neis-one.org/osm-notes) feeds.
 
 ## Integration with other apps and services
 
