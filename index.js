@@ -48,7 +48,7 @@ class NoteViewerDB {
             this.closed = true;
         };
     }
-    view() {
+    listFetches() {
         if (this.closed)
             throw new Error(`Database is outdated, please reload the page.`);
         return new Promise((resolve, reject) => {
@@ -58,7 +58,7 @@ class NoteViewerDB {
             tx.onerror = () => reject(new Error(`Database view error: ${tx.error}`));
         });
     }
-    delete(fetch) {
+    deleteFetch(fetch) {
         if (this.closed)
             throw new Error(`Database is outdated, please reload the page.`);
         return new Promise((resolve, reject) => {
@@ -71,10 +71,9 @@ class NoteViewerDB {
             tx.onerror = () => reject(new Error(`Database delete error: ${tx.error}`));
         });
     }
-    clear(queryString) {
+    getFetchWithClearedData(timestamp, queryString) {
         if (this.closed)
             throw new Error(`Database is outdated, please reload the page.`);
-        const timestamp = Date.now(); // TODO receive all .now() from outside, probably as first arg
         return new Promise((resolve, reject) => {
             const tx = this.idb.transaction(['fetches', 'notes', 'users'], 'readwrite');
             cleanupOutdatedFetches(timestamp, tx);
@@ -99,10 +98,9 @@ class NoteViewerDB {
             tx.onerror = () => reject(new Error(`Database clear error: ${tx.error}`));
         });
     }
-    load(queryString) {
+    getFetchWithRestoredData(timestamp, queryString) {
         if (this.closed)
             throw new Error(`Database is outdated, please reload the page.`);
-        const timestamp = Date.now();
         return new Promise((resolve, reject) => {
             const tx = this.idb.transaction(['fetches', 'notes', 'users'], 'readwrite');
             cleanupOutdatedFetches(timestamp, tx);
@@ -140,43 +138,42 @@ class NoteViewerDB {
             tx.onerror = () => reject(new Error(`Database read error: ${tx.error}`));
         });
     }
-    save(fetch, allNotes, newNotes, allUsers, newUsers) {
+    /**
+     * @returns updated fetch entry or null if fetch was stale and data wasn't saved
+     */
+    addDataToFetch(timestamp, fetch, allNotes, newNotes, allUsers, newUsers) {
         if (this.closed)
             throw new Error(`Database is outdated, please reload the page.`);
-        const timestamp = Date.now();
         return new Promise((resolve, reject) => {
             const tx = this.idb.transaction(['fetches', 'notes', 'users'], 'readwrite');
+            tx.oncomplete = () => resolve(null);
+            tx.onerror = () => reject(new Error(`Database save error: ${tx.error}`));
             const fetchStore = tx.objectStore('fetches');
             const noteStore = tx.objectStore('notes');
             const userStore = tx.objectStore('users');
             const fetchRequest = fetchStore.get(fetch.timestamp);
             fetchRequest.onsuccess = () => {
-                fetch.writeTimestamp = fetch.accessTimestamp = timestamp;
-                if (fetchRequest.result == null) {
-                    fetchStore.put(fetch);
-                    writeNotesAndUsers(0, allNotes, allUsers);
-                }
-                else {
-                    fetchRequest.result;
-                    // if (storedFetch.writeTimestamp>fetch.writeTimestamp) {
-                    // TODO write conflict if doesn't match
-                    //	report that newNotes shouldn't be merged
-                    //	then should receive oldNotes instead of newNotes and merge them here
-                    // }
-                    fetchStore.put(fetch);
-                    const range = makeTimestampRange(fetch.timestamp);
-                    const noteCursorRequest = noteStore.index('sequence').openCursor(range, 'prev');
-                    noteCursorRequest.onsuccess = () => {
-                        let sequenceNumber = 0;
-                        const cursor = noteCursorRequest.result;
-                        if (cursor)
-                            sequenceNumber = cursor.value.sequenceNumber;
-                        writeNotesAndUsers(sequenceNumber, newNotes, newUsers);
-                    };
-                }
+                if (fetchRequest.result == null)
+                    return;
+                const storedFetch = fetchRequest.result;
+                // if (storedFetch.writeTimestamp>fetch.writeTimestamp) {
+                // TODO write conflict if doesn't match
+                //	report that newNotes shouldn't be merged
+                //	then should receive oldNotes instead of newNotes and merge them here
+                // }
+                storedFetch.writeTimestamp = storedFetch.accessTimestamp = timestamp;
+                fetchStore.put(storedFetch);
+                tx.oncomplete = () => resolve(storedFetch);
+                const range = makeTimestampRange(fetch.timestamp);
+                const noteCursorRequest = noteStore.index('sequence').openCursor(range, 'prev');
+                noteCursorRequest.onsuccess = () => {
+                    let sequenceNumber = 0;
+                    const cursor = noteCursorRequest.result;
+                    if (cursor)
+                        sequenceNumber = cursor.value.sequenceNumber;
+                    writeNotesAndUsers(sequenceNumber, newNotes, newUsers);
+                };
             };
-            tx.oncomplete = () => resolve();
-            tx.onerror = () => reject(new Error(`Database save error: ${tx.error}`));
             function writeNotesAndUsers(sequenceNumber, notes, users) {
                 for (const note of notes) {
                     sequenceNumber++;
@@ -1091,7 +1088,7 @@ class AboutDialog extends NavDialog {
             $updateFetchesButton.disabled = true;
             let fetchEntries = [];
             try {
-                fetchEntries = await this.db.view();
+                fetchEntries = await this.db.listFetches();
             }
             catch { }
             $updateFetchesButton.disabled = false;
@@ -1133,7 +1130,7 @@ class AboutDialog extends NavDialog {
                 $deleteButton.textContent = `Delete`;
                 $deleteButton.addEventListener('click', async () => {
                     $deleteButton.disabled = true;
-                    await this.db.delete(fetchEntry);
+                    await this.db.deleteFetch(fetchEntry);
                     $updateFetchesButton.click();
                 });
                 $row.insertCell().append($deleteButton);
@@ -1729,15 +1726,15 @@ class NoteFetcher {
         if (!continueCycle)
             return; // shouldn't happen - and it should be in ctor probably
         const fetchState = new FetchState();
-        const queryString = makeNoteQueryString(query);
-        const fetchEntry = await (async () => {
+        const queryString = makeNoteQueryString(query); // empty string == don't know how to encode the query, thus won't save it to db
+        let fetchEntry = await (async () => {
             if (!queryString)
                 return null;
             if (clearStore) {
-                return await db.clear(queryString);
+                return await db.getFetchWithClearedData(Date.now(), queryString);
             }
             else {
-                const [fetchEntry, initialNotes, initialUsers] = await db.load(queryString); // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
+                const [fetchEntry, initialNotes, initialUsers] = await db.getFetchWithRestoredData(Date.now(), queryString); // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
                 fetchState.recordInitialData(initialNotes, initialUsers);
                 return fetchEntry;
             }
@@ -1764,9 +1761,15 @@ class NoteFetcher {
             $button.textContent = `Load more notes`;
             $button.addEventListener('click', fetchCycle);
             $moreContainer.append(makeDiv()($button), makeDiv('advanced-hint')(`Resulting request: `, $requestOutput));
+            if (!fetchEntry) {
+                $moreContainer.append(makeDiv()(`The fetch results are not saved locally because ${queryString
+                    ? `the fetch is stale (likely the same query was made in another browser tab)`
+                    : `saving this query is not supported`}.`));
+            }
             return $button;
         };
         const fetchCycle = async () => {
+            // TODO check if db data is more fresh than our state
             rewriteLoadingButton();
             const limit = getLimit();
             const fetchDetails = getCycleFetchDetails(...fetchState.getNextCycleArguments(limit));
@@ -1802,7 +1805,7 @@ class NoteFetcher {
                 }
                 const [unseenNotes, unseenUsers] = fetchState.recordCycleData(downloadedNotes, downloadedUsers, fetchDetails.limit, lastTriedPath);
                 if (fetchEntry)
-                    await db.save(fetchEntry, fetchState.notes.values(), unseenNotes, fetchState.users, unseenUsers);
+                    fetchEntry = await db.addDataToFetch(Date.now(), fetchEntry, fetchState.notes.values(), unseenNotes, fetchState.users, unseenUsers);
                 if (!noteTable && fetchState.notes.size <= 0) {
                     rewriteMessage($moreContainer, `No matching notes found`);
                     return;
@@ -2917,9 +2920,9 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
         this.$fileInput.disabled = disabled;
     }
     writePrependedFieldset($fieldset, $legend) {
-        $legend.textContent = `Get note feed from resultmaps.neis-one.org`;
+        $legend.append(`Get notes in a country from `, em$3(`resultmaps.neis-one.org`));
         {
-            $fieldset.append(makeDiv()(ol(li$2(`Select a country and a note status, then click `, em$3(`Download feed file`), `. `, `After this one of the following things will happen, depending on your browser: `, ul$2(li$2(`The feed file is downloaded, which is what you want.`), li$2(`Browser opens a new tab with the feed file. In this case manually save the page.`)), `Also the `, em$3(`selector`), ` and `, em$3(`attribute`), ` fields below are updated to extract note ids from this feed.`), li$2(`Open the file with one of these two methods: `, ul$2(li$2(`Click the `, em$3(`Read XML file`), ` area and use a file picker dialog.`), li$2(`Drag and drop the file from browser downloads panel/window into the `, em$3(`Read XML file`), ` area. This is likely a faster method.`)))), p$5(`Unfortunately these steps of downloading/opening a file cannot be avoided because `, makeLink(`neis-one.org`, `https://resultmaps.neis-one.org/osm-notes`), ` server is not configured to let its data to be accessed by browser scripts.`)));
+            $fieldset.append(makeDiv()(makeElement('details')()(makeElement('summary')()(`How to get notes from `, em$3(`resultmaps.neis-one.org`)), ol(li$2(`Select a country and a note status, then click `, em$3(`Download feed file`), `. `, `After this one of the following things will happen, depending on your browser: `, ul$2(li$2(`The feed file is downloaded, which is what you want.`), li$2(`Browser opens a new tab with the feed file. In this case manually save the page.`)), `Also the `, em$3(`selector`), ` and `, em$3(`attribute`), ` fields below are updated to extract note ids from this feed.`), li$2(`Open the file with one of these two methods: `, ul$2(li$2(`Click the `, em$3(`Read XML file`), ` area and use a file picker dialog.`), li$2(`Drag and drop the file from browser downloads panel/window into the `, em$3(`Read XML file`), ` area. This is likely a faster method.`)))), p$5(`Unfortunately these steps of downloading/opening a file cannot be avoided because `, makeLink(`neis-one.org`, `https://resultmaps.neis-one.org/osm-notes`), ` server is not configured to let its data to be accessed by browser scripts.`))));
             this.$neisCountryInput.type = 'text';
             this.$neisCountryInput.required = true;
             this.$neisCountryInput.classList.add('no-invalid-indication'); // because it's inside another form that doesn't require it, don't indicate that it's invalid

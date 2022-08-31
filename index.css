@@ -238,6 +238,12 @@ nav ul li a:focus {
 .panel label.inline {
 	white-space: nowrap;
 }
+.panel h2 {
+	margin: .3rem 0 .5rem 0;
+}
+.panel h3 {
+	margin: 1rem 0 .5rem 0;
+}
 
 .panel.fetch .advanced-hint,
 .more .advanced-hint {
