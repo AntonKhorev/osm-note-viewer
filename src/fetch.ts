@@ -11,52 +11,54 @@ const maxTotalAutoLoadLimit=1000
 const maxFullyFilteredFetches=10
 
 class FetchState {
-	// fetch state
 	readonly notes = new Map<number,Note>()
 	readonly users: Users = {}
 	lastNote: Note | undefined
 	prevLastNote: Note | undefined
 	lastLimit: number | undefined
-	lastTriedPath: string | undefined
-	recordInitialData( // TODO make it ctor
-		initialNotes: Note[], initialUsers: Users
-	) {
-		this.recordData(initialNotes,initialUsers)
-	}
-	recordCycleData(
-		newNotes: Note[], newUsers: Users, usedLimit: number, lastTriedPath: string|undefined
+	lastTriedPath: string | undefined // needed for ids fetch
+	getUnseenData(
+		newNotes: Readonly<Note[]>, newUsers: Readonly<Users>
 	): [
 		unseenNotes: Note[], unseenUsers: Users
 	] {
-		this.lastLimit=usedLimit
-		if (lastTriedPath!=null) this.lastTriedPath=lastTriedPath
-		return this.recordData(newNotes,newUsers)
-	}
-	getNextCycleArguments(limit: number): [
-		limit: number, lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined, lastTriedPath: string|undefined
-	] {
-		return [limit,this.lastNote,this.prevLastNote,this.lastLimit,this.lastTriedPath]
-	}
-	private recordData(
-		newNotes: Note[], newUsers: Users
-	): [
-		unseenNotes: Note[], unseenUsers: Users
-	] {
-		this.prevLastNote=this.lastNote
 		const unseenNotes: Note[] = []
 		const unseenUsers: Users ={}
 		for (const note of newNotes) {
 			if (this.notes.has(note.id)) continue
-			this.notes.set(note.id,note)
-			this.lastNote=note
 			unseenNotes.push(note)
 		}
 		for (const newUserIdString in newUsers) {
 			const newUserId=Number(newUserIdString) // TODO rewrite this hack
 			if (this.users[newUserId]!=newUsers[newUserId]) unseenUsers[newUserId]=newUsers[newUserId]
 		}
-		Object.assign(this.users,newUsers)
 		return [unseenNotes,unseenUsers]
+	}
+	recordData(
+		newNotes: Readonly<Note[]>, newUsers: Readonly<Users>
+	) {
+		this.prevLastNote=this.lastNote
+		for (const note of newNotes) {
+			if (this.notes.has(note.id)) continue
+			this.notes.set(note.id,note)
+			this.lastNote=note
+		}
+		Object.assign(this.users,newUsers)
+	}
+	recordCycleParameters(
+		usedLimit: number, lastTriedPath: string|undefined
+	) {
+		this.lastLimit=usedLimit
+		if (lastTriedPath!=null) this.lastTriedPath=lastTriedPath
+	}
+	resetCycleParameters() {
+		this.lastLimit=undefined
+		this.lastTriedPath=undefined
+	}
+	getNextCycleArguments(limit: number): [
+		limit: number, lastNote: Note|undefined, prevLastNote: Note|undefined, lastLimit: number|undefined, lastTriedPath: string|undefined
+	] {
+		return [limit,this.lastNote,this.prevLastNote,this.lastLimit,this.lastTriedPath]
 	}
 }
 
@@ -103,7 +105,7 @@ export abstract class NoteFetcher {
 				return await db.getFetchWithClearedData(Date.now(),queryString)
 			} else {
 				const [fetchEntry,initialNotes,initialUsers]=await db.getFetchWithRestoredData(Date.now(),queryString) // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
-				fetchState.recordInitialData(initialNotes,initialUsers)
+				fetchState.recordData(initialNotes,initialUsers)
 				return fetchEntry
 			}
 		})()
@@ -178,8 +180,20 @@ export abstract class NoteFetcher {
 						return
 					}
 				}
-				const [unseenNotes,unseenUsers]=fetchState.recordCycleData(downloadedNotes,downloadedUsers,fetchDetails.limit,lastTriedPath)
-				if (fetchEntry) fetchEntry=await db.addDataToFetch(Date.now(),fetchEntry,fetchState.notes.values(),unseenNotes,fetchState.users,unseenUsers)
+				let [unseenNotes,unseenUsers]=fetchState.getUnseenData(downloadedNotes,downloadedUsers)
+				if (fetchEntry) {
+					const [newFetchEntry,writeConflictData]=await db.addDataToFetch(Date.now(),fetchEntry,unseenNotes,unseenUsers)
+					fetchEntry=newFetchEntry
+					if (!writeConflictData) {
+						fetchState.recordCycleParameters(fetchDetails.limit,lastTriedPath)
+					} else {
+						;[unseenNotes,unseenUsers]=fetchState.getUnseenData(...writeConflictData)
+						fetchState.resetCycleParameters()
+					}
+				} else {
+					fetchState.recordCycleParameters(fetchDetails.limit,lastTriedPath)
+				}
+				fetchState.recordData(unseenNotes,unseenUsers)
 				if (!noteTable && fetchState.notes.size<=0) {
 					rewriteMessage($moreContainer,`No matching notes found`)
 					return

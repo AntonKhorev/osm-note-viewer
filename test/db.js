@@ -16,10 +16,8 @@ describe("NoteViewerDB",()=>{
 			writeTimestamp: 1001001,
 			accessTimestamp: 1001001,
 		})
-		const fetchEntry11=await db.addDataToFetch(1002001,fetchEntry10,
-			[makeNote(101)],
-			[makeNote(101)],
-			{},{}
+		const [fetchEntry11,writeConflictData11]=await db.addDataToFetch(1002001,fetchEntry10,
+			[makeNote(101)],{}
 		)
 		assert.deepEqual(fetchEntry11,{
 			queryString,
@@ -27,6 +25,7 @@ describe("NoteViewerDB",()=>{
 			writeTimestamp: 1002001,
 			accessTimestamp: 1002001,
 		})
+		assert.equal(writeConflictData11,null)
 		const [fetchEntry20,notes,users]=await db.getFetchWithRestoredData(1003001,queryString)
 		assert.deepEqual(fetchEntry20,{
 			queryString,
@@ -59,11 +58,68 @@ describe("NoteViewerDB",()=>{
 			writeTimestamp: 1002001,
 			accessTimestamp: 1002001,
 		})
-		const fetchEntry11=await db.addDataToFetch(1003001,fetchEntry10,
-			[makeNote(101)],
-			[makeNote(101)],
-			{},{}
+		const [fetchEntry11,writeConflictData11]=await db.addDataToFetch(1003001,fetchEntry10,
+			[makeNote(101)],{}
 		)
 		assert.equal(fetchEntry11,null)
+		assert.equal(writeConflictData11,null)
+	})
+	it("detects write conflict",async()=>{
+		indexedDB=new IDBFactory()
+		const db=await NoteViewerDB.open()
+		const queryString='testQuery'
+		const fetchEntry10=await db.getFetchWithClearedData(1001001,queryString)
+		assert.deepEqual(fetchEntry10,{
+			queryString,
+			timestamp: 1001001,
+			writeTimestamp: 1001001,
+			accessTimestamp: 1001001,
+		})
+		const [fetchEntry11,writeConflictData11]=await db.addDataToFetch(1002001,fetchEntry10,
+			[makeNote(101)],{}
+		)
+		assert.deepEqual(fetchEntry11,{
+			queryString,
+			timestamp: 1001001,
+			writeTimestamp: 1002001,
+			accessTimestamp: 1002001,
+		})
+		assert.equal(writeConflictData11,null)
+		const [fetchEntry20,notes20,users20]=await db.getFetchWithRestoredData(1003001,queryString)
+		assert.deepEqual(fetchEntry20,{
+			queryString,
+			timestamp: 1001001,
+			writeTimestamp: 1002001,
+			accessTimestamp: 1003001,
+		})
+		assert.deepEqual(notes20,
+			[makeNote(101)]
+		)
+		assert.deepEqual(users20,
+			{}
+		)
+		const [fetchEntry12,writeConflictData12]=await db.addDataToFetch(1004001,fetchEntry11,
+			[makeNote(102)],{}
+		)
+		assert.deepEqual(fetchEntry12,{
+			queryString,
+			timestamp: 1001001,
+			writeTimestamp: 1004001,
+			accessTimestamp: 1004001,
+		})
+		assert.equal(writeConflictData11,null)
+		const [fetchEntry21,writeConflictData21]=await db.addDataToFetch(1005001,fetchEntry20,
+			[makeNote(102)],{}
+		)
+		assert.deepEqual(fetchEntry21,{
+			queryString,
+			timestamp: 1001001,
+			writeTimestamp: 1004001,
+			accessTimestamp: 1005001,
+		})
+		assert.deepEqual(writeConflictData21,[
+			[makeNote(101),makeNote(102)],
+			{}
+		])
 	})
 })

@@ -33,27 +33,28 @@ export default class NoteViewerDB {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction(['fetches'],'readonly')
+			tx.onerror=()=>reject(new Error(`Database view error: ${tx.error}`))
 			const request=tx.objectStore('fetches').index('access').getAll()
 			request.onsuccess=()=>resolve(request.result)
-			tx.onerror=()=>reject(new Error(`Database view error: ${tx.error}`))
 		})
 	}
 	deleteFetch(fetch: FetchEntry): Promise<void> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction(['fetches','notes','users'],'readwrite')
+			tx.onerror=()=>reject(new Error(`Database delete error: ${tx.error}`))
+			tx.oncomplete=()=>resolve()
 			const range=makeTimestampRange(fetch.timestamp)
 			tx.objectStore('notes').delete(range)
 			tx.objectStore('users').delete(range)
 			tx.objectStore('fetches').delete(fetch.timestamp)
-			tx.oncomplete=()=>resolve()
-			tx.onerror=()=>reject(new Error(`Database delete error: ${tx.error}`))
 		})
 	}
 	getFetchWithClearedData(timestamp: number, queryString: string): Promise<FetchEntry> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction(['fetches','notes','users'],'readwrite')
+			tx.onerror=()=>reject(new Error(`Database clear error: ${tx.error}`))
 			cleanupOutdatedFetches(timestamp,tx)
 			const fetchStore=tx.objectStore('fetches')
 			const fetchRequest=fetchStore.index('query').getKey(queryString)
@@ -73,13 +74,13 @@ export default class NoteViewerDB {
 				}
 				fetchStore.put(fetch).onsuccess=()=>resolve(fetch)
 			}
-			tx.onerror=()=>reject(new Error(`Database clear error: ${tx.error}`))
 		})
 	}
 	getFetchWithRestoredData(timestamp: number, queryString: string): Promise<[fetch: FetchEntry, notes: Note[], users: Users]> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction(['fetches','notes','users'],'readwrite')
+			tx.onerror=()=>reject(new Error(`Database read error: ${tx.error}`))
 			cleanupOutdatedFetches(timestamp,tx)
 			const fetchStore=tx.objectStore('fetches')
 			const fetchRequest=fetchStore.index('query').get(queryString)
@@ -96,52 +97,37 @@ export default class NoteViewerDB {
 					const fetch: FetchEntry = fetchRequest.result
 					fetch.accessTimestamp=timestamp
 					fetchStore.put(fetch)
-					const range=makeTimestampRange(fetch.timestamp)
-					const noteRequest=tx.objectStore('notes').index('sequence').getAll(range)
-					noteRequest.onsuccess=()=>{
-						const notes: Note[] = noteRequest.result.map(noteEntry=>noteEntry.note)
-						const userRequest=tx.objectStore('users').getAll(range)
-						userRequest.onsuccess=()=>{
-							const users: Users = {}
-							for (const userEntry of userRequest.result) {
-								users[userEntry.user.id]=userEntry.user.name
-							}
-							resolve([fetch,notes,users])
-						}
-					}
+					readNotesAndUsersInTx(fetch.timestamp,tx,(notes,users)=>resolve([fetch,notes,users]))
 				}
 			}
-			tx.onerror=()=>reject(new Error(`Database read error: ${tx.error}`))
 		})
 	}
 	/**
-	 * @returns updated fetch entry or null if fetch was stale and data wasn't saved
+	 * @returns [updated fetch, null] on normal update; [null,null] if fetch is stale; [updated fetch, all stored fetch data] if write conflict
 	 */
 	addDataToFetch(
 		timestamp: number, fetch: Readonly<FetchEntry>,
-		allNotes: Iterable<Note>, newNotes: Note[],
-		allUsers: Users, newUsers: Users
-	): Promise<FetchEntry|null> {
+		newNotes: Readonly<Note[]>, newUsers: Readonly<Users>
+	): Promise<[fetch: FetchEntry|null, writeConflictData: [notes: Note[], users: Users]|null]> {
 		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
 		return new Promise((resolve,reject)=>{
 			const tx=this.idb.transaction(['fetches','notes','users'],'readwrite')
-			tx.oncomplete=()=>resolve(null)
 			tx.onerror=()=>reject(new Error(`Database save error: ${tx.error}`))
 			const fetchStore=tx.objectStore('fetches')
 			const noteStore=tx.objectStore('notes')
 			const userStore=tx.objectStore('users')
 			const fetchRequest=fetchStore.get(fetch.timestamp)
 			fetchRequest.onsuccess=()=>{
-				if (fetchRequest.result==null) return
+				if (fetchRequest.result==null) return resolve([null,null])
 				const storedFetch: FetchEntry = fetchRequest.result
-				// if (storedFetch.writeTimestamp>fetch.writeTimestamp) {
-					// TODO write conflict if doesn't match
-					//	report that newNotes shouldn't be merged
-					//	then should receive oldNotes instead of newNotes and merge them here
-				// }
+				if (storedFetch.writeTimestamp>fetch.writeTimestamp) {
+					storedFetch.accessTimestamp=timestamp
+					fetchStore.put(storedFetch)
+					return readNotesAndUsersInTx(storedFetch.timestamp,tx,(notes,users)=>resolve([storedFetch,[notes,users]]))
+				}
 				storedFetch.writeTimestamp=storedFetch.accessTimestamp=timestamp
 				fetchStore.put(storedFetch)
-				tx.oncomplete=()=>resolve(storedFetch)
+				tx.oncomplete=()=>resolve([storedFetch,null])
 				const range=makeTimestampRange(fetch.timestamp)
 				const noteCursorRequest=noteStore.index('sequence').openCursor(range,'prev')
 				noteCursorRequest.onsuccess=()=>{
@@ -222,4 +208,20 @@ function cleanupOutdatedFetches(timestamp: number, tx: IDBTransaction) {
 
 function makeTimestampRange(timestamp: number): IDBKeyRange {
 	return IDBKeyRange.bound([timestamp,-Infinity],[timestamp,+Infinity])
+}
+
+function readNotesAndUsersInTx(timestamp: number, tx: IDBTransaction, callback: (notes: Note[], users: Users)=>void) {
+	const range=makeTimestampRange(timestamp)
+	const noteRequest=tx.objectStore('notes').index('sequence').getAll(range)
+	noteRequest.onsuccess=()=>{
+		const notes: Note[] = noteRequest.result.map(noteEntry=>noteEntry.note)
+		const userRequest=tx.objectStore('users').getAll(range)
+		userRequest.onsuccess=()=>{
+			const users: Users = {}
+			for (const userEntry of userRequest.result) {
+				users[userEntry.user.id]=userEntry.user.name
+			}
+			callback(notes,users)
+		}
+	}
 }
