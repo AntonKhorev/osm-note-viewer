@@ -158,8 +158,8 @@ export abstract class NoteFetcher {
 			}
 			blockDownloads(true)
 			try {
-				const downloadedNotes: Note[] = []
-				const downloadedUsers: Users = {}
+				let downloadedNotes: Note[]|undefined = []
+				let downloadedUsers: Users|undefined = {}
 				let lastTriedPath: string|undefined
 				for (const pathAndParameters of fetchDetails.pathAndParametersList) {
 					const [path,parameters]=pathAndParameters
@@ -187,6 +187,7 @@ export abstract class NoteFetcher {
 					if (!writeConflictData) {
 						fetchState.recordCycleParameters(fetchDetails.limit,lastTriedPath)
 					} else {
+						downloadedNotes=downloadedUsers=undefined // download was discarded
 						;[unseenNotes,unseenUsers]=fetchState.getUnseenData(...writeConflictData)
 						fetchState.resetCycleParameters()
 					}
@@ -293,7 +294,7 @@ export abstract class NoteFetcher {
 	) | undefined
 	protected abstract accumulateDownloadedData(downloadedNotes: Note[], downloadedUsers: Users, data: any): boolean
 	protected abstract getContinueCycle(query: NoteQuery, $moreContainer: HTMLElement): (
-		(notes: Map<number,Note>, fetchDetails: NoteFetchDetails, downloadedNotes: Note[], lastTriedPath: string|undefined) => boolean
+		(notes: Map<number,Note>, fetchDetails: NoteFetchDetails, downloadedNotes: Note[]|undefined, lastTriedPath: string|undefined) => boolean
 	) | undefined
 }
 
@@ -322,9 +323,10 @@ export class NoteSearchFetcher extends NoteFeatureCollectionFetcher {
 		return (limit,lastNote,prevLastNote,lastLimit,lastTriedPath)=>getNextFetchDetails(query,limit,lastNote,prevLastNote,lastLimit)
 	}
 	protected getContinueCycle(query: NoteQuery, $moreContainer: HTMLElement): (
-		(notes: Map<number,Note>, fetchDetails: NoteFetchDetails, downloadedNotes: Note[], lastTriedPath: string|undefined) => boolean
+		(notes: Map<number,Note>, fetchDetails: NoteFetchDetails, downloadedNotes: Note[]|undefined, lastTriedPath: string|undefined) => boolean
 	) | undefined {
 		return (notes,fetchDetails,downloadedNotes,lastTriedPath)=>{
+			if (!downloadedNotes) return true
 			if (downloadedNotes.length<fetchDetails.limit) {
 				rewriteMessage($moreContainer,`Got all ${notes.size} notes`)
 				return false
@@ -356,7 +358,7 @@ export class NoteBboxFetcher extends NoteFeatureCollectionFetcher {
 		})
 	}
 	protected getContinueCycle(query: NoteQuery, $moreContainer: HTMLElement): (
-		(notes: Map<number,Note>, fetchDetails: NoteFetchDetails, downloadedNotes: Note[], lastTriedPath: string|undefined) => boolean
+		(notes: Map<number,Note>, fetchDetails: NoteFetchDetails, downloadedNotes: Note[]|undefined, lastTriedPath: string|undefined) => boolean
 	) | undefined {
 		return (notes,fetchDetails,downloadedNotes,lastTriedPath)=>{
 			if (notes.size<fetchDetails.limit) {
@@ -421,7 +423,7 @@ export class NoteIdsFetcher extends NoteFetcher {
 		return true
 	}
 	protected getContinueCycle(query: NoteQuery, $moreContainer: HTMLElement): (
-		(notes: Map<number,Note>, fetchDetails: NoteFetchDetails, downloadedNotes: Note[], lastTriedPath: string|undefined) => boolean
+		(notes: Map<number,Note>, fetchDetails: NoteFetchDetails, downloadedNotes: Note[]|undefined, lastTriedPath: string|undefined) => boolean
 	) | undefined {
 		if (query.mode!='ids') return
 		let lastId: number
