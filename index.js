@@ -53,9 +53,9 @@ class NoteViewerDB {
             throw new Error(`Database is outdated, please reload the page.`);
         return new Promise((resolve, reject) => {
             const tx = this.idb.transaction(['fetches'], 'readonly');
+            tx.onerror = () => reject(new Error(`Database view error: ${tx.error}`));
             const request = tx.objectStore('fetches').index('access').getAll();
             request.onsuccess = () => resolve(request.result);
-            tx.onerror = () => reject(new Error(`Database view error: ${tx.error}`));
         });
     }
     deleteFetch(fetch) {
@@ -63,12 +63,12 @@ class NoteViewerDB {
             throw new Error(`Database is outdated, please reload the page.`);
         return new Promise((resolve, reject) => {
             const tx = this.idb.transaction(['fetches', 'notes', 'users'], 'readwrite');
+            tx.onerror = () => reject(new Error(`Database delete error: ${tx.error}`));
+            tx.oncomplete = () => resolve();
             const range = makeTimestampRange(fetch.timestamp);
             tx.objectStore('notes').delete(range);
             tx.objectStore('users').delete(range);
             tx.objectStore('fetches').delete(fetch.timestamp);
-            tx.oncomplete = () => resolve();
-            tx.onerror = () => reject(new Error(`Database delete error: ${tx.error}`));
         });
     }
     getFetchWithClearedData(timestamp, queryString) {
@@ -76,6 +76,7 @@ class NoteViewerDB {
             throw new Error(`Database is outdated, please reload the page.`);
         return new Promise((resolve, reject) => {
             const tx = this.idb.transaction(['fetches', 'notes', 'users'], 'readwrite');
+            tx.onerror = () => reject(new Error(`Database clear error: ${tx.error}`));
             cleanupOutdatedFetches(timestamp, tx);
             const fetchStore = tx.objectStore('fetches');
             const fetchRequest = fetchStore.index('query').getKey(queryString);
@@ -95,7 +96,6 @@ class NoteViewerDB {
                 };
                 fetchStore.put(fetch).onsuccess = () => resolve(fetch);
             };
-            tx.onerror = () => reject(new Error(`Database clear error: ${tx.error}`));
         });
     }
     getFetchWithRestoredData(timestamp, queryString) {
@@ -103,6 +103,7 @@ class NoteViewerDB {
             throw new Error(`Database is outdated, please reload the page.`);
         return new Promise((resolve, reject) => {
             const tx = this.idb.transaction(['fetches', 'notes', 'users'], 'readwrite');
+            tx.onerror = () => reject(new Error(`Database read error: ${tx.error}`));
             cleanupOutdatedFetches(timestamp, tx);
             const fetchStore = tx.objectStore('fetches');
             const fetchRequest = fetchStore.index('query').get(queryString);
@@ -120,33 +121,19 @@ class NoteViewerDB {
                     const fetch = fetchRequest.result;
                     fetch.accessTimestamp = timestamp;
                     fetchStore.put(fetch);
-                    const range = makeTimestampRange(fetch.timestamp);
-                    const noteRequest = tx.objectStore('notes').index('sequence').getAll(range);
-                    noteRequest.onsuccess = () => {
-                        const notes = noteRequest.result.map(noteEntry => noteEntry.note);
-                        const userRequest = tx.objectStore('users').getAll(range);
-                        userRequest.onsuccess = () => {
-                            const users = {};
-                            for (const userEntry of userRequest.result) {
-                                users[userEntry.user.id] = userEntry.user.name;
-                            }
-                            resolve([fetch, notes, users]);
-                        };
-                    };
+                    readNotesAndUsersInTx(fetch.timestamp, tx, (notes, users) => resolve([fetch, notes, users]));
                 }
             };
-            tx.onerror = () => reject(new Error(`Database read error: ${tx.error}`));
         });
     }
     /**
-     * @returns updated fetch entry or null if fetch was stale and data wasn't saved
+     * @returns [updated fetch, null] on normal update; [null,null] if fetch is stale; [updated fetch, all stored fetch data] if write conflict
      */
-    addDataToFetch(timestamp, fetch, allNotes, newNotes, allUsers, newUsers) {
+    addDataToFetch(timestamp, fetch, newNotes, newUsers) {
         if (this.closed)
             throw new Error(`Database is outdated, please reload the page.`);
         return new Promise((resolve, reject) => {
             const tx = this.idb.transaction(['fetches', 'notes', 'users'], 'readwrite');
-            tx.oncomplete = () => resolve(null);
             tx.onerror = () => reject(new Error(`Database save error: ${tx.error}`));
             const fetchStore = tx.objectStore('fetches');
             const noteStore = tx.objectStore('notes');
@@ -154,16 +141,16 @@ class NoteViewerDB {
             const fetchRequest = fetchStore.get(fetch.timestamp);
             fetchRequest.onsuccess = () => {
                 if (fetchRequest.result == null)
-                    return;
+                    return resolve([null, null]);
                 const storedFetch = fetchRequest.result;
-                // if (storedFetch.writeTimestamp>fetch.writeTimestamp) {
-                // TODO write conflict if doesn't match
-                //	report that newNotes shouldn't be merged
-                //	then should receive oldNotes instead of newNotes and merge them here
-                // }
+                if (storedFetch.writeTimestamp > fetch.writeTimestamp) {
+                    storedFetch.accessTimestamp = timestamp;
+                    fetchStore.put(storedFetch);
+                    return readNotesAndUsersInTx(storedFetch.timestamp, tx, (notes, users) => resolve([storedFetch, [notes, users]]));
+                }
                 storedFetch.writeTimestamp = storedFetch.accessTimestamp = timestamp;
                 fetchStore.put(storedFetch);
-                tx.oncomplete = () => resolve(storedFetch);
+                tx.oncomplete = () => resolve([storedFetch, null]);
                 const range = makeTimestampRange(fetch.timestamp);
                 const noteCursorRequest = noteStore.index('sequence').openCursor(range, 'prev');
                 noteCursorRequest.onsuccess = () => {
@@ -171,33 +158,44 @@ class NoteViewerDB {
                     const cursor = noteCursorRequest.result;
                     if (cursor)
                         sequenceNumber = cursor.value.sequenceNumber;
-                    writeNotesAndUsers(sequenceNumber, newNotes, newUsers);
+                    writeNotes(noteStore, fetch.timestamp, newNotes, sequenceNumber);
+                    writeUsers(userStore, fetch.timestamp, newUsers);
                 };
             };
-            function writeNotesAndUsers(sequenceNumber, notes, users) {
-                for (const note of notes) {
-                    sequenceNumber++;
-                    const noteEntry = {
-                        fetchTimestamp: fetch.timestamp,
-                        note,
-                        sequenceNumber
+        });
+    }
+    updateDataInFetch(timestamp, fetch, updatedNote, newUsers) {
+        if (this.closed)
+            throw new Error(`Database is outdated, please reload the page.`);
+        return new Promise((resolve, reject) => {
+            const tx = this.idb.transaction(['fetches', 'notes', 'users'], 'readwrite');
+            tx.onerror = () => reject(new Error(`Database save error: ${tx.error}`));
+            const fetchStore = tx.objectStore('fetches');
+            const noteStore = tx.objectStore('notes');
+            const userStore = tx.objectStore('users');
+            const fetchRequest = fetchStore.get(fetch.timestamp);
+            fetchRequest.onsuccess = () => {
+                if (fetchRequest.result == null)
+                    return resolve(null);
+                const storedFetch = fetchRequest.result;
+                storedFetch.accessTimestamp = timestamp;
+                fetchStore.put(storedFetch);
+                tx.oncomplete = () => resolve(null);
+                const noteCursorRequest = noteStore.openCursor([fetch.timestamp, updatedNote.id]);
+                noteCursorRequest.onsuccess = () => {
+                    const cursor = noteCursorRequest.result;
+                    if (!cursor)
+                        return;
+                    const storedNoteEntry = cursor.value;
+                    const updatedNoteEntry = {
+                        fetchTimestamp: storedNoteEntry.fetchTimestamp,
+                        note: updatedNote,
+                        sequenceNumber: storedNoteEntry.sequenceNumber
                     };
-                    noteStore.put(noteEntry);
-                }
-                for (const userId in users) {
-                    const name = users[userId];
-                    if (name == null)
-                        continue;
-                    const userEntry = {
-                        fetchTimestamp: fetch.timestamp,
-                        user: {
-                            id: Number(userId),
-                            name
-                        }
-                    };
-                    userStore.put(userEntry);
-                }
-            }
+                    cursor.update(updatedNoteEntry);
+                    writeUsers(userStore, fetch.timestamp, newUsers);
+                };
+            };
         });
     }
     /*
@@ -244,6 +242,47 @@ function cleanupOutdatedFetches(timestamp, tx) {
 }
 function makeTimestampRange(timestamp) {
     return IDBKeyRange.bound([timestamp, -Infinity], [timestamp, +Infinity]);
+}
+function readNotesAndUsersInTx(timestamp, tx, callback) {
+    const range = makeTimestampRange(timestamp);
+    const noteRequest = tx.objectStore('notes').index('sequence').getAll(range);
+    noteRequest.onsuccess = () => {
+        const notes = noteRequest.result.map(noteEntry => noteEntry.note);
+        const userRequest = tx.objectStore('users').getAll(range);
+        userRequest.onsuccess = () => {
+            const users = {};
+            for (const userEntry of userRequest.result) {
+                users[userEntry.user.id] = userEntry.user.name;
+            }
+            callback(notes, users);
+        };
+    };
+}
+function writeNotes(noteStore, fetchTimestamp, notes, sequenceNumber) {
+    for (const note of notes) {
+        sequenceNumber++;
+        const noteEntry = {
+            fetchTimestamp,
+            note,
+            sequenceNumber
+        };
+        noteStore.put(noteEntry);
+    }
+}
+function writeUsers(userStore, fetchTimestamp, users) {
+    for (const userId in users) {
+        const name = users[userId];
+        if (name == null)
+            continue;
+        const userEntry = {
+            fetchTimestamp,
+            user: {
+                id: Number(userId),
+                name
+            }
+        };
+        userStore.put(userEntry);
+    }
 }
 
 class GlobalEventListener {
@@ -1652,49 +1691,7 @@ const e$2 = makeEscapeTag(encodeURIComponent);
 const maxSingleAutoLoadLimit = 200;
 const maxTotalAutoLoadLimit = 1000;
 const maxFullyFilteredFetches = 10;
-class FetchState {
-    constructor() {
-        // fetch state
-        this.notes = new Map();
-        this.users = {};
-    }
-    recordInitialData(// TODO make it ctor
-    initialNotes, initialUsers) {
-        this.recordData(initialNotes, initialUsers);
-    }
-    recordCycleData(newNotes, newUsers, usedLimit, lastTriedPath) {
-        this.lastLimit = usedLimit;
-        if (lastTriedPath != null)
-            this.lastTriedPath = lastTriedPath;
-        return this.recordData(newNotes, newUsers);
-    }
-    getNextCycleArguments(limit) {
-        return [limit, this.lastNote, this.prevLastNote, this.lastLimit, this.lastTriedPath];
-    }
-    recordData(newNotes, newUsers) {
-        this.prevLastNote = this.lastNote;
-        const unseenNotes = [];
-        const unseenUsers = {};
-        for (const note of newNotes) {
-            if (this.notes.has(note.id))
-                continue;
-            this.notes.set(note.id, note);
-            this.lastNote = note;
-            unseenNotes.push(note);
-        }
-        for (const newUserIdString in newUsers) {
-            const newUserId = Number(newUserIdString); // TODO rewrite this hack
-            if (this.users[newUserId] != newUsers[newUserId])
-                unseenUsers[newUserId] = newUsers[newUserId];
-        }
-        Object.assign(this.users, newUsers);
-        return [unseenNotes, unseenUsers];
-    }
-}
-class NoteFetcher {
-    constructor() {
-        this.updateRequestHintInAdvancedMode = () => { };
-    }
+class NoteFetcherRequest {
     getRequestUrls(query, limit) {
         const pathAndParameters = this.getRequestUrlPathAndParameters(query, limit);
         if (pathAndParameters == null)
@@ -1711,183 +1708,236 @@ class NoteFetcher {
             url += '?' + parameters;
         return url;
     }
-    resetUpdateRequestHintInAdvancedMode() {
+}
+class NoteSearchFetcherRequest extends NoteFetcherRequest {
+    getRequestUrlBase() {
+        return `https://api.openstreetmap.org/api/0.6/notes/search`;
+    }
+    getRequestUrlPathAndParameters(query, limit) {
+        if (query.mode != 'search')
+            return;
+        return getNextFetchDetails(query, limit).pathAndParametersList[0];
+    }
+}
+class NoteBboxFetcherRequest extends NoteFetcherRequest {
+    getRequestUrlBase() {
+        return `https://api.openstreetmap.org/api/0.6/notes`;
+    }
+    getRequestUrlPathAndParameters(query, limit) {
+        if (query.mode != 'bbox')
+            return;
+        return ['', this.getRequestUrlParametersWithoutLimit(query) + e$2 `&limit=${limit}`];
+    }
+    getRequestUrlParametersWithoutLimit(query) {
+        return e$2 `bbox=${query.bbox}&closed=${query.closed}`;
+    }
+}
+class NoteIdsFetcherRequest extends NoteFetcherRequest {
+    getRequestUrlBase() {
+        return `https://api.openstreetmap.org/api/0.6/notes/`;
+    }
+    getRequestUrlPathAndParameters(query, limit) {
+        if (query.mode != 'ids')
+            return;
+        if (query.ids.length == 0)
+            return;
+        return [String(query.ids[0]), '']; // TODO actually going to do several requests, can list them here somehow?
+    }
+}
+class NoteFetcherRun {
+    constructor({ db, noteTable, $moreContainer, getLimit, getAutoLoad, blockDownloads, moreButtonIntersectionObservers }, query, clearStore) {
+        this.fetchEntry = null;
+        this.notes = new Map();
+        this.users = {};
         this.updateRequestHintInAdvancedMode = () => { };
+        this.db = db;
+        this.noteTable = noteTable;
+        (async () => {
+            const queryString = makeNoteQueryString(query); // empty string == don't know how to encode the query, thus won't save it to db
+            this.fetchEntry = await (async () => {
+                if (!queryString)
+                    return null;
+                if (clearStore) {
+                    return await db.getFetchWithClearedData(Date.now(), queryString);
+                }
+                else {
+                    const [fetchEntry, initialNotes, initialUsers] = await db.getFetchWithRestoredData(Date.now(), queryString); // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
+                    this.recordData(initialNotes, initialUsers);
+                    return fetchEntry;
+                }
+            })();
+            let nFullyFilteredFetches = 0;
+            let holdOffAutoLoad = false;
+            const addNewNotesToTable = (newNotes) => {
+                const nUnfilteredNotes = noteTable.addNotes(newNotes, this.users);
+                if (nUnfilteredNotes == 0) {
+                    nFullyFilteredFetches++;
+                }
+                else {
+                    nFullyFilteredFetches = 0;
+                }
+            };
+            const rewriteLoadingButton = () => {
+                $moreContainer.innerHTML = '';
+                const $button = document.createElement('button');
+                $button.textContent = `Loading notes...`;
+                $button.disabled = true;
+                $moreContainer.append(makeDiv()($button));
+            };
+            const rewriteLoadMoreButton = () => {
+                const $requestOutput = document.createElement('output');
+                this.updateRequestHintInAdvancedMode = () => {
+                    const limit = getLimit();
+                    const fetchDetails = this.getCycleFetchDetails(limit);
+                    if (fetchDetails.pathAndParametersList.length == 0) {
+                        $requestOutput.replaceChildren(`no request`);
+                        return;
+                    }
+                    const url = this.request.constructUrl(...fetchDetails.pathAndParametersList[0]);
+                    const $a = makeLink(url, url);
+                    $a.classList.add('request');
+                    $requestOutput.replaceChildren(makeElement('code')()($a));
+                };
+                this.updateRequestHintInAdvancedMode();
+                $moreContainer.innerHTML = '';
+                const $button = document.createElement('button');
+                $button.textContent = `Load more notes`;
+                $button.addEventListener('click', fetchCycle);
+                $moreContainer.append(makeDiv()($button), makeDiv('advanced-hint')(`Resulting request: `, $requestOutput));
+                if (!this.fetchEntry) {
+                    $moreContainer.append(makeDiv()(`The fetch results are not saved locally because ${queryString
+                        ? `the fetch is stale (likely the same query was made in another browser tab)`
+                        : `saving this query is not supported`}.`));
+                }
+                return $button;
+            };
+            const fetchCycle = async () => {
+                // TODO check if db data is more fresh than our state
+                rewriteLoadingButton();
+                const limit = getLimit();
+                const fetchDetails = this.getCycleFetchDetails(limit);
+                if (fetchDetails == null)
+                    return;
+                if (fetchDetails.limit > 10000) {
+                    rewriteMessage($moreContainer, `Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`);
+                    return;
+                }
+                blockDownloads(true);
+                try {
+                    let downloadedNotes = [];
+                    let downloadedUsers = {};
+                    let lastTriedPath;
+                    for (const pathAndParameters of fetchDetails.pathAndParametersList) {
+                        const [path, parameters] = pathAndParameters;
+                        lastTriedPath = path;
+                        const url = this.request.constructUrl(path, parameters);
+                        const response = await fetch(url);
+                        if (!response.ok) {
+                            if (response.status == 410) { // likely hidden note in ids query
+                                continue; // TODO report it
+                            }
+                            const responseText = await response.text();
+                            rewriteFetchErrorMessage($moreContainer, query, `received the following error response`, responseText);
+                            return;
+                        }
+                        const data = await response.json();
+                        if (!this.accumulateDownloadedData(downloadedNotes, downloadedUsers, data)) {
+                            rewriteMessage($moreContainer, `Received invalid data`);
+                            return;
+                        }
+                    }
+                    let [unseenNotes, unseenUsers] = this.getUnseenData(downloadedNotes, downloadedUsers);
+                    if (this.fetchEntry) {
+                        const [newFetchEntry, writeConflictData] = await db.addDataToFetch(Date.now(), this.fetchEntry, unseenNotes, unseenUsers);
+                        this.fetchEntry = newFetchEntry;
+                        if (!writeConflictData) {
+                            this.lastLimit = fetchDetails.limit;
+                            if (lastTriedPath != null)
+                                this.lastTriedPath = lastTriedPath;
+                        }
+                        else {
+                            downloadedNotes = downloadedUsers = undefined // download was discarded
+                            ;
+                            [unseenNotes, unseenUsers] = this.getUnseenData(...writeConflictData);
+                            this.lastLimit = undefined;
+                            this.lastTriedPath = undefined;
+                        }
+                    }
+                    else {
+                        this.lastLimit = fetchDetails.limit;
+                        if (lastTriedPath != null)
+                            this.lastTriedPath = lastTriedPath;
+                    }
+                    this.recordData(unseenNotes, unseenUsers);
+                    if (this.notes.size <= 0) {
+                        rewriteMessage($moreContainer, `No matching notes found`);
+                        return;
+                    }
+                    addNewNotesToTable(unseenNotes);
+                    if (!this.continueCycle($moreContainer, fetchDetails, downloadedNotes))
+                        return;
+                    const nextFetchDetails = this.getCycleFetchDetails(limit);
+                    const $moreButton = rewriteLoadMoreButton();
+                    if (holdOffAutoLoad) {
+                        holdOffAutoLoad = false;
+                    }
+                    else if (this.notes.size > maxTotalAutoLoadLimit) {
+                        $moreButton.append(` (no auto download because displaying more than ${maxTotalAutoLoadLimit} notes)`);
+                    }
+                    else if (nextFetchDetails.limit > maxSingleAutoLoadLimit) {
+                        $moreButton.append(` (no auto download because required batch is larger than ${maxSingleAutoLoadLimit})`);
+                    }
+                    else if (nFullyFilteredFetches > maxFullyFilteredFetches) {
+                        $moreButton.append(` (no auto download because ${maxFullyFilteredFetches} consecutive fetches were fully filtered)`);
+                        nFullyFilteredFetches = 0;
+                    }
+                    else {
+                        const moreButtonIntersectionObserver = new IntersectionObserver((entries) => {
+                            if (entries.length <= 0)
+                                return;
+                            if (!entries[0].isIntersecting)
+                                return;
+                            if (!getAutoLoad())
+                                return;
+                            while (moreButtonIntersectionObservers.length > 0)
+                                moreButtonIntersectionObservers.pop()?.disconnect();
+                            $moreButton.click();
+                        });
+                        moreButtonIntersectionObservers.push(moreButtonIntersectionObserver);
+                        moreButtonIntersectionObserver.observe($moreButton);
+                    }
+                }
+                catch (ex) {
+                    if (ex instanceof TypeError) {
+                        rewriteFetchErrorMessage($moreContainer, query, `failed with the following error before receiving a response`, ex.message);
+                    }
+                    else {
+                        rewriteFetchErrorMessage($moreContainer, query, `failed for unknown reason`, `${ex}`);
+                    }
+                }
+                finally {
+                    blockDownloads(false);
+                }
+            };
+            if (!clearStore) {
+                addNewNotesToTable(this.notes.values());
+                if (this.notes.size > 0) {
+                    rewriteLoadMoreButton();
+                }
+                else {
+                    holdOffAutoLoad = true; // db was empty; expected to show something => need to fetch; not expected to autoload
+                    await fetchCycle();
+                }
+            }
+            else {
+                await fetchCycle();
+            }
+        })();
     }
     reactToLimitUpdateForAdvancedMode() {
         this.updateRequestHintInAdvancedMode();
     }
-    async start(db, noteTable, $moreContainer, getLimit, getAutoLoad, blockDownloads, moreButtonIntersectionObservers, query, clearStore) {
-        this.resetUpdateRequestHintInAdvancedMode();
-        const getCycleFetchDetails = this.getGetCycleFetchDetails(query);
-        if (!getCycleFetchDetails)
-            return; // shouldn't happen
-        const continueCycle = this.getContinueCycle(query, $moreContainer);
-        if (!continueCycle)
-            return; // shouldn't happen - and it should be in ctor probably
-        const fetchState = new FetchState();
-        const queryString = makeNoteQueryString(query); // empty string == don't know how to encode the query, thus won't save it to db
-        let fetchEntry = await (async () => {
-            if (!queryString)
-                return null;
-            if (clearStore) {
-                return await db.getFetchWithClearedData(Date.now(), queryString);
-            }
-            else {
-                const [fetchEntry, initialNotes, initialUsers] = await db.getFetchWithRestoredData(Date.now(), queryString); // TODO actually have a reasonable limit here - or have a link above the table with 'clear' arg: "If the stored data is too large, click this link to restart the query from scratch"
-                fetchState.recordInitialData(initialNotes, initialUsers);
-                return fetchEntry;
-            }
-        })();
-        let nFullyFilteredFetches = 0;
-        let holdOffAutoLoad = false;
-        const rewriteLoadMoreButton = () => {
-            const $requestOutput = document.createElement('output');
-            this.updateRequestHintInAdvancedMode = () => {
-                const limit = getLimit();
-                const fetchDetails = getCycleFetchDetails(...fetchState.getNextCycleArguments(limit));
-                if (fetchDetails.pathAndParametersList.length == 0) {
-                    $requestOutput.replaceChildren(`no request`);
-                    return;
-                }
-                const url = this.constructUrl(...fetchDetails.pathAndParametersList[0]);
-                const $a = makeLink(url, url);
-                $a.classList.add('request');
-                $requestOutput.replaceChildren(makeElement('code')()($a));
-            };
-            this.updateRequestHintInAdvancedMode();
-            $moreContainer.innerHTML = '';
-            const $button = document.createElement('button');
-            $button.textContent = `Load more notes`;
-            $button.addEventListener('click', fetchCycle);
-            $moreContainer.append(makeDiv()($button), makeDiv('advanced-hint')(`Resulting request: `, $requestOutput));
-            if (!fetchEntry) {
-                $moreContainer.append(makeDiv()(`The fetch results are not saved locally because ${queryString
-                    ? `the fetch is stale (likely the same query was made in another browser tab)`
-                    : `saving this query is not supported`}.`));
-            }
-            return $button;
-        };
-        const fetchCycle = async () => {
-            // TODO check if db data is more fresh than our state
-            rewriteLoadingButton();
-            const limit = getLimit();
-            const fetchDetails = getCycleFetchDetails(...fetchState.getNextCycleArguments(limit));
-            if (fetchDetails == null)
-                return;
-            if (fetchDetails.limit > 10000) {
-                rewriteMessage($moreContainer, `Fetching cannot continue because the required note limit exceeds max value allowed by API (this is very unlikely, if you see this message it's probably a bug)`);
-                return;
-            }
-            blockDownloads(true);
-            try {
-                const downloadedNotes = [];
-                const downloadedUsers = {};
-                let lastTriedPath;
-                for (const pathAndParameters of fetchDetails.pathAndParametersList) {
-                    const [path, parameters] = pathAndParameters;
-                    lastTriedPath = path;
-                    const url = this.constructUrl(path, parameters);
-                    const response = await fetch(url);
-                    if (!response.ok) {
-                        if (response.status == 410) { // likely hidden note in ids query
-                            continue; // TODO report it
-                        }
-                        const responseText = await response.text();
-                        rewriteFetchErrorMessage($moreContainer, query, `received the following error response`, responseText);
-                        return;
-                    }
-                    const data = await response.json();
-                    if (!this.accumulateDownloadedData(downloadedNotes, downloadedUsers, data)) {
-                        rewriteMessage($moreContainer, `Received invalid data`);
-                        return;
-                    }
-                }
-                const [unseenNotes, unseenUsers] = fetchState.recordCycleData(downloadedNotes, downloadedUsers, fetchDetails.limit, lastTriedPath);
-                if (fetchEntry)
-                    fetchEntry = await db.addDataToFetch(Date.now(), fetchEntry, fetchState.notes.values(), unseenNotes, fetchState.users, unseenUsers);
-                if (!noteTable && fetchState.notes.size <= 0) {
-                    rewriteMessage($moreContainer, `No matching notes found`);
-                    return;
-                }
-                addNewNotesToTable(unseenNotes);
-                if (!continueCycle(fetchState.notes, fetchDetails, downloadedNotes, fetchState.lastTriedPath))
-                    return;
-                const nextFetchDetails = getCycleFetchDetails(...fetchState.getNextCycleArguments(limit));
-                const $moreButton = rewriteLoadMoreButton();
-                if (holdOffAutoLoad) {
-                    holdOffAutoLoad = false;
-                }
-                else if (fetchState.notes.size > maxTotalAutoLoadLimit) {
-                    $moreButton.append(` (no auto download because displaying more than ${maxTotalAutoLoadLimit} notes)`);
-                }
-                else if (nextFetchDetails.limit > maxSingleAutoLoadLimit) {
-                    $moreButton.append(` (no auto download because required batch is larger than ${maxSingleAutoLoadLimit})`);
-                }
-                else if (nFullyFilteredFetches > maxFullyFilteredFetches) {
-                    $moreButton.append(` (no auto download because ${maxFullyFilteredFetches} consecutive fetches were fully filtered)`);
-                    nFullyFilteredFetches = 0;
-                }
-                else {
-                    const moreButtonIntersectionObserver = new IntersectionObserver((entries) => {
-                        if (entries.length <= 0)
-                            return;
-                        if (!entries[0].isIntersecting)
-                            return;
-                        if (!getAutoLoad())
-                            return;
-                        while (moreButtonIntersectionObservers.length > 0)
-                            moreButtonIntersectionObservers.pop()?.disconnect();
-                        $moreButton.click();
-                    });
-                    moreButtonIntersectionObservers.push(moreButtonIntersectionObserver);
-                    moreButtonIntersectionObserver.observe($moreButton);
-                }
-            }
-            catch (ex) {
-                if (ex instanceof TypeError) {
-                    rewriteFetchErrorMessage($moreContainer, query, `failed with the following error before receiving a response`, ex.message);
-                }
-                else {
-                    rewriteFetchErrorMessage($moreContainer, query, `failed for unknown reason`, `${ex}`);
-                }
-            }
-            finally {
-                blockDownloads(false);
-            }
-        };
-        if (!clearStore) {
-            addNewNotesToTable(fetchState.notes.values());
-            if (fetchState.notes.size > 0) {
-                rewriteLoadMoreButton();
-            }
-            else {
-                holdOffAutoLoad = true; // db was empty; expected to show something => need to fetch; not expected to autoload
-                await fetchCycle();
-            }
-        }
-        else {
-            await fetchCycle();
-        }
-        function addNewNotesToTable(newNotes) {
-            const nUnfilteredNotes = noteTable.addNotes(newNotes, fetchState.users);
-            if (nUnfilteredNotes == 0) {
-                nFullyFilteredFetches++;
-            }
-            else {
-                nFullyFilteredFetches = 0;
-            }
-        }
-        function rewriteLoadingButton() {
-            $moreContainer.innerHTML = '';
-            const $button = document.createElement('button');
-            $button.textContent = `Loading notes...`;
-            $button.disabled = true;
-            $moreContainer.append(makeDiv()($button));
-        }
-    }
-    async updateNote($a, noteId, noteTable) {
-        // TODO update db
+    async updateNote($a, noteId) {
         $a.classList.add('loading');
         try {
             const url = e$2 `https://api.openstreetmap.org/api/0.6/notes/${noteId}.json`;
@@ -1905,7 +1955,9 @@ class NoteFetcher {
                 throw new TypeError(`note reload received unexpected note`);
             $a.classList.remove('absent');
             $a.title = '';
-            noteTable.replaceNote(newNote, newUsers);
+            if (this.fetchEntry)
+                await this.db.updateDataInFetch(Date.now(), this.fetchEntry, newNote, newUsers);
+            this.noteTable.replaceNote(newNote, newUsers);
         }
         catch (ex) {
             $a.classList.add('absent');
@@ -1920,8 +1972,33 @@ class NoteFetcher {
             $a.classList.remove('loading');
         }
     }
+    recordData(newNotes, newUsers) {
+        this.prevLastNote = this.lastNote;
+        for (const note of newNotes) {
+            if (this.notes.has(note.id))
+                continue;
+            this.notes.set(note.id, note);
+            this.lastNote = note;
+        }
+        Object.assign(this.users, newUsers);
+    }
+    getUnseenData(newNotes, newUsers) {
+        const unseenNotes = [];
+        const unseenUsers = {};
+        for (const note of newNotes) {
+            if (this.notes.has(note.id))
+                continue;
+            unseenNotes.push(note);
+        }
+        for (const newUserIdString in newUsers) {
+            const newUserId = Number(newUserIdString); // TODO rewrite this hack
+            if (this.users[newUserId] != newUsers[newUserId])
+                unseenUsers[newUserId] = newUsers[newUserId];
+        }
+        return [unseenNotes, unseenUsers];
+    }
 }
-class NoteFeatureCollectionFetcher extends NoteFetcher {
+class NoteFeatureCollectionFetcherRun extends NoteFetcherRun {
     accumulateDownloadedData(downloadedNotes, downloadedUsers, data) {
         if (!isNoteFeatureCollection(data))
             return false;
@@ -1931,110 +2008,97 @@ class NoteFeatureCollectionFetcher extends NoteFetcher {
         return true;
     }
 }
-class NoteSearchFetcher extends NoteFeatureCollectionFetcher {
-    getRequestUrlBase() {
-        return `https://api.openstreetmap.org/api/0.6/notes/search`;
+class NoteSearchFetcherRun extends NoteFeatureCollectionFetcherRun {
+    constructor(environment, query, clearStore) {
+        super(environment, query, clearStore);
+        this.query = query;
     }
-    getRequestUrlPathAndParameters(query, limit) {
-        if (query.mode != 'search')
-            return;
-        return getNextFetchDetails(query, limit).pathAndParametersList[0];
+    get request() {
+        return new NoteSearchFetcherRequest;
     }
-    getGetCycleFetchDetails(query) {
-        if (query.mode != 'search')
-            return;
-        return (limit, lastNote, prevLastNote, lastLimit, lastTriedPath) => getNextFetchDetails(query, limit, lastNote, prevLastNote, lastLimit);
+    getCycleFetchDetails(limit) {
+        return getNextFetchDetails(this.query, limit, this.lastNote, this.prevLastNote, this.lastLimit);
     }
-    getContinueCycle(query, $moreContainer) {
-        return (notes, fetchDetails, downloadedNotes, lastTriedPath) => {
-            if (downloadedNotes.length < fetchDetails.limit) {
-                rewriteMessage($moreContainer, `Got all ${notes.size} notes`);
-                return false;
-            }
+    continueCycle($moreContainer, fetchDetails, downloadedNotes) {
+        if (!downloadedNotes)
             return true;
-        };
-    }
-}
-class NoteBboxFetcher extends NoteFeatureCollectionFetcher {
-    getRequestUrlBase() {
-        return `https://api.openstreetmap.org/api/0.6/notes`;
-    }
-    getRequestUrlPathAndParameters(query, limit) {
-        if (query.mode != 'bbox')
-            return;
-        return ['', this.getRequestUrlParametersWithoutLimit(query) + e$2 `&limit=${limit}`];
-    }
-    getRequestUrlParametersWithoutLimit(query) {
-        return e$2 `bbox=${query.bbox}&closed=${query.closed}`;
-    }
-    getGetCycleFetchDetails(query) {
-        if (query.mode != 'bbox')
-            return;
-        const parametersWithoutLimit = this.getRequestUrlParametersWithoutLimit(query);
-        return (limit, lastNote, prevLastNote, lastLimit, lastTriedPath) => ({
-            pathAndParametersList: [['', parametersWithoutLimit + e$2 `&limit=${limit}`]],
-            limit
-        });
-    }
-    getContinueCycle(query, $moreContainer) {
-        return (notes, fetchDetails, downloadedNotes, lastTriedPath) => {
-            if (notes.size < fetchDetails.limit) {
-                rewriteMessage($moreContainer, `Got all ${notes.size} notes in the area`);
-            }
-            else {
-                rewriteMessage($moreContainer, `Got all ${notes.size} requested notes`);
-            }
+        if (downloadedNotes.length < fetchDetails.limit) {
+            rewriteMessage($moreContainer, `Got all ${this.notes.size} notes`);
             return false;
-        };
+        }
+        return true;
     }
 }
-class NoteIdsFetcher extends NoteFetcher {
-    getRequestUrlBase() {
-        return `https://api.openstreetmap.org/api/0.6/notes/`;
+class NoteBboxFetcherRun extends NoteFeatureCollectionFetcherRun {
+    constructor(environment, query, clearStore) {
+        super(environment, query, clearStore);
+        this.query = query;
     }
-    getRequestUrlPathAndParameters(query, limit) {
-        if (query.mode != 'ids')
-            return;
-        if (query.ids.length == 0)
-            return;
-        return [String(query.ids[0]), '']; // TODO actually going to do several requests, can list them here somehow?
+    get request() {
+        return new NoteBboxFetcherRequest;
     }
-    getGetCycleFetchDetails(query) {
-        if (query.mode != 'ids')
-            return;
-        const uniqueIds = new Set();
-        for (const id of query.ids)
-            uniqueIds.add(id);
-        return (limit, lastNote, prevLastNote, lastLimit, lastTriedPath) => {
-            const lastTriedId = Number(lastTriedPath);
-            let skip = true;
-            const pathAndParametersList = [];
-            for (const id of uniqueIds) {
-                if (pathAndParametersList.length >= limit)
-                    break;
-                if (skip) {
-                    if (lastTriedPath) {
-                        if (id == lastTriedId) {
-                            skip = false;
-                        }
-                        continue;
-                    }
-                    else if (lastNote) { // was restored from db w/o yet making any fetch
-                        if (id == lastNote.id) {
-                            skip = false;
-                        }
-                        continue;
-                    }
-                    else {
+    getCycleFetchDetails(limit) {
+        const parametersWithoutLimit = this.request.getRequestUrlParametersWithoutLimit(this.query);
+        const pathAndParameters = ['', parametersWithoutLimit + e$2 `&limit=${limit}`];
+        return {
+            pathAndParametersList: [pathAndParameters],
+            limit
+        };
+    }
+    continueCycle($moreContainer, fetchDetails, downloadedNotes) {
+        if (this.notes.size < fetchDetails.limit) {
+            rewriteMessage($moreContainer, `Got all ${this.notes.size} notes in the area`);
+        }
+        else {
+            rewriteMessage($moreContainer, `Got all ${this.notes.size} requested notes`);
+        }
+        return false;
+    }
+}
+class NoteIdsFetcherRun extends NoteFetcherRun {
+    constructor(environment, query, clearStore) {
+        super(environment, query, clearStore);
+        this.query = query;
+        this.uniqueIds = new Set();
+        for (const id of query.ids) {
+            if (this.uniqueIds.has(id))
+                continue;
+            this.uniqueIds.add(id);
+            this.lastId = id;
+        }
+    }
+    get request() {
+        return new NoteIdsFetcherRequest;
+    }
+    getCycleFetchDetails(limit) {
+        const lastTriedId = Number(this.lastTriedPath);
+        let skip = true;
+        const pathAndParametersList = [];
+        for (const id of this.uniqueIds) {
+            if (pathAndParametersList.length >= limit)
+                break;
+            if (skip) {
+                if (this.lastTriedPath) {
+                    if (id == lastTriedId) {
                         skip = false;
                     }
+                    continue;
                 }
-                pathAndParametersList.push([String(id), '']);
+                else if (this.lastNote) { // was restored from db w/o yet making any fetch
+                    if (id == this.lastNote.id) {
+                        skip = false;
+                    }
+                    continue;
+                }
+                else {
+                    skip = false;
+                }
             }
-            return {
-                pathAndParametersList,
-                limit
-            };
+            pathAndParametersList.push([String(id), '']);
+        }
+        return {
+            pathAndParametersList,
+            limit
         };
     }
     accumulateDownloadedData(downloadedNotes, downloadedUsers, data) {
@@ -2045,24 +2109,14 @@ class NoteIdsFetcher extends NoteFetcher {
         Object.assign(downloadedUsers, newUsers);
         return true;
     }
-    getContinueCycle(query, $moreContainer) {
-        if (query.mode != 'ids')
-            return;
-        let lastId;
-        const uniqueIds = new Set();
-        for (const id of query.ids) {
-            if (uniqueIds.has(id))
-                continue;
-            lastId = id;
-            uniqueIds.add(id);
+    continueCycle($moreContainer, fetchDetails, downloadedNotes) {
+        if (this.lastId == null)
+            return false;
+        if (this.lastTriedPath != null && Number(this.lastTriedPath) == this.lastId) {
+            rewriteMessage($moreContainer, `Got all ${this.notes.size} notes`);
+            return false;
         }
-        return (notes, fetchDetails, downloadedNotes, lastTriedPath) => {
-            if (lastTriedPath != null && Number(lastTriedPath) == lastId) {
-                rewriteMessage($moreContainer, `Got all ${notes.size} notes`);
-                return false;
-            }
-            return true;
-        };
+        return true;
     }
 }
 function rewriteMessage($container, ...items) {
@@ -3386,24 +3440,25 @@ class NoteFetchPanel {
         };
         const hashQuery = makeNoteQueryFromHash(globalHistory.getQueryHash());
         // make fetchers and dialogs
-        const searchFetcher = new NoteSearchFetcher();
-        const bboxFetcher = new NoteBboxFetcher();
-        const idsFetcher = new NoteIdsFetcher();
-        const makeFetchDialog = (fetcher, fetchDialogCtor) => {
-            const dialog = fetchDialogCtor((query, limit) => fetcher.getRequestUrls(query, limit), (query) => {
+        const makeFetchDialog = (fetcherRequest, fetchDialogCtor) => {
+            const dialog = fetchDialogCtor((query, limit) => fetcherRequest.getRequestUrls(query, limit), (query) => {
                 modifyHistory(query, true);
-                startFetcher(query, true, false, fetcher, dialog);
+                startFetcher(query, true, false, dialog);
             });
-            dialog.limitChangeListener = () => fetcher.reactToLimitUpdateForAdvancedMode();
+            dialog.limitChangeListener = () => {
+                if (this.fetcherRun && this.fetcherInvoker == dialog) {
+                    this.fetcherRun.reactToLimitUpdateForAdvancedMode();
+                }
+            };
             dialog.write($container);
             dialog.populateInputs(hashQuery);
             navbar.addTab(dialog);
             return dialog;
         };
-        const searchDialog = makeFetchDialog(searchFetcher, (getRequestUrls, submitQuery) => new NoteSearchFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery));
-        const bboxDialog = makeFetchDialog(bboxFetcher, (getRequestUrls, submitQuery) => new NoteBboxFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery, map));
-        const xmlDialog = makeFetchDialog(idsFetcher, (getRequestUrls, submitQuery) => new NoteXmlFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery));
-        const plaintextDialog = makeFetchDialog(idsFetcher, (getRequestUrls, submitQuery) => new NotePlaintextFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery, noteTable));
+        const searchDialog = makeFetchDialog(new NoteSearchFetcherRequest, (getRequestUrls, submitQuery) => new NoteSearchFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery));
+        const bboxDialog = makeFetchDialog(new NoteBboxFetcherRequest, (getRequestUrls, submitQuery) => new NoteBboxFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery, map));
+        const xmlDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestUrls, submitQuery) => new NoteXmlFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery));
+        const plaintextDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestUrls, submitQuery) => new NotePlaintextFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery, noteTable));
         const aboutDialog = new AboutDialog(storage, db);
         aboutDialog.write($container);
         navbar.addTab(aboutDialog, true);
@@ -3450,10 +3505,9 @@ class NoteFetchPanel {
                     navbar.openTab(searchDialog.shortTitle);
             }
             else {
-                const fetcherAndDialog = getFetcherAndDialogFromQuery(query);
-                if (!fetcherAndDialog)
+                const dialog = getDialogFromQuery(query);
+                if (!dialog)
                     return;
-                const [, dialog] = fetcherAndDialog;
                 navbar.openTab(dialog.shortTitle);
             }
         }
@@ -3466,23 +3520,23 @@ class NoteFetchPanel {
         function startFetcherFromQuery(query, clearStore, suppressFitNotes) {
             if (!query)
                 return;
-            const fetcherAndDialog = getFetcherAndDialogFromQuery(query);
-            if (!fetcherAndDialog)
+            const dialog = getDialogFromQuery(query);
+            if (!dialog)
                 return;
-            startFetcher(query, clearStore, suppressFitNotes, ...fetcherAndDialog);
+            startFetcher(query, clearStore, suppressFitNotes, dialog);
         }
-        function getFetcherAndDialogFromQuery(query) {
+        function getDialogFromQuery(query) {
             if (query.mode == 'search') {
-                return [searchFetcher, searchDialog];
+                return searchDialog;
             }
             else if (query.mode == 'bbox') {
-                return [bboxFetcher, bboxDialog];
+                return bboxDialog;
             }
             else if (query.mode == 'ids') {
-                return [idsFetcher, plaintextDialog];
+                return plaintextDialog;
             }
         }
-        function startFetcher(query, clearStore, suppressFitNotes, fetcher, dialog) {
+        function startFetcher(query, clearStore, suppressFitNotes, dialog) {
             if (query.mode != 'search' && query.mode != 'bbox' && query.mode != 'ids')
                 return;
             bboxDialog.resetFetch(); // TODO run for all dialogs... for now only bboxDialog has meaningful action
@@ -3496,8 +3550,24 @@ class NoteFetchPanel {
             if (suppressFitNotes) {
                 map.needToFitNotes = false;
             }
-            self.runningFetcher = fetcher;
-            fetcher.start(db, noteTable, $moreContainer, dialog.getLimit, dialog.getAutoLoad, (disabled) => dialog.disableFetchControl(disabled), moreButtonIntersectionObservers, query, clearStore);
+            const environment = {
+                db,
+                noteTable, $moreContainer,
+                getLimit: dialog.getLimit,
+                getAutoLoad: dialog.getAutoLoad,
+                blockDownloads: (disabled) => dialog.disableFetchControl(disabled),
+                moreButtonIntersectionObservers,
+            };
+            self.fetcherInvoker = dialog;
+            if (query.mode == 'search') {
+                self.fetcherRun = new NoteSearchFetcherRun(environment, query, clearStore);
+            }
+            else if (query.mode == 'bbox') {
+                self.fetcherRun = new NoteBboxFetcherRun(environment, query, clearStore);
+            }
+            else if (query.mode == 'ids') {
+                self.fetcherRun = new NoteIdsFetcherRun(environment, query, clearStore);
+            }
         }
         function handleSharedCheckboxes($checkboxes, stateChangeListener) {
             for (const $checkbox of $checkboxes) {
@@ -3519,9 +3589,9 @@ class NoteFetchPanel {
         }
     }
     updateNote($a, noteId) {
-        if (!this.runningFetcher)
+        if (!this.fetcherRun)
             return;
-        this.runningFetcher.updateNote($a, noteId, this.noteTable);
+        this.fetcherRun.updateNote($a, noteId);
     }
 }
 
