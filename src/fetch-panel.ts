@@ -9,13 +9,17 @@ import FigureDialog from './figure'
 import NoteTable from './table'
 import NoteFilterPanel from './filter-panel'
 import {NoteQuery, NoteSearchQuery, makeNoteQueryFromHash, makeNoteQueryString} from './query'
-import {NoteFetcher, NoteSearchFetcher, NoteBboxFetcher, NoteIdsFetcher} from './fetch'
+import {NoteFetcherEnvironment, NoteFetcherRequest, NoteFetcherRun,
+	NoteSearchFetcherRequest, NoteBboxFetcherRequest, NoteIdsFetcherRequest,
+	NoteSearchFetcherRun, NoteBboxFetcherRun, NoteIdsFetcherRun} from './fetch'
 import {NoteFetchDialogSharedCheckboxes,
 	NoteFetchDialog, NoteSearchFetchDialog, NoteBboxFetchDialog, NoteXmlFetchDialog, NotePlaintextFetchDialog
 } from './fetch-dialog'
 
 export default class NoteFetchPanel {
-	private runningFetcher?: NoteFetcher
+	// TODO have invoking dialog object; react only on dl params change in it; display that fieldset differently
+	private fetcherRun?: NoteFetcherRun
+	private fetcherInvoker?: NoteFetchDialog
 	constructor(
 		storage: NoteViewerStorage, db: NoteViewerDB,
 		globalEventsListener: GlobalEventsListener, globalHistory: GlobalHistory,
@@ -32,36 +36,41 @@ export default class NoteFetchPanel {
 		const hashQuery=makeNoteQueryFromHash(globalHistory.getQueryHash())
 
 		// make fetchers and dialogs
-		const searchFetcher=new NoteSearchFetcher()
-		const bboxFetcher=new NoteBboxFetcher()
-		const idsFetcher=new NoteIdsFetcher()
 		const makeFetchDialog = (
-			fetcher: NoteFetcher,
+			fetcherRequest: NoteFetcherRequest,
 			fetchDialogCtor: (
 				getRequestUrls: (query: NoteQuery, limit: number) => [type: string, url: string][],
 				submitQuery: (query: NoteQuery) => void
 			) => NoteFetchDialog
 		): NoteFetchDialog => {
-			const dialog=fetchDialogCtor((query,limit)=>fetcher.getRequestUrls(query,limit),(query)=>{
+			const dialog=fetchDialogCtor((query,limit)=>fetcherRequest.getRequestUrls(query,limit),(query)=>{
 				modifyHistory(query,true)
-				startFetcher(query,true,false,fetcher,dialog)
+				startFetcher(query,true,false,dialog)
 			})
-			dialog.limitChangeListener=()=>fetcher.reactToLimitUpdateForAdvancedMode()
+			dialog.limitChangeListener=()=>{
+				if (this.fetcherRun && this.fetcherInvoker==dialog) {
+					this.fetcherRun.reactToLimitUpdateForAdvancedMode()
+				}
+			}
 			dialog.write($container)
 			dialog.populateInputs(hashQuery)
 			navbar.addTab(dialog)
 			return dialog
 		}
-		const searchDialog=makeFetchDialog(searchFetcher,
+		const searchDialog=makeFetchDialog(
+			new NoteSearchFetcherRequest,
 			(getRequestUrls,submitQuery)=>new NoteSearchFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery)
 		)
-		const bboxDialog=makeFetchDialog(bboxFetcher,
+		const bboxDialog=makeFetchDialog(
+			new NoteBboxFetcherRequest,
 			(getRequestUrls,submitQuery)=>new NoteBboxFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery,map)
 		)
-		const xmlDialog=makeFetchDialog(idsFetcher,
+		const xmlDialog=makeFetchDialog(
+			new NoteIdsFetcherRequest,
 			(getRequestUrls,submitQuery)=>new NoteXmlFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery)
 		)
-		const plaintextDialog=makeFetchDialog(idsFetcher,
+		const plaintextDialog=makeFetchDialog(
+			new NoteIdsFetcherRequest,
 			(getRequestUrls,submitQuery)=>new NotePlaintextFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery,noteTable)
 		)
 		const aboutDialog=new AboutDialog(storage,db)
@@ -112,9 +121,8 @@ export default class NoteFetchPanel {
 			if (!query) {
 				if (initial) navbar.openTab(searchDialog.shortTitle)
 			} else {
-				const fetcherAndDialog=getFetcherAndDialogFromQuery(query)
-				if (!fetcherAndDialog) return
-				const [,dialog]=fetcherAndDialog
+				const dialog=getDialogFromQuery(query)
+				if (!dialog) return
 				navbar.openTab(dialog.shortTitle)
 			}
 		}
@@ -126,22 +134,21 @@ export default class NoteFetchPanel {
 		}
 		function startFetcherFromQuery(query: NoteQuery|undefined, clearStore: boolean, suppressFitNotes: boolean): void {
 			if (!query) return
-			const fetcherAndDialog=getFetcherAndDialogFromQuery(query)
-			if (!fetcherAndDialog) return
-			startFetcher(query,clearStore,suppressFitNotes,...fetcherAndDialog)
+			const dialog=getDialogFromQuery(query)
+			if (!dialog) return
+			startFetcher(query,clearStore,suppressFitNotes,dialog)
 		}
-		function getFetcherAndDialogFromQuery(query: NoteQuery): [NoteFetcher,NoteFetchDialog]|undefined {
+		function getDialogFromQuery(query: NoteQuery): NoteFetchDialog|undefined {
 			if (query.mode=='search') {
-				return [searchFetcher,searchDialog]
+				return searchDialog
 			} else if (query.mode=='bbox') {
-				return [bboxFetcher,bboxDialog]
+				return bboxDialog
 			} else if (query.mode=='ids') {
-				return [idsFetcher,plaintextDialog]
+				return plaintextDialog
 			}
 		}
 		function startFetcher(
-			query: NoteQuery, clearStore: boolean, suppressFitNotes: boolean,
-			fetcher: NoteFetcher, dialog: NoteFetchDialog
+			query: NoteQuery, clearStore: boolean, suppressFitNotes: boolean, dialog: NoteFetchDialog
 		): void {
 			if (query.mode!='search' && query.mode!='bbox' && query.mode!='ids') return
 			bboxDialog.resetFetch() // TODO run for all dialogs... for now only bboxDialog has meaningful action
@@ -154,16 +161,22 @@ export default class NoteFetchPanel {
 			if (suppressFitNotes) {
 				map.needToFitNotes=false
 			}
-			self.runningFetcher=fetcher
-			fetcher.start(
+			const environment: NoteFetcherEnvironment = {
 				db,
 				noteTable,$moreContainer,
-				dialog.getLimit,dialog.getAutoLoad,
-				(disabled: boolean) => dialog.disableFetchControl(disabled),
+				getLimit: dialog.getLimit,
+				getAutoLoad: dialog.getAutoLoad,
+				blockDownloads: (disabled: boolean) => dialog.disableFetchControl(disabled),
 				moreButtonIntersectionObservers,
-				query,
-				clearStore
-			)
+			}
+			self.fetcherInvoker=dialog
+			if (query.mode=='search') {
+				self.fetcherRun=new NoteSearchFetcherRun(environment,query,clearStore)
+			} else if (query.mode=='bbox') {
+				self.fetcherRun=new NoteBboxFetcherRun(environment,query,clearStore)
+			} else if (query.mode=='ids') {
+				self.fetcherRun=new NoteIdsFetcherRun(environment,query,clearStore)
+			}
 		}
 		function handleSharedCheckboxes($checkboxes: HTMLInputElement[], stateChangeListener: (state:boolean)=>void) {
 			for (const $checkbox of $checkboxes) {
@@ -185,7 +198,7 @@ export default class NoteFetchPanel {
 		}
 	}
 	updateNote($a: HTMLAnchorElement, noteId: number): void {
-		if (!this.runningFetcher) return
-		this.runningFetcher.updateNote($a,noteId,this.noteTable)
+		if (!this.fetcherRun) return
+		this.fetcherRun.updateNote($a,noteId,this.noteTable)
 	}
 }
