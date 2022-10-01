@@ -122,4 +122,45 @@ describe("NoteViewerDB",()=>{
 			{}
 		])
 	})
+	it("updates note",async()=>{
+		indexedDB=new IDBFactory()
+		const db=await NoteViewerDB.open()
+		const queryString='testQuery'
+		const fetchEntry10=await db.getFetchWithClearedData(1001001,queryString)
+		assert.deepEqual(fetchEntry10,{
+			queryString,
+			timestamp: 1001001,
+			writeTimestamp: 1001001,
+			accessTimestamp: 1001001,
+		})
+		const [fetchEntry11,writeConflictData11]=await db.addDataToFetch(1002001,fetchEntry10,
+			[makeNote(101),makeNote(102),makeNote(103)],{}
+		)
+		assert.deepEqual(fetchEntry11,{
+			queryString,
+			timestamp: 1001001,
+			writeTimestamp: 1002001,
+			accessTimestamp: 1002001,
+		})
+		assert.equal(writeConflictData11,null)
+		const updatedNote={id:102, lat:60, lon:30, status:'closed', comments:[
+			{date:123456, action:'closed', text:"don't want"}
+		]}
+		await db.updateDataInFetch(1003001,fetchEntry11,
+			updatedNote,{}
+		)
+		const [fetchEntry20,notes,users]=await db.getFetchWithRestoredData(1004001,queryString)
+		assert.deepEqual(fetchEntry20,{
+			queryString,
+			timestamp: 1001001,
+			writeTimestamp: 1002001,
+			accessTimestamp: 1004001,
+		})
+		assert.deepEqual(notes,
+			[makeNote(101),updatedNote,makeNote(103)]
+		)
+		assert.deepEqual(users,
+			{}
+		)
+	})
 })

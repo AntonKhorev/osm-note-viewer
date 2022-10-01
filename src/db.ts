@@ -134,30 +134,42 @@ export default class NoteViewerDB {
 					let sequenceNumber=0
 					const cursor=noteCursorRequest.result
 					if (cursor) sequenceNumber=cursor.value.sequenceNumber
-					writeNotesAndUsers(sequenceNumber,newNotes,newUsers)
+					writeNotes(noteStore,fetch.timestamp,newNotes,sequenceNumber)
+					writeUsers(userStore,fetch.timestamp,newUsers)
 				}
 			}
-			function writeNotesAndUsers(sequenceNumber: number, notes: Iterable<Note>, users: Users) {
-				for (const note of notes) {
-					sequenceNumber++
-					const noteEntry: NoteEntry = {
-						fetchTimestamp: fetch.timestamp,
-						note,
-						sequenceNumber
+		})
+	}
+	updateDataInFetch(
+		timestamp: number, fetch: Readonly<FetchEntry>,
+		updatedNote: Readonly<Note>, newUsers: Readonly<Users>
+	): Promise<null> { // doesn't return new fetch because this is able to run parallel to main cycle that adds data
+		if (this.closed) throw new Error(`Database is outdated, please reload the page.`)
+		return new Promise((resolve,reject)=>{
+			const tx=this.idb.transaction(['fetches','notes','users'],'readwrite')
+			tx.onerror=()=>reject(new Error(`Database save error: ${tx.error}`))
+			const fetchStore=tx.objectStore('fetches')
+			const noteStore=tx.objectStore('notes')
+			const userStore=tx.objectStore('users')
+			const fetchRequest=fetchStore.get(fetch.timestamp)
+			fetchRequest.onsuccess=()=>{
+				if (fetchRequest.result==null) return resolve(null)
+				const storedFetch: FetchEntry = fetchRequest.result
+				storedFetch.accessTimestamp=timestamp
+				fetchStore.put(storedFetch)
+				tx.oncomplete=()=>resolve(null)
+				const noteCursorRequest=noteStore.openCursor([fetch.timestamp,updatedNote.id])
+				noteCursorRequest.onsuccess=()=>{
+					const cursor=noteCursorRequest.result
+					if (!cursor) return
+					const storedNoteEntry: NoteEntry = cursor.value
+					const updatedNoteEntry: NoteEntry = {
+						fetchTimestamp: storedNoteEntry.fetchTimestamp,
+						note: updatedNote,
+						sequenceNumber: storedNoteEntry.sequenceNumber
 					}
-					noteStore.put(noteEntry)
-				}
-				for (const userId in users) {
-					const name=users[userId]
-					if (name==null) continue
-					const userEntry: UserEntry = {
-						fetchTimestamp: fetch.timestamp,
-						user: {
-							id: Number(userId),
-							name
-						}
-					}
-					userStore.put(userEntry)
+					cursor.update(updatedNoteEntry)
+					writeUsers(userStore,fetch.timestamp,newUsers)
 				}
 			}
 		})
@@ -223,5 +235,32 @@ function readNotesAndUsersInTx(timestamp: number, tx: IDBTransaction, callback: 
 			}
 			callback(notes,users)
 		}
+	}
+}
+
+function writeNotes(noteStore: IDBObjectStore, fetchTimestamp: number,  notes: Iterable<Note>, sequenceNumber: number) {
+	for (const note of notes) {
+		sequenceNumber++
+		const noteEntry: NoteEntry = {
+			fetchTimestamp,
+			note,
+			sequenceNumber
+		}
+		noteStore.put(noteEntry)
+	}
+}
+
+function writeUsers(userStore: IDBObjectStore, fetchTimestamp: number, users: Users) {
+	for (const userId in users) {
+		const name=users[userId]
+		if (name==null) continue
+		const userEntry: UserEntry = {
+			fetchTimestamp,
+			user: {
+				id: Number(userId),
+				name
+			}
+		}
+		userStore.put(userEntry)
 	}
 }

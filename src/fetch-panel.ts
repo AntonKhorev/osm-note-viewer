@@ -199,6 +199,6 @@ export default class NoteFetchPanel {
 	}
 	updateNote($a: HTMLAnchorElement, noteId: number): void {
 		if (!this.fetcherRun) return
-		this.fetcherRun.updateNote($a,noteId,this.noteTable)
+		this.fetcherRun.updateNote($a,noteId)
 	}
 }

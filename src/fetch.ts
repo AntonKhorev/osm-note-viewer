@@ -1,7 +1,6 @@
 import NoteViewerDB, {FetchEntry} from './db'
 import {Note, Users, isNoteFeatureCollection, isNoteFeature, transformFeatureCollectionToNotesAndUsers, transformFeatureToNotesAndUsers} from './data'
 import {NoteQuery, NoteSearchQuery, NoteBboxQuery, NoteIdsQuery, NoteFetchDetails, makeNoteQueryString, getNextFetchDetails} from './query'
-import NoteTable from './table'
 import {makeElement, makeDiv, makeLink, makeEscapeTag} from './util'
 
 const e=makeEscapeTag(encodeURIComponent)
@@ -62,9 +61,14 @@ export class NoteIdsFetcherRequest extends NoteFetcherRequest {
 	}
 }
 
+export interface NoteTableUpdater {
+	addNotes(notes: Iterable<Note>, users: Users): number
+	replaceNote(note: Note, users: Users): void
+}
+
 export interface NoteFetcherEnvironment {
 	db: NoteViewerDB
-	noteTable: NoteTable
+	noteTable: NoteTableUpdater
 	$moreContainer: HTMLElement
 	getLimit: ()=>number
 	getAutoLoad: ()=>boolean
@@ -73,6 +77,9 @@ export interface NoteFetcherEnvironment {
 }
 
 export abstract class NoteFetcherRun {
+	private db: NoteViewerDB
+	private fetchEntry: Readonly<FetchEntry>|null = null
+	private noteTable: NoteTableUpdater
 	readonly notes = new Map<number,Note>()
 	readonly users: Users = {}
 	lastNote: Note | undefined
@@ -84,9 +91,12 @@ export abstract class NoteFetcherRun {
 		{db,noteTable,$moreContainer,getLimit,getAutoLoad,blockDownloads,moreButtonIntersectionObservers}: NoteFetcherEnvironment,
 		query: NoteQuery,
 		clearStore: boolean
-	) {(async()=>{
+	) {
+		this.db=db
+		this.noteTable=noteTable
+	;(async()=>{
 		const queryString=makeNoteQueryString(query) // empty string == don't know how to encode the query, thus won't save it to db
-		let fetchEntry: FetchEntry|null = await(async()=>{ // null fetch entry == don't save to db
+		this.fetchEntry = await(async()=>{ // null fetch entry == don't save to db
 			if (!queryString) return null
 			if (clearStore) {
 				return await db.getFetchWithClearedData(Date.now(),queryString)
@@ -136,7 +146,7 @@ export abstract class NoteFetcherRun {
 				makeDiv()($button),
 				makeDiv('advanced-hint')(`Resulting request: `,$requestOutput)
 			)
-			if (!fetchEntry) {
+			if (!this.fetchEntry) {
 				$moreContainer.append(
 					makeDiv()(
 						`The fetch results are not saved locally because ${queryString
@@ -183,9 +193,9 @@ export abstract class NoteFetcherRun {
 					}
 				}
 				let [unseenNotes,unseenUsers]=this.getUnseenData(downloadedNotes,downloadedUsers)
-				if (fetchEntry) {
-					const [newFetchEntry,writeConflictData]=await db.addDataToFetch(Date.now(),fetchEntry,unseenNotes,unseenUsers)
-					fetchEntry=newFetchEntry
+				if (this.fetchEntry) {
+					const [newFetchEntry,writeConflictData]=await db.addDataToFetch(Date.now(),this.fetchEntry,unseenNotes,unseenUsers)
+					this.fetchEntry=newFetchEntry
 					if (!writeConflictData) {
 						this.lastLimit=fetchDetails.limit
 						if (lastTriedPath!=null) this.lastTriedPath=lastTriedPath
@@ -200,7 +210,7 @@ export abstract class NoteFetcherRun {
 					if (lastTriedPath!=null) this.lastTriedPath=lastTriedPath
 				}
 				this.recordData(unseenNotes,unseenUsers)
-				if (!noteTable && this.notes.size<=0) {
+				if (this.notes.size<=0) {
 					rewriteMessage($moreContainer,`No matching notes found`)
 					return
 				}
@@ -253,8 +263,7 @@ export abstract class NoteFetcherRun {
 	reactToLimitUpdateForAdvancedMode() {
 		this.updateRequestHintInAdvancedMode()
 	}
-	async updateNote($a: HTMLAnchorElement, noteId: number, noteTable: NoteTable) {
-		// TODO update db
+	async updateNote($a: HTMLAnchorElement, noteId: number) {
 		$a.classList.add('loading')
 		try {
 			const url=e`https://api.openstreetmap.org/api/0.6/notes/${noteId}.json`
@@ -268,7 +277,8 @@ export abstract class NoteFetcherRun {
 			if (newNote.id!=noteId) throw new TypeError(`note reload received unexpected note`)
 			$a.classList.remove('absent')
 			$a.title=''
-			noteTable.replaceNote(newNote,newUsers)
+			if (this.fetchEntry) await this.db.updateDataInFetch(Date.now(),this.fetchEntry,newNote,newUsers)
+			this.noteTable.replaceNote(newNote,newUsers)
 		} catch (ex) {
 			$a.classList.add('absent')
 			if (ex instanceof TypeError) {
