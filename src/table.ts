@@ -7,6 +7,8 @@ import FigureDialog from './figure'
 import CommentWriter, {handleShowImagesUpdate, makeDateOutput} from './comment-writer'
 import ToolPanel from './tool-panel'
 import NoteFilter from './filter'
+import NoteSectionVisibilityObserver from './observer'
+import NoteRefresher from './refresher' // TODO move outside b/c all other network stuff is outside
 import {toReadableDate} from './query-date'
 import {makeUserNameLink, resetFadeAnimation} from './util'
 
@@ -24,6 +26,11 @@ export default class NoteTable {
 	private usersById = new Map<number,string>()
 	private commentWriter: CommentWriter
 	private showImages: boolean = false
+	private noteRefresher = new NoteRefresher(
+		5*60*1000,{
+			apiFetch: (requestPath:string)=>fetch(`https://api.openstreetmap.org/api/0.6/`+requestPath)
+		}
+	)
 	constructor(
 		$container: HTMLElement,
 		private toolPanel: ToolPanel, private map: NoteMap, private filter: NoteFilter,
@@ -73,16 +80,18 @@ export default class NoteTable {
 		this.wrappedNoteMarkerClickListener=function(){
 			that.noteMarkerClickListener(this)
 		}
-		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver(toolPanel,map,(noteIds)=>{
-			const layerIds: number[] = []
-			for (const noteId of noteIds) {
+		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver((visibleNoteIds,isMapFittingHalted)=>{
+			const visibleLayerIds: number[] = []
+			for (const noteId of visibleNoteIds) {
 				const $noteSection=document.getElementById(`note-`+noteId) // TODO look in $table
 				if (!($noteSection instanceof HTMLTableSectionElement)) continue
 				if (!$noteSection.dataset.layerId) continue
 				const layerId=Number($noteSection.dataset.layerId)
-				layerIds.push(layerId)
+				visibleLayerIds.push(layerId)
 			}
-			return layerIds
+			map.showNoteTrack(visibleLayerIds)
+			if (!isMapFittingHalted && toolPanel.fitMode=='inViewNotes') map.fitNoteTrack()
+			this.noteRefresher.observe(visibleNoteIds.map(id=>[id,0]))
 		})
 		this.commentWriter=new CommentWriter()
 		$container.append(this.$table)
@@ -95,6 +104,7 @@ export default class NoteTable {
 		})
 	}
 	reset(): void {
+		this.noteRefresher.reset()
 		this.notesById.clear()
 		this.usersById.clear()
 		this.$lastClickedNoteSection=undefined
@@ -502,54 +512,6 @@ export default class NoteTable {
 				return
 			}
 		}
-	}
-}
-
-class NoteSectionVisibilityObserver {
-	private intersectionObserver: IntersectionObserver
-	private visibilityTimeoutId: number | undefined
-	private haltingTimeoutId: number | undefined
-	private isMapFittingHalted: boolean = false
-	private noteIdVisibility = new Map<number,boolean>()
-	constructor(toolPanel: ToolPanel, map: NoteMap, getLayerIds: (noteIds:number[])=>number[]) {
-		const noteSectionVisibilityHandler=()=>{
-			const visibleNoteIds: number[] = []
-			for (const [noteId,visibility] of this.noteIdVisibility) {
-				if (visibility) visibleNoteIds.push(noteId)
-			}
-			map.showNoteTrack(getLayerIds(visibleNoteIds))
-			if (!this.isMapFittingHalted && toolPanel.fitMode=='inViewNotes') map.fitNoteTrack()
-		}
-		this.intersectionObserver=new IntersectionObserver((entries)=>{
-			for (const entry of entries) {
-				const $noteSection=entry.target
-				if (!($noteSection instanceof HTMLElement)) continue
-				if (!$noteSection.dataset.noteId) continue
-				const noteId=Number($noteSection.dataset.noteId)
-				if (!this.noteIdVisibility.has(noteId)) continue
-				this.noteIdVisibility.set(noteId,entry.isIntersecting)
-			}
-			clearTimeout(this.visibilityTimeoutId)
-			this.visibilityTimeoutId=setTimeout(noteSectionVisibilityHandler)
-		})
-	}
-	observe($noteSection: HTMLTableSectionElement): void {
-		if (!$noteSection.dataset.noteId) return
-		const noteId=Number($noteSection.dataset.noteId)
-		this.noteIdVisibility.set(noteId,false)
-		this.intersectionObserver.observe($noteSection)
-	}
-	disconnect() {
-		this.intersectionObserver.disconnect()
-		this.noteIdVisibility.clear()
-	}
-	haltMapFitting(): void {
-		clearTimeout(this.visibilityTimeoutId)
-		clearTimeout(this.haltingTimeoutId)
-		this.isMapFittingHalted=true
-		this.haltingTimeoutId=setTimeout(()=>{
-			this.isMapFittingHalted=false
-		},100)
 	}
 }
 
