@@ -10,7 +10,7 @@ import NoteFilter from './filter'
 import NoteSectionVisibilityObserver from './observer'
 import NoteRefresher from './refresher' // TODO move outside b/c all other network stuff is outside
 import {toReadableDate} from './query-date'
-import {makeUserNameLink, resetFadeAnimation} from './util'
+import {makeUserNameLink, makeDiv, resetFadeAnimation} from './util'
 
 const apiFetcher={
 	apiFetch: (requestPath:string)=>fetch(`https://api.openstreetmap.org/api/0.6/`+requestPath)
@@ -26,6 +26,12 @@ const makeTimeoutCaller=(periodicCallDelay:number,immediateCallDelay:number)=>{
 		schedulePeriodicCall:  scheduleCall(periodicCallDelay),
 		scheduleImmediateCall: scheduleCall(immediateCallDelay),
 	}
+}
+
+const setNoteSectionProgress=($noteSection:HTMLElement,progress:number)=>{
+	const $refreshWaitProgress=$noteSection.querySelector('td.note-link progress')
+	if (!($refreshWaitProgress instanceof HTMLProgressElement)) return
+	$refreshWaitProgress.value=progress
 }
 
 export default class NoteTable {
@@ -48,20 +54,23 @@ export default class NoteTable {
 		5*60*1000,apiFetcher,makeTimeoutCaller(10*1000,100),
 		(id,progress)=>{
 			const $noteSection=this.getNoteSection(id)
-			if (!$noteSection) return
-			$noteSection.dataset.refreshWaitProgress=String(Math.round(progress*100))
+			if ($noteSection) {
+				setNoteSectionProgress($noteSection,progress)
+			}
 		},
 		(id)=>{
 			const $noteSection=this.getNoteSection(id)
 			if ($noteSection) {
 				$noteSection.dataset.updated='updated'
 			}
-			const refreshTimestamp=Date.now()
-			this.noteRefreshTimestampsById.set(id,refreshTimestamp)
-			return refreshTimestamp
+			this.notesWithPendingUpdate.add(id)
 		},
 		(id:number,message?:string)=>{
 			// TODO report error by altering the link
+			const $noteSection=this.getNoteSection(id)
+			if ($noteSection) {
+				setNoteSectionProgress($noteSection,0)
+			}
 			const refreshTimestamp=Date.now()
 			this.noteRefreshTimestampsById.set(id,refreshTimestamp)
 			return refreshTimestamp
@@ -243,7 +252,6 @@ export default class NoteTable {
 		this.sendNoteCountsUpdate() // TODO only do if visibility changed
 		// update refresher
 		delete $noteSection.dataset.updated
-		delete $noteSection.dataset.refreshWaitProgress
 		this.noteRefresher.update(note.id,Date.now(),getNoteUpdateDate(note))
 	}
 	getVisibleNoteIds(): number[] {
@@ -349,7 +357,9 @@ export default class NoteTable {
 			$a.dataset.self='yes'
 			$a.classList.add('listened')
 			$a.title=`click to reload the note if you know it was updated or want to check it`
-			$cell.append($a)
+			const $refreshWaitProgress=document.createElement('progress')
+			$refreshWaitProgress.value=0
+			$cell.append(makeDiv()($a,$refreshWaitProgress))
 		}
 		let iComment=0
 		for (const comment of note.comments) {

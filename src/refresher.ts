@@ -27,7 +27,7 @@ export default class NoteRefresher {
 		private apiFetcher:ApiFetcher,
 		private timeoutCaller:TimeoutCaller,
 		private reportRefreshWaitProgress:(id:number,progress:number)=>void,
-		private reportUpdate:(id:number)=>number,
+		private reportUpdate:(id:number)=>void,
 		private reportPostpone:(id:number,message?:string)=>number
 	) {
 		this.timeoutCaller.schedulePeriodicCall((timestamp)=>this.receiveScheduledCall(timestamp))
@@ -133,6 +133,7 @@ export default class NoteRefresher {
 		if (newNote.id!=id) return postpone(`note refresh received unexpected note`)
 		const newUpdateDate=getNoteUpdateDate(newNote)
 		if (newUpdateDate<=scheduleEntry.updateDate) return postpone()
-		scheduleEntry.refreshTimestamp=this.reportUpdate(id)
+		scheduleEntry.hasPendingUpdate=true
+		this.reportUpdate(id)
 	}
 }
