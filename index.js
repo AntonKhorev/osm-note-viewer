@@ -1686,8 +1686,11 @@ function transformFeatureToNote(noteFeature, users) {
         return Date.parse(s + 'Z') / 1000;
     }
 }
+function getNoteUpdateDate(note) {
+    return note.comments[note.comments.length - 1]?.date ?? 0;
+}
 
-const e$2 = makeEscapeTag(encodeURIComponent);
+const e$3 = makeEscapeTag(encodeURIComponent);
 const maxSingleAutoLoadLimit = 200;
 const maxTotalAutoLoadLimit = 1000;
 const maxFullyFilteredFetches = 10;
@@ -1726,10 +1729,10 @@ class NoteBboxFetcherRequest extends NoteFetcherRequest {
     getRequestUrlPathAndParameters(query, limit) {
         if (query.mode != 'bbox')
             return;
-        return ['', this.getRequestUrlParametersWithoutLimit(query) + e$2 `&limit=${limit}`];
+        return ['', this.getRequestUrlParametersWithoutLimit(query) + e$3 `&limit=${limit}`];
     }
     getRequestUrlParametersWithoutLimit(query) {
-        return e$2 `bbox=${query.bbox}&closed=${query.closed}`;
+        return e$3 `bbox=${query.bbox}&closed=${query.closed}`;
     }
 }
 class NoteIdsFetcherRequest extends NoteFetcherRequest {
@@ -1940,7 +1943,7 @@ class NoteFetcherRun {
     async updateNote($a, noteId) {
         $a.classList.add('loading');
         try {
-            const url = e$2 `https://api.openstreetmap.org/api/0.6/notes/${noteId}.json`;
+            const url = e$3 `https://api.openstreetmap.org/api/0.6/notes/${noteId}.json`;
             const response = await fetch(url);
             if (!response.ok)
                 throw new TypeError(`note reload failed`);
@@ -2039,7 +2042,7 @@ class NoteBboxFetcherRun extends NoteFeatureCollectionFetcherRun {
     }
     getCycleFetchDetails(limit) {
         const parametersWithoutLimit = this.request.getRequestUrlParametersWithoutLimit(this.query);
-        const pathAndParameters = ['', parametersWithoutLimit + e$2 `&limit=${limit}`];
+        const pathAndParameters = ['', parametersWithoutLimit + e$3 `&limit=${limit}`];
         return {
             pathAndParametersList: [pathAndParameters],
             limit
@@ -3974,7 +3977,7 @@ class LooseParserListener {
     }
 }
 
-const e$1 = makeEscapeTag(encodeURIComponent);
+const e$2 = makeEscapeTag(encodeURIComponent);
 const makeItem = makeElement('li')();
 const makeITEM = makeElement('li')('main');
 class LooseParserPopup {
@@ -4005,7 +4008,7 @@ class LooseParserPopup {
         if (type == null)
             return makeElement('a')()('?');
         const $a = makeElement('a')()(type);
-        $a.href = e$1 `https://www.openstreetmap.org/${type}/${id}`;
+        $a.href = e$2 `https://www.openstreetmap.org/${type}/${id}`;
         if (type == 'note') {
             $a.classList.add('other-note');
             $a.dataset.noteId = String(id);
@@ -4300,6 +4303,205 @@ function imageErrorHandler() {
     this.removeAttribute('alt'); // render broken image icon
 }
 
+class NoteSectionVisibilityObserver {
+    constructor(handleVisibleNotes) {
+        this.isMapFittingHalted = false;
+        this.noteIdVisibility = new Map();
+        const noteSectionVisibilityHandler = () => {
+            const visibleNoteIds = [];
+            for (const [noteId, visibility] of this.noteIdVisibility) {
+                if (visibility)
+                    visibleNoteIds.push(noteId);
+            }
+            handleVisibleNotes(visibleNoteIds, this.isMapFittingHalted);
+        };
+        this.intersectionObserver = new IntersectionObserver((entries) => {
+            for (const entry of entries) {
+                const $noteSection = entry.target;
+                if (!($noteSection instanceof HTMLElement))
+                    continue;
+                if (!$noteSection.dataset.noteId)
+                    continue;
+                const noteId = Number($noteSection.dataset.noteId);
+                if (!this.noteIdVisibility.has(noteId))
+                    continue;
+                this.noteIdVisibility.set(noteId, entry.isIntersecting);
+            }
+            clearTimeout(this.visibilityTimeoutId);
+            this.visibilityTimeoutId = setTimeout(noteSectionVisibilityHandler);
+        });
+    }
+    observe($noteSection) {
+        if (!$noteSection.dataset.noteId)
+            return;
+        const noteId = Number($noteSection.dataset.noteId);
+        this.noteIdVisibility.set(noteId, false);
+        this.intersectionObserver.observe($noteSection);
+    }
+    disconnect() {
+        this.intersectionObserver.disconnect();
+        this.noteIdVisibility.clear();
+    }
+    haltMapFitting() {
+        clearTimeout(this.visibilityTimeoutId);
+        clearTimeout(this.haltingTimeoutId);
+        this.isMapFittingHalted = true;
+        this.haltingTimeoutId = setTimeout(() => {
+            this.isMapFittingHalted = false;
+        }, 100);
+    }
+}
+
+const e$1 = makeEscapeTag(encodeURIComponent);
+const clamp = (min, value, max) => Math.max(min, Math.min(value, max));
+class NoteRefresher {
+    constructor(refreshPeriod, apiFetcher, timeoutCaller, reportRefreshWaitProgress, reportUpdate, reportPostpone) {
+        this.refreshPeriod = refreshPeriod;
+        this.apiFetcher = apiFetcher;
+        this.timeoutCaller = timeoutCaller;
+        this.reportRefreshWaitProgress = reportRefreshWaitProgress;
+        this.reportUpdate = reportUpdate;
+        this.reportPostpone = reportPostpone;
+        this.schedule = new Map();
+        this.timeoutCaller.schedulePeriodicCall((timestamp) => this.receiveScheduledCall(timestamp));
+    }
+    reset() {
+        this.schedule.clear();
+    }
+    refreshAll() {
+        for (const scheduleEntry of this.schedule.values()) {
+            scheduleEntry.needImmediateRefresh = true;
+        }
+        this.timeoutCaller.scheduleImmediateCall((timestamp) => this.receiveScheduledCall(timestamp));
+    }
+    observe(noteRefreshList) {
+        const notesToUnschedule = new Set(this.schedule.keys());
+        for (const [id, refreshTimestamp, updateDate, hasPendingUpdate] of noteRefreshList) {
+            notesToUnschedule.delete(id);
+            const entry = this.schedule.get(id);
+            if (entry) {
+                entry.refreshTimestamp = refreshTimestamp;
+            }
+            else {
+                this.schedule.set(id, {
+                    refreshTimestamp,
+                    updateDate,
+                    hasPendingUpdate,
+                    needImmediateRefresh: false
+                });
+            }
+        }
+        for (const id of notesToUnschedule) {
+            this.schedule.delete(id);
+        }
+    }
+    update(id, refreshTimestamp, updateDate) {
+        const entry = this.schedule.get(id);
+        if (!entry)
+            return;
+        entry.refreshTimestamp = refreshTimestamp;
+        entry.updateDate = updateDate;
+        entry.hasPendingUpdate = false;
+        entry.needImmediateRefresh = false;
+    }
+    async receiveScheduledCall(timestamp) {
+        const reportAllProgress = () => {
+            for (const [id, { refreshTimestamp, hasPendingUpdate }] of this.schedule) {
+                if (hasPendingUpdate) {
+                    this.reportRefreshWaitProgress(id, 1);
+                }
+                else {
+                    const progress = clamp(0, (timestamp - refreshTimestamp) / this.refreshPeriod, 1);
+                    this.reportRefreshWaitProgress(id, progress);
+                }
+            }
+        };
+        const getNextId = () => {
+            let earliestRefreshTimestamp = +Infinity;
+            let earliestRefreshId;
+            for (const [id, { refreshTimestamp, needImmediateRefresh, hasPendingUpdate }] of this.schedule) {
+                if (hasPendingUpdate)
+                    continue;
+                if (needImmediateRefresh) {
+                    return id;
+                }
+                if (earliestRefreshTimestamp > refreshTimestamp) {
+                    earliestRefreshTimestamp = refreshTimestamp;
+                    earliestRefreshId = id;
+                }
+            }
+            if (timestamp - earliestRefreshTimestamp >= this.refreshPeriod) {
+                return earliestRefreshId;
+            }
+        };
+        reportAllProgress();
+        const currentId = getNextId();
+        if (currentId == null) {
+            this.timeoutCaller.schedulePeriodicCall((timestamp) => this.receiveScheduledCall(timestamp));
+            return;
+        }
+        await this.fetch(timestamp, currentId);
+        const futureId = getNextId();
+        if (futureId) {
+            this.timeoutCaller.scheduleImmediateCall((timestamp) => this.receiveScheduledCall(timestamp));
+        }
+        else {
+            this.timeoutCaller.schedulePeriodicCall((timestamp) => this.receiveScheduledCall(timestamp));
+        }
+    }
+    async fetch(timestamp, id) {
+        const scheduleEntry = this.schedule.get(id);
+        if (!scheduleEntry)
+            return;
+        const postpone = (message) => {
+            const newRefreshTimestamp = this.reportPostpone(id, message);
+            scheduleEntry.refreshTimestamp = newRefreshTimestamp;
+        };
+        scheduleEntry.needImmediateRefresh = false;
+        // const progress=clamp(0,(timestamp-scheduleEntry.refreshTimestamp)/this.refreshPeriod,1)
+        scheduleEntry.refreshTimestamp = timestamp;
+        // this.reportRefreshWaitProgress(id,progress)
+        const apiPath = e$1 `notes/${id}.json`;
+        const response = await this.apiFetcher.apiFetch(apiPath);
+        if (!response.ok)
+            return postpone(`note refresh failed`);
+        const data = await response.json();
+        if (!isNoteFeature(data))
+            return postpone(`note refresh received invalid data`);
+        const [newNotes] = transformFeatureToNotesAndUsers(data);
+        if (newNotes.length != 1)
+            return postpone(`note refresh received unexpected number of notes`);
+        const [newNote] = newNotes;
+        if (newNote.id != id)
+            return postpone(`note refresh received unexpected note`);
+        const newUpdateDate = getNoteUpdateDate(newNote);
+        if (newUpdateDate <= scheduleEntry.updateDate)
+            return postpone();
+        scheduleEntry.hasPendingUpdate = true;
+        this.reportUpdate(id);
+    }
+}
+
+const apiFetcher = {
+    apiFetch: (requestPath) => fetch(`https://api.openstreetmap.org/api/0.6/` + requestPath)
+};
+const makeTimeoutCaller = (periodicCallDelay, immediateCallDelay) => {
+    let timeoutId;
+    const scheduleCall = (delay) => (callback) => {
+        clearTimeout(timeoutId);
+        setTimeout(() => callback(Date.now()), delay);
+    };
+    return {
+        schedulePeriodicCall: scheduleCall(periodicCallDelay),
+        scheduleImmediateCall: scheduleCall(immediateCallDelay),
+    };
+};
+const setNoteSectionProgress = ($noteSection, progress) => {
+    const $refreshWaitProgress = $noteSection.querySelector('td.note-link progress');
+    if (!($refreshWaitProgress instanceof HTMLProgressElement))
+        return;
+    $refreshWaitProgress.value = progress;
+};
 class NoteTable {
     constructor($container, toolPanel, map, filter, figureDialog) {
         this.toolPanel = toolPanel;
@@ -4308,8 +4510,31 @@ class NoteTable {
         this.$table = document.createElement('table');
         this.$selectAllCheckbox = document.createElement('input');
         this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
+        this.noteRefreshTimestampsById = new Map();
+        this.notesWithPendingUpdate = new Set();
         this.usersById = new Map();
         this.showImages = false;
+        this.noteRefresher = new NoteRefresher(5 * 60 * 1000, apiFetcher, makeTimeoutCaller(10 * 1000, 100), (id, progress) => {
+            const $noteSection = this.getNoteSection(id);
+            if ($noteSection) {
+                setNoteSectionProgress($noteSection, progress);
+            }
+        }, (id) => {
+            const $noteSection = this.getNoteSection(id);
+            if ($noteSection) {
+                $noteSection.dataset.updated = 'updated';
+            }
+            this.notesWithPendingUpdate.add(id);
+        }, (id, message) => {
+            // TODO report error by altering the link
+            const $noteSection = this.getNoteSection(id);
+            if ($noteSection) {
+                setNoteSectionProgress($noteSection, 0);
+            }
+            const refreshTimestamp = Date.now();
+            this.noteRefreshTimestampsById.set(id, refreshTimestamp);
+            return refreshTimestamp;
+        });
         toolPanel.onCommentsViewChange = (onlyFirst, oneLine) => {
             this.$table.classList.toggle('only-first-comments', onlyFirst);
             this.$table.classList.toggle('one-line-comments', oneLine);
@@ -4355,18 +4580,31 @@ class NoteTable {
         this.wrappedNoteMarkerClickListener = function () {
             that.noteMarkerClickListener(this);
         };
-        this.noteSectionVisibilityObserver = new NoteSectionVisibilityObserver(toolPanel, map, (noteIds) => {
-            const layerIds = [];
-            for (const noteId of noteIds) {
-                const $noteSection = document.getElementById(`note-` + noteId); // TODO look in $table
-                if (!($noteSection instanceof HTMLTableSectionElement))
+        this.noteSectionVisibilityObserver = new NoteSectionVisibilityObserver((visibleNoteIds, isMapFittingHalted) => {
+            const visibleLayerIds = [];
+            for (const noteId of visibleNoteIds) {
+                const $noteSection = this.getNoteSection(noteId);
+                if (!$noteSection)
                     continue;
                 if (!$noteSection.dataset.layerId)
                     continue;
                 const layerId = Number($noteSection.dataset.layerId);
-                layerIds.push(layerId);
+                visibleLayerIds.push(layerId);
             }
-            return layerIds;
+            map.showNoteTrack(visibleLayerIds);
+            if (!isMapFittingHalted && toolPanel.fitMode == 'inViewNotes')
+                map.fitNoteTrack();
+            const noteRefreshList = [];
+            for (const id of visibleNoteIds) {
+                const lastRefreshTimestamp = this.noteRefreshTimestampsById.get(id);
+                if (!lastRefreshTimestamp)
+                    continue;
+                const note = this.notesById.get(id);
+                if (!note)
+                    continue;
+                noteRefreshList.push([id, lastRefreshTimestamp, getNoteUpdateDate(note), this.notesWithPendingUpdate.has(id)]);
+            }
+            this.noteRefresher.observe(noteRefreshList);
         });
         this.commentWriter = new CommentWriter();
         $container.append(this.$table);
@@ -4380,6 +4618,9 @@ class NoteTable {
         });
     }
     reset() {
+        this.noteRefresher.reset();
+        this.noteRefreshTimestampsById.clear();
+        this.notesWithPendingUpdate.clear();
         this.notesById.clear();
         this.usersById.clear();
         this.$lastClickedNoteSection = undefined;
@@ -4430,6 +4671,7 @@ class NoteTable {
         for (const note of notes) {
             noteSequence.push(note);
             this.notesById.set(note.id, note);
+            this.notesWithPendingUpdate.delete(note.id);
         }
         for (const [uid, username] of Object.entries(users)) {
             this.usersById.set(Number(uid), username);
@@ -4458,8 +4700,8 @@ class NoteTable {
         return nUnfilteredNotes;
     }
     replaceNote(note, users) {
-        const $noteSection = document.getElementById(`note-` + note.id); // TODO look in $table
-        if (!($noteSection instanceof HTMLTableSectionElement))
+        const $noteSection = this.getNoteSection(note.id);
+        if (!$noteSection)
             return;
         const layerId = Number($noteSection.dataset.layerId);
         this.map.removeNoteMarker(layerId);
@@ -4467,6 +4709,7 @@ class NoteTable {
         this.notesById.set(note.id, note);
         for (const [uid, username] of Object.entries(users)) {
             this.usersById.set(Number(uid), username);
+            this.notesWithPendingUpdate.delete(note.id);
         }
         // output table section
         $noteSection.innerHTML = '';
@@ -4474,6 +4717,9 @@ class NoteTable {
         const isVisible = this.filter.matchNote(note, getUsername);
         this.writeNote($noteSection, note, users, isVisible);
         this.sendNoteCountsUpdate(); // TODO only do if visibility changed
+        // update refresher
+        delete $noteSection.dataset.updated;
+        this.noteRefresher.update(note.id, Date.now(), getNoteUpdateDate(note));
     }
     getVisibleNoteIds() {
         const ids = [];
@@ -4500,8 +4746,8 @@ class NoteTable {
         handleShowImagesUpdate(this.$table, showImages);
     }
     pingNoteFromLink($a, noteId) {
-        const $noteSection = document.getElementById(`note-` + noteId); // TODO look in $table
-        if (!($noteSection instanceof HTMLTableSectionElement)) {
+        const $noteSection = this.getNoteSection(noteId);
+        if (!$noteSection) {
             $a.classList.add('absent');
             $a.title = `The note is not downloaded`;
         }
@@ -4567,6 +4813,7 @@ class NoteTable {
         }
         {
             const $cell = $row.insertCell();
+            $cell.classList.add('note-link');
             if (nComments > 1)
                 $cell.rowSpan = nComments;
             const $a = document.createElement('a');
@@ -4575,7 +4822,9 @@ class NoteTable {
             $a.dataset.self = 'yes';
             $a.classList.add('listened');
             $a.title = `click to reload the note if you know it was updated or want to check it`;
-            $cell.append($a);
+            const $refreshWaitProgress = document.createElement('progress');
+            $refreshWaitProgress.value = 0;
+            $cell.append(makeDiv()($a, $refreshWaitProgress));
         }
         let iComment = 0;
         for (const comment of note.comments) {
@@ -4627,6 +4876,7 @@ class NoteTable {
             }
             iComment++;
         }
+        this.noteRefreshTimestampsById.set(note.id, Date.now());
     }
     sendNoteCountsUpdate() {
         let nFetched = 0;
@@ -4641,10 +4891,9 @@ class NoteTable {
         this.toolPanel.receiveNoteCounts(nFetched, nVisible);
     }
     noteMarkerClickListener(marker) {
-        const $noteSection = document.getElementById(`note-` + marker.noteId);
-        if (!($noteSection instanceof HTMLTableSectionElement))
-            return;
-        this.focusOnNote($noteSection);
+        const $noteSection = this.getNoteSection(marker.noteId);
+        if ($noteSection)
+            this.focusOnNote($noteSection);
     }
     noteCheckboxClickListener($checkbox, ev) {
         ev.stopPropagation();
@@ -4820,55 +5069,11 @@ class NoteTable {
             }
         }
     }
-}
-class NoteSectionVisibilityObserver {
-    constructor(toolPanel, map, getLayerIds) {
-        this.isMapFittingHalted = false;
-        this.noteIdVisibility = new Map();
-        const noteSectionVisibilityHandler = () => {
-            const visibleNoteIds = [];
-            for (const [noteId, visibility] of this.noteIdVisibility) {
-                if (visibility)
-                    visibleNoteIds.push(noteId);
-            }
-            map.showNoteTrack(getLayerIds(visibleNoteIds));
-            if (!this.isMapFittingHalted && toolPanel.fitMode == 'inViewNotes')
-                map.fitNoteTrack();
-        };
-        this.intersectionObserver = new IntersectionObserver((entries) => {
-            for (const entry of entries) {
-                const $noteSection = entry.target;
-                if (!($noteSection instanceof HTMLElement))
-                    continue;
-                if (!$noteSection.dataset.noteId)
-                    continue;
-                const noteId = Number($noteSection.dataset.noteId);
-                if (!this.noteIdVisibility.has(noteId))
-                    continue;
-                this.noteIdVisibility.set(noteId, entry.isIntersecting);
-            }
-            clearTimeout(this.visibilityTimeoutId);
-            this.visibilityTimeoutId = setTimeout(noteSectionVisibilityHandler);
-        });
-    }
-    observe($noteSection) {
-        if (!$noteSection.dataset.noteId)
+    getNoteSection(noteId) {
+        const $noteSection = document.getElementById(`note-` + noteId); // TODO look in $table
+        if (!($noteSection instanceof HTMLTableSectionElement))
             return;
-        const noteId = Number($noteSection.dataset.noteId);
-        this.noteIdVisibility.set(noteId, false);
-        this.intersectionObserver.observe($noteSection);
-    }
-    disconnect() {
-        this.intersectionObserver.disconnect();
-        this.noteIdVisibility.clear();
-    }
-    haltMapFitting() {
-        clearTimeout(this.visibilityTimeoutId);
-        clearTimeout(this.haltingTimeoutId);
-        this.isMapFittingHalted = true;
-        this.haltingTimeoutId = setTimeout(() => {
-            this.isMapFittingHalted = false;
-        }, 100);
+        return $noteSection;
     }
 }
 function getStatusClass(status) {

@@ -7,6 +7,7 @@
 	--info-stroke-color: #00F;
 	--error-color: #F00;
 	--error-background-color: #FCC;
+	--refresh-color: #C80;
 	--semi-link-color: #004;
 	--inset-background-color: #EEE;
 	--file-reader-background-color: #e9e9ed;
@@ -566,6 +567,40 @@ nav ul li a:focus {
 .notes td,
 .notes th {
 	padding: 2px;
+}
+.notes td.note-link > div {
+	position: relative;
+	display: grid;
+}
+.notes tbody[data-updated] td.note-link > div::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	right: -2px;
+	border: solid 3px var(--refresh-color);
+	border-radius: 3px;
+}
+.notes td.note-link > div progress {
+	grid-row: 1;
+	grid-column: 1;
+	position: absolute;
+	z-index: -1;
+	height: 2px;
+	width: 100%;
+	bottom: 0;
+	left: 0;
+	border: 0;
+	opacity: .7;
+	background: transparent;
+}
+.notes td.note-link > div progress::-webkit-progress-bar {
+	background: transparent;
+}
+.notes td.note-link > div progress::-moz-progress-bar {
+	background-color: var(--refresh-color);
+}
+.notes td.note-link > div progress::-webkit-progress-value {
+	background-color: var(--refresh-color);
 }
 .notes td.note-date {
 	white-space: nowrap;
