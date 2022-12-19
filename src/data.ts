@@ -104,3 +104,7 @@ function transformFeatureToNote(noteFeature: NoteFeature, users: Users): Note {
 		return Date.parse(s+'Z')/1000
 	}
 }
+
+export function getNoteUpdateDate(note:Note):number {
+	return note.comments[note.comments.length-1]?.date??0
+}

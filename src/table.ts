@@ -1,4 +1,4 @@
-import type {Note, NoteComment, Users} from './data'
+import {Note, NoteComment, Users, getNoteUpdateDate} from './data'
 import {NoteMap, NoteMarker} from './map'
 import LooseParserListener from './loose-listen'
 import LooseParserPopup from './loose-popup'
@@ -12,6 +12,22 @@ import NoteRefresher from './refresher' // TODO move outside b/c all other netwo
 import {toReadableDate} from './query-date'
 import {makeUserNameLink, resetFadeAnimation} from './util'
 
+const apiFetcher={
+	apiFetch: (requestPath:string)=>fetch(`https://api.openstreetmap.org/api/0.6/`+requestPath)
+}
+
+const makeTimeoutCaller=(periodicCallDelay:number,immediateCallDelay:number)=>{
+	let timeoutId:number|undefined
+	const scheduleCall=(delay:number)=>(callback:(timestamp:number)=>void)=>{
+		clearTimeout(timeoutId)
+		setTimeout(()=>callback(Date.now()),delay)
+	}
+	return {
+		schedulePeriodicCall:  scheduleCall(periodicCallDelay),
+		scheduleImmediateCall: scheduleCall(immediateCallDelay),
+	}
+}
+
 export default class NoteTable {
 	private wrappedNoteSectionListeners: Array<[event: string, listener: (this:HTMLTableSectionElement)=>void]>
 	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
@@ -23,12 +39,32 @@ export default class NoteTable {
 	private $selectAllCheckbox = document.createElement('input')
 	private $lastClickedNoteSection: HTMLTableSectionElement | undefined
 	private notesById = new Map<number,Note>() // in the future these might be windowed to limit the amount of stuff on one page
+	private noteRefreshTimestampsById = new Map<number,number>()
+	private notesWithPendingUpdate = new Set<number>()
 	private usersById = new Map<number,string>()
 	private commentWriter: CommentWriter
 	private showImages: boolean = false
 	private noteRefresher = new NoteRefresher(
-		5*60*1000,{
-			apiFetch: (requestPath:string)=>fetch(`https://api.openstreetmap.org/api/0.6/`+requestPath)
+		5*60*1000,apiFetcher,makeTimeoutCaller(10*1000,100),
+		(id,progress)=>{
+			const $noteSection=this.getNoteSection(id)
+			if (!$noteSection) return
+			$noteSection.dataset.refreshWaitProgress=String(Math.round(progress*100))
+		},
+		(id)=>{
+			const $noteSection=this.getNoteSection(id)
+			if ($noteSection) {
+				$noteSection.dataset.updated='updated'
+			}
+			const refreshTimestamp=Date.now()
+			this.noteRefreshTimestampsById.set(id,refreshTimestamp)
+			return refreshTimestamp
+		},
+		(id:number,message?:string)=>{
+			// TODO report error by altering the link
+			const refreshTimestamp=Date.now()
+			this.noteRefreshTimestampsById.set(id,refreshTimestamp)
+			return refreshTimestamp
 		}
 	)
 	constructor(
@@ -91,7 +127,15 @@ export default class NoteTable {
 			}
 			map.showNoteTrack(visibleLayerIds)
 			if (!isMapFittingHalted && toolPanel.fitMode=='inViewNotes') map.fitNoteTrack()
-			this.noteRefresher.observe(visibleNoteIds.map(id=>[id,0]))
+			const noteRefreshList:[id:number,lastRefreshTimestamp:number,updateDate:number,hasPendingUpdate:boolean][]=[]
+			for (const id of visibleNoteIds) {
+				const lastRefreshTimestamp=this.noteRefreshTimestampsById.get(id)
+				if (!lastRefreshTimestamp) continue
+				const note=this.notesById.get(id)
+				if (!note) continue
+				noteRefreshList.push([id,lastRefreshTimestamp,getNoteUpdateDate(note),this.notesWithPendingUpdate.has(id)])
+			}
+			this.noteRefresher.observe(noteRefreshList)
 		})
 		this.commentWriter=new CommentWriter()
 		$container.append(this.$table)
@@ -105,6 +149,8 @@ export default class NoteTable {
 	}
 	reset(): void {
 		this.noteRefresher.reset()
+		this.noteRefreshTimestampsById.clear()
+		this.notesWithPendingUpdate.clear()
 		this.notesById.clear()
 		this.usersById.clear()
 		this.$lastClickedNoteSection=undefined
@@ -153,6 +199,7 @@ export default class NoteTable {
 		for (const note of notes) {
 			noteSequence.push(note)
 			this.notesById.set(note.id,note)
+			this.notesWithPendingUpdate.delete(note.id)
 		}
 		for (const [uid,username] of Object.entries(users)) {
 			this.usersById.set(Number(uid),username)
@@ -186,6 +233,7 @@ export default class NoteTable {
 		this.notesById.set(note.id,note)
 		for (const [uid,username] of Object.entries(users)) {
 			this.usersById.set(Number(uid),username)
+			this.notesWithPendingUpdate.delete(note.id)
 		}
 		// output table section
 		$noteSection.innerHTML=''
@@ -193,6 +241,10 @@ export default class NoteTable {
 		const isVisible=this.filter.matchNote(note,getUsername)
 		this.writeNote($noteSection,note,users,isVisible)
 		this.sendNoteCountsUpdate() // TODO only do if visibility changed
+		// update refresher
+		delete $noteSection.dataset.updated
+		delete $noteSection.dataset.refreshWaitProgress
+		this.noteRefresher.update(note.id,Date.now(),getNoteUpdateDate(note))
 	}
 	getVisibleNoteIds(): number[] {
 		const ids: number[] = []
@@ -289,6 +341,7 @@ export default class NoteTable {
 			$cell.append($checkbox)
 		}{
 			const $cell=$row.insertCell()
+			$cell.classList.add('note-link')
 			if (nComments>1) $cell.rowSpan=nComments
 			const $a=document.createElement('a')
 			$a.href=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.id)
@@ -343,6 +396,7 @@ export default class NoteTable {
 			}
 			iComment++
 		}
+		this.noteRefreshTimestampsById.set(note.id,Date.now())
 	}
 	private sendNoteCountsUpdate(): void {
 		let nFetched=0

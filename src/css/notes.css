@@ -35,6 +35,17 @@
 .notes th {
 	padding: 2px;
 }
+.notes td.note-link {
+	position: relative;
+}
+.notes tbody[data-updated] td.note-link::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	right: 0;
+	border: solid 3px var(--refresh-color);
+	border-radius: 3px;
+}
 .notes td.note-date {
 	white-space: nowrap;
 }
