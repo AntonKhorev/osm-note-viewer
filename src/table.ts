@@ -83,8 +83,8 @@ export default class NoteTable {
 		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver((visibleNoteIds,isMapFittingHalted)=>{
 			const visibleLayerIds: number[] = []
 			for (const noteId of visibleNoteIds) {
-				const $noteSection=document.getElementById(`note-`+noteId) // TODO look in $table
-				if (!($noteSection instanceof HTMLTableSectionElement)) continue
+				const $noteSection=this.getNoteSection(noteId)
+				if (!$noteSection) continue
 				if (!$noteSection.dataset.layerId) continue
 				const layerId=Number($noteSection.dataset.layerId)
 				visibleLayerIds.push(layerId)
@@ -178,8 +178,8 @@ export default class NoteTable {
 		return nUnfilteredNotes
 	}
 	replaceNote(note: Note, users: Users): void {
-		const $noteSection=document.getElementById(`note-`+note.id) // TODO look in $table
-		if (!($noteSection instanceof HTMLTableSectionElement)) return
+		const $noteSection=this.getNoteSection(note.id)
+		if (!$noteSection) return
 		const layerId=Number($noteSection.dataset.layerId)
 		this.map.removeNoteMarker(layerId)
 		// remember note and users
@@ -217,8 +217,8 @@ export default class NoteTable {
 		handleShowImagesUpdate(this.$table,showImages)
 	}
 	pingNoteFromLink($a: HTMLAnchorElement, noteId: string): void {
-		const $noteSection=document.getElementById(`note-`+noteId) // TODO look in $table
-		if (!($noteSection instanceof HTMLTableSectionElement)) {
+		const $noteSection=this.getNoteSection(noteId)
+		if (!$noteSection) {
 			$a.classList.add('absent')
 			$a.title=`The note is not downloaded`
 		} else if ($noteSection.classList.contains('hidden')) {
@@ -355,9 +355,8 @@ export default class NoteTable {
 		this.toolPanel.receiveNoteCounts(nFetched,nVisible)
 	}
 	private noteMarkerClickListener(marker: NoteMarker): void {
-		const $noteSection=document.getElementById(`note-`+marker.noteId)
-		if (!($noteSection instanceof HTMLTableSectionElement)) return
-		this.focusOnNote($noteSection)
+		const $noteSection=this.getNoteSection(marker.noteId)
+		if ($noteSection) this.focusOnNote($noteSection)
 	}
 	private noteCheckboxClickListener($checkbox: HTMLInputElement, ev: MouseEvent): void { // need 'click' handler rather than 'change' to stop click propagation
 		ev.stopPropagation()
@@ -512,6 +511,11 @@ export default class NoteTable {
 				return
 			}
 		}
+	}
+	private getNoteSection(noteId:number|string):HTMLTableSectionElement|undefined {
+		const $noteSection=document.getElementById(`note-`+noteId) // TODO look in $table
+		if (!($noteSection instanceof HTMLTableSectionElement)) return
+		return $noteSection
 	}
 }
 
