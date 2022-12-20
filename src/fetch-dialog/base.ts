@@ -92,7 +92,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 			return
 		}
 		const [[mainType,mainApiPath],...otherRequestApiPaths]=requestApiPaths
-		const mainUrl=this.server.getApiFetchUrl(mainApiPath)
+		const mainUrl=this.server.getApiUrl(mainApiPath)
 		const $a=makeLink(mainUrl,mainUrl)
 		$a.classList.add('request')
 		this.$requestOutput.replaceChildren(code($a),` in ${mainType} format`)
@@ -107,7 +107,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 			} else {
 				this.$requestOutput.append(`, `)
 			}
-			const url=this.server.getApiFetchUrl(apiPath)
+			const url=this.server.getApiUrl(apiPath)
 			this.$requestOutput.append(code(makeLink(type,url)))
 			appendLinkIfKnown(type)
 		}

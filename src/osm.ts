@@ -430,6 +430,6 @@ function makeUserNameLink(server: Server, username: string): HTMLAnchorElement {
 }
 
 function makeUserIdLink(server: Server, uid: number): HTMLAnchorElement {
-	const fromId=(id: number)=>server.getApiFetchUrl(e`user/${id}`)
+	const fromId=(id: number)=>server.getApiUrl(e`user/${id}`)
 	return makeLink('#'+uid,fromId(uid))
 }

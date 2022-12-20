@@ -138,7 +138,7 @@ export abstract class NoteFetcherRun {
 					return
 				}
 				const apiPath=this.request.constructApiPath(...fetchDetails.pathAndParametersList[0])
-				const url=server.getApiFetchUrl(apiPath)
+				const url=server.getApiUrl(apiPath)
 				const $a=makeLink(url,url)
 				$a.classList.add('request')
 				$requestOutput.replaceChildren(makeElement('code')()($a))
