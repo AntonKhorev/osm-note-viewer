@@ -74,7 +74,7 @@ export default class NoteFetchPanel {
 			new NoteIdsFetcherRequest,
 			(getRequestApiPaths,submitQuery)=>new NotePlaintextFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery,noteTable)
 		)
-		const aboutDialog=new AboutDialog(storage,db)
+		const aboutDialog=new AboutDialog(storage,db,server)
 		aboutDialog.write($container)
 		navbar.addTab(aboutDialog,true)
 		

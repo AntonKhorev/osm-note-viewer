@@ -11,7 +11,7 @@ import NoteSectionVisibilityObserver from './observer'
 import NoteRefresher from './refresher' // TODO move outside b/c all other network stuff is outside
 import {toReadableDate} from './query-date'
 import type Server from './server'
-import {makeUserNameLink, makeDiv, resetFadeAnimation} from './html'
+import {makeDiv, makeLink, resetFadeAnimation} from './html'
 
 const makeTimeoutCaller=(periodicCallDelay:number,immediateCallDelay:number)=>{
 	let timeoutId:number|undefined
@@ -52,7 +52,7 @@ export default class NoteTable {
 		$container: HTMLElement,
 		private toolPanel: ToolPanel, private map: NoteMap, private filter: NoteFilter,
 		figureDialog: FigureDialog,
-		server: Server
+		private server: Server
 	) {
 		this.noteRefresher=new NoteRefresher(
 			5*60*1000,server,makeTimeoutCaller(10*1000,100),
@@ -376,7 +376,8 @@ export default class NoteTable {
 				if (comment.uid!=null) {
 					const username=users[comment.uid]
 					if (username!=null) {
-						const $a=makeUserNameLink(username)
+						const href=this.server.getWebUrl(`user/`+encodeURIComponent(username))
+						const $a=makeLink(username,href)
 						$a.classList.add('listened')
 						$a.dataset.userName=username
 						$a.dataset.userId=String(comment.uid)

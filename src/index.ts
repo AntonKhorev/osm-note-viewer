@@ -56,11 +56,11 @@ async function main() {
 	globalEventsListener.elementListener=($a,elementType,elementId)=>{
 		if (elementType!='node' && elementType!='way' && elementType!='relation') return false
 		figureDialog.close()
-		downloadAndShowElement($a,map,elementType,elementId)
+		downloadAndShowElement($a,server,map,elementType,elementId)
 	}
 	globalEventsListener.changesetListener=($a,changesetId)=>{
 		figureDialog.close()
-		downloadAndShowChangeset($a,map,changesetId)
+		downloadAndShowChangeset($a,server,map,changesetId)
 	}
 	globalEventsListener.mapListener=($a,zoom,lat,lon)=>{
 		figureDialog.close()

@@ -7,7 +7,10 @@ export default class Server implements ApiFetcher {
 	apiFetch(apiPath:string) {
 		return fetch(this.getApiFetchUrl(apiPath))
 	}
-	getApiFetchUrl(apiPath:string):string {
+	getApiFetchUrl(apiPath:string):string { // TODO rename to getApiUrl
 		return `${this.apiUrl}api/0.6/${apiPath}`
+	}
+	getWebUrl(webPath:string):string {
+		return `https://www.openstreetmap.org/${webPath}`
 	}
 }

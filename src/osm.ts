@@ -1,5 +1,6 @@
+import Server from './server'
 import {NoteMap} from './map'
-import {makeLink, makeUserLink, makeDiv, makeElement} from './html'
+import {makeLink, makeDiv, makeElement} from './html'
 import {makeEscapeTag} from './escape'
 
 interface OsmBase {
@@ -123,12 +124,11 @@ function isOsmChangeset(c: any): c is OsmChangeset {
 const e=makeEscapeTag(encodeURIComponent)
 
 export async function downloadAndShowChangeset(
-	$a: HTMLAnchorElement, map: NoteMap,
+	$a: HTMLAnchorElement, server: Server, map: NoteMap,
 	changesetId: string
 ): Promise<void> {
 	downloadCommon($a,map,async()=>{
-		const url=e`https://api.openstreetmap.org/api/0.6/changeset/${changesetId}.json`
-		const response=await fetch(url)
+		const response=await server.apiFetch(e`changeset/${changesetId}.json`)
 		if (!response.ok) {
 			if (response.status==404) {
 				throw new TypeError(`changeset doesn't exist`)
@@ -141,7 +141,7 @@ export async function downloadAndShowChangeset(
 		addGeometryToMap(
 			map,
 			makeChangesetGeometry(changeset),
-			()=>makeChangesetPopupContents(changeset)
+			()=>makeChangesetPopupContents(server,changeset)
 		)
 	})
 	function makeChangesetGeometry(changeset: OsmChangeset): L.Layer {
@@ -159,13 +159,12 @@ export async function downloadAndShowChangeset(
 }
 
 export async function downloadAndShowElement(
-	$a: HTMLAnchorElement, map: NoteMap,
+	$a: HTMLAnchorElement, server: Server, map: NoteMap,
 	elementType: OsmElement['type'], elementId: string
 ): Promise<void> {
 	downloadCommon($a,map,async()=>{
 		const fullBit=(elementType=='node' ? '' : '/full')
-		const url=e`https://api.openstreetmap.org/api/0.6/${elementType}/${elementId}`+`${fullBit}.json`
-		const response=await fetch(url)
+		const response=await server.apiFetch(e`${elementType}/${elementId}`+`${fullBit}.json`)
 		if (!response.ok) {
 			if (response.status==404) {
 				throw new TypeError(`element doesn't exist`)
@@ -183,19 +182,19 @@ export async function downloadAndShowElement(
 			addGeometryToMap(
 				map,
 				makeNodeGeometry(element),
-				()=>makeElementPopupContents(element)
+				()=>makeElementPopupContents(server,element)
 			)
 		} else if (isOsmWayElement(element)) {
 			addGeometryToMap(
 				map,
 				makeWayGeometry(element,elements),
-				()=>makeElementPopupContents(element)
+				()=>makeElementPopupContents(server,element)
 			)
 		} else if (isOsmRelationElement(element)) {
 			addGeometryToMap(
 				map,
 				makeRelationGeometry(element,elements),
-				()=>makeElementPopupContents(element)
+				()=>makeElementPopupContents(server,element)
 			)
 		} else {
 			throw new TypeError(`OSM API error: requested element has unknown type`) // shouldn't happen
@@ -282,12 +281,12 @@ function getElementsFromOsmApiResponse(data: any): OsmElementMap {
 	return {node,way,relation}
 }
 
-function makeChangesetPopupContents(changeset: OsmChangeset): HTMLElement[] {
+function makeChangesetPopupContents(server: Server, changeset: OsmChangeset): HTMLElement[] {
 	const contents: HTMLElement[] = []
 	const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
 	const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
 	const c=(...s: Array<string|HTMLElement>)=>p(makeElement('em')()(...s))
-	const changesetHref=e`https://www.openstreetmap.org/changeset/${changeset.id}`
+	const changesetHref=server.getWebUrl(e`changeset/${changeset.id}`)
 	contents.push(
 		h(`Changeset: `,makeLink(String(changeset.id),changesetHref))
 	)
@@ -301,7 +300,7 @@ function makeChangesetPopupContents(changeset: OsmChangeset): HTMLElement[] {
 		`Created on `,getDate(changeset.created_at)
 	)}
 	$p.append(
-		` by `,getUser(changeset)
+		` by `,getUser(server,changeset)
 	)
 	contents.push($p)
 	const $tags=getTags(changeset.tags,'comment')
@@ -309,21 +308,21 @@ function makeChangesetPopupContents(changeset: OsmChangeset): HTMLElement[] {
 	return contents
 }
 
-function makeElementPopupContents(element: OsmElement): HTMLElement[] {
+function makeElementPopupContents(server: Server, element: OsmElement): HTMLElement[] {
 	const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
 	const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
-	const elementHref=e`https://www.openstreetmap.org/${element.type}/${element.id}`
+	const elementPath=e`${element.type}/${element.id}`
 	const contents: HTMLElement[] = [
-		h(capitalize(element.type)+`: `,makeLink(getElementName(element),elementHref)),
+		h(capitalize(element.type)+`: `,makeLink(getElementName(element),server.getWebUrl(elementPath))),
 		h(
 			`Version #${element.version} · `,
-			makeLink(`View History`,elementHref+'/history'),` · `,
-			makeLink(`Edit`,e`https://www.openstreetmap.org/edit?${element.type}=${element.id}`)
+			makeLink(`View History`,server.getWebUrl(elementPath+'/history')),` · `,
+			makeLink(`Edit`,server.getWebUrl(e`edit?${element.type}=${element.id}`))
 		),
 		p(
 			`Edited on `,getDate(element.timestamp),
-			` by `,getUser(element),
-			` · Changeset #`,getChangeset(element.changeset)
+			` by `,getUser(server,element),
+			` · Changeset #`,getChangeset(server,element.changeset)
 		)
 	]
 	const $tags=getTags(element.tags)
@@ -358,17 +357,17 @@ function getDate(timestamp: string): HTMLElement {
 	return $time
 }
 
-function getUser(data: OsmBase): HTMLElement {
-	const $a=makeUserLink(data.uid,data.user)
+function getUser(server: Server, data: OsmBase): HTMLElement {
+	const $a=makeUserLink(server,data.uid,data.user)
 	$a.classList.add('listened')
 	$a.dataset.userName=data.user
 	$a.dataset.userId=String(data.uid)
 	return $a
 }
 
-function getChangeset(changesetId: number): HTMLElement {
+function getChangeset(server: Server, changesetId: number): HTMLElement {
 	const cid=String(changesetId)
-	const $a=makeLink(cid,e`https://www.openstreetmap.org/changeset/${cid}`)
+	const $a=makeLink(cid,server.getWebUrl(e`changeset/${cid}`))
 	$a.classList.add('listened')
 	$a.dataset.changesetId=cid
 	return $a
@@ -418,4 +417,19 @@ function getElementName(element: OsmElement): string {
 	} else {
 		return String(element.id)
 	}
+}
+
+function makeUserLink(server: Server, uid: number, username?: string): HTMLElement {
+	if (username) return makeUserNameLink(server,username)
+	return makeUserIdLink(server,uid)
+}
+
+function makeUserNameLink(server: Server, username: string): HTMLAnchorElement {
+	const fromName=(name: string)=>server.getWebUrl(e`user/${name}`)
+	return makeLink(username,fromName(username))
+}
+
+function makeUserIdLink(server: Server, uid: number): HTMLAnchorElement {
+	const fromId=(id: number)=>server.getApiFetchUrl(e`user/${id}`)
+	return makeLink('#'+uid,fromId(uid))
 }

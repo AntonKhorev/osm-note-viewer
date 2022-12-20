@@ -1,12 +1,13 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB, {FetchEntry} from './db'
+import Server from './server'
 import {NavDialog} from './navbar'
-import {makeElement, makeDiv, makeLink, makeUserNameLink} from './html'
+import {makeElement, makeDiv, makeLink} from './html'
 
 export default class AboutDialog extends NavDialog {
 	shortTitle=`About`
 	title=`About`
-	constructor(private storage: NoteViewerStorage, private db: NoteViewerDB) {
+	constructor(private storage: NoteViewerStorage, private db: NoteViewerDB, private server: Server) {
 		super()
 	}
 	writeSectionContent() {
@@ -72,16 +73,14 @@ export default class AboutDialog extends NavDialog {
 				const username=searchParams.get('display_name')
 				const ids=searchParams.get('ids')
 				if (username) {
-					$userCell.append(`user `,makeUserNameLink(username))
+					const href=this.server.getWebUrl(`user/`+encodeURIComponent(username))
+					$userCell.append(`user `,makeLink(username,href))
 				} else if (ids) {
 					const match=ids.match(/\d+/)
 					if (match) {
 						const [id]=match
-						$userCell.append(
-							`note `,
-							makeLink(id,`https://www.openstreetmap.org/note/${encodeURIComponent(id)}`),
-							`, ...`
-						)
+						const href=this.server.getWebUrl(`note/`+encodeURIComponent(id))
+						$userCell.append(`note `,makeLink(id,href),`, ...`)
 					}
 				}
 				$row.insertCell().append(new Date(fetchEntry.accessTimestamp).toISOString())
