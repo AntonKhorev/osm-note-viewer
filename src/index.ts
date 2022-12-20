@@ -1,5 +1,6 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
+import Server from './server'
 import GlobalEventsListener from './events'
 import GlobalHistory from './history'
 import {NoteMap} from './map'
@@ -17,6 +18,7 @@ main()
 async function main() {
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
+	const server=new Server(`https://api.openstreetmap.org/`)
 	const globalEventsListener=new GlobalEventsListener()
 
 	const $navbarContainer=document.createElement('nav')
@@ -73,13 +75,15 @@ async function main() {
 	const toolPanel=new ToolPanel(storage,globalEventsListener,$toolContainer,map,figureDialog)
 	const noteTable=new NoteTable(
 		$notesContainer,toolPanel,map,filterPanel.noteFilter,
-		figureDialog
+		figureDialog,
+		server
 	)
 	globalEventsListener.noteListener=($a,noteId)=>{
 		noteTable.pingNoteFromLink($a,noteId)
 	}
 	const fetchPanel=new NoteFetchPanel(
-		storage,db,globalEventsListener,globalHistory,
+		storage,db,server,
+		globalEventsListener,globalHistory,
 		$fetchContainer,$moreContainer,
 		navbar,filterPanel,
 		noteTable,map,figureDialog

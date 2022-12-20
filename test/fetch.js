@@ -9,12 +9,12 @@ describe("NoteIdsFetcherRequest",()=>{
 			ids: [38,39,40,41,42]
 		}
 		assert.deepEqual(
-			fetcherRequest.getRequestUrls(query,5),
+			fetcherRequest.getRequestApiPaths(query,5),
 			[
-				['json',`https://api.openstreetmap.org/api/0.6/notes/38.json`],
-				['xml',`https://api.openstreetmap.org/api/0.6/notes/38`],
-				['gpx',`https://api.openstreetmap.org/api/0.6/notes/38.gpx`],
-				['rss',`https://api.openstreetmap.org/api/0.6/notes/38.rss`],
+				['json',`notes/38.json`],
+				['xml',`notes/38`],
+				['gpx',`notes/38.gpx`],
+				['rss',`notes/38.rss`],
 			]
 		)
 	})

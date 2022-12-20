@@ -1,4 +1,5 @@
 import NoteViewerDB, {FetchEntry} from './db'
+import Server from './server' // TODO limit to just ApiFetcher - that requires abstracting out 'load more'
 import {Note, Users, isNoteFeatureCollection, isNoteFeature, transformFeatureCollectionToNotesAndUsers, transformFeatureToNotesAndUsers} from './data'
 import {NoteQuery, NoteSearchQuery, NoteBboxQuery, NoteIdsQuery, NoteFetchDetails, makeNoteQueryString, getNextFetchDetails} from './query'
 import {makeElement, makeDiv, makeLink} from './html'
@@ -11,26 +12,26 @@ const maxTotalAutoLoadLimit=1000
 const maxFullyFilteredFetches=10
 
 export abstract class NoteFetcherRequest {
-	getRequestUrls(query: NoteQuery, limit: number): [type: string, url: string][] {
+	getRequestApiPaths(query: NoteQuery, limit: number): [type: string, url: string][] {
 		const pathAndParameters=this.getRequestUrlPathAndParameters(query,limit)
 		if (pathAndParameters==null) return []
-		return ['json','xml','gpx','rss'].map(type=>[type,this.constructUrl(...pathAndParameters,type)])
+		return ['json','xml','gpx','rss'].map(type=>[type,this.constructApiPath(...pathAndParameters,type)])
 	}
-	constructUrl(path: string, parameters: string, type: string = 'json'): string {
+	constructApiPath(path: string, parameters: string, type: string = 'json'): string {
 		const extension=type=='xml'?'':'.'+type
-		let url=this.getRequestUrlBase()
+		let url=this.getRequestApiBasePath()
 		if (path) url+=path
 		url+=extension
 		if (parameters) url+='?'+parameters
 		return url
 	}
-	protected abstract getRequestUrlBase(): string
+	protected abstract getRequestApiBasePath(): string
 	protected abstract getRequestUrlPathAndParameters(query: NoteQuery, limit: number): [path:string,parameters:string]|undefined
 }
 
 export class NoteSearchFetcherRequest extends NoteFetcherRequest {
-	protected getRequestUrlBase(): string {
-		return `https://api.openstreetmap.org/api/0.6/notes/search`
+	protected getRequestApiBasePath(): string {
+		return `notes/search`
 	}
 	protected getRequestUrlPathAndParameters(query: NoteQuery, limit: number): [path:string,parameters:string]|undefined {
 		if (query.mode!='search') return
@@ -39,8 +40,8 @@ export class NoteSearchFetcherRequest extends NoteFetcherRequest {
 }
 
 export class NoteBboxFetcherRequest extends NoteFetcherRequest {
-	protected getRequestUrlBase(): string {
-		return `https://api.openstreetmap.org/api/0.6/notes`
+	protected getRequestApiBasePath(): string {
+		return `notes`
 	}
 	protected getRequestUrlPathAndParameters(query: NoteQuery, limit: number): [path:string,parameters:string]|undefined {
 		if (query.mode!='bbox') return
@@ -52,8 +53,8 @@ export class NoteBboxFetcherRequest extends NoteFetcherRequest {
 }
 
 export class NoteIdsFetcherRequest extends NoteFetcherRequest {
-	protected getRequestUrlBase(): string {
-		return `https://api.openstreetmap.org/api/0.6/notes/`
+	protected getRequestApiBasePath(): string {
+		return `notes/`
 	}
 	protected getRequestUrlPathAndParameters(query: NoteQuery, limit: number): [path:string,parameters:string]|undefined {
 		if (query.mode!='ids') return
@@ -69,6 +70,7 @@ export interface NoteTableUpdater {
 
 export interface NoteFetcherEnvironment {
 	db: NoteViewerDB
+	server: Server,
 	noteTable: NoteTableUpdater
 	$moreContainer: HTMLElement
 	getLimit: ()=>number
@@ -79,6 +81,7 @@ export interface NoteFetcherEnvironment {
 
 export abstract class NoteFetcherRun {
 	private db: NoteViewerDB
+	private server: Server
 	private fetchEntry: Readonly<FetchEntry>|null = null
 	private noteTable: NoteTableUpdater
 	readonly notes = new Map<number,Note>()
@@ -89,11 +92,12 @@ export abstract class NoteFetcherRun {
 	lastTriedPath: string | undefined // needed for ids fetch
 	private updateRequestHintInAdvancedMode: ()=>void = ()=>{}
 	constructor(
-		{db,noteTable,$moreContainer,getLimit,getAutoLoad,blockDownloads,moreButtonIntersectionObservers}: NoteFetcherEnvironment,
+		{db,server,noteTable,$moreContainer,getLimit,getAutoLoad,blockDownloads,moreButtonIntersectionObservers}: NoteFetcherEnvironment,
 		query: NoteQuery,
 		clearStore: boolean
 	) {
 		this.db=db
+		this.server=server
 		this.noteTable=noteTable
 	;(async()=>{
 		const queryString=makeNoteQueryString(query) // empty string == don't know how to encode the query, thus won't save it to db
@@ -133,7 +137,8 @@ export abstract class NoteFetcherRun {
 					$requestOutput.replaceChildren(`no request`)
 					return
 				}
-				const url=this.request.constructUrl(...fetchDetails.pathAndParametersList[0])
+				const apiPath=this.request.constructApiPath(...fetchDetails.pathAndParametersList[0])
+				const url=server.getApiFetchUrl(apiPath)
 				const $a=makeLink(url,url)
 				$a.classList.add('request')
 				$requestOutput.replaceChildren(makeElement('code')()($a))
@@ -177,8 +182,8 @@ export abstract class NoteFetcherRun {
 				for (const pathAndParameters of fetchDetails.pathAndParametersList) {
 					const [path,parameters]=pathAndParameters
 					lastTriedPath=path
-					const url=this.request.constructUrl(path,parameters)
-					const response=await fetch(url)
+					const apiPath=this.request.constructApiPath(path,parameters)
+					const response=await server.apiFetch(apiPath)
 					if (!response.ok) {
 						if (response.status==410) { // likely hidden note in ids query
 							continue // TODO report it
@@ -267,8 +272,7 @@ export abstract class NoteFetcherRun {
 	async updateNote($a: HTMLAnchorElement, noteId: number) {
 		$a.classList.add('loading')
 		try {
-			const url=e`https://api.openstreetmap.org/api/0.6/notes/${noteId}.json`
-			const response=await fetch(url)
+			const response=await this.server.apiFetch(e`notes/${noteId}.json`)
 			if (!response.ok) throw new TypeError(`note reload failed`)
 			const data=await response.json()
 			if (!isNoteFeature(data)) throw new TypeError(`note reload received invalid data`)

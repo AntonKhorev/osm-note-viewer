@@ -1,12 +1,9 @@
+import type {ApiFetcher} from './server'
 import {isNoteFeature, transformFeatureToNotesAndUsers, getNoteUpdateDate} from './data'
 import {makeEscapeTag} from './escape'
 
 const e=makeEscapeTag(encodeURIComponent)
 const clamp=(min:number,value:number,max:number)=>Math.max(min,Math.min(value,max))
-
-interface ApiFetcher {
-	apiFetch(apiPath:string):Promise<Response>
-}
 
 interface TimeoutCaller {
 	schedulePeriodicCall:  (callback:(timestamp:number)=>void)=>void

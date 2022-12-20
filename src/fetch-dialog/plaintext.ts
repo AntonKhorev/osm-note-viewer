@@ -1,4 +1,5 @@
 import {NoteIdsFetchDialog, NoteFetchDialogSharedCheckboxes, mixinWithFetchButton} from './base'
+import Server from '../server'
 import NoteTable from '../table'
 import {NoteQuery, makeNoteIdsQueryFromValue} from '../query'
 import {makeDiv, makeLabel} from '../html'
@@ -11,11 +12,12 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 	private $copyButton=document.createElement('button')
 	constructor(
 		$sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
-		getRequestUrls: (query: NoteQuery, limit: number) => [type: string, url: string][],
+		server: Server,
+		getRequestApiPaths: (query: NoteQuery, limit: number) => [type: string, apiPath: string][],
 		submitQuery: (query: NoteQuery) => void,
 		private noteTable: NoteTable
 	) {
-		super($sharedCheckboxes,getRequestUrls,submitQuery)
+		super($sharedCheckboxes,server,getRequestApiPaths,submitQuery)
 	}
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{

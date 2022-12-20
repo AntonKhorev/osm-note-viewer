@@ -1,3 +1,4 @@
+import Server from '../server'
 import {NavDialog} from '../navbar'
 import {NoteQuery} from '../query'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
@@ -26,7 +27,8 @@ export abstract class NoteFetchDialog extends NavDialog {
 	private $requestOutput=document.createElement('output')
 	constructor(
 		private $sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
-		private getRequestUrls: (query: NoteQuery, limit: number) => [type: string, url: string][],
+		protected server: Server,
+		private getRequestApiPaths: (query: NoteQuery, limit: number) => [type: string, apiPath: string][],
 		protected submitQuery: (query: NoteQuery) => void
 	) {
 		super()
@@ -84,26 +86,28 @@ export abstract class NoteFetchDialog extends NavDialog {
 			this.$requestOutput.replaceChildren(`invalid request`)
 			return
 		}
-		const requestUrls=this.getRequestUrls(query,this.getLimit())
-		if (requestUrls.length==0) {
+		const requestApiPaths=this.getRequestApiPaths(query,this.getLimit())
+		if (requestApiPaths.length==0) {
 			this.$requestOutput.replaceChildren(`invalid request`)
 			return
 		}
-		const [[mainType,mainUrl],...otherRequestUrls]=requestUrls
+		const [[mainType,mainApiPath],...otherRequestApiPaths]=requestApiPaths
+		const mainUrl=this.server.getApiFetchUrl(mainApiPath)
 		const $a=makeLink(mainUrl,mainUrl)
 		$a.classList.add('request')
 		this.$requestOutput.replaceChildren(code($a),` in ${mainType} format`)
 		appendLinkIfKnown(mainType)
-		if (otherRequestUrls.length>0) {
+		if (otherRequestApiPaths.length>0) {
 			this.$requestOutput.append(` or other formats: `)
 		}
 		let first=true
-		for (const [type,url] of otherRequestUrls) {
+		for (const [type,apiPath] of otherRequestApiPaths) {
 			if (first) {
 				first=false
 			} else {
 				this.$requestOutput.append(`, `)
 			}
+			const url=this.server.getApiFetchUrl(apiPath)
 			this.$requestOutput.append(code(makeLink(type,url)))
 			appendLinkIfKnown(type)
 		}

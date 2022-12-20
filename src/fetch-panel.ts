@@ -1,5 +1,6 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
+import Server from './server'
 import GlobalEventsListener from './events'
 import GlobalHistory from './history'
 import {NoteMap} from './map'
@@ -21,11 +22,11 @@ export default class NoteFetchPanel {
 	private fetcherRun?: NoteFetcherRun
 	private fetcherInvoker?: NoteFetchDialog
 	constructor(
-		storage: NoteViewerStorage, db: NoteViewerDB,
+		storage: NoteViewerStorage, db: NoteViewerDB, server: Server,
 		globalEventsListener: GlobalEventsListener, globalHistory: GlobalHistory,
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		navbar: Navbar, filterPanel: NoteFilterPanel,
-		private noteTable: NoteTable, map: NoteMap, figureDialog: FigureDialog
+		noteTable: NoteTable, map: NoteMap, figureDialog: FigureDialog
 	) {
 		const self=this
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
@@ -39,11 +40,11 @@ export default class NoteFetchPanel {
 		const makeFetchDialog = (
 			fetcherRequest: NoteFetcherRequest,
 			fetchDialogCtor: (
-				getRequestUrls: (query: NoteQuery, limit: number) => [type: string, url: string][],
+				getRequestApiPaths: (query: NoteQuery, limit: number) => [type: string, apiPath: string][],
 				submitQuery: (query: NoteQuery) => void
 			) => NoteFetchDialog
 		): NoteFetchDialog => {
-			const dialog=fetchDialogCtor((query,limit)=>fetcherRequest.getRequestUrls(query,limit),(query)=>{
+			const dialog=fetchDialogCtor((query,limit)=>fetcherRequest.getRequestApiPaths(query,limit),(query)=>{
 				modifyHistory(query,true)
 				startFetcher(query,true,false,dialog)
 			})
@@ -59,19 +60,19 @@ export default class NoteFetchPanel {
 		}
 		const searchDialog=makeFetchDialog(
 			new NoteSearchFetcherRequest,
-			(getRequestUrls,submitQuery)=>new NoteSearchFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery)
+			(getRequestApiPaths,submitQuery)=>new NoteSearchFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery)
 		)
 		const bboxDialog=makeFetchDialog(
 			new NoteBboxFetcherRequest,
-			(getRequestUrls,submitQuery)=>new NoteBboxFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery,map)
+			(getRequestApiPaths,submitQuery)=>new NoteBboxFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery,map)
 		)
 		const xmlDialog=makeFetchDialog(
 			new NoteIdsFetcherRequest,
-			(getRequestUrls,submitQuery)=>new NoteXmlFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery)
+			(getRequestApiPaths,submitQuery)=>new NoteXmlFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery)
 		)
 		const plaintextDialog=makeFetchDialog(
 			new NoteIdsFetcherRequest,
-			(getRequestUrls,submitQuery)=>new NotePlaintextFetchDialog($sharedCheckboxes,getRequestUrls,submitQuery,noteTable)
+			(getRequestApiPaths,submitQuery)=>new NotePlaintextFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery,noteTable)
 		)
 		const aboutDialog=new AboutDialog(storage,db)
 		aboutDialog.write($container)
@@ -162,7 +163,7 @@ export default class NoteFetchPanel {
 				map.needToFitNotes=false
 			}
 			const environment: NoteFetcherEnvironment = {
-				db,
+				db,server,
 				noteTable,$moreContainer,
 				getLimit: dialog.getLimit,
 				getAutoLoad: dialog.getAutoLoad,

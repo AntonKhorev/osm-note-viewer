@@ -10,11 +10,8 @@ import NoteFilter from './filter'
 import NoteSectionVisibilityObserver from './observer'
 import NoteRefresher from './refresher' // TODO move outside b/c all other network stuff is outside
 import {toReadableDate} from './query-date'
+import type Server from './server'
 import {makeUserNameLink, makeDiv, resetFadeAnimation} from './html'
-
-const apiFetcher={
-	apiFetch: (requestPath:string)=>fetch(`https://api.openstreetmap.org/api/0.6/`+requestPath)
-}
 
 const makeTimeoutCaller=(periodicCallDelay:number,immediateCallDelay:number)=>{
 	let timeoutId:number|undefined
@@ -50,37 +47,39 @@ export default class NoteTable {
 	private usersById = new Map<number,string>()
 	private commentWriter: CommentWriter
 	private showImages: boolean = false
-	private noteRefresher = new NoteRefresher(
-		5*60*1000,apiFetcher,makeTimeoutCaller(10*1000,100),
-		(id,progress)=>{
-			const $noteSection=this.getNoteSection(id)
-			if ($noteSection) {
-				setNoteSectionProgress($noteSection,progress)
-			}
-		},
-		(id)=>{
-			const $noteSection=this.getNoteSection(id)
-			if ($noteSection) {
-				$noteSection.dataset.updated='updated'
-			}
-			this.notesWithPendingUpdate.add(id)
-		},
-		(id:number,message?:string)=>{
-			// TODO report error by altering the link
-			const $noteSection=this.getNoteSection(id)
-			if ($noteSection) {
-				setNoteSectionProgress($noteSection,0)
-			}
-			const refreshTimestamp=Date.now()
-			this.noteRefreshTimestampsById.set(id,refreshTimestamp)
-			return refreshTimestamp
-		}
-	)
+	private noteRefresher: NoteRefresher
 	constructor(
 		$container: HTMLElement,
 		private toolPanel: ToolPanel, private map: NoteMap, private filter: NoteFilter,
-		figureDialog: FigureDialog
+		figureDialog: FigureDialog,
+		server: Server
 	) {
+		this.noteRefresher=new NoteRefresher(
+			5*60*1000,server,makeTimeoutCaller(10*1000,100),
+			(id,progress)=>{
+				const $noteSection=this.getNoteSection(id)
+				if ($noteSection) {
+					setNoteSectionProgress($noteSection,progress)
+				}
+			},
+			(id)=>{
+				const $noteSection=this.getNoteSection(id)
+				if ($noteSection) {
+					$noteSection.dataset.updated='updated'
+				}
+				this.notesWithPendingUpdate.add(id)
+			},
+			(id:number,message?:string)=>{
+				// TODO report error by altering the link
+				const $noteSection=this.getNoteSection(id)
+				if ($noteSection) {
+					setNoteSectionProgress($noteSection,0)
+				}
+				const refreshTimestamp=Date.now()
+				this.noteRefreshTimestampsById.set(id,refreshTimestamp)
+				return refreshTimestamp
+			}
+		)
 		toolPanel.onCommentsViewChange=(onlyFirst:boolean,oneLine:boolean)=>{
 			this.$table.classList.toggle('only-first-comments',onlyFirst)
 			this.$table.classList.toggle('one-line-comments',oneLine)
