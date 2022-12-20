@@ -1,5 +1,5 @@
 import {isNoteFeature, transformFeatureToNotesAndUsers, getNoteUpdateDate} from './data'
-import {makeEscapeTag} from './util'
+import {makeEscapeTag} from './escape'
 
 const e=makeEscapeTag(encodeURIComponent)
 const clamp=(min:number,value:number,max:number)=>Math.max(min,Math.min(value,max))

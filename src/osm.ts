@@ -1,5 +1,6 @@
 import {NoteMap} from './map'
-import {makeLink, makeUserLink, makeDiv, makeElement, makeEscapeTag} from './util'
+import {makeLink, makeUserLink, makeDiv, makeElement} from './html'
+import {makeEscapeTag} from './escape'
 
 interface OsmBase {
 	id: number

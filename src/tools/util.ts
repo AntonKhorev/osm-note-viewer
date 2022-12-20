@@ -4,7 +4,7 @@ import type {Note} from '../data'
 import {NoteMap} from '../map'
 import FigureDialog from '../figure'
 import CommentWriter from '../comment-writer'
-import {makeElement, makeLink} from '../util'
+import {makeElement, makeLink} from '../html'
 
 type InfoElements = Array<string|HTMLElement>
 const p=(...ss: InfoElements)=>makeElement('p')()(...ss)

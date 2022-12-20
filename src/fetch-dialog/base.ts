@@ -1,6 +1,6 @@
 import {NavDialog} from '../navbar'
 import {NoteQuery} from '../query'
-import {makeElement, makeLink, makeDiv, makeLabel} from '../util'
+import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
 
 const em=(...ss: Array<string|HTMLElement>)=>makeElement('em')()(...ss)
 const sup=(...ss: Array<string|HTMLElement>)=>makeElement('sup')()(...ss)

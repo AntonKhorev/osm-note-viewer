@@ -1,4 +1,4 @@
-import {startOrResetFadeAnimation} from './util'
+import {startOrResetFadeAnimation} from './html'
 
 // simple HTMLDialogElement interface to shut up TypeScript
 // https://gist.github.com/jbmoelker/226594f195b97bf61436

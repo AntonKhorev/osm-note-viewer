@@ -1,7 +1,7 @@
 import {NoteIdsFetchDialog, NoteFetchDialogSharedCheckboxes, mixinWithFetchButton} from './base'
 import NoteTable from '../table'
 import {NoteQuery, makeNoteIdsQueryFromValue} from '../query'
-import {makeDiv, makeLabel} from '../util'
+import {makeDiv, makeLabel} from '../html'
 
 export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) {
 	shortTitle=`Plaintext`

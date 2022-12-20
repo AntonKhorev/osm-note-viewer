@@ -1,6 +1,6 @@
 import {Note, NoteComment} from './data'
 import {ValidUserQuery, toUserQuery} from './query-user'
-import {escapeRegex} from './util'
+import {escapeRegex} from './escape'
 
 type Operator = '=' | '!=' | '~='
 

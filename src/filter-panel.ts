@@ -1,5 +1,5 @@
 import NoteFilter from './filter'
-import {makeDiv, makeLabel} from './util'
+import {makeDiv, makeLabel} from './html'
 
 const syntaxDescription=`<summary>Filter syntax</summary>
 <ul>

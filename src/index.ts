@@ -10,7 +10,7 @@ import NoteFilterPanel from './filter-panel'
 import NoteTable from './table'
 import ToolPanel from './tool-panel'
 import {downloadAndShowChangeset, downloadAndShowElement} from './osm'
-import {makeDiv} from './util'
+import {makeDiv} from './html'
 
 main()
 

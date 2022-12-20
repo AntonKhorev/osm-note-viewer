@@ -1,7 +1,8 @@
 import NoteViewerDB, {FetchEntry} from './db'
 import {Note, Users, isNoteFeatureCollection, isNoteFeature, transformFeatureCollectionToNotesAndUsers, transformFeatureToNotesAndUsers} from './data'
 import {NoteQuery, NoteSearchQuery, NoteBboxQuery, NoteIdsQuery, NoteFetchDetails, makeNoteQueryString, getNextFetchDetails} from './query'
-import {makeElement, makeDiv, makeLink, makeEscapeTag} from './util'
+import {makeElement, makeDiv, makeLink} from './html'
+import {makeEscapeTag} from './escape'
 
 const e=makeEscapeTag(encodeURIComponent)
 

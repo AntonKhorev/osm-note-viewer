@@ -1,5 +1,5 @@
 import getCommentItems from './comment'
-import {makeLink} from './util'
+import {makeLink} from './html'
 
 export default class CommentWriter {
 	makeCommentElements(

@@ -4,7 +4,7 @@ import type {Note} from './data'
 import {NoteMap} from './map'
 import FigureDialog from './figure'
 import {Tool, ToolFitMode, ToolCallbacks, toolMakerSequence} from './tools'
-import {startOrResetFadeAnimation} from './util'
+import {startOrResetFadeAnimation} from './html'
 
 class ToolBroadcaster {
 	private sources: Set<Tool> = new Set()

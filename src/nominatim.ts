@@ -1,4 +1,4 @@
-import {makeEscapeTag} from './util'
+import {makeEscapeTag} from './escape'
 
 export type NominatimBbox = readonly [minLat:string,maxLat:string,minLon:string,maxLon:string]
 

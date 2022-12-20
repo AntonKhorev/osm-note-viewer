@@ -1,5 +1,5 @@
 import type {Note, NoteComment} from './data'
-import {escapeXml, makeEscapeTag} from './util'
+import {escapeXml, makeEscapeTag} from './escape'
 
 export class NoteMarker extends L.Marker {
 	noteId: number

@@ -2,7 +2,8 @@ import {Tool, ToolElements, ToolCallbacks, makeNotesIcon, makeMapIcon} from './b
 
 import type {Note} from '../data'
 import {NoteMap} from '../map'
-import {makeElement, makeLink, makeEscapeTag} from '../util'
+import {makeElement, makeLink} from '../html'
+import {makeEscapeTag} from '../escape'
 
 type InfoElements = Array<string|HTMLElement>
 const p=(...ss: InfoElements)=>makeElement('p')()(...ss)

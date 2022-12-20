@@ -1,7 +1,7 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB, {FetchEntry} from './db'
 import {NavDialog} from './navbar'
-import {makeElement, makeDiv, makeLink, makeUserNameLink} from './util'
+import {makeElement, makeDiv, makeLink, makeUserNameLink} from './html'
 
 export default class AboutDialog extends NavDialog {
 	shortTitle=`About`

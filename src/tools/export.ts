@@ -6,7 +6,8 @@ import type {
 import {Tool, ToolElements, makeNotesIcon} from './base'
 import type {Note, NoteComment} from '../data'
 import {toReadableDate, toUrlDate} from '../query-date'
-import {makeElement, makeLink, makeLabel, escapeXml, makeEscapeTag} from '../util'
+import {makeElement, makeLink, makeLabel} from '../html'
+import {escapeXml, makeEscapeTag} from '../escape'
 
 type InfoElements = Array<string|HTMLElement>
 const p=(...ss: InfoElements)=>makeElement('p')()(...ss)

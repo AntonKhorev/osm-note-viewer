@@ -10,7 +10,7 @@ import NoteFilter from './filter'
 import NoteSectionVisibilityObserver from './observer'
 import NoteRefresher from './refresher' // TODO move outside b/c all other network stuff is outside
 import {toReadableDate} from './query-date'
-import {makeUserNameLink, makeDiv, resetFadeAnimation} from './util'
+import {makeUserNameLink, makeDiv, resetFadeAnimation} from './html'
 
 const apiFetcher={
 	apiFetch: (requestPath:string)=>fetch(`https://api.openstreetmap.org/api/0.6/`+requestPath)

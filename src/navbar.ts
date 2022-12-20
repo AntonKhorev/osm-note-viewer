@@ -1,6 +1,6 @@
 import NoteViewerStorage from './storage'
 import {NoteMap} from './map'
-import {makeElement, makeLink} from './util'
+import {makeElement, makeLink} from './html'
 
 export abstract class NavDialog {
 	abstract shortTitle: string

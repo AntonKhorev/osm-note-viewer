@@ -2,7 +2,7 @@ import {NoteQueryFetchDialog, NoteFetchDialogSharedCheckboxes} from './base'
 import {NoteMap, NoteMapFreezeMode} from '../map'
 import {NoteQuery, makeNoteBboxQueryFromValues} from '../query'
 import {NominatimBbox, NominatimBboxFetcher} from '../nominatim'
-import {makeElement, makeLink, makeDiv, makeLabel} from '../util'
+import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
 
 const em=(...ss: Array<string|HTMLElement>)=>makeElement('em')()(...ss)
 const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)

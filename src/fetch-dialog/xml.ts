@@ -1,6 +1,6 @@
 import {NoteIdsFetchDialog} from './base'
 import {NoteQuery, NoteIdsQuery} from '../query'
-import {makeElement, makeLink, makeDiv, makeLabel} from '../util'
+import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
 
 const em=(...ss: Array<string|HTMLElement>)=>makeElement('em')()(...ss)
 const p=(...ss: Array<string|HTMLElement>)=>makeElement('p')()(...ss)

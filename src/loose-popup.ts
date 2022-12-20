@@ -1,5 +1,6 @@
 import {LooseParseType} from './loose'
-import {makeElement, makeEscapeTag} from './util'
+import {makeElement} from './html'
+import {makeEscapeTag} from './escape'
 
 const e=makeEscapeTag(encodeURIComponent)
 const makeItem=makeElement('li')()
