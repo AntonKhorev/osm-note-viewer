@@ -2,6 +2,7 @@ import type {
 	Feature,
 	FeatureCollection
 } from 'geojson'
+import Server from '../server'
 
 import {Tool, ToolElements, makeNotesIcon} from './base'
 import type {Note, NoteComment} from '../data'
@@ -18,6 +19,9 @@ const ul=(...ss: InfoElements)=>makeElement('ul')()(...ss)
 const li=(...ss: InfoElements)=>makeElement('li')()(...ss)
 
 abstract class ExportTool extends Tool {
+	constructor(id: string, name: string, protected server: Server) {
+		super(id,name)
+	}
 	protected selectedNotes: ReadonlyArray<Note> = []
 	protected selectedNoteUsers: ReadonlyMap<number,string> = new Map()
 	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean {
@@ -109,9 +113,10 @@ abstract class ExportTool extends Tool {
 }
 
 export class GpxTool extends ExportTool {
-	constructor() {super(
+	constructor(server:Server) {super(
 		'gpx',
-		`GPX`
+		`GPX`,
+		server
 	)}
 	protected getInfoWithoutDragAndDrop() {return[p(
 		`Export selected notes in `,makeLink(`GPX`,'https://wiki.openstreetmap.org/wiki/GPX'),` (GPS exchange) format. `,
@@ -178,7 +183,7 @@ export class GpxTool extends ExportTool {
 				gpx+=this.getCommentStrings(note.comments,options.commentQuantity=='all').map(escapeXml).join(`&#xA;\n`) // JOSM wants this kind of double newline, otherwise no space between comments is rendered
 				gpx+=`</desc>\n`
 			}
-			const noteUrl=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.id)
+			const noteUrl=this.server.getWebUrl(`note/`+encodeURIComponent(note.id))
 			gpx+=e`<link href="${noteUrl}">\n`
 			gpx+=e`<text>note #${note.id} on osm</text>\n`
 			gpx+=e`</link>\n`
@@ -201,9 +206,10 @@ export class GpxTool extends ExportTool {
 }
 
 export class GeoJsonTool extends ExportTool {
-	constructor() {super(
+	constructor(server:Server) {super(
 		'geojson',
-		`GeoJSON`
+		`GeoJSON`,
+		server
 	)}
 	protected getInfoWithoutDragAndDrop() {return[p(
 		`Export selected notes in `,makeLink(`GeoJSON`,'https://wiki.openstreetmap.org/wiki/GeoJSON'),` format. `,
@@ -298,26 +304,25 @@ export class GeoJsonTool extends ExportTool {
 			const username=this.selectedNoteUsers.get(comment.uid)
 			if (username==null) return result
 			result.user=username
-			if (options.urls=='web') {
-				result.user_url=e`https://www.openstreetmap.org/user/${username}`
-			} else {
-				result.user_url=e`https://api.openstreetmap.org/user/${username}`
-			}
+			result.user_url=this.server[options.urls=='web'
+				? 'getWebUrl'
+				: 'getApiRootUrl'
+			](e`user/${username}`)
 			return result
 		}
 		const generateNoteUrls=(note:Note):{[key:string]:string}=>{
 			if (options.urls=='web') return {
-				url: e`https://www.openstreetmap.org/note/${note.id}`
+				url: this.server.getWebUrl(e`note/${note.id}`)
 			}
-			const urlBase= e`https://api.openstreetmap.org/api/0.6/notes/${note.id}`
+			const apiBasePath= e`notes/${note.id}`
 			const result: {[key:string]:string} = {
-				url: urlBase+`.json`
+				url: this.server.getApiUrl(apiBasePath+`.json`)
 			}
 			if (note.status=='closed') {
-				result.reopen_url=urlBase+`/reopen.json`
+				result.reopen_url=this.server.getApiUrl(apiBasePath+`/reopen.json`)
 			} else {
-				result.comment_url=urlBase+`/comment.json`
-				result.close_url=urlBase+`/close.json`
+				result.comment_url=this.server.getApiUrl(apiBasePath+`/comment.json`)
+				result.close_url=this.server.getApiUrl(apiBasePath+`/close.json`)
 			}
 			return result
 		}

@@ -1,4 +1,5 @@
 import NoteViewerStorage from './storage'
+import Server from './server'
 import GlobalEventsListener from './events'
 import type {Note} from './data'
 import {NoteMap} from './map'
@@ -39,7 +40,7 @@ export default class ToolPanel {
 	#fitMode: ToolFitMode
 	onCommentsViewChange?: (onlyFirst:boolean,oneLine:boolean)=>void
 	constructor(
-		storage: NoteViewerStorage, globalEventsListener: GlobalEventsListener,
+		storage: NoteViewerStorage, server: Server, globalEventsListener: GlobalEventsListener,
 		$container: HTMLElement,
 		map: NoteMap, figureDialog: FigureDialog
 	) {
@@ -55,7 +56,7 @@ export default class ToolPanel {
 			}
 		}
 		for (const makeTool of toolMakerSequence) {
-			const tool=makeTool()
+			const tool=makeTool(server)
 			const storageKey='commands-'+tool.id
 			const $toolDetails=document.createElement('details')
 			$toolDetails.classList.add('tool')
