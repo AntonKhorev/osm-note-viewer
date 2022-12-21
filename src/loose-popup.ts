@@ -1,4 +1,5 @@
-import {LooseParseType} from './loose'
+import type {LooseParseType} from './loose'
+import type {WebUrlLister} from './server'
 import {makeElement} from './html'
 import {makeEscapeTag} from './escape'
 
@@ -8,7 +9,7 @@ const makeITEM=makeElement('li')('main')
 
 export default class LooseParserPopup {
 	private $popup=document.createElement('ul')
-	constructor($container: HTMLElement) {
+	constructor(private webUrlLister: WebUrlLister, $container: HTMLElement) {
 		this.$popup.classList.add('loose-parser-popup')
 		this.$popup.onmouseleave=()=>{
 			this.$popup.classList.remove('open')
@@ -33,7 +34,7 @@ export default class LooseParserPopup {
 	private makeLink(id: number, type: LooseParseType): HTMLAnchorElement {
 		if (type==null) return makeElement('a')()('?')
 		const $a=makeElement('a')()(type)
-		$a.href=e`https://www.openstreetmap.org/${type}/${id}`
+		$a.href=this.webUrlLister.getWebUrl(e`${type}/${id}`)
 		if (type=='note') {
 			$a.classList.add('other-note')
 			$a.dataset.noteId=String(id)

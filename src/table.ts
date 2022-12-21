@@ -148,7 +148,7 @@ export default class NoteTable {
 		this.commentWriter=new CommentWriter(server)
 		$container.append(this.$table)
 		this.reset()
-		const looseParserPopup=new LooseParserPopup($container)
+		const looseParserPopup=new LooseParserPopup(server,$container)
 		this.looseParserListener=new LooseParserListener((x,y,text)=>{
 			const parseResult=parseLoose(text)
 			if (!parseResult) return
