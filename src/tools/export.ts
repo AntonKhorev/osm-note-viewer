@@ -282,8 +282,86 @@ export class GeoJsonTool extends ExportTool {
 	}
 	protected generateData(options: {connect:string,urls:string,commentQuantity:string,commentType:string}): string {
 		// https://github.com/openstreetmap/openstreetmap-website/blob/master/app/views/api/notes/_note.json.jbuilder
-		const self=this
 		const e=makeEscapeTag(encodeURIComponent)
+		const formatDate=(date:number):string=>{
+			return toReadableDate(date)+' UTC'
+		}
+		const lastCloseComment=(note: Note):NoteComment|undefined=>{
+			for (let i=note.comments.length-1;i>=0;i--) {
+				if (note.comments[i].action=='closed') return note.comments[i]
+			}
+		}
+		const generateCommentUserProperties=(comment:NoteComment):{[key:string]:string|number}=>{
+			const result: {[key:string]:string|number} = {}
+			if (comment.uid==null) return result
+			result.uid=comment.uid
+			const username=this.selectedNoteUsers.get(comment.uid)
+			if (username==null) return result
+			result.user=username
+			if (options.urls=='web') {
+				result.user_url=e`https://www.openstreetmap.org/user/${username}`
+			} else {
+				result.user_url=e`https://api.openstreetmap.org/user/${username}`
+			}
+			return result
+		}
+		const generateNoteUrls=(note:Note):{[key:string]:string}=>{
+			if (options.urls=='web') return {
+				url: e`https://www.openstreetmap.org/note/${note.id}`
+			}
+			const urlBase= e`https://api.openstreetmap.org/api/0.6/notes/${note.id}`
+			const result: {[key:string]:string} = {
+				url: urlBase+`.json`
+			}
+			if (note.status=='closed') {
+				result.reopen_url=urlBase+`/reopen.json`
+			} else {
+				result.comment_url=urlBase+`/comment.json`
+				result.close_url=urlBase+`/close.json`
+			}
+			return result
+		}
+		const generateNoteDates=(note:Note):{[key:string]:string}=>{
+			const result: {[key:string]:string} = {}
+			if (note.comments.length>0) {
+				result.date_created=formatDate(note.comments[0].date)
+				if (note.status=='closed') {
+					const closeComment=lastCloseComment(note)
+					if (closeComment) {
+						result.closed_at=formatDate(closeComment.date)
+					}
+				}
+			}
+			return result
+		}
+		const generateNoteComments=(comments:NoteComment[]):{[key:string]:any}=>{
+			if (comments.length==0) return {}
+			if (options.commentType=='strings') {
+				return Object.fromEntries(
+					this.getCommentStrings(comments,options.commentQuantity=='all').map((v,i)=>['comment'+(i>0?i+1:''),v.replace(/\n/g,'\n ')])
+				)
+			} else if (options.commentType=='string') {
+				return {
+					comments: this.getCommentStrings(comments,options.commentQuantity=='all').join(`; `).replace(/\n/g,'\n ')
+				}
+			} else {
+				const toPropObject=(comment: NoteComment)=>({
+					date: formatDate(comment.date),
+					...generateCommentUserProperties(comment),
+					action: comment.action,
+					text: comment.text
+				})
+				if (options.commentQuantity=='all') {
+					return {
+						comments: comments.map(toPropObject)
+					}
+				} else {
+					return {
+						comments: [toPropObject(comments[0])]
+					}
+				}
+			}
+		}
 		const features: Feature[] = this.selectedNotes.map(note=>({
 			type: 'Feature',
 			geometry: {
@@ -313,84 +391,5 @@ export class GeoJsonTool extends ExportTool {
 			features
 		}
 		return JSON.stringify(featureCollection,undefined,2)
-		function generateNoteUrls(note: Note): {[key:string]:string} {
-			if (options.urls=='web') return {
-				url: e`https://www.openstreetmap.org/note/${note.id}`
-			}
-			const urlBase= e`https://api.openstreetmap.org/api/0.6/notes/${note.id}`
-			const result: {[key:string]:string} = {
-				url: urlBase+`.json`
-			}
-			if (note.status=='closed') {
-				result.reopen_url=urlBase+`/reopen.json`
-			} else {
-				result.comment_url=urlBase+`/comment.json`
-				result.close_url=urlBase+`/close.json`
-			}
-			return result
-		}
-		function generateNoteDates(note: Note): {[key:string]:string} {
-			const result: {[key:string]:string} = {}
-			if (note.comments.length>0) {
-				result.date_created=formatDate(note.comments[0].date)
-				if (note.status=='closed') {
-					const closeComment=lastCloseComment(note)
-					if (closeComment) {
-						result.closed_at=formatDate(closeComment.date)
-					}
-				}
-			}
-			return result
-		}
-		function generateNoteComments(comments: NoteComment[]): {[key:string]:any} {
-			if (comments.length==0) return {}
-			if (options.commentType=='strings') {
-				return Object.fromEntries(
-					self.getCommentStrings(comments,options.commentQuantity=='all').map((v,i)=>['comment'+(i>0?i+1:''),v.replace(/\n/g,'\n ')])
-				)
-			} else if (options.commentType=='string') {
-				return {
-					comments: self.getCommentStrings(comments,options.commentQuantity=='all').join(`; `).replace(/\n/g,'\n ')
-				}
-			} else {
-				const toPropObject=(comment: NoteComment)=>({
-					date: formatDate(comment.date),
-					...generateCommentUserProperties(comment),
-					action: comment.action,
-					text: comment.text
-				})
-				if (options.commentQuantity=='all') {
-					return {
-						comments: comments.map(toPropObject)
-					}
-				} else {
-					return {
-						comments: [toPropObject(comments[0])]
-					}
-				}
-			}
-		}
-		function generateCommentUserProperties(comment: NoteComment): {[key:string]:string|number} {
-			const result: {[key:string]:string|number} = {}
-			if (comment.uid==null) return result
-			result.uid=comment.uid
-			const username=self.selectedNoteUsers.get(comment.uid)
-			if (username==null) return result
-			result.user=username
-			if (options.urls=='web') {
-				result.user_url=e`https://www.openstreetmap.org/user/${username}`
-			} else {
-				result.user_url=e`https://api.openstreetmap.org/user/${username}`
-			}
-			return result
-		}
-		function lastCloseComment(note: Note): NoteComment|undefined {
-			for (let i=note.comments.length-1;i>=0;i--) {
-				if (note.comments[i].action=='closed') return note.comments[i]
-			}
-		}
-		function formatDate(date: number): string {
-			return toReadableDate(date)+' UTC'
-		}
 	}
 }
