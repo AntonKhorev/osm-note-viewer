@@ -3,7 +3,10 @@ export interface ApiFetcher {
 }
 
 export default class Server implements ApiFetcher {
-	constructor(private readonly apiUrl:string) {}
+	constructor(
+		private readonly webUrl: string,
+		private readonly apiUrl: string
+	) {}
 	apiFetch(apiPath:string) {
 		return fetch(this.getApiUrl(apiPath))
 	}
@@ -11,6 +14,6 @@ export default class Server implements ApiFetcher {
 		return `${this.apiUrl}api/0.6/${apiPath}`
 	}
 	getWebUrl(webPath:string):string {
-		return `https://www.openstreetmap.org/${webPath}`
+		return `${this.webUrl}${webPath}`
 	}
 }

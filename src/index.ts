@@ -18,7 +18,10 @@ main()
 async function main() {
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
-	const server=new Server(`https://api.openstreetmap.org/`)
+	const server=new Server(
+		`https://www.openstreetmap.org/`,
+		`https://api.openstreetmap.org/`
+	)
 	const globalEventsListener=new GlobalEventsListener()
 
 	const $navbarContainer=document.createElement('nav')
