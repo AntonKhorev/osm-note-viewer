@@ -1,10 +1,30 @@
 import {strict as assert} from 'assert'
 import getCommentItems from '../test-build/comment.js'
 
-function run(...lines) {
+class WebUrlLister {
+	constructor(webUrls) {
+		this.webUrls=webUrls
+	}
+	getWebUrl(webPath) {
+		return `${this.webUrls[0]}${webPath}`
+	}
+}
+
+const defaultWebUrlLister=new WebUrlLister([
+	`https://www.openstreetmap.org/`,
+	`https://openstreetmap.org/`,
+	`https://www.osm.org/`,
+	`https://osm.org/`,
+])
+
+function runCustom(lister,...lines) {
 	return getCommentItems(
+		lister,
 		lines.join('\n')
 	)
+}
+function run(...lines) {
+	return runCustom(defaultWebUrlLister,...lines)
 }
 
 describe("getCommentItems",()=>{
@@ -132,6 +152,52 @@ describe("getCommentItems",()=>{
 		)
 		assert.deepEqual(result,[
 			{type:'text',text:`Mayroón ring  mga online channels ang mga boluntaryong lokal sa OSM : https://osm.org/wiki/PH`},
+		])
+	})
+	it("parses http links",()=>{
+		const result=run(
+			`http://osm.org/way/123456`
+		)
+		assert.deepEqual(result,[
+			{
+				type:'link',link:'osm',osm:'element',
+				text:`http://osm.org/way/123456`,
+				href:`https://www.openstreetmap.org/way/123456`,
+				element:'way',id:123456,map:undefined
+			}
+		])
+	})
+	it("parses custom server links",()=>{
+		const result=runCustom(
+			new WebUrlLister([
+				`https://www.openhistoricalmap.org/`,
+				`https://openhistoricalmap.org/`
+			]),
+			`https://openhistoricalmap.org/node/2094245998`
+		)
+		assert.deepEqual(result,[
+			{
+				type:'link',link:'osm',osm:'element',
+				text:`https://openhistoricalmap.org/node/2094245998`,
+				href:`https://www.openhistoricalmap.org/node/2094245998`,
+				element:'node',id:2094245998,map:undefined
+			}
+		])
+	})
+	it("parses rails dev server links",()=>{
+		const result=runCustom(
+			new WebUrlLister([
+				`http://127.0.0.1:3000/`
+			]),
+			`http://127.0.0.1:3000/node/49`
+		)
+		assert.deepEqual(result,[
+			{
+				type:'link',link:'osm',osm:'element',
+				text:`http://127.0.0.1:3000/node/49`,
+				href:`http://127.0.0.1:3000/node/49`,
+				element:'node',id:49,map:undefined
+			}
 		])
 	})
 })

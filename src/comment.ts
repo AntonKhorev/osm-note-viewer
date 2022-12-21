@@ -1,3 +1,6 @@
+import type {WebUrlLister} from './server'
+import {escapeRegex} from './escape'
+
 interface BaseCommentItem {
 	text: string
 }
@@ -37,14 +40,14 @@ interface OsmNoteCommentItem extends OsmCommentItem {
 
 type CommentItem = TextCommentItem | DateCommentItem | ImageCommentItem | OsmRootCommentItem | OsmElementCommentItem | OsmChangesetCommentItem | OsmNoteCommentItem
 
-export default function getCommentItems(commentText: string): CommentItem[] {
+export default function getCommentItems(webUrlLister: WebUrlLister, commentText: string): CommentItem[] {
 	const matchRegExp=new RegExp(`(?<before>.*?)(?<text>`+
 		`(?<date>\\d\\d\\d\\d-\\d\\d-\\d\\d[T ]\\d\\d:\\d\\d:\\d\\dZ)`+
 	`|`+
 		`(?<link>https?://(?:`+
 			`(?<image>westnordost\.de/p/[0-9]+\.jpg)`+
 		'|'+
-			`(?<osm>(?:www\\.)?(?:osm|openstreetmap)\\.org/`+
+			`(?<osm>`+makeWebUrlRegex(webUrlLister)+
 				`(?<path>(?<osmType>node|way|relation|changeset|note)/(?<id>[0-9]+))?`+
 				`(?<hash>#[-0-9a-zA-Z/.=&]+)?`+ // only need hash at root or at recognized path
 			`)`+
@@ -57,7 +60,7 @@ export default function getCommentItems(commentText: string): CommentItem[] {
 		const match=matchRegExp.exec(commentText)
 		if (!match || !match.groups) break
 		pushTextItem(match.groups.before)
-		items.push(getMatchItem(match.groups))
+		items.push(getMatchItem(webUrlLister,match.groups))
 	}
 	pushTextItem(commentText.slice(idx))
 	return collapseTextItems(items)
@@ -88,7 +91,15 @@ export default function getCommentItems(commentText: string): CommentItem[] {
 	}
 }
 
-function getMatchItem(groups: {[key:string]:string}): CommentItem {
+function makeWebUrlRegex(webUrlLister: WebUrlLister): string {
+	return '(?:'+webUrlLister.webUrls.map(webUrl=>escapeRegex(stripProtocol(webUrl))).join('|')+')'
+}
+
+function stripProtocol(webUrl: string): string {
+	return webUrl.replace(new RegExp('^[^:]*://'),'')
+}
+
+function getMatchItem(webUrlLister: WebUrlLister, groups: {[key:string]:string}): CommentItem {
 	const baseItem: BaseCommentItem = {
 		text: groups.text
 	}
@@ -112,7 +123,7 @@ function getMatchItem(groups: {[key:string]:string}): CommentItem {
 			const osmItem: OsmCommentItem = {
 				...linkItem,
 				link: 'osm',
-				href: rewriteOsmHref(groups.path,groups.hash),
+				href: rewriteOsmHref(webUrlLister,groups.path,groups.hash),
 				map: getMap(groups.hash)
 			}
 			if (groups.osmType && groups.id) {
@@ -144,9 +155,8 @@ function getMatchItem(groups: {[key:string]:string}): CommentItem {
 	}
 }
 
-function rewriteOsmHref(path: string|undefined, hash: string|undefined): string {
-	let href=`https://www.openstreetmap.org/` // changes osm.org and other redirected paths to canonical
-	if (path) href+=path
+function rewriteOsmHref(webUrlLister: WebUrlLister, path: string|undefined, hash: string|undefined): string {
+	let href=webUrlLister.getWebUrl(path??'')
 	if (hash) href+=hash
 	return href
 }

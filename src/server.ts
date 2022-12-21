@@ -2,10 +2,15 @@ export interface ApiFetcher {
 	apiFetch(apiPath:string):Promise<Response>
 }
 
-export default class Server implements ApiFetcher {
+export interface WebUrlLister {
+	get webUrls(): readonly string[]
+	getWebUrl(webPath:string):string
+}
+
+export default class Server implements ApiFetcher, WebUrlLister {
 	constructor(
-		private readonly webUrl: string,
-		private readonly apiUrl: string
+		private readonly apiUrl: string,
+		public readonly webUrls: string[]
 	) {}
 	apiFetch(apiPath:string) {
 		return fetch(this.getApiUrl(apiPath))
@@ -17,6 +22,6 @@ export default class Server implements ApiFetcher {
 		return `${this.apiUrl}${apiRootPath}`
 	}
 	getWebUrl(webPath:string):string {
-		return `${this.webUrl}${webPath}`
+		return `${this.webUrls[0]}${webPath}`
 	}
 }

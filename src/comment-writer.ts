@@ -1,7 +1,9 @@
+import type {WebUrlLister} from './server'
 import getCommentItems from './comment'
 import {makeLink} from './html'
 
 export default class CommentWriter {
+	constructor(private webUrlLister: WebUrlLister) {}
 	makeCommentElements(
 		commentText: string, showImages=false
 	): [
@@ -10,7 +12,7 @@ export default class CommentWriter {
 	] {
 		const inlineElements: Array<string|HTMLAnchorElement|HTMLTimeElement> = []
 		const imageElements: Array<HTMLAnchorElement> = []
-		for (const item of getCommentItems(commentText)) {
+		for (const item of getCommentItems(this.webUrlLister,commentText)) {
 			if (item.type=='link' && item.link=='image') {
 				const $inlineLink=makeLink(item.href,item.href)
 				$inlineLink.classList.add('listened','image','inline')

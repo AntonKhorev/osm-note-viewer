@@ -145,7 +145,7 @@ export default class NoteTable {
 			}
 			this.noteRefresher.observe(noteRefreshList)
 		})
-		this.commentWriter=new CommentWriter()
+		this.commentWriter=new CommentWriter(server)
 		$container.append(this.$table)
 		this.reset()
 		const looseParserPopup=new LooseParserPopup($container)

@@ -1,5 +1,5 @@
 import {Tool, ToolElements, ToolCallbacks, makeNotesIcon, makeMapIcon} from './base'
-
+import type {WebUrlLister} from '../server'
 import type {Note} from '../data'
 import {NoteMap} from '../map'
 import FigureDialog from '../figure'
@@ -116,7 +116,7 @@ export class TimestampTool extends Tool {
 }
 
 export class ParseTool extends Tool {
-	constructor() {super(
+	constructor(protected webUrlLister: WebUrlLister) {super(
 		'parse',
 		`Parse links`
 	)}
@@ -133,7 +133,7 @@ export class ParseTool extends Tool {
 		`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`
 	)]}
 	getTool(callbacks: ToolCallbacks, map: NoteMap, figureDialog: FigureDialog): ToolElements {
-		const commentWriter=new CommentWriter()
+		const commentWriter=new CommentWriter(this.webUrlLister)
 		const $input=document.createElement('input')
 		$input.type='text'
 		$input.size=50

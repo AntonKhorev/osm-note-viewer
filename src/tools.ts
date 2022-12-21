@@ -10,7 +10,7 @@ export {Tool, ToolFitMode, ToolCallbacks}
 
 export const toolMakerSequence: Array<(server:Server)=>Tool> = [
 	()=>new UtilTools.AutozoomTool, ()=>new UtilTools.CommentsTool,
-	()=>new UtilTools.TimestampTool, ()=>new UtilTools.ParseTool,
+	()=>new UtilTools.TimestampTool, (server)=>new UtilTools.ParseTool(server),
 	()=>new OverpassTools.OverpassTurboTool, ()=>new OverpassTools.OverpassDirectTool,
 	()=>new EditorTools.RcTool, ()=>new EditorTools.IdTool,
 	(server)=>new ExportTools.GpxTool(server), (server)=>new ExportTools.GeoJsonTool(server),
