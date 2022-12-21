@@ -111,7 +111,6 @@ button.global > svg {
 }
 
 .loose-parser-popup {
-	--item-height: 20px;
 	--item-width: 90px;
 	display: none;
 	position: fixed;
@@ -127,16 +126,16 @@ button.global > svg {
 	display: block;
 }
 .loose-parser-popup a {
-	display: flex;
+	display: block;
 	box-sizing: border-box;
 	width: var(--item-width);
-	height: var(--item-height);
-	align-items: center;
-	padding-left: 5px;
+	padding: 2px 0 2px 5px;
 	background: var(--popup-item-background);
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 .loose-parser-popup li.main a {
-	height: calc(2*var(--item-height));
+	padding: 10px 0 10px 5px;
 	border-top: solid 1px var(--frame-color);
 	border-bottom: solid 1px var(--frame-color);
 	background: var(--popup-main-item-background);
