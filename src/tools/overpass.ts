@@ -1,5 +1,5 @@
 import {Tool, ToolElements, ToolCallbacks, makeMapIcon} from './base'
-import Server from '../server'
+import Server, {QueryError} from '../server'
 import {NoteMap} from '../map'
 import {makeElement, makeLink} from '../html'
 import {makeEscapeTag} from '../escape'
@@ -101,8 +101,7 @@ export class OverpassDirectTool extends OverpassTool {
 				let query=this.getOverpassQueryPreamble(map)
 				query+=`node(around:${radius},${map.lat},${map.lon});\n`
 				query+=`out skel;`
-				const doc=await makeOverpassQuery($button,query)
-				if (!doc) return
+				const doc=await server.overpassFetch(query)
 				const closestNodeId=getClosestNodeId(doc,map.lat,map.lon)
 				if (!closestNodeId) {
 					$button.classList.add('error')
@@ -115,41 +114,18 @@ export class OverpassDirectTool extends OverpassTool {
 				$a.dataset.elementId=String(closestNodeId)
 				$a.classList.add('listened','osm')
 				$output.replaceChildren($a)
+				$button.classList.remove('error')
+				$button.title=''
+			} catch (ex) {
+				$button.classList.add('error')
+				if (ex instanceof QueryError) {
+					$button.title=`Overpass query failed ${ex.reason}`
+				}
 			} finally {
 				$button.disabled=false
 			}
 		}
 		return [$button,` → `,$output]
-	}
-}
-
-async function makeOverpassQuery($button: HTMLButtonElement, query: string): Promise<Document|undefined> {
-	try {
-		const response=await fetch(`https://www.overpass-api.de/api/interpreter`,{
-			method: 'POST',
-			body: new URLSearchParams({data:query})
-		})
-		const text=await response.text()
-		if (!response.ok) {
-			setError(`receiving the following message: ${text}`)
-			return
-		}
-		clearError()
-		return new DOMParser().parseFromString(text,'text/xml')
-	} catch (ex) {
-		if (ex instanceof TypeError) {
-			setError(`with the following error before receiving a response: ${ex.message}`)
-		} else {
-			setError(`for unknown reason`)
-		}
-	}
-	function setError(reason: string) {
-		$button.classList.add('error')
-		$button.title=`Overpass query failed ${reason}`
-	}
-	function clearError() {
-		$button.classList.remove('error')
-		$button.title=''
 	}
 }
 

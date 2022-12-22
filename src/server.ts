@@ -24,6 +24,28 @@ export interface NominatimProvider {
 	getNominatimSearchUrl(parameters:string): string
 }
 
+export class QueryError {
+	get reason():string {
+		return `for unknown reason`
+	}
+}
+export class NetworkQueryError extends QueryError {
+	constructor(private message:string) {
+		super()
+	}
+	get reason():string {
+		return `with the following error before receiving a response: ${this.message}`
+	}
+}
+export class ResponseQueryError extends QueryError {
+	constructor(private text:string) {
+		super()
+	}
+	get reason():string {
+		return `receiving the following message: ${this.text}`
+	}
+}
+
 export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, TileSource, NominatimProvider {
 	constructor(
 		public readonly apiUrl: string,
@@ -32,7 +54,8 @@ export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, T
 		public readonly tileAttributionUrl: string,
 		public readonly tileAttributionText: string,
 		public readonly maxZoom: number,
-		private readonly nominatimUrl: string
+		private readonly nominatimUrl: string,
+		private readonly overpassUrl: string
 	) {}
 	apiFetch(apiPath:string) {
 		return fetch(this.getApiUrl(apiPath))
@@ -49,11 +72,39 @@ export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, T
 	async nominatimSearch(parameters:string):Promise<any> {
 		const response=await fetch(this.getNominatimSearchUrl(parameters))
 		if (!response.ok) {
-			throw new TypeError('Nominatim error: unsuccessful response')
+			throw new TypeError('unsuccessful Nominatim response')
 		}
 		return response.json()
 	}
 	getNominatimSearchUrl(parameters:string):string {
 		return this.nominatimUrl+`search?format=jsonv2&`+parameters
+	}
+	async overpassFetch(overpassQuery:string):Promise<Document> {
+		try {
+			let response: Response
+			try {
+				response=await fetch(this.overpassUrl+`api/interpreter`,{
+					method: 'POST',
+					body: new URLSearchParams({data:overpassQuery})
+				})
+			} catch (ex) {
+				if (ex instanceof TypeError) {
+					throw new NetworkQueryError(ex.message)
+				} else {
+					throw ex
+				}
+			}
+			const text=await response.text()
+			if (!response.ok) {
+				throw new ResponseQueryError(text)
+			}
+			return new DOMParser().parseFromString(text,'text/xml')
+		} catch (ex) {
+			if (ex instanceof QueryError) {
+				throw ex
+			} else {
+				throw new QueryError
+			}
+		}
 	}
 }
