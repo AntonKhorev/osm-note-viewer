@@ -1,6 +1,34 @@
 import {strict as assert} from 'assert'
 import NoteFilter from '../test-build/filter.js'
 
+class ApiAndWebUrlLister {
+	constructor(apiUrl,webUrls) {
+		this.apiUrl=apiUrl
+		this.webUrls=webUrls
+	}
+	getApiUrl(apiPath) {
+		return `${this.apiUrl}api/0.6/${apiPath}`
+	}
+	getWebUrl(webPath) {
+		return `${this.webUrls[0]}${webPath}`
+	}
+}
+
+const defaultApiAndWebUrlLister=new ApiAndWebUrlLister(
+	`https://api.openstreetmap.org/`,[
+		`https://www.openstreetmap.org/`,
+		`https://openstreetmap.org/`,
+		`https://www.osm.org/`,
+		`https://osm.org/`,
+	]
+)
+
+class DefaultNoteFilter extends NoteFilter {
+	constructor(query) {
+		super(defaultApiAndWebUrlLister,query)
+	}
+}
+
 const makeNoteWithUsers=(...uids)=>{
 	const comments=[]
 	let date=1645433069
@@ -58,28 +86,28 @@ describe("NoteFilter",()=>{
 		filter.matchNote(note,getUsername)
 	))
 	it("fails on syntax error",()=>assert.throws(()=>{
-		new NoteFilter('=')
+		new DefaultNoteFilter('=')
 	}))
 	it("fails on invalid action",()=>assert.throws(()=>{
-		new NoteFilter('action = fail')
+		new DefaultNoteFilter('action = fail')
 	}))
 	it("fails on invalid user",()=>assert.throws(()=>{
-		new NoteFilter('user = ///')
+		new DefaultNoteFilter('user = ///')
 	}))
 	context("blank filter",()=>{
-		const filter=new NoteFilter('')
+		const filter=new DefaultNoteFilter('')
 		accept("anonymous note",filter,makeNoteWithUsers(0))
 		accept("user note",filter,makeNoteWithUsers(101))
 	})
 	context("single user filter",()=>{
-		const filter=new NoteFilter('user = Alice')
+		const filter=new DefaultNoteFilter('user = Alice')
 		reject("anonymous note",filter,makeNoteWithUsers(0))
 		accept("matching user note",filter,makeNoteWithUsers(101))
 		reject("non-matching user note",filter,makeNoteWithUsers(102))
 		accept("matching multi-user note",filter,makeNoteWithUsers(103,101,102))
 	})
 	context("beginning + single user filter",()=>{
-		const filter=new NoteFilter(
+		const filter=new DefaultNoteFilter(
 			'^\n'+
 			'user = Fred'
 		)
@@ -87,33 +115,33 @@ describe("NoteFilter",()=>{
 		reject("matching user note not at beginning",filter,makeNoteWithUsers(101,103))
 	})
 	context("anonymous user filter",()=>{
-		const filter=new NoteFilter('user = 0')
+		const filter=new DefaultNoteFilter('user = 0')
 		accept("anonymous note",filter,makeNoteWithUsers(0))
 		reject("user note",filter,makeNoteWithUsers(103))
 	})
 	context("anonymous uid filter",()=>{
-		const filter=new NoteFilter('user = #0')
+		const filter=new DefaultNoteFilter('user = #0')
 		accept("anonymous note",filter,makeNoteWithUsers(0))
 		reject("user note",filter,makeNoteWithUsers(103))
 	})
 	context("anonymous user filter",()=>{
-		const filter=new NoteFilter('user != 0')
+		const filter=new DefaultNoteFilter('user != 0')
 		reject("anonymous note",filter,makeNoteWithUsers(0))
 		accept("user note",filter,makeNoteWithUsers(103))
 	})
 	context("single user url filter",()=>{
-		const filter=new NoteFilter('user = https://www.openstreetmap.org/user/Alice')
+		const filter=new DefaultNoteFilter('user = https://www.openstreetmap.org/user/Alice')
 		reject("anonymous note",filter,makeNoteWithUsers(0))
 		accept("matching user note",filter,makeNoteWithUsers(101))
 		reject("non-matching user note",filter,makeNoteWithUsers(102))
 	})
 	context("double inequality user filter",()=>{
-		const filter=new NoteFilter('user != Alice, user != Bob')
+		const filter=new DefaultNoteFilter('user != Alice, user != Bob')
 		reject("note with one user equal",filter,makeNoteWithUsers(101))
 		accept("note with none user equal",filter,makeNoteWithUsers(103))
 	})
 	context("empty comment filter",()=>{
-		const filter=new NoteFilter('text = ""')
+		const filter=new DefaultNoteFilter('text = ""')
 		accept("note with one empty comment",filter,makeNoteWithComments(``))
 		accept("note with two empty comments",filter,makeNoteWithComments(``,``))
 		accept("note with one empty and one nonempty comment",filter,makeNoteWithComments(``,`lol`))
@@ -121,7 +149,7 @@ describe("NoteFilter",()=>{
 		reject("note with two nonempty comments",filter,makeNoteWithComments(`lol`,`kek`))
 	})
 	context("nonempty comment filter",()=>{
-		const filter=new NoteFilter('text != ""')
+		const filter=new DefaultNoteFilter('text != ""')
 		reject("note with one empty comment",filter,makeNoteWithComments(``))
 		reject("note with two empty comments",filter,makeNoteWithComments(``,``))
 		accept("note with one empty and one nonempty comment",filter,makeNoteWithComments(``,`lol`))
@@ -129,13 +157,13 @@ describe("NoteFilter",()=>{
 		accept("note with two nonempty comments",filter,makeNoteWithComments(`lol`,`kek`))
 	})
 	context("full match comment filter",()=>{
-		const filter=new NoteFilter('text = "lol"')
+		const filter=new DefaultNoteFilter('text = "lol"')
 		reject("note with one empty comment",filter,makeNoteWithComments(``))
 		accept("note with a matching comment",filter,makeNoteWithComments(`lol`))
 		reject("note with a non-matching comment",filter,makeNoteWithComments(`kek`))
 	})
 	context("substring match comment filter",()=>{
-		const filter=new NoteFilter('text ~= "street"')
+		const filter=new DefaultNoteFilter('text ~= "street"')
 		reject("note with one empty comment",filter,makeNoteWithComments(``))
 		accept("note with a full matching comment",filter,makeNoteWithComments(`Street`))
 		accept("note with a substring matching comment",filter,makeNoteWithComments(`Main Street`))

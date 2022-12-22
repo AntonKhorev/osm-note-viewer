@@ -152,7 +152,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 	}
 	protected addEventListenersBeforeClosedLine(): void {
 		this.$userInput.addEventListener('input',()=>{
-			const userQuery=toUserQuery(this.$userInput.value)
+			const userQuery=toUserQuery(this.server,this.$userInput.value)
 			if (userQuery.userType=='invalid') {
 				this.$userInput.setCustomValidity(userQuery.message)
 			} else {
@@ -170,6 +170,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 	}
 	protected constructQuery(): NoteQuery | undefined {
 		return makeNoteSearchQueryFromValues(
+			this.server,
 			this.$userInput.value,this.$textInput.value,this.$fromInput.value,this.$toInput.value,
 			this.closedValue,this.$sortSelect.value,this.$orderSelect.value
 		)

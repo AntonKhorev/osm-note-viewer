@@ -1,4 +1,5 @@
 import {Note, NoteComment} from './data'
+import type {ApiUrlLister, WebUrlLister} from './server'
 import {UserQuery, toUserQuery, makeUserQueryFromUserNameAndId} from './query-user'
 import {toDateQuery, toUrlDate} from './query-date'
 
@@ -78,10 +79,11 @@ function makeNoteSearchQueryFromUserQueryAndValues(
 }
 
 export function makeNoteSearchQueryFromValues(
+	urlLister: ApiUrlLister&WebUrlLister,
 	userValue: string, textValue: string, fromValue: string, toValue: string, closedValue: string, sortValue: string, orderValue: string
 ): NoteSearchQuery | undefined {
 	return makeNoteSearchQueryFromUserQueryAndValues(
-		toUserQuery(userValue),
+		toUserQuery(urlLister,userValue),
 		textValue,fromValue,toValue,closedValue,sortValue,orderValue
 	)
 }

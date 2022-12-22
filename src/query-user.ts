@@ -1,3 +1,5 @@
+import type {ApiUrlLister, WebUrlLister} from './server'
+
 export interface UsernameQuery {
 	userType: 'name'
 	username: string
@@ -21,7 +23,7 @@ export interface EmptyUserQuery {
 
 export type UserQuery = ValidUserQuery | InvalidUserQuery | EmptyUserQuery
 
-export function toUserQuery(value: string): UserQuery {
+export function toUserQuery(urlLister: ApiUrlLister&WebUrlLister, value: string): UserQuery {
 	const s=value.trim()
 	if (s=='') return {
 		userType: 'empty'
@@ -48,41 +50,16 @@ export function toUserQuery(value: string): UserQuery {
 		}
 	}
 	if (s.includes('/')) {
+		const hosts=new Set<string>()
+		for (const urlString of [urlLister.apiUrl,...urlLister.webUrls]) {
+			try {
+				const url=new URL(urlString)
+				hosts.add(url.host)
+			} catch {}
+		}
 		try {
 			const url=new URL(s)
-			if (
-				url.host=='www.openstreetmap.org' ||
-				url.host=='openstreetmap.org' ||
-				url.host=='www.osm.org' ||
-				url.host=='osm.org'
-			) {
-				const [,userPathDir,userPathEnd]=url.pathname.split('/')
-				if (userPathDir=='user' && userPathEnd) {
-					const username=decodeURIComponent(userPathEnd)
-					return {
-						userType: 'name',
-						username
-					}
-				}
-				return {
-					userType: 'invalid',
-					message: `OSM URL has to include username`
-				}
-			} else if (url.host==`api.openstreetmap.org`) {
-				const [,apiDir,apiVersionDir,apiCall,apiValue]=url.pathname.split('/')
-				if (apiDir=='api' && apiVersionDir=='0.6' && apiCall=='user') {
-					const [uidString]=apiValue.split('.')
-					const uid=Number(uidString)
-					if (Number.isInteger(uid)) return {
-						userType: 'id',
-						uid
-					}
-				}
-				return {
-					userType: 'invalid',
-					message: `OSM API URL has to be "api/0.6/user/..."`
-				}
-			} else {
+			if (!hosts.has(url.host)) {
 				let domainString=`was given ${url.host}`
 				if (!url.host) domainString=`no domain was given`
 				return {
@@ -90,10 +67,43 @@ export function toUserQuery(value: string): UserQuery {
 					message: `URL has to be of an OSM domain, ${domainString}`
 				}
 			}
+			const [,typeDir]=url.pathname.split('/',2)
+			if (typeDir=='user') {
+				const [,,userDir]=url.pathname.split('/',3)
+				if (!userDir) return {
+					userType: 'invalid',
+					message: `OSM user URL has to include username`
+				}
+				return {
+					userType: 'name',
+					username: decodeURIComponent(userDir)
+				}
+			} else if (typeDir=='api') {
+				const [,,apiVersionDir,apiCall,apiValue]=url.pathname.split('/',5)
+				if (apiVersionDir!='0.6' || apiCall!='user') return {
+					userType: 'invalid',
+					message: `OSM API URL has to be "api/0.6/user/..."`
+				}
+				const [uidString]=apiValue.split('.')
+				const uid=Number(uidString)
+				if (!Number.isInteger(uid)) return {
+					userType: 'invalid',
+					message: `OSM API URL has to include valid user id"`
+				}
+				return {
+					userType: 'id',
+					uid
+				}
+			} else {
+				return {
+					userType: 'invalid',
+					message: `OSM URL has to be either user page or user api link`
+				}
+			}
 		} catch {
 			return {
 				userType: 'invalid',
-				message: `string containing / character has to be a valid URL`
+				message: `string containing "/" character has to be a valid URL`
 			}
 		}
 	}

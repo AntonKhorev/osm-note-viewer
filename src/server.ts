@@ -2,6 +2,11 @@ export interface ApiFetcher {
 	apiFetch(apiPath:string): Promise<Response>
 }
 
+export interface ApiUrlLister {
+	get apiUrl(): string
+	getApiUrl(apiPath:string):string
+}
+
 export interface WebUrlLister {
 	get webUrls(): readonly string[]
 	getWebUrl(webPath:string): string
@@ -19,9 +24,9 @@ export interface NominatimProvider {
 	getNominatimSearchUrl(parameters:string): string
 }
 
-export default class Server implements ApiFetcher, WebUrlLister, TileSource, NominatimProvider {
+export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, TileSource, NominatimProvider {
 	constructor(
-		private readonly apiUrl: string,
+		public readonly apiUrl: string,
 		public readonly webUrls: string[],
 		public readonly tileUrlTemplate: string,
 		public readonly tileAttributionUrl: string,

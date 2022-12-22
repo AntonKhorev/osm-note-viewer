@@ -81,7 +81,7 @@ async function main() {
 	}
 
 	const navbar=new Navbar(storage,$navbarContainer,map)
-	const filterPanel=new NoteFilterPanel($filterContainer)
+	const filterPanel=new NoteFilterPanel(server,$filterContainer)
 	const toolPanel=new ToolPanel(
 		storage,server,globalEventsListener,
 		$toolContainer,map,figureDialog

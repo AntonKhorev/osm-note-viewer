@@ -1,4 +1,5 @@
 import {Note, NoteComment} from './data'
+import type {ApiUrlLister, WebUrlLister} from './server'
 import {ValidUserQuery, toUserQuery} from './query-user'
 import {escapeRegex} from './escape'
 
@@ -49,7 +50,7 @@ function isValidOperator(op: string): op is Operator {
 
 export default class NoteFilter {
 	private statements: Statement[] = []
-	constructor(private query: string) {
+	constructor(urlLister: ApiUrlLister&WebUrlLister, private query: string) {
 		let lineNumber=0
 		lineLoop: for (const untrimmedLine of query.split('\n')) {
 			lineNumber++
@@ -70,7 +71,7 @@ export default class NoteFilter {
 				if (match=matchTerm('user','(.+)')) {
 					const [,operator,user]=match
 					if (!isValidOperator(operator)) continue // impossible
-					const userQuery=toUserQuery(user)
+					const userQuery=toUserQuery(urlLister,user)
 					if (userQuery.userType=='invalid' || userQuery.userType=='empty') {
 						throwError(`Invalid user value "${user}"`)
 					}

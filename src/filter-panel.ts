@@ -1,4 +1,5 @@
 import NoteFilter from './filter'
+import type {ApiUrlLister, WebUrlLister} from './server'
 import {makeDiv, makeLabel} from './html'
 
 const syntaxDescription=`<summary>Filter syntax</summary>
@@ -63,11 +64,11 @@ function term(t:string):string {
 export default class NoteFilterPanel {
 	noteFilter: NoteFilter
 	private callback?: (noteFilter: NoteFilter) => void
-	constructor($container: HTMLElement) {
+	constructor(urlLister: ApiUrlLister&WebUrlLister, $container: HTMLElement) {
 		const $form=document.createElement('form')
 		const $textarea=document.createElement('textarea')
 		const $button=document.createElement('button')
-		this.noteFilter=new NoteFilter(``)
+		this.noteFilter=new NoteFilter(urlLister,``)
 		{
 			const $details=document.createElement('details')
 			$details.innerHTML=syntaxDescription
@@ -100,7 +101,7 @@ export default class NoteFilterPanel {
 		$textarea.addEventListener('input',()=>{
 			$button.disabled=this.noteFilter.isSameQuery($textarea.value)
 			try {
-				new NoteFilter($textarea.value)
+				new NoteFilter(urlLister,$textarea.value)
 				$textarea.setCustomValidity('')
 			} catch (ex) {
 				let message=`Syntax error`
@@ -111,7 +112,7 @@ export default class NoteFilterPanel {
 		$form.addEventListener('submit',(ev)=>{
 			ev.preventDefault()
 			try {
-				this.noteFilter=new NoteFilter($textarea.value)
+				this.noteFilter=new NoteFilter(urlLister,$textarea.value)
 			} catch (ex) {
 				return
 			}
