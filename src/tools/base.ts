@@ -1,4 +1,5 @@
 import type {Note} from '../data'
+import Server from '../server'
 import {NoteMap} from '../map'
 import FigureDialog from '../figure'
 
@@ -16,7 +17,7 @@ export interface ToolCallbacks {
 export abstract class Tool {
 	private $buttonsRequiringSelectedNotes: HTMLButtonElement[] = []
 	constructor(public id: string, public name: string, public title?: string ) {}
-	abstract getTool(callbacks: ToolCallbacks, map: NoteMap, figureDialog: FigureDialog): ToolElements
+	abstract getTool(callbacks: ToolCallbacks, server: Server, map: NoteMap, figureDialog: FigureDialog): ToolElements
 	getInfo(): ToolElements|undefined { return undefined }
 	onTimestampChange(timestamp: string): boolean { return false }
 	onNoteCountsChange(nFetched: number, nVisible: number): boolean { return false }

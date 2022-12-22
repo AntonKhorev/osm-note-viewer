@@ -1,8 +1,7 @@
 import {Tool, ToolElements, ToolCallbacks, makeNotesIcon, makeMapIcon} from './base'
-import type {WebUrlLister} from '../server'
 import type {Note} from '../data'
+import Server from '../server'
 import {NoteMap} from '../map'
-import FigureDialog from '../figure'
 import CommentWriter from '../comment-writer'
 import {makeElement, makeLink} from '../html'
 
@@ -27,7 +26,7 @@ export class AutozoomTool extends Tool {
 		dfn(`To notes on screen in table`),` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `,
 		`This option is convenient to use when `,em(`Track between notes`),` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`
 	)]}
-	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+	getTool(callbacks: ToolCallbacks, server: Server, map: NoteMap): ToolElements {
 		const $fitModeSelect=document.createElement('select')
 		$fitModeSelect.append(
 			new Option('is disabled','none'),
@@ -59,7 +58,7 @@ export class CommentsTool extends Tool {
 		`Table comments`,
 		`Change how comments are displayed in notes table`
 	)}
-	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+	getTool(callbacks: ToolCallbacks): ToolElements {
 		const $onlyFirstCommentsCheckbox=document.createElement('input')
 		$onlyFirstCommentsCheckbox.type='checkbox'
 		const $oneLineCommentsCheckbox=document.createElement('input')
@@ -116,7 +115,7 @@ export class TimestampTool extends Tool {
 }
 
 export class ParseTool extends Tool {
-	constructor(protected webUrlLister: WebUrlLister) {super(
+	constructor() {super(
 		'parse',
 		`Parse links`
 	)}
@@ -132,8 +131,8 @@ export class ParseTool extends Tool {
 	),p(
 		`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`
 	)]}
-	getTool(callbacks: ToolCallbacks, map: NoteMap, figureDialog: FigureDialog): ToolElements {
-		const commentWriter=new CommentWriter(this.webUrlLister)
+	getTool(callbacks: ToolCallbacks, server: Server): ToolElements {
+		const commentWriter=new CommentWriter(server)
 		const $input=document.createElement('input')
 		$input.type='text'
 		$input.size=50

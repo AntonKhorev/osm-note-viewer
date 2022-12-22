@@ -1,4 +1,5 @@
 import {Tool, ToolElements, ToolCallbacks, makeMapIcon} from './base'
+import Server from '../server'
 import {NoteMap} from '../map'
 import {makeElement, makeLink} from '../html'
 import {makeEscapeTag} from '../escape'
@@ -33,7 +34,7 @@ export class OverpassTurboTool extends OverpassTool {
 		`, web UI for Overpass API. `,
 		`Useful to inspect historic data at the time a particular note comment was made.`
 	)]}
-	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+	getTool(callbacks: ToolCallbacks, server: Server, map: NoteMap): ToolElements {
 		const $overpassButtons: HTMLButtonElement[] = []
 		const buttonClickListener=(withRelations: boolean, onlyAround: boolean)=>{
 			const e=makeEscapeTag(encodeURIComponent)
@@ -87,7 +88,7 @@ export class OverpassDirectTool extends OverpassTool {
 		`Query `,makeLink(`Overpass API`,'https://wiki.openstreetmap.org/wiki/Overpass_API'),` without going through Overpass turbo. `,
 		`Shows results on the map. Also gives link to the element page on the OSM website.`
 	)]}
-	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+	getTool(callbacks: ToolCallbacks, server: Server, map: NoteMap): ToolElements {
 		const $button=document.createElement('button')
 		$button.append(`Find closest node to `,makeMapIcon('center'))
 		const $output=document.createElement('code')
@@ -108,7 +109,7 @@ export class OverpassDirectTool extends OverpassTool {
 					$button.title=`Could not find nodes nearby`
 					return
 				}
-				const url=`https://www.openstreetmap.org/node/`+encodeURIComponent(closestNodeId)
+				const url=server.getWebUrl(`node/`+encodeURIComponent(closestNodeId))
 				const $a=makeLink(`link`,url)
 				$a.dataset.elementType='node'
 				$a.dataset.elementId=String(closestNodeId)

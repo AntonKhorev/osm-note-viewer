@@ -1,4 +1,5 @@
 import {Tool, ToolElements, ToolCallbacks, makeMapIcon} from './base'
+import Server from '../server'
 import {NoteMap} from '../map'
 import {makeElement, makeLink} from '../html'
 import {makeEscapeTag} from '../escape'
@@ -7,7 +8,7 @@ type InfoElements = Array<string|HTMLElement>
 const p=(...ss: InfoElements)=>makeElement('p')()(...ss)
 
 abstract class StreetViewTool extends Tool {
-	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+	getTool(callbacks: ToolCallbacks, server: Server, map: NoteMap): ToolElements {
 		const $viewButton=document.createElement('button')
 		$viewButton.append(`Open `,makeMapIcon('center'))
 		$viewButton.onclick=()=>{

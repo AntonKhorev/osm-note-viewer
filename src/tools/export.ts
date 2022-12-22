@@ -2,10 +2,10 @@ import type {
 	Feature,
 	FeatureCollection
 } from 'geojson'
-import Server from '../server'
 
-import {Tool, ToolElements, makeNotesIcon} from './base'
+import {Tool, ToolElements, ToolCallbacks, makeNotesIcon} from './base'
 import type {Note, NoteComment} from '../data'
+import Server from '../server'
 import {toReadableDate, toUrlDate} from '../query-date'
 import {makeElement, makeLink, makeLabel} from '../html'
 import {escapeXml, makeEscapeTag} from '../escape'
@@ -19,9 +19,6 @@ const ul=(...ss: InfoElements)=>makeElement('ul')()(...ss)
 const li=(...ss: InfoElements)=>makeElement('li')()(...ss)
 
 abstract class ExportTool extends Tool {
-	constructor(id: string, name: string, protected server: Server) {
-		super(id,name)
-	}
 	protected selectedNotes: ReadonlyArray<Note> = []
 	protected selectedNoteUsers: ReadonlyMap<number,string> = new Map()
 	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean {
@@ -39,7 +36,7 @@ abstract class ExportTool extends Tool {
 			)
 		]
 	}
-	getTool(): ToolElements {
+	getTool(callbacks: ToolCallbacks, server: Server): ToolElements {
 		const $optionSelects=Object.fromEntries(
 			Object.entries(this.describeOptions()).map(([key,valuesWithTexts])=>{
 				const $select=document.createElement('select')
@@ -56,7 +53,7 @@ abstract class ExportTool extends Tool {
 		const $exportNotesButton=this.makeRequiringSelectedNotesButton()
 		$exportNotesButton.append(`Export `,makeNotesIcon('selected'))
 		$exportNotesButton.onclick=()=>{
-			const data=this.generateData(getOptionValues())
+			const data=this.generateData(server,getOptionValues())
 			const filename=this.generateFilename()
 			const file=new File([data],filename)
 			const $a=document.createElement('a')
@@ -67,7 +64,7 @@ abstract class ExportTool extends Tool {
 		}
 		$exportNotesButton.draggable=true
 		$exportNotesButton.ondragstart=(ev)=>{
-			const data=this.generateData(getOptionValues())
+			const data=this.generateData(server,getOptionValues())
 			if (!ev.dataTransfer) return
 			ev.dataTransfer.setData($dataTypeSelect.value,data)
 		}
@@ -87,7 +84,7 @@ abstract class ExportTool extends Tool {
 	protected abstract writeOptions($selects:{[key:string]:HTMLSelectElement}): ToolElements
 	protected abstract listDataTypes(): string[]
 	protected abstract generateFilename(): string
-	protected abstract generateData(options: {[key:string]:string}): string
+	protected abstract generateData(server: Server, options: {[key:string]:string}): string
 	protected getCommentStrings(comments: NoteComment[], all: boolean): string[] {
 		const ts=[]
 		for (const comment of comments) {
@@ -113,10 +110,9 @@ abstract class ExportTool extends Tool {
 }
 
 export class GpxTool extends ExportTool {
-	constructor(server:Server) {super(
+	constructor() {super(
 		'gpx',
-		`GPX`,
-		server
+		`GPX`
 	)}
 	protected getInfoWithoutDragAndDrop() {return[p(
 		`Export selected notes in `,makeLink(`GPX`,'https://wiki.openstreetmap.org/wiki/GPX'),` (GPS exchange) format. `,
@@ -159,7 +155,7 @@ export class GpxTool extends ExportTool {
 	protected generateFilename(): string {
 		return 'notes.gpx'
 	}
-	protected generateData(options: {connect:string,commentQuantity:string}): string {
+	protected generateData(server: Server, options: {connect:string,commentQuantity:string}): string {
 		const e=makeEscapeTag(escapeXml)
 		const getPoints=(pointTag: string, getDetails: (note: Note) => string = ()=>''): string => {
 			let gpx=''
@@ -183,7 +179,7 @@ export class GpxTool extends ExportTool {
 				gpx+=this.getCommentStrings(note.comments,options.commentQuantity=='all').map(escapeXml).join(`&#xA;\n`) // JOSM wants this kind of double newline, otherwise no space between comments is rendered
 				gpx+=`</desc>\n`
 			}
-			const noteUrl=this.server.getWebUrl(`note/`+encodeURIComponent(note.id))
+			const noteUrl=server.getWebUrl(`note/`+encodeURIComponent(note.id))
 			gpx+=e`<link href="${noteUrl}">\n`
 			gpx+=e`<text>note #${note.id} on osm</text>\n`
 			gpx+=e`</link>\n`
@@ -206,10 +202,9 @@ export class GpxTool extends ExportTool {
 }
 
 export class GeoJsonTool extends ExportTool {
-	constructor(server:Server) {super(
+	constructor() {super(
 		'geojson',
-		`GeoJSON`,
-		server
+		`GeoJSON`
 	)}
 	protected getInfoWithoutDragAndDrop() {return[p(
 		`Export selected notes in `,makeLink(`GeoJSON`,'https://wiki.openstreetmap.org/wiki/GeoJSON'),` format. `,
@@ -286,7 +281,7 @@ export class GeoJsonTool extends ExportTool {
 	protected generateFilename(): string {
 		return 'notes.geojson' // JOSM doesn't like .json
 	}
-	protected generateData(options: {connect:string,urls:string,commentQuantity:string,commentType:string}): string {
+	protected generateData(server: Server, options: {connect:string,urls:string,commentQuantity:string,commentType:string}): string {
 		// https://github.com/openstreetmap/openstreetmap-website/blob/master/app/views/api/notes/_note.json.jbuilder
 		const e=makeEscapeTag(encodeURIComponent)
 		const formatDate=(date:number):string=>{
@@ -304,7 +299,7 @@ export class GeoJsonTool extends ExportTool {
 			const username=this.selectedNoteUsers.get(comment.uid)
 			if (username==null) return result
 			result.user=username
-			result.user_url=this.server[options.urls=='web'
+			result.user_url=server[options.urls=='web'
 				? 'getWebUrl'
 				: 'getApiRootUrl'
 			](e`user/${username}`)
@@ -312,17 +307,17 @@ export class GeoJsonTool extends ExportTool {
 		}
 		const generateNoteUrls=(note:Note):{[key:string]:string}=>{
 			if (options.urls=='web') return {
-				url: this.server.getWebUrl(e`note/${note.id}`)
+				url: server.getWebUrl(e`note/${note.id}`)
 			}
 			const apiBasePath= e`notes/${note.id}`
 			const result: {[key:string]:string} = {
-				url: this.server.getApiUrl(apiBasePath+`.json`)
+				url: server.getApiUrl(apiBasePath+`.json`)
 			}
 			if (note.status=='closed') {
-				result.reopen_url=this.server.getApiUrl(apiBasePath+`/reopen.json`)
+				result.reopen_url=server.getApiUrl(apiBasePath+`/reopen.json`)
 			} else {
-				result.comment_url=this.server.getApiUrl(apiBasePath+`/comment.json`)
-				result.close_url=this.server.getApiUrl(apiBasePath+`/close.json`)
+				result.comment_url=server.getApiUrl(apiBasePath+`/comment.json`)
+				result.close_url=server.getApiUrl(apiBasePath+`/close.json`)
 			}
 			return result
 		}

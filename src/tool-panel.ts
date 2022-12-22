@@ -56,7 +56,7 @@ export default class ToolPanel {
 			}
 		}
 		for (const makeTool of toolMakerSequence) {
-			const tool=makeTool(server)
+			const tool=makeTool()
 			const storageKey='commands-'+tool.id
 			const $toolDetails=document.createElement('details')
 			$toolDetails.classList.add('tool')
@@ -71,7 +71,7 @@ export default class ToolPanel {
 					storage.removeItem(storageKey)
 				}
 			})
-			$toolDetails.append($toolSummary,...tool.getTool(toolCallbacks,map,figureDialog))
+			$toolDetails.append($toolSummary,...tool.getTool(toolCallbacks,server,map,figureDialog))
 			$toolDetails.addEventListener('animationend',toolAnimationEndListener)
 			const infoElements=tool.getInfo()
 			if (infoElements) {
