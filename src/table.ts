@@ -351,7 +351,7 @@ export default class NoteTable {
 			$cell.classList.add('note-link')
 			if (nComments>1) $cell.rowSpan=nComments
 			const $a=document.createElement('a')
-			$a.href=`https://www.openstreetmap.org/note/`+encodeURIComponent(note.id)
+			$a.href=this.server.getWebUrl(`note/`+encodeURIComponent(note.id))
 			$a.dataset.noteId=$a.textContent=`${note.id}`
 			$a.dataset.self='yes'
 			$a.classList.add('listened')
