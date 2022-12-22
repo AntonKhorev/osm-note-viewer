@@ -7,10 +7,21 @@ export interface WebUrlLister {
 	getWebUrl(webPath:string):string
 }
 
-export default class Server implements ApiFetcher, WebUrlLister {
+export interface TileSource {
+		get tileUrlTemplate(): string
+		get tileAttributionUrl(): string
+		get tileAttributionText(): string
+		get maxZoom(): number
+}
+
+export default class Server implements ApiFetcher, WebUrlLister, TileSource {
 	constructor(
 		private readonly apiUrl: string,
-		public readonly webUrls: string[]
+		public readonly webUrls: string[],
+		public readonly tileUrlTemplate: string,
+		public readonly tileAttributionUrl: string,
+		public readonly tileAttributionText: string,
+		public readonly maxZoom: number
 	) {}
 	apiFetch(apiPath:string) {
 		return fetch(this.getApiUrl(apiPath))

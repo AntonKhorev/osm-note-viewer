@@ -25,7 +25,8 @@ async function main() {
 			`https://openstreetmap.org/`,
 			`https://www.osm.org/`,
 			`https://osm.org/`,
-		]
+		],
+		`https://tile.openstreetmap.org/{z}/{x}/{y}.png`,`https://www.openstreetmap.org/copyright`,`OpenStreetMap contributors`,19
 	)
 	const globalEventsListener=new GlobalEventsListener()
 
@@ -49,7 +50,7 @@ async function main() {
 	document.body.append($textSide,$graphicSide)
 
 	const globalHistory=new GlobalHistory($scrollingPart,$notesContainer)
-	const map=new NoteMap($mapContainer)
+	const map=new NoteMap($mapContainer,server)
 	map.onMoveEnd(()=>{
 		globalHistory.setMapHash(`${map.zoom}/${map.lat}/${map.lon}`)
 	})

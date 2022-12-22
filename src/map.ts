@@ -1,5 +1,8 @@
+import type {TileSource} from './server'
 import type {Note, NoteComment} from './data'
 import {escapeXml, makeEscapeTag} from './escape'
+
+const e=makeEscapeTag(escapeXml)
 
 export class NoteMarker extends L.Marker {
 	noteId: number
@@ -23,7 +26,6 @@ function getNoteMarkerIcon(note: Note, isSelected: boolean): L.DivIcon {
 	const heightWithAura=height+auraThickness
 	const rWithAura=widthWithAura/2
 	const nInnerCircles=4
-	const e=makeEscapeTag(escapeXml)
 	let html=``
 	html+=e`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`
 	html+=e`<title>${note.status} note #${note.id}</title>`,
@@ -85,15 +87,14 @@ export class NoteMap {
 	needToFitNotes: boolean = false
 	freezeMode: NoteMapFreezeMode = 'no'
 	private queuedPopup: [layerId: number, writer: ()=>HTMLElement] | undefined
-	constructor($container: HTMLElement) {
+	constructor($container: HTMLElement, tileSource: TileSource) {
 		this.leafletMap=L.map($container,{
 			worldCopyJump: true
 		})
 		this.leafletMap.addLayer(L.tileLayer(
-			'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-			{
-				attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>",
-				maxZoom: 19
+			tileSource.tileUrlTemplate,{
+				attribution: e`© <a href="${tileSource.tileAttributionUrl}">${tileSource.tileAttributionText}</a>`,
+				maxZoom: tileSource.maxZoom
 			}
 		)).fitWorld()
 		this.elementLayer=L.featureGroup().addTo(this.leafletMap)
