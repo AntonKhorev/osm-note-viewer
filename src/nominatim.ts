@@ -1,3 +1,4 @@
+import {NominatimProvider} from './server'
 import {makeEscapeTag} from './escape'
 
 export type NominatimBbox = readonly [minLat:string,maxLat:string,minLon:string,maxLon:string]
@@ -13,41 +14,40 @@ function isNominatimBbox(bbox: any): bbox is NominatimBbox {
 
 export class NominatimBboxFetcher {
 	constructor(
-		private fetchFromServer: (url:string)=>Promise<any>,
-		private fetchFromCache: (timestamp:number,url:string)=>Promise<any>,
-		private storeToCache: (timestamp:number,url:string,bbox:NominatimBbox)=>Promise<any>
+		private nominatimProvider: NominatimProvider,
+		private fetchFromCache: (timestamp:number,parameters:string)=>Promise<any>,
+		private storeToCache: (timestamp:number,parameters:string,bbox:NominatimBbox)=>Promise<any>
 	) {}
-	urlBase=`https://nominatim.openstreetmap.org/search`
-	getUrl(
+	getParameters(
 		q: string,
 		west: number, south: number, east: number, north: number
 	): string {
 		const e=makeEscapeTag(encodeURIComponent)
-		let url=this.urlBase+e`?format=json&limit=1&q=${q}`
+		let parameters=e`limit=1&q=${q}`
 		if (east>west && north>south && east-west<360) {
 			const viewbox=`${west},${south},${east},${north}`
-			url+=e`&viewbox=${viewbox}`
+			parameters+=e`&viewbox=${viewbox}`
 		}
-		return url
+		return parameters
 	}
 	async fetch(
 		timestamp: number,
 		q: string,
 		west: number, south: number, east: number, north: number
 	): Promise<NominatimBbox> {
-		const url=this.getUrl(q,west,south,east,north)
-		const cacheBbox=await this.fetchFromCache(timestamp,url)
+		const parameters=this.getParameters(q,west,south,east,north)
+		const cacheBbox=await this.fetchFromCache(timestamp,parameters)
 		if (isNominatimBbox(cacheBbox)) {
-			await this.storeToCache(timestamp,url,cacheBbox)
+			await this.storeToCache(timestamp,parameters,cacheBbox)
 			return cacheBbox
 		}
-		const data=await this.fetchFromServer(url)
+		const data=await this.nominatimProvider.nominatimSearch(parameters)
 		if (!Array.isArray(data)) throw new TypeError('Nominatim error: invalid data')
 		if (data.length<=0) throw new TypeError('Nominatim failed to find the place')
 		const placeData=data[0]
 		const bbox=placeData?.boundingbox
 		if (!isNominatimBbox(bbox)) throw new TypeError('Nominatim error: invalid bbox data')
-		await this.storeToCache(timestamp,url,bbox)
+		await this.storeToCache(timestamp,parameters,bbox)
 		return bbox
 	}
 }

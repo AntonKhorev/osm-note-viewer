@@ -11,19 +11,24 @@ function bboxResponse(boundingbox) {
 
 function makeFetcherInterface(calls,fetchResult,cacheResult) {
 	return [
-		// private fetchFromServer: (url:string)=>Promise<any>,
-		async(url)=>{
-			calls.push(['fetchFromServer',url])
-			return fetchResult
+		// private nominatimProvider: NominatimProvider,
+		{
+			async nominatimSearch(parameters) {
+				calls.push(['fetchFromServer',parameters])
+				return fetchResult
+			},
+			getNominatimSearchUrl(parameters) {
+				return `https://nominatim.example.com/search?`+parameters
+			}
 		},
-		// private fetchFromCache: (timestamp:number,url:string)=>Promise<any>,
-		async(timestamp,url)=>{
-			calls.push(['fetchFromCache',timestamp,url])
+		// private fetchFromCache: (timestamp:number,parameters:string)=>Promise<any>,
+		async(timestamp,parameters)=>{
+			calls.push(['fetchFromCache',timestamp,parameters])
 			return cacheResult
 		},
-		// private storeToCache: (timestamp:number,url:string,bbox:NominatimBbox)=>Promise<any>
-		async(timestamp,url,bbox)=>{
-			calls.push(['storeToCache',timestamp,url,bbox])
+		// private storeToCache: (timestamp:number,parameters:string,bbox:NominatimBbox)=>Promise<any>
+		async(timestamp,parameters,bbox)=>{
+			calls.push(['storeToCache',timestamp,parameters,bbox])
 		}
 	]
 }
@@ -36,11 +41,11 @@ describe("NominatimBboxFetcher",()=>{
 			123,`Lisbon`,
 			-10.04,38.12,-7.99,39.38
 		)
-		const url=`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=Lisbon&viewbox=-10.04%2C38.12%2C-7.99%2C39.38`
+		const parameters=`limit=1&q=Lisbon&viewbox=-10.04%2C38.12%2C-7.99%2C39.38`
 		assert.deepEqual(calls,[
-			['fetchFromCache',123,url],
-			['fetchFromServer',url],
-			['storeToCache',123,url,['1','2','3','4']]
+			['fetchFromCache',123,parameters],
+			['fetchFromServer',parameters],
+			['storeToCache',123,parameters,['1','2','3','4']]
 		])
 		assert.deepEqual(result,['1','2','3','4'])
 	})
@@ -51,10 +56,10 @@ describe("NominatimBboxFetcher",()=>{
 			123,`Lisbon`,
 			-10.04,38.12,-7.99,39.38
 		)
-		const url=`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=Lisbon&viewbox=-10.04%2C38.12%2C-7.99%2C39.38`
+		const parameters=`limit=1&q=Lisbon&viewbox=-10.04%2C38.12%2C-7.99%2C39.38`
 		assert.deepEqual(calls,[
-			['fetchFromCache',123,url],
-			['storeToCache',123,url,['1','2','3','4']]
+			['fetchFromCache',123,parameters],
+			['storeToCache',123,parameters,['1','2','3','4']]
 		])
 		assert.deepEqual(result,['1','2','3','4'])
 	})
@@ -65,11 +70,11 @@ describe("NominatimBboxFetcher",()=>{
 			456,`Madrid`,
 			-258.04,-86.89,258.75,86.85
 		)
-		const url=`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=Madrid`
+		const parameters=`limit=1&q=Madrid`
 		assert.deepEqual(calls,[
-			['fetchFromCache',456,url],
-			['fetchFromServer',url],
-			['storeToCache',456,url,['5','6','7','8']]
+			['fetchFromCache',456,parameters],
+			['fetchFromServer',parameters],
+			['storeToCache',456,parameters,['5','6','7','8']]
 		])
 		assert.deepEqual(result,['5','6','7','8'])
 	})
@@ -80,10 +85,10 @@ describe("NominatimBboxFetcher",()=>{
 			456,`Madrid`,
 			-258.04,-86.89,258.75,86.85
 		)
-		const url=`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=Madrid`
+		const parameters=`limit=1&q=Madrid`
 		assert.deepEqual(calls,[
-			['fetchFromCache',456,url],
-			['storeToCache',456,url,['5','6','7','8']]
+			['fetchFromCache',456,parameters],
+			['storeToCache',456,parameters,['5','6','7','8']]
 		])
 		assert.deepEqual(result,['5','6','7','8'])
 	})
@@ -94,10 +99,10 @@ describe("NominatimBboxFetcher",()=>{
 			456,`Madrid`,
 			-10.04,40.12,-7.99,39.38
 		)
-		const url=`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=Madrid`
+		const parameters=`limit=1&q=Madrid`
 		assert.deepEqual(calls,[
-			['fetchFromCache',456,url],
-			['storeToCache',456,url,['5','6','7','8']]
+			['fetchFromCache',456,parameters],
+			['storeToCache',456,parameters,['5','6','7','8']]
 		])
 		assert.deepEqual(result,['5','6','7','8'])
 	})

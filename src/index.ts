@@ -26,7 +26,8 @@ async function main() {
 			`https://www.osm.org/`,
 			`https://osm.org/`,
 		],
-		`https://tile.openstreetmap.org/{z}/{x}/{y}.png`,`https://www.openstreetmap.org/copyright`,`OpenStreetMap contributors`,19
+		`https://tile.openstreetmap.org/{z}/{x}/{y}.png`,`https://www.openstreetmap.org/copyright`,`OpenStreetMap contributors`,19,
+		`https://nominatim.openstreetmap.org/`
 	)
 	const globalEventsListener=new GlobalEventsListener()
 

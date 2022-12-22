@@ -16,16 +16,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 	private $nominatimForm=document.createElement('form')
 	private $nominatimInput=document.createElement('input')
 	private $nominatimButton=document.createElement('button')
-	private nominatimBboxFetcher=new NominatimBboxFetcher(
-		async(url)=>{
-			const response=await fetch(url)
-			if (!response.ok) {
-				throw new TypeError('Nominatim error: unsuccessful response')
-			}
-			return response.json()
-		},
-		...makeDumbCache() // TODO real cache in db
-	)
+	private nominatimBboxFetcher: NominatimBboxFetcher
 	private $trackMapSelect=document.createElement('select')
 	private $trackMapZoomNotice=makeElement('span')('notice')()
 	protected $bboxInput=document.createElement('input')
@@ -39,6 +30,9 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		private map: NoteMap
 	) {
 		super($sharedCheckboxes,server,getRequestApiPaths,submitQuery)
+		this.nominatimBboxFetcher=new NominatimBboxFetcher(
+			server,...makeDumbCache() // TODO real cache in db
+		)
 	}
 	resetFetch() {
 		this.mapBoundsForFreezeRestore=undefined
@@ -107,7 +101,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		}{
 			$fieldset.append(makeDiv('advanced-hint')(
 				`Make `,makeLink(`Nominatim search query`,`https://nominatim.org/release-docs/develop/api/Search/`),
-				` at `,code(this.nominatimBboxFetcher.urlBase+'?',em(`parameters`)),`; see `,em(`parameters`),` above and below.`
+				` at `,code(this.server.getNominatimSearchUrl(''),em(`parameters`)),`; see `,em(`parameters`),` above and below.`
 			))
 			this.$nominatimInput.type='text'
 			this.$nominatimInput.required=true
@@ -264,10 +258,11 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 	}
 	private updateNominatimRequest(): void {
 		const bounds=this.map.bounds
-		const url=this.nominatimBboxFetcher.getUrl(
+		const parameters=this.nominatimBboxFetcher.getParameters(
 			this.$nominatimInput.value,
 			bounds.getWest(),bounds.getSouth(),bounds.getEast(),bounds.getNorth()
 		)
+		const url=this.server.getNominatimSearchUrl(parameters)
 		const $a=makeLink(url,url)
 		$a.classList.add('request')
 		this.$nominatimRequestOutput.replaceChildren(code($a))
