@@ -38,9 +38,16 @@
 		color: revert;
 	}
 	.leaflet-popup-content-wrapper,
-	.leaflet-control-layers {
+	.leaflet-control {
 		background: #222 !important;
 		color: revert !important;
+	}
+	.leaflet-bar a {
+		background: #222 !important;
+		color: #CCC !important;
+	}
+	.leaflet-bar a:hover {
+		background: var(--hover-color) !important;
 	}
 }
 
