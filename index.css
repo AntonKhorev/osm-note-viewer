@@ -32,16 +32,6 @@
 		--popup-item-background: #333;
 		--popup-main-item-background: #222;
 	}
-	.leaflet-container {
-		background: #888 !important;
-	}
-	.leaflet-container .leaflet-popup-content-wrapper a {
-		color: revert;
-	}
-	.leaflet-popup-content-wrapper {
-		background: #222 !important;
-		color: revert !important;
-	}
 }
 
 body > .symbols {
@@ -112,7 +102,6 @@ button.global > svg {
 }
 
 .loose-parser-popup {
-	--item-height: 20px;
 	--item-width: 90px;
 	display: none;
 	position: fixed;
@@ -128,16 +117,16 @@ button.global > svg {
 	display: block;
 }
 .loose-parser-popup a {
-	display: flex;
+	display: block;
 	box-sizing: border-box;
 	width: var(--item-width);
-	height: var(--item-height);
-	align-items: center;
-	padding-left: 5px;
+	padding: 2px 0 2px 5px;
 	background: var(--popup-item-background);
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 .loose-parser-popup li.main a {
-	height: calc(2*var(--item-height));
+	padding: 10px 0 10px 5px;
 	border-top: solid 1px var(--frame-color);
 	border-bottom: solid 1px var(--frame-color);
 	background: var(--popup-main-item-background);
@@ -759,6 +748,34 @@ body.flipped .notes td.note-user {
 	box-sizing: border-box;
 	width: 100%;
 	margin: var(--block-gap) 0;
+}
+
+@media (prefers-color-scheme: dark) {
+	.leaflet-container {
+		background: #888 !important;
+	}
+	.leaflet-container .leaflet-popup-content-wrapper a {
+		color: revert;
+	}
+	.leaflet-popup-content-wrapper,
+	.leaflet-control {
+		background: #222 !important;
+		color: revert !important;
+	}
+	.leaflet-bar a {
+		background: #222 !important;
+		color: #CCC !important;
+	}
+	.leaflet-bar a:hover {
+		background: var(--hover-color) !important;
+	}
+	/* dark mode filter:
+		https://github.com/openstreetmap/openstreetmap-website/issues/2332
+		https://github.com/pkrasicki/issviewer/blob/master/public/css/dark-theme.css
+	*/
+	.map img.leaflet-tile {
+		filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+	}
 }
 
 /*** css/figure.css ***/

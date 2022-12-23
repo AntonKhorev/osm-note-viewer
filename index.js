@@ -285,6 +285,96 @@ function writeUsers(userStore, fetchTimestamp, users) {
     }
 }
 
+class QueryError {
+    get reason() {
+        return `for unknown reason`;
+    }
+}
+class NetworkQueryError extends QueryError {
+    constructor(message) {
+        super();
+        this.message = message;
+    }
+    get reason() {
+        return `with the following error before receiving a response: ${this.message}`;
+    }
+}
+class ResponseQueryError extends QueryError {
+    constructor(text) {
+        super();
+        this.text = text;
+    }
+    get reason() {
+        return `receiving the following message: ${this.text}`;
+    }
+}
+class Server {
+    constructor(apiUrl, webUrls, tileUrlTemplate, tileAttributionUrl, tileAttributionText, maxZoom, nominatimUrl, overpassUrl) {
+        this.apiUrl = apiUrl;
+        this.webUrls = webUrls;
+        this.tileUrlTemplate = tileUrlTemplate;
+        this.tileAttributionUrl = tileAttributionUrl;
+        this.tileAttributionText = tileAttributionText;
+        this.maxZoom = maxZoom;
+        this.nominatimUrl = nominatimUrl;
+        this.overpassUrl = overpassUrl;
+    }
+    apiFetch(apiPath) {
+        return fetch(this.getApiUrl(apiPath));
+    }
+    getApiUrl(apiPath) {
+        return `${this.apiUrl}api/0.6/${apiPath}`;
+    }
+    getApiRootUrl(apiRootPath) {
+        return `${this.apiUrl}${apiRootPath}`;
+    }
+    getWebUrl(webPath) {
+        return `${this.webUrls[0]}${webPath}`;
+    }
+    async nominatimSearch(parameters) {
+        const response = await fetch(this.getNominatimSearchUrl(parameters));
+        if (!response.ok) {
+            throw new TypeError('unsuccessful Nominatim response');
+        }
+        return response.json();
+    }
+    getNominatimSearchUrl(parameters) {
+        return this.nominatimUrl + `search?format=jsonv2&` + parameters;
+    }
+    async overpassFetch(overpassQuery) {
+        try {
+            let response;
+            try {
+                response = await fetch(this.overpassUrl + `api/interpreter`, {
+                    method: 'POST',
+                    body: new URLSearchParams({ data: overpassQuery })
+                });
+            }
+            catch (ex) {
+                if (ex instanceof TypeError) {
+                    throw new NetworkQueryError(ex.message);
+                }
+                else {
+                    throw ex;
+                }
+            }
+            const text = await response.text();
+            if (!response.ok) {
+                throw new ResponseQueryError(text);
+            }
+            return new DOMParser().parseFromString(text, 'text/xml');
+        }
+        catch (ex) {
+            if (ex instanceof QueryError) {
+                throw ex;
+            }
+            else {
+                throw new QueryError;
+            }
+        }
+    }
+}
+
 class GlobalEventListener {
     constructor() {
         document.body.addEventListener('click', ev => {
@@ -452,37 +542,6 @@ class GlobalHistory {
     }
 }
 
-function makeUserLink(uid, username, text) {
-    if (username)
-        return makeUserNameLink(username, text);
-    return makeUserIdLink(uid, text);
-}
-function makeUserNameLink(username, text) {
-    const fromName = (name) => `https://www.openstreetmap.org/user/${encodeURIComponent(name)}`;
-    return makeLink(text ?? username, fromName(username));
-}
-function makeUserIdLink(uid, text) {
-    const fromId = (id) => `https://api.openstreetmap.org/api/0.6/user/${encodeURIComponent(id)}`;
-    return makeLink(text ?? '#' + uid, fromId(uid));
-}
-function makeLink(text, href, title) {
-    const $link = document.createElement('a');
-    $link.href = href;
-    $link.textContent = text;
-    if (title != null)
-        $link.title = title;
-    return $link;
-}
-function makeElement(tag) {
-    return (...classes) => (...items) => {
-        const $element = document.createElement(tag);
-        $element.classList.add(...classes);
-        $element.append(...items);
-        return $element;
-    };
-}
-const makeDiv = makeElement('div');
-const makeLabel = makeElement('label');
 function escapeRegex(text) {
     return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 }
@@ -504,31 +563,8 @@ function makeEscapeTag(escapeFn) {
         return result;
     };
 }
-function startOrResetFadeAnimation($element, animationName, animationClass) {
-    if ($element.classList.contains(animationClass)) {
-        resetFadeAnimation($element, animationName);
-    }
-    else {
-        $element.classList.add(animationClass);
-    }
-}
-function resetFadeAnimation($element, animationName) {
-    const animation = getFadeAnimation($element, animationName);
-    if (!animation)
-        return;
-    animation.currentTime = 0;
-}
-function getFadeAnimation($element, animationName) {
-    if (typeof CSSAnimation == 'undefined')
-        return; // experimental technology, implemented in latest browser versions
-    for (const animation of $element.getAnimations()) {
-        if (!(animation instanceof CSSAnimation))
-            continue;
-        if (animation.animationName == animationName)
-            return animation;
-    }
-}
 
+const e$4 = makeEscapeTag(escapeXml);
 class NoteMarker extends L.Marker {
     constructor(note) {
         const icon = getNoteMarkerIcon(note, false);
@@ -549,18 +585,17 @@ function getNoteMarkerIcon(note, isSelected) {
     const heightWithAura = height + auraThickness;
     const rWithAura = widthWithAura / 2;
     const nInnerCircles = 4;
-    const e = makeEscapeTag(escapeXml);
     let html = ``;
-    html += e `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`;
-    html += e `<title>${note.status} note #${note.id}</title>`,
-        html += e `<path d="${computeMarkerOutlinePath(heightWithAura - .5, rWithAura - .5)}" class="aura" fill="none" />`;
-    html += e `<path d="${computeMarkerOutlinePath(height, r)}" fill="${note.status == 'open' ? 'red' : 'green'}" />`;
+    html += e$4 `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`;
+    html += e$4 `<title>${note.status} note #${note.id}</title>`,
+        html += e$4 `<path d="${computeMarkerOutlinePath(heightWithAura - .5, rWithAura - .5)}" class="aura" fill="none" />`;
+    html += e$4 `<path d="${computeMarkerOutlinePath(height, r)}" fill="${note.status == 'open' ? 'red' : 'green'}" />`;
     const states = [...noteCommentsToStates(note.comments)];
     html += drawStateCircles(r, nInnerCircles, states.slice(-nInnerCircles, -1));
     if (isSelected) {
         html += drawCheckMark();
     }
-    html += e `</svg>`;
+    html += e$4 `</svg>`;
     return L.divIcon({
         html,
         className: 'note-marker',
@@ -582,7 +617,7 @@ function getNoteMarkerIcon(note, isSelected) {
             if (i >= statesToDraw.length)
                 continue;
             const cr = dcr * (i + 1);
-            html += e `<circle r="${cr}" fill="${color()}" stroke="white" />`;
+            html += e$4 `<circle r="${cr}" fill="${color()}" stroke="white" />`;
             function color() {
                 if (i == 0 && states.length <= nInnerCircles)
                     return 'white';
@@ -596,21 +631,21 @@ function getNoteMarkerIcon(note, isSelected) {
     function drawCheckMark() {
         const path = `M-${r / 4},0 L0,${r / 4} L${r / 2},-${r / 4}`;
         let html = ``;
-        html += e `<path d="${path}" fill="none" stroke-width="6" stroke-linecap="round" stroke="blue" />`;
-        html += e `<path d="${path}" fill="none" stroke-width="2" stroke-linecap="round" stroke="white" />`;
+        html += e$4 `<path d="${path}" fill="none" stroke-width="6" stroke-linecap="round" stroke="blue" />`;
+        html += e$4 `<path d="${path}" fill="none" stroke-width="2" stroke-linecap="round" stroke="white" />`;
         return html;
     }
 }
 class NoteMap {
-    constructor($container) {
+    constructor($container, tileSource) {
         this.needToFitNotes = false;
         this.freezeMode = 'no';
         this.leafletMap = L.map($container, {
             worldCopyJump: true
         });
-        this.leafletMap.addLayer(L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>",
-            maxZoom: 19
+        this.leafletMap.addLayer(L.tileLayer(tileSource.tileUrlTemplate, {
+            attribution: e$4 `© <a href="${tileSource.tileAttributionUrl}">${tileSource.tileAttributionText}</a>`,
+            maxZoom: tileSource.maxZoom
         })).fitWorld();
         this.elementLayer = L.featureGroup().addTo(this.leafletMap);
         this.unselectedNoteLayer = L.featureGroup().addTo(this.leafletMap);
@@ -823,6 +858,10 @@ class NoteMap {
     get lon() {
         return this.leafletMap.getCenter().lng;
     }
+    get hash() {
+        const precision = Math.max(0, Math.ceil(Math.log2(this.zoom)));
+        return `${this.zoom.toFixed(0)}/${this.lat.toFixed(precision)}/${this.lon.toFixed(precision)}`;
+    }
     get bounds() {
         return this.leafletMap.getBounds();
     }
@@ -915,6 +954,49 @@ function calculateOffsetsToFit(map, $popupContainer) {
         dy = containerPos.y;
     }
     return [-dx, -dy];
+}
+
+function makeLink(text, href, title) {
+    const $link = document.createElement('a');
+    $link.href = href;
+    $link.textContent = text;
+    if (title != null)
+        $link.title = title;
+    return $link;
+}
+function makeElement(tag) {
+    return (...classes) => (...items) => {
+        const $element = document.createElement(tag);
+        $element.classList.add(...classes);
+        $element.append(...items);
+        return $element;
+    };
+}
+const makeDiv = makeElement('div');
+const makeLabel = makeElement('label');
+function startOrResetFadeAnimation($element, animationName, animationClass) {
+    if ($element.classList.contains(animationClass)) {
+        resetFadeAnimation($element, animationName);
+    }
+    else {
+        $element.classList.add(animationClass);
+    }
+}
+function resetFadeAnimation($element, animationName) {
+    const animation = getFadeAnimation($element, animationName);
+    if (!animation)
+        return;
+    animation.currentTime = 0;
+}
+function getFadeAnimation($element, animationName) {
+    if (typeof CSSAnimation == 'undefined')
+        return; // experimental technology, implemented in latest browser versions
+    for (const animation of $element.getAnimations()) {
+        if (!(animation instanceof CSSAnimation))
+            continue;
+        if (animation.animationName == animationName)
+            return animation;
+    }
 }
 
 class FigureDialog {
@@ -1088,10 +1170,11 @@ function makeResetButton() {
 }
 
 class AboutDialog extends NavDialog {
-    constructor(storage, db) {
+    constructor(storage, db, server) {
         super();
         this.storage = storage;
         this.db = db;
+        this.server = server;
         this.shortTitle = `About`;
         this.title = `About`;
     }
@@ -1155,13 +1238,15 @@ class AboutDialog extends NavDialog {
                 const username = searchParams.get('display_name');
                 const ids = searchParams.get('ids');
                 if (username) {
-                    $userCell.append(`user `, makeUserNameLink(username));
+                    const href = this.server.getWebUrl(`user/` + encodeURIComponent(username));
+                    $userCell.append(`user `, makeLink(username, href));
                 }
                 else if (ids) {
                     const match = ids.match(/\d+/);
                     if (match) {
                         const [id] = match;
-                        $userCell.append(`note `, makeLink(id, `https://www.openstreetmap.org/note/${encodeURIComponent(id)}`), `, ...`);
+                        const href = this.server.getWebUrl(`note/` + encodeURIComponent(id));
+                        $userCell.append(`note `, makeLink(id, href), `, ...`);
                     }
                 }
                 $row.insertCell().append(new Date(fetchEntry.accessTimestamp).toISOString());
@@ -1207,7 +1292,7 @@ class AboutDialog extends NavDialog {
     }
 }
 
-function toUserQuery(value) {
+function toUserQuery(urlLister, value) {
     const s = value.trim();
     if (s == '')
         return {
@@ -1237,42 +1322,17 @@ function toUserQuery(value) {
         }
     }
     if (s.includes('/')) {
+        const hosts = new Set();
+        for (const urlString of [urlLister.apiUrl, ...urlLister.webUrls]) {
+            try {
+                const url = new URL(urlString);
+                hosts.add(url.host);
+            }
+            catch { }
+        }
         try {
             const url = new URL(s);
-            if (url.host == 'www.openstreetmap.org' ||
-                url.host == 'openstreetmap.org' ||
-                url.host == 'www.osm.org' ||
-                url.host == 'osm.org') {
-                const [, userPathDir, userPathEnd] = url.pathname.split('/');
-                if (userPathDir == 'user' && userPathEnd) {
-                    const username = decodeURIComponent(userPathEnd);
-                    return {
-                        userType: 'name',
-                        username
-                    };
-                }
-                return {
-                    userType: 'invalid',
-                    message: `OSM URL has to include username`
-                };
-            }
-            else if (url.host == `api.openstreetmap.org`) {
-                const [, apiDir, apiVersionDir, apiCall, apiValue] = url.pathname.split('/');
-                if (apiDir == 'api' && apiVersionDir == '0.6' && apiCall == 'user') {
-                    const [uidString] = apiValue.split('.');
-                    const uid = Number(uidString);
-                    if (Number.isInteger(uid))
-                        return {
-                            userType: 'id',
-                            uid
-                        };
-                }
-                return {
-                    userType: 'invalid',
-                    message: `OSM API URL has to be "api/0.6/user/..."`
-                };
-            }
-            else {
+            if (!hosts.has(url.host)) {
                 let domainString = `was given ${url.host}`;
                 if (!url.host)
                     domainString = `no domain was given`;
@@ -1281,11 +1341,49 @@ function toUserQuery(value) {
                     message: `URL has to be of an OSM domain, ${domainString}`
                 };
             }
+            const [, typeDir] = url.pathname.split('/', 2);
+            if (typeDir == 'user') {
+                const [, , userDir] = url.pathname.split('/', 3);
+                if (!userDir)
+                    return {
+                        userType: 'invalid',
+                        message: `OSM user URL has to include username`
+                    };
+                return {
+                    userType: 'name',
+                    username: decodeURIComponent(userDir)
+                };
+            }
+            else if (typeDir == 'api') {
+                const [, , apiVersionDir, apiCall, apiValue] = url.pathname.split('/', 5);
+                if (apiVersionDir != '0.6' || apiCall != 'user')
+                    return {
+                        userType: 'invalid',
+                        message: `OSM API URL has to be "api/0.6/user/..."`
+                    };
+                const [uidString] = apiValue.split('.');
+                const uid = Number(uidString);
+                if (!Number.isInteger(uid))
+                    return {
+                        userType: 'invalid',
+                        message: `OSM API URL has to include valid user id"`
+                    };
+                return {
+                    userType: 'id',
+                    uid
+                };
+            }
+            else {
+                return {
+                    userType: 'invalid',
+                    message: `OSM URL has to be either user page or user api link`
+                };
+            }
         }
         catch {
             return {
                 userType: 'invalid',
-                message: `string containing / character has to be a valid URL`
+                message: `string containing "/" character has to be a valid URL`
             };
         }
     }
@@ -1487,8 +1585,8 @@ function makeNoteSearchQueryFromUserQueryAndValues(userQuery, textValue, fromVal
         return 'newest';
     }
 }
-function makeNoteSearchQueryFromValues(userValue, textValue, fromValue, toValue, closedValue, sortValue, orderValue) {
-    return makeNoteSearchQueryFromUserQueryAndValues(toUserQuery(userValue), textValue, fromValue, toValue, closedValue, sortValue, orderValue);
+function makeNoteSearchQueryFromValues(urlLister, userValue, textValue, fromValue, toValue, closedValue, sortValue, orderValue) {
+    return makeNoteSearchQueryFromUserQueryAndValues(toUserQuery(urlLister, userValue), textValue, fromValue, toValue, closedValue, sortValue, orderValue);
 }
 function makeNoteBboxQueryFromValues(bboxValue, closedValue) {
     const noteBboxQuery = {
@@ -1695,15 +1793,15 @@ const maxSingleAutoLoadLimit = 200;
 const maxTotalAutoLoadLimit = 1000;
 const maxFullyFilteredFetches = 10;
 class NoteFetcherRequest {
-    getRequestUrls(query, limit) {
+    getRequestApiPaths(query, limit) {
         const pathAndParameters = this.getRequestUrlPathAndParameters(query, limit);
         if (pathAndParameters == null)
             return [];
-        return ['json', 'xml', 'gpx', 'rss'].map(type => [type, this.constructUrl(...pathAndParameters, type)]);
+        return ['json', 'xml', 'gpx', 'rss'].map(type => [type, this.constructApiPath(...pathAndParameters, type)]);
     }
-    constructUrl(path, parameters, type = 'json') {
+    constructApiPath(path, parameters, type = 'json') {
         const extension = type == 'xml' ? '' : '.' + type;
-        let url = this.getRequestUrlBase();
+        let url = this.getRequestApiBasePath();
         if (path)
             url += path;
         url += extension;
@@ -1713,8 +1811,8 @@ class NoteFetcherRequest {
     }
 }
 class NoteSearchFetcherRequest extends NoteFetcherRequest {
-    getRequestUrlBase() {
-        return `https://api.openstreetmap.org/api/0.6/notes/search`;
+    getRequestApiBasePath() {
+        return `notes/search`;
     }
     getRequestUrlPathAndParameters(query, limit) {
         if (query.mode != 'search')
@@ -1723,8 +1821,8 @@ class NoteSearchFetcherRequest extends NoteFetcherRequest {
     }
 }
 class NoteBboxFetcherRequest extends NoteFetcherRequest {
-    getRequestUrlBase() {
-        return `https://api.openstreetmap.org/api/0.6/notes`;
+    getRequestApiBasePath() {
+        return `notes`;
     }
     getRequestUrlPathAndParameters(query, limit) {
         if (query.mode != 'bbox')
@@ -1736,8 +1834,8 @@ class NoteBboxFetcherRequest extends NoteFetcherRequest {
     }
 }
 class NoteIdsFetcherRequest extends NoteFetcherRequest {
-    getRequestUrlBase() {
-        return `https://api.openstreetmap.org/api/0.6/notes/`;
+    getRequestApiBasePath() {
+        return `notes/`;
     }
     getRequestUrlPathAndParameters(query, limit) {
         if (query.mode != 'ids')
@@ -1748,12 +1846,13 @@ class NoteIdsFetcherRequest extends NoteFetcherRequest {
     }
 }
 class NoteFetcherRun {
-    constructor({ db, noteTable, $moreContainer, getLimit, getAutoLoad, blockDownloads, moreButtonIntersectionObservers }, query, clearStore) {
+    constructor({ db, server, noteTable, $moreContainer, getLimit, getAutoLoad, blockDownloads, moreButtonIntersectionObservers }, query, clearStore) {
         this.fetchEntry = null;
         this.notes = new Map();
         this.users = {};
         this.updateRequestHintInAdvancedMode = () => { };
         this.db = db;
+        this.server = server;
         this.noteTable = noteTable;
         (async () => {
             const queryString = makeNoteQueryString(query); // empty string == don't know how to encode the query, thus won't save it to db
@@ -1796,7 +1895,8 @@ class NoteFetcherRun {
                         $requestOutput.replaceChildren(`no request`);
                         return;
                     }
-                    const url = this.request.constructUrl(...fetchDetails.pathAndParametersList[0]);
+                    const apiPath = this.request.constructApiPath(...fetchDetails.pathAndParametersList[0]);
+                    const url = server.getApiUrl(apiPath);
                     const $a = makeLink(url, url);
                     $a.classList.add('request');
                     $requestOutput.replaceChildren(makeElement('code')()($a));
@@ -1833,8 +1933,8 @@ class NoteFetcherRun {
                     for (const pathAndParameters of fetchDetails.pathAndParametersList) {
                         const [path, parameters] = pathAndParameters;
                         lastTriedPath = path;
-                        const url = this.request.constructUrl(path, parameters);
-                        const response = await fetch(url);
+                        const apiPath = this.request.constructApiPath(path, parameters);
+                        const response = await server.apiFetch(apiPath);
                         if (!response.ok) {
                             if (response.status == 410) { // likely hidden note in ids query
                                 continue; // TODO report it
@@ -1943,8 +2043,7 @@ class NoteFetcherRun {
     async updateNote($a, noteId) {
         $a.classList.add('loading');
         try {
-            const url = e$3 `https://api.openstreetmap.org/api/0.6/notes/${noteId}.json`;
-            const response = await fetch(url);
+            const response = await this.server.apiFetch(e$3 `notes/${noteId}.json`);
             if (!response.ok)
                 throw new TypeError(`note reload failed`);
             const data = await response.json();
@@ -2153,10 +2252,11 @@ const em$6 = (...ss) => makeElement('em')()(...ss);
 const sup = (...ss) => makeElement('sup')()(...ss);
 const code$3 = (...ss) => makeElement('code')()(...ss);
 class NoteFetchDialog extends NavDialog {
-    constructor($sharedCheckboxes, getRequestUrls, submitQuery) {
+    constructor($sharedCheckboxes, server, getRequestApiPaths, submitQuery) {
         super();
         this.$sharedCheckboxes = $sharedCheckboxes;
-        this.getRequestUrls = getRequestUrls;
+        this.server = server;
+        this.getRequestApiPaths = getRequestApiPaths;
         this.submitQuery = submitQuery;
         this.$form = document.createElement('form');
         this.$advancedModeCheckbox = document.createElement('input');
@@ -2213,27 +2313,29 @@ class NoteFetchDialog extends NavDialog {
             this.$requestOutput.replaceChildren(`invalid request`);
             return;
         }
-        const requestUrls = this.getRequestUrls(query, this.getLimit());
-        if (requestUrls.length == 0) {
+        const requestApiPaths = this.getRequestApiPaths(query, this.getLimit());
+        if (requestApiPaths.length == 0) {
             this.$requestOutput.replaceChildren(`invalid request`);
             return;
         }
-        const [[mainType, mainUrl], ...otherRequestUrls] = requestUrls;
+        const [[mainType, mainApiPath], ...otherRequestApiPaths] = requestApiPaths;
+        const mainUrl = this.server.getApiUrl(mainApiPath);
         const $a = makeLink(mainUrl, mainUrl);
         $a.classList.add('request');
         this.$requestOutput.replaceChildren(code$3($a), ` in ${mainType} format`);
         appendLinkIfKnown(mainType);
-        if (otherRequestUrls.length > 0) {
+        if (otherRequestApiPaths.length > 0) {
             this.$requestOutput.append(` or other formats: `);
         }
         let first = true;
-        for (const [type, url] of otherRequestUrls) {
+        for (const [type, apiPath] of otherRequestApiPaths) {
             if (first) {
                 first = false;
             }
             else {
                 this.$requestOutput.append(`, `);
             }
+            const url = this.server.getApiUrl(apiPath);
             this.$requestOutput.append(code$3(makeLink(type, url)));
             appendLinkIfKnown(type);
         }
@@ -2496,7 +2598,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
     makeLeadAdvancedHint() {
         return [
             `Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`),
-            ` request at `, code$2(`https://api.openstreetmap.org/api/0.6/notes/search?`, em$5(`parameters`)), `; see `, em$5(`parameters`), ` below.`
+            ` request at `, code$2(this.server.getApiUrl(`notes/search?`), em$5(`parameters`)), `; see `, em$5(`parameters`), ` below.`
         ];
     }
     listParameters(closedDescriptionItems) {
@@ -2605,7 +2707,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
     }
     addEventListenersBeforeClosedLine() {
         this.$userInput.addEventListener('input', () => {
-            const userQuery = toUserQuery(this.$userInput.value);
+            const userQuery = toUserQuery(this.server, this.$userInput.value);
             if (userQuery.userType == 'invalid') {
                 this.$userInput.setCustomValidity(userQuery.message);
             }
@@ -2625,7 +2727,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
             });
     }
     constructQuery() {
-        return makeNoteSearchQueryFromValues(this.$userInput.value, this.$textInput.value, this.$fromInput.value, this.$toInput.value, this.closedValue, this.$sortSelect.value, this.$orderSelect.value);
+        return makeNoteSearchQueryFromValues(this.server, this.$userInput.value, this.$textInput.value, this.$fromInput.value, this.$toInput.value, this.closedValue, this.$sortSelect.value, this.$orderSelect.value);
     }
     listQueryChangingInputs() {
         return [
@@ -2647,29 +2749,28 @@ function isNominatimBbox(bbox) {
     return true;
 }
 class NominatimBboxFetcher {
-    constructor(fetchFromServer, fetchFromCache, storeToCache) {
-        this.fetchFromServer = fetchFromServer;
+    constructor(nominatimProvider, fetchFromCache, storeToCache) {
+        this.nominatimProvider = nominatimProvider;
         this.fetchFromCache = fetchFromCache;
         this.storeToCache = storeToCache;
-        this.urlBase = `https://nominatim.openstreetmap.org/search`;
     }
-    getUrl(q, west, south, east, north) {
+    getParameters(q, west, south, east, north) {
         const e = makeEscapeTag(encodeURIComponent);
-        let url = this.urlBase + e `?format=json&limit=1&q=${q}`;
+        let parameters = e `limit=1&q=${q}`;
         if (east > west && north > south && east - west < 360) {
             const viewbox = `${west},${south},${east},${north}`;
-            url += e `&viewbox=${viewbox}`;
+            parameters += e `&viewbox=${viewbox}`;
         }
-        return url;
+        return parameters;
     }
     async fetch(timestamp, q, west, south, east, north) {
-        const url = this.getUrl(q, west, south, east, north);
-        const cacheBbox = await this.fetchFromCache(timestamp, url);
+        const parameters = this.getParameters(q, west, south, east, north);
+        const cacheBbox = await this.fetchFromCache(timestamp, parameters);
         if (isNominatimBbox(cacheBbox)) {
-            await this.storeToCache(timestamp, url, cacheBbox);
+            await this.storeToCache(timestamp, parameters, cacheBbox);
             return cacheBbox;
         }
-        const data = await this.fetchFromServer(url);
+        const data = await this.nominatimProvider.nominatimSearch(parameters);
         if (!Array.isArray(data))
             throw new TypeError('Nominatim error: invalid data');
         if (data.length <= 0)
@@ -2678,7 +2779,7 @@ class NominatimBboxFetcher {
         const bbox = placeData?.boundingbox;
         if (!isNominatimBbox(bbox))
             throw new TypeError('Nominatim error: invalid bbox data');
-        await this.storeToCache(timestamp, url, bbox);
+        await this.storeToCache(timestamp, parameters, bbox);
         return bbox;
     }
 }
@@ -2688,22 +2789,14 @@ const code$1 = (...ss) => makeElement('code')()(...ss);
 const rq = (param) => makeElement('span')('advanced-hint')(` (`, code$1(param), ` parameter)`);
 const spanRequest = (...ss) => makeElement('span')('advanced-hint')(...ss);
 class NoteBboxFetchDialog extends NoteQueryFetchDialog {
-    constructor($sharedCheckboxes, getRequestUrls, submitQuery, map) {
-        super($sharedCheckboxes, getRequestUrls, submitQuery);
+    constructor($sharedCheckboxes, server, getRequestApiPaths, submitQuery, map) {
+        super($sharedCheckboxes, server, getRequestApiPaths, submitQuery);
         this.map = map;
         this.shortTitle = `BBox`;
         this.title = `Get notes inside rectangular area`;
         this.$nominatimForm = document.createElement('form');
         this.$nominatimInput = document.createElement('input');
         this.$nominatimButton = document.createElement('button');
-        this.nominatimBboxFetcher = new NominatimBboxFetcher(async (url) => {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new TypeError('Nominatim error: unsuccessful response');
-            }
-            return response.json();
-        }, ...makeDumbCache() // TODO real cache in db
-        );
         this.$trackMapSelect = document.createElement('select');
         this.$trackMapZoomNotice = makeElement('span')('notice')();
         this.$bboxInput = document.createElement('input');
@@ -2714,6 +2807,8 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         this.limitLabelBeforeText = `at most `;
         this.limitLabelAfterText = ` notes`;
         this.limitIsParameter = true;
+        this.nominatimBboxFetcher = new NominatimBboxFetcher(server, ...makeDumbCache() // TODO real cache in db
+        );
     }
     resetFetch() {
         this.mapBoundsForFreezeRestore = undefined;
@@ -2732,7 +2827,7 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
     makeLeadAdvancedHint() {
         return [
             `Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`),
-            ` request at `, code$1(`https://api.openstreetmap.org/api/0.6/notes?`, em$4(`parameters`)), `; see `, em$4(`parameters`), ` below.`
+            ` request at `, code$1(this.server.getApiUrl(`notes?`), em$4(`parameters`)), `; see `, em$4(`parameters`), ` below.`
         ];
     }
     listParameters(closedDescriptionItems) {
@@ -2767,7 +2862,7 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
             }
         }
         {
-            $fieldset.append(makeDiv('advanced-hint')(`Make `, makeLink(`Nominatim search query`, `https://nominatim.org/release-docs/develop/api/Search/`), ` at `, code$1(this.nominatimBboxFetcher.urlBase + '?', em$4(`parameters`)), `; see `, em$4(`parameters`), ` above and below.`));
+            $fieldset.append(makeDiv('advanced-hint')(`Make `, makeLink(`Nominatim search query`, `https://nominatim.org/release-docs/develop/api/Search/`), ` at `, code$1(this.server.getNominatimSearchUrl(''), em$4(`parameters`)), `; see `, em$4(`parameters`), ` above and below.`));
             this.$nominatimInput.type = 'text';
             this.$nominatimInput.required = true;
             this.$nominatimInput.classList.add('no-invalid-indication'); // because it's inside another form that doesn't require it, don't indicate that it's invalid
@@ -2915,7 +3010,8 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
     }
     updateNominatimRequest() {
         const bounds = this.map.bounds;
-        const url = this.nominatimBboxFetcher.getUrl(this.$nominatimInput.value, bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth());
+        const parameters = this.nominatimBboxFetcher.getParameters(this.$nominatimInput.value, bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth());
+        const url = this.server.getNominatimSearchUrl(parameters);
         const $a = makeLink(url, url);
         $a.classList.add('request');
         this.$nominatimRequestOutput.replaceChildren(code$1($a));
@@ -3375,8 +3471,8 @@ const neisCountries = [
 ];
 
 class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) {
-    constructor($sharedCheckboxes, getRequestUrls, submitQuery, noteTable) {
-        super($sharedCheckboxes, getRequestUrls, submitQuery);
+    constructor($sharedCheckboxes, server, getRequestApiPaths, submitQuery, noteTable) {
+        super($sharedCheckboxes, server, getRequestApiPaths, submitQuery);
         this.noteTable = noteTable;
         this.shortTitle = `Plaintext`;
         this.title = `Fetch notes by ids from unstructured text`;
@@ -3433,8 +3529,7 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
 }
 
 class NoteFetchPanel {
-    constructor(storage, db, globalEventsListener, globalHistory, $container, $moreContainer, navbar, filterPanel, noteTable, map, figureDialog) {
-        this.noteTable = noteTable;
+    constructor(storage, db, server, globalEventsListener, globalHistory, $container, $moreContainer, navbar, filterPanel, noteTable, map, figureDialog) {
         const self = this;
         const moreButtonIntersectionObservers = [];
         const $sharedCheckboxes = {
@@ -3444,7 +3539,7 @@ class NoteFetchPanel {
         const hashQuery = makeNoteQueryFromHash(globalHistory.getQueryHash());
         // make fetchers and dialogs
         const makeFetchDialog = (fetcherRequest, fetchDialogCtor) => {
-            const dialog = fetchDialogCtor((query, limit) => fetcherRequest.getRequestUrls(query, limit), (query) => {
+            const dialog = fetchDialogCtor((query, limit) => fetcherRequest.getRequestApiPaths(query, limit), (query) => {
                 modifyHistory(query, true);
                 startFetcher(query, true, false, dialog);
             });
@@ -3458,11 +3553,11 @@ class NoteFetchPanel {
             navbar.addTab(dialog);
             return dialog;
         };
-        const searchDialog = makeFetchDialog(new NoteSearchFetcherRequest, (getRequestUrls, submitQuery) => new NoteSearchFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery));
-        const bboxDialog = makeFetchDialog(new NoteBboxFetcherRequest, (getRequestUrls, submitQuery) => new NoteBboxFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery, map));
-        const xmlDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestUrls, submitQuery) => new NoteXmlFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery));
-        const plaintextDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestUrls, submitQuery) => new NotePlaintextFetchDialog($sharedCheckboxes, getRequestUrls, submitQuery, noteTable));
-        const aboutDialog = new AboutDialog(storage, db);
+        const searchDialog = makeFetchDialog(new NoteSearchFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteSearchFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery));
+        const bboxDialog = makeFetchDialog(new NoteBboxFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteBboxFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery, map));
+        const xmlDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteXmlFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery));
+        const plaintextDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NotePlaintextFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery, noteTable));
+        const aboutDialog = new AboutDialog(storage, db, server);
         aboutDialog.write($container);
         navbar.addTab(aboutDialog, true);
         handleSharedCheckboxes($sharedCheckboxes.showImages, state => noteTable.setShowImages(state));
@@ -3554,7 +3649,7 @@ class NoteFetchPanel {
                 map.needToFitNotes = false;
             }
             const environment = {
-                db,
+                db, server,
                 noteTable, $moreContainer,
                 getLimit: dialog.getLimit,
                 getAutoLoad: dialog.getAutoLoad,
@@ -3602,7 +3697,7 @@ function isValidOperator(op) {
     return (op == '=' || op == '!=' || op == '~=');
 }
 class NoteFilter {
-    constructor(query) {
+    constructor(urlLister, query) {
         this.query = query;
         this.statements = [];
         let lineNumber = 0;
@@ -3627,7 +3722,7 @@ class NoteFilter {
                     const [, operator, user] = match;
                     if (!isValidOperator(operator))
                         continue; // impossible
-                    const userQuery = toUserQuery(user);
+                    const userQuery = toUserQuery(urlLister, user);
                     if (userQuery.userType == 'invalid' || userQuery.userType == 'empty') {
                         throwError(`Invalid user value "${user}"`);
                     }
@@ -3849,11 +3944,11 @@ function term(t) {
     return `<em>&lt;${t}&gt;</em>`;
 }
 class NoteFilterPanel {
-    constructor($container) {
+    constructor(urlLister, $container) {
         const $form = document.createElement('form');
         const $textarea = document.createElement('textarea');
         const $button = document.createElement('button');
-        this.noteFilter = new NoteFilter(``);
+        this.noteFilter = new NoteFilter(urlLister, ``);
         {
             const $details = document.createElement('details');
             $details.innerHTML = syntaxDescription;
@@ -3886,7 +3981,7 @@ class NoteFilterPanel {
         $textarea.addEventListener('input', () => {
             $button.disabled = this.noteFilter.isSameQuery($textarea.value);
             try {
-                new NoteFilter($textarea.value);
+                new NoteFilter(urlLister, $textarea.value);
                 $textarea.setCustomValidity('');
             }
             catch (ex) {
@@ -3899,7 +3994,7 @@ class NoteFilterPanel {
         $form.addEventListener('submit', (ev) => {
             ev.preventDefault();
             try {
-                this.noteFilter = new NoteFilter($textarea.value);
+                this.noteFilter = new NoteFilter(urlLister, $textarea.value);
             }
             catch (ex) {
                 return;
@@ -3981,7 +4076,8 @@ const e$2 = makeEscapeTag(encodeURIComponent);
 const makeItem = makeElement('li')();
 const makeITEM = makeElement('li')('main');
 class LooseParserPopup {
-    constructor($container) {
+    constructor(webUrlLister, $container) {
+        this.webUrlLister = webUrlLister;
         this.$popup = document.createElement('ul');
         this.$popup.classList.add('loose-parser-popup');
         this.$popup.onmouseleave = () => {
@@ -4008,7 +4104,7 @@ class LooseParserPopup {
         if (type == null)
             return makeElement('a')()('?');
         const $a = makeElement('a')()(type);
-        $a.href = e$2 `https://www.openstreetmap.org/${type}/${id}`;
+        $a.href = this.webUrlLister.getWebUrl(e$2 `${type}/${id}`);
         if (type == 'note') {
             $a.classList.add('other-note');
             $a.dataset.noteId = String(id);
@@ -4047,14 +4143,14 @@ function getType(text) {
     return bestType;
 }
 
-function getCommentItems(commentText) {
+function getCommentItems(webUrlLister, commentText) {
     const matchRegExp = new RegExp(`(?<before>.*?)(?<text>` +
         `(?<date>\\d\\d\\d\\d-\\d\\d-\\d\\d[T ]\\d\\d:\\d\\d:\\d\\dZ)` +
         `|` +
         `(?<link>https?://(?:` +
         `(?<image>westnordost\.de/p/[0-9]+\.jpg)` +
         '|' +
-        `(?<osm>(?:www\\.)?(?:osm|openstreetmap)\\.org/` +
+        `(?<osm>` + makeWebUrlRegex(webUrlLister) +
         `(?<path>(?<osmType>node|way|relation|changeset|note)/(?<id>[0-9]+))?` +
         `(?<hash>#[-0-9a-zA-Z/.=&]+)?` + // only need hash at root or at recognized path
         `)` +
@@ -4068,7 +4164,7 @@ function getCommentItems(commentText) {
         if (!match || !match.groups)
             break;
         pushTextItem(match.groups.before);
-        items.push(getMatchItem(match.groups));
+        items.push(getMatchItem(webUrlLister, match.groups));
     }
     pushTextItem(commentText.slice(idx));
     return collapseTextItems(items);
@@ -4101,7 +4197,13 @@ function getCommentItems(commentText) {
         return outputItems;
     }
 }
-function getMatchItem(groups) {
+function makeWebUrlRegex(webUrlLister) {
+    return '(?:' + webUrlLister.webUrls.map(webUrl => escapeRegex(stripProtocol(webUrl))).join('|') + ')';
+}
+function stripProtocol(webUrl) {
+    return webUrl.replace(new RegExp('^[^:]*://'), '');
+}
+function getMatchItem(webUrlLister, groups) {
     const baseItem = {
         text: groups.text
     };
@@ -4127,7 +4229,7 @@ function getMatchItem(groups) {
             const osmItem = {
                 ...linkItem,
                 link: 'osm',
-                href: rewriteOsmHref(groups.path, groups.hash),
+                href: rewriteOsmHref(webUrlLister, groups.path, groups.hash),
                 map: getMap(groups.hash)
             };
             if (groups.osmType && groups.id) {
@@ -4160,10 +4262,8 @@ function getMatchItem(groups) {
         type: 'text'
     };
 }
-function rewriteOsmHref(path, hash) {
-    let href = `https://www.openstreetmap.org/`; // changes osm.org and other redirected paths to canonical
-    if (path)
-        href += path;
+function rewriteOsmHref(webUrlLister, path, hash) {
+    let href = webUrlLister.getWebUrl(path ?? '');
     if (hash)
         href += hash;
     return href;
@@ -4183,10 +4283,13 @@ function getMap(hash) {
 }
 
 class CommentWriter {
+    constructor(webUrlLister) {
+        this.webUrlLister = webUrlLister;
+    }
     makeCommentElements(commentText, showImages = false) {
         const inlineElements = [];
         const imageElements = [];
-        for (const item of getCommentItems(commentText)) {
+        for (const item of getCommentItems(this.webUrlLister, commentText)) {
             if (item.type == 'link' && item.link == 'image') {
                 const $inlineLink = makeLink(item.href, item.href);
                 $inlineLink.classList.add('listened', 'image', 'inline');
@@ -4482,9 +4585,6 @@ class NoteRefresher {
     }
 }
 
-const apiFetcher = {
-    apiFetch: (requestPath) => fetch(`https://api.openstreetmap.org/api/0.6/` + requestPath)
-};
 const makeTimeoutCaller = (periodicCallDelay, immediateCallDelay) => {
     let timeoutId;
     const scheduleCall = (delay) => (callback) => {
@@ -4503,10 +4603,11 @@ const setNoteSectionProgress = ($noteSection, progress) => {
     $refreshWaitProgress.value = progress;
 };
 class NoteTable {
-    constructor($container, toolPanel, map, filter, figureDialog) {
+    constructor($container, toolPanel, map, filter, figureDialog, server) {
         this.toolPanel = toolPanel;
         this.map = map;
         this.filter = filter;
+        this.server = server;
         this.$table = document.createElement('table');
         this.$selectAllCheckbox = document.createElement('input');
         this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
@@ -4514,7 +4615,7 @@ class NoteTable {
         this.notesWithPendingUpdate = new Set();
         this.usersById = new Map();
         this.showImages = false;
-        this.noteRefresher = new NoteRefresher(5 * 60 * 1000, apiFetcher, makeTimeoutCaller(10 * 1000, 100), (id, progress) => {
+        this.noteRefresher = new NoteRefresher(5 * 60 * 1000, server, makeTimeoutCaller(10 * 1000, 100), (id, progress) => {
             const $noteSection = this.getNoteSection(id);
             if ($noteSection) {
                 setNoteSectionProgress($noteSection, progress);
@@ -4606,10 +4707,10 @@ class NoteTable {
             }
             this.noteRefresher.observe(noteRefreshList);
         });
-        this.commentWriter = new CommentWriter();
+        this.commentWriter = new CommentWriter(server);
         $container.append(this.$table);
         this.reset();
-        const looseParserPopup = new LooseParserPopup($container);
+        const looseParserPopup = new LooseParserPopup(server, $container);
         this.looseParserListener = new LooseParserListener((x, y, text) => {
             const parseResult = parseLoose(text);
             if (!parseResult)
@@ -4817,7 +4918,7 @@ class NoteTable {
             if (nComments > 1)
                 $cell.rowSpan = nComments;
             const $a = document.createElement('a');
-            $a.href = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
+            $a.href = this.server.getWebUrl(`note/` + encodeURIComponent(note.id));
             $a.dataset.noteId = $a.textContent = `${note.id}`;
             $a.dataset.self = 'yes';
             $a.classList.add('listened');
@@ -4844,7 +4945,8 @@ class NoteTable {
                 if (comment.uid != null) {
                     const username = users[comment.uid];
                     if (username != null) {
-                        const $a = makeUserNameLink(username);
+                        const href = this.server.getWebUrl(`user/` + encodeURIComponent(username));
+                        const $a = makeLink(username, href);
                         $a.classList.add('listened');
                         $a.dataset.userName = username;
                         $a.dataset.userId = String(comment.uid);
@@ -5180,7 +5282,7 @@ class AutozoomTool extends Tool {
     getInfo() {
         return [p$4(`Pan and zoom the map to notes in the table. `, `Can be used as `, em$2(`zoom to data`), ` for notes layer if `, dfn$1(`to all visible notes`), ` is selected. `), p$4(dfn$1(`To notes on screen in table`), ` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `, `This option is convenient to use when `, em$2(`Track between notes`), ` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`)];
     }
-    getTool(callbacks, map) {
+    getTool(callbacks, server, map) {
         const $fitModeSelect = document.createElement('select');
         $fitModeSelect.append(new Option('is disabled', 'none'), new Option('to selected notes', 'selectedNotes'), new Option('to notes on screen in table', 'inViewNotes'), new Option('to all visible notes', 'allNotes'));
         $fitModeSelect.onchange = () => {
@@ -5207,7 +5309,7 @@ class CommentsTool extends Tool {
     constructor() {
         super('comments', `Table comments`, `Change how comments are displayed in notes table`);
     }
-    getTool(callbacks, map) {
+    getTool(callbacks) {
         const $onlyFirstCommentsCheckbox = document.createElement('input');
         $onlyFirstCommentsCheckbox.type = 'checkbox';
         const $oneLineCommentsCheckbox = document.createElement('input');
@@ -5259,8 +5361,8 @@ class ParseTool extends Tool {
     getInfo() {
         return [p$4(`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →.`, `Currently detected active elements are: `), ul$1(li$1(`links to images made in `, makeLink(`StreetComplete`, `https://wiki.openstreetmap.org/wiki/StreetComplete`)), li$1(`links to OSM notes (clicking the output link is not yet implemented)`), li$1(`links to OSM changesets`), li$1(`links to OSM elements`), li$1(`ISO-formatted timestamps`)), p$4(`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`)];
     }
-    getTool(callbacks, map, figureDialog) {
-        const commentWriter = new CommentWriter();
+    getTool(callbacks, server) {
+        const commentWriter = new CommentWriter(server);
         const $input = document.createElement('input');
         $input.type = 'text';
         $input.size = 50;
@@ -5377,7 +5479,7 @@ class OverpassTurboTool extends OverpassTool {
     getInfo() {
         return [p$3(`Some Overpass queries to run from `, makeLink(`Overpass turbo`, 'https://wiki.openstreetmap.org/wiki/Overpass_turbo'), `, web UI for Overpass API. `, `Useful to inspect historic data at the time a particular note comment was made.`)];
     }
-    getTool(callbacks, map) {
+    getTool(callbacks, server, map) {
         const $overpassButtons = [];
         const buttonClickListener = (withRelations, onlyAround) => {
             const e = makeEscapeTag(encodeURIComponent);
@@ -5431,7 +5533,7 @@ class OverpassDirectTool extends OverpassTool {
     getInfo() {
         return [p$3(`Query `, makeLink(`Overpass API`, 'https://wiki.openstreetmap.org/wiki/Overpass_API'), ` without going through Overpass turbo. `, `Shows results on the map. Also gives link to the element page on the OSM website.`)];
     }
-    getTool(callbacks, map) {
+    getTool(callbacks, server, map) {
         const $button = document.createElement('button');
         $button.append(`Find closest node to `, makeMapIcon('center'));
         const $output = document.createElement('code');
@@ -5444,58 +5546,33 @@ class OverpassDirectTool extends OverpassTool {
                 let query = this.getOverpassQueryPreamble(map);
                 query += `node(around:${radius},${map.lat},${map.lon});\n`;
                 query += `out skel;`;
-                const doc = await makeOverpassQuery($button, query);
-                if (!doc)
-                    return;
+                const doc = await server.overpassFetch(query);
                 const closestNodeId = getClosestNodeId(doc, map.lat, map.lon);
                 if (!closestNodeId) {
                     $button.classList.add('error');
                     $button.title = `Could not find nodes nearby`;
                     return;
                 }
-                const url = `https://www.openstreetmap.org/node/` + encodeURIComponent(closestNodeId);
+                const url = server.getWebUrl(`node/` + encodeURIComponent(closestNodeId));
                 const $a = makeLink(`link`, url);
                 $a.dataset.elementType = 'node';
                 $a.dataset.elementId = String(closestNodeId);
                 $a.classList.add('listened', 'osm');
                 $output.replaceChildren($a);
+                $button.classList.remove('error');
+                $button.title = '';
+            }
+            catch (ex) {
+                $button.classList.add('error');
+                if (ex instanceof QueryError) {
+                    $button.title = `Overpass query failed ${ex.reason}`;
+                }
             }
             finally {
                 $button.disabled = false;
             }
         };
         return [$button, ` → `, $output];
-    }
-}
-async function makeOverpassQuery($button, query) {
-    try {
-        const response = await fetch(`https://www.overpass-api.de/api/interpreter`, {
-            method: 'POST',
-            body: new URLSearchParams({ data: query })
-        });
-        const text = await response.text();
-        if (!response.ok) {
-            setError(`receiving the following message: ${text}`);
-            return;
-        }
-        clearError();
-        return new DOMParser().parseFromString(text, 'text/xml');
-    }
-    catch (ex) {
-        if (ex instanceof TypeError) {
-            setError(`with the following error before receiving a response: ${ex.message}`);
-        }
-        else {
-            setError(`for unknown reason`);
-        }
-    }
-    function setError(reason) {
-        $button.classList.add('error');
-        $button.title = `Overpass query failed ${reason}`;
-    }
-    function clearError() {
-        $button.classList.remove('error');
-        $button.title = '';
     }
 }
 function getClosestNodeId(doc, centerLat, centerLon) {
@@ -5526,13 +5603,13 @@ class RcTool extends Tool {
     getInfo() {
         return [p$2(`Load note/map data to an editor with `, makeLink(`remote control`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl'), `.`)];
     }
-    getTool(callbacks, map) {
+    getTool(callbacks, server, map) {
         const e = makeEscapeTag(encodeURIComponent);
         const $loadNotesButton = this.makeRequiringSelectedNotesButton();
         $loadNotesButton.append(`Load `, makeNotesIcon('selected'));
         $loadNotesButton.onclick = async () => {
             for (const { id } of this.selectedNotes) {
-                const noteUrl = e `https://www.openstreetmap.org/note/${id}`;
+                const noteUrl = server.getWebUrl(e `note/${id}`);
                 const rcUrl = e `http://127.0.0.1:8111/import?url=${noteUrl}`;
                 const success = await openRcUrl($loadNotesButton, rcUrl);
                 if (!success)
@@ -5562,14 +5639,14 @@ class IdTool extends Tool {
     getInfo() {
         return [p$2(`Follow your notes by zooming from one place to another in one `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), ` window. `, `It could be faster to do first here in note-viewer than in iD directly because note-viewer won't try to download more data during panning. `, `After zooming in note-viewer, click the `, em$1(`Open`), ` button to open this location in iD. `, `When you go back to note-viewer, zoom to another place and click the `, em$1(`Open`), ` button for the second time, the already opened iD instance zooms to that place. `, `Your edits are not lost between such zooms.`), p$2(`Technical details: this is an attempt to make something like `, em$1(`remote control`), ` in iD editor. `, `Convincing iD to load notes has proven to be tricky. `, `Your best chance of seeing the selected notes is importing them as a `, em$1(`gpx`), ` file. `, `See `, makeLink(`this diary post`, `https://www.openstreetmap.org/user/Anton%20Khorev/diary/398991`), ` for further explanations.`), p$2(`Zooming/panning is easier to do, and that's what is currently implemented. `, `It's not without quirks however. You'll notice that the iD window opened from here doesn't have the OSM website header. `, `This is because the editor is opened at `, makeLink(`/id`, `https://www.openstreetmap.org/id`), ` url instead of `, makeLink(`/edit`, `https://www.openstreetmap.org/edit`), `. `, `It has to be done because otherwise iD won't listen to `, em$1(`#map`), ` changes in the webpage location.`)];
     }
-    getTool(callbacks, map) {
+    getTool(callbacks, server, map) {
         // limited to what hashchange() lets you do here https://github.com/openstreetmap/iD/blob/develop/modules/behavior/hash.js
         // which is zooming/panning
         const $zoomButton = document.createElement('button');
         $zoomButton.append(`Open `, makeMapIcon('center'));
         $zoomButton.onclick = () => {
             const e = makeEscapeTag(encodeURIComponent);
-            const url = e `https://www.openstreetmap.org/id#map=${map.zoom}/${map.lat}/${map.lon}`;
+            const url = server.getWebUrl(e `id#map=${map.zoom}/${map.lat}/${map.lon}`);
             open(url, 'id');
         };
         return [$zoomButton];
@@ -5619,7 +5696,7 @@ class ExportTool extends Tool {
             p$1(`Instead of clicking the `, em(`Export`), ` button, you can drag it and drop into a place that accepts data sent by `, makeLink(`Drag and Drop API`, `https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`), `. `, `Not many places actually do, and those who do often can handle only plaintext. `, `That's why there's a type selector, with which plaintext format can be forced on transmitted data.`)
         ];
     }
-    getTool() {
+    getTool(callbacks, server) {
         const $optionSelects = Object.fromEntries(Object.entries(this.describeOptions()).map(([key, valuesWithTexts]) => {
             const $select = document.createElement('select');
             $select.append(...valuesWithTexts.map(([value, text]) => new Option(text, value)));
@@ -5630,7 +5707,7 @@ class ExportTool extends Tool {
         const $exportNotesButton = this.makeRequiringSelectedNotesButton();
         $exportNotesButton.append(`Export `, makeNotesIcon('selected'));
         $exportNotesButton.onclick = () => {
-            const data = this.generateData(getOptionValues());
+            const data = this.generateData(server, getOptionValues());
             const filename = this.generateFilename();
             const file = new File([data], filename);
             const $a = document.createElement('a');
@@ -5641,7 +5718,7 @@ class ExportTool extends Tool {
         };
         $exportNotesButton.draggable = true;
         $exportNotesButton.ondragstart = (ev) => {
-            const data = this.generateData(getOptionValues());
+            const data = this.generateData(server, getOptionValues());
             if (!ev.dataTransfer)
                 return;
             ev.dataTransfer.setData($dataTypeSelect.value, data);
@@ -5715,7 +5792,7 @@ class GpxTool extends ExportTool {
     generateFilename() {
         return 'notes.gpx';
     }
-    generateData(options) {
+    generateData(server, options) {
         const e = makeEscapeTag(escapeXml);
         const getPoints = (pointTag, getDetails = () => '') => {
             let gpx = '';
@@ -5740,7 +5817,7 @@ class GpxTool extends ExportTool {
                 gpx += this.getCommentStrings(note.comments, options.commentQuantity == 'all').map(escapeXml).join(`&#xA;\n`); // JOSM wants this kind of double newline, otherwise no space between comments is rendered
                 gpx += `</desc>\n`;
             }
-            const noteUrl = `https://www.openstreetmap.org/note/` + encodeURIComponent(note.id);
+            const noteUrl = server.getWebUrl(`note/` + encodeURIComponent(note.id));
             gpx += e `<link href="${noteUrl}">\n`;
             gpx += e `<text>note #${note.id} on osm</text>\n`;
             gpx += e `</link>\n`;
@@ -5803,10 +5880,93 @@ class GeoJsonTool extends ExportTool {
     generateFilename() {
         return 'notes.geojson'; // JOSM doesn't like .json
     }
-    generateData(options) {
+    generateData(server, options) {
         // https://github.com/openstreetmap/openstreetmap-website/blob/master/app/views/api/notes/_note.json.jbuilder
-        const self = this;
         const e = makeEscapeTag(encodeURIComponent);
+        const formatDate = (date) => {
+            return toReadableDate(date) + ' UTC';
+        };
+        const lastCloseComment = (note) => {
+            for (let i = note.comments.length - 1; i >= 0; i--) {
+                if (note.comments[i].action == 'closed')
+                    return note.comments[i];
+            }
+        };
+        const generateCommentUserProperties = (comment) => {
+            const result = {};
+            if (comment.uid == null)
+                return result;
+            result.uid = comment.uid;
+            const username = this.selectedNoteUsers.get(comment.uid);
+            if (username == null)
+                return result;
+            result.user = username;
+            result.user_url = server[options.urls == 'web'
+                ? 'getWebUrl'
+                : 'getApiRootUrl'](e `user/${username}`);
+            return result;
+        };
+        const generateNoteUrls = (note) => {
+            if (options.urls == 'web')
+                return {
+                    url: server.getWebUrl(e `note/${note.id}`)
+                };
+            const apiBasePath = e `notes/${note.id}`;
+            const result = {
+                url: server.getApiUrl(apiBasePath + `.json`)
+            };
+            if (note.status == 'closed') {
+                result.reopen_url = server.getApiUrl(apiBasePath + `/reopen.json`);
+            }
+            else {
+                result.comment_url = server.getApiUrl(apiBasePath + `/comment.json`);
+                result.close_url = server.getApiUrl(apiBasePath + `/close.json`);
+            }
+            return result;
+        };
+        const generateNoteDates = (note) => {
+            const result = {};
+            if (note.comments.length > 0) {
+                result.date_created = formatDate(note.comments[0].date);
+                if (note.status == 'closed') {
+                    const closeComment = lastCloseComment(note);
+                    if (closeComment) {
+                        result.closed_at = formatDate(closeComment.date);
+                    }
+                }
+            }
+            return result;
+        };
+        const generateNoteComments = (comments) => {
+            if (comments.length == 0)
+                return {};
+            if (options.commentType == 'strings') {
+                return Object.fromEntries(this.getCommentStrings(comments, options.commentQuantity == 'all').map((v, i) => ['comment' + (i > 0 ? i + 1 : ''), v.replace(/\n/g, '\n ')]));
+            }
+            else if (options.commentType == 'string') {
+                return {
+                    comments: this.getCommentStrings(comments, options.commentQuantity == 'all').join(`; `).replace(/\n/g, '\n ')
+                };
+            }
+            else {
+                const toPropObject = (comment) => ({
+                    date: formatDate(comment.date),
+                    ...generateCommentUserProperties(comment),
+                    action: comment.action,
+                    text: comment.text
+                });
+                if (options.commentQuantity == 'all') {
+                    return {
+                        comments: comments.map(toPropObject)
+                    };
+                }
+                else {
+                    return {
+                        comments: [toPropObject(comments[0])]
+                    };
+                }
+            }
+        };
         const features = this.selectedNotes.map(note => ({
             type: 'Feature',
             geometry: {
@@ -5836,99 +5996,12 @@ class GeoJsonTool extends ExportTool {
             features
         };
         return JSON.stringify(featureCollection, undefined, 2);
-        function generateNoteUrls(note) {
-            if (options.urls == 'web')
-                return {
-                    url: e `https://www.openstreetmap.org/note/${note.id}`
-                };
-            const urlBase = e `https://api.openstreetmap.org/api/0.6/notes/${note.id}`;
-            const result = {
-                url: urlBase + `.json`
-            };
-            if (note.status == 'closed') {
-                result.reopen_url = urlBase + `/reopen.json`;
-            }
-            else {
-                result.comment_url = urlBase + `/comment.json`;
-                result.close_url = urlBase + `/close.json`;
-            }
-            return result;
-        }
-        function generateNoteDates(note) {
-            const result = {};
-            if (note.comments.length > 0) {
-                result.date_created = formatDate(note.comments[0].date);
-                if (note.status == 'closed') {
-                    const closeComment = lastCloseComment(note);
-                    if (closeComment) {
-                        result.closed_at = formatDate(closeComment.date);
-                    }
-                }
-            }
-            return result;
-        }
-        function generateNoteComments(comments) {
-            if (comments.length == 0)
-                return {};
-            if (options.commentType == 'strings') {
-                return Object.fromEntries(self.getCommentStrings(comments, options.commentQuantity == 'all').map((v, i) => ['comment' + (i > 0 ? i + 1 : ''), v.replace(/\n/g, '\n ')]));
-            }
-            else if (options.commentType == 'string') {
-                return {
-                    comments: self.getCommentStrings(comments, options.commentQuantity == 'all').join(`; `).replace(/\n/g, '\n ')
-                };
-            }
-            else {
-                const toPropObject = (comment) => ({
-                    date: formatDate(comment.date),
-                    ...generateCommentUserProperties(comment),
-                    action: comment.action,
-                    text: comment.text
-                });
-                if (options.commentQuantity == 'all') {
-                    return {
-                        comments: comments.map(toPropObject)
-                    };
-                }
-                else {
-                    return {
-                        comments: [toPropObject(comments[0])]
-                    };
-                }
-            }
-        }
-        function generateCommentUserProperties(comment) {
-            const result = {};
-            if (comment.uid == null)
-                return result;
-            result.uid = comment.uid;
-            const username = self.selectedNoteUsers.get(comment.uid);
-            if (username == null)
-                return result;
-            result.user = username;
-            if (options.urls == 'web') {
-                result.user_url = e `https://www.openstreetmap.org/user/${username}`;
-            }
-            else {
-                result.user_url = e `https://api.openstreetmap.org/user/${username}`;
-            }
-            return result;
-        }
-        function lastCloseComment(note) {
-            for (let i = note.comments.length - 1; i >= 0; i--) {
-                if (note.comments[i].action == 'closed')
-                    return note.comments[i];
-            }
-        }
-        function formatDate(date) {
-            return toReadableDate(date) + ' UTC';
-        }
     }
 }
 
 const p = (...ss) => makeElement('p')()(...ss);
 class StreetViewTool extends Tool {
-    getTool(callbacks, map) {
+    getTool(callbacks, server, map) {
         const $viewButton = document.createElement('button');
         $viewButton.append(`Open `, makeMapIcon('center'));
         $viewButton.onclick = () => {
@@ -6007,7 +6080,7 @@ class ToolBroadcaster {
     }
 }
 class ToolPanel {
-    constructor(storage, globalEventsListener, $container, map, figureDialog) {
+    constructor(storage, server, globalEventsListener, $container, map, figureDialog) {
         _ToolPanel_fitMode.set(this, void 0);
         const tools = [];
         const toolCallbacks = {
@@ -6039,7 +6112,7 @@ class ToolPanel {
                     storage.removeItem(storageKey);
                 }
             });
-            $toolDetails.append($toolSummary, ...tool.getTool(toolCallbacks, map, figureDialog));
+            $toolDetails.append($toolSummary, ...tool.getTool(toolCallbacks, server, map, figureDialog));
             $toolDetails.addEventListener('animationend', toolAnimationEndListener);
             const infoElements = tool.getInfo();
             if (infoElements) {
@@ -6183,10 +6256,9 @@ function isOsmChangeset(c) {
     }
 }
 const e = makeEscapeTag(encodeURIComponent);
-async function downloadAndShowChangeset($a, map, changesetId) {
+async function downloadAndShowChangeset($a, server, map, changesetId) {
     downloadCommon($a, map, async () => {
-        const url = e `https://api.openstreetmap.org/api/0.6/changeset/${changesetId}.json`;
-        const response = await fetch(url);
+        const response = await server.apiFetch(e `changeset/${changesetId}.json`);
         if (!response.ok) {
             if (response.status == 404) {
                 throw new TypeError(`changeset doesn't exist`);
@@ -6197,7 +6269,7 @@ async function downloadAndShowChangeset($a, map, changesetId) {
         }
         const data = await response.json();
         const changeset = getChangesetFromOsmApiResponse(data);
-        addGeometryToMap(map, makeChangesetGeometry(changeset), () => makeChangesetPopupContents(changeset));
+        addGeometryToMap(map, makeChangesetGeometry(changeset), () => makeChangesetPopupContents(server, changeset));
     });
     function makeChangesetGeometry(changeset) {
         if (changeset.minlat == null || changeset.minlon == null ||
@@ -6210,11 +6282,10 @@ async function downloadAndShowChangeset($a, map, changesetId) {
         ]);
     }
 }
-async function downloadAndShowElement($a, map, elementType, elementId) {
+async function downloadAndShowElement($a, server, map, elementType, elementId) {
     downloadCommon($a, map, async () => {
         const fullBit = (elementType == 'node' ? '' : '/full');
-        const url = e `https://api.openstreetmap.org/api/0.6/${elementType}/${elementId}` + `${fullBit}.json`;
-        const response = await fetch(url);
+        const response = await server.apiFetch(e `${elementType}/${elementId}` + `${fullBit}.json`);
         if (!response.ok) {
             if (response.status == 404) {
                 throw new TypeError(`element doesn't exist`);
@@ -6232,13 +6303,13 @@ async function downloadAndShowElement($a, map, elementType, elementId) {
         if (!element)
             throw new TypeError(`OSM API error: requested element not found in response data`);
         if (isOsmNodeElement(element)) {
-            addGeometryToMap(map, makeNodeGeometry(element), () => makeElementPopupContents(element));
+            addGeometryToMap(map, makeNodeGeometry(element), () => makeElementPopupContents(server, element));
         }
         else if (isOsmWayElement(element)) {
-            addGeometryToMap(map, makeWayGeometry(element, elements), () => makeElementPopupContents(element));
+            addGeometryToMap(map, makeWayGeometry(element, elements), () => makeElementPopupContents(server, element));
         }
         else if (isOsmRelationElement(element)) {
-            addGeometryToMap(map, makeRelationGeometry(element, elements), () => makeElementPopupContents(element));
+            addGeometryToMap(map, makeRelationGeometry(element, elements), () => makeElementPopupContents(server, element));
         }
         else {
             throw new TypeError(`OSM API error: requested element has unknown type`); // shouldn't happen
@@ -6337,12 +6408,12 @@ function getElementsFromOsmApiResponse(data) {
     }
     return { node, way, relation };
 }
-function makeChangesetPopupContents(changeset) {
+function makeChangesetPopupContents(server, changeset) {
     const contents = [];
     const p = (...s) => makeElement('p')()(...s);
     const h = (...s) => p(makeElement('strong')()(...s));
     const c = (...s) => p(makeElement('em')()(...s));
-    const changesetHref = e `https://www.openstreetmap.org/changeset/${changeset.id}`;
+    const changesetHref = server.getWebUrl(e `changeset/${changeset.id}`);
     contents.push(h(`Changeset: `, makeLink(String(changeset.id), changesetHref)));
     if (changeset.tags?.comment)
         contents.push(c(changeset.tags.comment));
@@ -6353,21 +6424,21 @@ function makeChangesetPopupContents(changeset) {
     else {
         $p.append(`Created on `, getDate(changeset.created_at));
     }
-    $p.append(` by `, getUser(changeset));
+    $p.append(` by `, getUser(server, changeset));
     contents.push($p);
     const $tags = getTags(changeset.tags, 'comment');
     if ($tags)
         contents.push($tags);
     return contents;
 }
-function makeElementPopupContents(element) {
+function makeElementPopupContents(server, element) {
     const p = (...s) => makeElement('p')()(...s);
     const h = (...s) => p(makeElement('strong')()(...s));
-    const elementHref = e `https://www.openstreetmap.org/${element.type}/${element.id}`;
+    const elementPath = e `${element.type}/${element.id}`;
     const contents = [
-        h(capitalize(element.type) + `: `, makeLink(getElementName(element), elementHref)),
-        h(`Version #${element.version} · `, makeLink(`View History`, elementHref + '/history'), ` · `, makeLink(`Edit`, e `https://www.openstreetmap.org/edit?${element.type}=${element.id}`)),
-        p(`Edited on `, getDate(element.timestamp), ` by `, getUser(element), ` · Changeset #`, getChangeset(element.changeset))
+        h(capitalize(element.type) + `: `, makeLink(getElementName(element), server.getWebUrl(elementPath))),
+        h(`Version #${element.version} · `, makeLink(`View History`, server.getWebUrl(elementPath + '/history')), ` · `, makeLink(`Edit`, server.getWebUrl(e `edit?${element.type}=${element.id}`))),
+        p(`Edited on `, getDate(element.timestamp), ` by `, getUser(server, element), ` · Changeset #`, getChangeset(server, element.changeset))
     ];
     const $tags = getTags(element.tags);
     if ($tags)
@@ -6396,16 +6467,16 @@ function getDate(timestamp) {
     $time.dateTime = timestamp;
     return $time;
 }
-function getUser(data) {
-    const $a = makeUserLink(data.uid, data.user);
+function getUser(server, data) {
+    const $a = makeUserLink(server, data.uid, data.user);
     $a.classList.add('listened');
     $a.dataset.userName = data.user;
     $a.dataset.userId = String(data.uid);
     return $a;
 }
-function getChangeset(changesetId) {
+function getChangeset(server, changesetId) {
     const cid = String(changesetId);
-    const $a = makeLink(cid, e `https://www.openstreetmap.org/changeset/${cid}`);
+    const $a = makeLink(cid, server.getWebUrl(e `changeset/${cid}`));
     $a.classList.add('listened');
     $a.dataset.changesetId = cid;
     return $a;
@@ -6459,11 +6530,30 @@ function getElementName(element) {
         return String(element.id);
     }
 }
+function makeUserLink(server, uid, username) {
+    if (username)
+        return makeUserNameLink(server, username);
+    return makeUserIdLink(server, uid);
+}
+function makeUserNameLink(server, username) {
+    const fromName = (name) => server.getWebUrl(e `user/${name}`);
+    return makeLink(username, fromName(username));
+}
+function makeUserIdLink(server, uid) {
+    const fromId = (id) => server.getApiUrl(e `user/${id}`);
+    return makeLink('#' + uid, fromId(uid));
+}
 
 main();
 async function main() {
     const storage = new NoteViewerStorage('osm-note-viewer-');
     const db = await NoteViewerDB.open();
+    const server = new Server(`https://api.openstreetmap.org/`, [
+        `https://www.openstreetmap.org/`,
+        `https://openstreetmap.org/`,
+        `https://www.osm.org/`,
+        `https://osm.org/`,
+    ], `https://tile.openstreetmap.org/{z}/{x}/{y}.png`, `https://www.openstreetmap.org/copyright`, `OpenStreetMap contributors`, 19, `https://nominatim.openstreetmap.org/`, `https://www.overpass-api.de/`);
     const globalEventsListener = new GlobalEventListener();
     const $navbarContainer = document.createElement('nav');
     const $fetchContainer = makeDiv('panel', 'fetch')();
@@ -6483,9 +6573,9 @@ async function main() {
         document.body.classList.add('flipped');
     document.body.append($textSide, $graphicSide);
     const globalHistory = new GlobalHistory($scrollingPart, $notesContainer);
-    const map = new NoteMap($mapContainer);
+    const map = new NoteMap($mapContainer, server);
     map.onMoveEnd(() => {
-        globalHistory.setMapHash(`${map.zoom}/${map.lat}/${map.lon}`);
+        globalHistory.setMapHash(map.hash);
     });
     globalHistory.onMapHashChange = (mapHash) => {
         const [zoomString, latString, lonString] = mapHash.split('/');
@@ -6499,11 +6589,11 @@ async function main() {
         if (elementType != 'node' && elementType != 'way' && elementType != 'relation')
             return false;
         figureDialog.close();
-        downloadAndShowElement($a, map, elementType, elementId);
+        downloadAndShowElement($a, server, map, elementType, elementId);
     };
     globalEventsListener.changesetListener = ($a, changesetId) => {
         figureDialog.close();
-        downloadAndShowChangeset($a, map, changesetId);
+        downloadAndShowChangeset($a, server, map, changesetId);
     };
     globalEventsListener.mapListener = ($a, zoom, lat, lon) => {
         figureDialog.close();
@@ -6513,13 +6603,13 @@ async function main() {
         figureDialog.toggle($a.href);
     };
     const navbar = new Navbar(storage, $navbarContainer, map);
-    const filterPanel = new NoteFilterPanel($filterContainer);
-    const toolPanel = new ToolPanel(storage, globalEventsListener, $toolContainer, map, figureDialog);
-    const noteTable = new NoteTable($notesContainer, toolPanel, map, filterPanel.noteFilter, figureDialog);
+    const filterPanel = new NoteFilterPanel(server, $filterContainer);
+    const toolPanel = new ToolPanel(storage, server, globalEventsListener, $toolContainer, map, figureDialog);
+    const noteTable = new NoteTable($notesContainer, toolPanel, map, filterPanel.noteFilter, figureDialog, server);
     globalEventsListener.noteListener = ($a, noteId) => {
         noteTable.pingNoteFromLink($a, noteId);
     };
-    const fetchPanel = new NoteFetchPanel(storage, db, globalEventsListener, globalHistory, $fetchContainer, $moreContainer, navbar, filterPanel, noteTable, map, figureDialog);
+    const fetchPanel = new NoteFetchPanel(storage, db, server, globalEventsListener, globalHistory, $fetchContainer, $moreContainer, navbar, filterPanel, noteTable, map, figureDialog);
     globalEventsListener.noteSelfListener = ($a, noteId) => {
         fetchPanel.updateNote($a, Number(noteId));
     };
