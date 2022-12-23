@@ -37,7 +37,8 @@
 	.leaflet-container .leaflet-popup-content-wrapper a {
 		color: revert;
 	}
-	.leaflet-popup-content-wrapper {
+	.leaflet-popup-content-wrapper,
+	.leaflet-control-layers {
 		background: #222 !important;
 		color: revert !important;
 	}
