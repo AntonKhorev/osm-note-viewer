@@ -54,7 +54,7 @@ async function main() {
 	const globalHistory=new GlobalHistory($scrollingPart,$notesContainer)
 	const map=new NoteMap($mapContainer,server)
 	map.onMoveEnd(()=>{
-		globalHistory.setMapHash(`${map.zoom}/${map.lat}/${map.lon}`)
+		globalHistory.setMapHash(map.hash)
 	})
 	globalHistory.onMapHashChange=(mapHash: string)=>{
 		const [zoomString,latString,lonString]=mapHash.split('/')

@@ -296,6 +296,10 @@ export class NoteMap {
 	get lon(): number {
 		return this.leafletMap.getCenter().lng
 	}
+	get hash(): string {
+		const precision=Math.max(0,Math.ceil(Math.log2(this.zoom)))
+		return `${this.zoom.toFixed(0)}/${this.lat.toFixed(precision)}/${this.lon.toFixed(precision)}`
+	}
 	get bounds(): L.LatLngBounds {
 		return this.leafletMap.getBounds()
 	}
