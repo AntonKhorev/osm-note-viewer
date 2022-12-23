@@ -72,3 +72,13 @@
 	width: 100%;
 	margin: var(--block-gap) 0;
 }
+
+@media (prefers-color-scheme: dark) {
+	/* dark mode filter:
+		https://github.com/openstreetmap/openstreetmap-website/issues/2332
+		https://github.com/pkrasicki/issviewer/blob/master/public/css/dark-theme.css
+	*/
+	.map img.leaflet-tile {
+		filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+	}
+}
