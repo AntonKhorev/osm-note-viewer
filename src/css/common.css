@@ -31,24 +31,6 @@
 		--popup-item-background: #333;
 		--popup-main-item-background: #222;
 	}
-	.leaflet-container {
-		background: #888 !important;
-	}
-	.leaflet-container .leaflet-popup-content-wrapper a {
-		color: revert;
-	}
-	.leaflet-popup-content-wrapper,
-	.leaflet-control {
-		background: #222 !important;
-		color: revert !important;
-	}
-	.leaflet-bar a {
-		background: #222 !important;
-		color: #CCC !important;
-	}
-	.leaflet-bar a:hover {
-		background: var(--hover-color) !important;
-	}
 }
 
 body > .symbols {

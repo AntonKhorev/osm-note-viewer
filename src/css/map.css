@@ -74,6 +74,24 @@
 }
 
 @media (prefers-color-scheme: dark) {
+	.leaflet-container {
+		background: #888 !important;
+	}
+	.leaflet-container .leaflet-popup-content-wrapper a {
+		color: revert;
+	}
+	.leaflet-popup-content-wrapper,
+	.leaflet-control {
+		background: #222 !important;
+		color: revert !important;
+	}
+	.leaflet-bar a {
+		background: #222 !important;
+		color: #CCC !important;
+	}
+	.leaflet-bar a:hover {
+		background: var(--hover-color) !important;
+	}
 	/* dark mode filter:
 		https://github.com/openstreetmap/openstreetmap-website/issues/2332
 		https://github.com/pkrasicki/issviewer/blob/master/public/css/dark-theme.css
