@@ -46,6 +46,7 @@ function makeServer(config?:any): Server {
 	let maxZoom: number = 19
 	let nominatimUrl: string = `https://nominatim.openstreetmap.org/`
 	let overpassUrl: string = `https://www.overpass-api.de/`
+	let overpassTurboUrl: string = `https://overpass-turbo.eu/`
 	
 	if (typeof config == 'string') {
 		apiUrl=config
@@ -55,6 +56,6 @@ function makeServer(config?:any): Server {
 	return new Server(
 		apiUrl,webUrls,
 		tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
-		nominatimUrl,overpassUrl
+		nominatimUrl,overpassUrl,overpassTurboUrl
 	)
 }

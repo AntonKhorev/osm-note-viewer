@@ -1,3 +1,5 @@
+import {makeEscapeTag} from './escape'
+
 export interface ApiFetcher {
 	apiFetch(apiPath:string): Promise<Response>
 }
@@ -56,7 +58,8 @@ export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, T
 		public readonly tileAttributionText: string,
 		public readonly maxZoom: number,
 		private readonly nominatimUrl: string,
-		private readonly overpassUrl: string
+		private readonly overpassUrl: string,
+		private readonly overpassTurboUrl: string
 	) {
 		const hostUrl=new URL(webUrls[0])
 		this.host=hostUrl.host
@@ -110,5 +113,10 @@ export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, T
 				throw new QueryError
 			}
 		}
+	}
+	getOverpassTurboUrl(query:string,lat:number,lon:number,zoom:number):string {
+		const e=makeEscapeTag(encodeURIComponent)
+		const location=`${lat};${lon};${zoom}`
+		return this.overpassTurboUrl+e`?C=${location}&Q=${query}`
 	}
 }

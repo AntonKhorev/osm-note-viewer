@@ -50,9 +50,7 @@ export class OverpassTurboTool extends OverpassTool {
 			}
 			query+=`;\n`
 			query+=`out meta geom;`
-			const location=`${map.lat};${map.lon};${map.zoom}`
-			const url=e`https://overpass-turbo.eu/?C=${location}&Q=${query}`
-			open(url,'overpass-turbo')
+			open(server.getOverpassTurboUrl(query,map.lat,map.lon,map.zoom),'overpass-turbo')
 		}
 		{
 			const $button=document.createElement('button')
