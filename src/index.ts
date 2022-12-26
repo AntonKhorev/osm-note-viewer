@@ -1,6 +1,6 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
-import Server from './server'
+import ServerList from './server-list'
 import GlobalEventsListener from './events'
 import GlobalHistory from './history'
 import {NoteMap} from './map'
@@ -18,18 +18,10 @@ main()
 async function main() {
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
-	const server=new Server(
-		`https://api.openstreetmap.org/`,
-		[
-			`https://www.openstreetmap.org/`,
-			`https://openstreetmap.org/`,
-			`https://www.osm.org/`,
-			`https://osm.org/`,
-		],
-		`https://tile.openstreetmap.org/{z}/{x}/{y}.png`,`https://www.openstreetmap.org/copyright`,`OpenStreetMap contributors`,19,
-		`https://nominatim.openstreetmap.org/`,
-		`https://www.overpass-api.de/`
-	)
+	const serverList=new ServerList([
+		null,
+		`https://master.apis.dev.openstreetmap.org/`
+	])
 	const globalEventsListener=new GlobalEventsListener()
 
 	const $navbarContainer=document.createElement('nav')
@@ -51,7 +43,8 @@ async function main() {
 	if (flipped) document.body.classList.add('flipped')
 	document.body.append($textSide,$graphicSide)
 
-	const globalHistory=new GlobalHistory($scrollingPart,$notesContainer)
+	const globalHistory=new GlobalHistory($scrollingPart,$notesContainer,serverList)
+	const server=globalHistory.server
 	const map=new NoteMap($mapContainer,server)
 	map.onMoveEnd(()=>{
 		globalHistory.setMapHash(map.hash)
@@ -96,7 +89,7 @@ async function main() {
 		noteTable.pingNoteFromLink($a,noteId)
 	}
 	const fetchPanel=new NoteFetchPanel(
-		storage,db,server,
+		storage,db,server,serverList.getHostHash(server),
 		globalEventsListener,globalHistory,
 		$fetchContainer,$moreContainer,
 		navbar,filterPanel,

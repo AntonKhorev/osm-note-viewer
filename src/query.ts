@@ -2,6 +2,7 @@ import {Note, NoteComment} from './data'
 import type {ApiUrlLister, WebUrlLister} from './server'
 import {UserQuery, toUserQuery, makeUserQueryFromUserNameAndId} from './query-user'
 import {toDateQuery, toUrlDate} from './query-date'
+import {escapeHash} from './escape' // TODO use escapeHash() instead of encodeURIComponent() for all hash parameters; won't have to use "." as a separator in ids parameter
 
 const defaultLowerDate=Date.parse('2001-01-01 00:00:00Z')/1000
 
@@ -171,6 +172,13 @@ export function makeNoteQueryString(query: NoteQuery, withMode: boolean = true):
 		return ''
 	}
 	return parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
+}
+
+export function makeNoteQueryStringWithHostHash(query: NoteQuery, hostHash: string|null): string {
+	const queryStringWithoutHostHash=makeNoteQueryString(query)
+	if (!queryStringWithoutHostHash) return queryStringWithoutHostHash
+	if (hostHash) return `host=${escapeHash(hostHash)}&${queryStringWithoutHostHash}`
+	return queryStringWithoutHostHash
 }
 
 export interface NoteFetchDetails {

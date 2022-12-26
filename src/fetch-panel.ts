@@ -22,7 +22,7 @@ export default class NoteFetchPanel {
 	private fetcherRun?: NoteFetcherRun
 	private fetcherInvoker?: NoteFetchDialog
 	constructor(
-		storage: NoteViewerStorage, db: NoteViewerDB, server: Server,
+		storage: NoteViewerStorage, db: NoteViewerDB, server: Server, hostHash: string|null,
 		globalEventsListener: GlobalEventsListener, globalHistory: GlobalHistory,
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		navbar: Navbar, filterPanel: NoteFilterPanel,
@@ -163,7 +163,7 @@ export default class NoteFetchPanel {
 				map.needToFitNotes=false
 			}
 			const environment: NoteFetcherEnvironment = {
-				db,server,
+				db,server,hostHash,
 				noteTable,$moreContainer,
 				getLimit: dialog.getLimit,
 				getAutoLoad: dialog.getAutoLoad,

@@ -47,6 +47,7 @@ export class ResponseQueryError extends QueryError {
 }
 
 export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, TileSource, NominatimProvider {
+	public readonly host:string
 	constructor(
 		public readonly apiUrl: string,
 		public readonly webUrls: string[],
@@ -56,7 +57,10 @@ export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, T
 		public readonly maxZoom: number,
 		private readonly nominatimUrl: string,
 		private readonly overpassUrl: string
-	) {}
+	) {
+		const hostUrl=new URL(webUrls[0])
+		this.host=hostUrl.host
+	}
 	apiFetch(apiPath:string) {
 		return fetch(this.getApiUrl(apiPath))
 	}

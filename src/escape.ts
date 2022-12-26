@@ -12,6 +12,13 @@ export function escapeXml(text: string) { // https://github.com/Inist-CNRS/node-
 		.replace(/\r/g,'&#xD;')
 }
 
+export function escapeHash(text: string) {
+	return text.replace(
+		/[^0-9a-zA-Z?/:@._~!$'()*+,;-]/g, // https://stackoverflow.com/a/26119120 except & and =
+		c=>`%${c.charCodeAt(0).toString(16).toUpperCase()}` // escape like in https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURI#encoding_for_rfc3986
+	)
+}
+
 export function makeEscapeTag(escapeFn: (text: string) => string): (strings: TemplateStringsArray, ...values: unknown[]) => string {
 	return function(strings: TemplateStringsArray, ...values: unknown[]): string {
 		let result=strings[0]
