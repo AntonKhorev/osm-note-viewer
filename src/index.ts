@@ -20,7 +20,16 @@ async function main() {
 	const db=await NoteViewerDB.open()
 	const serverList=new ServerList([
 		null,
-		`https://master.apis.dev.openstreetmap.org/`
+		`https://master.apis.dev.openstreetmap.org/`,
+		{
+			web: [
+				`https://www.openhistoricalmap.org/`,
+				`https://openhistoricalmap.org/`
+			],
+			nominatim: `https://nominatim.openhistoricalmap.org/`,
+			overpass: `https://overpass-api.openhistoricalmap.org/`,
+			overpassTurbo: `https://openhistoricalmap.github.io/overpass-turbo/`,
+		}
 	])
 	const globalEventsListener=new GlobalEventsListener()
 

@@ -51,6 +51,20 @@ function makeServer(config?:any): Server {
 	if (typeof config == 'string') {
 		apiUrl=config
 		webUrls=[config]
+	} else if (typeof config == 'object' && config!=null) {
+		if (typeof config.web == 'string') {
+			webUrls=[config.web]
+		} else if (Array.isArray(config.web)) {
+			webUrls=config.web
+		}
+		if (typeof config.api == 'string') {
+			apiUrl=config.api
+		} else {
+			apiUrl=webUrls[0]
+		}
+		if (typeof config.nominatim == 'string') nominatimUrl=config.nominatim
+		if (typeof config.overpass == 'string') overpassUrl=config.overpass
+		if (typeof config.overpassTurbo == 'string') overpassTurboUrl=config.overpassTurbo
 	}
 
 	return new Server(
