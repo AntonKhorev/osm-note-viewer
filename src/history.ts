@@ -132,7 +132,7 @@ export default class GlobalHistory {
 	private getFullHash(queryHash: string, mapHash: string, hostHash: string|null): string {
 		let fullHash=''
 		const appendToFullHash=(hash:string)=>{
-			if (fullHash) fullHash+='&'
+			if (fullHash && hash) fullHash+='&'
 			fullHash+=hash
 		}
 		if (hostHash) appendToFullHash('host='+escapeHash(hostHash))
