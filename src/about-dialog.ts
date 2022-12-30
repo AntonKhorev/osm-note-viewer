@@ -39,12 +39,14 @@ export default class AboutDialog extends NavDialog {
 		writeBlock(()=>{
 			const $list=makeElement('ul')()()
 			const baseLocation=location.pathname+location.search
-			for (const [host,server] of this.serverList.servers) {
-				const hash=this.serverList.getHostHash(server)
+			for (const [newHost,newServer] of this.serverList.servers) {
+				const hash=this.serverList.getHostHash(newServer)
 				const newLocation=baseLocation+(hash ? `#host=`+escapeHash(hash) : '')
-				$list.append(makeElement('li')()(
-					makeLink(host,newLocation)
-				))
+				const $li=makeElement('li')()(
+					makeLink(newHost,newLocation)
+				)
+				$list.append($li)
+				if (this.server==newServer) $li.append(` - currently selected`)
 			}
 			return [$list]
 		})
