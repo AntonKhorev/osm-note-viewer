@@ -29,6 +29,10 @@ async function main() {
 			nominatim: `https://nominatim.openhistoricalmap.org/`,
 			overpass: `https://overpass-api.openhistoricalmap.org/`,
 			overpassTurbo: `https://openhistoricalmap.github.io/overpass-turbo/`,
+		},
+		{
+			web: `https://opengeofiction.net/`,
+			tiles: `https://tiles04.rent-a-planet.com/ogf-carto/{z}/{x}/{y}.png`
 		}
 	])
 	const globalEventsListener=new GlobalEventsListener()

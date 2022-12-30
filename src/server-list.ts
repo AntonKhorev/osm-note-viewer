@@ -65,6 +65,16 @@ function makeServer(config?:any): Server {
 		if (typeof config.nominatim == 'string') nominatimUrl=config.nominatim
 		if (typeof config.overpass == 'string') overpassUrl=config.overpass
 		if (typeof config.overpassTurbo == 'string') overpassTurboUrl=config.overpassTurbo
+		if (typeof config.tiles == 'string') {
+			tileUrlTemplate=config.tiles
+			tileAttributionUrl=webUrls[0]+`copyright`
+			try {
+				const hostUrl=new URL(webUrls[0])
+				tileAttributionText=hostUrl.host+` contributors`
+			} catch {
+				tileAttributionText=webUrls[0]+` contributors`
+			}
+		}
 	}
 
 	return new Server(
