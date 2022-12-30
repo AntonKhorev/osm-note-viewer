@@ -48,10 +48,19 @@ function makeServer(config?:any): Server {
 	let overpassUrl: string = `https://www.overpass-api.de/`
 	let overpassTurboUrl: string = `https://overpass-turbo.eu/`
 	
+	const tryAttributionText=()=>{
+		try {
+			const hostUrl=new URL(webUrls[0])
+			tileAttributionText=hostUrl.host+` contributors`
+		} catch {
+			tileAttributionText=webUrls[0]+` contributors`
+		}
+	}
+
 	if (typeof config == 'string') {
 		apiUrl=config
 		webUrls=[config]
-	} else if (typeof config == 'object' && config!=null) {
+	} else if (typeof config == 'object' && config) {
 		if (typeof config.web == 'string') {
 			webUrls=[config.web]
 		} else if (Array.isArray(config.web)) {
@@ -68,12 +77,12 @@ function makeServer(config?:any): Server {
 		if (typeof config.tiles == 'string') {
 			tileUrlTemplate=config.tiles
 			tileAttributionUrl=webUrls[0]+`copyright`
-			try {
-				const hostUrl=new URL(webUrls[0])
-				tileAttributionText=hostUrl.host+` contributors`
-			} catch {
-				tileAttributionText=webUrls[0]+` contributors`
-			}
+			tryAttributionText()
+		} else if (typeof config.tiles == 'object' && config.tiles) {
+			if (typeof config.tiles.template == 'string') tileUrlTemplate=config.tiles.template
+			if (typeof config.tiles.attribution == 'string') tileAttributionUrl=config.tiles.attribution
+			tryAttributionText()
+			if (typeof config.tiles.zoom == 'number') maxZoom=config.tiles.zoom
 		}
 	}
 

@@ -35,6 +35,14 @@ async function main() {
 			tiles: `https://tiles04.rent-a-planet.com/ogf-carto/{z}/{x}/{y}.png`,
 			overpass: `https://overpass.ogf.rent-a-planet.com/`,
 			overpassTurbo: `https://turbo.ogf.rent-a-planet.com/`
+		},
+		{
+			web: `https://fosm.org/`,
+			tiles: {
+				template: `https://map.fosm.org/default/{z}/{x}/{y}.png`,
+				attribution: `https://fosm.org/`,
+				zoom: 18
+			}
 		}
 	])
 	const globalEventsListener=new GlobalEventsListener()
