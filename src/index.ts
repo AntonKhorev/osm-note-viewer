@@ -32,7 +32,9 @@ async function main() {
 		},
 		{
 			web: `https://opengeofiction.net/`,
-			tiles: `https://tiles04.rent-a-planet.com/ogf-carto/{z}/{x}/{y}.png`
+			tiles: `https://tiles04.rent-a-planet.com/ogf-carto/{z}/{x}/{y}.png`,
+			overpass: `https://overpass.ogf.rent-a-planet.com/`,
+			overpassTurbo: `https://turbo.ogf.rent-a-planet.com/`
 		}
 	])
 	const globalEventsListener=new GlobalEventsListener()
