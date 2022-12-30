@@ -1,13 +1,15 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB, {FetchEntry} from './db'
 import Server from './server'
+import ServerList from './server-list'
 import {NavDialog} from './navbar'
 import {makeElement, makeDiv, makeLink} from './html'
+import {escapeHash} from './escape'
 
 export default class AboutDialog extends NavDialog {
 	shortTitle=`About`
 	title=`About`
-	constructor(private storage: NoteViewerStorage, private db: NoteViewerDB, private server: Server) {
+	constructor(private storage: NoteViewerStorage, private db: NoteViewerDB, private server: Server, private serverList: ServerList) {
 		super()
 	}
 	writeSectionContent() {
@@ -32,6 +34,19 @@ export default class AboutDialog extends NavDialog {
 			result.push(` — `)
 			result.push(makeLink(`source code`,`https://github.com/AntonKhorev/osm-note-viewer`))
 			return result
+		})
+		writeSubheading(`Servers`)
+		writeBlock(()=>{
+			const $list=makeElement('ul')()()
+			const baseLocation=location.pathname+location.search
+			for (const [host,server] of this.serverList.servers) {
+				const hash=this.serverList.getHostHash(server)
+				const newLocation=baseLocation+(hash ? `#host=`+escapeHash(hash) : '')
+				$list.append(makeElement('li')()(
+					makeLink(host,newLocation)
+				))
+			}
+			return [$list]
 		})
 		writeSubheading(`Storage`)
 		const $updateFetchesButton=document.createElement('button')

@@ -98,7 +98,7 @@ async function main() {
 		noteTable.pingNoteFromLink($a,noteId)
 	}
 	const fetchPanel=new NoteFetchPanel(
-		storage,db,server,serverList.getHostHash(server),
+		storage,db,server,serverList,
 		globalEventsListener,globalHistory,
 		$fetchContainer,$moreContainer,
 		navbar,filterPanel,

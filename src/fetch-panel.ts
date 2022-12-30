@@ -1,6 +1,7 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
 import Server from './server'
+import ServerList from './server-list'
 import GlobalEventsListener from './events'
 import GlobalHistory from './history'
 import {NoteMap} from './map'
@@ -22,7 +23,7 @@ export default class NoteFetchPanel {
 	private fetcherRun?: NoteFetcherRun
 	private fetcherInvoker?: NoteFetchDialog
 	constructor(
-		storage: NoteViewerStorage, db: NoteViewerDB, server: Server, hostHash: string|null,
+		storage: NoteViewerStorage, db: NoteViewerDB, server: Server, serverList: ServerList,
 		globalEventsListener: GlobalEventsListener, globalHistory: GlobalHistory,
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		navbar: Navbar, filterPanel: NoteFilterPanel,
@@ -74,7 +75,7 @@ export default class NoteFetchPanel {
 			new NoteIdsFetcherRequest,
 			(getRequestApiPaths,submitQuery)=>new NotePlaintextFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery,noteTable)
 		)
-		const aboutDialog=new AboutDialog(storage,db,server)
+		const aboutDialog=new AboutDialog(storage,db,server,serverList)
 		aboutDialog.write($container)
 		navbar.addTab(aboutDialog,true)
 		
@@ -163,7 +164,8 @@ export default class NoteFetchPanel {
 				map.needToFitNotes=false
 			}
 			const environment: NoteFetcherEnvironment = {
-				db,server,hostHash,
+				db,server,
+				hostHash: serverList.getHostHash(server),
 				noteTable,$moreContainer,
 				getLimit: dialog.getLimit,
 				getAutoLoad: dialog.getAutoLoad,
