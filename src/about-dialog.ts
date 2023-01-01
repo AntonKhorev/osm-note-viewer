@@ -21,11 +21,6 @@ export default class AboutDialog extends NavDialog {
 			this.$section.append($block)
 			return $block
 		}
-		const makeCode = (s: string): HTMLElement => {
-			const $code=document.createElement('code')
-			$code.textContent=s
-			return $code
-		}
 		writeBlock(()=>{
 			const result: Array<HTMLElement|string> = []
 			result.push(makeElement('strong')()(`note-viewer`))
