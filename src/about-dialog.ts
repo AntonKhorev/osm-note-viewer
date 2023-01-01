@@ -46,6 +46,11 @@ export default class AboutDialog extends NavDialog {
 					makeLink(newHost,newLocation)
 				)
 				$list.append($li)
+				if (newServer.noteText && !newServer.noteUrl) {
+					$li.append(` - `+newServer.noteText)
+				} else if (newServer.noteUrl) {
+					$li.append(` - `,makeLink(newServer.noteText||`note`,newServer.noteUrl))
+				}
 				if (this.server==newServer) $li.append(` - currently selected`)
 			}
 			return [$list]
