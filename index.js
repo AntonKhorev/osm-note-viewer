@@ -285,6 +285,34 @@ function writeUsers(userStore, fetchTimestamp, users) {
     }
 }
 
+function escapeRegex(text) {
+    return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+function escapeXml(text) {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/"/g, '&quot;')
+        .replace(/\t/g, '&#x9;')
+        .replace(/\n/g, '&#xA;')
+        .replace(/\r/g, '&#xD;');
+}
+function escapeHash(text) {
+    return text.replace(/[^0-9a-zA-Z?/:@._~!$'()*+,;-]/g, // https://stackoverflow.com/a/26119120 except & and =
+    // https://stackoverflow.com/a/26119120 except & and =
+    c => `%${c.charCodeAt(0).toString(16).toUpperCase()}` // escape like in https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURI#encoding_for_rfc3986
+    );
+}
+function makeEscapeTag(escapeFn) {
+    return function (strings, ...values) {
+        let result = strings[0];
+        for (let i = 0; i < values.length; i++) {
+            result += escapeFn(String(values[i])) + strings[i + 1];
+        }
+        return result;
+    };
+}
+
 class QueryError {
     get reason() {
         return `for unknown reason`;
@@ -309,7 +337,7 @@ class ResponseQueryError extends QueryError {
     }
 }
 class Server {
-    constructor(apiUrl, webUrls, tileUrlTemplate, tileAttributionUrl, tileAttributionText, maxZoom, nominatimUrl, overpassUrl) {
+    constructor(apiUrl, webUrls, tileUrlTemplate, tileAttributionUrl, tileAttributionText, maxZoom, nominatimUrl, overpassUrl, overpassTurboUrl, noteUrl, noteText) {
         this.apiUrl = apiUrl;
         this.webUrls = webUrls;
         this.tileUrlTemplate = tileUrlTemplate;
@@ -318,6 +346,11 @@ class Server {
         this.maxZoom = maxZoom;
         this.nominatimUrl = nominatimUrl;
         this.overpassUrl = overpassUrl;
+        this.overpassTurboUrl = overpassTurboUrl;
+        this.noteUrl = noteUrl;
+        this.noteText = noteText;
+        const hostUrl = new URL(webUrls[0]);
+        this.host = hostUrl.host;
     }
     apiFetch(apiPath) {
         return fetch(this.getApiUrl(apiPath));
@@ -373,6 +406,150 @@ class Server {
             }
         }
     }
+    getOverpassTurboUrl(query, lat, lon, zoom) {
+        const e = makeEscapeTag(encodeURIComponent);
+        const location = `${lat};${lon};${zoom}`;
+        return this.overpassTurboUrl + e `?C=${location}&Q=${query}`;
+    }
+}
+
+function parseServerListItem(config) {
+    let apiUrl = `https://api.openstreetmap.org/`;
+    let webUrls = [
+        `https://www.openstreetmap.org/`,
+        `https://openstreetmap.org/`,
+        `https://www.osm.org/`,
+        `https://osm.org/`,
+    ];
+    let tileUrlTemplate = `https://tile.openstreetmap.org/{z}/{x}/{y}.png`;
+    let tileAttributionUrl = `https://www.openstreetmap.org/copyright`;
+    let tileAttributionText = `OpenStreetMap contributors`;
+    let maxZoom = 19;
+    let nominatimUrl = `https://nominatim.openstreetmap.org/`;
+    let overpassUrl = `https://www.overpass-api.de/`;
+    let overpassTurboUrl = `https://overpass-turbo.eu/`;
+    let noteUrl;
+    let noteText;
+    if (typeof config == 'string') {
+        apiUrl = config;
+        webUrls = [config];
+    }
+    else if (typeof config == 'object' && config) {
+        if (typeof config.web == 'string') {
+            webUrls = [config.web];
+        }
+        else if (Array.isArray(config.web)) {
+            webUrls = config.web;
+        }
+        if (typeof config.api == 'string') {
+            apiUrl = config.api;
+        }
+        else {
+            apiUrl = webUrls[0];
+        }
+        if (typeof config.nominatim == 'string')
+            nominatimUrl = config.nominatim;
+        if (typeof config.overpass == 'string')
+            overpassUrl = config.overpass;
+        if (typeof config.overpassTurbo == 'string')
+            overpassTurboUrl = config.overpassTurbo;
+        if (typeof config.tiles == 'string') {
+            tileAttributionUrl = tileAttributionText = undefined;
+            tileUrlTemplate = config.tiles;
+        }
+        else if (typeof config.tiles == 'object' && config.tiles) {
+            tileAttributionUrl = tileAttributionText = undefined;
+            if (typeof config.tiles.template == 'string')
+                tileUrlTemplate = config.tiles.template;
+            [tileAttributionUrl, tileAttributionText] = parseUrlTextPair(tileAttributionUrl, tileAttributionText, config.tiles.attribution);
+            if (typeof config.tiles.zoom == 'number')
+                maxZoom = config.tiles.zoom;
+        }
+        [noteUrl, noteText] = parseUrlTextPair(noteUrl, noteText, config.note);
+    }
+    else if (!config) {
+        noteText = `main OSM server`;
+    }
+    return [
+        apiUrl, webUrls,
+        tileUrlTemplate,
+        tileAttributionUrl ?? deriveAttributionUrl(webUrls),
+        tileAttributionText ?? deriveAttributionText(webUrls),
+        maxZoom,
+        nominatimUrl, overpassUrl, overpassTurboUrl,
+        noteUrl, noteText
+    ];
+}
+function deriveAttributionUrl(webUrls) {
+    return webUrls[0] + `copyright`;
+}
+function deriveAttributionText(webUrls) {
+    try {
+        const hostUrl = new URL(webUrls[0]);
+        return hostUrl.host + ` contributors`;
+    }
+    catch {
+        return webUrls[0] + ` contributors`;
+    }
+}
+function parseUrlTextPairItem(urlValue, textValue, newValue) {
+    try {
+        const url = new URL(newValue);
+        return [url.href, textValue];
+    }
+    catch {
+        return [urlValue, newValue];
+    }
+}
+function parseUrlTextPair(urlValue, textValue, newItems) {
+    if (typeof newItems == 'string') {
+        [urlValue, textValue] = parseUrlTextPairItem(urlValue, textValue, newItems);
+    }
+    else if (Array.isArray(newItems)) {
+        for (const newValue of newItems) {
+            if (typeof newValue == 'string') {
+                [urlValue, textValue] = parseUrlTextPairItem(urlValue, textValue, newValue);
+            }
+        }
+    }
+    return [urlValue, textValue];
+}
+
+class ServerList {
+    constructor(configList) {
+        this.servers = new Map();
+        let defaultServer;
+        for (const config of configList) {
+            const server = makeServer(config);
+            this.servers.set(server.host, server);
+            if (!defaultServer)
+                defaultServer = server;
+        }
+        if (!defaultServer) {
+            const server = makeServer();
+            this.servers.set(server.host, server);
+            defaultServer = server;
+        }
+        this.defaultServer = defaultServer;
+    }
+    getHostHash(server) {
+        let hostHash = null;
+        if (server != this.defaultServer) {
+            hostHash = server.host;
+        }
+        return hostHash;
+    }
+    getServer(hostHash) {
+        if (hostHash == null)
+            return this.defaultServer;
+        const server = this.servers.get(hostHash);
+        if (!server)
+            throw new TypeError(`unknown host "${hostHash}"`);
+        return server;
+    }
+}
+function makeServer(config) {
+    return new Server(...parseServerListItem(config));
 }
 
 class GlobalEventListener {
@@ -420,10 +597,12 @@ class GlobalEventListener {
 }
 
 class GlobalHistory {
-    constructor($scrollingPart, $resizeObservationTarget) {
+    constructor($scrollingPart, $resizeObservationTarget, serverList) {
         this.$scrollingPart = $scrollingPart;
         this.$resizeObservationTarget = $resizeObservationTarget;
+        this.serverList = serverList;
         this.rememberScrollPosition = false;
+        this.server = this.getServerByReadingHash();
         history.scrollRestoration = 'manual';
         const replaceScrollPositionInHistory = () => {
             const scrollPosition = $scrollingPart.scrollTop;
@@ -439,7 +618,11 @@ class GlobalHistory {
             // ... or save some other kind of position relative to notes table instead of scroll
         });
         window.addEventListener('hashchange', () => {
-            const [queryHash, mapHash] = this.getQueryAndMapHashes();
+            const [queryHash, mapHash, hostHash] = this.getAllHashes();
+            if (hostHash != this.serverList.getHostHash(this.server)) {
+                location.reload();
+                return;
+            }
             if (this.onMapHashChange && mapHash) {
                 this.onMapHashChange(mapHash);
             }
@@ -449,7 +632,7 @@ class GlobalHistory {
         });
     }
     triggerInitialMapHashChange() {
-        const [queryHash, mapHash] = this.getQueryAndMapHashes();
+        const [, mapHash] = this.getAllHashes();
         if (this.onMapHashChange && mapHash) {
             this.onMapHashChange(mapHash);
         }
@@ -486,7 +669,7 @@ class GlobalHistory {
         resizeObserver.observe(this.$resizeObservationTarget); // observing $scrollingPart won't work because its size doesn't change
     }
     getQueryHash() {
-        return this.getQueryAndMapHashes()[0];
+        return this.getAllHashes()[0];
     }
     setQueryHash(queryHash, pushStateAndRemoveMapHash) {
         let mapHash = '';
@@ -494,7 +677,8 @@ class GlobalHistory {
             const searchParams = this.getSearchParams();
             mapHash = searchParams.get('map') ?? '';
         }
-        const fullHash = this.getFullHash(queryHash, mapHash);
+        const hostHash = this.serverList.getHostHash(this.server);
+        const fullHash = this.getFullHash(queryHash, mapHash, hostHash);
         if (fullHash != location.hash) {
             const url = fullHash || location.pathname + location.search;
             if (pushStateAndRemoveMapHash) {
@@ -513,15 +697,23 @@ class GlobalHistory {
     setMapHash(mapHash) {
         const searchParams = this.getSearchParams();
         searchParams.delete('map');
+        const hostHash = searchParams.get('host');
+        searchParams.delete('host');
         const queryHash = searchParams.toString();
-        history.replaceState(null, '', this.getFullHash(queryHash, mapHash));
+        history.replaceState(null, '', this.getFullHash(queryHash, mapHash, hostHash));
     }
-    getQueryAndMapHashes() {
+    getServerByReadingHash() {
+        const [, , hostHash] = this.getAllHashes();
+        return this.serverList.getServer(hostHash);
+    }
+    getAllHashes() {
         const searchParams = this.getSearchParams();
         const mapHash = searchParams.get('map');
         searchParams.delete('map');
+        const hostHash = searchParams.get('host');
+        searchParams.delete('host');
         const queryHash = searchParams.toString();
-        return [queryHash, mapHash];
+        return [queryHash, mapHash, hostHash];
     }
     getSearchParams() {
         const paramString = (location.hash[0] == '#')
@@ -529,39 +721,22 @@ class GlobalHistory {
             : location.hash;
         return new URLSearchParams(paramString);
     }
-    getFullHash(queryHash, mapHash) {
-        let fullHash = queryHash;
-        if (mapHash) {
-            if (fullHash)
+    getFullHash(queryHash, mapHash, hostHash) {
+        let fullHash = '';
+        const appendToFullHash = (hash) => {
+            if (fullHash && hash)
                 fullHash += '&';
-            fullHash += 'map=' + mapHash; // avoid escaping '/' chars
-        }
+            fullHash += hash;
+        };
+        if (hostHash)
+            appendToFullHash('host=' + escapeHash(hostHash));
+        appendToFullHash(queryHash);
+        if (mapHash)
+            appendToFullHash('map=' + escapeHash(mapHash));
         if (fullHash)
             fullHash = '#' + fullHash;
         return fullHash;
     }
-}
-
-function escapeRegex(text) {
-    return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-}
-function escapeXml(text) {
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/"/g, '&quot;')
-        .replace(/\t/g, '&#x9;')
-        .replace(/\n/g, '&#xA;')
-        .replace(/\r/g, '&#xD;');
-}
-function makeEscapeTag(escapeFn) {
-    return function (strings, ...values) {
-        let result = strings[0];
-        for (let i = 0; i < values.length; i++) {
-            result += escapeFn(String(values[i])) + strings[i + 1];
-        }
-        return result;
-    };
 }
 
 const e$4 = makeEscapeTag(escapeXml);
@@ -1170,11 +1345,12 @@ function makeResetButton() {
 }
 
 class AboutDialog extends NavDialog {
-    constructor(storage, db, server) {
+    constructor(storage, db, server, serverList) {
         super();
         this.storage = storage;
         this.db = db;
         this.server = server;
+        this.serverList = serverList;
         this.shortTitle = `About`;
         this.title = `About`;
     }
@@ -1196,6 +1372,28 @@ class AboutDialog extends NavDialog {
             result.push(` — `);
             result.push(makeLink(`source code`, `https://github.com/AntonKhorev/osm-note-viewer`));
             return result;
+        });
+        writeSubheading(`Servers`);
+        writeBlock(() => {
+            const $list = makeElement('ul')()();
+            const baseLocation = location.pathname + location.search;
+            for (const [newHost, newServer] of this.serverList.servers) {
+                const hash = this.serverList.getHostHash(newServer);
+                const newLocation = baseLocation + (hash ? `#host=` + escapeHash(hash) : '');
+                let itemContent = [makeLink(newHost, newLocation)];
+                if (newServer.noteText && !newServer.noteUrl) {
+                    itemContent.push(` - ` + newServer.noteText);
+                }
+                else if (newServer.noteUrl) {
+                    itemContent.push(` - `, makeLink(newServer.noteText || `note`, newServer.noteUrl));
+                }
+                if (this.server == newServer) {
+                    itemContent.push(` - currently selected`);
+                    itemContent = [makeElement('strong')()(...itemContent)];
+                }
+                $list.append(makeElement('li')()(...itemContent));
+            }
+            return [$list];
         });
         writeSubheading(`Storage`);
         const $updateFetchesButton = document.createElement('button');
@@ -1664,6 +1862,14 @@ function makeNoteQueryString(query, withMode = true) {
     }
     return parameters.map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
 }
+function makeNoteQueryStringWithHostHash(query, hostHash) {
+    const queryStringWithoutHostHash = makeNoteQueryString(query);
+    if (!queryStringWithoutHostHash)
+        return queryStringWithoutHostHash;
+    if (hostHash)
+        return `host=${escapeHash(hostHash)}&${queryStringWithoutHostHash}`;
+    return queryStringWithoutHostHash;
+}
 /**
  * Get (next) date-windowed query, which is only relevant for note search queries for now
  * @returns fd.parameters - url parameters in this order:
@@ -1846,7 +2052,7 @@ class NoteIdsFetcherRequest extends NoteFetcherRequest {
     }
 }
 class NoteFetcherRun {
-    constructor({ db, server, noteTable, $moreContainer, getLimit, getAutoLoad, blockDownloads, moreButtonIntersectionObservers }, query, clearStore) {
+    constructor({ db, server, hostHash, noteTable, $moreContainer, getLimit, getAutoLoad, blockDownloads, moreButtonIntersectionObservers }, query, clearStore) {
         this.fetchEntry = null;
         this.notes = new Map();
         this.users = {};
@@ -1855,7 +2061,7 @@ class NoteFetcherRun {
         this.server = server;
         this.noteTable = noteTable;
         (async () => {
-            const queryString = makeNoteQueryString(query); // empty string == don't know how to encode the query, thus won't save it to db
+            const queryString = makeNoteQueryStringWithHostHash(query, hostHash); // empty string == don't know how to encode the query, thus won't save it to db
             this.fetchEntry = await (async () => {
                 if (!queryString)
                     return null;
@@ -3529,7 +3735,7 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
 }
 
 class NoteFetchPanel {
-    constructor(storage, db, server, globalEventsListener, globalHistory, $container, $moreContainer, navbar, filterPanel, noteTable, map, figureDialog) {
+    constructor(storage, db, server, serverList, globalEventsListener, globalHistory, $container, $moreContainer, navbar, filterPanel, noteTable, map, figureDialog) {
         const self = this;
         const moreButtonIntersectionObservers = [];
         const $sharedCheckboxes = {
@@ -3557,7 +3763,7 @@ class NoteFetchPanel {
         const bboxDialog = makeFetchDialog(new NoteBboxFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteBboxFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery, map));
         const xmlDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteXmlFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery));
         const plaintextDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NotePlaintextFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery, noteTable));
-        const aboutDialog = new AboutDialog(storage, db, server);
+        const aboutDialog = new AboutDialog(storage, db, server, serverList);
         aboutDialog.write($container);
         navbar.addTab(aboutDialog, true);
         handleSharedCheckboxes($sharedCheckboxes.showImages, state => noteTable.setShowImages(state));
@@ -3650,6 +3856,7 @@ class NoteFetchPanel {
             }
             const environment = {
                 db, server,
+                hostHash: serverList.getHostHash(server),
                 noteTable, $moreContainer,
                 getLimit: dialog.getLimit,
                 getAutoLoad: dialog.getAutoLoad,
@@ -5482,7 +5689,6 @@ class OverpassTurboTool extends OverpassTool {
     getTool(callbacks, server, map) {
         const $overpassButtons = [];
         const buttonClickListener = (withRelations, onlyAround) => {
-            const e = makeEscapeTag(encodeURIComponent);
             let query = this.getOverpassQueryPreamble(map);
             if (withRelations) {
                 query += `nwr`;
@@ -5496,9 +5702,7 @@ class OverpassTurboTool extends OverpassTool {
             }
             query += `;\n`;
             query += `out meta geom;`;
-            const location = `${map.lat};${map.lon};${map.zoom}`;
-            const url = e `https://overpass-turbo.eu/?C=${location}&Q=${query}`;
-            open(url, 'overpass-turbo');
+            open(server.getOverpassTurboUrl(query, map.lat, map.lon, map.zoom), 'overpass-turbo');
         };
         {
             const $button = document.createElement('button');
@@ -6544,16 +6748,51 @@ function makeUserIdLink(server, uid) {
     return makeLink('#' + uid, fromId(uid));
 }
 
+var serverListConfig = [
+    null,
+    {
+        web: `https://master.apis.dev.openstreetmap.org/`,
+        note: [
+            `OSM sandbox/development server`,
+            `https://wiki.openstreetmap.org/wiki/Sandbox_for_editing#Experiment_with_the_API_(advanced)`
+        ]
+    },
+    {
+        web: [
+            `https://www.openhistoricalmap.org/`,
+            `https://openhistoricalmap.org/`
+        ],
+        nominatim: `https://nominatim.openhistoricalmap.org/`,
+        overpass: `https://overpass-api.openhistoricalmap.org/`,
+        overpassTurbo: `https://openhistoricalmap.github.io/overpass-turbo/`,
+        note: `no tiles support`
+    },
+    {
+        web: `https://opengeofiction.net/`,
+        tiles: {
+            template: `https://tiles04.rent-a-planet.com/ogf-carto/{z}/{x}/{y}.png`,
+            attribution: `OpenGeofiction and contributors`
+        },
+        overpass: `https://overpass.ogf.rent-a-planet.com/`,
+        overpassTurbo: `https://turbo.ogf.rent-a-planet.com/`,
+        note: `no Nominatim support`
+    },
+    {
+        web: `https://fosm.org/`,
+        tiles: {
+            template: `https://map.fosm.org/default/{z}/{x}/{y}.png`,
+            attribution: `https://fosm.org/`,
+            zoom: 18
+        },
+        note: `mostly useless here because notes are not implemented on this server`
+    }
+];
+
 main();
 async function main() {
     const storage = new NoteViewerStorage('osm-note-viewer-');
     const db = await NoteViewerDB.open();
-    const server = new Server(`https://api.openstreetmap.org/`, [
-        `https://www.openstreetmap.org/`,
-        `https://openstreetmap.org/`,
-        `https://www.osm.org/`,
-        `https://osm.org/`,
-    ], `https://tile.openstreetmap.org/{z}/{x}/{y}.png`, `https://www.openstreetmap.org/copyright`, `OpenStreetMap contributors`, 19, `https://nominatim.openstreetmap.org/`, `https://www.overpass-api.de/`);
+    const serverList = new ServerList(serverListConfig);
     const globalEventsListener = new GlobalEventListener();
     const $navbarContainer = document.createElement('nav');
     const $fetchContainer = makeDiv('panel', 'fetch')();
@@ -6572,7 +6811,8 @@ async function main() {
     if (flipped)
         document.body.classList.add('flipped');
     document.body.append($textSide, $graphicSide);
-    const globalHistory = new GlobalHistory($scrollingPart, $notesContainer);
+    const globalHistory = new GlobalHistory($scrollingPart, $notesContainer, serverList);
+    const server = globalHistory.server;
     const map = new NoteMap($mapContainer, server);
     map.onMoveEnd(() => {
         globalHistory.setMapHash(map.hash);
@@ -6609,7 +6849,7 @@ async function main() {
     globalEventsListener.noteListener = ($a, noteId) => {
         noteTable.pingNoteFromLink($a, noteId);
     };
-    const fetchPanel = new NoteFetchPanel(storage, db, server, globalEventsListener, globalHistory, $fetchContainer, $moreContainer, navbar, filterPanel, noteTable, map, figureDialog);
+    const fetchPanel = new NoteFetchPanel(storage, db, server, serverList, globalEventsListener, globalHistory, $fetchContainer, $moreContainer, navbar, filterPanel, noteTable, map, figureDialog);
     globalEventsListener.noteSelfListener = ($a, noteId) => {
         fetchPanel.updateNote($a, Number(noteId));
     };
