@@ -59,7 +59,9 @@ export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, T
 		public readonly maxZoom: number,
 		private readonly nominatimUrl: string,
 		private readonly overpassUrl: string,
-		private readonly overpassTurboUrl: string
+		private readonly overpassTurboUrl: string,
+		public readonly noteUrl: string|undefined,
+		public readonly noteText: string|undefined
 	) {
 		const hostUrl=new URL(webUrls[0])
 		this.host=hostUrl.host
