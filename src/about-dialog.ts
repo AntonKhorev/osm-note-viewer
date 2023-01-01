@@ -42,16 +42,17 @@ export default class AboutDialog extends NavDialog {
 			for (const [newHost,newServer] of this.serverList.servers) {
 				const hash=this.serverList.getHostHash(newServer)
 				const newLocation=baseLocation+(hash ? `#host=`+escapeHash(hash) : '')
-				const $li=makeElement('li')()(
-					makeLink(newHost,newLocation)
-				)
-				$list.append($li)
+				let itemContent:Array<string|HTMLElement>=[makeLink(newHost,newLocation)]
 				if (newServer.noteText && !newServer.noteUrl) {
-					$li.append(` - `+newServer.noteText)
+					itemContent.push(` - `+newServer.noteText)
 				} else if (newServer.noteUrl) {
-					$li.append(` - `,makeLink(newServer.noteText||`note`,newServer.noteUrl))
+					itemContent.push(` - `,makeLink(newServer.noteText||`note`,newServer.noteUrl))
 				}
-				if (this.server==newServer) $li.append(` - currently selected`)
+				if (this.server==newServer) {
+					itemContent.push(` - currently selected`)
+					itemContent=[makeElement('strong')()(...itemContent)]
+				}
+				$list.append(makeElement('li')()(...itemContent))
 			}
 			return [$list]
 		})
