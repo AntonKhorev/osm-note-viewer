@@ -19,7 +19,10 @@ export default [
 	},
 	{
 		web: `https://opengeofiction.net/`,
-		tiles: `https://tiles04.rent-a-planet.com/ogf-carto/{z}/{x}/{y}.png`,
+		tiles: {
+			template: `https://tiles04.rent-a-planet.com/ogf-carto/{z}/{x}/{y}.png`,
+			attribution: `OpenGeofiction and contributors`
+		},
 		overpass: `https://overpass.ogf.rent-a-planet.com/`,
 		overpassTurbo: `https://turbo.ogf.rent-a-planet.com/`,
 		note: `no Nominatim support`

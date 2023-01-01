@@ -63,4 +63,20 @@ describe("server list parser module",()=>{
 		assert.equal(noteUrl,`https://example.com/bye/`)
 		assert.equal(noteText,`the end`)
 	})
+	it("parses single string tiles attrubution text and derived attribution url",()=>{
+		const result=parseServerListItem({
+			web: `https://opengeofiction.net/`,
+			tiles: {
+				attribution: `OpenGeofiction and contributors`
+			}
+		})
+		const [
+			apiUrl,webUrls,
+			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
+			nominatimUrl,overpassUrl,overpassTurboUrl,
+			noteUrl,noteText
+		]=result
+		assert.equal(tileAttributionUrl,`https://opengeofiction.net/copyright`)
+		assert.equal(tileAttributionText,`OpenGeofiction and contributors`)
+	})
 })
