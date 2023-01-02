@@ -351,42 +351,17 @@ class NominatimProvider {
         return this.url + `search?format=jsonv2&` + parameters;
     }
 }
-class Server {
-    constructor(apiUrl, webUrls, tileUrlTemplate, tileAttributionUrl, tileAttributionText, maxZoom, nominatimUrl, overpassUrl, overpassTurboUrl, noteUrl, noteText) {
-        this.apiUrl = apiUrl;
-        this.webUrls = webUrls;
-        this.tileUrlTemplate = tileUrlTemplate;
-        this.tileAttributionUrl = tileAttributionUrl;
-        this.tileAttributionText = tileAttributionText;
-        this.maxZoom = maxZoom;
-        this.overpassUrl = overpassUrl;
-        this.overpassTurboUrl = overpassTurboUrl;
-        this.noteUrl = noteUrl;
-        this.noteText = noteText;
-        const hostUrl = new URL(webUrls[0]);
-        this.host = hostUrl.host;
-        if (nominatimUrl != null)
-            this.nominatim = new NominatimProvider(nominatimUrl);
+class OverpassProvider {
+    constructor(url) {
+        this.url = url;
     }
-    apiFetch(apiPath) {
-        return fetch(this.getApiUrl(apiPath));
-    }
-    getApiUrl(apiPath) {
-        return `${this.apiUrl}api/0.6/${apiPath}`;
-    }
-    getApiRootUrl(apiRootPath) {
-        return `${this.apiUrl}${apiRootPath}`;
-    }
-    getWebUrl(webPath) {
-        return `${this.webUrls[0]}${webPath}`;
-    }
-    async overpassFetch(overpassQuery) {
+    async fetch(query) {
         try {
             let response;
             try {
-                response = await fetch(this.overpassUrl + `api/interpreter`, {
+                response = await fetch(this.url + `api/interpreter`, {
                     method: 'POST',
-                    body: new URLSearchParams({ data: overpassQuery })
+                    body: new URLSearchParams({ data: query })
                 });
             }
             catch (ex) {
@@ -412,10 +387,48 @@ class Server {
             }
         }
     }
-    getOverpassTurboUrl(query, lat, lon, zoom) {
+}
+class OverpassTurboProvider {
+    constructor(url) {
+        this.url = url;
+    }
+    getUrl(query, lat, lon, zoom) {
         const e = makeEscapeTag(encodeURIComponent);
         const location = `${lat};${lon};${zoom}`;
-        return this.overpassTurboUrl + e `?C=${location}&Q=${query}`;
+        return this.url + e `?C=${location}&Q=${query}`;
+    }
+}
+class Server {
+    constructor(apiUrl, webUrls, tileUrlTemplate, tileAttributionUrl, tileAttributionText, maxZoom, nominatimUrl, overpassUrl, overpassTurboUrl, noteUrl, noteText, world) {
+        this.apiUrl = apiUrl;
+        this.webUrls = webUrls;
+        this.tileUrlTemplate = tileUrlTemplate;
+        this.tileAttributionUrl = tileAttributionUrl;
+        this.tileAttributionText = tileAttributionText;
+        this.maxZoom = maxZoom;
+        this.noteUrl = noteUrl;
+        this.noteText = noteText;
+        this.world = world;
+        const hostUrl = new URL(webUrls[0]);
+        this.host = hostUrl.host;
+        if (nominatimUrl != null)
+            this.nominatim = new NominatimProvider(nominatimUrl);
+        if (overpassUrl != null)
+            this.overpass = new OverpassProvider(overpassUrl);
+        if (overpassTurboUrl != null)
+            this.overpassTurbo = new OverpassTurboProvider(overpassTurboUrl);
+    }
+    apiFetch(apiPath) {
+        return fetch(this.getApiUrl(apiPath));
+    }
+    getApiUrl(apiPath) {
+        return `${this.apiUrl}api/0.6/${apiPath}`;
+    }
+    getApiRootUrl(apiRootPath) {
+        return `${this.apiUrl}${apiRootPath}`;
+    }
+    getWebUrl(webPath) {
+        return `${this.webUrls[0]}${webPath}`;
     }
 }
 
@@ -432,10 +445,11 @@ function parseServerListItem(config) {
     let tileAttributionText = `OpenStreetMap contributors`;
     let maxZoom = 19;
     let nominatimUrl;
-    let overpassUrl = `https://www.overpass-api.de/`;
-    let overpassTurboUrl = `https://overpass-turbo.eu/`;
+    let overpassUrl;
+    let overpassTurboUrl;
     let noteUrl;
     let noteText;
+    let world = 'earth';
     if (typeof config == 'string') {
         apiUrl = config;
         webUrls = [config];
@@ -471,11 +485,15 @@ function parseServerListItem(config) {
             if (typeof config.tiles.zoom == 'number')
                 maxZoom = config.tiles.zoom;
         }
+        if (typeof config.world == 'string')
+            world = config.world;
         [noteUrl, noteText] = parseUrlTextPair(noteUrl, noteText, config.note);
     }
     else if (!config) {
         noteText = `main OSM server`;
         nominatimUrl = `https://nominatim.openstreetmap.org/`;
+        overpassUrl = `https://www.overpass-api.de/`;
+        overpassTurboUrl = `https://overpass-turbo.eu/`;
     }
     return [
         apiUrl, webUrls,
@@ -484,7 +502,8 @@ function parseServerListItem(config) {
         tileAttributionText ?? deriveAttributionText(webUrls),
         maxZoom,
         nominatimUrl, overpassUrl, overpassTurboUrl,
-        noteUrl, noteText
+        noteUrl, noteText,
+        world
     ];
 }
 function deriveAttributionUrl(webUrls) {
@@ -5698,7 +5717,7 @@ class SettingsTool extends Tool {
 }
 
 const p$3 = (...ss) => makeElement('p')()(...ss);
-class OverpassTool extends Tool {
+class OverpassBaseTool extends Tool {
     constructor() {
         super(...arguments);
         this.timestamp = '';
@@ -5717,7 +5736,7 @@ class OverpassTool extends Tool {
         return query;
     }
 }
-class OverpassTurboTool extends OverpassTool {
+class OverpassTurboTool extends OverpassBaseTool {
     constructor() {
         super('overpass-turbo', `Overpass turbo`);
     }
@@ -5740,7 +5759,9 @@ class OverpassTurboTool extends OverpassTool {
             }
             query += `;\n`;
             query += `out meta geom;`;
-            open(server.getOverpassTurboUrl(query, map.lat, map.lon, map.zoom), 'overpass-turbo');
+            if (!server.overpassTurbo)
+                throw new ReferenceError(`no overpass turbo provider`);
+            open(server.overpassTurbo.getUrl(query, map.lat, map.lon, map.zoom), 'overpass-turbo');
         };
         {
             const $button = document.createElement('button');
@@ -5768,7 +5789,7 @@ class OverpassTurboTool extends OverpassTool {
         return result;
     }
 }
-class OverpassDirectTool extends OverpassTool {
+class OverpassTool extends OverpassBaseTool {
     constructor() {
         super('overpass', `Overpass`);
     }
@@ -5788,7 +5809,9 @@ class OverpassDirectTool extends OverpassTool {
                 let query = this.getOverpassQueryPreamble(map);
                 query += `node(around:${radius},${map.lat},${map.lon});\n`;
                 query += `out skel;`;
-                const doc = await server.overpassFetch(query);
+                if (!server.overpass)
+                    throw new ReferenceError(`no overpass provider`);
+                const doc = await server.overpass.fetch(query);
                 const closestNodeId = getClosestNodeId(doc, map.lat, map.lon);
                 if (!closestNodeId) {
                     $button.classList.add('error');
@@ -6281,7 +6304,7 @@ class MapillaryTool extends StreetViewTool {
 const toolMakerSequence = [
     () => new AutozoomTool, () => new CommentsTool,
     () => new TimestampTool, () => new ParseTool,
-    () => new OverpassTurboTool, () => new OverpassDirectTool,
+    () => new OverpassTurboTool, () => new OverpassTool,
     () => new RcTool, () => new IdTool,
     () => new GpxTool, () => new GeoJsonTool,
     () => new YandexPanoramasTool, () => new MapillaryTool,
@@ -6338,6 +6361,12 @@ class ToolPanel {
         };
         for (const makeTool of toolMakerSequence) {
             const tool = makeTool();
+            if (!server.overpassTurbo && tool instanceof OverpassTurboTool)
+                continue;
+            if (!server.overpass && tool instanceof OverpassTool)
+                continue;
+            if (server.world != 'earth' && tool instanceof StreetViewTool)
+                continue;
             const storageKey = 'commands-' + tool.id;
             const $toolDetails = document.createElement('details');
             $toolDetails.classList.add('tool');
@@ -6813,7 +6842,7 @@ var serverListConfig = [
         },
         overpass: `https://overpass.ogf.rent-a-planet.com/`,
         overpassTurbo: `https://turbo.ogf.rent-a-planet.com/`,
-        note: `no Nominatim support`
+        world: `opengeofiction`
     },
     {
         web: `https://fosm.org/`,
