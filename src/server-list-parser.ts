@@ -6,8 +6,8 @@ export default function parseServerListItem(config: any): [
 	tileAttributionText: string,
 	maxZoom: number,
 	nominatimUrl: string|undefined,
-	overpassUrl: string,
-	overpassTurboUrl: string,
+	overpassUrl: string|undefined,
+	overpassTurboUrl: string|undefined,
 	noteUrl: string|undefined,
 	noteText: string|undefined,
 	world: string
@@ -24,8 +24,8 @@ export default function parseServerListItem(config: any): [
 	let tileAttributionText: string|undefined = `OpenStreetMap contributors`
 	let maxZoom: number = 19
 	let nominatimUrl: string|undefined
-	let overpassUrl: string = `https://www.overpass-api.de/`
-	let overpassTurboUrl: string = `https://overpass-turbo.eu/`
+	let overpassUrl: string|undefined
+	let overpassTurboUrl: string|undefined
 	let noteUrl: string|undefined
 	let noteText: string|undefined
 	let world = 'earth'
@@ -61,6 +61,8 @@ export default function parseServerListItem(config: any): [
 	} else if (!config) {
 		noteText=`main OSM server`
 		nominatimUrl=`https://nominatim.openstreetmap.org/`
+		overpassUrl=`https://www.overpass-api.de/`
+		overpassTurboUrl=`https://overpass-turbo.eu/`
 	}
 
 	return [

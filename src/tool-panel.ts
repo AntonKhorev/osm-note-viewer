@@ -4,7 +4,10 @@ import GlobalEventsListener from './events'
 import type {Note} from './data'
 import {NoteMap} from './map'
 import FigureDialog from './figure'
-import {Tool, ToolFitMode, ToolCallbacks, toolMakerSequence, StreetViewTool} from './tools'
+import {
+	Tool, ToolFitMode, ToolCallbacks, toolMakerSequence,
+	OverpassTurboTool, OverpassTool, StreetViewTool
+} from './tools'
 import {startOrResetFadeAnimation} from './html'
 
 class ToolBroadcaster {
@@ -57,6 +60,8 @@ export default class ToolPanel {
 		}
 		for (const makeTool of toolMakerSequence) {
 			const tool=makeTool()
+			if (!server.overpassTurbo && tool instanceof OverpassTurboTool) continue
+			if (!server.overpass && tool instanceof OverpassTool) continue
 			if (server.world!='earth' && tool instanceof StreetViewTool) continue
 			const storageKey='commands-'+tool.id
 			const $toolDetails=document.createElement('details')

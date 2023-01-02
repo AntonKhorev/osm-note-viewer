@@ -7,7 +7,7 @@ import {makeEscapeTag} from '../escape'
 type InfoElements = Array<string|HTMLElement>
 const p=(...ss: InfoElements)=>makeElement('p')()(...ss)
 
-abstract class OverpassTool extends Tool {
+abstract class OverpassBaseTool extends Tool {
 	protected timestamp: string = ''
 	onTimestampChange(timestamp: string): boolean {
 		this.timestamp=timestamp
@@ -23,7 +23,7 @@ abstract class OverpassTool extends Tool {
 	}
 }
 
-export class OverpassTurboTool extends OverpassTool {
+export class OverpassTurboTool extends OverpassBaseTool {
 	constructor() {super(
 		'overpass-turbo',
 		`Overpass turbo`
@@ -50,7 +50,8 @@ export class OverpassTurboTool extends OverpassTool {
 			}
 			query+=`;\n`
 			query+=`out meta geom;`
-			open(server.getOverpassTurboUrl(query,map.lat,map.lon,map.zoom),'overpass-turbo')
+			if (!server.overpassTurbo) throw new ReferenceError(`no overpass turbo provider`)
+			open(server.overpassTurbo.getUrl(query,map.lat,map.lon,map.zoom),'overpass-turbo')
 		}
 		{
 			const $button=document.createElement('button')
@@ -77,7 +78,7 @@ export class OverpassTurboTool extends OverpassTool {
 	}
 }
 
-export class OverpassDirectTool extends OverpassTool {
+export class OverpassTool extends OverpassBaseTool {
 	constructor() {super(
 		'overpass',
 		`Overpass`
@@ -99,7 +100,8 @@ export class OverpassDirectTool extends OverpassTool {
 				let query=this.getOverpassQueryPreamble(map)
 				query+=`node(around:${radius},${map.lat},${map.lon});\n`
 				query+=`out skel;`
-				const doc=await server.overpassFetch(query)
+				if (!server.overpass) throw new ReferenceError(`no overpass provider`)
+				const doc=await server.overpass.fetch(query)
 				const closestNodeId=getClosestNodeId(doc,map.lat,map.lon)
 				if (!closestNodeId) {
 					$button.classList.add('error')

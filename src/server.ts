@@ -57,46 +57,15 @@ export class NominatimProvider {
 	}
 }
 
-export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, TileSource {
-	public readonly host: string
-	public readonly nominatim: NominatimProvider|undefined
-	constructor(
-		public readonly apiUrl: string,
-		public readonly webUrls: string[],
-		public readonly tileUrlTemplate: string,
-		public readonly tileAttributionUrl: string,
-		public readonly tileAttributionText: string,
-		public readonly maxZoom: number,
-		nominatimUrl: string|undefined,
-		private readonly overpassUrl: string,
-		private readonly overpassTurboUrl: string,
-		public readonly noteUrl: string|undefined,
-		public readonly noteText: string|undefined,
-		public readonly world: string
-	) {
-		const hostUrl=new URL(webUrls[0])
-		this.host=hostUrl.host
-		if (nominatimUrl!=null) this.nominatim=new NominatimProvider(nominatimUrl)
-	}
-	apiFetch(apiPath:string) {
-		return fetch(this.getApiUrl(apiPath))
-	}
-	getApiUrl(apiPath:string):string {
-		return `${this.apiUrl}api/0.6/${apiPath}`
-	}
-	getApiRootUrl(apiRootPath:string):string { // only used in note export user urls for no good reason other than osm website doing so
-		return `${this.apiUrl}${apiRootPath}`
-	}
-	getWebUrl(webPath:string):string {
-		return `${this.webUrls[0]}${webPath}`
-	}
-	async overpassFetch(overpassQuery:string):Promise<Document> {
+export class OverpassProvider {
+	constructor(private url: string) {}
+	async fetch(query:string):Promise<Document> {
 		try {
 			let response: Response
 			try {
-				response=await fetch(this.overpassUrl+`api/interpreter`,{
+				response=await fetch(this.url+`api/interpreter`,{
 					method: 'POST',
-					body: new URLSearchParams({data:overpassQuery})
+					body: new URLSearchParams({data:query})
 				})
 			} catch (ex) {
 				if (ex instanceof TypeError) {
@@ -118,9 +87,52 @@ export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, T
 			}
 		}
 	}
-	getOverpassTurboUrl(query:string,lat:number,lon:number,zoom:number):string {
+}
+
+export class OverpassTurboProvider {
+	constructor(private url: string) {}
+	getUrl(query:string,lat:number,lon:number,zoom:number):string {
 		const e=makeEscapeTag(encodeURIComponent)
 		const location=`${lat};${lon};${zoom}`
-		return this.overpassTurboUrl+e`?C=${location}&Q=${query}`
+		return this.url+e`?C=${location}&Q=${query}`
+	}
+}
+
+export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, TileSource {
+	public readonly host: string
+	public readonly nominatim: NominatimProvider|undefined
+	public readonly overpass: OverpassProvider|undefined
+	public readonly overpassTurbo: OverpassTurboProvider|undefined
+	constructor(
+		public readonly apiUrl: string,
+		public readonly webUrls: string[],
+		public readonly tileUrlTemplate: string,
+		public readonly tileAttributionUrl: string,
+		public readonly tileAttributionText: string,
+		public readonly maxZoom: number,
+		nominatimUrl: string|undefined,
+		overpassUrl: string|undefined,
+		overpassTurboUrl: string|undefined,
+		public readonly noteUrl: string|undefined,
+		public readonly noteText: string|undefined,
+		public readonly world: string
+	) {
+		const hostUrl=new URL(webUrls[0])
+		this.host=hostUrl.host
+		if (nominatimUrl!=null) this.nominatim=new NominatimProvider(nominatimUrl)
+		if (overpassUrl!=null) this.overpass=new OverpassProvider(overpassUrl)
+		if (overpassTurboUrl!=null) this.overpassTurbo=new OverpassTurboProvider(overpassTurboUrl)
+	}
+	apiFetch(apiPath:string) {
+		return fetch(this.getApiUrl(apiPath))
+	}
+	getApiUrl(apiPath:string):string {
+		return `${this.apiUrl}api/0.6/${apiPath}`
+	}
+	getApiRootUrl(apiRootPath:string):string { // only used in note export user urls for no good reason other than osm website doing so
+		return `${this.apiUrl}${apiRootPath}`
+	}
+	getWebUrl(webPath:string):string {
+		return `${this.webUrls[0]}${webPath}`
 	}
 }

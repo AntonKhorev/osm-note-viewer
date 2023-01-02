@@ -12,6 +12,7 @@ describe("server list parser module",()=>{
 		]=result
 		assert.equal(webUrls[0],`https://www.openstreetmap.org/`)
 		assert.notEqual(nominatimUrl,undefined)
+		assert.notEqual(overpassUrl,undefined)
 		assert.notEqual(noteText,undefined)
 		assert.equal(world,`earth`)
 	})
@@ -25,6 +26,7 @@ describe("server list parser module",()=>{
 		]=result
 		assert.equal(webUrls[0],`https://master.apis.dev.openstreetmap.org/`)
 		assert.equal(nominatimUrl,undefined)
+		assert.equal(overpassUrl,undefined)
 		assert.equal(noteText,undefined)
 	})
 	it("parses single string note text",()=>{
