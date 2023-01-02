@@ -14,7 +14,7 @@ function isNominatimBbox(bbox: any): bbox is NominatimBbox {
 
 export class NominatimBboxFetcher {
 	constructor(
-		private nominatimProvider: NominatimProvider,
+		private nominatim: NominatimProvider,
 		private fetchFromCache: (timestamp:number,parameters:string)=>Promise<any>,
 		private storeToCache: (timestamp:number,parameters:string,bbox:NominatimBbox)=>Promise<any>
 	) {}
@@ -41,7 +41,7 @@ export class NominatimBboxFetcher {
 			await this.storeToCache(timestamp,parameters,cacheBbox)
 			return cacheBbox
 		}
-		const data=await this.nominatimProvider.nominatimSearch(parameters)
+		const data=await this.nominatim.search(parameters)
 		if (!Array.isArray(data)) throw new TypeError('Nominatim error: invalid data')
 		if (data.length<=0) throw new TypeError('Nominatim failed to find the place')
 		const placeData=data[0]

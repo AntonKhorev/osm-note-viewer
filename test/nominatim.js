@@ -13,11 +13,11 @@ function makeFetcherInterface(calls,fetchResult,cacheResult) {
 	return [
 		// private nominatimProvider: NominatimProvider,
 		{
-			async nominatimSearch(parameters) {
+			async search(parameters) {
 				calls.push(['fetchFromServer',parameters])
 				return fetchResult
 			},
-			getNominatimSearchUrl(parameters) {
+			getSearchUrl(parameters) {
 				return `https://nominatim.example.com/search?`+parameters
 			}
 		},

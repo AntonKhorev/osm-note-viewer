@@ -21,11 +21,6 @@ export interface TileSource {
 	get maxZoom(): number
 }
 
-export interface NominatimProvider {
-	nominatimSearch(parameters:string): Promise<any>
-	getNominatimSearchUrl(parameters:string): string
-}
-
 export class QueryError {
 	get reason():string {
 		return `for unknown reason`
@@ -48,8 +43,23 @@ export class ResponseQueryError extends QueryError {
 	}
 }
 
-export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, TileSource, NominatimProvider {
-	public readonly host:string
+export class NominatimProvider {
+	constructor(private url: string) {}
+	async search(parameters:string):Promise<any> {
+		const response=await fetch(this.getSearchUrl(parameters))
+		if (!response.ok) {
+			throw new TypeError('unsuccessful Nominatim response')
+		}
+		return response.json()
+	}
+	getSearchUrl(parameters:string):string {
+		return this.url+`search?format=jsonv2&`+parameters
+	}
+}
+
+export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, TileSource {
+	public readonly host: string
+	public readonly nominatim: NominatimProvider|undefined
 	constructor(
 		public readonly apiUrl: string,
 		public readonly webUrls: string[],
@@ -57,7 +67,7 @@ export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, T
 		public readonly tileAttributionUrl: string,
 		public readonly tileAttributionText: string,
 		public readonly maxZoom: number,
-		private readonly nominatimUrl: string,
+		nominatimUrl: string|undefined,
 		private readonly overpassUrl: string,
 		private readonly overpassTurboUrl: string,
 		public readonly noteUrl: string|undefined,
@@ -65,6 +75,7 @@ export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, T
 	) {
 		const hostUrl=new URL(webUrls[0])
 		this.host=hostUrl.host
+		if (nominatimUrl!=null) this.nominatim=new NominatimProvider(nominatimUrl)
 	}
 	apiFetch(apiPath:string) {
 		return fetch(this.getApiUrl(apiPath))
@@ -77,16 +88,6 @@ export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, T
 	}
 	getWebUrl(webPath:string):string {
 		return `${this.webUrls[0]}${webPath}`
-	}
-	async nominatimSearch(parameters:string):Promise<any> {
-		const response=await fetch(this.getNominatimSearchUrl(parameters))
-		if (!response.ok) {
-			throw new TypeError('unsuccessful Nominatim response')
-		}
-		return response.json()
-	}
-	getNominatimSearchUrl(parameters:string):string {
-		return this.nominatimUrl+`search?format=jsonv2&`+parameters
 	}
 	async overpassFetch(overpassQuery:string):Promise<Document> {
 		try {

@@ -1,5 +1,5 @@
 import {NoteQueryFetchDialog, NoteFetchDialogSharedCheckboxes} from './base'
-import Server from '../server'
+import Server, {NominatimProvider} from '../server'
 import {NoteMap, NoteMapFreezeMode} from '../map'
 import {NoteQuery, makeNoteBboxQueryFromValues} from '../query'
 import {NominatimBbox, NominatimBboxFetcher} from '../nominatim'
@@ -10,17 +10,87 @@ const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
 const rq=(param: string)=>makeElement('span')('advanced-hint')(` (`,code(param),` parameter)`)
 const spanRequest=(...ss: Array<string|HTMLElement>)=>makeElement('span')('advanced-hint')(...ss)
 
+class NominatimSubForm {
+	public $form=document.createElement('form')
+	private $input=document.createElement('input')
+	private $button=document.createElement('button')
+	private $requestOutput=document.createElement('output')
+	private bboxFetcher: NominatimBboxFetcher
+	constructor(
+		private nominatim: NominatimProvider,
+		private getMapBounds: ()=>L.LatLngBounds,
+		private setBbox: (bbox:NominatimBbox)=>void
+	) {
+		this.bboxFetcher=new NominatimBboxFetcher(
+			nominatim,...makeDumbCache() // TODO real cache in db
+		)
+		this.$form.id='nominatim-form'
+	}
+	write($fieldset: HTMLFieldSetElement): void {
+		$fieldset.append(makeDiv('advanced-hint')(
+			`Make `,makeLink(`Nominatim search query`,`https://nominatim.org/release-docs/develop/api/Search/`),
+			` at `,code(this.nominatim.getSearchUrl(''),em(`parameters`)),`; see `,em(`parameters`),` above and below.`
+		))
+		this.$input.type='text'
+		this.$input.required=true
+		this.$input.classList.add('no-invalid-indication') // because it's inside another form that doesn't require it, don't indicate that it's invalid
+		this.$input.name='place'
+		this.$input.setAttribute('form','nominatim-form')
+		this.$button.textContent='Get'
+		this.$button.setAttribute('form','nominatim-form')
+		$fieldset.append(makeDiv('text-button-input')(makeLabel()(
+			`Or get bounding box by place name from Nominatim`,spanRequest(` (`,code('q'),` Nominatim parameter)`),`: `,
+			this.$input
+		),this.$button))
+		$fieldset.append(makeDiv('advanced-hint')(`Resulting Nominatim request: `,this.$requestOutput))
+	}
+	updateRequest(): void {
+		const bounds=this.getMapBounds()
+		const parameters=this.bboxFetcher.getParameters(
+			this.$input.value,
+			bounds.getWest(),bounds.getSouth(),bounds.getEast(),bounds.getNorth()
+		)
+		const url=this.nominatim.getSearchUrl(parameters)
+		const $a=makeLink(url,url)
+		$a.classList.add('request')
+		this.$requestOutput.replaceChildren(code($a))
+	}
+	addEventListeners(): void {
+		this.$input.addEventListener('input',()=>this.updateRequest())
+		this.$form.addEventListener('submit',async(ev)=>{
+			ev.preventDefault()
+			this.$button.disabled=true
+			this.$button.classList.remove('error')
+			try {
+				const bounds=this.getMapBounds()
+				const bbox=await this.bboxFetcher.fetch(
+					Date.now(),
+					this.$input.value,
+					bounds.getWest(),bounds.getSouth(),bounds.getEast(),bounds.getNorth()
+				)
+				this.setBbox(bbox)
+				this.updateRequest()
+			} catch (ex) {
+				this.$button.classList.add('error')
+				if (ex instanceof TypeError) {
+					this.$button.title=ex.message
+				} else {
+					this.$button.title=`unknown error ${ex}`
+				}
+			} finally {
+				this.$button.disabled=false
+			}
+		})
+	}
+}
+
 export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 	shortTitle=`BBox`
 	title=`Get notes inside rectangular area`
-	private $nominatimForm=document.createElement('form')
-	private $nominatimInput=document.createElement('input')
-	private $nominatimButton=document.createElement('button')
-	private nominatimBboxFetcher: NominatimBboxFetcher
+	private nominatimSubForm: NominatimSubForm|undefined
 	private $trackMapSelect=document.createElement('select')
 	private $trackMapZoomNotice=makeElement('span')('notice')()
 	protected $bboxInput=document.createElement('input')
-	private $nominatimRequestOutput=document.createElement('output')
 	private mapBoundsForFreezeRestore: L.LatLngBounds|undefined
 	constructor(
 		$sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
@@ -30,9 +100,20 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		private map: NoteMap
 	) {
 		super($sharedCheckboxes,server,getRequestApiPaths,submitQuery)
-		this.nominatimBboxFetcher=new NominatimBboxFetcher(
-			server,...makeDumbCache() // TODO real cache in db
-		)
+		if (server.nominatim) {
+			this.nominatimSubForm=new NominatimSubForm(
+				server.nominatim,
+				()=>map.bounds,
+				(bbox:NominatimBbox)=>{
+					const [minLat,maxLat,minLon,maxLon]=bbox
+					this.$bboxInput.value=`${minLon},${minLat},${maxLon},${maxLat}`
+					this.validateBbox()
+					this.updateRequest()
+					this.$trackMapSelect.value='nothing'
+					this.map.fitBounds([[Number(minLat),Number(minLon)],[Number(maxLat),Number(maxLon)]])
+				}
+			)
+		}
 	}
 	resetFetch() {
 		this.mapBoundsForFreezeRestore=undefined
@@ -42,11 +123,12 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 	}
 	populateInputs(query: NoteQuery|undefined): void {
 		super.populateInputs(query)
-		this.updateNominatimRequest()
+		this.nominatimSubForm?.updateRequest()
 	}
 	protected writeExtraForms() {
-		this.$nominatimForm.id='nominatim-form'
-		this.$section.append(this.$nominatimForm)
+		if (this.nominatimSubForm) {
+			this.$section.append(this.nominatimSubForm.$form)
+		}
 	}
 	protected makeLeadAdvancedHint(): Array<string|HTMLElement> {
 		return [
@@ -98,23 +180,9 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 				$span.title=title
 				return $span
 			}
-		}{
-			$fieldset.append(makeDiv('advanced-hint')(
-				`Make `,makeLink(`Nominatim search query`,`https://nominatim.org/release-docs/develop/api/Search/`),
-				` at `,code(this.server.getNominatimSearchUrl(''),em(`parameters`)),`; see `,em(`parameters`),` above and below.`
-			))
-			this.$nominatimInput.type='text'
-			this.$nominatimInput.required=true
-			this.$nominatimInput.classList.add('no-invalid-indication') // because it's inside another form that doesn't require it, don't indicate that it's invalid
-			this.$nominatimInput.name='place'
-			this.$nominatimInput.setAttribute('form','nominatim-form')
-			this.$nominatimButton.textContent='Get'
-			this.$nominatimButton.setAttribute('form','nominatim-form')
-			$fieldset.append(makeDiv('text-button-input')(makeLabel()(
-				`Or get bounding box by place name from Nominatim`,spanRequest(` (`,code('q'),` Nominatim parameter)`),`: `,
-				this.$nominatimInput
-			),this.$nominatimButton))
-			$fieldset.append(makeDiv('advanced-hint')(`Resulting Nominatim request: `,this.$nominatimRequestOutput))
+		}
+		if (this.nominatimSubForm) {
+			this.nominatimSubForm.write($fieldset)
 		}
 	}
 	appendToClosedLine($div: HTMLElement): void {
@@ -137,15 +205,6 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		this.$bboxInput.value=query?.bbox ?? ''
 	}
 	protected addEventListenersBeforeClosedLine(): void {
-		const validateBounds=():boolean=>{
-			const splitValue=this.$bboxInput.value.split(',')
-			if (splitValue.length!=4) {
-				this.$bboxInput.setCustomValidity(`must contain four comma-separated values`)
-				return false
-			}
-			this.$bboxInput.setCustomValidity('')
-			return true
-		}
 		const updateTrackMapZoomNotice=()=>{
 			if (this.$trackMapSelect.value!='fetch') {
 				this.$trackMapZoomNotice.classList.remove('error')
@@ -166,9 +225,9 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 				const bounds=this.map.bounds
 				// (left,bottom,right,top)
 				this.$bboxInput.value=bounds.getWest()+','+bounds.getSouth()+','+bounds.getEast()+','+bounds.getNorth()
-				validateBounds()
+				this.validateBbox()
 				this.updateRequest()
-				this.updateNominatimRequest()
+				this.nominatimSubForm?.updateRequest()
 			}
 		}
 		const updateNotesIfNeeded=()=>{
@@ -191,40 +250,13 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 			updateNotesIfNeeded()
 		})
 		this.$bboxInput.addEventListener('input',()=>{
-			if (!validateBounds()) return
+			if (!this.validateBbox()) return
 			this.$trackMapSelect.value='nothing'
 		})
-		this.$bboxInput.addEventListener('input',()=>this.updateNominatimRequest())
-		this.$nominatimInput.addEventListener('input',()=>this.updateNominatimRequest())
-		this.$nominatimForm.addEventListener('submit',async(ev)=>{
-			ev.preventDefault()
-			this.$nominatimButton.disabled=true
-			this.$nominatimButton.classList.remove('error')
-			try {
-				const bounds=this.map.bounds
-				const bbox=await this.nominatimBboxFetcher.fetch(
-					Date.now(),
-					this.$nominatimInput.value,
-					bounds.getWest(),bounds.getSouth(),bounds.getEast(),bounds.getNorth()
-				)
-				const [minLat,maxLat,minLon,maxLon]=bbox
-				this.$bboxInput.value=`${minLon},${minLat},${maxLon},${maxLat}`
-				validateBounds()
-				this.updateRequest()
-				this.updateNominatimRequest()
-				this.$trackMapSelect.value='nothing'
-				this.map.fitBounds([[Number(minLat),Number(minLon)],[Number(maxLat),Number(maxLon)]])
-			} catch (ex) {
-				this.$nominatimButton.classList.add('error')
-				if (ex instanceof TypeError) {
-					this.$nominatimButton.title=ex.message
-				} else {
-					this.$nominatimButton.title=`unknown error ${ex}`
-				}
-			} finally {
-				this.$nominatimButton.disabled=false
-			}
-		})
+		this.$bboxInput.addEventListener('input',()=>this.nominatimSubForm?.updateRequest())
+		if (this.nominatimSubForm) {
+			this.nominatimSubForm.addEventListeners()
+		}
 	}
 	protected constructQuery(): NoteQuery | undefined {
 		return makeNoteBboxQueryFromValues(
@@ -256,16 +288,14 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		if (this.$trackMapSelect.value=='bbox') return 'initial'
 		return 'no'
 	}
-	private updateNominatimRequest(): void {
-		const bounds=this.map.bounds
-		const parameters=this.nominatimBboxFetcher.getParameters(
-			this.$nominatimInput.value,
-			bounds.getWest(),bounds.getSouth(),bounds.getEast(),bounds.getNorth()
-		)
-		const url=this.server.getNominatimSearchUrl(parameters)
-		const $a=makeLink(url,url)
-		$a.classList.add('request')
-		this.$nominatimRequestOutput.replaceChildren(code($a))
+	private validateBbox(): boolean {
+		const splitValue=this.$bboxInput.value.split(',')
+		if (splitValue.length!=4) {
+			this.$bboxInput.setCustomValidity(`must contain four comma-separated values`)
+			return false
+		}
+		this.$bboxInput.setCustomValidity('')
+		return true
 	}
 }
 
