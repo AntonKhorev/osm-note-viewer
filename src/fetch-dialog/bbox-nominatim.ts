@@ -65,7 +65,6 @@ export default class NominatimSubForm {
 					bounds.getWest(),bounds.getSouth(),bounds.getEast(),bounds.getNorth()
 				)
 				this.setBbox(bbox)
-				this.updateRequest()
 			} catch (ex) {
 				this.$button.classList.add('error')
 				if (ex instanceof TypeError) {

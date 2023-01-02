@@ -154,8 +154,8 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 				this.$bboxInput.value=bounds.getWest()+','+bounds.getSouth()+','+bounds.getEast()+','+bounds.getNorth()
 				this.validateBbox()
 				this.updateRequest()
-				this.nominatimSubForm?.updateRequest()
 			}
+			this.nominatimSubForm?.updateRequest()
 		}
 		const updateNotesIfNeeded=()=>{
 			if (this.isOpen() && this.$trackMapSelect.value=='fetch' && this.map.zoom>=8) {
@@ -180,7 +180,6 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 			if (!this.validateBbox()) return
 			this.$trackMapSelect.value='nothing'
 		})
-		this.$bboxInput.addEventListener('input',()=>this.nominatimSubForm?.updateRequest())
 		if (this.nominatimSubForm) {
 			this.nominatimSubForm.addEventListeners()
 		}
