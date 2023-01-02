@@ -336,6 +336,21 @@ class ResponseQueryError extends QueryError {
         return `receiving the following message: ${this.text}`;
     }
 }
+class NominatimProvider {
+    constructor(url) {
+        this.url = url;
+    }
+    async search(parameters) {
+        const response = await fetch(this.getSearchUrl(parameters));
+        if (!response.ok) {
+            throw new TypeError('unsuccessful Nominatim response');
+        }
+        return response.json();
+    }
+    getSearchUrl(parameters) {
+        return this.url + `search?format=jsonv2&` + parameters;
+    }
+}
 class Server {
     constructor(apiUrl, webUrls, tileUrlTemplate, tileAttributionUrl, tileAttributionText, maxZoom, nominatimUrl, overpassUrl, overpassTurboUrl, noteUrl, noteText) {
         this.apiUrl = apiUrl;
@@ -344,13 +359,14 @@ class Server {
         this.tileAttributionUrl = tileAttributionUrl;
         this.tileAttributionText = tileAttributionText;
         this.maxZoom = maxZoom;
-        this.nominatimUrl = nominatimUrl;
         this.overpassUrl = overpassUrl;
         this.overpassTurboUrl = overpassTurboUrl;
         this.noteUrl = noteUrl;
         this.noteText = noteText;
         const hostUrl = new URL(webUrls[0]);
         this.host = hostUrl.host;
+        if (nominatimUrl != null)
+            this.nominatim = new NominatimProvider(nominatimUrl);
     }
     apiFetch(apiPath) {
         return fetch(this.getApiUrl(apiPath));
@@ -363,16 +379,6 @@ class Server {
     }
     getWebUrl(webPath) {
         return `${this.webUrls[0]}${webPath}`;
-    }
-    async nominatimSearch(parameters) {
-        const response = await fetch(this.getNominatimSearchUrl(parameters));
-        if (!response.ok) {
-            throw new TypeError('unsuccessful Nominatim response');
-        }
-        return response.json();
-    }
-    getNominatimSearchUrl(parameters) {
-        return this.nominatimUrl + `search?format=jsonv2&` + parameters;
     }
     async overpassFetch(overpassQuery) {
         try {
@@ -425,7 +431,7 @@ function parseServerListItem(config) {
     let tileAttributionUrl = `https://www.openstreetmap.org/copyright`;
     let tileAttributionText = `OpenStreetMap contributors`;
     let maxZoom = 19;
-    let nominatimUrl = `https://nominatim.openstreetmap.org/`;
+    let nominatimUrl;
     let overpassUrl = `https://www.overpass-api.de/`;
     let overpassTurboUrl = `https://overpass-turbo.eu/`;
     let noteUrl;
@@ -469,6 +475,7 @@ function parseServerListItem(config) {
     }
     else if (!config) {
         noteText = `main OSM server`;
+        nominatimUrl = `https://nominatim.openstreetmap.org/`;
     }
     return [
         apiUrl, webUrls,
@@ -2454,9 +2461,9 @@ function rewriteFetchErrorMessage($container, query, responseKindText, fetchErro
     $message.append($error);
 }
 
-const em$6 = (...ss) => makeElement('em')()(...ss);
+const em$7 = (...ss) => makeElement('em')()(...ss);
 const sup = (...ss) => makeElement('sup')()(...ss);
-const code$3 = (...ss) => makeElement('code')()(...ss);
+const code$4 = (...ss) => makeElement('code')()(...ss);
 class NoteFetchDialog extends NavDialog {
     constructor($sharedCheckboxes, server, getRequestApiPaths, submitQuery) {
         super();
@@ -2528,7 +2535,7 @@ class NoteFetchDialog extends NavDialog {
         const mainUrl = this.server.getApiUrl(mainApiPath);
         const $a = makeLink(mainUrl, mainUrl);
         $a.classList.add('request');
-        this.$requestOutput.replaceChildren(code$3($a), ` in ${mainType} format`);
+        this.$requestOutput.replaceChildren(code$4($a), ` in ${mainType} format`);
         appendLinkIfKnown(mainType);
         if (otherRequestApiPaths.length > 0) {
             this.$requestOutput.append(` or other formats: `);
@@ -2542,7 +2549,7 @@ class NoteFetchDialog extends NavDialog {
                 this.$requestOutput.append(`, `);
             }
             const url = this.server.getApiUrl(apiPath);
-            this.$requestOutput.append(code$3(makeLink(type, url)));
+            this.$requestOutput.append(code$4(makeLink(type, url)));
             appendLinkIfKnown(type);
         }
     }
@@ -2582,7 +2589,7 @@ class NoteFetchDialog extends NavDialog {
             this.$limitInput.max = '10000';
             this.$limitInput.value = String(this.limitDefaultValue);
             $fieldset.append(makeDiv('non-advanced-input')(this.limitLeadText, makeLabel()(this.limitLabelBeforeText, this.$limitSelect, this.limitLabelAfterText)), makeDiv('advanced-input')(this.limitLeadText, makeLabel()(this.limitLabelBeforeText, this.$limitInput, this.limitLabelAfterText, (this.limitIsParameter
-                ? makeElement('span')('advanced-hint')(` (`, code$3('limit'), ` parameter)`)
+                ? makeElement('span')('advanced-hint')(` (`, code$4('limit'), ` parameter)`)
                 : makeElement('span')('advanced-hint')(` (will make this many API requests each time it downloads more notes)`)))));
         }
         this.writeDownloadModeFieldset($fieldset, $legend);
@@ -2692,14 +2699,14 @@ class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
             const makeTr = (cellType) => (...sss) => makeElement('tr')()(...sss.map(ss => makeElement(cellType)()(...ss)));
             const closedDescriptionItems = [
                 `Max number of days for closed note to be visible. `,
-                `In `, em$6(`advanced mode`), ` can be entered as a numeric value. `,
-                `When `, em$6(`advanced mode`), ` is disabled this parameter is available as a dropdown menu with the following values: `,
-                makeElement('table')()(makeTr('th')([`label`], [`value`], [`description`]), makeTr('td')([em$6(`both open and closed`)], [code$3(`-1`)], [
+                `In `, em$7(`advanced mode`), ` can be entered as a numeric value. `,
+                `When `, em$7(`advanced mode`), ` is disabled this parameter is available as a dropdown menu with the following values: `,
+                makeElement('table')()(makeTr('th')([`label`], [`value`], [`description`]), makeTr('td')([em$7(`both open and closed`)], [code$4(`-1`)], [
                     `Special value to ignore how long ago notes were closed. `,
-                    `This is the default value for `, em$6(`note-viewer`), ` because it's the most useful one in conjunction with searching for a given user's notes.`
-                ]), makeTr('td')([em$6(`open and recently closed`)], [code$3(`7`)], [
+                    `This is the default value for `, em$7(`note-viewer`), ` because it's the most useful one in conjunction with searching for a given user's notes.`
+                ]), makeTr('td')([em$7(`open and recently closed`)], [code$4(`7`)], [
                     `The most common value used in other apps like the OSM website.`
-                ]), makeTr('td')([em$6(`only open`)], [code$3(`0`)], [
+                ]), makeTr('td')([em$7(`only open`)], [code$4(`0`)], [
                     `Ignore closed notes.`
                 ]))
             ];
@@ -2718,7 +2725,7 @@ class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
             this.$closedInput.min = '-1';
             this.$closedInput.value = '-1';
             this.$closedSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
-            const $closedLine = makeDiv()(`Fetch `, makeElement('span')('non-advanced-input')(this.$closedSelect), ` matching notes `, makeLabel('advanced-input')(`closed no more than `, this.$closedInput, makeElement('span')('advanced-hint')(` (`, code$3('closed'), ` parameter)`), ` days ago`));
+            const $closedLine = makeDiv()(`Fetch `, makeElement('span')('non-advanced-input')(this.$closedSelect), ` matching notes `, makeLabel('advanced-input')(`closed no more than `, this.$closedInput, makeElement('span')('advanced-hint')(` (`, code$4('closed'), ` parameter)`), ` days ago`));
             this.appendToClosedLine($closedLine);
             $fieldset.append($closedLine);
         }
@@ -2779,10 +2786,10 @@ function restrictClosedSelectValue(v) {
     }
 }
 
-const em$5 = (...ss) => makeElement('em')()(...ss);
-const code$2 = (...ss) => makeElement('code')()(...ss);
-const rq$1 = (param) => makeElement('span')('advanced-hint')(` (`, code$2(param), ` parameter)`);
-const rq2 = (param1, param2) => makeElement('span')('advanced-hint')(` (`, code$2(param1), ` or `, code$2(param2), ` parameter)`);
+const em$6 = (...ss) => makeElement('em')()(...ss);
+const code$3 = (...ss) => makeElement('code')()(...ss);
+const rq$1 = (param) => makeElement('span')('advanced-hint')(` (`, code$3(param), ` parameter)`);
+const rq2 = (param1, param2) => makeElement('span')('advanced-hint')(` (`, code$3(param1), ` or `, code$3(param2), ` parameter)`);
 class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDialog) {
     constructor() {
         super(...arguments);
@@ -2804,20 +2811,20 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
     makeLeadAdvancedHint() {
         return [
             `Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`),
-            ` request at `, code$2(this.server.getApiUrl(`notes/search?`), em$5(`parameters`)), `; see `, em$5(`parameters`), ` below.`
+            ` request at `, code$3(this.server.getApiUrl(`notes/search?`), em$6(`parameters`)), `; see `, em$6(`parameters`), ` below.`
         ];
     }
     listParameters(closedDescriptionItems) {
         return [
             ['q', this.$textInput, [
                     `Comment text search query. `,
-                    `This is an optional parameter, despite the OSM wiki saying that it's required, which is also suggested by the `, em$5(`search`), ` API call name. `,
+                    `This is an optional parameter, despite the OSM wiki saying that it's required, which is also suggested by the `, em$6(`search`), ` API call name. `,
                     `Skipping this parameter disables text searching, all notes that fit other search criteria will go through. `,
                     `Searching is done with English stemming rules and may not work correctly for other languages.`
                 ]],
             ['limit', this.$limitInput, [
                     `Max number of notes to fetch. `,
-                    `For `, em$5(`search`), ` mode it corresponds to the size of one batch of notes since it's possible to load additional batches by pressing the `, em$5(`Load more`), ` button below the note table. `,
+                    `For `, em$6(`search`), ` mode it corresponds to the size of one batch of notes since it's possible to load additional batches by pressing the `, em$6(`Load more`), ` button below the note table. `,
                     `This additional downloading is implemented by manipulating the requested date range.`
                 ]],
             ['closed', this.$closedInput, closedDescriptionItems],
@@ -2826,25 +2833,25 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
                     `Both this parameter and the next one are optional. `,
                     `Providing one of them limits the returned notes to those that were interacted by the given user. `,
                     `This interaction is not limited to creating the note, closing/reopening/commenting also counts. `,
-                    `It makes no sense to provide both of these parameters because in this case `, code$2('user'), ` is going to be ignored by the API, therefore `, em$5(`note-viewer`), `'s UI has only one input for both. `,
-                    `Whether `, code$2('display_name'), ` or `, code$2('user'), ` is passed to the API depends on the input value. `,
-                    `The `, code$2('display_name'), ` parameter is passed if the input value contains `, code$2(`/`), ` or doesn't start with `, code$2(`#`), `. `,
-                    `Value containing `, code$2(`/`), ` is interpreted as a URL. `,
-                    `In case it's an OSM URL containing a username, this name is extracted and passed as `, code$2('display_name'), `. `,
-                    `Value starting with `, code$2(`#`), ` is treated as a user id, see the next parameter. `,
+                    `It makes no sense to provide both of these parameters because in this case `, code$3('user'), ` is going to be ignored by the API, therefore `, em$6(`note-viewer`), `'s UI has only one input for both. `,
+                    `Whether `, code$3('display_name'), ` or `, code$3('user'), ` is passed to the API depends on the input value. `,
+                    `The `, code$3('display_name'), ` parameter is passed if the input value contains `, code$3(`/`), ` or doesn't start with `, code$3(`#`), `. `,
+                    `Value containing `, code$3(`/`), ` is interpreted as a URL. `,
+                    `In case it's an OSM URL containing a username, this name is extracted and passed as `, code$3('display_name'), `. `,
+                    `Value starting with `, code$3(`#`), ` is treated as a user id, see the next parameter. `,
                     `Everything else is treated as a username.`
                 ]],
             ['user', this.$userInput, [
                     `Id of a user interacting with a note. `,
-                    `As stated above, the `, code$2('user'), ` parameter is passed if the input value starts with `, code$2(`#`), `. `,
+                    `As stated above, the `, code$3('user'), ` parameter is passed if the input value starts with `, code$3(`#`), `. `,
                     `In this case the remaining part of the value is treated as a user id number. `,
-                    `Ids and URLs can be unambiguously detected in the input because usernames can't contain any of the following characters: `, code$2(`/;.,?%#`), `.`
+                    `Ids and URLs can be unambiguously detected in the input because usernames can't contain any of the following characters: `, code$3(`/;.,?%#`), `.`
                 ]],
             ['from', this.$fromInput, [
                     `Beginning of a date range. `,
-                    `This parameter is optional but if not provided the API will also ignore the `, code$2('to'), ` parameter. `,
-                    em$5(`Note-viewer`), ` makes `, code$2('from'), ` actually optional by providing a value far enough in the past if `, code$2('to'), ` value is entered while `, code$2('from'), ` value is not. `,
-                    `Also both `, code$2('from'), ` and `, code$2('to'), ` parameters are altered in `, em$5(`Load more`), ` fetches in order to limit the note selection to notes that are not yet downloaded.`
+                    `This parameter is optional but if not provided the API will also ignore the `, code$3('to'), ` parameter. `,
+                    em$6(`Note-viewer`), ` makes `, code$3('from'), ` actually optional by providing a value far enough in the past if `, code$3('to'), ` value is entered while `, code$3('from'), ` value is not. `,
+                    `Also both `, code$3('from'), ` and `, code$3('to'), ` parameters are altered in `, em$6(`Load more`), ` fetches in order to limit the note selection to notes that are not yet downloaded.`
                 ]],
             ['to', this.$toInput, [
                     `End of a date range.`
@@ -2852,7 +2859,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
             ['sort', this.$sortSelect, [
                     `Date to sort the notes. `,
                     `This can be either a create date or an update date. `,
-                    `Sorting by update dates presents some technical difficulties which may lead to unexpected results if additional notes are loaded with `, em$5(`Load more`), `. `
+                    `Sorting by update dates presents some technical difficulties which may lead to unexpected results if additional notes are loaded with `, em$6(`Load more`), `. `
                 ]],
             ['order', this.$orderSelect, [
                     `Sort order. `,
@@ -2955,8 +2962,8 @@ function isNominatimBbox(bbox) {
     return true;
 }
 class NominatimBboxFetcher {
-    constructor(nominatimProvider, fetchFromCache, storeToCache) {
-        this.nominatimProvider = nominatimProvider;
+    constructor(nominatim, fetchFromCache, storeToCache) {
+        this.nominatim = nominatim;
         this.fetchFromCache = fetchFromCache;
         this.storeToCache = storeToCache;
     }
@@ -2976,7 +2983,7 @@ class NominatimBboxFetcher {
             await this.storeToCache(timestamp, parameters, cacheBbox);
             return cacheBbox;
         }
-        const data = await this.nominatimProvider.nominatimSearch(parameters);
+        const data = await this.nominatim.search(parameters);
         if (!Array.isArray(data))
             throw new TypeError('Nominatim error: invalid data');
         if (data.length <= 0)
@@ -2990,6 +2997,76 @@ class NominatimBboxFetcher {
     }
 }
 
+const em$5 = (...ss) => makeElement('em')()(...ss);
+const code$2 = (...ss) => makeElement('code')()(...ss);
+const spanRequest$1 = (...ss) => makeElement('span')('advanced-hint')(...ss);
+class NominatimSubForm {
+    constructor(nominatim, getMapBounds, setBbox) {
+        this.nominatim = nominatim;
+        this.getMapBounds = getMapBounds;
+        this.setBbox = setBbox;
+        this.$form = document.createElement('form');
+        this.$input = document.createElement('input');
+        this.$button = document.createElement('button');
+        this.$requestOutput = document.createElement('output');
+        this.bboxFetcher = new NominatimBboxFetcher(nominatim, ...makeDumbCache() // TODO real cache in db
+        );
+        this.$form.id = 'nominatim-form';
+    }
+    write($fieldset) {
+        $fieldset.append(makeDiv('advanced-hint')(`Make `, makeLink(`Nominatim search query`, `https://nominatim.org/release-docs/develop/api/Search/`), ` at `, code$2(this.nominatim.getSearchUrl(''), em$5(`parameters`)), `; see `, em$5(`parameters`), ` above and below.`));
+        this.$input.type = 'text';
+        this.$input.required = true;
+        this.$input.classList.add('no-invalid-indication'); // because it's inside another form that doesn't require it, don't indicate that it's invalid
+        this.$input.name = 'place';
+        this.$input.setAttribute('form', 'nominatim-form');
+        this.$button.textContent = 'Get';
+        this.$button.setAttribute('form', 'nominatim-form');
+        $fieldset.append(makeDiv('text-button-input')(makeLabel()(`Or get bounding box by place name from Nominatim`, spanRequest$1(` (`, code$2('q'), ` Nominatim parameter)`), `: `, this.$input), this.$button));
+        $fieldset.append(makeDiv('advanced-hint')(`Resulting Nominatim request: `, this.$requestOutput));
+    }
+    updateRequest() {
+        const bounds = this.getMapBounds();
+        const parameters = this.bboxFetcher.getParameters(this.$input.value, bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth());
+        const url = this.nominatim.getSearchUrl(parameters);
+        const $a = makeLink(url, url);
+        $a.classList.add('request');
+        this.$requestOutput.replaceChildren(code$2($a));
+    }
+    addEventListeners() {
+        this.$input.addEventListener('input', () => this.updateRequest());
+        this.$form.addEventListener('submit', async (ev) => {
+            ev.preventDefault();
+            this.$button.disabled = true;
+            this.$button.classList.remove('error');
+            try {
+                const bounds = this.getMapBounds();
+                const bbox = await this.bboxFetcher.fetch(Date.now(), this.$input.value, bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth());
+                this.setBbox(bbox);
+            }
+            catch (ex) {
+                this.$button.classList.add('error');
+                if (ex instanceof TypeError) {
+                    this.$button.title = ex.message;
+                }
+                else {
+                    this.$button.title = `unknown error ${ex}`;
+                }
+            }
+            finally {
+                this.$button.disabled = false;
+            }
+        });
+    }
+}
+function makeDumbCache() {
+    const cache = new Map();
+    return [
+        async (timestamp, url) => cache.get(url),
+        async (timestamp, url, bbox) => cache.set(url, bbox)
+    ];
+}
+
 const em$4 = (...ss) => makeElement('em')()(...ss);
 const code$1 = (...ss) => makeElement('code')()(...ss);
 const rq = (param) => makeElement('span')('advanced-hint')(` (`, code$1(param), ` parameter)`);
@@ -3000,21 +3077,23 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         this.map = map;
         this.shortTitle = `BBox`;
         this.title = `Get notes inside rectangular area`;
-        this.$nominatimForm = document.createElement('form');
-        this.$nominatimInput = document.createElement('input');
-        this.$nominatimButton = document.createElement('button');
         this.$trackMapSelect = document.createElement('select');
         this.$trackMapZoomNotice = makeElement('span')('notice')();
         this.$bboxInput = document.createElement('input');
-        this.$nominatimRequestOutput = document.createElement('output');
         this.limitValues = [20, 100, 500, 2500, 10000];
         this.limitDefaultValue = 100; // higher default limit because no progressive loads possible
         this.limitLeadText = `Download `;
         this.limitLabelBeforeText = `at most `;
         this.limitLabelAfterText = ` notes`;
         this.limitIsParameter = true;
-        this.nominatimBboxFetcher = new NominatimBboxFetcher(server, ...makeDumbCache() // TODO real cache in db
-        );
+        if (server.nominatim) {
+            this.nominatimSubForm = new NominatimSubForm(server.nominatim, () => map.bounds, (bbox) => {
+                const [minLat, maxLat, minLon, maxLon] = bbox;
+                this.setBbox(minLon, minLat, maxLon, maxLat);
+                this.$trackMapSelect.value = 'nothing';
+                this.map.fitBounds([[Number(minLat), Number(minLon)], [Number(maxLat), Number(maxLon)]]);
+            });
+        }
     }
     resetFetch() {
         this.mapBoundsForFreezeRestore = undefined;
@@ -3024,11 +3103,12 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
     }
     populateInputs(query) {
         super.populateInputs(query);
-        this.updateNominatimRequest();
+        this.nominatimSubForm?.updateRequest();
     }
     writeExtraForms() {
-        this.$nominatimForm.id = 'nominatim-form';
-        this.$section.append(this.$nominatimForm);
+        if (this.nominatimSubForm) {
+            this.$section.append(this.nominatimSubForm.$form);
+        }
     }
     makeLeadAdvancedHint() {
         return [
@@ -3067,17 +3147,8 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
                 return $span;
             }
         }
-        {
-            $fieldset.append(makeDiv('advanced-hint')(`Make `, makeLink(`Nominatim search query`, `https://nominatim.org/release-docs/develop/api/Search/`), ` at `, code$1(this.server.getNominatimSearchUrl(''), em$4(`parameters`)), `; see `, em$4(`parameters`), ` above and below.`));
-            this.$nominatimInput.type = 'text';
-            this.$nominatimInput.required = true;
-            this.$nominatimInput.classList.add('no-invalid-indication'); // because it's inside another form that doesn't require it, don't indicate that it's invalid
-            this.$nominatimInput.name = 'place';
-            this.$nominatimInput.setAttribute('form', 'nominatim-form');
-            this.$nominatimButton.textContent = 'Get';
-            this.$nominatimButton.setAttribute('form', 'nominatim-form');
-            $fieldset.append(makeDiv('text-button-input')(makeLabel()(`Or get bounding box by place name from Nominatim`, spanRequest(` (`, code$1('q'), ` Nominatim parameter)`), `: `, this.$nominatimInput), this.$nominatimButton));
-            $fieldset.append(makeDiv('advanced-hint')(`Resulting Nominatim request: `, this.$nominatimRequestOutput));
+        if (this.nominatimSubForm) {
+            this.nominatimSubForm.write($fieldset);
         }
     }
     appendToClosedLine($div) {
@@ -3091,15 +3162,6 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         this.$bboxInput.value = query?.bbox ?? '';
     }
     addEventListenersBeforeClosedLine() {
-        const validateBounds = () => {
-            const splitValue = this.$bboxInput.value.split(',');
-            if (splitValue.length != 4) {
-                this.$bboxInput.setCustomValidity(`must contain four comma-separated values`);
-                return false;
-            }
-            this.$bboxInput.setCustomValidity('');
-            return true;
-        };
         const updateTrackMapZoomNotice = () => {
             if (this.$trackMapSelect.value != 'fetch') {
                 this.$trackMapZoomNotice.classList.remove('error');
@@ -3120,12 +3182,9 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
             updateTrackMapZoomNotice();
             if (this.$trackMapSelect.value == 'bbox' || this.$trackMapSelect.value == 'fetch') {
                 const bounds = this.map.bounds;
-                // (left,bottom,right,top)
-                this.$bboxInput.value = bounds.getWest() + ',' + bounds.getSouth() + ',' + bounds.getEast() + ',' + bounds.getNorth();
-                validateBounds();
-                this.updateRequest();
-                this.updateNominatimRequest();
+                this.setBbox(bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth());
             }
+            this.nominatimSubForm?.updateRequest();
         };
         const updateNotesIfNeeded = () => {
             if (this.isOpen() && this.$trackMapSelect.value == 'fetch' && this.map.zoom >= 8) {
@@ -3148,40 +3207,13 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
             updateNotesIfNeeded();
         });
         this.$bboxInput.addEventListener('input', () => {
-            if (!validateBounds())
+            if (!this.validateBbox())
                 return;
             this.$trackMapSelect.value = 'nothing';
         });
-        this.$bboxInput.addEventListener('input', () => this.updateNominatimRequest());
-        this.$nominatimInput.addEventListener('input', () => this.updateNominatimRequest());
-        this.$nominatimForm.addEventListener('submit', async (ev) => {
-            ev.preventDefault();
-            this.$nominatimButton.disabled = true;
-            this.$nominatimButton.classList.remove('error');
-            try {
-                const bounds = this.map.bounds;
-                const bbox = await this.nominatimBboxFetcher.fetch(Date.now(), this.$nominatimInput.value, bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth());
-                const [minLat, maxLat, minLon, maxLon] = bbox;
-                this.$bboxInput.value = `${minLon},${minLat},${maxLon},${maxLat}`;
-                validateBounds();
-                this.updateRequest();
-                this.updateNominatimRequest();
-                this.$trackMapSelect.value = 'nothing';
-                this.map.fitBounds([[Number(minLat), Number(minLon)], [Number(maxLat), Number(maxLon)]]);
-            }
-            catch (ex) {
-                this.$nominatimButton.classList.add('error');
-                if (ex instanceof TypeError) {
-                    this.$nominatimButton.title = ex.message;
-                }
-                else {
-                    this.$nominatimButton.title = `unknown error ${ex}`;
-                }
-            }
-            finally {
-                this.$nominatimButton.disabled = false;
-            }
-        });
+        if (this.nominatimSubForm) {
+            this.nominatimSubForm.addEventListeners();
+        }
     }
     constructQuery() {
         return makeNoteBboxQueryFromValues(this.$bboxInput.value, this.closedValue);
@@ -3214,21 +3246,27 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
             return 'initial';
         return 'no';
     }
-    updateNominatimRequest() {
-        const bounds = this.map.bounds;
-        const parameters = this.nominatimBboxFetcher.getParameters(this.$nominatimInput.value, bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth());
-        const url = this.server.getNominatimSearchUrl(parameters);
-        const $a = makeLink(url, url);
-        $a.classList.add('request');
-        this.$nominatimRequestOutput.replaceChildren(code$1($a));
+    setBbox(west, south, east, north) {
+        // (left,bottom,right,top)
+        this.$bboxInput.value = west + ',' + south + ',' + east + ',' + north;
+        this.validateBbox();
+        this.updateRequest();
     }
-}
-function makeDumbCache() {
-    const cache = new Map();
-    return [
-        async (timestamp, url) => cache.get(url),
-        async (timestamp, url, bbox) => cache.set(url, bbox)
-    ];
+    validateBbox() {
+        const splitValue = this.$bboxInput.value.split(',');
+        if (splitValue.length != 4) {
+            this.$bboxInput.setCustomValidity(`must contain four comma-separated values`);
+            return false;
+        }
+        for (const number of splitValue) {
+            if (!isFinite(Number(number))) {
+                this.$bboxInput.setCustomValidity(`values must be numbers, "${number}" is not a number`);
+                return false;
+            }
+        }
+        this.$bboxInput.setCustomValidity('');
+        return true;
+    }
 }
 
 const em$3 = (...ss) => makeElement('em')()(...ss);
