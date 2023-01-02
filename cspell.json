@@ -3,6 +3,7 @@
 	"language": "en",
 	"words": [
 		"bbox",
+		"mapillary",
 		"nominatim"
 	]
 }

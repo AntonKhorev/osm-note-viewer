@@ -25,7 +25,7 @@ export default [
 		},
 		overpass: `https://overpass.ogf.rent-a-planet.com/`,
 		overpassTurbo: `https://turbo.ogf.rent-a-planet.com/`,
-		note: `no Nominatim support`
+		world: `opengeofiction`
 	},
 	{
 		web: `https://fosm.org/`,

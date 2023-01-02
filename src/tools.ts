@@ -7,6 +7,8 @@ import * as StreetViewTools from './tools/streetview'
 
 export {Tool, ToolFitMode, ToolCallbacks}
 
+export const StreetViewTool = StreetViewTools.StreetViewTool
+
 export const toolMakerSequence: Array<()=>Tool> = [
 	()=>new UtilTools.AutozoomTool, ()=>new UtilTools.CommentsTool,
 	()=>new UtilTools.TimestampTool, ()=>new UtilTools.ParseTool,

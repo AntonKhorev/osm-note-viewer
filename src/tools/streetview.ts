@@ -7,7 +7,7 @@ import {makeEscapeTag} from '../escape'
 type InfoElements = Array<string|HTMLElement>
 const p=(...ss: InfoElements)=>makeElement('p')()(...ss)
 
-abstract class StreetViewTool extends Tool {
+export abstract class StreetViewTool extends Tool {
 	getTool(callbacks: ToolCallbacks, server: Server, map: NoteMap): ToolElements {
 		const $viewButton=document.createElement('button')
 		$viewButton.append(`Open `,makeMapIcon('center'))

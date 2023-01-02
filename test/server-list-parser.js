@@ -8,11 +8,12 @@ describe("server list parser module",()=>{
 			apiUrl,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
-			noteUrl,noteText
+			noteUrl,noteText,world
 		]=result
 		assert.equal(webUrls[0],`https://www.openstreetmap.org/`)
 		assert.notEqual(nominatimUrl,undefined)
 		assert.notEqual(noteText,undefined)
+		assert.equal(world,`earth`)
 	})
 	it("parses single string config",()=>{
 		const result=parseServerListItem(`https://master.apis.dev.openstreetmap.org/`)
@@ -20,7 +21,7 @@ describe("server list parser module",()=>{
 			apiUrl,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
-			noteUrl,noteText
+			noteUrl,noteText,world
 		]=result
 		assert.equal(webUrls[0],`https://master.apis.dev.openstreetmap.org/`)
 		assert.equal(nominatimUrl,undefined)
@@ -34,7 +35,7 @@ describe("server list parser module",()=>{
 			apiUrl,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
-			noteUrl,noteText
+			noteUrl,noteText,world
 		]=result
 		assert.equal(noteUrl,undefined)
 		assert.equal(noteText,`hello world`)
@@ -47,7 +48,7 @@ describe("server list parser module",()=>{
 			apiUrl,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
-			noteUrl,noteText
+			noteUrl,noteText,world
 		]=result
 		assert.equal(noteUrl,`https://example.com/hello/`)
 		assert.equal(noteText,undefined)
@@ -60,7 +61,7 @@ describe("server list parser module",()=>{
 			apiUrl,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
-			noteUrl,noteText
+			noteUrl,noteText,world
 		]=result
 		assert.equal(noteUrl,`https://example.com/bye/`)
 		assert.equal(noteText,`the end`)
@@ -76,7 +77,7 @@ describe("server list parser module",()=>{
 			apiUrl,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
-			noteUrl,noteText
+			noteUrl,noteText,world
 		]=result
 		assert.equal(tileAttributionUrl,`https://opengeofiction.net/copyright`)
 		assert.equal(tileAttributionText,`OpenGeofiction and contributors`)
