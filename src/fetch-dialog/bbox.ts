@@ -33,9 +33,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 				()=>map.bounds,
 				(bbox:NominatimBbox)=>{
 					const [minLat,maxLat,minLon,maxLon]=bbox
-					this.$bboxInput.value=`${minLon},${minLat},${maxLon},${maxLat}`
-					this.validateBbox()
-					this.updateRequest()
+					this.setBbox(minLon,minLat,maxLon,maxLat)
 					this.$trackMapSelect.value='nothing'
 					this.map.fitBounds([[Number(minLat),Number(minLon)],[Number(maxLat),Number(maxLon)]])
 				}
@@ -150,10 +148,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 			updateTrackMapZoomNotice()
 			if (this.$trackMapSelect.value=='bbox' || this.$trackMapSelect.value=='fetch') {
 				const bounds=this.map.bounds
-				// (left,bottom,right,top)
-				this.$bboxInput.value=bounds.getWest()+','+bounds.getSouth()+','+bounds.getEast()+','+bounds.getNorth()
-				this.validateBbox()
-				this.updateRequest()
+				this.setBbox(bounds.getWest(),bounds.getSouth(),bounds.getEast(),bounds.getNorth())
 			}
 			this.nominatimSubForm?.updateRequest()
 		}
@@ -213,6 +208,12 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		if (this.$trackMapSelect.value=='fetch') return 'full'
 		if (this.$trackMapSelect.value=='bbox') return 'initial'
 		return 'no'
+	}
+	private setBbox(west:number|string,south:number|string,east:number|string,north:number|string): void {
+		// (left,bottom,right,top)
+		this.$bboxInput.value=west+','+south+','+east+','+north
+		this.validateBbox()
+		this.updateRequest()
 	}
 	private validateBbox(): boolean {
 		const splitValue=this.$bboxInput.value.split(',')
