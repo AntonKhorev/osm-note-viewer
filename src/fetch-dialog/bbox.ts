@@ -221,6 +221,12 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 			this.$bboxInput.setCustomValidity(`must contain four comma-separated values`)
 			return false
 		}
+		for (const number of splitValue) {
+			if (!isFinite(Number(number))) {
+				this.$bboxInput.setCustomValidity(`values must be numbers, "${number}" is not a number`)
+				return false
+			}
+		}
 		this.$bboxInput.setCustomValidity('')
 		return true
 	}
