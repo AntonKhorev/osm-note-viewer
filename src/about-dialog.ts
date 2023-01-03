@@ -88,15 +88,28 @@ export default class AboutDialog extends NavDialog {
 				const $userCell=$row.insertCell()
 				const username=searchParams.get('display_name')
 				const ids=searchParams.get('ids')
+				const host=searchParams.get('host')
+				let fetchEntryServer: Server|undefined
+				try {
+					fetchEntryServer=this.serverList.getServer(host)
+				} catch {}
 				if (username) {
-					const href=this.server.getWebUrl(`user/`+encodeURIComponent(username))
-					$userCell.append(`user `,makeLink(username,href))
+					if (fetchEntryServer) {
+						const href=fetchEntryServer.getWebUrl(`user/`+encodeURIComponent(username))
+						$userCell.append(`user `,makeLink(username,href))
+					} else {
+						$userCell.append(`user ${username}`)
+					}
 				} else if (ids) {
 					const match=ids.match(/\d+/)
 					if (match) {
 						const [id]=match
-						const href=this.server.getWebUrl(`note/`+encodeURIComponent(id))
-						$userCell.append(`note `,makeLink(id,href),`, ...`)
+						if (fetchEntryServer) {
+							const href=fetchEntryServer.getWebUrl(`note/`+encodeURIComponent(id))
+							$userCell.append(`note `,makeLink(id,href),`, ...`)
+						} else {
+							$userCell.append(`note ${id}, ...`)
+						}
 					}
 				}
 				$row.insertCell().append(new Date(fetchEntry.accessTimestamp).toISOString())
