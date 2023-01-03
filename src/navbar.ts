@@ -25,7 +25,7 @@ export abstract class NavDialog {
 export default class Navbar {
 	private readonly $tabList=document.createElement('ul')
 	private readonly tabs: Map<string,[$navlink:HTMLAnchorElement,dialog:NavDialog]> = new Map()
-	constructor(storage: NoteViewerStorage, $container: HTMLElement, map: NoteMap) {
+	constructor(storage: NoteViewerStorage, $container: HTMLElement, map: NoteMap|undefined) {
 		$container.append(
 			this.$tabList,
 			makeFlipLayoutButton(storage,map),
@@ -62,7 +62,7 @@ export default class Navbar {
 	}
 }
 
-function makeFlipLayoutButton(storage: NoteViewerStorage, map: NoteMap): HTMLButtonElement {
+function makeFlipLayoutButton(storage: NoteViewerStorage, map: NoteMap|undefined): HTMLButtonElement {
 	const $button=document.createElement('button')
 	$button.classList.add('global','flip')
 	$button.innerHTML=`<svg><title>Flip layout</title><use href="#flip" /></svg>`
@@ -73,7 +73,7 @@ function makeFlipLayoutButton(storage: NoteViewerStorage, map: NoteMap): HTMLBut
 		} else {
 			storage.removeItem('flipped')
 		}
-		map.invalidateSize()
+		if (map) map.invalidateSize()
 	})
 	return $button
 }

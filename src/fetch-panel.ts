@@ -18,26 +18,23 @@ import {NoteFetchDialogSharedCheckboxes,
 	NoteFetchDialog, NoteSearchFetchDialog, NoteBboxFetchDialog, NoteXmlFetchDialog, NotePlaintextFetchDialog
 } from './fetch-dialog'
 
-export default class NoteFetchPanel {
-	// TODO have invoking dialog object; react only on dl params change in it; display that fieldset differently
-	private fetcherRun?: NoteFetcherRun
-	private fetcherInvoker?: NoteFetchDialog
+class FetchDialogs { // TODO move to -dialog module
+	searchDialog: NoteFetchDialog
+	bboxDialog: NoteFetchDialog
+	xmlDialog: NoteFetchDialog
+	plaintextDialog: NoteFetchDialog
 	constructor(
-		storage: NoteViewerStorage, db: NoteViewerDB, server: Server, serverList: ServerList,
-		globalEventsListener: GlobalEventsListener, globalHistory: GlobalHistory,
+		server: Server,
 		$container: HTMLElement, $moreContainer: HTMLElement,
-		navbar: Navbar, filterPanel: NoteFilterPanel,
-		noteTable: NoteTable, map: NoteMap, figureDialog: FigureDialog
+		noteTable: NoteTable, map: NoteMap,
+		hashQuery: NoteQuery|undefined,
+		submitQueryToDialog: (dialog:NoteFetchDialog,query:NoteQuery)=>void,
+		limitChangeListener: (dialog:NoteFetchDialog)=>void,
 	) {
-		const self=this
-		const moreButtonIntersectionObservers: IntersectionObserver[] = []
 		const $sharedCheckboxes: NoteFetchDialogSharedCheckboxes = {
 			showImages: [],
 			advancedMode: []
 		}
-		const hashQuery=makeNoteQueryFromHash(globalHistory.getQueryHash())
-
-		// make fetchers and dialogs
 		const makeFetchDialog = (
 			fetcherRequest: NoteFetcherRequest,
 			fetchDialogCtor: (
@@ -45,53 +42,121 @@ export default class NoteFetchPanel {
 				submitQuery: (query: NoteQuery) => void
 			) => NoteFetchDialog
 		): NoteFetchDialog => {
-			const dialog=fetchDialogCtor((query,limit)=>fetcherRequest.getRequestApiPaths(query,limit),(query)=>{
-				modifyHistory(query,true)
-				startFetcher(query,true,false,dialog)
-			})
-			dialog.limitChangeListener=()=>{
-				if (this.fetcherRun && this.fetcherInvoker==dialog) {
-					this.fetcherRun.reactToLimitUpdateForAdvancedMode()
-				}
-			}
+			const dialog=fetchDialogCtor(
+				(query,limit)=>fetcherRequest.getRequestApiPaths(query,limit),
+				(query)=>submitQueryToDialog(dialog,query)
+			)
+			dialog.limitChangeListener=()=>limitChangeListener(dialog)
 			dialog.write($container)
 			dialog.populateInputs(hashQuery)
-			navbar.addTab(dialog)
 			return dialog
 		}
-		const searchDialog=makeFetchDialog(
+		this.searchDialog=makeFetchDialog(
 			new NoteSearchFetcherRequest,
 			(getRequestApiPaths,submitQuery)=>new NoteSearchFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery)
 		)
-		const bboxDialog=makeFetchDialog(
+		this.bboxDialog=makeFetchDialog(
 			new NoteBboxFetcherRequest,
 			(getRequestApiPaths,submitQuery)=>new NoteBboxFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery,map)
 		)
-		const xmlDialog=makeFetchDialog(
+		this.xmlDialog=makeFetchDialog(
 			new NoteIdsFetcherRequest,
 			(getRequestApiPaths,submitQuery)=>new NoteXmlFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery)
 		)
-		const plaintextDialog=makeFetchDialog(
+		this.plaintextDialog=makeFetchDialog(
 			new NoteIdsFetcherRequest,
 			(getRequestApiPaths,submitQuery)=>new NotePlaintextFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery,noteTable)
 		)
-		const aboutDialog=new AboutDialog(storage,db,server,serverList)
-		aboutDialog.write($container)
-		navbar.addTab(aboutDialog,true)
-		
+
+		const handleSharedCheckboxes = ($checkboxes: HTMLInputElement[], stateChangeListener: (state:boolean)=>void) => {
+			for (const $checkbox of $checkboxes) {
+				$checkbox.addEventListener('input',inputListener)
+			}
+			function inputListener(this: HTMLInputElement) {
+				const state=this.checked
+				for (const $checkbox of $checkboxes) {
+					$checkbox.checked=state
+				}
+				stateChangeListener(state)
+			}
+		}
 		handleSharedCheckboxes($sharedCheckboxes.showImages,state=>noteTable.setShowImages(state))
 		handleSharedCheckboxes($sharedCheckboxes.advancedMode,state=>{
-			for (const dialog of [searchDialog,bboxDialog,xmlDialog,plaintextDialog]) {
+			for (const dialog of this.allDialogs) {
 				dialog.reactToAdvancedModeChange()
 			}
 			$container.classList.toggle('advanced-mode',state)
 			$moreContainer.classList.toggle('advanced-mode',state)
 		})
+	}
+	get allDialogs() {
+		return [this.searchDialog,this.bboxDialog,this.xmlDialog,this.plaintextDialog]
+	}
+	populateInputs(query: NoteQuery | undefined): void {
+		for (const dialog of this.allDialogs) {
+			dialog.populateInputs(query)
+		}
+	}
+	resetFetch(): void {
+		for (const dialog of this.allDialogs) {
+			dialog.resetFetch()
+		}
+	}
+	getDialogFromQuery(query: NoteQuery): NoteFetchDialog|undefined {
+		if (query.mode=='search') {
+			return this.searchDialog
+		} else if (query.mode=='bbox') {
+			return this.bboxDialog
+		} else if (query.mode=='ids') {
+			return this.plaintextDialog
+		}
+	}
+}
+
+export default class NoteFetchPanel {
+	// TODO have invoking dialog object; react only on dl params change in it; display that fieldset differently
+	private fetcherRun?: NoteFetcherRun
+	private fetcherInvoker?: NoteFetchDialog
+	constructor(
+		storage: NoteViewerStorage, db: NoteViewerDB, server: Server|undefined, serverList: ServerList,
+		globalEventsListener: GlobalEventsListener, globalHistory: GlobalHistory,
+		$container: HTMLElement, $moreContainer: HTMLElement,
+		navbar: Navbar, filterPanel: NoteFilterPanel|undefined,
+		noteTable: NoteTable|undefined, map: NoteMap|undefined, figureDialog: FigureDialog|undefined
+	) {
+		const self=this
+		const moreButtonIntersectionObservers: IntersectionObserver[] = []
+		const hashQuery=makeNoteQueryFromHash(globalHistory.getQueryHash())
+
+		let fetchDialogs: FetchDialogs|undefined
+		if (server && noteTable && map) {
+			fetchDialogs=new FetchDialogs(
+				server,$container,$moreContainer,noteTable,map,hashQuery,
+				(dialog:NoteFetchDialog,query:NoteQuery)=>{
+					modifyHistory(query,true)
+					startFetcher(query,true,false,dialog)
+				},
+				(dialog:NoteFetchDialog)=>{
+					if (this.fetcherRun && this.fetcherInvoker==dialog) {
+						this.fetcherRun.reactToLimitUpdateForAdvancedMode()
+					}
+				}
+			)
+			for (const dialog of fetchDialogs.allDialogs) {
+				navbar.addTab(dialog)
+			}
+		}
+		const aboutDialog=new AboutDialog(storage,db,server,serverList)
+		aboutDialog.write($container)
+		navbar.addTab(aboutDialog,true)
+		
 		globalHistory.onQueryHashChange=(queryHash: string)=>{
 			const query=makeNoteQueryFromHash(queryHash)
 			openQueryDialog(query,false)
 			modifyHistory(query,false) // in case location was edited manually
-			populateInputs(query)
+			if (fetchDialogs) {
+				fetchDialogs.populateInputs(query)
+			}
 			startFetcherFromQuery(query,false,false)
 			globalHistory.restoreScrollPosition()
 		}
@@ -115,53 +180,47 @@ export default class NoteFetchPanel {
 				query.user=uid
 			}
 			openQueryDialog(query,false)
-			populateInputs(query)
-			searchDialog.$section.scrollIntoView()
+			if (fetchDialogs) {
+				fetchDialogs.populateInputs(query)
+				fetchDialogs.searchDialog.$section.scrollIntoView()
+			}
 		}
 		
 		function openQueryDialog(query: NoteQuery | undefined, initial: boolean): void {
+			if (!fetchDialogs) return
 			if (!query) {
-				if (initial) navbar.openTab(searchDialog.shortTitle)
+				if (initial) navbar.openTab(fetchDialogs.searchDialog.shortTitle)
 			} else {
-				const dialog=getDialogFromQuery(query)
+				const dialog=fetchDialogs.getDialogFromQuery(query)
 				if (!dialog) return
 				navbar.openTab(dialog.shortTitle)
 			}
 		}
-		function populateInputs(query: NoteQuery | undefined): void {
-			searchDialog.populateInputs(query)
-			bboxDialog.populateInputs(query)
-			xmlDialog.populateInputs(query)
-			plaintextDialog.populateInputs(query)
-		}
 		function startFetcherFromQuery(query: NoteQuery|undefined, clearStore: boolean, suppressFitNotes: boolean): void {
+			if (!fetchDialogs) return
 			if (!query) return
-			const dialog=getDialogFromQuery(query)
+			const dialog=fetchDialogs.getDialogFromQuery(query)
 			if (!dialog) return
 			startFetcher(query,clearStore,suppressFitNotes,dialog)
-		}
-		function getDialogFromQuery(query: NoteQuery): NoteFetchDialog|undefined {
-			if (query.mode=='search') {
-				return searchDialog
-			} else if (query.mode=='bbox') {
-				return bboxDialog
-			} else if (query.mode=='ids') {
-				return plaintextDialog
-			}
 		}
 		function startFetcher(
 			query: NoteQuery, clearStore: boolean, suppressFitNotes: boolean, dialog: NoteFetchDialog
 		): void {
+			if (!(server && fetchDialogs && noteTable)) return
 			if (query.mode!='search' && query.mode!='bbox' && query.mode!='ids') return
-			bboxDialog.resetFetch() // TODO run for all dialogs... for now only bboxDialog has meaningful action
-			figureDialog.close()
+			fetchDialogs.resetFetch() // TODO run for all dialogs... for now only bboxDialog has meaningful action
+			if (figureDialog) figureDialog.close()
 			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
-			map.clearNotes()
+			if (map) {
+				map.clearNotes()
+				if (suppressFitNotes) {
+					map.needToFitNotes=false
+				}
+			}
 			noteTable.reset()
-			filterPanel.unsubscribe() // TODO still needed? table used to be reconstructed but now it's permanent
-			filterPanel.subscribe(noteFilter=>noteTable.updateFilter(noteFilter))
-			if (suppressFitNotes) {
-				map.needToFitNotes=false
+			if (filterPanel) {
+				filterPanel.unsubscribe() // TODO still needed? table used to be reconstructed but now it's permanent
+				filterPanel.subscribe(noteFilter=>noteTable.updateFilter(noteFilter))
 			}
 			const environment: NoteFetcherEnvironment = {
 				db,server,
@@ -179,18 +238,6 @@ export default class NoteFetchPanel {
 				self.fetcherRun=new NoteBboxFetcherRun(environment,query,clearStore)
 			} else if (query.mode=='ids') {
 				self.fetcherRun=new NoteIdsFetcherRun(environment,query,clearStore)
-			}
-		}
-		function handleSharedCheckboxes($checkboxes: HTMLInputElement[], stateChangeListener: (state:boolean)=>void) {
-			for (const $checkbox of $checkboxes) {
-				$checkbox.addEventListener('input',inputListener)
-			}
-			function inputListener(this: HTMLInputElement) {
-				const state=this.checked
-				for (const $checkbox of $checkboxes) {
-					$checkbox.checked=state
-				}
-				stateChangeListener(state)
 			}
 		}
 		function modifyHistory(query: NoteQuery|undefined, push: boolean): void {

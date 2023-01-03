@@ -8,7 +8,7 @@ export default class GlobalHistory {
 	onMapHashChange?: (mapHash: string) => void
 	onQueryHashChange?: (queryHash: string) => void
 	private rememberScrollPosition=false
-	public readonly server: Server
+	public readonly server: Server|undefined
 	constructor(
 		private readonly $scrollingPart: HTMLElement,
 		private readonly $resizeObservationTarget: HTMLElement,
@@ -31,6 +31,10 @@ export default class GlobalHistory {
 		})
 		window.addEventListener('hashchange',()=>{
 			const [queryHash,mapHash,hostHash]=this.getAllHashes()
+			if (!this.server) {
+				if (hostHash) location.reload()
+				return
+			}
 			if (hostHash!=this.serverList.getHostHash(this.server)) {
 				location.reload()
 				return
@@ -81,6 +85,7 @@ export default class GlobalHistory {
 		return this.getAllHashes()[0]
 	}
 	setQueryHash(queryHash: string, pushStateAndRemoveMapHash: boolean): void {
+		if (!this.server) return
 		let mapHash=''
 		if (!pushStateAndRemoveMapHash) {
 			const searchParams=this.getSearchParams()
@@ -110,7 +115,7 @@ export default class GlobalHistory {
 		const queryHash=searchParams.toString()
 		history.replaceState(null,'',this.getFullHash(queryHash,mapHash,hostHash))
 	}
-	private getServerByReadingHash(): Server {
+	private getServerByReadingHash(): Server|undefined {
 		const [,,hostHash]=this.getAllHashes()
 		return this.serverList.getServer(hostHash)
 	}

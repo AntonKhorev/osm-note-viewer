@@ -25,11 +25,9 @@ export default class ServerList {
 		}
 		return hostHash
 	}
-	getServer(hostHash:string|null): Server {
+	getServer(hostHash:string|null): Server|undefined {
 		if (hostHash==null) return this.defaultServer
-		const server=this.servers.get(hostHash)
-		if (!server) throw new TypeError(`unknown host "${hostHash}"`)
-		return server
+		return this.servers.get(hostHash)
 	}
 }
 

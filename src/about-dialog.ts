@@ -9,7 +9,7 @@ import {escapeHash} from './escape'
 export default class AboutDialog extends NavDialog {
 	shortTitle=`About`
 	title=`About`
-	constructor(private storage: NoteViewerStorage, private db: NoteViewerDB, private server: Server, private serverList: ServerList) {
+	constructor(private storage: NoteViewerStorage, private db: NoteViewerDB, private server: Server|undefined, private serverList: ServerList) {
 		super()
 	}
 	writeSectionContent() {
