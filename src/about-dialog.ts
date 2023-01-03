@@ -16,22 +16,19 @@ export default class AboutDialog extends NavDialog {
 		const writeSubheading=(s:string)=>{
 			this.$section.append(makeElement('h3')()(s))
 		}
-		const writeBlock = (makeBlockContents: ()=>Array<HTMLElement|string>): HTMLElement => {
-			const $block=makeDiv()(...makeBlockContents())
-			this.$section.append($block)
-			return $block
-		}
-		writeBlock(()=>{
-			const result: Array<HTMLElement|string> = []
-			result.push(makeElement('strong')()(`note-viewer`))
+		{
+			const $block=makeDiv()(
+				makeElement('strong')()(`note-viewer`)
+			)
 			const build=document.body.dataset.build
-			if (build) result.push(` build ${build}`)
-			result.push(` — `)
-			result.push(makeLink(`source code`,`https://github.com/AntonKhorev/osm-note-viewer`))
-			return result
-		})
+			if (build) $block.append(` build ${build}`)
+			$block.append(
+				` — `,makeLink(`source code`,`https://github.com/AntonKhorev/osm-note-viewer`)
+			)
+			this.$section.append($block)
+		}
 		writeSubheading(`Servers`)
-		writeBlock(()=>{
+		{
 			const $list=makeElement('ul')()()
 			const baseLocation=location.pathname+location.search
 			for (const [newHost,newServer] of this.serverList.servers) {
@@ -39,27 +36,28 @@ export default class AboutDialog extends NavDialog {
 				const newLocation=baseLocation+(hash ? `#host=`+escapeHash(hash) : '')
 				let itemContent:Array<string|HTMLElement>=[makeLink(newHost,newLocation)]
 				if (newServer.noteText && !newServer.noteUrl) {
-					itemContent.push(` - `+newServer.noteText)
+					itemContent.push(` — `+newServer.noteText)
 				} else if (newServer.noteUrl) {
-					itemContent.push(` - `,makeLink(newServer.noteText||`note`,newServer.noteUrl))
+					itemContent.push(` — `,makeLink(newServer.noteText||`note`,newServer.noteUrl))
 				}
 				if (this.server==newServer) {
-					itemContent.push(` - currently selected`)
+					itemContent.push(` — currently selected`)
 					itemContent=[makeElement('strong')()(...itemContent)]
 				}
 				$list.append(makeElement('li')()(...itemContent))
 			}
-			return [$list]
-		})
+			this.$section.append(makeDiv()($list))
+		}
 		writeSubheading(`Storage`)
 		const $updateFetchesButton=document.createElement('button')
-		writeBlock(()=>{
+		{
 			$updateFetchesButton.textContent=`Update stored fetch list`
-			return [$updateFetchesButton]
-		})
-		const $fetchesContainer=writeBlock(()=>{
-			return [`Click Update button above to see stored fetches`]
-		})
+			this.$section.append(makeDiv('major-input')($updateFetchesButton))
+		}
+		const $fetchesContainer=makeDiv()(
+			`Click Update button above to see stored fetches`
+		)
+		this.$section.append($fetchesContainer)
 		$updateFetchesButton.addEventListener('click',async()=>{
 			$updateFetchesButton.disabled=true
 			let fetchEntries: FetchEntry[] =[]
@@ -113,16 +111,16 @@ export default class AboutDialog extends NavDialog {
 			}
 			$fetchesContainer.append($table)
 		})
-		writeBlock(()=>{
+		{
 			const $clearButton=document.createElement('button')
 			$clearButton.textContent=`Clear settings`
 			$clearButton.addEventListener('click',()=>{
 				this.storage.clear()
 			})
-			return [$clearButton]
-		})
+			this.$section.append(makeDiv('major-input')($clearButton))
+		}
 		writeSubheading(`Extra information`)
-		writeBlock(()=>[
+		this.$section.append(makeDiv()(
 			`Notes implementation code: `,
 			makeLink(`notes api controller`,`https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`),
 			` (db search query is build there), `,
@@ -136,10 +134,10 @@ export default class AboutDialog extends NavDialog {
 			` (not implemented in `,
 			makeLink(`CGIMap`,`https://wiki.openstreetmap.org/wiki/Cgimap`),
 			`)`
-		])
-		writeBlock(()=>[
+		))
+		this.$section.append(makeDiv()(
 			`Other documentation: `,
 			makeLink(`Overpass queries`,`https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`)
-		])
+		))
 	}
 }
