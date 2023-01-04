@@ -42,6 +42,8 @@ async function main() {
 	let figureDialog: FigureDialog|undefined
 	if (server) {
 		[map,figureDialog]=writeGraphicSide($graphicSide,globalEventsListener,globalHistory,server)
+	} else {
+		document.body.classList.add('only-text-side')
 	}
 
 	const navbar=new Navbar(storage,$navbarContainer,map)

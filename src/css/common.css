@@ -48,6 +48,13 @@ body.flipped .text-side {
 	height: 100%;
 	width: 50%;
 }
+body.only-text-side .text-side {
+	height: 100%;
+	width: 100%;
+}
+body.only-text-side .graphic-side {
+	display: none;
+}
 .text-side {
 	top: 0;
 	left: 0;
