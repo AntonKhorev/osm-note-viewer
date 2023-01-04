@@ -7,11 +7,11 @@ const scrollRestorerEnabled=true // almost works without this, just won't restor
 export default class GlobalHistory {
 	onMapHashChange?: (mapHash: string) => void
 	onQueryHashChange?: (queryHash: string) => void
+	$resizeObservationTarget: HTMLElement|undefined // needs to be set before calling restoreScrollPosition()
 	private rememberScrollPosition=false
 	public readonly server: Server|undefined
 	constructor(
 		private readonly $scrollingPart: HTMLElement,
-		private readonly $resizeObservationTarget: HTMLElement,
 		private readonly serverList: ServerList
 	) {
 		this.server=this.getServerByReadingHash()
@@ -54,7 +54,7 @@ export default class GlobalHistory {
 		}
 	}
 	restoreScrollPosition(): void {
-		if (!scrollRestorerEnabled) return
+		if (!scrollRestorerEnabled || !this.$resizeObservationTarget) return
 		// requestAnimationFrame and setTimeout(...,0) don't work very well: https://stackoverflow.com/a/38029067
 		// ResizeObserver works better: https://stackoverflow.com/a/66172042
 		this.rememberScrollPosition=false

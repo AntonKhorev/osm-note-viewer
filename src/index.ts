@@ -25,11 +25,9 @@ async function main() {
 
 	const $navbarContainer=document.createElement('nav')
 	const $fetchContainer=makeDiv('panel','fetch')()
-	const $filterContainer=makeDiv('panel','fetch')()
-	const $notesContainer=makeDiv('notes')()
 	const $moreContainer=makeDiv('more')()
 
-	const $scrollingPart=makeDiv('scrolling')($navbarContainer,$fetchContainer,$filterContainer,$notesContainer,$moreContainer)
+	const $scrollingPart=makeDiv('scrolling')($navbarContainer,$fetchContainer)
 	const $stickyPart=makeDiv('sticky')()
 
 	const $textSide=makeDiv('text-side')($scrollingPart,$stickyPart)
@@ -38,7 +36,7 @@ async function main() {
 	if (flipped) document.body.classList.add('flipped')
 	document.body.append($textSide,$graphicSide)
 
-	const globalHistory=new GlobalHistory($scrollingPart,$notesContainer,serverList)
+	const globalHistory=new GlobalHistory($scrollingPart,serverList)
 	const server=globalHistory.server
 	let map: NoteMap|undefined
 	let figureDialog: FigureDialog|undefined
@@ -50,8 +48,8 @@ async function main() {
 	let noteTable: NoteTable|undefined
 	if (server && map && figureDialog) {
 		noteTable=writeBelowFetchPanel(
-			$filterContainer,$notesContainer,$stickyPart,
-			storage,globalEventsListener,server,
+			$scrollingPart,$stickyPart,$moreContainer,
+			storage,globalEventsListener,globalHistory,server,
 			map,figureDialog
 		)
 	}
@@ -109,13 +107,17 @@ function writeGraphicSide(
 }
 
 function writeBelowFetchPanel(
-	$filterContainer:HTMLElement ,$notesContainer:HTMLElement, $stickyPart:HTMLElement,
-	storage:NoteViewerStorage, globalEventsListener:GlobalEventsListener, server:Server,
+	$scrollingPart:HTMLElement, $stickyPart:HTMLElement, $moreContainer:HTMLElement,
+	storage:NoteViewerStorage, globalEventsListener:GlobalEventsListener, globalHistory:GlobalHistory, server:Server,
 	map:NoteMap, figureDialog:FigureDialog
 ): NoteTable {
+	const $filterContainer=makeDiv('panel','fetch')()
+	const $notesContainer=makeDiv('notes')()
+	$scrollingPart.append($filterContainer,$notesContainer,$moreContainer)
 	const filterPanel=new NoteFilterPanel(server,$filterContainer)
 	const $toolContainer=makeDiv('panel','command')()
 	$stickyPart.append($toolContainer)
+
 	const toolPanel=new ToolPanel(
 		storage,server,globalEventsListener,
 		$toolContainer,map,figureDialog
@@ -129,6 +131,7 @@ function writeBelowFetchPanel(
 		noteTable.pingNoteFromLink($a,noteId)
 	}
 	filterPanel.subscribe(noteFilter=>noteTable.updateFilter(noteFilter))
+	globalHistory.$resizeObservationTarget=$notesContainer
 
 	return noteTable
 }
