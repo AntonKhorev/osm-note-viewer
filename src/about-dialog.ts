@@ -29,6 +29,7 @@ export default class AboutDialog extends NavDialog {
 		}
 		writeSubheading(`Servers`)
 		{
+			if (!this.server) this.$section.append(makeDiv('notice','error')(`Unknown server in URL. Please select one of the servers below.`))
 			const $list=makeElement('ul')()()
 			const baseLocation=location.pathname+location.search
 			for (const [newHost,newServer] of this.serverList.servers) {
