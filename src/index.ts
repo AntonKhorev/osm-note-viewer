@@ -28,10 +28,9 @@ async function main() {
 	const $filterContainer=makeDiv('panel','fetch')()
 	const $notesContainer=makeDiv('notes')()
 	const $moreContainer=makeDiv('more')()
-	const $toolContainer=makeDiv('panel','command')()
 
 	const $scrollingPart=makeDiv('scrolling')($navbarContainer,$fetchContainer,$filterContainer,$notesContainer,$moreContainer)
-	const $stickyPart=makeDiv('sticky')($toolContainer)
+	const $stickyPart=makeDiv('sticky')()
 
 	const $textSide=makeDiv('text-side')($scrollingPart,$stickyPart)
 	const $graphicSide=makeDiv('graphic-side')()
@@ -51,7 +50,7 @@ async function main() {
 	let noteTable: NoteTable|undefined
 	if (server && map && figureDialog) {
 		noteTable=writeBelowFetchPanel(
-			$filterContainer,$notesContainer,$toolContainer,
+			$filterContainer,$notesContainer,$stickyPart,
 			storage,globalEventsListener,server,
 			map,figureDialog
 		)
@@ -110,11 +109,13 @@ function writeGraphicSide(
 }
 
 function writeBelowFetchPanel(
-	$filterContainer:HTMLElement ,$notesContainer:HTMLElement, $toolContainer:HTMLElement,
+	$filterContainer:HTMLElement ,$notesContainer:HTMLElement, $stickyPart:HTMLElement,
 	storage:NoteViewerStorage, globalEventsListener:GlobalEventsListener, server:Server,
 	map:NoteMap, figureDialog:FigureDialog
 ): NoteTable {
 	const filterPanel=new NoteFilterPanel(server,$filterContainer)
+	const $toolContainer=makeDiv('panel','command')()
+	$stickyPart.append($toolContainer)
 	const toolPanel=new ToolPanel(
 		storage,server,globalEventsListener,
 		$toolContainer,map,figureDialog
