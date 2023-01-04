@@ -11,107 +11,8 @@ import FigureDialog from './figure'
 import NoteTable from './table'
 import NoteFilterPanel from './filter-panel'
 import {NoteQuery, NoteSearchQuery, makeNoteQueryFromHash, makeNoteQueryString} from './query'
-import {NoteFetcherEnvironment, NoteFetcherRequest, NoteFetcherRun,
-	NoteSearchFetcherRequest, NoteBboxFetcherRequest, NoteIdsFetcherRequest,
-	NoteSearchFetcherRun, NoteBboxFetcherRun, NoteIdsFetcherRun} from './fetch'
-import {NoteFetchDialogSharedCheckboxes,
-	NoteFetchDialog, NoteSearchFetchDialog, NoteBboxFetchDialog, NoteXmlFetchDialog, NotePlaintextFetchDialog
-} from './fetch-dialog'
-
-class FetchDialogs { // TODO move to -dialog module
-	searchDialog: NoteFetchDialog
-	bboxDialog: NoteFetchDialog
-	xmlDialog: NoteFetchDialog
-	plaintextDialog: NoteFetchDialog
-	constructor(
-		server: Server,
-		$container: HTMLElement, $moreContainer: HTMLElement,
-		noteTable: NoteTable, map: NoteMap,
-		hashQuery: NoteQuery|undefined,
-		submitQueryToDialog: (dialog:NoteFetchDialog,query:NoteQuery)=>void,
-		limitChangeListener: (dialog:NoteFetchDialog)=>void,
-	) {
-		const $sharedCheckboxes: NoteFetchDialogSharedCheckboxes = {
-			showImages: [],
-			advancedMode: []
-		}
-		const makeFetchDialog = (
-			fetcherRequest: NoteFetcherRequest,
-			fetchDialogCtor: (
-				getRequestApiPaths: (query: NoteQuery, limit: number) => [type: string, apiPath: string][],
-				submitQuery: (query: NoteQuery) => void
-			) => NoteFetchDialog
-		): NoteFetchDialog => {
-			const dialog=fetchDialogCtor(
-				(query,limit)=>fetcherRequest.getRequestApiPaths(query,limit),
-				(query)=>submitQueryToDialog(dialog,query)
-			)
-			dialog.limitChangeListener=()=>limitChangeListener(dialog)
-			dialog.write($container)
-			dialog.populateInputs(hashQuery)
-			return dialog
-		}
-		this.searchDialog=makeFetchDialog(
-			new NoteSearchFetcherRequest,
-			(getRequestApiPaths,submitQuery)=>new NoteSearchFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery)
-		)
-		this.bboxDialog=makeFetchDialog(
-			new NoteBboxFetcherRequest,
-			(getRequestApiPaths,submitQuery)=>new NoteBboxFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery,map)
-		)
-		this.xmlDialog=makeFetchDialog(
-			new NoteIdsFetcherRequest,
-			(getRequestApiPaths,submitQuery)=>new NoteXmlFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery)
-		)
-		this.plaintextDialog=makeFetchDialog(
-			new NoteIdsFetcherRequest,
-			(getRequestApiPaths,submitQuery)=>new NotePlaintextFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery,noteTable)
-		)
-
-		const handleSharedCheckboxes = ($checkboxes: HTMLInputElement[], stateChangeListener: (state:boolean)=>void) => {
-			for (const $checkbox of $checkboxes) {
-				$checkbox.addEventListener('input',inputListener)
-			}
-			function inputListener(this: HTMLInputElement) {
-				const state=this.checked
-				for (const $checkbox of $checkboxes) {
-					$checkbox.checked=state
-				}
-				stateChangeListener(state)
-			}
-		}
-		handleSharedCheckboxes($sharedCheckboxes.showImages,state=>noteTable.setShowImages(state))
-		handleSharedCheckboxes($sharedCheckboxes.advancedMode,state=>{
-			for (const dialog of this.allDialogs) {
-				dialog.reactToAdvancedModeChange()
-			}
-			$container.classList.toggle('advanced-mode',state)
-			$moreContainer.classList.toggle('advanced-mode',state)
-		})
-	}
-	get allDialogs() {
-		return [this.searchDialog,this.bboxDialog,this.xmlDialog,this.plaintextDialog]
-	}
-	populateInputs(query: NoteQuery | undefined): void {
-		for (const dialog of this.allDialogs) {
-			dialog.populateInputs(query)
-		}
-	}
-	resetFetch(): void {
-		for (const dialog of this.allDialogs) {
-			dialog.resetFetch()
-		}
-	}
-	getDialogFromQuery(query: NoteQuery): NoteFetchDialog|undefined {
-		if (query.mode=='search') {
-			return this.searchDialog
-		} else if (query.mode=='bbox') {
-			return this.bboxDialog
-		} else if (query.mode=='ids') {
-			return this.plaintextDialog
-		}
-	}
-}
+import {NoteFetcherEnvironment, NoteFetcherRun, NoteSearchFetcherRun, NoteBboxFetcherRun, NoteIdsFetcherRun} from './fetch'
+import NoteFetchDialogs, {NoteFetchDialog} from './fetch-dialog'
 
 export default class NoteFetchPanel {
 	// TODO have invoking dialog object; react only on dl params change in it; display that fieldset differently
@@ -128,9 +29,9 @@ export default class NoteFetchPanel {
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
 		const hashQuery=makeNoteQueryFromHash(globalHistory.getQueryHash())
 
-		let fetchDialogs: FetchDialogs|undefined
+		let fetchDialogs: NoteFetchDialogs|undefined
 		if (server && noteTable && map) {
-			fetchDialogs=new FetchDialogs(
+			fetchDialogs=new NoteFetchDialogs(
 				server,$container,$moreContainer,noteTable,map,hashQuery,
 				(dialog:NoteFetchDialog,query:NoteQuery)=>{
 					modifyHistory(query,true)
