@@ -45,7 +45,7 @@ export default class NoteFetchPanel {
 				navbar.addTab(dialog)
 			}
 		}
-		const aboutDialog=new AboutDialog(storage,db,server,serverList)
+		const aboutDialog=new AboutDialog(storage,db,server,serverList,globalHistory.serverHash)
 		aboutDialog.write($container)
 		navbar.addTab(aboutDialog,true)
 		

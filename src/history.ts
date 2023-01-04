@@ -10,11 +10,16 @@ export default class GlobalHistory {
 	$resizeObservationTarget: HTMLElement|undefined // needs to be set before calling restoreScrollPosition()
 	private rememberScrollPosition=false
 	public readonly server: Server|undefined
+	public readonly serverHash: string = ''
 	constructor(
 		private readonly $scrollingPart: HTMLElement,
 		private readonly serverList: ServerList
 	) {
-		this.server=this.getServerByReadingHash()
+		{
+			const [,,hostHash]=this.getAllHashes()
+			this.server=this.serverList.getServer(hostHash)
+			if (hostHash!=null) this.serverHash=`host=`+escapeHash(hostHash)
+		}
 		if (!scrollRestorerEnabled) return
 		history.scrollRestoration='manual'
 		const replaceScrollPositionInHistory=()=>{
@@ -114,10 +119,6 @@ export default class GlobalHistory {
 		searchParams.delete('host')
 		const queryHash=searchParams.toString()
 		history.replaceState(null,'',this.getFullHash(queryHash,mapHash,hostHash))
-	}
-	private getServerByReadingHash(): Server|undefined {
-		const [,,hostHash]=this.getAllHashes()
-		return this.serverList.getServer(hostHash)
 	}
 	private getAllHashes(): [queryHash: string, mapHash: string|null, hostHash: string|null] {
 		const searchParams=this.getSearchParams()

@@ -9,7 +9,10 @@ import {escapeHash} from './escape'
 export default class AboutDialog extends NavDialog {
 	shortTitle=`About`
 	title=`About`
-	constructor(private storage: NoteViewerStorage, private db: NoteViewerDB, private server: Server|undefined, private serverList: ServerList) {
+	constructor(
+		private storage: NoteViewerStorage, private db: NoteViewerDB,
+		private server: Server|undefined, private serverList: ServerList, private serverHash: string
+	) {
 		super()
 	}
 	writeSectionContent() {
@@ -29,7 +32,11 @@ export default class AboutDialog extends NavDialog {
 		}
 		writeSubheading(`Servers`)
 		{
-			if (!this.server) this.$section.append(makeDiv('notice','error')(`Unknown server in URL. Please select one of the servers below.`))
+			if (!this.server) this.$section.append(makeDiv('notice','error')(
+				`Unknown server in URL hash parameter `,
+				makeElement('code')()(this.serverHash),
+				`. Please select one of the servers below.`
+			))
 			const $list=makeElement('ul')()()
 			const baseLocation=location.pathname+location.search
 			for (const [newHost,newServer] of this.serverList.servers) {
