@@ -4,6 +4,14 @@ import {escapeHash} from './escape'
 
 const scrollRestorerEnabled=true // almost works without this, just won't restore position correctly on forward
 
+export interface GlobalHistoryWithServer {
+	onMapHashChange?: (mapHash: string) => void
+	$resizeObservationTarget: HTMLElement|undefined
+	readonly server: Server
+	triggerInitialMapHashChange(): void
+	setMapHash(mapHash: string): void
+}
+
 export default class GlobalHistory {
 	onMapHashChange?: (mapHash: string) => void
 	onQueryHashChange?: (queryHash: string) => void
@@ -52,7 +60,7 @@ export default class GlobalHistory {
 			}
 		})
 	}
-	triggerInitialMapHashChange() {
+	triggerInitialMapHashChange(): void {
 		const [,mapHash]=this.getAllHashes()
 		if (this.onMapHashChange && mapHash) {
 			this.onMapHashChange(mapHash)
@@ -119,6 +127,9 @@ export default class GlobalHistory {
 		searchParams.delete('host')
 		const queryHash=searchParams.toString()
 		history.replaceState(null,'',this.getFullHash(queryHash,mapHash,hostHash))
+	}
+	hasServer(): this is GlobalHistoryWithServer {
+		return !!this.server
 	}
 	private getAllHashes(): [queryHash: string, mapHash: string|null, hostHash: string|null] {
 		const searchParams=this.getSearchParams()

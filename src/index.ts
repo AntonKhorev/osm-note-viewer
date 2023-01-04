@@ -2,7 +2,7 @@ import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
 import ServerList from './server-list'
 import GlobalEventsListener from './events'
-import GlobalHistory from './history'
+import GlobalHistory, {GlobalHistoryWithServer} from './history'
 import {NoteMap} from './map'
 import FigureDialog from './figure'
 import Navbar from './navbar'
@@ -12,7 +12,6 @@ import NoteTable from './table'
 import ToolPanel from './tool-panel'
 import {downloadAndShowChangeset, downloadAndShowElement} from './osm'
 import {makeDiv} from './html'
-import Server from './server'
 import serverListConfig from './server-list-config'
 
 main()
@@ -35,26 +34,22 @@ async function main() {
 	document.body.append(makeDiv('text-side')($scrollingPart,$stickyPart))
 
 	const globalHistory=new GlobalHistory($scrollingPart,serverList)
-	const server=globalHistory.server
 	let map: NoteMap|undefined
 	let figureDialog: FigureDialog|undefined
-	if (server) {
-		[map,figureDialog]=writeGraphicSide(globalEventsListener,globalHistory,server)
+	let noteTable: NoteTable|undefined
+	if (globalHistory.hasServer()) {
+		[map,figureDialog]=writeGraphicSide(globalEventsListener,globalHistory)
+		noteTable=writeBelowFetchPanel(
+			$scrollingPart,$stickyPart,$moreContainer,
+			storage,globalEventsListener,globalHistory,
+			map,figureDialog
+		)
 	} else {
 		document.body.classList.add('only-text-side')
 	}
-
 	const navbar=new Navbar(storage,$navbarContainer,map)
-	let noteTable: NoteTable|undefined
-	if (server && map && figureDialog) {
-		noteTable=writeBelowFetchPanel(
-			$scrollingPart,$stickyPart,$moreContainer,
-			storage,globalEventsListener,globalHistory,server,
-			map,figureDialog
-		)
-	}
 	const fetchPanel=new NoteFetchPanel(
-		storage,db,server,serverList,
+		storage,db,serverList,
 		globalEventsListener,globalHistory,
 		$fetchContainer,$moreContainer,
 		navbar,noteTable,map,figureDialog
@@ -66,7 +61,7 @@ async function main() {
 }
 
 function writeGraphicSide(
-	globalEventsListener:GlobalEventsListener, globalHistory:GlobalHistory, server:Server
+	globalEventsListener:GlobalEventsListener, globalHistory:GlobalHistoryWithServer
 ): [NoteMap,FigureDialog] {
 	const $graphicSide=makeDiv('graphic-side')()
 	const $mapContainer=makeDiv('map')()
@@ -75,7 +70,7 @@ function writeGraphicSide(
 	$graphicSide.append($mapContainer,$figureDialog)
 	document.body.append($graphicSide)
 
-	const map=new NoteMap($mapContainer,server)
+	const map=new NoteMap($mapContainer,globalHistory.server)
 	map.onMoveEnd(()=>{
 		globalHistory.setMapHash(map.hash)
 	})
@@ -90,11 +85,11 @@ function writeGraphicSide(
 	globalEventsListener.elementListener=($a,elementType,elementId)=>{
 		if (elementType!='node' && elementType!='way' && elementType!='relation') return false
 		figureDialog.close()
-		downloadAndShowElement($a,server,map,elementType,elementId)
+		downloadAndShowElement($a,globalHistory.server,map,elementType,elementId)
 	}
 	globalEventsListener.changesetListener=($a,changesetId)=>{
 		figureDialog.close()
-		downloadAndShowChangeset($a,server,map,changesetId)
+		downloadAndShowChangeset($a,globalHistory.server,map,changesetId)
 	}
 	globalEventsListener.mapListener=($a,zoom,lat,lon)=>{
 		figureDialog.close()
@@ -109,24 +104,24 @@ function writeGraphicSide(
 
 function writeBelowFetchPanel(
 	$scrollingPart:HTMLElement, $stickyPart:HTMLElement, $moreContainer:HTMLElement,
-	storage:NoteViewerStorage, globalEventsListener:GlobalEventsListener, globalHistory:GlobalHistory, server:Server,
+	storage:NoteViewerStorage, globalEventsListener:GlobalEventsListener, globalHistory:GlobalHistoryWithServer,
 	map:NoteMap, figureDialog:FigureDialog
 ): NoteTable {
 	const $filterContainer=makeDiv('panel','fetch')()
 	const $notesContainer=makeDiv('notes')()
 	$scrollingPart.append($filterContainer,$notesContainer,$moreContainer)
-	const filterPanel=new NoteFilterPanel(server,$filterContainer)
+	const filterPanel=new NoteFilterPanel(globalHistory.server,$filterContainer)
 	const $toolContainer=makeDiv('panel','command')()
 	$stickyPart.append($toolContainer)
 
 	const toolPanel=new ToolPanel(
-		storage,server,globalEventsListener,
+		storage,globalHistory.server,globalEventsListener,
 		$toolContainer,map,figureDialog
 	)
 	const noteTable=new NoteTable(
 		$notesContainer,toolPanel,map,filterPanel.noteFilter,
 		figureDialog,
-		server
+		globalHistory.server
 	)
 	globalEventsListener.noteListener=($a,noteId)=>{
 		noteTable.pingNoteFromLink($a,noteId)

@@ -1,6 +1,5 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
-import Server from './server'
 import ServerList from './server-list'
 import GlobalEventsListener from './events'
 import GlobalHistory from './history'
@@ -18,12 +17,13 @@ export default class NoteFetchPanel {
 	private fetcherRun?: NoteFetcherRun
 	private fetcherInvoker?: NoteFetchDialog
 	constructor(
-		storage: NoteViewerStorage, db: NoteViewerDB, server: Server|undefined, serverList: ServerList,
+		storage: NoteViewerStorage, db: NoteViewerDB, serverList: ServerList,
 		globalEventsListener: GlobalEventsListener, globalHistory: GlobalHistory,
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		navbar: Navbar, noteTable: NoteTable|undefined, map: NoteMap|undefined, figureDialog: FigureDialog|undefined
 	) {
 		const self=this
+		const server=globalHistory.server
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
 		const hashQuery=makeNoteQueryFromHash(globalHistory.getQueryHash())
 
