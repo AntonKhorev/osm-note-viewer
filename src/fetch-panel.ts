@@ -17,7 +17,7 @@ export default class NoteFetchPanel {
 	private fetcherRun?: NoteFetcherRun
 	private fetcherInvoker?: NoteFetchDialog
 	constructor(
-		storage: NoteViewerStorage, db: NoteViewerDB, serverList: ServerList,
+		storage: NoteViewerStorage, db: NoteViewerDB,
 		globalEventsListener: GlobalEventsListener, globalHistory: GlobalHistory,
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		navbar: Navbar, noteTable: NoteTable|undefined, map: NoteMap|undefined, figureDialog: FigureDialog|undefined
@@ -45,7 +45,7 @@ export default class NoteFetchPanel {
 				navbar.addTab(dialog)
 			}
 		}
-		const aboutDialog=new AboutDialog(storage,db,server,serverList,globalHistory.serverHash)
+		const aboutDialog=new AboutDialog(storage,db,server,globalHistory.serverList,globalHistory.serverHash)
 		aboutDialog.write($container)
 		navbar.addTab(aboutDialog,true)
 		
@@ -113,7 +113,7 @@ export default class NoteFetchPanel {
 			noteTable.reset()
 			const environment: NoteFetcherEnvironment = {
 				db,server,
-				hostHash: serverList.getHostHash(server),
+				hostHash: globalHistory.serverList.getHostHash(server),
 				noteTable,$moreContainer,
 				getLimit: dialog.getLimit,
 				getAutoLoad: dialog.getAutoLoad,

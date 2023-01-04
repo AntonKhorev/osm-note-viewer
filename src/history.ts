@@ -21,7 +21,7 @@ export default class GlobalHistory {
 	public readonly serverHash: string = ''
 	constructor(
 		private readonly $scrollingPart: HTMLElement,
-		private readonly serverList: ServerList
+		public readonly serverList: ServerList
 	) {
 		{
 			const [,,hostHash]=this.getAllHashes()
