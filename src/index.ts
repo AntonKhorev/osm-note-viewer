@@ -48,10 +48,9 @@ async function main() {
 	}
 
 	const navbar=new Navbar(storage,$navbarContainer,map)
-	let filterPanel: NoteFilterPanel|undefined
 	let noteTable: NoteTable|undefined
 	if (server && map && figureDialog) {
-		[filterPanel,noteTable]=writeBelowFetchPanel(
+		noteTable=writeBelowFetchPanel(
 			$filterContainer,$notesContainer,$toolContainer,
 			storage,globalEventsListener,server,
 			map,figureDialog
@@ -61,8 +60,7 @@ async function main() {
 		storage,db,server,serverList,
 		globalEventsListener,globalHistory,
 		$fetchContainer,$moreContainer,
-		navbar,filterPanel,
-		noteTable,map,figureDialog
+		navbar,noteTable,map,figureDialog
 	)
 	globalEventsListener.noteSelfListener=($a,noteId)=>{
 		fetchPanel.updateNote($a,Number(noteId))
@@ -115,7 +113,7 @@ function writeBelowFetchPanel(
 	$filterContainer:HTMLElement ,$notesContainer:HTMLElement, $toolContainer:HTMLElement,
 	storage:NoteViewerStorage, globalEventsListener:GlobalEventsListener, server:Server,
 	map:NoteMap, figureDialog:FigureDialog
-): [NoteFilterPanel,NoteTable] {
+): NoteTable {
 	const filterPanel=new NoteFilterPanel(server,$filterContainer)
 	const toolPanel=new ToolPanel(
 		storage,server,globalEventsListener,
@@ -129,6 +127,7 @@ function writeBelowFetchPanel(
 	globalEventsListener.noteListener=($a,noteId)=>{
 		noteTable.pingNoteFromLink($a,noteId)
 	}
+	filterPanel.subscribe(noteFilter=>noteTable.updateFilter(noteFilter))
 
-	return [filterPanel,noteTable]
+	return noteTable
 }

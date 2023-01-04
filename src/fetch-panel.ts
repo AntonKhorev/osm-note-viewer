@@ -22,8 +22,7 @@ export default class NoteFetchPanel {
 		storage: NoteViewerStorage, db: NoteViewerDB, server: Server|undefined, serverList: ServerList,
 		globalEventsListener: GlobalEventsListener, globalHistory: GlobalHistory,
 		$container: HTMLElement, $moreContainer: HTMLElement,
-		navbar: Navbar, filterPanel: NoteFilterPanel|undefined,
-		noteTable: NoteTable|undefined, map: NoteMap|undefined, figureDialog: FigureDialog|undefined
+		navbar: Navbar, noteTable: NoteTable|undefined, map: NoteMap|undefined, figureDialog: FigureDialog|undefined
 	) {
 		const self=this
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
@@ -113,10 +112,6 @@ export default class NoteFetchPanel {
 				}
 			}
 			noteTable.reset()
-			if (filterPanel) {
-				filterPanel.unsubscribe() // TODO still needed? table used to be reconstructed but now it's permanent
-				filterPanel.subscribe(noteFilter=>noteTable.updateFilter(noteFilter))
-			}
 			const environment: NoteFetcherEnvironment = {
 				db,server,
 				hostHash: serverList.getHostHash(server),
