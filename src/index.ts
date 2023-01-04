@@ -30,18 +30,16 @@ async function main() {
 	const $scrollingPart=makeDiv('scrolling')($navbarContainer,$fetchContainer)
 	const $stickyPart=makeDiv('sticky')()
 
-	const $textSide=makeDiv('text-side')($scrollingPart,$stickyPart)
-	const $graphicSide=makeDiv('graphic-side')()
 	const flipped=!!storage.getItem('flipped')
 	if (flipped) document.body.classList.add('flipped')
-	document.body.append($textSide,$graphicSide)
+	document.body.append(makeDiv('text-side')($scrollingPart,$stickyPart))
 
 	const globalHistory=new GlobalHistory($scrollingPart,serverList)
 	const server=globalHistory.server
 	let map: NoteMap|undefined
 	let figureDialog: FigureDialog|undefined
 	if (server) {
-		[map,figureDialog]=writeGraphicSide($graphicSide,globalEventsListener,globalHistory,server)
+		[map,figureDialog]=writeGraphicSide(globalEventsListener,globalHistory,server)
 	} else {
 		document.body.classList.add('only-text-side')
 	}
@@ -68,13 +66,14 @@ async function main() {
 }
 
 function writeGraphicSide(
-	$graphicSide:HTMLElement,
 	globalEventsListener:GlobalEventsListener, globalHistory:GlobalHistory, server:Server
 ): [NoteMap,FigureDialog] {
+	const $graphicSide=makeDiv('graphic-side')()
 	const $mapContainer=makeDiv('map')()
 	const $figureDialog=document.createElement('dialog')
 	$figureDialog.classList.add('figure')
 	$graphicSide.append($mapContainer,$figureDialog)
+	document.body.append($graphicSide)
 
 	const map=new NoteMap($mapContainer,server)
 	map.onMoveEnd(()=>{
