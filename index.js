@@ -568,10 +568,7 @@ class ServerList {
     getServer(hostHash) {
         if (hostHash == null)
             return this.defaultServer;
-        const server = this.servers.get(hostHash);
-        if (!server)
-            throw new TypeError(`unknown host "${hostHash}"`);
-        return server;
+        return this.servers.get(hostHash);
     }
 }
 function makeServer(config) {
@@ -623,12 +620,17 @@ class GlobalEventListener {
 }
 
 class GlobalHistory {
-    constructor($scrollingPart, $resizeObservationTarget, serverList) {
+    constructor($scrollingPart, serverList) {
         this.$scrollingPart = $scrollingPart;
-        this.$resizeObservationTarget = $resizeObservationTarget;
         this.serverList = serverList;
         this.rememberScrollPosition = false;
-        this.server = this.getServerByReadingHash();
+        this.serverHash = '';
+        {
+            const [, , hostHash] = this.getAllHashes();
+            this.server = this.serverList.getServer(hostHash);
+            if (hostHash != null)
+                this.serverHash = `host=` + escapeHash(hostHash);
+        }
         history.scrollRestoration = 'manual';
         const replaceScrollPositionInHistory = () => {
             const scrollPosition = $scrollingPart.scrollTop;
@@ -645,6 +647,11 @@ class GlobalHistory {
         });
         window.addEventListener('hashchange', () => {
             const [queryHash, mapHash, hostHash] = this.getAllHashes();
+            if (!this.server) {
+                if (hostHash)
+                    location.reload();
+                return;
+            }
             if (hostHash != this.serverList.getHostHash(this.server)) {
                 location.reload();
                 return;
@@ -664,6 +671,8 @@ class GlobalHistory {
         }
     }
     restoreScrollPosition() {
+        if (!this.$resizeObservationTarget)
+            return;
         // requestAnimationFrame and setTimeout(...,0) don't work very well: https://stackoverflow.com/a/38029067
         // ResizeObserver works better: https://stackoverflow.com/a/66172042
         this.rememberScrollPosition = false;
@@ -698,6 +707,8 @@ class GlobalHistory {
         return this.getAllHashes()[0];
     }
     setQueryHash(queryHash, pushStateAndRemoveMapHash) {
+        if (!this.server)
+            return;
         let mapHash = '';
         if (!pushStateAndRemoveMapHash) {
             const searchParams = this.getSearchParams();
@@ -728,9 +739,8 @@ class GlobalHistory {
         const queryHash = searchParams.toString();
         history.replaceState(null, '', this.getFullHash(queryHash, mapHash, hostHash));
     }
-    getServerByReadingHash() {
-        const [, , hostHash] = this.getAllHashes();
-        return this.serverList.getServer(hostHash);
+    hasServer() {
+        return !!this.server;
     }
     getAllHashes() {
         const searchParams = this.getSearchParams();
@@ -1309,7 +1319,10 @@ class Navbar {
     constructor(storage, $container, map) {
         this.$tabList = document.createElement('ul');
         this.tabs = new Map();
-        $container.append(this.$tabList, makeFlipLayoutButton(storage, map), makeResetButton());
+        $container.append(this.$tabList);
+        if (map)
+            $container.append(makeFlipLayoutButton(storage, map));
+        $container.append(makeResetButton());
     }
     addTab(dialog, push = false) {
         const id = 'section-' + dialog.shortTitle;
@@ -1371,12 +1384,13 @@ function makeResetButton() {
 }
 
 class AboutDialog extends NavDialog {
-    constructor(storage, db, server, serverList) {
+    constructor(storage, db, server, serverList, serverHash) {
         super();
         this.storage = storage;
         this.db = db;
         this.server = server;
         this.serverList = serverList;
+        this.serverHash = serverHash;
         this.shortTitle = `About`;
         this.title = `About`;
     }
@@ -1384,23 +1398,18 @@ class AboutDialog extends NavDialog {
         const writeSubheading = (s) => {
             this.$section.append(makeElement('h3')()(s));
         };
-        const writeBlock = (makeBlockContents) => {
-            const $block = makeDiv()(...makeBlockContents());
-            this.$section.append($block);
-            return $block;
-        };
-        writeBlock(() => {
-            const result = [];
-            result.push(makeElement('strong')()(`note-viewer`));
+        {
+            const $block = makeDiv()(makeElement('strong')()(`note-viewer`));
             const build = document.body.dataset.build;
             if (build)
-                result.push(` build ${build}`);
-            result.push(` — `);
-            result.push(makeLink(`source code`, `https://github.com/AntonKhorev/osm-note-viewer`));
-            return result;
-        });
+                $block.append(` build ${build}`);
+            $block.append(` — `, makeLink(`source code`, `https://github.com/AntonKhorev/osm-note-viewer`));
+            this.$section.append($block);
+        }
         writeSubheading(`Servers`);
-        writeBlock(() => {
+        {
+            if (!this.server)
+                this.$section.append(makeDiv('notice', 'error')(`Unknown server in URL hash parameter `, makeElement('code')()(this.serverHash), `. Please select one of the servers below.`));
             const $list = makeElement('ul')()();
             const baseLocation = location.pathname + location.search;
             for (const [newHost, newServer] of this.serverList.servers) {
@@ -1408,28 +1417,27 @@ class AboutDialog extends NavDialog {
                 const newLocation = baseLocation + (hash ? `#host=` + escapeHash(hash) : '');
                 let itemContent = [makeLink(newHost, newLocation)];
                 if (newServer.noteText && !newServer.noteUrl) {
-                    itemContent.push(` - ` + newServer.noteText);
+                    itemContent.push(` — ` + newServer.noteText);
                 }
                 else if (newServer.noteUrl) {
-                    itemContent.push(` - `, makeLink(newServer.noteText || `note`, newServer.noteUrl));
+                    itemContent.push(` — `, makeLink(newServer.noteText || `note`, newServer.noteUrl));
                 }
                 if (this.server == newServer) {
-                    itemContent.push(` - currently selected`);
+                    itemContent.push(` — currently selected`);
                     itemContent = [makeElement('strong')()(...itemContent)];
                 }
                 $list.append(makeElement('li')()(...itemContent));
             }
-            return [$list];
-        });
+            this.$section.append(makeDiv()($list));
+        }
         writeSubheading(`Storage`);
         const $updateFetchesButton = document.createElement('button');
-        writeBlock(() => {
+        {
             $updateFetchesButton.textContent = `Update stored fetch list`;
-            return [$updateFetchesButton];
-        });
-        const $fetchesContainer = writeBlock(() => {
-            return [`Click Update button above to see stored fetches`];
-        });
+            this.$section.append(makeDiv('major-input')($updateFetchesButton));
+        }
+        const $fetchesContainer = makeDiv()(`Click Update button above to see stored fetches`);
+        this.$section.append($fetchesContainer);
         $updateFetchesButton.addEventListener('click', async () => {
             $updateFetchesButton.disabled = true;
             let fetchEntries = [];
@@ -1461,16 +1469,28 @@ class AboutDialog extends NavDialog {
                 const $userCell = $row.insertCell();
                 const username = searchParams.get('display_name');
                 const ids = searchParams.get('ids');
+                const host = searchParams.get('host');
+                const fetchEntryServer = this.serverList.getServer(host);
                 if (username) {
-                    const href = this.server.getWebUrl(`user/` + encodeURIComponent(username));
-                    $userCell.append(`user `, makeLink(username, href));
+                    if (fetchEntryServer) {
+                        const href = fetchEntryServer.getWebUrl(`user/` + encodeURIComponent(username));
+                        $userCell.append(`user `, makeLink(username, href));
+                    }
+                    else {
+                        $userCell.append(`user ${username}`);
+                    }
                 }
                 else if (ids) {
                     const match = ids.match(/\d+/);
                     if (match) {
                         const [id] = match;
-                        const href = this.server.getWebUrl(`note/` + encodeURIComponent(id));
-                        $userCell.append(`note `, makeLink(id, href), `, ...`);
+                        if (fetchEntryServer) {
+                            const href = fetchEntryServer.getWebUrl(`note/` + encodeURIComponent(id));
+                            $userCell.append(`note `, makeLink(id, href), `, ...`);
+                        }
+                        else {
+                            $userCell.append(`note ${id}, ...`);
+                        }
                     }
                 }
                 $row.insertCell().append(new Date(fetchEntry.accessTimestamp).toISOString());
@@ -1485,34 +1505,17 @@ class AboutDialog extends NavDialog {
             }
             $fetchesContainer.append($table);
         });
-        writeBlock(() => {
+        {
             const $clearButton = document.createElement('button');
             $clearButton.textContent = `Clear settings`;
             $clearButton.addEventListener('click', () => {
                 this.storage.clear();
             });
-            return [$clearButton];
-        });
+            this.$section.append(makeDiv('major-input')($clearButton));
+        }
         writeSubheading(`Extra information`);
-        writeBlock(() => [
-            `Notes implementation code: `,
-            makeLink(`notes api controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`),
-            ` (db search query is build there), `,
-            makeLink(`notes controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/notes_controller.rb`),
-            ` (paginated user notes query is build there), `,
-            makeLink(`note model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note.rb`),
-            `, `,
-            makeLink(`note comment model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note_comment.rb`),
-            ` in `,
-            makeLink(`Rails Port`, `https://wiki.openstreetmap.org/wiki/The_Rails_Port`),
-            ` (not implemented in `,
-            makeLink(`CGIMap`, `https://wiki.openstreetmap.org/wiki/Cgimap`),
-            `)`
-        ]);
-        writeBlock(() => [
-            `Other documentation: `,
-            makeLink(`Overpass queries`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`)
-        ]);
+        this.$section.append(makeDiv()(`Notes implementation code: `, makeLink(`notes api controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`), ` (db search query is build there), `, makeLink(`notes controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/notes_controller.rb`), ` (paginated user notes query is build there), `, makeLink(`note model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note.rb`), `, `, makeLink(`note comment model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note_comment.rb`), ` in `, makeLink(`Rails Port`, `https://wiki.openstreetmap.org/wiki/The_Rails_Port`), ` (not implemented in `, makeLink(`CGIMap`, `https://wiki.openstreetmap.org/wiki/Cgimap`), `)`));
+        this.$section.append(makeDiv()(`Other documentation: `, makeLink(`Overpass queries`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`)));
     }
 }
 
@@ -3791,55 +3794,109 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
     }
 }
 
-class NoteFetchPanel {
-    constructor(storage, db, server, serverList, globalEventsListener, globalHistory, $container, $moreContainer, navbar, filterPanel, noteTable, map, figureDialog) {
-        const self = this;
-        const moreButtonIntersectionObservers = [];
+class NoteFetchDialogs {
+    constructor(server, $container, $moreContainer, noteTable, map, hashQuery, submitQueryToDialog, limitChangeListener) {
         const $sharedCheckboxes = {
             showImages: [],
             advancedMode: []
         };
-        const hashQuery = makeNoteQueryFromHash(globalHistory.getQueryHash());
-        // make fetchers and dialogs
         const makeFetchDialog = (fetcherRequest, fetchDialogCtor) => {
-            const dialog = fetchDialogCtor((query, limit) => fetcherRequest.getRequestApiPaths(query, limit), (query) => {
-                modifyHistory(query, true);
-                startFetcher(query, true, false, dialog);
-            });
-            dialog.limitChangeListener = () => {
-                if (this.fetcherRun && this.fetcherInvoker == dialog) {
-                    this.fetcherRun.reactToLimitUpdateForAdvancedMode();
-                }
-            };
+            const dialog = fetchDialogCtor((query, limit) => fetcherRequest.getRequestApiPaths(query, limit), (query) => submitQueryToDialog(dialog, query));
+            dialog.limitChangeListener = () => limitChangeListener(dialog);
             dialog.write($container);
             dialog.populateInputs(hashQuery);
-            navbar.addTab(dialog);
             return dialog;
         };
-        const searchDialog = makeFetchDialog(new NoteSearchFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteSearchFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery));
-        const bboxDialog = makeFetchDialog(new NoteBboxFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteBboxFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery, map));
-        const xmlDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteXmlFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery));
-        const plaintextDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NotePlaintextFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery, noteTable));
-        const aboutDialog = new AboutDialog(storage, db, server, serverList);
-        aboutDialog.write($container);
-        navbar.addTab(aboutDialog, true);
+        this.searchDialog = makeFetchDialog(new NoteSearchFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteSearchFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery));
+        this.bboxDialog = makeFetchDialog(new NoteBboxFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteBboxFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery, map));
+        this.xmlDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteXmlFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery));
+        this.plaintextDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NotePlaintextFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery, noteTable));
+        const handleSharedCheckboxes = ($checkboxes, stateChangeListener) => {
+            for (const $checkbox of $checkboxes) {
+                $checkbox.addEventListener('input', inputListener);
+            }
+            function inputListener() {
+                const state = this.checked;
+                for (const $checkbox of $checkboxes) {
+                    $checkbox.checked = state;
+                }
+                stateChangeListener(state);
+            }
+        };
         handleSharedCheckboxes($sharedCheckboxes.showImages, state => noteTable.setShowImages(state));
         handleSharedCheckboxes($sharedCheckboxes.advancedMode, state => {
-            for (const dialog of [searchDialog, bboxDialog, xmlDialog, plaintextDialog]) {
+            for (const dialog of this.allDialogs) {
                 dialog.reactToAdvancedModeChange();
             }
             $container.classList.toggle('advanced-mode', state);
             $moreContainer.classList.toggle('advanced-mode', state);
         });
+    }
+    get allDialogs() {
+        return [this.searchDialog, this.bboxDialog, this.xmlDialog, this.plaintextDialog];
+    }
+    populateInputs(query) {
+        for (const dialog of this.allDialogs) {
+            dialog.populateInputs(query);
+        }
+    }
+    resetFetch() {
+        for (const dialog of this.allDialogs) {
+            dialog.resetFetch();
+        }
+    }
+    getDialogFromQuery(query) {
+        if (query.mode == 'search') {
+            return this.searchDialog;
+        }
+        else if (query.mode == 'bbox') {
+            return this.bboxDialog;
+        }
+        else if (query.mode == 'ids') {
+            return this.plaintextDialog;
+        }
+    }
+}
+
+class NoteFetchPanel {
+    constructor(storage, db, globalEventsListener, globalHistory, $container, $moreContainer, navbar, noteTable, map, figureDialog) {
+        const self = this;
+        const server = globalHistory.server;
+        const moreButtonIntersectionObservers = [];
+        const hashQuery = makeNoteQueryFromHash(globalHistory.getQueryHash());
+        let fetchDialogs;
+        if (server && noteTable && map) {
+            fetchDialogs = new NoteFetchDialogs(server, $container, $moreContainer, noteTable, map, hashQuery, (dialog, query) => {
+                modifyHistory(query, true);
+                startFetcher(query, true, false, dialog);
+            }, (dialog) => {
+                if (this.fetcherRun && this.fetcherInvoker == dialog) {
+                    this.fetcherRun.reactToLimitUpdateForAdvancedMode();
+                }
+            });
+            for (const dialog of fetchDialogs.allDialogs) {
+                navbar.addTab(dialog);
+            }
+        }
+        const aboutDialog = new AboutDialog(storage, db, server, globalHistory.serverList, globalHistory.serverHash);
+        aboutDialog.write($container);
+        navbar.addTab(aboutDialog, true);
         globalHistory.onQueryHashChange = (queryHash) => {
             const query = makeNoteQueryFromHash(queryHash);
-            openQueryDialog(query, false);
             modifyHistory(query, false); // in case location was edited manually
-            populateInputs(query);
+            if (fetchDialogs) {
+                openQueryDialog(navbar, fetchDialogs, query, false);
+                fetchDialogs.populateInputs(query);
+            }
             startFetcherFromQuery(query, false, false);
             globalHistory.restoreScrollPosition();
         };
-        openQueryDialog(hashQuery, true);
+        if (fetchDialogs) {
+            openQueryDialog(navbar, fetchDialogs, hashQuery, true);
+        }
+        else {
+            navbar.openTab('About');
+        }
         modifyHistory(hashQuery, false);
         startFetcherFromQuery(hashQuery, false, globalHistory.hasMapHash() // when just opened a note-viewer page with map hash set - if query is set too, don't fit its result, keep the map hash
         );
@@ -3856,64 +3913,42 @@ class NoteFetchPanel {
             else {
                 query.user = uid;
             }
-            openQueryDialog(query, false);
-            populateInputs(query);
-            searchDialog.$section.scrollIntoView();
+            if (fetchDialogs) {
+                openQueryDialog(navbar, fetchDialogs, query, false);
+                fetchDialogs.populateInputs(query);
+                fetchDialogs.searchDialog.$section.scrollIntoView();
+            }
         };
-        function openQueryDialog(query, initial) {
-            if (!query) {
-                if (initial)
-                    navbar.openTab(searchDialog.shortTitle);
-            }
-            else {
-                const dialog = getDialogFromQuery(query);
-                if (!dialog)
-                    return;
-                navbar.openTab(dialog.shortTitle);
-            }
-        }
-        function populateInputs(query) {
-            searchDialog.populateInputs(query);
-            bboxDialog.populateInputs(query);
-            xmlDialog.populateInputs(query);
-            plaintextDialog.populateInputs(query);
-        }
         function startFetcherFromQuery(query, clearStore, suppressFitNotes) {
+            if (!fetchDialogs)
+                return;
             if (!query)
                 return;
-            const dialog = getDialogFromQuery(query);
+            const dialog = fetchDialogs.getDialogFromQuery(query);
             if (!dialog)
                 return;
             startFetcher(query, clearStore, suppressFitNotes, dialog);
         }
-        function getDialogFromQuery(query) {
-            if (query.mode == 'search') {
-                return searchDialog;
-            }
-            else if (query.mode == 'bbox') {
-                return bboxDialog;
-            }
-            else if (query.mode == 'ids') {
-                return plaintextDialog;
-            }
-        }
         function startFetcher(query, clearStore, suppressFitNotes, dialog) {
+            if (!(server && fetchDialogs && noteTable))
+                return;
             if (query.mode != 'search' && query.mode != 'bbox' && query.mode != 'ids')
                 return;
-            bboxDialog.resetFetch(); // TODO run for all dialogs... for now only bboxDialog has meaningful action
-            figureDialog.close();
+            fetchDialogs.resetFetch(); // TODO run for all dialogs... for now only bboxDialog has meaningful action
+            if (figureDialog)
+                figureDialog.close();
             while (moreButtonIntersectionObservers.length > 0)
                 moreButtonIntersectionObservers.pop()?.disconnect();
-            map.clearNotes();
-            noteTable.reset();
-            filterPanel.unsubscribe(); // TODO still needed? table used to be reconstructed but now it's permanent
-            filterPanel.subscribe(noteFilter => noteTable.updateFilter(noteFilter));
-            if (suppressFitNotes) {
-                map.needToFitNotes = false;
+            if (map) {
+                map.clearNotes();
+                if (suppressFitNotes) {
+                    map.needToFitNotes = false;
+                }
             }
+            noteTable.reset();
             const environment = {
                 db, server,
-                hostHash: serverList.getHostHash(server),
+                hostHash: globalHistory.serverList.getHostHash(server),
                 noteTable, $moreContainer,
                 getLimit: dialog.getLimit,
                 getAutoLoad: dialog.getAutoLoad,
@@ -3931,18 +3966,6 @@ class NoteFetchPanel {
                 self.fetcherRun = new NoteIdsFetcherRun(environment, query, clearStore);
             }
         }
-        function handleSharedCheckboxes($checkboxes, stateChangeListener) {
-            for (const $checkbox of $checkboxes) {
-                $checkbox.addEventListener('input', inputListener);
-            }
-            function inputListener() {
-                const state = this.checked;
-                for (const $checkbox of $checkboxes) {
-                    $checkbox.checked = state;
-                }
-                stateChangeListener(state);
-            }
-        }
         function modifyHistory(query, push) {
             const queryHash = query
                 ? makeNoteQueryString(query)
@@ -3954,6 +3977,18 @@ class NoteFetchPanel {
         if (!this.fetcherRun)
             return;
         this.fetcherRun.updateNote($a, noteId);
+    }
+}
+function openQueryDialog(navbar, fetchDialogs, query, initial) {
+    if (!query) {
+        if (initial)
+            navbar.openTab(fetchDialogs.searchDialog.shortTitle);
+    }
+    else {
+        const dialog = fetchDialogs.getDialogFromQuery(query);
+        if (!dialog)
+            return;
+        navbar.openTab(dialog.shortTitle);
     }
 }
 
@@ -6863,24 +6898,39 @@ async function main() {
     const globalEventsListener = new GlobalEventListener();
     const $navbarContainer = document.createElement('nav');
     const $fetchContainer = makeDiv('panel', 'fetch')();
-    const $filterContainer = makeDiv('panel', 'fetch')();
-    const $notesContainer = makeDiv('notes')();
     const $moreContainer = makeDiv('more')();
-    const $toolContainer = makeDiv('panel', 'command')();
-    const $mapContainer = makeDiv('map')();
-    const $figureDialog = document.createElement('dialog');
-    $figureDialog.classList.add('figure');
-    const $scrollingPart = makeDiv('scrolling')($navbarContainer, $fetchContainer, $filterContainer, $notesContainer, $moreContainer);
-    const $stickyPart = makeDiv('sticky')($toolContainer);
-    const $textSide = makeDiv('text-side')($scrollingPart, $stickyPart);
-    const $graphicSide = makeDiv('graphic-side')($mapContainer, $figureDialog);
+    const $scrollingPart = makeDiv('scrolling')($navbarContainer, $fetchContainer);
+    const $stickyPart = makeDiv('sticky')();
     const flipped = !!storage.getItem('flipped');
     if (flipped)
         document.body.classList.add('flipped');
-    document.body.append($textSide, $graphicSide);
-    const globalHistory = new GlobalHistory($scrollingPart, $notesContainer, serverList);
-    const server = globalHistory.server;
-    const map = new NoteMap($mapContainer, server);
+    document.body.append(makeDiv('text-side')($scrollingPart, $stickyPart));
+    const globalHistory = new GlobalHistory($scrollingPart, serverList);
+    let map;
+    let figureDialog;
+    let noteTable;
+    if (globalHistory.hasServer()) {
+        [map, figureDialog] = writeGraphicSide(globalEventsListener, globalHistory);
+        noteTable = writeBelowFetchPanel($scrollingPart, $stickyPart, $moreContainer, storage, globalEventsListener, globalHistory, map, figureDialog);
+    }
+    else {
+        document.body.classList.add('only-text-side');
+    }
+    const navbar = new Navbar(storage, $navbarContainer, map);
+    const fetchPanel = new NoteFetchPanel(storage, db, globalEventsListener, globalHistory, $fetchContainer, $moreContainer, navbar, noteTable, map, figureDialog);
+    globalEventsListener.noteSelfListener = ($a, noteId) => {
+        fetchPanel.updateNote($a, Number(noteId));
+    };
+    globalHistory.restoreScrollPosition();
+}
+function writeGraphicSide(globalEventsListener, globalHistory) {
+    const $graphicSide = makeDiv('graphic-side')();
+    const $mapContainer = makeDiv('map')();
+    const $figureDialog = document.createElement('dialog');
+    $figureDialog.classList.add('figure');
+    $graphicSide.append($mapContainer, $figureDialog);
+    document.body.append($graphicSide);
+    const map = new NoteMap($mapContainer, globalHistory.server);
     map.onMoveEnd(() => {
         globalHistory.setMapHash(map.hash);
     });
@@ -6896,11 +6946,11 @@ async function main() {
         if (elementType != 'node' && elementType != 'way' && elementType != 'relation')
             return false;
         figureDialog.close();
-        downloadAndShowElement($a, server, map, elementType, elementId);
+        downloadAndShowElement($a, globalHistory.server, map, elementType, elementId);
     };
     globalEventsListener.changesetListener = ($a, changesetId) => {
         figureDialog.close();
-        downloadAndShowChangeset($a, server, map, changesetId);
+        downloadAndShowChangeset($a, globalHistory.server, map, changesetId);
     };
     globalEventsListener.mapListener = ($a, zoom, lat, lon) => {
         figureDialog.close();
@@ -6909,16 +6959,21 @@ async function main() {
     globalEventsListener.imageListener = ($a) => {
         figureDialog.toggle($a.href);
     };
-    const navbar = new Navbar(storage, $navbarContainer, map);
-    const filterPanel = new NoteFilterPanel(server, $filterContainer);
-    const toolPanel = new ToolPanel(storage, server, globalEventsListener, $toolContainer, map, figureDialog);
-    const noteTable = new NoteTable($notesContainer, toolPanel, map, filterPanel.noteFilter, figureDialog, server);
+    return [map, figureDialog];
+}
+function writeBelowFetchPanel($scrollingPart, $stickyPart, $moreContainer, storage, globalEventsListener, globalHistory, map, figureDialog) {
+    const $filterContainer = makeDiv('panel', 'fetch')();
+    const $notesContainer = makeDiv('notes')();
+    $scrollingPart.append($filterContainer, $notesContainer, $moreContainer);
+    const filterPanel = new NoteFilterPanel(globalHistory.server, $filterContainer);
+    const $toolContainer = makeDiv('panel', 'command')();
+    $stickyPart.append($toolContainer);
+    const toolPanel = new ToolPanel(storage, globalHistory.server, globalEventsListener, $toolContainer, map, figureDialog);
+    const noteTable = new NoteTable($notesContainer, toolPanel, map, filterPanel.noteFilter, figureDialog, globalHistory.server);
     globalEventsListener.noteListener = ($a, noteId) => {
         noteTable.pingNoteFromLink($a, noteId);
     };
-    const fetchPanel = new NoteFetchPanel(storage, db, server, serverList, globalEventsListener, globalHistory, $fetchContainer, $moreContainer, navbar, filterPanel, noteTable, map, figureDialog);
-    globalEventsListener.noteSelfListener = ($a, noteId) => {
-        fetchPanel.updateNote($a, Number(noteId));
-    };
-    globalHistory.restoreScrollPosition();
+    filterPanel.subscribe(noteFilter => noteTable.updateFilter(noteFilter));
+    globalHistory.$resizeObservationTarget = $notesContainer;
+    return noteTable;
 }
