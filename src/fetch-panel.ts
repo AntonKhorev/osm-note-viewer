@@ -53,15 +53,19 @@ export default class NoteFetchPanel {
 		
 		globalHistory.onQueryHashChange=(queryHash: string)=>{
 			const query=makeNoteQueryFromHash(queryHash)
-			openQueryDialog(query,false)
 			modifyHistory(query,false) // in case location was edited manually
 			if (fetchDialogs) {
+				openQueryDialog(navbar,fetchDialogs,query,false)
 				fetchDialogs.populateInputs(query)
 			}
 			startFetcherFromQuery(query,false,false)
 			globalHistory.restoreScrollPosition()
 		}
-		openQueryDialog(hashQuery,true)
+		if (fetchDialogs) {
+			openQueryDialog(navbar,fetchDialogs,hashQuery,true)
+		} else {
+			navbar.openTab('About')
+		}
 		modifyHistory(hashQuery,false)
 		startFetcherFromQuery(
 			hashQuery,false,
@@ -80,23 +84,13 @@ export default class NoteFetchPanel {
 			} else {
 				query.user=uid
 			}
-			openQueryDialog(query,false)
 			if (fetchDialogs) {
+				openQueryDialog(navbar,fetchDialogs,query,false)
 				fetchDialogs.populateInputs(query)
 				fetchDialogs.searchDialog.$section.scrollIntoView()
 			}
 		}
 		
-		function openQueryDialog(query: NoteQuery | undefined, initial: boolean): void {
-			if (!fetchDialogs) return
-			if (!query) {
-				if (initial) navbar.openTab(fetchDialogs.searchDialog.shortTitle)
-			} else {
-				const dialog=fetchDialogs.getDialogFromQuery(query)
-				if (!dialog) return
-				navbar.openTab(dialog.shortTitle)
-			}
-		}
 		function startFetcherFromQuery(query: NoteQuery|undefined, clearStore: boolean, suppressFitNotes: boolean): void {
 			if (!fetchDialogs) return
 			if (!query) return
@@ -151,5 +145,18 @@ export default class NoteFetchPanel {
 	updateNote($a: HTMLAnchorElement, noteId: number): void {
 		if (!this.fetcherRun) return
 		this.fetcherRun.updateNote($a,noteId)
+	}
+}
+
+function openQueryDialog(
+	navbar: Navbar, fetchDialogs: NoteFetchDialogs,
+	query: NoteQuery | undefined, initial: boolean
+): void {
+	if (!query) {
+		if (initial) navbar.openTab(fetchDialogs.searchDialog.shortTitle)
+	} else {
+		const dialog=fetchDialogs.getDialogFromQuery(query)
+		if (!dialog) return
+		navbar.openTab(dialog.shortTitle)
 	}
 }
