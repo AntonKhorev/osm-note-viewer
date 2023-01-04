@@ -89,10 +89,7 @@ export default class AboutDialog extends NavDialog {
 				const username=searchParams.get('display_name')
 				const ids=searchParams.get('ids')
 				const host=searchParams.get('host')
-				let fetchEntryServer: Server|undefined
-				try {
-					fetchEntryServer=this.serverList.getServer(host)
-				} catch {}
+				const fetchEntryServer=this.serverList.getServer(host)
 				if (username) {
 					if (fetchEntryServer) {
 						const href=fetchEntryServer.getWebUrl(`user/`+encodeURIComponent(username))
