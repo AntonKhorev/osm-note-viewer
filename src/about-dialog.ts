@@ -6,6 +6,7 @@ import {NavDialog} from './navbar'
 import {makeElement, makeDiv, makeLink} from './html'
 import makeCodeForm from './code'
 import {escapeHash} from './escape'
+import serverListConfig from './server-list-config'
 
 export default class AboutDialog extends NavDialog {
 	shortTitle=`About`
@@ -68,7 +69,17 @@ export default class AboutDialog extends NavDialog {
 					()=>{
 						location.reload()
 					},
-					`TODO describe syntax`,[]
+					`TODO describe syntax`,[
+						[`Local server on port 3333`,[`"http://127.0.0.1:3333/"`]],
+						[`Dev server with German tiles`,[
+							`{`,
+							`  "web": "https://api06.dev.openstreetmap.org/",`,
+							`  "tiles": "https://tile.openstreetmap.de/{z}/{x}/{y}.png",`,
+							`  "note": "dev server with German tiles"`,
+							`}`
+						]],
+						[`Default configuration`,[JSON.stringify(serverListConfig,undefined,2)]]
+					]
 				)
 			)
 		}
