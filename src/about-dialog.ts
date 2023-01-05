@@ -8,6 +8,49 @@ import makeCodeForm from './code'
 import {escapeHash} from './escape'
 import serverListConfig from './server-list-config'
 
+const syntaxDescription=`<summary>Custom server configuration syntax</summary>
+<p>Uses <a href=https://en.wikipedia.org/wiki/JSON>JSON</a> format to describe one or more custom servers.
+These servers can be referred to in the <code>host</code> URL parameter and appear in the list above.
+The entire custom servers input can be one of:</p>
+<ul>
+<li>empty when no custom servers are specified
+<li>an <em>array</em> where each element is a ${term('server specification')}
+<li>a single ${term('server specification')}
+</ul>
+<p>A ${term('server specification')} is <em>null</em> for default OSM server configuration, a <em>URL string</em> for a quick configuration, or an <em>object</em> with optional properties described below.
+A <em>string</em> is equivalent to an <em>object</em> with only the ${property('web')} property set.
+Possible <em>object</em> properties are:</p>
+<dl>
+<dt>${property('web')}
+<dd>a <em>URL string</em> or an <em>array</em> of <em>URL strings</em>; used to generate/detect links to users/notes/elements/changesets
+<dt>${property('api')}
+<dd>a <em>URL string</em>; used for OSM API requests; defaults to ${property('web')} property value if not specified
+<dt>${property('nominatim')}
+<dd>a <em>URL string</em> pointing to a <a href=https://wiki.openstreetmap.org/wiki/Nominatim>Nominatim</a> service
+<dt>${property('overpass')}
+<dd>a <em>URL string</em> pointing to an <a href=https://wiki.openstreetmap.org/wiki/Overpass_API>Overpass API</a> server
+<dt>${property('overpassTurbo')}
+<dd>a <em>URL string</em> pointing to an <a href=https://wiki.openstreetmap.org/wiki/Overpass_turbo>Overpass turbo</a> web page
+<dt>${property('tiles')}
+<dd>a ${term('tiles specification')}
+<dt>${property('world')}
+<dd>a <em>string</em>; if it's not <code>"earth"</code>, street view tools won't be shown
+<dt>${property('note')}
+<dd>a <em>URL string</em>, a <em>text string</em> or an <em>array</em> of both representing a note about the server visible on the server list
+</dl>
+<p>A ${term('tiles specification')} is a <em>string</em> or an an <em>object</em> with optional properties described below.
+A <em>string</em> value is equivalent to an <em>object</em> with only the ${property('template')} property set.
+Possible <em>object</em> properties are:</p>
+<dl>
+<dt>${property('template')}
+<dd>a <em>string</em> with template parameters like "<code>https://tile.openstreetmap.org/{z}/{x}/{y}.png</code>" or "<code>https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png</code>" to generate tile URLs
+<dt>${property('attribution')}
+<dd>a <em>URL string</em>, a <em>text string</em> or an <em>array</em> of both containing an <a href=https://wiki.osmfoundation.org/wiki/Licence/Attribution_Guidelines#Interactive_maps>attribution</a> displayed in the corner of the map
+<dt>${property('zoom')}
+<dd>a number with max zoom level; defaults to the OSM max zoom value of 19
+</dl>
+`
+
 const syntaxExamples: [string,string[]][] = [
 	[`Local server on port 3333`,[`"http://127.0.0.1:3333/"`]],
 	[`Dev server with custom tiles`,[
@@ -29,6 +72,13 @@ const syntaxExamples: [string,string[]][] = [
 	]],
 	[`Default configuration`,[JSON.stringify(serverListConfig,undefined,2)]]
 ]
+
+function term(t:string):string {
+	return `<em>&lt;${t}&gt;</em>`
+}
+function property(t:string): string {
+	return `<strong><code>${t}</code></strong>`
+}
 
 export default class AboutDialog extends NavDialog {
 	shortTitle=`About`
@@ -91,7 +141,7 @@ export default class AboutDialog extends NavDialog {
 					()=>{
 						location.reload()
 					},
-					`TODO describe syntax`,syntaxExamples
+					syntaxDescription,syntaxExamples
 				)
 			)
 		}
