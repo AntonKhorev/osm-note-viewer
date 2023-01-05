@@ -1,6 +1,6 @@
 import NoteFilter from './filter'
 import type {ApiUrlLister, WebUrlLister} from './server'
-import {makeDiv, makeLabel} from './html'
+import makeCodeForm from './code'
 
 const syntaxDescription=`<summary>Filter syntax</summary>
 <ul>
@@ -48,7 +48,7 @@ const syntaxDescription=`<summary>Filter syntax</summary>
 <dd>One of: <kbd>opened</kbd> <kbd>closed</kbd> <kbd>reopened</kbd> <kbd>commented</kbd> <kbd>hidden</kbd>
 </dl>`
 
-const syntaxExamples: Array<[string,string[]]> = [
+const syntaxExamples: [string,string[]][] = [
 	[`Notes commented by user A`,[`user = A`]],
 	[`Notes commented by user A, later commented by user B`,[`user = A`,`*`,`user = B`]],
 	[`Notes opened by user A`,[`^`,`user = A`]],
@@ -65,60 +65,19 @@ export default class NoteFilterPanel {
 	noteFilter: NoteFilter
 	private callback?: (noteFilter: NoteFilter) => void
 	constructor(urlLister: ApiUrlLister&WebUrlLister, $container: HTMLElement) {
-		const $form=document.createElement('form')
-		const $textarea=document.createElement('textarea')
-		const $button=document.createElement('button')
 		this.noteFilter=new NoteFilter(urlLister,``)
-		{
-			const $details=document.createElement('details')
-			$details.innerHTML=syntaxDescription
-			const $examplesTitle=document.createElement('p')
-			$examplesTitle.innerHTML='<strong>Examples</strong>:'
-			const $examplesList=document.createElement('dl')
-			$examplesList.classList.add('examples')
-			for (const [title,codeLines] of syntaxExamples) {
-				const $dt=document.createElement('dt')
-				$dt.append(title)
-				const $dd=document.createElement('dd')
-				const $code=document.createElement('code')
-				$code.textContent=codeLines.join('\n')
-				$dd.append($code)
-				$examplesList.append($dt,$dd)
-			}
-			$details.append($examplesTitle,$examplesList)
-			$form.append($details)
-		}{
-			$textarea.rows=5
-			$form.append(makeDiv('major-input')(makeLabel()(
-				`Filter: `,$textarea
-			)))
-		}{
-			$button.textContent=`Apply filter`
-			$button.type='submit'
-			$button.disabled=true
-			$form.append(makeDiv('major-input')($button))
-		}
-		$textarea.addEventListener('input',()=>{
-			$button.disabled=this.noteFilter.isSameQuery($textarea.value)
-			try {
-				new NoteFilter(urlLister,$textarea.value)
-				$textarea.setCustomValidity('')
-			} catch (ex) {
-				let message=`Syntax error`
-				if (ex instanceof RangeError) message=ex.message
-				$textarea.setCustomValidity(message)
-			}
-		})
-		$form.addEventListener('submit',(ev)=>{
-			ev.preventDefault()
-			try {
-				this.noteFilter=new NoteFilter(urlLister,$textarea.value)
-			} catch (ex) {
-				return
-			}
-			if (this.callback) this.callback(this.noteFilter)
-			$button.disabled=true
-		})
+		const $form=makeCodeForm(
+			`Filter`,`Apply filter`,
+			input=>this.noteFilter.isSameQuery(input),
+			input=>new NoteFilter(urlLister,input),
+			input=>{
+				this.noteFilter=new NoteFilter(urlLister,input)
+			},
+			()=>{
+				if (this.callback) this.callback(this.noteFilter)
+			},
+			syntaxDescription,syntaxExamples
+		)
 		$container.append($form)
 	}
 	subscribe(callback: (noteFilter: NoteFilter) => void) {

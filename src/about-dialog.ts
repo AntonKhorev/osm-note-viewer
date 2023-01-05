@@ -4,6 +4,7 @@ import Server from './server'
 import ServerList from './server-list'
 import {NavDialog} from './navbar'
 import {makeElement, makeDiv, makeLink} from './html'
+import makeCodeForm from './code'
 import {escapeHash} from './escape'
 
 export default class AboutDialog extends NavDialog {
@@ -54,7 +55,17 @@ export default class AboutDialog extends NavDialog {
 				}
 				$list.append(makeElement('li')()(...itemContent))
 			}
-			this.$section.append(makeDiv()($list))
+			this.$section.append(
+				makeDiv()($list),
+				makeCodeForm(
+					`Custom servers`,`Apply changes`,
+					input=>false,
+					input=>{},
+					input=>{},
+					()=>{},
+					`TODO describe syntax`,[]
+				)
+			)
 		}
 		writeSubheading(`Storage`)
 		const $updateFetchesButton=document.createElement('button')
