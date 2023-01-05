@@ -8,6 +8,28 @@ import makeCodeForm from './code'
 import {escapeHash} from './escape'
 import serverListConfig from './server-list-config'
 
+const syntaxExamples: [string,string[]][] = [
+	[`Local server on port 3333`,[`"http://127.0.0.1:3333/"`]],
+	[`Dev server with custom tiles`,[
+		`{`,
+		`  "web": "https://api06.dev.openstreetmap.org/",`,
+		`  "tiles": "https://tile.openstreetmap.de/{z}/{x}/{y}.png",`,
+		`  "note": "dev server with German tiles"`,
+		`}`
+	]],
+	[`Dev server with custom tiles and different max zoom`,[
+		`{`,
+		`  "web": "https://api06.dev.openstreetmap.org/",`,
+		`  "tiles": {`,
+		`    "template": "https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",`,
+		`    "zoom": 20`,
+		`  },`,
+		`  "note": "dev server with CyclOSM tiles"`,
+		`}`
+	]],
+	[`Default configuration`,[JSON.stringify(serverListConfig,undefined,2)]]
+]
+
 export default class AboutDialog extends NavDialog {
 	shortTitle=`About`
 	title=`About`
@@ -69,17 +91,7 @@ export default class AboutDialog extends NavDialog {
 					()=>{
 						location.reload()
 					},
-					`TODO describe syntax`,[
-						[`Local server on port 3333`,[`"http://127.0.0.1:3333/"`]],
-						[`Dev server with German tiles`,[
-							`{`,
-							`  "web": "https://api06.dev.openstreetmap.org/",`,
-							`  "tiles": "https://tile.openstreetmap.de/{z}/{x}/{y}.png",`,
-							`  "note": "dev server with German tiles"`,
-							`}`
-						]],
-						[`Default configuration`,[JSON.stringify(serverListConfig,undefined,2)]]
-					]
+					`TODO describe syntax`,syntaxExamples
 				)
 			)
 		}
