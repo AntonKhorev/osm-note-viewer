@@ -130,12 +130,34 @@ export default class AboutDialog extends NavDialog {
 			$fetchesContainer.append($table)
 		})
 		{
-			const $clearButton=document.createElement('button')
-			$clearButton.textContent=`Clear settings`
-			$clearButton.addEventListener('click',()=>{
+			const $clearButton=makeElement('button')()(`Clear settings`)
+			const $cancelButton=makeElement('button')()(`Cancel clear settings`)
+			hide($cancelButton)
+			const $confirmButton=makeElement('button')()(`Confirm clear settings`)
+			hide($confirmButton)
+			$clearButton.onclick=()=>{
+				hide($clearButton)
+				unhide($cancelButton)
+				unhide($confirmButton)
+			}
+			$cancelButton.onclick=()=>{
+				unhide($clearButton)
+				hide($cancelButton)
+				hide($confirmButton)
+			}
+			$confirmButton.onclick=()=>{
 				this.storage.clear()
-			})
-			this.$section.append(makeDiv('major-input')($clearButton))
+				unhide($clearButton)
+				hide($cancelButton)
+				hide($confirmButton)
+			}
+			this.$section.append(makeDiv('major-input')($clearButton,$cancelButton,$confirmButton))
+			function hide($e:HTMLElement) {
+				$e.style.display='none'
+			}
+			function unhide($e:HTMLElement) {
+				$e.style.removeProperty('display')
+			}
 		}
 		writeSubheading(`Extra information`)
 		this.$section.append(makeDiv()(
