@@ -7,15 +7,17 @@ export default class ServerList {
 	constructor(...configSources:any[]) {
 		let defaultServer: Server|undefined
 		for (const configSource of configSources) {
-			const parametersList=parseServerListSource(configSource)
-			for (const parameters of parametersList) {
-				const server=new Server(...parameters)
-				this.servers.set(server.host,server)
-				if (!defaultServer) defaultServer=server
-			}
+			try {
+				const parametersList=parseServerListSource(configSource)
+				for (const parameters of parametersList) {
+					const server=new Server(...parameters)
+					this.servers.set(server.host,server)
+					if (!defaultServer) defaultServer=server
+				}
+			} catch {}
 		}
 		if (!defaultServer) {
-			const parameters=parseServerListItem(null)
+			const parameters=parseServerListItem(null) // shouldn't throw
 			const server=new Server(...parameters)
 			this.servers.set(server.host,server)
 			defaultServer=server

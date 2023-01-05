@@ -5,7 +5,7 @@ describe("server list parser module",()=>{
 	it("parses default config",()=>{
 		const result=parseServerListItem(null)
 		const [
-			apiUrl,webUrls,
+			host,apiUrl,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world
@@ -19,7 +19,7 @@ describe("server list parser module",()=>{
 	it("parses single string config",()=>{
 		const result=parseServerListItem(`https://master.apis.dev.openstreetmap.org/`)
 		const [
-			apiUrl,webUrls,
+			host,apiUrl,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world
@@ -34,7 +34,7 @@ describe("server list parser module",()=>{
 			note: `hello world`
 		})
 		const [
-			apiUrl,webUrls,
+			host,apiUrl,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world
@@ -47,7 +47,7 @@ describe("server list parser module",()=>{
 			note: `https://example.com/hello/`
 		})
 		const [
-			apiUrl,webUrls,
+			host,apiUrl,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world
@@ -60,7 +60,7 @@ describe("server list parser module",()=>{
 			note: [`the end`,`https://example.com/bye/`]
 		})
 		const [
-			apiUrl,webUrls,
+			host,apiUrl,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world
@@ -76,7 +76,7 @@ describe("server list parser module",()=>{
 			}
 		})
 		const [
-			apiUrl,webUrls,
+			host,apiUrl,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world

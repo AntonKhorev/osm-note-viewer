@@ -1,4 +1,5 @@
 export type ServerParameters = [
+	host: string,
 	apiUrl: string,
 	webUrls: string[],
 	tileUrlTemplate: string,
@@ -74,9 +75,17 @@ export function parseServerListItem(config: any): ServerParameters {
 		overpassUrl=`https://www.overpass-api.de/`
 		overpassTurboUrl=`https://overpass-turbo.eu/`
 	}
+	
+	let host: string
+	try {
+		const hostUrl=new URL(webUrls[0])
+		host=hostUrl.host
+	} catch (ex) {
+		throw new RangeError(`invalid web value "${webUrls[0]}"`)
+	}
 
 	return [
-		apiUrl,webUrls,
+		host,apiUrl,webUrls,
 		tileUrlTemplate,
 		tileAttributionUrl ?? deriveAttributionUrl(webUrls),
 		tileAttributionText ?? deriveAttributionText(webUrls),

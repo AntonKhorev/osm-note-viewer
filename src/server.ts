@@ -99,11 +99,11 @@ export class OverpassTurboProvider {
 }
 
 export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, TileSource {
-	public readonly host: string
 	public readonly nominatim: NominatimProvider|undefined
 	public readonly overpass: OverpassProvider|undefined
 	public readonly overpassTurbo: OverpassTurboProvider|undefined
 	constructor(
+		public readonly host: string,
 		public readonly apiUrl: string,
 		public readonly webUrls: string[],
 		public readonly tileUrlTemplate: string,
@@ -117,8 +117,6 @@ export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, T
 		public readonly noteText: string|undefined,
 		public readonly world: string
 	) {
-		const hostUrl=new URL(webUrls[0])
-		this.host=hostUrl.host
 		if (nominatimUrl!=null) this.nominatim=new NominatimProvider(nominatimUrl)
 		if (overpassUrl!=null) this.overpass=new OverpassProvider(overpassUrl)
 		if (overpassTurboUrl!=null) this.overpassTurbo=new OverpassTurboProvider(overpassTurboUrl)
