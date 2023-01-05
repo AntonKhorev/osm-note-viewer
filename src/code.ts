@@ -1,6 +1,7 @@
 import {makeDiv, makeLabel} from './html'
 
 export default function makeCodeForm(
+	initialValue: string,
 	textareaLabel: string, buttonLabel: string,
 	isSameInput: (input:string)=>boolean,
 	checkInput: (input:string)=>void,
@@ -30,6 +31,7 @@ export default function makeCodeForm(
 		$details.append($examplesTitle,$examplesList)
 		$form.append($details)
 	}{
+		$textarea.value=initialValue
 		$textarea.rows=5
 		$form.append(makeDiv('major-input')(makeLabel()(
 			`${textareaLabel}: `,$textarea

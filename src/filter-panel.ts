@@ -67,6 +67,7 @@ export default class NoteFilterPanel {
 	constructor(urlLister: ApiUrlLister&WebUrlLister, $container: HTMLElement) {
 		this.noteFilter=new NoteFilter(urlLister,``)
 		const $form=makeCodeForm(
+			'',
 			`Filter`,`Apply filter`,
 			input=>this.noteFilter.isSameQuery(input),
 			input=>new NoteFilter(urlLister,input),

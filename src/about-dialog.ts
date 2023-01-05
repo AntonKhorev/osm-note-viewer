@@ -58,10 +58,11 @@ export default class AboutDialog extends NavDialog {
 			this.$section.append(
 				makeDiv()($list),
 				makeCodeForm(
+					this.storage.getItem('servers')??'',
 					`Custom servers`,`Apply changes`,
-					input=>false,
+					input=>input==this.storage.getItem('servers')??'',
 					input=>{},
-					input=>{},
+					input=>this.storage.setOrRemoveItem('servers',input),
 					()=>{},
 					`TODO describe syntax`,[]
 				)
