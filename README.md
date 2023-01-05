@@ -37,6 +37,10 @@ Ids can be provided either directly as comma/space-separated list of numbers or 
 
 ## Integration with other apps and services
 
+### Custom API/tile/Nominatim/Overpass servers
+
+Use the *Servers* section in the *About* tab to configure and switch servers.
+
 ### Editors with remote control
 
 It's possible to load the selected notes and the currently visible map area using [remote control](https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl) feature of OpenStreetMap editors. [JOSM](https://wiki.openstreetmap.org/wiki/JOSM) is the most widely used of those. Remote control in JOSM has to be enabled in preferences. Go to [*Edit > Preferences > Remote Control*](https://josm.openstreetmap.de/wiki/Help/Preferences/RemoteControl) and check *Enable remote control*.
