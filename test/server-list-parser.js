@@ -1,5 +1,5 @@
 import {strict as assert} from 'assert'
-import parseServerListItem from '../test-build/server-list-parser.js'
+import {parseServerListItem} from '../test-build/server-list-parser.js'
 
 describe("server list parser module",()=>{
 	it("parses default config",()=>{

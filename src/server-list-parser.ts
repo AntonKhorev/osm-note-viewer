@@ -1,4 +1,4 @@
-export default function parseServerListItem(config: any): [
+export type ServerParameters = [
 	apiUrl: string,
 	webUrls: string[],
 	tileUrlTemplate: string,
@@ -11,7 +11,17 @@ export default function parseServerListItem(config: any): [
 	noteUrl: string|undefined,
 	noteText: string|undefined,
 	world: string
-] {
+]
+
+export function parseServerListSource(configSource: any): ServerParameters[] {
+	if (Array.isArray(configSource)) {
+		return configSource.map(parseServerListItem)
+	} else {
+		return [parseServerListItem(configSource)]
+	}
+}
+
+export function parseServerListItem(config: any): ServerParameters {
 	let apiUrl: string = `https://api.openstreetmap.org/`
 	let webUrls: string[] = [
 		`https://www.openstreetmap.org/`,

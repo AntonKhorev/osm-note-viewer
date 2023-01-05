@@ -1,18 +1,22 @@
 import Server from './server'
-import parseServerListItem from './server-list-parser'
+import {parseServerListSource, parseServerListItem} from './server-list-parser'
 
 export default class ServerList {
 	private defaultServer: Server
 	servers = new Map<string,Server>()
-	constructor(configList:Iterable<any>) {
+	constructor(...configSources:any[]) {
 		let defaultServer: Server|undefined
-		for (const config of configList) {
-			const server=makeServer(config)
-			this.servers.set(server.host,server)
-			if (!defaultServer) defaultServer=server
+		for (const configSource of configSources) {
+			const parametersList=parseServerListSource(configSource)
+			for (const parameters of parametersList) {
+				const server=new Server(...parameters)
+				this.servers.set(server.host,server)
+				if (!defaultServer) defaultServer=server
+			}
 		}
 		if (!defaultServer) {
-			const server=makeServer()
+			const parameters=parseServerListItem(null)
+			const server=new Server(...parameters)
 			this.servers.set(server.host,server)
 			defaultServer=server
 		}
@@ -29,8 +33,4 @@ export default class ServerList {
 		if (hostHash==null) return this.defaultServer
 		return this.servers.get(hostHash)
 	}
-}
-
-function makeServer(config?:any): Server {
-	return new Server(...parseServerListItem(config))
 }

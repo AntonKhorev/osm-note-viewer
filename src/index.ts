@@ -19,7 +19,14 @@ main()
 async function main() {
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
-	const serverList=new ServerList(serverListConfig)
+	const serverListConfigSources:Array<any>=[serverListConfig]
+	try {
+		const customServerListConfig=storage.getItem('servers')
+		if (customServerListConfig!=null) {
+			serverListConfigSources.push(JSON.parse(customServerListConfig))
+		}
+	} catch {}
+	const serverList=new ServerList(...serverListConfigSources)
 	const globalEventsListener=new GlobalEventsListener()
 
 	const $navbarContainer=document.createElement('nav')

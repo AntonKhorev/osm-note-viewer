@@ -49,7 +49,7 @@ export default function makeCodeForm(
 			$textarea.setCustomValidity('')
 		} catch (ex) {
 			let message=`Syntax error`
-			if (ex instanceof RangeError) message=ex.message
+			if (ex instanceof RangeError || ex instanceof SyntaxError) message=ex.message
 			$textarea.setCustomValidity(message)
 		}
 	})

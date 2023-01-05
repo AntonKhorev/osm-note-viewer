@@ -61,9 +61,13 @@ export default class AboutDialog extends NavDialog {
 					this.storage.getItem('servers')??'',
 					`Custom servers`,`Apply changes`,
 					input=>input==this.storage.getItem('servers')??'',
-					input=>{},
+					input=>{
+						if (input!='') JSON.parse(input)
+					},
 					input=>this.storage.setOrRemoveItem('servers',input),
-					()=>{},
+					()=>{
+						location.reload()
+					},
 					`TODO describe syntax`,[]
 				)
 			)
