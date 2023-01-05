@@ -71,7 +71,7 @@ export interface NoteTableUpdater {
 export interface NoteFetcherEnvironment {
 	db: NoteViewerDB
 	server: Server,
-	hostHash: string|null,
+	hostHashValue: string|null,
 	noteTable: NoteTableUpdater
 	$moreContainer: HTMLElement
 	getLimit: ()=>number
@@ -93,7 +93,7 @@ export abstract class NoteFetcherRun {
 	lastTriedPath: string | undefined // needed for ids fetch
 	private updateRequestHintInAdvancedMode: ()=>void = ()=>{}
 	constructor(
-		{db,server,hostHash,noteTable,$moreContainer,getLimit,getAutoLoad,blockDownloads,moreButtonIntersectionObservers}: NoteFetcherEnvironment,
+		{db,server,hostHashValue,noteTable,$moreContainer,getLimit,getAutoLoad,blockDownloads,moreButtonIntersectionObservers}: NoteFetcherEnvironment,
 		query: NoteQuery,
 		clearStore: boolean
 	) {
@@ -101,7 +101,7 @@ export abstract class NoteFetcherRun {
 		this.server=server
 		this.noteTable=noteTable
 	;(async()=>{
-		const queryString=makeNoteQueryStringWithHostHash(query,hostHash) // empty string == don't know how to encode the query, thus won't save it to db
+		const queryString=makeNoteQueryStringWithHostHash(query,hostHashValue) // empty string == don't know how to encode the query, thus won't save it to db
 		this.fetchEntry = await(async()=>{ // null fetch entry == don't save to db
 			if (!queryString) return null
 			if (clearStore) {

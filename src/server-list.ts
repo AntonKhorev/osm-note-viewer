@@ -18,12 +18,12 @@ export default class ServerList {
 		}
 		this.defaultServer=defaultServer
 	}
-	getHostHash(server:Server): string|null {
-		let hostHash:null|string = null
+	getHostHashValue(server:Server): string|null {
+		let hostHashValue:null|string = null
 		if (server!=this.defaultServer) {
-			hostHash=server.host
+			hostHashValue=server.host
 		}
-		return hostHash
+		return hostHashValue
 	}
 	getServer(hostHash:string|null): Server|undefined {
 		if (hostHash==null) return this.defaultServer

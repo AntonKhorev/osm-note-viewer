@@ -19,14 +19,16 @@ export default class GlobalHistory {
 	private rememberScrollPosition=false
 	public readonly server: Server|undefined
 	public readonly serverHash: string = ''
+	private readonly hostHashValue: string|null
 	constructor(
 		private readonly $scrollingPart: HTMLElement,
 		public readonly serverList: ServerList
 	) {
 		{
-			const [,,hostHash]=this.getAllHashes()
-			this.server=this.serverList.getServer(hostHash)
-			if (hostHash!=null) this.serverHash=`host=`+escapeHash(hostHash)
+			const [,,hostHashValue]=this.getAllHashes()
+			this.hostHashValue=hostHashValue
+			this.server=this.serverList.getServer(hostHashValue)
+			if (hostHashValue!=null) this.serverHash=`host=`+escapeHash(hostHashValue)
 		}
 		if (!scrollRestorerEnabled) return
 		history.scrollRestoration='manual'
@@ -43,17 +45,17 @@ export default class GlobalHistory {
 			// ... or save some other kind of position relative to notes table instead of scroll
 		})
 		window.addEventListener('hashchange',()=>{
-			const [queryHash,mapHash,hostHash]=this.getAllHashes()
+			const [queryHash,mapHashValue,hostHashValue]=this.getAllHashes()
 			if (!this.server) {
-				if (hostHash) location.reload()
+				if (hostHashValue) location.reload()
 				return
 			}
-			if (hostHash!=this.serverList.getHostHash(this.server)) {
+			if (hostHashValue!=this.serverList.getHostHashValue(this.server)) {
 				location.reload()
 				return
 			}
-			if (this.onMapHashChange && mapHash) {
-				this.onMapHashChange(mapHash)
+			if (this.onMapHashChange && mapHashValue) {
+				this.onMapHashChange(mapHashValue)
 			}
 			if (this.onQueryHashChange) {
 				this.onQueryHashChange(queryHash) // TODO don't run if only map hash changed? or don't zoom to notes if map hash present?
@@ -99,13 +101,13 @@ export default class GlobalHistory {
 	}
 	setQueryHash(queryHash: string, pushStateAndRemoveMapHash: boolean): void {
 		if (!this.server) return
-		let mapHash=''
+		let mapHashValue=''
 		if (!pushStateAndRemoveMapHash) {
 			const searchParams=this.getSearchParams()
-			mapHash=searchParams.get('map')??''
+			mapHashValue=searchParams.get('map')??''
 		}
-		const hostHash=this.serverList.getHostHash(this.server)
-		const fullHash=this.getFullHash(queryHash,mapHash,hostHash)
+		const hostHashValue=this.serverList.getHostHashValue(this.server)
+		const fullHash=this.getFullHash(queryHash,mapHashValue,hostHashValue)
 		if (fullHash!=location.hash) {
 			const url=fullHash||location.pathname+location.search
 			if (pushStateAndRemoveMapHash) {
@@ -117,8 +119,8 @@ export default class GlobalHistory {
 	}
 	hasMapHash(): boolean {
 		const searchParams=this.getSearchParams()
-		const mapHash=searchParams.get('map')
-		return !!mapHash
+		const mapHashValue=searchParams.get('map')
+		return !!mapHashValue
 	}
 	setMapHash(mapHash: string): void {
 		const searchParams=this.getSearchParams()
@@ -131,14 +133,14 @@ export default class GlobalHistory {
 	hasServer(): this is GlobalHistoryWithServer {
 		return !!this.server
 	}
-	private getAllHashes(): [queryHash: string, mapHash: string|null, hostHash: string|null] {
+	private getAllHashes(): [queryHash: string, mapHashValue: string|null, hostHashValue: string|null] {
 		const searchParams=this.getSearchParams()
-		const mapHash=searchParams.get('map')
+		const mapHashValue=searchParams.get('map')
 		searchParams.delete('map')
-		const hostHash=searchParams.get('host')
+		const hostHashValue=searchParams.get('host')
 		searchParams.delete('host')
 		const queryHash=searchParams.toString()
-		return [queryHash,mapHash,hostHash]
+		return [queryHash,mapHashValue,hostHashValue]
 	}
 	private getSearchParams(): URLSearchParams {
 		const paramString = (location.hash[0]=='#')
@@ -146,15 +148,15 @@ export default class GlobalHistory {
 			: location.hash
 		return new URLSearchParams(paramString)
 	}
-	private getFullHash(queryHash: string, mapHash: string, hostHash: string|null): string {
+	private getFullHash(queryHash: string, mapHashValue: string, hostHashValue: string|null): string {
 		let fullHash=''
 		const appendToFullHash=(hash:string)=>{
 			if (fullHash && hash) fullHash+='&'
 			fullHash+=hash
 		}
-		if (hostHash) appendToFullHash('host='+escapeHash(hostHash))
+		if (hostHashValue) appendToFullHash('host='+escapeHash(hostHashValue))
 		appendToFullHash(queryHash)
-		if (mapHash) appendToFullHash('map='+escapeHash(mapHash))
+		if (mapHashValue) appendToFullHash('map='+escapeHash(mapHashValue))
 		if (fullHash) fullHash='#'+fullHash
 		return fullHash
 	}

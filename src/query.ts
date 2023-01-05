@@ -174,10 +174,10 @@ export function makeNoteQueryString(query: NoteQuery, withMode: boolean = true):
 	return parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
 }
 
-export function makeNoteQueryStringWithHostHash(query: NoteQuery, hostHash: string|null): string {
+export function makeNoteQueryStringWithHostHash(query: NoteQuery, hostHashValue: string|null): string {
 	const queryStringWithoutHostHash=makeNoteQueryString(query)
 	if (!queryStringWithoutHostHash) return queryStringWithoutHostHash
-	if (hostHash) return `host=${escapeHash(hostHash)}&${queryStringWithoutHostHash}`
+	if (hostHashValue) return `host=${escapeHash(hostHashValue)}&${queryStringWithoutHostHash}`
 	return queryStringWithoutHostHash
 }
 

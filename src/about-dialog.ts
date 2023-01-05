@@ -40,8 +40,8 @@ export default class AboutDialog extends NavDialog {
 			const $list=makeElement('ul')()()
 			const baseLocation=location.pathname+location.search
 			for (const [newHost,newServer] of this.serverList.servers) {
-				const hash=this.serverList.getHostHash(newServer)
-				const newLocation=baseLocation+(hash ? `#host=`+escapeHash(hash) : '')
+				const hashValue=this.serverList.getHostHashValue(newServer)
+				const newLocation=baseLocation+(hashValue ? `#host=`+escapeHash(hashValue) : '')
 				let itemContent:Array<string|HTMLElement>=[makeLink(newHost,newLocation)]
 				if (newServer.noteText && !newServer.noteUrl) {
 					itemContent.push(` — `+newServer.noteText)

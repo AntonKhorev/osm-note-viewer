@@ -113,7 +113,7 @@ export default class NoteFetchPanel {
 			noteTable.reset()
 			const environment: NoteFetcherEnvironment = {
 				db,server,
-				hostHash: globalHistory.serverList.getHostHash(server),
+				hostHashValue: globalHistory.serverList.getHostHashValue(server),
 				noteTable,$moreContainer,
 				getLimit: dialog.getLimit,
 				getAutoLoad: dialog.getAutoLoad,
