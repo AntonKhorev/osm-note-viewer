@@ -9,7 +9,7 @@ export function makeLink(text: string, href: string, title?: string): HTMLAnchor
 export function makeElement<K extends keyof HTMLElementTagNameMap>(tag: K): ((...classes: string[])=>(...items: Array<string|HTMLElement>)=>HTMLElementTagNameMap[K]) {
 	return (...classes)=>(...items)=>{
 		const $element=document.createElement(tag)
-		$element.classList.add(...classes)
+		if (classes.length>0) $element.classList.add(...classes)
 		$element.append(...items)
 		return $element
 	}
