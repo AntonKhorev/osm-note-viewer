@@ -47,7 +47,7 @@ export default class GlobalHistory {
 		window.addEventListener('hashchange',()=>{
 			const [queryHash,mapHashValue,hostHashValue]=this.getAllHashes()
 			if (!this.server) {
-				if (hostHashValue) location.reload()
+				if (hostHashValue!=this.hostHashValue) location.reload()
 				return
 			}
 			if (hostHashValue!=this.serverList.getHostHashValue(this.server)) {
