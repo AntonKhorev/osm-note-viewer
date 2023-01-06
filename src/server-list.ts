@@ -4,7 +4,7 @@ import {parseServerListSource, parseServerListItem} from './server-list-parser'
 export default class ServerList {
 	private defaultServer: Server
 	servers = new Map<string,Server>()
-	constructor(...configSources:any[]) {
+	constructor(...configSources:unknown[]) {
 		let defaultServer: Server|undefined
 		for (const configSource of configSources) {
 			try {

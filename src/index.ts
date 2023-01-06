@@ -19,7 +19,7 @@ main()
 async function main() {
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
-	const serverListConfigSources:Array<any>=[serverListConfig]
+	const serverListConfigSources:unknown[]=[serverListConfig]
 	try {
 		const customServerListConfig=storage.getItem('servers')
 		if (customServerListConfig!=null) {

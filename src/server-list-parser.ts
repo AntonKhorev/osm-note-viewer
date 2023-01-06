@@ -14,7 +14,7 @@ export type ServerParameters = [
 	world: string
 ]
 
-export function parseServerListSource(configSource: any): ServerParameters[] {
+export function parseServerListSource(configSource: unknown): ServerParameters[] {
 	if (Array.isArray(configSource)) {
 		return configSource.map(parseServerListItem)
 	} else {
@@ -22,7 +22,7 @@ export function parseServerListSource(configSource: any): ServerParameters[] {
 	}
 }
 
-export function parseServerListItem(config: any): ServerParameters {
+export function parseServerListItem(config: unknown): ServerParameters {
 	let apiUrl: string = `https://api.openstreetmap.org/`
 	let webUrls: string[] = [
 		`https://www.openstreetmap.org/`,
@@ -45,30 +45,34 @@ export function parseServerListItem(config: any): ServerParameters {
 		apiUrl=config
 		webUrls=[config]
 	} else if (typeof config == 'object' && config) {
-		if (typeof config.web == 'string') {
-			webUrls=[config.web]
-		} else if (Array.isArray(config.web)) {
-			webUrls=config.web
+		if ('web' in config) {
+			if (Array.isArray(config.web)) {
+				webUrls=config.web.map(requireUrlStringProperty)
+			} else {
+				webUrls=[requireUrlStringProperty(config.web)]
+			}
 		}
-		if (typeof config.api == 'string') {
-			apiUrl=config.api
+		if ('api' in config) {
+			apiUrl=requireUrlStringProperty(config.api)
 		} else {
 			apiUrl=webUrls[0]
 		}
-		if (typeof config.nominatim == 'string') nominatimUrl=config.nominatim
-		if (typeof config.overpass == 'string') overpassUrl=config.overpass
-		if (typeof config.overpassTurbo == 'string') overpassTurboUrl=config.overpassTurbo
-		if (typeof config.tiles == 'string') {
+		if ('nominatim' in config) nominatimUrl=requireUrlStringProperty(config.nominatim)
+		if ('overpass' in config) overpassUrl=requireUrlStringProperty(config.overpass)
+		if ('overpassTurbo' in config) overpassTurboUrl=requireUrlStringProperty(config.overpassTurbo)
+
+		if ('tiles' in config) {
 			tileAttributionUrl=tileAttributionText=undefined
-			tileUrlTemplate=config.tiles
-		} else if (typeof config.tiles == 'object' && config.tiles) {
-			tileAttributionUrl=tileAttributionText=undefined
-			if (typeof config.tiles.template == 'string') tileUrlTemplate=config.tiles.template
-			;[tileAttributionUrl,tileAttributionText]=parseUrlTextPair(tileAttributionUrl,tileAttributionText,config.tiles.attribution)
-			if (typeof config.tiles.zoom == 'number') maxZoom=config.tiles.zoom
+			if (typeof config.tiles == 'object' && config.tiles) {
+				if ('template' in config.tiles) tileUrlTemplate=requireStringProperty(config.tiles.template)
+				if ('attribution' in config.tiles) [tileAttributionUrl,tileAttributionText]=parseUrlTextPair(tileAttributionUrl,tileAttributionText,config.tiles.attribution)
+				if ('zoom' in config.tiles) maxZoom=requireNumberProperty(config.tiles.zoom)
+			} else {
+				tileUrlTemplate=requireStringProperty(config.tiles)
+			}
 		}
-		if (typeof config.world == 'string') world=config.world
-		;[noteUrl,noteText]=parseUrlTextPair(noteUrl,noteText,config.note)
+		if ('world' in config) world=requireStringProperty(config.world)
+		if ('note' in config) [noteUrl,noteText]=parseUrlTextPair(noteUrl,noteText,config.note)
 	} else if (config == null) {
 		noteText=`main OSM server`
 		nominatimUrl=`https://nominatim.openstreetmap.org/`
@@ -98,6 +102,22 @@ export function parseServerListItem(config: any): ServerParameters {
 	]
 }
 
+function requireUrlStringProperty(v: unknown): string {
+	if (typeof v != 'string') throw new RangeError(`property required to be string; got ${typeof v} instead`)
+	// TODO test url
+	return v
+}
+
+function requireStringProperty(v: unknown): string {
+	if (typeof v != 'string') throw new RangeError(`property required to be string; got ${typeof v} instead`)
+	return v
+}
+
+function requireNumberProperty(v: unknown): number {
+	if (typeof v != 'number') throw new RangeError(`property required to be number; got ${typeof v} instead`)
+	return v
+}
+
 function deriveAttributionUrl(webUrls: string[]): string {
 	return webUrls[0]+`copyright`
 }
@@ -124,7 +144,7 @@ function parseUrlTextPairItem(
 	}
 }
 function parseUrlTextPair(
-	urlValue:string|undefined,textValue:string|undefined,newItems:any
+	urlValue:string|undefined,textValue:string|undefined,newItems:unknown
 ):[
 	newUrlValue:string|undefined,newTextValue:string|undefined
 ] {
@@ -137,5 +157,6 @@ function parseUrlTextPair(
 			}
 		}
 	}
+	// TODO fail on other types
 	return [urlValue,textValue]
 }
