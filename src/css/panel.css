@@ -307,3 +307,14 @@
 .examples code {
 	white-space: pre-wrap;
 }
+
+.panel table.servers th.state,
+.panel table.servers th.capability {
+	min-width: 1em;
+	writing-mode: vertical-rl;
+	transform: rotate(180deg);
+}
+.panel table.servers th.state,
+.panel table.servers th.capability {
+	text-align: center;
+}

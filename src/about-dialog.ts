@@ -112,25 +112,37 @@ export default class AboutDialog extends NavDialog {
 				makeElement('code')()(this.serverHash),
 				`. Please select one of the servers below.`
 			))
-			const $list=makeElement('ul')()()
+
+			const $table=makeElement('table')('servers')()
 			const baseLocation=location.pathname+location.search
-			for (const [newHost,newServer] of this.serverList.servers) {
-				const hashValue=this.serverList.getHostHashValue(newServer)
-				const newLocation=baseLocation+(hashValue ? `#host=`+escapeHash(hashValue) : '')
-				let itemContent:Array<string|HTMLElement>=[makeLink(newHost,newLocation)]
-				if (newServer.noteText && !newServer.noteUrl) {
-					itemContent.push(` — `+newServer.noteText)
-				} else if (newServer.noteUrl) {
-					itemContent.push(` — `,makeLink(newServer.noteText||`note`,newServer.noteUrl))
+			$table.insertRow().append(
+				makeElement('th')('state')(`selected`),
+				makeElement('th')()(`host`),
+				makeElement('th')('capability')(`Nominatim`),
+				makeElement('th')('capability')(`Overpass`),
+				makeElement('th')('capability')(`Overpass turbo`),
+				makeElement('th')()(`note`),
+			)
+			for (const [availableHost,availableServer] of this.serverList.servers) {
+				const $row=$table.insertRow()
+				const hashValue=this.serverList.getHostHashValue(availableServer)
+				const availableServerLocation=baseLocation+(hashValue ? `#host=`+escapeHash(hashValue) : '')
+				$row.insertCell().append(this.server==availableServer ? '*' : '')
+				$row.insertCell().append(makeLink(availableHost,availableServerLocation))
+				$row.insertCell().append(availableServer.nominatim ? '+' : '')
+				$row.insertCell().append(availableServer.overpass ? '+' : '')
+				$row.insertCell().append(availableServer.overpassTurbo ? '+' : '')
+				let note:string|HTMLElement = ''
+				if (availableServer.noteText && !availableServer.noteUrl) {
+					note=availableServer.noteText
+				} else if (availableServer.noteUrl) {
+					note=makeLink(availableServer.noteText||`[note]`,availableServer.noteUrl)
 				}
-				if (this.server==newServer) {
-					itemContent.push(` — currently selected`)
-					itemContent=[makeElement('strong')()(...itemContent)]
-				}
-				$list.append(makeElement('li')()(...itemContent))
+				$row.insertCell().append(note)
 			}
+
 			this.$section.append(
-				makeDiv()($list),
+				makeDiv()($table),
 				makeCodeForm(
 					this.storage.getItem('servers')??'',
 					`Custom servers`,`Apply changes`,
