@@ -69,11 +69,13 @@ export function parseServerListItem(config: any): ServerParameters {
 		}
 		if (typeof config.world == 'string') world=config.world
 		;[noteUrl,noteText]=parseUrlTextPair(noteUrl,noteText,config.note)
-	} else if (!config) {
+	} else if (config == null) {
 		noteText=`main OSM server`
 		nominatimUrl=`https://nominatim.openstreetmap.org/`
 		overpassUrl=`https://www.overpass-api.de/`
 		overpassTurboUrl=`https://overpass-turbo.eu/`
+	} else {
+		throw new RangeError(`server specification expected to be null, string or array; got ${typeof config} instead`)
 	}
 	
 	let host: string

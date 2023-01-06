@@ -1,7 +1,7 @@
 import {strict as assert} from 'assert'
 import {parseServerListItem} from '../test-build/server-list-parser.js'
 
-describe("server list parser module",()=>{
+describe("server list parser module / parseServerListItem()",()=>{
 	it("parses default config",()=>{
 		const result=parseServerListItem(null)
 		const [
@@ -83,5 +83,10 @@ describe("server list parser module",()=>{
 		]=result
 		assert.equal(tileAttributionUrl,`https://opengeofiction.net/copyright`)
 		assert.equal(tileAttributionText,`OpenGeofiction and contributors`)
+	})
+	it("throws on single number input",()=>{
+		assert.throws(()=>{
+			parseServerListItem(23)
+		},/number/)
 	})
 })
