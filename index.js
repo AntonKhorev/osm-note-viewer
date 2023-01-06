@@ -11,6 +11,14 @@ class NoteViewerStorage {
     removeItem(k) {
         localStorage.removeItem(this.prefix + k);
     }
+    setOrRemoveItem(k, v) {
+        if (v == '') {
+            this.removeItem(k);
+        }
+        else {
+            this.setItem(k, v);
+        }
+    }
     getKeys() {
         const result = [];
         for (const k in localStorage) {
@@ -399,7 +407,8 @@ class OverpassTurboProvider {
     }
 }
 class Server {
-    constructor(apiUrl, webUrls, tileUrlTemplate, tileAttributionUrl, tileAttributionText, maxZoom, nominatimUrl, overpassUrl, overpassTurboUrl, noteUrl, noteText, world) {
+    constructor(host, apiUrl, webUrls, tileUrlTemplate, tileAttributionUrl, tileAttributionText, maxZoom, nominatimUrl, overpassUrl, overpassTurboUrl, noteUrl, noteText, world) {
+        this.host = host;
         this.apiUrl = apiUrl;
         this.webUrls = webUrls;
         this.tileUrlTemplate = tileUrlTemplate;
@@ -409,8 +418,6 @@ class Server {
         this.noteUrl = noteUrl;
         this.noteText = noteText;
         this.world = world;
-        const hostUrl = new URL(webUrls[0]);
-        this.host = hostUrl.host;
         if (nominatimUrl != null)
             this.nominatim = new NominatimProvider(nominatimUrl);
         if (overpassUrl != null)
@@ -432,6 +439,14 @@ class Server {
     }
 }
 
+function parseServerListSource(configSource) {
+    if (Array.isArray(configSource)) {
+        return configSource.map(parseServerListItem);
+    }
+    else {
+        return [parseServerListItem(configSource)];
+    }
+}
 function parseServerListItem(config) {
     let apiUrl = `https://api.openstreetmap.org/`;
     let webUrls = [
@@ -495,8 +510,16 @@ function parseServerListItem(config) {
         overpassUrl = `https://www.overpass-api.de/`;
         overpassTurboUrl = `https://overpass-turbo.eu/`;
     }
+    let host;
+    try {
+        const hostUrl = new URL(webUrls[0]);
+        host = hostUrl.host;
+    }
+    catch (ex) {
+        throw new RangeError(`invalid web property value "${webUrls[0]}"`);
+    }
     return [
-        apiUrl, webUrls,
+        host, apiUrl, webUrls,
         tileUrlTemplate,
         tileAttributionUrl ?? deriveAttributionUrl(webUrls),
         tileAttributionText ?? deriveAttributionText(webUrls),
@@ -542,37 +565,41 @@ function parseUrlTextPair(urlValue, textValue, newItems) {
 }
 
 class ServerList {
-    constructor(configList) {
+    constructor(...configSources) {
         this.servers = new Map();
         let defaultServer;
-        for (const config of configList) {
-            const server = makeServer(config);
-            this.servers.set(server.host, server);
-            if (!defaultServer)
-                defaultServer = server;
+        for (const configSource of configSources) {
+            try {
+                const parametersList = parseServerListSource(configSource);
+                for (const parameters of parametersList) {
+                    const server = new Server(...parameters);
+                    this.servers.set(server.host, server);
+                    if (!defaultServer)
+                        defaultServer = server;
+                }
+            }
+            catch { }
         }
         if (!defaultServer) {
-            const server = makeServer();
+            const parameters = parseServerListItem(null); // shouldn't throw
+            const server = new Server(...parameters);
             this.servers.set(server.host, server);
             defaultServer = server;
         }
         this.defaultServer = defaultServer;
     }
-    getHostHash(server) {
-        let hostHash = null;
+    getHostHashValue(server) {
+        let hostHashValue = null;
         if (server != this.defaultServer) {
-            hostHash = server.host;
+            hostHashValue = server.host;
         }
-        return hostHash;
+        return hostHashValue;
     }
     getServer(hostHash) {
         if (hostHash == null)
             return this.defaultServer;
         return this.servers.get(hostHash);
     }
-}
-function makeServer(config) {
-    return new Server(...parseServerListItem(config));
 }
 
 class GlobalEventListener {
@@ -626,10 +653,11 @@ class GlobalHistory {
         this.rememberScrollPosition = false;
         this.serverHash = '';
         {
-            const [, , hostHash] = this.getAllHashes();
-            this.server = this.serverList.getServer(hostHash);
-            if (hostHash != null)
-                this.serverHash = `host=` + escapeHash(hostHash);
+            const [, , hostHashValue] = this.getAllHashes();
+            this.hostHashValue = hostHashValue;
+            this.server = this.serverList.getServer(hostHashValue);
+            if (hostHashValue != null)
+                this.serverHash = `host=` + escapeHash(hostHashValue);
         }
         history.scrollRestoration = 'manual';
         const replaceScrollPositionInHistory = () => {
@@ -646,18 +674,18 @@ class GlobalHistory {
             // ... or save some other kind of position relative to notes table instead of scroll
         });
         window.addEventListener('hashchange', () => {
-            const [queryHash, mapHash, hostHash] = this.getAllHashes();
+            const [queryHash, mapHashValue, hostHashValue] = this.getAllHashes();
             if (!this.server) {
-                if (hostHash)
+                if (hostHashValue != this.hostHashValue)
                     location.reload();
                 return;
             }
-            if (hostHash != this.serverList.getHostHash(this.server)) {
+            if (hostHashValue != this.serverList.getHostHashValue(this.server)) {
                 location.reload();
                 return;
             }
-            if (this.onMapHashChange && mapHash) {
-                this.onMapHashChange(mapHash);
+            if (this.onMapHashChange && mapHashValue) {
+                this.onMapHashChange(mapHashValue);
             }
             if (this.onQueryHashChange) {
                 this.onQueryHashChange(queryHash); // TODO don't run if only map hash changed? or don't zoom to notes if map hash present?
@@ -709,13 +737,13 @@ class GlobalHistory {
     setQueryHash(queryHash, pushStateAndRemoveMapHash) {
         if (!this.server)
             return;
-        let mapHash = '';
+        let mapHashValue = '';
         if (!pushStateAndRemoveMapHash) {
             const searchParams = this.getSearchParams();
-            mapHash = searchParams.get('map') ?? '';
+            mapHashValue = searchParams.get('map') ?? '';
         }
-        const hostHash = this.serverList.getHostHash(this.server);
-        const fullHash = this.getFullHash(queryHash, mapHash, hostHash);
+        const hostHashValue = this.serverList.getHostHashValue(this.server);
+        const fullHash = this.getFullHash(queryHash, mapHashValue, hostHashValue);
         if (fullHash != location.hash) {
             const url = fullHash || location.pathname + location.search;
             if (pushStateAndRemoveMapHash) {
@@ -728,8 +756,8 @@ class GlobalHistory {
     }
     hasMapHash() {
         const searchParams = this.getSearchParams();
-        const mapHash = searchParams.get('map');
-        return !!mapHash;
+        const mapHashValue = searchParams.get('map');
+        return !!mapHashValue;
     }
     setMapHash(mapHash) {
         const searchParams = this.getSearchParams();
@@ -744,12 +772,12 @@ class GlobalHistory {
     }
     getAllHashes() {
         const searchParams = this.getSearchParams();
-        const mapHash = searchParams.get('map');
+        const mapHashValue = searchParams.get('map');
         searchParams.delete('map');
-        const hostHash = searchParams.get('host');
+        const hostHashValue = searchParams.get('host');
         searchParams.delete('host');
         const queryHash = searchParams.toString();
-        return [queryHash, mapHash, hostHash];
+        return [queryHash, mapHashValue, hostHashValue];
     }
     getSearchParams() {
         const paramString = (location.hash[0] == '#')
@@ -757,18 +785,18 @@ class GlobalHistory {
             : location.hash;
         return new URLSearchParams(paramString);
     }
-    getFullHash(queryHash, mapHash, hostHash) {
+    getFullHash(queryHash, mapHashValue, hostHashValue) {
         let fullHash = '';
         const appendToFullHash = (hash) => {
             if (fullHash && hash)
                 fullHash += '&';
             fullHash += hash;
         };
-        if (hostHash)
-            appendToFullHash('host=' + escapeHash(hostHash));
+        if (hostHashValue)
+            appendToFullHash('host=' + escapeHash(hostHashValue));
         appendToFullHash(queryHash);
-        if (mapHash)
-            appendToFullHash('map=' + escapeHash(mapHash));
+        if (mapHashValue)
+            appendToFullHash('map=' + escapeHash(mapHashValue));
         if (fullHash)
             fullHash = '#' + fullHash;
         return fullHash;
@@ -1178,7 +1206,8 @@ function makeLink(text, href, title) {
 function makeElement(tag) {
     return (...classes) => (...items) => {
         const $element = document.createElement(tag);
-        $element.classList.add(...classes);
+        if (classes.length > 0)
+            $element.classList.add(...classes);
         $element.append(...items);
         return $element;
     };
@@ -1383,6 +1412,176 @@ function makeResetButton() {
     return $button;
 }
 
+function makeCodeForm(initialValue, textareaLabel, buttonLabel, isSameInput, checkInput, applyInput, runCallback, syntaxDescription, syntaxExamples) {
+    const $form = document.createElement('form');
+    const $textarea = document.createElement('textarea');
+    const $button = document.createElement('button');
+    {
+        const $details = document.createElement('details');
+        $details.innerHTML = syntaxDescription;
+        const $examplesTitle = document.createElement('p');
+        $examplesTitle.innerHTML = '<strong>Examples</strong>:';
+        const $examplesList = document.createElement('dl');
+        $examplesList.classList.add('examples');
+        for (const [title, codeLines] of syntaxExamples) {
+            const $dt = document.createElement('dt');
+            $dt.append(title);
+            const $dd = document.createElement('dd');
+            const $code = document.createElement('code');
+            $code.textContent = codeLines.join('\n');
+            $dd.append($code);
+            $examplesList.append($dt, $dd);
+        }
+        $details.append($examplesTitle, $examplesList);
+        $form.append($details);
+    }
+    {
+        $textarea.value = initialValue;
+        $textarea.rows = 5;
+        $form.append(makeDiv('major-input')(makeLabel()(`${textareaLabel}: `, $textarea)));
+    }
+    {
+        $button.textContent = buttonLabel;
+        $button.type = 'submit';
+        $button.disabled = true;
+        $form.append(makeDiv('major-input')($button));
+    }
+    $textarea.addEventListener('input', () => {
+        $button.disabled = isSameInput($textarea.value);
+        try {
+            checkInput($textarea.value);
+            $textarea.setCustomValidity('');
+        }
+        catch (ex) {
+            let message = `Syntax error`;
+            if (ex instanceof RangeError || ex instanceof SyntaxError)
+                message = ex.message;
+            $textarea.setCustomValidity(message);
+        }
+    });
+    $form.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        try {
+            applyInput($textarea.value);
+        }
+        catch (ex) {
+            return;
+        }
+        runCallback();
+        $button.disabled = true;
+    });
+    return $form;
+}
+
+var serverListConfig = [
+    null,
+    {
+        web: `https://master.apis.dev.openstreetmap.org/`,
+        note: [
+            `OSM sandbox/development server, no tiles support`,
+            `https://wiki.openstreetmap.org/wiki/Sandbox_for_editing#Experiment_with_the_API_(advanced)`
+        ]
+    }, {
+        web: [
+            `https://www.openhistoricalmap.org/`,
+            `https://openhistoricalmap.org/`
+        ],
+        nominatim: `https://nominatim.openhistoricalmap.org/`,
+        overpass: `https://overpass-api.openhistoricalmap.org/`,
+        overpassTurbo: `https://openhistoricalmap.github.io/overpass-turbo/`,
+        note: `no tiles support`
+    }, {
+        web: `https://opengeofiction.net/`,
+        tiles: {
+            template: `https://tiles04.rent-a-planet.com/ogf-carto/{z}/{x}/{y}.png`,
+            attribution: `OpenGeofiction and contributors`
+        },
+        overpass: `https://overpass.ogf.rent-a-planet.com/`,
+        overpassTurbo: `https://turbo.ogf.rent-a-planet.com/`,
+        world: `opengeofiction`
+    }, {
+        web: `https://fosm.org/`,
+        tiles: {
+            template: `https://map.fosm.org/default/{z}/{x}/{y}.png`,
+            attribution: `https://fosm.org/`,
+            zoom: 18
+        },
+        note: `mostly useless here because notes are not implemented on this server`
+    }, {
+        web: `http://127.0.0.1:3000/`,
+        note: `default local rails dev server, no tiles support`
+    }
+];
+
+const syntaxDescription$1 = `<summary>Custom server configuration syntax</summary>
+<p>Uses <a href=https://en.wikipedia.org/wiki/JSON>JSON</a> format to describe one or more custom servers.
+These servers can be referred to in the <code>host</code> URL parameter and appear in the list above.
+The entire custom servers input can be one of:</p>
+<ul>
+<li>empty when no custom servers are specified
+<li>an <em>array</em> where each element is a ${term$1('server specification')}
+<li>a single ${term$1('server specification')}
+</ul>
+<p>A ${term$1('server specification')} is <em>null</em> for default OSM server configuration, a <em>URL string</em> for a quick configuration, or an <em>object</em> with optional properties described below.
+A <em>string</em> is equivalent to an <em>object</em> with only the ${property('web')} property set.
+Possible <em>object</em> properties are:</p>
+<dl>
+<dt>${property('web')}
+<dd>a <em>URL string</em> or an <em>array</em> of <em>URL strings</em>; used to generate/detect links to users/notes/elements/changesets
+<dt>${property('api')}
+<dd>a <em>URL string</em>; used for OSM API requests; defaults to ${property('web')} property value if not specified
+<dt>${property('nominatim')}
+<dd>a <em>URL string</em> pointing to a <a href=https://wiki.openstreetmap.org/wiki/Nominatim>Nominatim</a> service
+<dt>${property('overpass')}
+<dd>a <em>URL string</em> pointing to an <a href=https://wiki.openstreetmap.org/wiki/Overpass_API>Overpass API</a> server
+<dt>${property('overpassTurbo')}
+<dd>a <em>URL string</em> pointing to an <a href=https://wiki.openstreetmap.org/wiki/Overpass_turbo>Overpass turbo</a> web page
+<dt>${property('tiles')}
+<dd>a ${term$1('tiles specification')}
+<dt>${property('world')}
+<dd>a <em>string</em>; if it's not <code>"earth"</code>, street view tools won't be shown
+<dt>${property('note')}
+<dd>a <em>URL string</em>, a <em>text string</em> or an <em>array</em> of both representing a note about the server visible on the server list
+</dl>
+<p>A ${term$1('tiles specification')} is a <em>string</em> or an an <em>object</em> with optional properties described below.
+A <em>string</em> value is equivalent to an <em>object</em> with only the ${property('template')} property set.
+Possible <em>object</em> properties are:</p>
+<dl>
+<dt>${property('template')}
+<dd>a <em>string</em> with template parameters like "<code>https://tile.openstreetmap.org/{z}/{x}/{y}.png</code>" or "<code>https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png</code>" to generate tile URLs
+<dt>${property('attribution')}
+<dd>a <em>URL string</em>, a <em>text string</em> or an <em>array</em> of both containing an <a href=https://wiki.osmfoundation.org/wiki/Licence/Attribution_Guidelines#Interactive_maps>attribution</a> displayed in the corner of the map
+<dt>${property('zoom')}
+<dd>a number with max zoom level; defaults to the OSM max zoom value of 19
+</dl>
+`;
+const syntaxExamples$1 = [
+    [`Local server on port 3333`, [`"http://127.0.0.1:3333/"`]],
+    [`Dev server with custom tiles`, [
+            `{`,
+            `  "web": "https://api06.dev.openstreetmap.org/",`,
+            `  "tiles": "https://tile.openstreetmap.de/{z}/{x}/{y}.png",`,
+            `  "note": "dev server with German tiles"`,
+            `}`
+        ]],
+    [`Dev server with custom tiles and different max zoom`, [
+            `{`,
+            `  "web": "https://api06.dev.openstreetmap.org/",`,
+            `  "tiles": {`,
+            `    "template": "https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",`,
+            `    "zoom": 20`,
+            `  },`,
+            `  "note": "dev server with CyclOSM tiles"`,
+            `}`
+        ]],
+    [`Default configuration`, [JSON.stringify(serverListConfig, undefined, 2)]]
+];
+function term$1(t) {
+    return `<em>&lt;${t}&gt;</em>`;
+}
+function property(t) {
+    return `<strong><code>${t}</code></strong>`;
+}
 class AboutDialog extends NavDialog {
     constructor(storage, db, server, serverList, serverHash) {
         super();
@@ -1413,8 +1612,8 @@ class AboutDialog extends NavDialog {
             const $list = makeElement('ul')()();
             const baseLocation = location.pathname + location.search;
             for (const [newHost, newServer] of this.serverList.servers) {
-                const hash = this.serverList.getHostHash(newServer);
-                const newLocation = baseLocation + (hash ? `#host=` + escapeHash(hash) : '');
+                const hashValue = this.serverList.getHostHashValue(newServer);
+                const newLocation = baseLocation + (hashValue ? `#host=` + escapeHash(hashValue) : '');
                 let itemContent = [makeLink(newHost, newLocation)];
                 if (newServer.noteText && !newServer.noteUrl) {
                     itemContent.push(` — ` + newServer.noteText);
@@ -1428,7 +1627,14 @@ class AboutDialog extends NavDialog {
                 }
                 $list.append(makeElement('li')()(...itemContent));
             }
-            this.$section.append(makeDiv()($list));
+            this.$section.append(makeDiv()($list), makeCodeForm(this.storage.getItem('servers') ?? '', `Custom servers`, `Apply changes`, input => input == this.storage.getItem('servers') ?? '', input => {
+                if (input == '')
+                    return;
+                const configSource = JSON.parse(input);
+                parseServerListSource(configSource);
+            }, input => this.storage.setOrRemoveItem('servers', input), () => {
+                location.reload();
+            }, syntaxDescription$1, syntaxExamples$1));
         }
         writeSubheading(`Storage`);
         const $updateFetchesButton = document.createElement('button');
@@ -1506,12 +1712,34 @@ class AboutDialog extends NavDialog {
             $fetchesContainer.append($table);
         });
         {
-            const $clearButton = document.createElement('button');
-            $clearButton.textContent = `Clear settings`;
-            $clearButton.addEventListener('click', () => {
+            const $clearButton = makeElement('button')()(`Clear settings`);
+            const $cancelButton = makeElement('button')()(`Cancel clear settings`);
+            hide($cancelButton);
+            const $confirmButton = makeElement('button')()(`Confirm clear settings`);
+            hide($confirmButton);
+            $clearButton.onclick = () => {
+                hide($clearButton);
+                unhide($cancelButton);
+                unhide($confirmButton);
+            };
+            $cancelButton.onclick = () => {
+                unhide($clearButton);
+                hide($cancelButton);
+                hide($confirmButton);
+            };
+            $confirmButton.onclick = () => {
                 this.storage.clear();
-            });
-            this.$section.append(makeDiv('major-input')($clearButton));
+                unhide($clearButton);
+                hide($cancelButton);
+                hide($confirmButton);
+            };
+            this.$section.append(makeDiv('major-input')($clearButton, $cancelButton, $confirmButton));
+            function hide($e) {
+                $e.style.display = 'none';
+            }
+            function unhide($e) {
+                $e.style.removeProperty('display');
+            }
         }
         writeSubheading(`Extra information`);
         this.$section.append(makeDiv()(`Notes implementation code: `, makeLink(`notes api controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`), ` (db search query is build there), `, makeLink(`notes controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/notes_controller.rb`), ` (paginated user notes query is build there), `, makeLink(`note model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note.rb`), `, `, makeLink(`note comment model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note_comment.rb`), ` in `, makeLink(`Rails Port`, `https://wiki.openstreetmap.org/wiki/The_Rails_Port`), ` (not implemented in `, makeLink(`CGIMap`, `https://wiki.openstreetmap.org/wiki/Cgimap`), `)`));
@@ -1891,12 +2119,12 @@ function makeNoteQueryString(query, withMode = true) {
     }
     return parameters.map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
 }
-function makeNoteQueryStringWithHostHash(query, hostHash) {
+function makeNoteQueryStringWithHostHash(query, hostHashValue) {
     const queryStringWithoutHostHash = makeNoteQueryString(query);
     if (!queryStringWithoutHostHash)
         return queryStringWithoutHostHash;
-    if (hostHash)
-        return `host=${escapeHash(hostHash)}&${queryStringWithoutHostHash}`;
+    if (hostHashValue)
+        return `host=${escapeHash(hostHashValue)}&${queryStringWithoutHostHash}`;
     return queryStringWithoutHostHash;
 }
 /**
@@ -2081,7 +2309,7 @@ class NoteIdsFetcherRequest extends NoteFetcherRequest {
     }
 }
 class NoteFetcherRun {
-    constructor({ db, server, hostHash, noteTable, $moreContainer, getLimit, getAutoLoad, blockDownloads, moreButtonIntersectionObservers }, query, clearStore) {
+    constructor({ db, server, hostHashValue, noteTable, $moreContainer, getLimit, getAutoLoad, blockDownloads, moreButtonIntersectionObservers }, query, clearStore) {
         this.fetchEntry = null;
         this.notes = new Map();
         this.users = {};
@@ -2090,7 +2318,7 @@ class NoteFetcherRun {
         this.server = server;
         this.noteTable = noteTable;
         (async () => {
-            const queryString = makeNoteQueryStringWithHostHash(query, hostHash); // empty string == don't know how to encode the query, thus won't save it to db
+            const queryString = makeNoteQueryStringWithHostHash(query, hostHashValue); // empty string == don't know how to encode the query, thus won't save it to db
             this.fetchEntry = await (async () => {
                 if (!queryString)
                     return null;
@@ -3948,7 +4176,7 @@ class NoteFetchPanel {
             noteTable.reset();
             const environment = {
                 db, server,
-                hostHash: globalHistory.serverList.getHostHash(server),
+                hostHashValue: globalHistory.serverList.getHostHashValue(server),
                 noteTable, $moreContainer,
                 getLimit: dialog.getLimit,
                 getAutoLoad: dialog.getAutoLoad,
@@ -4244,64 +4472,13 @@ function term(t) {
 }
 class NoteFilterPanel {
     constructor(urlLister, $container) {
-        const $form = document.createElement('form');
-        const $textarea = document.createElement('textarea');
-        const $button = document.createElement('button');
         this.noteFilter = new NoteFilter(urlLister, ``);
-        {
-            const $details = document.createElement('details');
-            $details.innerHTML = syntaxDescription;
-            const $examplesTitle = document.createElement('p');
-            $examplesTitle.innerHTML = '<strong>Examples</strong>:';
-            const $examplesList = document.createElement('dl');
-            $examplesList.classList.add('examples');
-            for (const [title, codeLines] of syntaxExamples) {
-                const $dt = document.createElement('dt');
-                $dt.append(title);
-                const $dd = document.createElement('dd');
-                const $code = document.createElement('code');
-                $code.textContent = codeLines.join('\n');
-                $dd.append($code);
-                $examplesList.append($dt, $dd);
-            }
-            $details.append($examplesTitle, $examplesList);
-            $form.append($details);
-        }
-        {
-            $textarea.rows = 5;
-            $form.append(makeDiv('major-input')(makeLabel()(`Filter: `, $textarea)));
-        }
-        {
-            $button.textContent = `Apply filter`;
-            $button.type = 'submit';
-            $button.disabled = true;
-            $form.append(makeDiv('major-input')($button));
-        }
-        $textarea.addEventListener('input', () => {
-            $button.disabled = this.noteFilter.isSameQuery($textarea.value);
-            try {
-                new NoteFilter(urlLister, $textarea.value);
-                $textarea.setCustomValidity('');
-            }
-            catch (ex) {
-                let message = `Syntax error`;
-                if (ex instanceof RangeError)
-                    message = ex.message;
-                $textarea.setCustomValidity(message);
-            }
-        });
-        $form.addEventListener('submit', (ev) => {
-            ev.preventDefault();
-            try {
-                this.noteFilter = new NoteFilter(urlLister, $textarea.value);
-            }
-            catch (ex) {
-                return;
-            }
+        const $form = makeCodeForm('', `Filter`, `Apply filter`, input => this.noteFilter.isSameQuery(input), input => new NoteFilter(urlLister, input), input => {
+            this.noteFilter = new NoteFilter(urlLister, input);
+        }, () => {
             if (this.callback)
                 this.callback(this.noteFilter);
-            $button.disabled = true;
-        });
+        }, syntaxDescription, syntaxExamples);
         $container.append($form);
     }
     subscribe(callback) {
@@ -6850,51 +7027,19 @@ function makeUserIdLink(server, uid) {
     return makeLink('#' + uid, fromId(uid));
 }
 
-var serverListConfig = [
-    null,
-    {
-        web: `https://master.apis.dev.openstreetmap.org/`,
-        note: [
-            `OSM sandbox/development server`,
-            `https://wiki.openstreetmap.org/wiki/Sandbox_for_editing#Experiment_with_the_API_(advanced)`
-        ]
-    },
-    {
-        web: [
-            `https://www.openhistoricalmap.org/`,
-            `https://openhistoricalmap.org/`
-        ],
-        nominatim: `https://nominatim.openhistoricalmap.org/`,
-        overpass: `https://overpass-api.openhistoricalmap.org/`,
-        overpassTurbo: `https://openhistoricalmap.github.io/overpass-turbo/`,
-        note: `no tiles support`
-    },
-    {
-        web: `https://opengeofiction.net/`,
-        tiles: {
-            template: `https://tiles04.rent-a-planet.com/ogf-carto/{z}/{x}/{y}.png`,
-            attribution: `OpenGeofiction and contributors`
-        },
-        overpass: `https://overpass.ogf.rent-a-planet.com/`,
-        overpassTurbo: `https://turbo.ogf.rent-a-planet.com/`,
-        world: `opengeofiction`
-    },
-    {
-        web: `https://fosm.org/`,
-        tiles: {
-            template: `https://map.fosm.org/default/{z}/{x}/{y}.png`,
-            attribution: `https://fosm.org/`,
-            zoom: 18
-        },
-        note: `mostly useless here because notes are not implemented on this server`
-    }
-];
-
 main();
 async function main() {
     const storage = new NoteViewerStorage('osm-note-viewer-');
     const db = await NoteViewerDB.open();
-    const serverList = new ServerList(serverListConfig);
+    const serverListConfigSources = [serverListConfig];
+    try {
+        const customServerListConfig = storage.getItem('servers');
+        if (customServerListConfig != null) {
+            serverListConfigSources.push(JSON.parse(customServerListConfig));
+        }
+    }
+    catch { }
+    const serverList = new ServerList(...serverListConfigSources);
     const globalEventsListener = new GlobalEventListener();
     const $navbarContainer = document.createElement('nav');
     const $fetchContainer = makeDiv('panel', 'fetch')();
