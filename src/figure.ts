@@ -1,15 +1,5 @@
 import {startOrResetFadeAnimation} from './html'
 
-// simple HTMLDialogElement interface to shut up TypeScript
-// https://gist.github.com/jbmoelker/226594f195b97bf61436
-interface HTMLDialogElementHack extends HTMLDialogElement {
-	open: boolean
-	returnValue: string
-	close(): void
-	show(): void
-	showModal(): void
-}
-
 export default class FigureDialog {
 	private url: string|undefined
 	private fallbackMode: boolean
@@ -20,8 +10,7 @@ export default class FigureDialog {
 		if (this.fallbackMode) {
 			return
 		}
-		const $dialog = <HTMLDialogElementHack>this.$dialog
-		$dialog.close()
+		this.$dialog.close()
 		this.url=undefined
 	}
 	toggle(url: string): void {
@@ -29,7 +18,6 @@ export default class FigureDialog {
 			open(url,'photo')
 			return
 		}
-		const $dialog = <HTMLDialogElementHack>this.$dialog
 		this.$dialog.innerHTML=''
 		if (url==this.url) {
 			this.close()
@@ -47,7 +35,7 @@ export default class FigureDialog {
 		const $closeButton=document.createElement('button')
 		$closeButton.classList.add('global')
 		$closeButton.innerHTML=`<svg><title>Close photo</title><use href="#reset" /></svg>`
-		$dialog.append($figure,$closeButton)
+		this.$dialog.append($figure,$closeButton)
 
 		$figure.addEventListener('keydown',(ev)=>{ // probably can't make it a button
 			if (ev.key=='Enter' || ev.key==' ') {
@@ -84,14 +72,14 @@ export default class FigureDialog {
 		$closeButton.addEventListener('animationend',()=>{
 			$closeButton.classList.remove('fading')
 		})
-		$dialog.addEventListener('keydown',(ev)=>{
+		this.$dialog.addEventListener('keydown',(ev)=>{
 			if (ev.key=='Escape') {
 				ev.stopPropagation()
 				this.close()
 			}
 		})
 
-		$dialog.show()
+		this.$dialog.show()
 		$figure.focus()
 		this.url=url
 	}
