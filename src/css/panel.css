@@ -308,13 +308,17 @@
 	white-space: pre-wrap;
 }
 
-.panel table.servers th.state,
 .panel table.servers th.capability {
 	min-width: 1em;
 	writing-mode: vertical-rl;
 	transform: rotate(180deg);
 }
-.panel table.servers td.state,
 .panel table.servers td.capability {
 	text-align: center;
+}
+.panel table.servers td.capability a {
+	text-decoration: none;
+}
+.panel table.servers input[type=radio] {
+	cursor: pointer;
 }

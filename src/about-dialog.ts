@@ -3,7 +3,7 @@ import NoteViewerDB, {FetchEntry} from './db'
 import Server from './server'
 import ServerList from './server-list'
 import {NavDialog} from './navbar'
-import {makeElement, makeDiv, makeLink} from './html'
+import {makeElement, makeDiv, makeLink, makeLabel} from './html'
 import makeCodeForm from './code'
 import {escapeHash} from './escape'
 import serverListConfig from './server-list-config'
@@ -106,18 +106,19 @@ export default class AboutDialog extends NavDialog {
 			this.$section.append($block)
 		}
 		writeSubheading(`Servers`)
+		if (!this.server) this.$section.append(makeDiv('notice','error')(
+			`Unknown server in URL hash parameter `,
+			makeElement('code')()(this.serverHash),
+			`. Please select one of the servers below.`
+		))
 		{
-			if (!this.server) this.$section.append(makeDiv('notice','error')(
-				`Unknown server in URL hash parameter `,
-				makeElement('code')()(this.serverHash),
-				`. Please select one of the servers below.`
-			))
-
+			const $form=document.createElement('form')
 			const $table=makeElement('table')('servers')()
 			const baseLocation=location.pathname+location.search
 			$table.insertRow().append(
-				makeElement('th')('state')(`selected`),
+				makeElement('th')()(),
 				makeElement('th')()(`host`),
+				makeElement('th')('capability')(`Website`),
 				makeElement('th')('capability')(`Nominatim`),
 				makeElement('th')('capability')(`Overpass`),
 				makeElement('th')('capability')(`Overpass turbo`),
@@ -132,40 +133,50 @@ export default class AboutDialog extends NavDialog {
 				} else if (availableServer.noteUrl) {
 					note=makeLink(availableServer.noteText||`[note]`,availableServer.noteUrl)
 				}
+				const $radio=document.createElement('input')
+				const $label=document.createElement('label')
+				const $a=makeLink(availableHost,availableServerLocation)
+				$radio.type='radio'
+				$radio.name='host'
+				$label.htmlFor=$radio.id='host-'+availableHost
+				$radio.checked=this.server==availableServer
+				$radio.tabIndex=-1
+				$label.append($a)
+				$radio.onclick=()=>$a.click()
 				$table.insertRow().append(
-					makeElement('td')('state')(this.server==availableServer ? '*' : ''),
-					makeElement('td')()(makeLink(availableHost,availableServerLocation)),
+					makeElement('td')()($radio),
+					makeElement('td')()($label),
+					makeElement('td')('capability')(makeLink('+',availableServer.getWebUrl(''))),
 					makeElement('td')('capability')(availableServer.nominatim ? '+' : ''),
 					makeElement('td')('capability')(availableServer.overpass ? '+' : ''),
 					makeElement('td')('capability')(availableServer.overpassTurbo ? '+' : ''),
 					makeElement('td')()(note)
 				)
 			}
-
-			this.$section.append(
-				makeDiv()($table),
-				makeCodeForm(
-					this.storage.getItem('servers')??'',
-					`Custom servers`,`Apply changes`,
-					input=>input==this.storage.getItem('servers')??'',
-					input=>{
-						if (input.trim()=='') return
-						const configSource=JSON.parse(input)
-						parseServerListSource(configSource)
-					},
-					input=>{
-						if (input.trim()=='') {
-							this.storage.removeItem('servers')
-						} else {
-							this.storage.setItem('servers',input)
-						}
-					},
-					()=>{
-						location.reload()
-					},
-					syntaxDescription,syntaxExamples
-				)
-			)
+			$form.append($table)
+			this.$section.append($form)
+		}{
+			this.$section.append(makeCodeForm(
+				this.storage.getItem('servers')??'',
+				`Custom servers`,`Apply changes`,
+				input=>input==this.storage.getItem('servers')??'',
+				input=>{
+					if (input.trim()=='') return
+					const configSource=JSON.parse(input)
+					parseServerListSource(configSource)
+				},
+				input=>{
+					if (input.trim()=='') {
+						this.storage.removeItem('servers')
+					} else {
+						this.storage.setItem('servers',input)
+					}
+				},
+				()=>{
+					location.reload()
+				},
+				syntaxDescription,syntaxExamples
+			))
 		}
 		writeSubheading(`Storage`)
 		const $updateFetchesButton=document.createElement('button')
