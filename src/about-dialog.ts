@@ -7,6 +7,7 @@ import {makeElement, makeDiv, makeLink} from './html'
 import makeCodeForm from './code'
 import {escapeHash} from './escape'
 import serverListConfig from './server-list-config'
+import {parseServerListSource} from './server-list-parser'
 
 const syntaxDescription=`<summary>Custom server configuration syntax</summary>
 <p>Uses <a href=https://en.wikipedia.org/wiki/JSON>JSON</a> format to describe one or more custom servers.
@@ -135,7 +136,9 @@ export default class AboutDialog extends NavDialog {
 					`Custom servers`,`Apply changes`,
 					input=>input==this.storage.getItem('servers')??'',
 					input=>{
-						if (input!='') JSON.parse(input)
+						if (input=='') return
+						const configSource=JSON.parse(input)
+						parseServerListSource(configSource)
 					},
 					input=>this.storage.setOrRemoveItem('servers',input),
 					()=>{

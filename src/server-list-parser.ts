@@ -81,7 +81,7 @@ export function parseServerListItem(config: any): ServerParameters {
 		const hostUrl=new URL(webUrls[0])
 		host=hostUrl.host
 	} catch (ex) {
-		throw new RangeError(`invalid web value "${webUrls[0]}"`)
+		throw new RangeError(`invalid web property value "${webUrls[0]}"`)
 	}
 
 	return [
