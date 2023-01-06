@@ -6,6 +6,7 @@ export type ServerParameters = [
 	tileAttributionUrl: string,
 	tileAttributionText: string,
 	tileMaxZoom: number,
+	tileOwner: boolean,
 	nominatimUrl: string|undefined,
 	overpassUrl: string|undefined,
 	overpassTurboUrl: string|undefined,
@@ -34,6 +35,7 @@ export function parseServerListItem(config: unknown): ServerParameters {
 	let tileAttributionUrl: string|undefined = `https://www.openstreetmap.org/copyright`
 	let tileAttributionText: string|undefined = `OpenStreetMap contributors`
 	let tileMaxZoom: number = 19
+	let tileOwner = false
 	let nominatimUrl: string|undefined
 	let overpassUrl: string|undefined
 	let overpassTurboUrl: string|undefined
@@ -67,6 +69,7 @@ export function parseServerListItem(config: unknown): ServerParameters {
 			overpassTurboUrl=requireUrlStringProperty('overpassTurbo',config.overpassTurbo)
 		}
 		if ('tiles' in config) {
+			tileOwner=true
 			tileAttributionUrl=tileAttributionText=undefined
 			if (typeof config.tiles == 'object' && config.tiles) {
 				if ('template' in config.tiles) {
@@ -93,6 +96,7 @@ export function parseServerListItem(config: unknown): ServerParameters {
 		nominatimUrl=`https://nominatim.openstreetmap.org/`
 		overpassUrl=`https://www.overpass-api.de/`
 		overpassTurboUrl=`https://overpass-turbo.eu/`
+		tileOwner=true
 	} else {
 		throw new RangeError(`server specification expected to be null, string or array; got ${type(config)} instead`)
 	}
@@ -110,7 +114,7 @@ export function parseServerListItem(config: unknown): ServerParameters {
 		tileUrlTemplate,
 		tileAttributionUrl ?? deriveAttributionUrl(webUrls),
 		tileAttributionText ?? deriveAttributionText(webUrls),
-		tileMaxZoom,
+		tileMaxZoom,tileOwner,
 		nominatimUrl,overpassUrl,overpassTurboUrl,
 		noteUrl,noteText,
 		world

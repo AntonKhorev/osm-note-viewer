@@ -110,6 +110,7 @@ export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, T
 		public readonly tileAttributionUrl: string,
 		public readonly tileAttributionText: string,
 		public readonly tileMaxZoom: number,
+		public readonly tileOwner: boolean,
 		nominatimUrl: string|undefined,
 		overpassUrl: string|undefined,
 		overpassTurboUrl: string|undefined,

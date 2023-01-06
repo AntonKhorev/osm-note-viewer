@@ -3,7 +3,7 @@ export default [
 	{
 		web: `https://master.apis.dev.openstreetmap.org/`,
 		note: [
-			`OSM sandbox/development server, no tiles support`,
+			`OSM sandbox/development server`,
 			`https://wiki.openstreetmap.org/wiki/Sandbox_for_editing#Experiment_with_the_API_(advanced)`
 		]
 	},{
@@ -13,8 +13,7 @@ export default [
 		],
 		nominatim: `https://nominatim.openhistoricalmap.org/`,
 		overpass: `https://overpass-api.openhistoricalmap.org/`,
-		overpassTurbo: `https://openhistoricalmap.github.io/overpass-turbo/`,
-		note: `no tiles support`
+		overpassTurbo: `https://openhistoricalmap.github.io/overpass-turbo/`
 	},{
 		web: `https://opengeofiction.net/`,
 		tiles: {
@@ -34,6 +33,6 @@ export default [
 		note: `mostly useless here because notes are not implemented on this server`
 	},{
 		web: `http://127.0.0.1:3000/`,
-		note: `default local rails dev server, no tiles support`
+		note: `default local rails dev server`
 	}
 ]

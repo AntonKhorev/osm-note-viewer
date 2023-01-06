@@ -118,7 +118,8 @@ export default class AboutDialog extends NavDialog {
 			$table.insertRow().append(
 				makeElement('th')()(),
 				makeElement('th')()(`host`),
-				makeElement('th')('capability')(`Website`),
+				makeElement('th')('capability')(`website`),
+				makeElement('th')('capability')(`own tiles`),
 				makeElement('th')('capability')(`Nominatim`),
 				makeElement('th')('capability')(`Overpass`),
 				makeElement('th')('capability')(`Overpass turbo`),
@@ -147,6 +148,7 @@ export default class AboutDialog extends NavDialog {
 					makeElement('td')()($radio),
 					makeElement('td')()($label),
 					makeElement('td')('capability')(makeLink('+',availableServer.getWebUrl(''))),
+					makeElement('td')('capability')(availableServer.tileOwner ? '+' : ''),
 					makeElement('td')('capability')(availableServer.nominatim ? '+' : ''),
 					makeElement('td')('capability')(availableServer.overpass ? '+' : ''),
 					makeElement('td')('capability')(availableServer.overpassTurbo ? '+' : ''),
