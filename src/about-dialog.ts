@@ -149,7 +149,7 @@ export default class AboutDialog extends NavDialog {
 					makeElement('td')()($label),
 					makeElement('td')('capability')(makeLink('+',availableServer.getWebUrl(''))),
 					makeElement('td')('capability')(availableServer.tileOwner ? '+' : ''),
-					makeElement('td')('capability')(availableServer.nominatim ? '+' : ''),
+					makeElement('td')('capability')(availableServer.nominatim ? makeLink('+',availableServer.nominatim.statusUrl) : ''),
 					makeElement('td')('capability')(availableServer.overpass ? '+' : ''),
 					makeElement('td')('capability')(availableServer.overpassTurbo ? '+' : ''),
 					makeElement('td')()(note)

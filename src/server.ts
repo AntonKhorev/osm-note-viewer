@@ -55,6 +55,9 @@ export class NominatimProvider {
 	getSearchUrl(parameters:string):string {
 		return this.url+`search?format=jsonv2&`+parameters
 	}
+	get statusUrl():string {
+		return this.url+`status.php?format=json`
+	}
 }
 
 export class OverpassProvider {
