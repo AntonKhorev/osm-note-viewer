@@ -73,7 +73,7 @@ export function parseServerListItem(config: unknown): ServerParameters {
 					tileUrlTemplate=requireStringProperty('tiles.template',config.tiles.template)
 				}
 				if ('attribution' in config.tiles) {
-					[tileAttributionUrl,tileAttributionText]=parseUrlTextPair(tileAttributionUrl,tileAttributionText,config.tiles.attribution)
+					[tileAttributionUrl,tileAttributionText]=parseUrlTextPair('attribution',tileAttributionUrl,tileAttributionText,config.tiles.attribution)
 				}
 				if ('zoom' in config.tiles) {
 					maxZoom=requireNumberProperty('tiles.zoom',config.tiles.zoom)
@@ -86,7 +86,7 @@ export function parseServerListItem(config: unknown): ServerParameters {
 			world=requireStringProperty('world',config.world)
 		}
 		if ('note' in config) {
-			[noteUrl,noteText]=parseUrlTextPair(noteUrl,noteText,config.note)
+			[noteUrl,noteText]=parseUrlTextPair('note',noteUrl,noteText,config.note)
 		}
 	} else if (config == null) {
 		noteText=`main OSM server`
@@ -94,7 +94,7 @@ export function parseServerListItem(config: unknown): ServerParameters {
 		overpassUrl=`https://www.overpass-api.de/`
 		overpassTurboUrl=`https://overpass-turbo.eu/`
 	} else {
-		throw new RangeError(`server specification expected to be null, string or array; got ${typeof config} instead`)
+		throw new RangeError(`server specification expected to be null, string or array; got ${type(config)} instead`)
 	}
 	
 	let host: string
@@ -118,7 +118,7 @@ export function parseServerListItem(config: unknown): ServerParameters {
 }
 
 function requireUrlStringProperty(name:string, value:unknown): string {
-	if (typeof value != 'string') throw new RangeError(`${name} property required to be string; got ${typeof value} instead`)
+	if (typeof value != 'string') throw new RangeError(`${name} property required to be string; got ${type(value)} instead`)
 	try {
 		new URL(value)
 	} catch {
@@ -128,12 +128,12 @@ function requireUrlStringProperty(name:string, value:unknown): string {
 }
 
 function requireStringProperty(name:string, value:unknown): string {
-	if (typeof value != 'string') throw new RangeError(`${name} property required to be string; got ${typeof value} instead`)
+	if (typeof value != 'string') throw new RangeError(`${name} property required to be string; got ${type(value)} instead`)
 	return value
 }
 
 function requireNumberProperty(name:string, value:unknown): number {
-	if (typeof value != 'number') throw new RangeError(`${name} property required to be number; got ${typeof value} instead`)
+	if (typeof value != 'number') throw new RangeError(`${name} property required to be number; got ${type(value)} instead`)
 	return value
 }
 
@@ -163,6 +163,7 @@ function parseUrlTextPairItem(
 	}
 }
 function parseUrlTextPair(
+	name:string,
 	urlValue:string|undefined,textValue:string|undefined,newItems:unknown
 ):[
 	newUrlValue:string|undefined,newTextValue:string|undefined
@@ -175,7 +176,18 @@ function parseUrlTextPair(
 				[urlValue,textValue]=parseUrlTextPairItem(urlValue,textValue,newValue)
 			}
 		}
+	} else {
+		throw new RangeError(`${name} property required to be string or array of strings; got ${type(newItems)} instead`)
 	}
-	// TODO fail on other types
 	return [urlValue,textValue]
+}
+
+function type(value:unknown): string {
+	if (Array.isArray(value)) {
+		return 'array'
+	} else if (value==null) {
+		return 'null'
+	} else {
+		return typeof value
+	}
 }

@@ -99,4 +99,9 @@ describe("server list parser module / parseServerListItem()",()=>{
 			parseServerListItem({api:"wr0ng"})
 		},/api.*wr0ng/)
 	})
+	it("throws on null as note property",()=>{
+		assert.throws(()=>{
+			parseServerListItem({note:null})
+		},/note.*null/)
+	})
 })
