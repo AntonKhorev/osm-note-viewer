@@ -94,4 +94,9 @@ describe("server list parser module / parseServerListItem()",()=>{
 			parseServerListItem({web:42})
 		},/web.*number/)
 	})
+	it("throws on non-url string as api property",()=>{
+		assert.throws(()=>{
+			parseServerListItem({api:"wr0ng"})
+		},/api.*wr0ng/)
+	})
 })

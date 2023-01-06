@@ -101,7 +101,7 @@ export function parseServerListItem(config: unknown): ServerParameters {
 	try {
 		const hostUrl=new URL(webUrls[0])
 		host=hostUrl.host
-	} catch (ex) {
+	} catch {
 		throw new RangeError(`invalid web property value "${webUrls[0]}"`)
 	}
 
@@ -119,7 +119,11 @@ export function parseServerListItem(config: unknown): ServerParameters {
 
 function requireUrlStringProperty(name:string, value:unknown): string {
 	if (typeof value != 'string') throw new RangeError(`${name} property required to be string; got ${typeof value} instead`)
-	// TODO test url
+	try {
+		new URL(value)
+	} catch {
+		throw new RangeError(`${name} property required to be url; got "${value}"`)
+	}
 	return value
 }
 
