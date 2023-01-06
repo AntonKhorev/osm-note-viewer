@@ -47,32 +47,47 @@ export function parseServerListItem(config: unknown): ServerParameters {
 	} else if (typeof config == 'object' && config) {
 		if ('web' in config) {
 			if (Array.isArray(config.web)) {
-				webUrls=config.web.map(requireUrlStringProperty)
+				webUrls=config.web.map(value=>requireUrlStringProperty('web',value))
 			} else {
-				webUrls=[requireUrlStringProperty(config.web)]
+				webUrls=[requireUrlStringProperty('web',config.web)]
 			}
 		}
 		if ('api' in config) {
-			apiUrl=requireUrlStringProperty(config.api)
+			apiUrl=requireUrlStringProperty('api',config.api)
 		} else {
 			apiUrl=webUrls[0]
 		}
-		if ('nominatim' in config) nominatimUrl=requireUrlStringProperty(config.nominatim)
-		if ('overpass' in config) overpassUrl=requireUrlStringProperty(config.overpass)
-		if ('overpassTurbo' in config) overpassTurboUrl=requireUrlStringProperty(config.overpassTurbo)
-
+		if ('nominatim' in config) {
+			nominatimUrl=requireUrlStringProperty('nominatim',config.nominatim)
+		}
+		if ('overpass' in config) {
+			overpassUrl=requireUrlStringProperty('overpass',config.overpass)
+		}
+		if ('overpassTurbo' in config) {
+			overpassTurboUrl=requireUrlStringProperty('overpassTurbo',config.overpassTurbo)
+		}
 		if ('tiles' in config) {
 			tileAttributionUrl=tileAttributionText=undefined
 			if (typeof config.tiles == 'object' && config.tiles) {
-				if ('template' in config.tiles) tileUrlTemplate=requireStringProperty(config.tiles.template)
-				if ('attribution' in config.tiles) [tileAttributionUrl,tileAttributionText]=parseUrlTextPair(tileAttributionUrl,tileAttributionText,config.tiles.attribution)
-				if ('zoom' in config.tiles) maxZoom=requireNumberProperty(config.tiles.zoom)
+				if ('template' in config.tiles) {
+					tileUrlTemplate=requireStringProperty('tiles.template',config.tiles.template)
+				}
+				if ('attribution' in config.tiles) {
+					[tileAttributionUrl,tileAttributionText]=parseUrlTextPair(tileAttributionUrl,tileAttributionText,config.tiles.attribution)
+				}
+				if ('zoom' in config.tiles) {
+					maxZoom=requireNumberProperty('tiles.zoom',config.tiles.zoom)
+				}
 			} else {
-				tileUrlTemplate=requireStringProperty(config.tiles)
+				tileUrlTemplate=requireStringProperty('tiles',config.tiles)
 			}
 		}
-		if ('world' in config) world=requireStringProperty(config.world)
-		if ('note' in config) [noteUrl,noteText]=parseUrlTextPair(noteUrl,noteText,config.note)
+		if ('world' in config) {
+			world=requireStringProperty('world',config.world)
+		}
+		if ('note' in config) {
+			[noteUrl,noteText]=parseUrlTextPair(noteUrl,noteText,config.note)
+		}
 	} else if (config == null) {
 		noteText=`main OSM server`
 		nominatimUrl=`https://nominatim.openstreetmap.org/`
@@ -102,20 +117,20 @@ export function parseServerListItem(config: unknown): ServerParameters {
 	]
 }
 
-function requireUrlStringProperty(v: unknown): string {
-	if (typeof v != 'string') throw new RangeError(`property required to be string; got ${typeof v} instead`)
+function requireUrlStringProperty(name:string, value:unknown): string {
+	if (typeof value != 'string') throw new RangeError(`${name} property required to be string; got ${typeof value} instead`)
 	// TODO test url
-	return v
+	return value
 }
 
-function requireStringProperty(v: unknown): string {
-	if (typeof v != 'string') throw new RangeError(`property required to be string; got ${typeof v} instead`)
-	return v
+function requireStringProperty(name:string, value:unknown): string {
+	if (typeof value != 'string') throw new RangeError(`${name} property required to be string; got ${typeof value} instead`)
+	return value
 }
 
-function requireNumberProperty(v: unknown): number {
-	if (typeof v != 'number') throw new RangeError(`property required to be number; got ${typeof v} instead`)
-	return v
+function requireNumberProperty(name:string, value:unknown): number {
+	if (typeof value != 'number') throw new RangeError(`${name} property required to be number; got ${typeof value} instead`)
+	return value
 }
 
 function deriveAttributionUrl(webUrls: string[]): string {

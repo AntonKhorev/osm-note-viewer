@@ -92,6 +92,6 @@ describe("server list parser module / parseServerListItem()",()=>{
 	it("throws on number as web property",()=>{
 		assert.throws(()=>{
 			parseServerListItem({web:42})
-		},/number/)
+		},/web.*number/)
 	})
 })
