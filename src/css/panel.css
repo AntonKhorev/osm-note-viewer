@@ -314,7 +314,7 @@
 	writing-mode: vertical-rl;
 	transform: rotate(180deg);
 }
-.panel table.servers th.state,
-.panel table.servers th.capability {
+.panel table.servers td.state,
+.panel table.servers td.capability {
 	text-align: center;
 }

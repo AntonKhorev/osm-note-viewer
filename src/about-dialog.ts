@@ -124,21 +124,22 @@ export default class AboutDialog extends NavDialog {
 				makeElement('th')()(`note`),
 			)
 			for (const [availableHost,availableServer] of this.serverList.servers) {
-				const $row=$table.insertRow()
 				const hashValue=this.serverList.getHostHashValue(availableServer)
 				const availableServerLocation=baseLocation+(hashValue ? `#host=`+escapeHash(hashValue) : '')
-				$row.insertCell().append(this.server==availableServer ? '*' : '')
-				$row.insertCell().append(makeLink(availableHost,availableServerLocation))
-				$row.insertCell().append(availableServer.nominatim ? '+' : '')
-				$row.insertCell().append(availableServer.overpass ? '+' : '')
-				$row.insertCell().append(availableServer.overpassTurbo ? '+' : '')
 				let note:string|HTMLElement = ''
 				if (availableServer.noteText && !availableServer.noteUrl) {
 					note=availableServer.noteText
 				} else if (availableServer.noteUrl) {
 					note=makeLink(availableServer.noteText||`[note]`,availableServer.noteUrl)
 				}
-				$row.insertCell().append(note)
+				$table.insertRow().append(
+					makeElement('td')('state')(this.server==availableServer ? '*' : ''),
+					makeElement('td')()(makeLink(availableHost,availableServerLocation)),
+					makeElement('td')('capability')(availableServer.nominatim ? '+' : ''),
+					makeElement('td')('capability')(availableServer.overpass ? '+' : ''),
+					makeElement('td')('capability')(availableServer.overpassTurbo ? '+' : ''),
+					makeElement('td')()(note)
+				)
 			}
 
 			this.$section.append(
