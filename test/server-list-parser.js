@@ -104,4 +104,9 @@ describe("server list parser module / parseServerListItem()",()=>{
 			parseServerListItem({note:null})
 		},/note.*null/)
 	})
+	it("throws on [true] as note property",()=>{
+		assert.throws(()=>{
+			parseServerListItem({note:[true]})
+		},/note.*boolean/)
+	})
 })

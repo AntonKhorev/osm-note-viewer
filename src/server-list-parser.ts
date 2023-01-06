@@ -126,12 +126,10 @@ function requireUrlStringProperty(name:string, value:unknown): string {
 	}
 	return value
 }
-
 function requireStringProperty(name:string, value:unknown): string {
 	if (typeof value != 'string') throw new RangeError(`${name} property required to be string; got ${type(value)} instead`)
 	return value
 }
-
 function requireNumberProperty(name:string, value:unknown): number {
 	if (typeof value != 'number') throw new RangeError(`${name} property required to be number; got ${type(value)} instead`)
 	return value
@@ -140,7 +138,6 @@ function requireNumberProperty(name:string, value:unknown): number {
 function deriveAttributionUrl(webUrls: string[]): string {
 	return webUrls[0]+`copyright`
 }
-
 function deriveAttributionText(webUrls: string[]): string {
 	try {
 		const hostUrl=new URL(webUrls[0])
@@ -151,10 +148,12 @@ function deriveAttributionText(webUrls: string[]): string {
 }
 
 function parseUrlTextPairItem(
-	urlValue:string|undefined,textValue:string|undefined,newValue:string
+	name:string,
+	urlValue:string|undefined,textValue:string|undefined,newValue:unknown
 ):[
 	newUrlValue:string|undefined,newTextValue:string|undefined
 ] {
+	if (typeof newValue != 'string') throw new RangeError(`${name} array property requires all elements to be strings; got ${type(newValue)} instead`)
 	try {
 		const url=new URL(newValue)
 		return [url.href,textValue]
@@ -169,12 +168,10 @@ function parseUrlTextPair(
 	newUrlValue:string|undefined,newTextValue:string|undefined
 ] {
 	if (typeof newItems == 'string') {
-		[urlValue,textValue]=parseUrlTextPairItem(urlValue,textValue,newItems)
+		[urlValue,textValue]=parseUrlTextPairItem(name,urlValue,textValue,newItems)
 	} else if (Array.isArray(newItems)) {
 		for (const newValue of newItems) {
-			if (typeof newValue == 'string') {
-				[urlValue,textValue]=parseUrlTextPairItem(urlValue,textValue,newValue)
-			}
+			[urlValue,textValue]=parseUrlTextPairItem(name,urlValue,textValue,newValue)
 		}
 	} else {
 		throw new RangeError(`${name} property required to be string or array of strings; got ${type(newItems)} instead`)
