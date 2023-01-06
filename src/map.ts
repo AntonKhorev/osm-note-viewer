@@ -94,7 +94,7 @@ export class NoteMap {
 		this.leafletMap.addLayer(L.tileLayer(
 			tileSource.tileUrlTemplate,{
 				attribution: e`© <a href="${tileSource.tileAttributionUrl}">${tileSource.tileAttributionText}</a>`,
-				maxZoom: tileSource.maxZoom
+				maxZoom: tileSource.tileMaxZoom
 			}
 		)).fitWorld()
 		this.elementLayer=L.featureGroup().addTo(this.leafletMap)

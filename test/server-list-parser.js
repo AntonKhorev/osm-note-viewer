@@ -6,7 +6,7 @@ describe("server list parser module / parseServerListItem()",()=>{
 		const result=parseServerListItem(null)
 		const [
 			host,apiUrl,webUrls,
-			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
+			tileUrlTemplate,tileAttributionUrl,tileAttributionText,tileMaxZoom,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world
 		]=result
@@ -20,7 +20,7 @@ describe("server list parser module / parseServerListItem()",()=>{
 		const result=parseServerListItem(`https://master.apis.dev.openstreetmap.org/`)
 		const [
 			host,apiUrl,webUrls,
-			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
+			tileUrlTemplate,tileAttributionUrl,tileAttributionText,tileMaxZoom,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world
 		]=result
@@ -35,7 +35,7 @@ describe("server list parser module / parseServerListItem()",()=>{
 		})
 		const [
 			host,apiUrl,webUrls,
-			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
+			tileUrlTemplate,tileAttributionUrl,tileAttributionText,tileMaxZoom,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world
 		]=result
@@ -48,7 +48,7 @@ describe("server list parser module / parseServerListItem()",()=>{
 		})
 		const [
 			host,apiUrl,webUrls,
-			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
+			tileUrlTemplate,tileAttributionUrl,tileAttributionText,tileMaxZoom,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world
 		]=result
@@ -61,7 +61,7 @@ describe("server list parser module / parseServerListItem()",()=>{
 		})
 		const [
 			host,apiUrl,webUrls,
-			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
+			tileUrlTemplate,tileAttributionUrl,tileAttributionText,tileMaxZoom,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world
 		]=result
@@ -77,7 +77,7 @@ describe("server list parser module / parseServerListItem()",()=>{
 		})
 		const [
 			host,apiUrl,webUrls,
-			tileUrlTemplate,tileAttributionUrl,tileAttributionText,maxZoom,
+			tileUrlTemplate,tileAttributionUrl,tileAttributionText,tileMaxZoom,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world
 		]=result

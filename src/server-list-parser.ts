@@ -5,7 +5,7 @@ export type ServerParameters = [
 	tileUrlTemplate: string,
 	tileAttributionUrl: string,
 	tileAttributionText: string,
-	maxZoom: number,
+	tileMaxZoom: number,
 	nominatimUrl: string|undefined,
 	overpassUrl: string|undefined,
 	overpassTurboUrl: string|undefined,
@@ -33,7 +33,7 @@ export function parseServerListItem(config: unknown): ServerParameters {
 	let tileUrlTemplate: string = `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
 	let tileAttributionUrl: string|undefined = `https://www.openstreetmap.org/copyright`
 	let tileAttributionText: string|undefined = `OpenStreetMap contributors`
-	let maxZoom: number = 19
+	let tileMaxZoom: number = 19
 	let nominatimUrl: string|undefined
 	let overpassUrl: string|undefined
 	let overpassTurboUrl: string|undefined
@@ -76,7 +76,7 @@ export function parseServerListItem(config: unknown): ServerParameters {
 					[tileAttributionUrl,tileAttributionText]=parseUrlTextPair('attribution',tileAttributionUrl,tileAttributionText,config.tiles.attribution)
 				}
 				if ('zoom' in config.tiles) {
-					maxZoom=requireNumberProperty('tiles.zoom',config.tiles.zoom)
+					tileMaxZoom=requireNumberProperty('tiles.zoom',config.tiles.zoom)
 				}
 			} else {
 				tileUrlTemplate=requireStringProperty('tiles',config.tiles)
@@ -110,7 +110,7 @@ export function parseServerListItem(config: unknown): ServerParameters {
 		tileUrlTemplate,
 		tileAttributionUrl ?? deriveAttributionUrl(webUrls),
 		tileAttributionText ?? deriveAttributionText(webUrls),
-		maxZoom,
+		tileMaxZoom,
 		nominatimUrl,overpassUrl,overpassTurboUrl,
 		noteUrl,noteText,
 		world
