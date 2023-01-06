@@ -136,11 +136,17 @@ export default class AboutDialog extends NavDialog {
 					`Custom servers`,`Apply changes`,
 					input=>input==this.storage.getItem('servers')??'',
 					input=>{
-						if (input=='') return
+						if (input.trim()=='') return
 						const configSource=JSON.parse(input)
 						parseServerListSource(configSource)
 					},
-					input=>this.storage.setOrRemoveItem('servers',input),
+					input=>{
+						if (input.trim()=='') {
+							this.storage.removeItem('servers')
+						} else {
+							this.storage.setItem('servers',input)
+						}
+					},
 					()=>{
 						location.reload()
 					},

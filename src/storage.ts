@@ -9,13 +9,6 @@ export default class NoteViewerStorage {
 	removeItem(k: string): void {
 		localStorage.removeItem(this.prefix+k)
 	}
-	setOrRemoveItem(k: string, v: string): void {
-		if (v=='') {
-			this.removeItem(k)
-		} else {
-			this.setItem(k,v)
-		}
-	}
 	getKeys(): string[] { // don't return iterator because may want to modify stuff while iterating
 		const result:string[]=[]
 		for (const k in localStorage) {
