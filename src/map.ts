@@ -6,12 +6,22 @@ const e=makeEscapeTag(escapeXml)
 
 export type NoteMapFreezeMode = 'no' | 'initial' | 'full'
 
+class NoteLayer extends L.FeatureGroup {
+	getLayerId(marker: L.Layer): number {
+		if (marker instanceof NoteMarker) {
+			return marker.noteId
+		} else {
+			throw new RangeError(`invalid feature in note layer`)
+		}
+	}
+}
+
 export default class NoteMap {
 	private leafletMap: L.Map
 	elementLayer: L.FeatureGroup
-	unselectedNoteLayer: L.FeatureGroup
-	selectedNoteLayer: L.FeatureGroup
-	filteredNoteLayer: L.FeatureGroup
+	unselectedNoteLayer: NoteLayer
+	selectedNoteLayer: NoteLayer
+	filteredNoteLayer: NoteLayer
 	trackLayer: L.FeatureGroup
 	needToFitNotes: boolean = false
 	freezeMode: NoteMapFreezeMode = 'no'
@@ -27,9 +37,9 @@ export default class NoteMap {
 			}
 		)).fitWorld()
 		this.elementLayer=L.featureGroup().addTo(this.leafletMap)
-		this.unselectedNoteLayer=L.featureGroup().addTo(this.leafletMap)
-		this.selectedNoteLayer=L.featureGroup().addTo(this.leafletMap)
-		this.filteredNoteLayer=L.featureGroup()
+		this.unselectedNoteLayer=new NoteLayer().addTo(this.leafletMap)
+		this.selectedNoteLayer=new NoteLayer().addTo(this.leafletMap)
+		this.filteredNoteLayer=new NoteLayer()
 		this.trackLayer=L.featureGroup().addTo(this.leafletMap)
 		const crosshairLayer=new CrosshairLayer().addTo(this.leafletMap)
 		const layersControl=L.control.layers()
@@ -54,7 +64,7 @@ export default class NoteMap {
 			}
 		})
 	}
-	addNoteMarker(marker: NoteMarker, toLayer: L.FeatureGroup): number {
+	addNoteMarker(marker: NoteMarker, toLayer: NoteLayer): number {
 		marker.addTo(toLayer)
 		return toLayer.getLayerId(marker)
 	}
@@ -71,7 +81,7 @@ export default class NoteMap {
 			layer.removeLayer(layerId)
 		}
 	}
-	moveNoteMarkerToLayer(layerId: number, toLayer: L.FeatureGroup): NoteMarker | undefined {
+	moveNoteMarkerToLayer(layerId: number, toLayer: NoteLayer): NoteMarker | undefined {
 		for (const layer of [this.unselectedNoteLayer,this.selectedNoteLayer,this.filteredNoteLayer]) {
 			const marker=layer.getLayer(layerId)
 			if (marker instanceof NoteMarker) {
