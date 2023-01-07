@@ -1,6 +1,6 @@
 import NoteViewerStorage from './storage'
 import NoteViewerDB, {FetchEntry} from './db'
-import Server from './server'
+import Server, {NominatimProvider, OverpassProvider} from './server'
 import ServerList from './server-list'
 import {NavDialog} from './navbar'
 import {makeElement, makeDiv, makeLink, makeLabel} from './html'
@@ -144,13 +144,16 @@ export default class AboutDialog extends NavDialog {
 				$radio.tabIndex=-1
 				$label.append($a)
 				$radio.onclick=()=>$a.click()
+				const makeStatusCell=(provider:undefined|NominatimProvider|OverpassProvider)=>makeElement('td')('capability')(
+					makeElement('td')('capability')(provider ? makeLink('+',provider.statusUrl) : ''),
+				)
 				$table.insertRow().append(
 					makeElement('td')()($radio),
 					makeElement('td')()($label),
 					makeElement('td')('capability')(makeLink('+',availableServer.getWebUrl(''))),
 					makeElement('td')('capability')(availableServer.tileOwner ? '+' : ''),
-					makeElement('td')('capability')(availableServer.nominatim ? makeLink('+',availableServer.nominatim.statusUrl) : ''),
-					makeElement('td')('capability')(availableServer.overpass ? '+' : ''),
+					makeStatusCell(availableServer.nominatim),
+					makeStatusCell(availableServer.overpass),
 					makeElement('td')('capability')(availableServer.overpassTurbo ? '+' : ''),
 					makeElement('td')()(note)
 				)

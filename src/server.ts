@@ -90,6 +90,9 @@ export class OverpassProvider {
 			}
 		}
 	}
+	get statusUrl():string {
+		return this.url+`api/status`
+	}
 }
 
 export class OverpassTurboProvider {
