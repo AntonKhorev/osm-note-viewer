@@ -154,7 +154,7 @@ export default class AboutDialog extends NavDialog {
 					makeElement('td')('capability')(availableServer.tileOwner ? '+' : ''),
 					makeStatusCell(availableServer.nominatim),
 					makeStatusCell(availableServer.overpass),
-					makeElement('td')('capability')(availableServer.overpassTurbo ? '+' : ''),
+					makeElement('td')('capability')(availableServer.overpassTurbo ? makeLink('+',availableServer.overpassTurbo.url) : ''),
 					makeElement('td')()(note)
 				)
 			}

@@ -96,7 +96,7 @@ export class OverpassProvider {
 }
 
 export class OverpassTurboProvider {
-	constructor(private url: string) {}
+	constructor(public url: string) {}
 	getUrl(query:string,lat:number,lon:number,zoom:number):string {
 		const e=makeEscapeTag(encodeURIComponent)
 		const location=`${lat};${lon};${zoom}`
