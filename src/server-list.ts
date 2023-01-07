@@ -5,24 +5,21 @@ export default class ServerList {
 	private defaultServer: Server
 	servers = new Map<string,Server>()
 	constructor(...configSources:unknown[]) {
-		let defaultServer: Server|undefined
 		for (const configSource of configSources) {
 			try {
 				const parametersList=parseServerListSource(configSource)
 				for (const parameters of parametersList) {
 					const server=new Server(...parameters)
 					this.servers.set(server.host,server)
-					if (!defaultServer) defaultServer=server
 				}
 			} catch {}
 		}
-		if (!defaultServer) {
+		if (this.servers.size==0) {
 			const parameters=parseServerListItem(null) // shouldn't throw
 			const server=new Server(...parameters)
 			this.servers.set(server.host,server)
-			defaultServer=server
 		}
-		this.defaultServer=defaultServer
+		[this.defaultServer]=this.servers.values()
 	}
 	getHostHashValue(server:Server): string|null {
 		let hostHashValue:null|string = null
