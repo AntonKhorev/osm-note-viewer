@@ -228,6 +228,8 @@ export default class NoteTable {
 	replaceNote(note: Note, users: Users): void {
 		const $noteSection=this.getNoteSection(note.id)
 		if (!$noteSection) return
+		const $checkbox=$noteSection.querySelector('.note-checkbox input')
+		const wasSelected=$checkbox instanceof HTMLInputElement && $checkbox.checked
 		this.map.removeNoteMarker(note.id)
 		// remember note and users
 		this.notesById.set(note.id,note)
@@ -241,6 +243,7 @@ export default class NoteTable {
 		const isVisible=this.filter.matchNote(note,getUsername)
 		this.makeMarker(note,isVisible)
 		this.writeNoteSection($noteSection,note,users,isVisible)
+		if (isVisible) this.setNoteSelection($noteSection,wasSelected)
 		this.sendNoteCountsUpdate() // TODO only do if visibility changed
 		// update refresher
 		delete $noteSection.dataset.updated
