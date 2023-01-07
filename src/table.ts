@@ -227,8 +227,7 @@ export default class NoteTable {
 	replaceNote(note: Note, users: Users): void {
 		const $noteSection=this.getNoteSection(note.id)
 		if (!$noteSection) return
-		const layerId=Number($noteSection.dataset.layerId)
-		this.map.removeNoteMarker(layerId)
+		this.map.removeNoteMarker(note.id)
 		// remember note and users
 		this.notesById.set(note.id,note)
 		for (const [uid,username] of Object.entries(users)) {
