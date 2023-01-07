@@ -437,8 +437,8 @@ export default class NoteTable {
 		this.activateNote('click',$noteSection)
 		this.noteSectionVisibilityObserver.haltMapFitting() // otherwise scrollIntoView() may ruin note pan/zoom - it may cause observer to fire after exiting this function
 		if (!isSectionClicked) $noteSection.scrollIntoView({block:'nearest'})
-		const layerId=Number($noteSection.dataset.layerId)
-		const marker=this.map.getNoteMarker(layerId)
+		const noteId=Number($noteSection.dataset.noteId)
+		const marker=this.map.getNoteMarker(noteId)
 		if (!marker) return
 		const z1=this.map.zoom
 		const z2=this.map.maxZoom
@@ -451,8 +451,8 @@ export default class NoteTable {
 	}
 	private deactivateNote(type: 'hover'|'click', $noteSection: HTMLTableSectionElement): void {
 		$noteSection.classList.remove('active-'+type)
-		const layerId=Number($noteSection.dataset.layerId)
-		const marker=this.map.getNoteMarker(layerId)
+		const noteId=Number($noteSection.dataset.noteId)
+		const marker=this.map.getNoteMarker(noteId)
 		if (!marker) return
 		marker.getElement()?.classList.remove('active-'+type)
 		if ($noteSection.classList.contains('active-hover') || $noteSection.classList.contains('active-click')) return
@@ -470,8 +470,8 @@ export default class NoteTable {
 			}
 		}
 		if (alreadyActive) return
-		const layerId=Number($noteSection.dataset.layerId)
-		const marker=this.map.getNoteMarker(layerId)
+		const noteId=Number($noteSection.dataset.noteId)
+		const marker=this.map.getNoteMarker(noteId)
 		if (!marker) return
 		marker.setZIndexOffset(1000)
 		marker.getElement()?.classList.add('active-'+type)
