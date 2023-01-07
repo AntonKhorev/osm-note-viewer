@@ -29,6 +29,16 @@ describe("server list parser module / parseServerListItem()",()=>{
 		assert.equal(overpassUrl,undefined)
 		assert.equal(noteText,undefined)
 	})
+	it("parses single string config without final '/'",()=>{
+		const result=parseServerListItem(`https://master.apis.dev.openstreetmap.org`)
+		const [
+			host,apiUrl,webUrls,
+			tileUrlTemplate,tileAttributionUrl,tileAttributionText,tileMaxZoom,tileOwner,
+			nominatimUrl,overpassUrl,overpassTurboUrl,
+			noteUrl,noteText,world
+		]=result
+		assert.equal(webUrls[0],`https://master.apis.dev.openstreetmap.org/`)
+	})
 	it("parses single string note text",()=>{
 		const result=parseServerListItem({
 			note: `hello world`

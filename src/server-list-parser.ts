@@ -44,8 +44,9 @@ export function parseServerListItem(config: unknown): ServerParameters {
 	let world = 'earth'
 	
 	if (typeof config == 'string') {
-		apiUrl=config
-		webUrls=[config]
+		const webUrl=requireUrlStringProperty('web',config)
+		apiUrl=webUrl
+		webUrls=[webUrl]
 	} else if (typeof config == 'object' && config) {
 		if ('web' in config) {
 			if (Array.isArray(config.web)) {
@@ -124,11 +125,10 @@ export function parseServerListItem(config: unknown): ServerParameters {
 function requireUrlStringProperty(name:string, value:unknown): string {
 	if (typeof value != 'string') throw new RangeError(`${name} property required to be string; got ${type(value)} instead`)
 	try {
-		new URL(value)
+		return new URL(value).href
 	} catch {
 		throw new RangeError(`${name} property required to be url; got "${value}"`)
 	}
-	return value
 }
 function requireStringProperty(name:string, value:unknown): string {
 	if (typeof value != 'string') throw new RangeError(`${name} property required to be string; got ${type(value)} instead`)
