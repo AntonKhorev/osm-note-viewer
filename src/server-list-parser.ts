@@ -24,13 +24,8 @@ export function parseServerListSource(configSource: unknown): ServerParameters[]
 }
 
 export function parseServerListItem(config: unknown): ServerParameters {
-	let apiUrl: string = `https://api.openstreetmap.org/`
-	let webUrls: string[] = [
-		`https://www.openstreetmap.org/`,
-		`https://openstreetmap.org/`,
-		`https://www.osm.org/`,
-		`https://osm.org/`,
-	]
+	let apiUrl: string|undefined
+	let webUrls: string[]|undefined
 	let tileUrlTemplate: string = `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
 	let tileAttributionUrl: string|undefined = `https://www.openstreetmap.org/copyright`
 	let tileAttributionText: string|undefined = `OpenStreetMap contributors`
@@ -44,9 +39,7 @@ export function parseServerListItem(config: unknown): ServerParameters {
 	let world = 'earth'
 	
 	if (typeof config == 'string') {
-		const webUrl=requireUrlStringProperty('web',config)
-		apiUrl=webUrl
-		webUrls=[webUrl]
+		webUrls=[requireUrlStringProperty('web',config)]
 	} else if (typeof config == 'object' && config) {
 		if ('web' in config) {
 			if (Array.isArray(config.web)) {
@@ -57,8 +50,6 @@ export function parseServerListItem(config: unknown): ServerParameters {
 		}
 		if ('api' in config) {
 			apiUrl=requireUrlStringProperty('api',config.api)
-		} else {
-			apiUrl=webUrls[0]
 		}
 		if ('nominatim' in config) {
 			nominatimUrl=requireUrlStringProperty('nominatim',config.nominatim)
@@ -93,6 +84,13 @@ export function parseServerListItem(config: unknown): ServerParameters {
 			[noteUrl,noteText]=parseUrlTextPair('note',noteUrl,noteText,config.note)
 		}
 	} else if (config == null) {
+		apiUrl=`https://api.openstreetmap.org/`
+		webUrls=[
+			`https://www.openstreetmap.org/`,
+			`https://openstreetmap.org/`,
+			`https://www.osm.org/`,
+			`https://osm.org/`,
+		]
 		noteText=`main OSM server`
 		nominatimUrl=`https://nominatim.openstreetmap.org/`
 		overpassUrl=`https://www.overpass-api.de/`
@@ -102,6 +100,9 @@ export function parseServerListItem(config: unknown): ServerParameters {
 		throw new RangeError(`server specification expected to be null, string or array; got ${type(config)} instead`)
 	}
 	
+	if (!webUrls) {
+		throw new RangeError(`missing required web property`)
+	}
 	let host: string
 	try {
 		const hostUrl=new URL(webUrls[0])
@@ -111,7 +112,9 @@ export function parseServerListItem(config: unknown): ServerParameters {
 	}
 
 	return [
-		host,apiUrl,webUrls,
+		host,
+		apiUrl ?? webUrls[0],
+		webUrls,
 		tileUrlTemplate,
 		tileAttributionUrl ?? deriveAttributionUrl(webUrls),
 		tileAttributionText ?? deriveAttributionText(webUrls),

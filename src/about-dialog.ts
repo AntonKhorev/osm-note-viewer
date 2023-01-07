@@ -23,7 +23,7 @@ A <em>string</em> is equivalent to an <em>object</em> with only the ${property('
 Possible <em>object</em> properties are:</p>
 <dl>
 <dt>${property('web')}
-<dd>a <em>URL string</em> or an <em>array</em> of <em>URL strings</em>; used to generate/detect links to users/notes/elements/changesets
+<dd><strong>required</strong>; a <em>URL string</em> or an <em>array</em> of <em>URL strings</em>; used to generate/detect links to users/notes/elements/changesets
 <dt>${property('api')}
 <dd>a <em>URL string</em>; used for OSM API requests; defaults to ${property('web')} property value if not specified
 <dt>${property('nominatim')}

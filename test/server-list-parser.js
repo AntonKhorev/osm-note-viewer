@@ -41,6 +41,7 @@ describe("server list parser module / parseServerListItem()",()=>{
 	})
 	it("parses single string note text",()=>{
 		const result=parseServerListItem({
+			web: `https://api06.dev.openstreetmap.org/`,
 			note: `hello world`
 		})
 		const [
@@ -54,6 +55,7 @@ describe("server list parser module / parseServerListItem()",()=>{
 	})
 	it("parses single string note url",()=>{
 		const result=parseServerListItem({
+			web: `https://api06.dev.openstreetmap.org/`,
 			note: `https://example.com/hello/`
 		})
 		const [
@@ -67,6 +69,7 @@ describe("server list parser module / parseServerListItem()",()=>{
 	})
 	it("parses array note text,url",()=>{
 		const result=parseServerListItem({
+			web: `https://api06.dev.openstreetmap.org/`,
 			note: [`the end`,`https://example.com/bye/`]
 		})
 		const [
@@ -106,17 +109,31 @@ describe("server list parser module / parseServerListItem()",()=>{
 	})
 	it("throws on non-url string as api property",()=>{
 		assert.throws(()=>{
-			parseServerListItem({api:"wr0ng"})
+			parseServerListItem({
+				web: `https://api06.dev.openstreetmap.org/`,
+				api: `wr0ng`
+			})
 		},/api.*wr0ng/)
 	})
 	it("throws on null as note property",()=>{
 		assert.throws(()=>{
-			parseServerListItem({note:null})
+			parseServerListItem({
+				web: `https://api06.dev.openstreetmap.org/`,
+				note: null
+			})
 		},/note.*null/)
 	})
 	it("throws on [true] as note property",()=>{
 		assert.throws(()=>{
-			parseServerListItem({note:[true]})
+			parseServerListItem({
+				web: `https://api06.dev.openstreetmap.org/`,
+				note: [true]
+			})
 		},/note.*boolean/)
+	})
+	it("throws on missing web property",()=>{
+		assert.throws(()=>{
+			parseServerListItem({})
+		},/web/)
 	})
 })
