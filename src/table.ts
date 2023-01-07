@@ -1,5 +1,6 @@
 import {Note, NoteComment, Users, getNoteUpdateDate} from './data'
-import {NoteMap, NoteMarker} from './map'
+import NoteMap from './map'
+import NoteMarker from './marker'
 import LooseParserListener from './loose-listen'
 import LooseParserPopup from './loose-popup'
 import parseLoose from './loose'

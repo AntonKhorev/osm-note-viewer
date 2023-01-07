@@ -1,5 +1,5 @@
 import Server from './server'
-import {NoteMap} from './map'
+import NoteMap from './map'
 import {makeLink, makeDiv, makeElement} from './html'
 import {makeEscapeTag} from './escape'
 

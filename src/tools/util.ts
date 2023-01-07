@@ -1,7 +1,7 @@
 import {Tool, ToolElements, ToolCallbacks, makeNotesIcon, makeMapIcon} from './base'
 import type {Note} from '../data'
 import Server from '../server'
-import {NoteMap} from '../map'
+import NoteMap from '../map'
 import CommentWriter from '../comment-writer'
 import {makeElement, makeLink} from '../html'
 

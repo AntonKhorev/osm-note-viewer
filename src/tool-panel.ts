@@ -2,7 +2,7 @@ import NoteViewerStorage from './storage'
 import Server from './server'
 import GlobalEventsListener from './events'
 import type {Note} from './data'
-import {NoteMap} from './map'
+import NoteMap from './map'
 import FigureDialog from './figure'
 import {
 	Tool, ToolFitMode, ToolCallbacks, toolMakerSequence,

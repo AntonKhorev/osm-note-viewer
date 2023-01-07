@@ -1,7 +1,7 @@
 import {NoteQueryFetchDialog, NoteFetchDialogSharedCheckboxes} from './base'
 import NominatimSubForm from './bbox-nominatim'
 import Server from '../server'
-import {NoteMap, NoteMapFreezeMode} from '../map'
+import NoteMap, {NoteMapFreezeMode} from '../map'
 import {NoteQuery, makeNoteBboxQueryFromValues} from '../query'
 import {NominatimBbox} from '../nominatim'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../html'

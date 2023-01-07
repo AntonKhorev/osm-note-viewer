@@ -2,7 +2,7 @@ import {Tool, ToolElements, ToolCallbacks, makeNotesIcon, makeMapIcon} from './b
 
 import type {Note} from '../data'
 import Server from '../server'
-import {NoteMap} from '../map'
+import NoteMap from '../map'
 import {makeElement, makeLink} from '../html'
 import {makeEscapeTag} from '../escape'
 

@@ -1,6 +1,6 @@
 import type {Note} from '../data'
 import Server from '../server'
-import {NoteMap} from '../map'
+import NoteMap from '../map'
 import FigureDialog from '../figure'
 
 export type ToolElements = Array<string|HTMLElement>
