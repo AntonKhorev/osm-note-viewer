@@ -69,7 +69,7 @@ export function parseServerListItem(config: unknown): ServerParameters {
 					tileUrlTemplate=requireStringProperty('tiles.template',config.tiles.template)
 				}
 				if ('attribution' in config.tiles) {
-					[tileAttributionUrl,tileAttributionText]=parseUrlTextPair('attribution',tileAttributionUrl,tileAttributionText,config.tiles.attribution)
+					[tileAttributionUrl,tileAttributionText]=parseUrlTextPair('tiles.attribution',tileAttributionUrl,tileAttributionText,config.tiles.attribution)
 				}
 				if ('zoom' in config.tiles) {
 					tileMaxZoom=requireNumberProperty('tiles.zoom',config.tiles.zoom)
