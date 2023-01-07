@@ -321,12 +321,12 @@ export default class NoteTable {
 	): void {
 		const marker=new NoteMarker(note)
 		const parentLayer=(isVisible ? this.map.unselectedNoteLayer : this.map.filteredNoteLayer)
-		const layerId=this.map.addNoteMarker(marker,parentLayer)
+		marker.addTo(parentLayer)
 		marker.on('click',this.wrappedNoteMarkerClickListener)
 		if (!isVisible) $noteSection.classList.add('hidden')
 		$noteSection.id=`note-${note.id}`
 		$noteSection.classList.add(getStatusClass(note.status))
-		$noteSection.dataset.layerId=String(layerId)
+		$noteSection.dataset.layerId=String(note.id)
 		for (const [event,listener] of this.wrappedNoteSectionListeners) {
 			$noteSection.addEventListener(event,listener)
 		}

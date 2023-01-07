@@ -64,26 +64,22 @@ export default class NoteMap {
 			}
 		})
 	}
-	addNoteMarker(marker: NoteMarker, toLayer: NoteLayer): number {
-		marker.addTo(toLayer)
-		return toLayer.getLayerId(marker)
-	}
-	getNoteMarker(layerId: number): NoteMarker | undefined {
+	getNoteMarker(noteId: number): NoteMarker | undefined {
 		for (const layer of [this.unselectedNoteLayer,this.selectedNoteLayer,this.filteredNoteLayer]) {
-			const marker=layer.getLayer(layerId)
+			const marker=layer.getLayer(noteId)
 			if (marker instanceof NoteMarker) {
 				return marker
 			}
 		}
 	}
-	removeNoteMarker(layerId: number): void {
+	removeNoteMarker(noteId: number): void {
 		for (const layer of [this.unselectedNoteLayer,this.selectedNoteLayer,this.filteredNoteLayer]) {
-			layer.removeLayer(layerId)
+			layer.removeLayer(noteId)
 		}
 	}
-	moveNoteMarkerToLayer(layerId: number, toLayer: NoteLayer): NoteMarker | undefined {
+	moveNoteMarkerToLayer(noteId: number, toLayer: NoteLayer): NoteMarker | undefined {
 		for (const layer of [this.unselectedNoteLayer,this.selectedNoteLayer,this.filteredNoteLayer]) {
-			const marker=layer.getLayer(layerId)
+			const marker=layer.getLayer(noteId)
 			if (marker instanceof NoteMarker) {
 				layer.removeLayer(marker)
 				toLayer.addLayer(marker)
@@ -127,7 +123,7 @@ export default class NoteMap {
 		if (!this.needToFitNotes) return
 		this.fitNotes()
 	}
-	showNoteTrack(layerIds: number[]): void {
+	showNoteTrack(noteIds: number[]): void {
 		const polylineOptions: L.PolylineOptions = {
 			interactive: false,
 			color: '#004', // TODO make it depend on time distance?
@@ -141,8 +137,8 @@ export default class NoteMap {
 		}
 		this.trackLayer.clearLayers()
 		const polylineCoords: L.LatLng[] = []
-		for (const layerId of layerIds) {
-			const marker=this.getNoteMarker(layerId)
+		for (const noteId of noteIds) {
+			const marker=this.getNoteMarker(noteId)
 			if (!marker) continue
 			const coords=marker.getLatLng()
 			polylineCoords.push(coords)
