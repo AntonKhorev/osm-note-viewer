@@ -522,6 +522,8 @@ export default class NoteTable {
 		const marker=this.map.moveNoteMarkerToLayer(noteId,getTargetLayer())
 		if (!marker) return
 		marker.updateIcon(note,isSelected)
+		const activeClasses=['hover','click'].map(type=>'active-'+type).filter(cls=>$noteSection.classList.contains(cls))
+		marker.getElement()?.classList.add(...activeClasses)
 	}
 	private listVisibleNoteSections(): NodeListOf<HTMLTableSectionElement> {
 		return this.$table.querySelectorAll('tbody:not(.hidden)')
