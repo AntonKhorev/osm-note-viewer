@@ -168,7 +168,6 @@ export default class NoteTable {
 		for (const $noteSection of this.$table.tBodies) {
 			const noteId=Number($noteSection.dataset.noteId)
 			const note=this.notesById.get(noteId)
-			const layerId=Number($noteSection.dataset.layerId)
 			if (note==null) continue
 			nFetched++
 			if (this.filter.matchNote(note,getUsername)) {
@@ -178,12 +177,12 @@ export default class NoteTable {
 				if ($checkbox instanceof HTMLInputElement && $checkbox.checked) {
 					targetLayer=this.map.selectedNoteLayer
 				}
-				this.map.moveNoteMarkerToLayer(layerId,targetLayer)
+				this.map.moveNoteMarkerToLayer(noteId,targetLayer)
 				$noteSection.classList.remove('hidden')
 			} else {
 				this.deactivateNote('click',$noteSection)
 				this.deactivateNote('hover',$noteSection)
-				this.map.moveNoteMarkerToLayer(layerId,this.map.filteredNoteLayer)
+				this.map.moveNoteMarkerToLayer(noteId,this.map.filteredNoteLayer)
 				$noteSection.classList.add('hidden')
 				this.setNoteSelection($noteSection,false)
 			}
