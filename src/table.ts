@@ -126,15 +126,7 @@ export default class NoteTable {
 			that.noteMarkerClickListener(this)
 		}
 		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver((visibleNoteIds,isMapFittingHalted)=>{
-			const visibleLayerIds: number[] = []
-			for (const noteId of visibleNoteIds) {
-				const $noteSection=this.getNoteSection(noteId)
-				if (!$noteSection) continue
-				if (!$noteSection.dataset.layerId) continue
-				const layerId=Number($noteSection.dataset.layerId)
-				visibleLayerIds.push(layerId)
-			}
-			map.showNoteTrack(visibleLayerIds)
+			map.showNoteTrack(visibleNoteIds)
 			if (!isMapFittingHalted && toolPanel.fitMode=='inViewNotes') map.fitNoteTrack()
 			const noteRefreshList:[id:number,lastRefreshTimestamp:number,updateDate:number,hasPendingUpdate:boolean][]=[]
 			for (const id of visibleNoteIds) {
