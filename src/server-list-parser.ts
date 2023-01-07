@@ -43,6 +43,7 @@ export function parseServerListItem(config: unknown): ServerParameters {
 	} else if (typeof config == 'object' && config) {
 		if ('web' in config) {
 			if (Array.isArray(config.web)) {
+				if (config.web.length==0) throw new RangeError(`web property as array required to be non-empty`)
 				webUrls=config.web.map(value=>requireUrlStringProperty('web',value))
 			} else {
 				webUrls=[requireUrlStringProperty('web',config.web)]
@@ -108,7 +109,7 @@ export function parseServerListItem(config: unknown): ServerParameters {
 		const hostUrl=new URL(webUrls[0])
 		host=hostUrl.host
 	} catch {
-		throw new RangeError(`invalid web property value "${webUrls[0]}"`)
+		throw new RangeError(`invalid web property value "${webUrls[0]}"`) // shouldn't happen
 	}
 
 	return [
