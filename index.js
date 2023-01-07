@@ -11,14 +11,6 @@ class NoteViewerStorage {
     removeItem(k) {
         localStorage.removeItem(this.prefix + k);
     }
-    setOrRemoveItem(k, v) {
-        if (v == '') {
-            this.removeItem(k);
-        }
-        else {
-            this.setItem(k, v);
-        }
-    }
     getKeys() {
         const result = [];
         for (const k in localStorage) {
@@ -358,6 +350,9 @@ class NominatimProvider {
     getSearchUrl(parameters) {
         return this.url + `search?format=jsonv2&` + parameters;
     }
+    get statusUrl() {
+        return this.url + `status.php?format=json`;
+    }
 }
 class OverpassProvider {
     constructor(url) {
@@ -395,6 +390,9 @@ class OverpassProvider {
             }
         }
     }
+    get statusUrl() {
+        return this.url + `api/status`;
+    }
 }
 class OverpassTurboProvider {
     constructor(url) {
@@ -407,14 +405,15 @@ class OverpassTurboProvider {
     }
 }
 class Server {
-    constructor(host, apiUrl, webUrls, tileUrlTemplate, tileAttributionUrl, tileAttributionText, maxZoom, nominatimUrl, overpassUrl, overpassTurboUrl, noteUrl, noteText, world) {
+    constructor(host, apiUrl, webUrls, tileUrlTemplate, tileAttributionUrl, tileAttributionText, tileMaxZoom, tileOwner, nominatimUrl, overpassUrl, overpassTurboUrl, noteUrl, noteText, world) {
         this.host = host;
         this.apiUrl = apiUrl;
         this.webUrls = webUrls;
         this.tileUrlTemplate = tileUrlTemplate;
         this.tileAttributionUrl = tileAttributionUrl;
         this.tileAttributionText = tileAttributionText;
-        this.maxZoom = maxZoom;
+        this.tileMaxZoom = tileMaxZoom;
+        this.tileOwner = tileOwner;
         this.noteUrl = noteUrl;
         this.noteText = noteText;
         this.world = world;
@@ -448,17 +447,13 @@ function parseServerListSource(configSource) {
     }
 }
 function parseServerListItem(config) {
-    let apiUrl = `https://api.openstreetmap.org/`;
-    let webUrls = [
-        `https://www.openstreetmap.org/`,
-        `https://openstreetmap.org/`,
-        `https://www.osm.org/`,
-        `https://osm.org/`,
-    ];
+    let apiUrl;
+    let webUrls;
     let tileUrlTemplate = `https://tile.openstreetmap.org/{z}/{x}/{y}.png`;
     let tileAttributionUrl = `https://www.openstreetmap.org/copyright`;
     let tileAttributionText = `OpenStreetMap contributors`;
-    let maxZoom = 19;
+    let tileMaxZoom = 19;
+    let tileOwner = false;
     let nominatimUrl;
     let overpassUrl;
     let overpassTurboUrl;
@@ -466,68 +461,116 @@ function parseServerListItem(config) {
     let noteText;
     let world = 'earth';
     if (typeof config == 'string') {
-        apiUrl = config;
-        webUrls = [config];
+        webUrls = [requireUrlStringProperty('web', config)];
     }
     else if (typeof config == 'object' && config) {
-        if (typeof config.web == 'string') {
-            webUrls = [config.web];
+        if ('web' in config) {
+            if (Array.isArray(config.web)) {
+                if (config.web.length == 0)
+                    throw new RangeError(`web property as array required to be non-empty`);
+                webUrls = config.web.map(value => requireUrlStringProperty('web', value));
+            }
+            else {
+                webUrls = [requireUrlStringProperty('web', config.web)];
+            }
         }
-        else if (Array.isArray(config.web)) {
-            webUrls = config.web;
+        if ('api' in config) {
+            apiUrl = requireUrlStringProperty('api', config.api);
         }
-        if (typeof config.api == 'string') {
-            apiUrl = config.api;
+        if ('nominatim' in config) {
+            nominatimUrl = requireUrlStringProperty('nominatim', config.nominatim);
         }
-        else {
-            apiUrl = webUrls[0];
+        if ('overpass' in config) {
+            overpassUrl = requireUrlStringProperty('overpass', config.overpass);
         }
-        if (typeof config.nominatim == 'string')
-            nominatimUrl = config.nominatim;
-        if (typeof config.overpass == 'string')
-            overpassUrl = config.overpass;
-        if (typeof config.overpassTurbo == 'string')
-            overpassTurboUrl = config.overpassTurbo;
-        if (typeof config.tiles == 'string') {
+        if ('overpassTurbo' in config) {
+            overpassTurboUrl = requireUrlStringProperty('overpassTurbo', config.overpassTurbo);
+        }
+        if ('tiles' in config) {
+            tileOwner = true;
             tileAttributionUrl = tileAttributionText = undefined;
-            tileUrlTemplate = config.tiles;
+            if (typeof config.tiles == 'object' && config.tiles) {
+                if ('template' in config.tiles) {
+                    tileUrlTemplate = requireStringProperty('tiles.template', config.tiles.template);
+                }
+                if ('attribution' in config.tiles) {
+                    [tileAttributionUrl, tileAttributionText] = parseUrlTextPair('tiles.attribution', tileAttributionUrl, tileAttributionText, config.tiles.attribution);
+                }
+                if ('zoom' in config.tiles) {
+                    tileMaxZoom = requireNumberProperty('tiles.zoom', config.tiles.zoom);
+                }
+            }
+            else {
+                tileUrlTemplate = requireStringProperty('tiles', config.tiles);
+            }
         }
-        else if (typeof config.tiles == 'object' && config.tiles) {
-            tileAttributionUrl = tileAttributionText = undefined;
-            if (typeof config.tiles.template == 'string')
-                tileUrlTemplate = config.tiles.template;
-            [tileAttributionUrl, tileAttributionText] = parseUrlTextPair(tileAttributionUrl, tileAttributionText, config.tiles.attribution);
-            if (typeof config.tiles.zoom == 'number')
-                maxZoom = config.tiles.zoom;
+        if ('world' in config) {
+            world = requireStringProperty('world', config.world);
         }
-        if (typeof config.world == 'string')
-            world = config.world;
-        [noteUrl, noteText] = parseUrlTextPair(noteUrl, noteText, config.note);
+        if ('note' in config) {
+            [noteUrl, noteText] = parseUrlTextPair('note', noteUrl, noteText, config.note);
+        }
     }
-    else if (!config) {
+    else if (config == null) {
+        apiUrl = `https://api.openstreetmap.org/`;
+        webUrls = [
+            `https://www.openstreetmap.org/`,
+            `https://openstreetmap.org/`,
+            `https://www.osm.org/`,
+            `https://osm.org/`,
+        ];
         noteText = `main OSM server`;
         nominatimUrl = `https://nominatim.openstreetmap.org/`;
         overpassUrl = `https://www.overpass-api.de/`;
         overpassTurboUrl = `https://overpass-turbo.eu/`;
+        tileOwner = true;
+    }
+    else {
+        throw new RangeError(`server specification expected to be null, string or array; got ${type(config)} instead`);
+    }
+    if (!webUrls) {
+        throw new RangeError(`missing required web property`);
     }
     let host;
     try {
         const hostUrl = new URL(webUrls[0]);
         host = hostUrl.host;
     }
-    catch (ex) {
-        throw new RangeError(`invalid web property value "${webUrls[0]}"`);
+    catch {
+        throw new RangeError(`invalid web property value "${webUrls[0]}"`); // shouldn't happen
     }
     return [
-        host, apiUrl, webUrls,
+        host,
+        apiUrl ?? webUrls[0],
+        webUrls,
         tileUrlTemplate,
         tileAttributionUrl ?? deriveAttributionUrl(webUrls),
         tileAttributionText ?? deriveAttributionText(webUrls),
-        maxZoom,
+        tileMaxZoom, tileOwner,
         nominatimUrl, overpassUrl, overpassTurboUrl,
         noteUrl, noteText,
         world
     ];
+}
+function requireUrlStringProperty(name, value) {
+    if (typeof value != 'string')
+        throw new RangeError(`${name} property required to be string; got ${type(value)} instead`);
+    try {
+        return new URL(value).href;
+    }
+    catch {
+        throw new RangeError(`${name} property required to be url; got "${value}"`);
+    }
+}
+function requireStringProperty(name, value) {
+    if (typeof value != 'string')
+        throw new RangeError(`${name} property required to be string; got ${type(value)} instead`);
+    return value;
+}
+function requireNumberProperty(name, value) {
+    if (typeof value != 'number')
+        throw new RangeError(`${name} property required to be number; got ${type(value)} instead`);
+    return value;
 }
 function deriveAttributionUrl(webUrls) {
     return webUrls[0] + `copyright`;
@@ -541,7 +584,9 @@ function deriveAttributionText(webUrls) {
         return webUrls[0] + ` contributors`;
     }
 }
-function parseUrlTextPairItem(urlValue, textValue, newValue) {
+function parseUrlTextPairItem(name, urlValue, textValue, newValue) {
+    if (typeof newValue != 'string')
+        throw new RangeError(`${name} array property requires all elements to be strings; got ${type(newValue)} instead`);
     try {
         const url = new URL(newValue);
         return [url.href, textValue];
@@ -550,43 +595,51 @@ function parseUrlTextPairItem(urlValue, textValue, newValue) {
         return [urlValue, newValue];
     }
 }
-function parseUrlTextPair(urlValue, textValue, newItems) {
+function parseUrlTextPair(name, urlValue, textValue, newItems) {
     if (typeof newItems == 'string') {
-        [urlValue, textValue] = parseUrlTextPairItem(urlValue, textValue, newItems);
+        [urlValue, textValue] = parseUrlTextPairItem(name, urlValue, textValue, newItems);
     }
     else if (Array.isArray(newItems)) {
         for (const newValue of newItems) {
-            if (typeof newValue == 'string') {
-                [urlValue, textValue] = parseUrlTextPairItem(urlValue, textValue, newValue);
-            }
+            [urlValue, textValue] = parseUrlTextPairItem(name, urlValue, textValue, newValue);
         }
     }
+    else {
+        throw new RangeError(`${name} property required to be string or array of strings; got ${type(newItems)} instead`);
+    }
     return [urlValue, textValue];
+}
+function type(value) {
+    if (Array.isArray(value)) {
+        return 'array';
+    }
+    else if (value == null) {
+        return 'null';
+    }
+    else {
+        return typeof value;
+    }
 }
 
 class ServerList {
     constructor(...configSources) {
         this.servers = new Map();
-        let defaultServer;
         for (const configSource of configSources) {
             try {
                 const parametersList = parseServerListSource(configSource);
                 for (const parameters of parametersList) {
                     const server = new Server(...parameters);
                     this.servers.set(server.host, server);
-                    if (!defaultServer)
-                        defaultServer = server;
                 }
             }
             catch { }
         }
-        if (!defaultServer) {
+        if (this.servers.size == 0) {
             const parameters = parseServerListItem(null); // shouldn't throw
             const server = new Server(...parameters);
             this.servers.set(server.host, server);
-            defaultServer = server;
         }
-        this.defaultServer = defaultServer;
+        [this.defaultServer] = this.servers.values();
     }
     getHostHashValue(server) {
         let hostHashValue = null;
@@ -884,7 +937,7 @@ class NoteMap {
         });
         this.leafletMap.addLayer(L.tileLayer(tileSource.tileUrlTemplate, {
             attribution: e$4 `© <a href="${tileSource.tileAttributionUrl}">${tileSource.tileAttributionText}</a>`,
-            maxZoom: tileSource.maxZoom
+            maxZoom: tileSource.tileMaxZoom
         })).fitWorld();
         this.elementLayer = L.featureGroup().addTo(this.leafletMap);
         this.unselectedNoteLayer = L.featureGroup().addTo(this.leafletMap);
@@ -1248,8 +1301,7 @@ class FigureDialog {
         if (this.fallbackMode) {
             return;
         }
-        const $dialog = this.$dialog;
-        $dialog.close();
+        this.$dialog.close();
         this.url = undefined;
     }
     toggle(url) {
@@ -1257,7 +1309,6 @@ class FigureDialog {
             open(url, 'photo');
             return;
         }
-        const $dialog = this.$dialog;
         this.$dialog.innerHTML = '';
         if (url == this.url) {
             this.close();
@@ -1275,7 +1326,7 @@ class FigureDialog {
         const $closeButton = document.createElement('button');
         $closeButton.classList.add('global');
         $closeButton.innerHTML = `<svg><title>Close photo</title><use href="#reset" /></svg>`;
-        $dialog.append($figure, $closeButton);
+        this.$dialog.append($figure, $closeButton);
         $figure.addEventListener('keydown', (ev) => {
             if (ev.key == 'Enter' || ev.key == ' ') {
                 ev.stopPropagation();
@@ -1314,13 +1365,13 @@ class FigureDialog {
         $closeButton.addEventListener('animationend', () => {
             $closeButton.classList.remove('fading');
         });
-        $dialog.addEventListener('keydown', (ev) => {
+        this.$dialog.addEventListener('keydown', (ev) => {
             if (ev.key == 'Escape') {
                 ev.stopPropagation();
                 this.close();
             }
         });
-        $dialog.show();
+        this.$dialog.show();
         $figure.focus();
         this.url = url;
     }
@@ -1478,7 +1529,7 @@ var serverListConfig = [
     {
         web: `https://master.apis.dev.openstreetmap.org/`,
         note: [
-            `OSM sandbox/development server, no tiles support`,
+            `OSM sandbox/development server`,
             `https://wiki.openstreetmap.org/wiki/Sandbox_for_editing#Experiment_with_the_API_(advanced)`
         ]
     }, {
@@ -1488,8 +1539,7 @@ var serverListConfig = [
         ],
         nominatim: `https://nominatim.openhistoricalmap.org/`,
         overpass: `https://overpass-api.openhistoricalmap.org/`,
-        overpassTurbo: `https://openhistoricalmap.github.io/overpass-turbo/`,
-        note: `no tiles support`
+        overpassTurbo: `https://openhistoricalmap.github.io/overpass-turbo/`
     }, {
         web: `https://opengeofiction.net/`,
         tiles: {
@@ -1509,7 +1559,7 @@ var serverListConfig = [
         note: `mostly useless here because notes are not implemented on this server`
     }, {
         web: `http://127.0.0.1:3000/`,
-        note: `default local rails dev server, no tiles support`
+        note: `default local rails dev server`
     }
 ];
 
@@ -1527,7 +1577,7 @@ A <em>string</em> is equivalent to an <em>object</em> with only the ${property('
 Possible <em>object</em> properties are:</p>
 <dl>
 <dt>${property('web')}
-<dd>a <em>URL string</em> or an <em>array</em> of <em>URL strings</em>; used to generate/detect links to users/notes/elements/changesets
+<dd><strong>required</strong>; a <em>URL string</em> or an <em>array</em> of <em>URL strings</em>; used to generate/detect links to users/notes/elements/changesets
 <dt>${property('api')}
 <dd>a <em>URL string</em>; used for OSM API requests; defaults to ${property('web')} property value if not specified
 <dt>${property('nominatim')}
@@ -1606,33 +1656,53 @@ class AboutDialog extends NavDialog {
             this.$section.append($block);
         }
         writeSubheading(`Servers`);
+        if (!this.server)
+            this.$section.append(makeDiv('notice', 'error')(`Unknown server in URL hash parameter `, makeElement('code')()(this.serverHash), `. Please select one of the servers below.`));
         {
-            if (!this.server)
-                this.$section.append(makeDiv('notice', 'error')(`Unknown server in URL hash parameter `, makeElement('code')()(this.serverHash), `. Please select one of the servers below.`));
-            const $list = makeElement('ul')()();
+            const $form = document.createElement('form');
+            const $table = makeElement('table')('servers')();
             const baseLocation = location.pathname + location.search;
-            for (const [newHost, newServer] of this.serverList.servers) {
-                const hashValue = this.serverList.getHostHashValue(newServer);
-                const newLocation = baseLocation + (hashValue ? `#host=` + escapeHash(hashValue) : '');
-                let itemContent = [makeLink(newHost, newLocation)];
-                if (newServer.noteText && !newServer.noteUrl) {
-                    itemContent.push(` — ` + newServer.noteText);
+            $table.insertRow().append(makeElement('th')()(), makeElement('th')()(`host`), makeElement('th')('capability')(`website`), makeElement('th')('capability')(`own tiles`), makeElement('th')('capability')(`Nominatim`), makeElement('th')('capability')(`Overpass`), makeElement('th')('capability')(`Overpass turbo`), makeElement('th')()(`note`));
+            for (const [availableHost, availableServer] of this.serverList.servers) {
+                const hashValue = this.serverList.getHostHashValue(availableServer);
+                const availableServerLocation = baseLocation + (hashValue ? `#host=` + escapeHash(hashValue) : '');
+                let note = '';
+                if (availableServer.noteText && !availableServer.noteUrl) {
+                    note = availableServer.noteText;
                 }
-                else if (newServer.noteUrl) {
-                    itemContent.push(` — `, makeLink(newServer.noteText || `note`, newServer.noteUrl));
+                else if (availableServer.noteUrl) {
+                    note = makeLink(availableServer.noteText || `[note]`, availableServer.noteUrl);
                 }
-                if (this.server == newServer) {
-                    itemContent.push(` — currently selected`);
-                    itemContent = [makeElement('strong')()(...itemContent)];
-                }
-                $list.append(makeElement('li')()(...itemContent));
+                const $radio = document.createElement('input');
+                const $label = document.createElement('label');
+                const $a = makeLink(availableHost, availableServerLocation);
+                $radio.type = 'radio';
+                $radio.name = 'host';
+                $label.htmlFor = $radio.id = 'host-' + availableHost;
+                $radio.checked = this.server == availableServer;
+                $radio.tabIndex = -1;
+                $label.append($a);
+                $radio.onclick = () => $a.click();
+                const makeStatusCell = (provider) => makeElement('td')('capability')(makeElement('td')('capability')(provider ? makeLink('+', provider.statusUrl) : ''));
+                $table.insertRow().append(makeElement('td')()($radio), makeElement('td')()($label), makeElement('td')('capability')(makeLink('+', availableServer.getWebUrl(''))), makeElement('td')('capability')(availableServer.tileOwner ? '+' : ''), makeStatusCell(availableServer.nominatim), makeStatusCell(availableServer.overpass), makeElement('td')('capability')(availableServer.overpassTurbo ? makeLink('+', availableServer.overpassTurbo.url) : ''), makeElement('td')()(note));
             }
-            this.$section.append(makeDiv()($list), makeCodeForm(this.storage.getItem('servers') ?? '', `Custom servers`, `Apply changes`, input => input == this.storage.getItem('servers') ?? '', input => {
-                if (input == '')
+            $form.append($table);
+            this.$section.append($form);
+        }
+        {
+            this.$section.append(makeCodeForm(this.storage.getItem('servers') ?? '', `Custom servers`, `Apply changes`, input => input == this.storage.getItem('servers') ?? '', input => {
+                if (input.trim() == '')
                     return;
                 const configSource = JSON.parse(input);
                 parseServerListSource(configSource);
-            }, input => this.storage.setOrRemoveItem('servers', input), () => {
+            }, input => {
+                if (input.trim() == '') {
+                    this.storage.removeItem('servers');
+                }
+                else {
+                    this.storage.setItem('servers', input);
+                }
+            }, () => {
                 location.reload();
             }, syntaxDescription$1, syntaxExamples$1));
         }
@@ -5677,7 +5747,7 @@ function getActionClass(action) {
     }
 }
 
-/*! *****************************************************************************
+/******************************************************************************
 Copyright (c) Microsoft Corporation.
 
 Permission to use, copy, modify, and/or distribute this software for any
