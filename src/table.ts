@@ -316,7 +316,6 @@ export default class NoteTable {
 		if (!isVisible) $noteSection.classList.add('hidden')
 		$noteSection.id=`note-${note.id}`
 		$noteSection.classList.add(getStatusClass(note.status))
-		$noteSection.dataset.layerId=String(note.id)
 		for (const [event,listener] of this.wrappedNoteSectionListeners) {
 			$noteSection.addEventListener(event,listener)
 		}
@@ -520,8 +519,7 @@ export default class NoteTable {
 		const noteId=Number($noteSection.dataset.noteId)
 		const note=this.notesById.get(noteId)
 		if (!note) return
-		const layerId=Number($noteSection.dataset.layerId)
-		const marker=this.map.moveNoteMarkerToLayer(layerId,getTargetLayer())
+		const marker=this.map.moveNoteMarkerToLayer(noteId,getTargetLayer())
 		if (!marker) return
 		marker.updateIcon(note,isSelected)
 	}
