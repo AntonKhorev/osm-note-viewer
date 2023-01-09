@@ -33,7 +33,7 @@ async function buildHtml(srcDir,dstDir,cacheDir) {
 	const encodedFavicon=Buffer.from(favicon).toString('base64')
 	let htmlContents=await fs.readFile(`${srcDir}/index.html`,'utf-8')
 	if (cacheDir) {
-		htmlContents=await downloadCdnFiles(cacheDir,htmlContents)
+		htmlContents=await downloadCdnFiles(dstDir,cacheDir,htmlContents)
 	}
 	htmlContents=htmlContents
 		.replace(`<body>`,`<body data-build="${new Date().toISOString()}">`)
@@ -109,7 +109,7 @@ function getEmbeddedSvg(id,input) {
 	return [style,symbol]
 }
 
-async function downloadCdnFiles(cacheDir,htmlContents) {
+async function downloadCdnFiles(dstDir,cacheDir,htmlContents) {
 	const regexp=new RegExp(`<(link|script)([^>]*)>`,'g')
 	const downloads=new Map()
 	htmlContents.replace(regexp,(match,tag,attributesString)=>{
@@ -122,10 +122,12 @@ async function downloadCdnFiles(cacheDir,htmlContents) {
 		downloads.set(url,[filename,integrity])
 		return match
 	})
+	const completeDownloads=new Map()
 	for (const [url,[filename,integrity]] of downloads) {
-		const fullFilename=`${cacheDir}/${filename}`
+		const dstFilename=`${dstDir}/${filename}`
+		const cacheFilename=`${cacheDir}/${filename}`
 		try {
-			await fs.access(fullFilename)
+			await fs.access(cacheFilename)
 		} catch {
 			process.stdout.write(`downloading ${url} `)
 			const buffer=await new Promise((resolve,reject)=>{
@@ -141,10 +143,23 @@ async function downloadCdnFiles(cacheDir,htmlContents) {
 				})
 			})
 			process.stdout.write(`done\n`)
-			await fs.writeFile(fullFilename,buffer)
+			await fs.writeFile(cacheFilename,buffer)
 		}
+		await fs.copyFile(cacheFilename,dstFilename)
+		completeDownloads.set(url,filename)
 	}
-	return htmlContents
+	return htmlContents.replace(regexp,(match,tag,attributesString)=>{
+		const urlAttribute=tag=='link'?'href':'src'
+		const url=readHtmlAttribute(attributesString,urlAttribute)
+		if (url==null) return match
+		const filename=completeDownloads.get(url)
+		if (filename==null) return match
+		const updatedAttributesString=replaceHtmlAttribute(
+			['integrity','crossorigin'].reduce(removeHtmlAttribute,attributesString),
+			urlAttribute,filename
+		)
+		return `<${tag}${updatedAttributesString}>`
+	})
 }
 
 function readHtmlAttribute(attributesString,attribute) {
@@ -153,6 +168,14 @@ function readHtmlAttribute(attributesString,attribute) {
 		const [,value]=match
 		return value
 	}
+}
+
+function replaceHtmlAttribute(attributesString,attribute,value) {
+	return attributesString.replace(new RegExp(`${attribute}="([^"]*)"`),`${attribute}="${value}"`)
+}
+
+function removeHtmlAttribute(attributesString,attribute) {
+	return attributesString.replace(new RegExp(`\\s*${attribute}="([^"]*)"`),``)
 }
 
 function getFilenameFromUrl(url) {
