@@ -1,5 +1,6 @@
 import * as fs from 'fs/promises'
 import * as https from 'https'
+import { createHash } from 'crypto'
 import { rollup } from 'rollup'
 import typescript from '@rollup/plugin-typescript'
 
@@ -124,6 +125,12 @@ async function downloadCdnFiles(dstDir,cacheDir,htmlContents) {
 	})
 	const completeDownloads=new Map()
 	for (const [url,[filename,integrity]] of downloads) {
+		let hash,digest
+		if (integrity) {
+			let algorithm
+			[algorithm,digest]=integrity.split('-')
+			hash=createHash(algorithm)
+		}
 		const dstFilename=`${dstDir}/${filename}`
 		const cacheFilename=`${cacheDir}/${filename}`
 		try {
@@ -136,10 +143,14 @@ async function downloadCdnFiles(dstDir,cacheDir,htmlContents) {
 					const chunks=[]
 					response.on('data',chunk=>{
 						process.stdout.write(`.`)
+						if (hash) hash.update(chunk)
 						chunks.push(chunk)
 					})
 					response.on('error',err=>reject(`download of ${filename} failed while streaming with error ${err}`))
-					response.on('end',()=>resolve(Buffer.concat(chunks)))
+					response.on('end',()=>{
+						if (hash && hash.digest('base64')!=digest) reject(`download of ${filename} failed integrity check`)
+						resolve(Buffer.concat(chunks))
+					})
 				})
 			})
 			process.stdout.write(`done\n`)
