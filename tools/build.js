@@ -1,36 +1,27 @@
 import * as fs from 'fs/promises'
+import * as https from 'https'
 import { rollup } from 'rollup'
 import typescript from '@rollup/plugin-typescript'
 
-export default async function build(srcDir,dstDir) {
-	await cleanup(srcDir,dstDir)
-	await buildHtml(srcDir,dstDir)
+export default async function build(srcDir,dstDir,cacheDir) {
+	await cleanup(dstDir,cacheDir)
+	await buildHtml(srcDir,dstDir,cacheDir)
 	await buildCss(srcDir,dstDir)
 	await buildJs(srcDir,dstDir)
 }
 
-async function cleanup(srcDir,dstDir) {
-	await fs.rm(dstDir,{recursive:true,force:true})
-	await fs.mkdir(dstDir)
+async function cleanup(dstDir,cacheDir) {
+	await fs.mkdir(dstDir,{recursive:true})
+	for (const filename of await fs.readdir('dist')) {
+		await fs.rm(`${dstDir}/${filename}`,{recursive:true,force:true})
+	}
+	if (cacheDir) {
+		await fs.mkdir(cacheDir,{recursive:true})
+	}
 }
 
-async function buildHtml(srcDir,dstDir) {
-	// process svgs
-	let embeddedStyles=''
-	let embeddedSymbols=''
-	for (const dirEntry of await fs.readdir(`${srcDir}/svg`,{withFileTypes:true})) {
-		if (dirEntry.isDirectory()) continue
-		const filename=dirEntry.name
-		if (filename=='favicon.svg') continue
-		const [style,symbol]=getEmbeddedSvg(
-			filename.split('.')[0],
-			await fs.readFile(`${srcDir}/svg/${filename}`,'utf-8')
-		)
-		embeddedStyles+=style
-		embeddedSymbols+=symbol
-	}
-
-	// build index with embedded svgs
+async function buildHtml(srcDir,dstDir,cacheDir) {
+	const [embeddedStyles,embeddedSymbols]=await getAllEmbeddedSvgs(srcDir)
 	const embeddedSvgs=
 		`<svg class="symbols">\n`+
 		`<style>\n`+
@@ -40,12 +31,15 @@ async function buildHtml(srcDir,dstDir) {
 		`</svg>`
 	const favicon=await fs.readFile(`${srcDir}/svg/favicon.svg`,'utf-8')
 	const encodedFavicon=Buffer.from(favicon).toString('base64')
-	const htmlContents=await fs.readFile(`${srcDir}/index.html`,'utf-8')
-	const patchedHtmlContents=htmlContents
+	let htmlContents=await fs.readFile(`${srcDir}/index.html`,'utf-8')
+	if (cacheDir) {
+		htmlContents=await downloadCdnFiles(cacheDir,htmlContents)
+	}
+	htmlContents=htmlContents
 		.replace(`<body>`,`<body data-build="${new Date().toISOString()}">`)
 		.replace(`<!-- {embed svgs} -->`,embeddedSvgs)
 		.replace(`<!-- {embed favicon} -->`,`<link rel=icon href="data:image/svg+xml;charset=utf-8;base64,${encodedFavicon}">`)
-	await fs.writeFile(`${dstDir}/index.html`,patchedHtmlContents)
+	await fs.writeFile(`${dstDir}/index.html`,htmlContents)
 }
 
 async function buildCss(srcDir,dstDir) {
@@ -75,6 +69,23 @@ async function buildJs(srcDir,dstDir) {
 	bundle.close()
 }
 
+async function getAllEmbeddedSvgs(srcDir) {
+	let styles=''
+	let symbols=''
+	for (const dirEntry of await fs.readdir(`${srcDir}/svg`,{withFileTypes:true})) {
+		if (dirEntry.isDirectory()) continue
+		const filename=dirEntry.name
+		if (filename=='favicon.svg') continue
+		const [style,symbol]=getEmbeddedSvg(
+			filename.split('.')[0],
+			await fs.readFile(`${srcDir}/svg/${filename}`,'utf-8')
+		)
+		styles+=style
+		symbols+=symbol
+	}
+	return [styles,symbols]
+}
+
 function getEmbeddedSvg(id,input) {
 	let style=''
 	let symbol=''
@@ -96,4 +107,58 @@ function getEmbeddedSvg(id,input) {
 		}
 	}
 	return [style,symbol]
+}
+
+async function downloadCdnFiles(cacheDir,htmlContents) {
+	const regexp=new RegExp(`<(link|script)([^>]*)>`,'g')
+	const downloads=new Map()
+	htmlContents.replace(regexp,(match,tag,attributesString)=>{
+		const urlAttribute=tag=='link'?'href':'src'
+		const url=readHtmlAttribute(attributesString,urlAttribute)
+		if (url==null) return match
+		const filename=getFilenameFromUrl(url)
+		if (filename==null) return match
+		const integrity=readHtmlAttribute(attributesString,'integrity')
+		downloads.set(url,[filename,integrity])
+		return match
+	})
+	for (const [url,[filename,integrity]] of downloads) {
+		const fullFilename=`${cacheDir}/${filename}`
+		try {
+			await fs.access(fullFilename)
+		} catch {
+			process.stdout.write(`downloading ${url} `)
+			const buffer=await new Promise((resolve,reject)=>{
+				https.get(url,response=>{
+					if (response.statusCode!==200) return reject(`download of ${filename} failed with status code ${response.statusCode}`)
+					const chunks=[]
+					response.on('data',chunk=>{
+						process.stdout.write(`.`)
+						chunks.push(chunk)
+					})
+					response.on('error',err=>reject(`download of ${filename} failed while streaming with error ${err}`))
+					response.on('end',()=>resolve(Buffer.concat(chunks)))
+				})
+			})
+			process.stdout.write(`done\n`)
+			await fs.writeFile(fullFilename,buffer)
+		}
+	}
+	return htmlContents
+}
+
+function readHtmlAttribute(attributesString,attribute) {
+	const match=attributesString.match(new RegExp(`${attribute}="([^"]*)"`))
+	if (match) {
+		const [,value]=match
+		return value
+	}
+}
+
+function getFilenameFromUrl(url) {
+	try {
+		const urlObject=new URL(url)
+		if (urlObject.host!='unpkg.com') return
+		return urlObject.pathname.split('/').pop()
+	} catch {}
 }
