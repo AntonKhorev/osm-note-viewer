@@ -3,12 +3,13 @@ import * as https from 'https'
 import { createHash } from 'crypto'
 import { rollup } from 'rollup'
 import typescript from '@rollup/plugin-typescript'
+import virtual from '@rollup/plugin-virtual'
 
-export default async function build(srcDir,dstDir,cacheDir) {
+export default async function build(srcDir,dstDir,cacheDir,serverListConfig) {
 	await cleanup(dstDir,cacheDir)
 	await buildHtml(srcDir,dstDir,cacheDir)
 	await buildCss(srcDir,dstDir)
-	await buildJs(srcDir,dstDir)
+	await buildJs(srcDir,dstDir,serverListConfig)
 }
 
 async function cleanup(dstDir,cacheDir) {
@@ -59,10 +60,16 @@ async function buildCss(srcDir,dstDir) {
 	await fs.writeFile(`${dstDir}/index.css`,bundledIndexCss)
 }
 
-async function buildJs(srcDir,dstDir) {
+async function buildJs(srcDir,dstDir,serverListConfig) {
+	const plugins=[typescript()]
+	if (serverListConfig) {
+		plugins.unshift(virtual({
+			[`${srcDir}/server-list-config`]: `export default `+JSON.stringify(serverListConfig)
+		}))
+	}
 	const bundle=await rollup({
 		input: `${srcDir}/index.ts`,
-		plugins: [typescript()]
+		plugins
 	})
 	bundle.write({
 		file: `${dstDir}/index.js`,
