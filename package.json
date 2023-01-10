@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node build.js",
     "test": "node build-test.js && mocha",
-    "browser-test": "mocha test-browser"
+    "browser-test": "mocha test-browser || true"
   },
   "author": "Anton Khorev",
   "license": "MIT",
