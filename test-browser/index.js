@@ -34,6 +34,8 @@ describe("browser tests",function(){
 		}
 		this.waitForFetchButton=()=>page.waitForXPath(`//button[not(@disabled) and contains(.,"Fetch notes")]`)
 		this.hasText=async(text)=>(await page.$x(`//*[contains(text(),"${text}")]`)).length
+		this.assertText=async(text)=>assert(await this.hasText(text),`missing expected text "${text}"`)
+		this.assertNoText=async(text)=>assert(!await this.hasText(text),`present unexpected text "${text}"`)
 	})
 	afterEach(async function(){
 		await this.browser.close()
@@ -44,10 +46,10 @@ describe("browser tests",function(){
 		}])
 		const page=await this.openPage()
 		const button=await this.waitForFetchButton()
-		assert(!await this.hasText("the-only-note-comment"))
+		await this.assertNoText("the-only-note-comment")
 		await button.click()
 		await page.waitForSelector('.notes tbody')
-		assert(await this.hasText("the-only-note-comment"))
+		await this.assertText("the-only-note-comment")
 	})
 	it("updates the note",async function(){
 		this.server.setNotes([{
@@ -59,12 +61,12 @@ describe("browser tests",function(){
 		}])
 		const page=await this.openPage()
 		const button=await this.waitForFetchButton()
-		assert(!await this.hasText("the-first-note-comment"))
-		assert(!await this.hasText("the-second-note-comment"))
+		await this.assertNoText("the-first-note-comment")
+		await this.assertNoText("the-second-note-comment")
 		await button.click()
 		await page.waitForSelector('.notes tbody')
-		assert(await this.hasText("the-first-note-comment"))
-		assert(!await this.hasText("the-second-note-comment"))
+		await this.assertText("the-first-note-comment")
+		await this.assertNoText("the-second-note-comment")
 		this.server.setNotes([{
 			"id": 101,
 			"comments": [{
@@ -78,8 +80,8 @@ describe("browser tests",function(){
 		const updateLink=await page.$(`.notes tbody a`)
 		await updateLink.click()
 		await page.waitForSelector('.notes tbody tr + tr')
-		assert(await this.hasText("the-first-note-comment"))
-		assert(await this.hasText("the-second-note-comment"))
+		await this.assertText("the-first-note-comment")
+		await this.assertText("the-second-note-comment")
 	})
 })
 
