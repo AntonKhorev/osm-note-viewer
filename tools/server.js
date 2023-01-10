@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises'
 import * as http from 'http'
 
-const notesById=initializeNotes([{}])
+let notesById=new Map()
 
 export default async function runServer(port=0) {
 	const tileData=await fs.readFile(new URL('./tile.png',import.meta.url))
@@ -33,6 +33,12 @@ export default async function runServer(port=0) {
 		nodeServer: server,
 		get url() {
 			return `http://127.0.0.1:${server.address().port}/`
+		},
+		clearNotes() {
+			notesById=new Map()
+		},
+		setNotes(notes) {
+			notesById=initializeNotes(notes)
 		},
 		async close() {
 			server.close()
@@ -105,9 +111,18 @@ function formatDate(date) {
 
 function initializeNotes(noteList) {
 	let id=0
+	const fixDate=(date)=>{
+		if (date instanceof Date) {
+			return date
+		} else if (typeof date == 'string') {
+			return new Date(date)
+		} else {
+			return new Date('2023')
+		}
+	}
 	const fixComment=(inputComment,i)=>{
 		const outputComment={}
-		outputComment.date=inputComment.date??new Date('2023')
+		outputComment.date=fixDate(inputComment.date)
 		outputComment.action=inputComment.action??i==0?'opened':'commented'
 		outputComment.text=inputComment.text??''
 		return outputComment
@@ -121,14 +136,17 @@ function initializeNotes(noteList) {
 		}
 		outputNote.lat=inputNote.lat??0
 		outputNote.lon=inputNote.lon??0
+		if (typeof inputNote.map == 'string') {
+			[outputNote.lat,outputNote.lon]=inputNote.map.split('/',2).map(Number)
+		}
 		outputNote.status=inputNote.status??'open'
 		outputNote.comments=[]
-		if (inputNote.comments!=null) {
+		if (Array.isArray(inputNote.comments)) {
 			for (let i=0;i<inputNote.comments.length;i++) {
 				outputNote.comments.push(fixComment(inputNote.comments[i],i))
 			}
 		} else {
-			outputNote.comments.push(fixComment({},0))
+			outputNote.comments.push(fixComment(inputNote,0))
 		}
 		return outputNote
 	}

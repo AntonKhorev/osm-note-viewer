@@ -19,7 +19,9 @@ describe("browser tests",()=>{
 	after(async function(){
 		await server.close()
 	})
-	// TODO beforeEach clear server data
+	beforeEach(function(){
+		server.clearNotes()
+	})
 	it("runs basic query",async()=>{
 		// TODO setup server data
 		const browser=await puppeteer.launch()

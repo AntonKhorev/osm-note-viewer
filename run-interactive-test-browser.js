@@ -5,8 +5,10 @@ import runServer from './tools/server.js'
 import {buildWithTestServer} from './tools/build.js'
 
 const downloads=await readJson('downloads.json')
+const demoNotes=await readJson('demo-notes.json')
 console.log(`running dummy osm server`)
 const server=await runServer()
+server.setNotes(demoNotes)
 const dstDir='test-build/dist'
 console.log(`bundling test build`)
 await buildWithTestServer('src',dstDir,'cache',downloads,server.url)
