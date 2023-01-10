@@ -6,19 +6,40 @@ import typescript from '@rollup/plugin-typescript'
 import virtual from '@rollup/plugin-virtual'
 
 export default async function build(srcDir,dstDir,cacheDir,serverListConfig) {
-	await cleanup(dstDir,cacheDir)
+	await cleanupDirectory(dstDir)
+	if (cacheDir) {
+		await fs.mkdir(cacheDir,{recursive:true})
+	}
 	await buildHtml(srcDir,dstDir,cacheDir)
 	await buildCss(srcDir,dstDir)
 	await buildJs(srcDir,dstDir,serverListConfig)
 }
 
-async function cleanup(dstDir,cacheDir) {
-	await fs.mkdir(dstDir,{recursive:true})
-	for (const filename of await fs.readdir('dist')) {
-		await fs.rm(`${dstDir}/${filename}`,{recursive:true,force:true})
+export async function buildTest(srcDir,testDir,dstDir) {
+	await cleanupDirectory(dstDir)
+	const input=[]
+	for (const testDirEntry of await fs.readdir(testDir,{withFileTypes:true})) {
+		if (testDirEntry.isDirectory()) continue
+		const filename=testDirEntry.name
+		const match=filename.match(/^(.*)\.js$/)
+		if (!match) continue
+		const [,script]=match
+		input.push(`${srcDir}/${script}.ts`)
 	}
-	if (cacheDir) {
-		await fs.mkdir(cacheDir,{recursive:true})
+	const bundle=await rollup({
+		input,
+		plugins: [typescript()]
+	})
+	bundle.write({
+		dir: dstDir
+	})
+	bundle.close()
+}
+
+async function cleanupDirectory(dir) {
+	await fs.mkdir(dir,{recursive:true})
+	for (const filename of await fs.readdir('dist')) {
+		await fs.rm(`${dir}/${filename}`,{recursive:true,force:true})
 	}
 }
 
