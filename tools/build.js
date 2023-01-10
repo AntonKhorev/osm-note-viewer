@@ -19,6 +19,14 @@ export default async function build(srcDir,dstDir,cacheDir,downloads,serverListC
 	await buildJs(srcDir,dstDir,serverListConfig)
 }
 
+export async function buildWithTestServer(srcDir,dstDir,cacheDir,downloads,serverUrl) {
+	await build(srcDir,dstDir,cacheDir,downloads,[{
+		web: serverUrl,
+		tiles: `${serverUrl}{z}/{x}/{y}.png`,
+		note: `Test server bundled on ${new Date().toISOString()}`
+	}])
+}
+
 export async function buildTest(srcDir,testDir,dstDir) {
 	await cleanupDirectory(dstDir)
 	const input=[]

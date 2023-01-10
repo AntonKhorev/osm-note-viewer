@@ -29,7 +29,20 @@ export default async function runServer(port=0) {
 	await new Promise((resolve)=>{
 		server.listen(port).on('listening',resolve)
 	})
-	return server
+	return {
+		nodeServer: server,
+		get url() {
+			return `http://127.0.0.1:${server.address().port}/`
+		},
+		async close() {
+			server.close()
+			return new Promise(resolve=>{
+				server.on('close',()=>{
+					resolve()
+				})
+			})
+		}
+	}
 }
 
 function respondToSearch(response,query) {

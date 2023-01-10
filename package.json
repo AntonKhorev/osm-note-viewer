@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "node build.js",
-    "test": "node build-test.js && mocha"
+    "test": "node build-test.js && mocha",
+    "browser-test": "mocha test-browser"
   },
   "author": "Anton Khorev",
   "license": "MIT",
