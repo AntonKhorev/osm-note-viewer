@@ -7,7 +7,7 @@ const server=await runServer()
 const serverHost=`127.0.0.1:${server.address().port}`
 const serverUrl=`http://${serverHost}/`
 const dstDir='test-build/dist'
-await build('src',dstDir,'cache',[null,{
+await build('src',dstDir,'cache',[{
 	web: serverUrl,
 	tiles: `${serverUrl}{z}/{x}/{y}.png`,
 	note: `Test server bundled on ${new Date().toISOString()}`
@@ -15,7 +15,7 @@ await build('src',dstDir,'cache',[null,{
 console.log(`bundle ready`)
 {
 	// puppeteer
-	const browserUrl=`${url.pathToFileURL(`${dstDir}/index.html`)}#host=${serverHost}` // TODO escape
+	const browserUrl=`${url.pathToFileURL(`${dstDir}/index.html`)}`
 	const browser=await puppeteer.launch({headless:false})
 	const page=await browser.newPage()
 	await page.goto(browserUrl)
