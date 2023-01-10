@@ -52,7 +52,7 @@ async function downloadFiles(dstDir,cacheDir,downloads) {
 
 async function cleanupDirectory(dir) {
 	await fs.mkdir(dir,{recursive:true})
-	for (const filename of await fs.readdir('dist')) {
+	for (const filename of await fs.readdir(dir)) { // delete contents instead of the whole dir because live server doesn't like the dir disappearing
 		await fs.rm(`${dir}/${filename}`,{recursive:true,force:true})
 	}
 }
