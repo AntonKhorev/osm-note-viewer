@@ -4,8 +4,7 @@ import build from './tools/build.js'
 import runServer from './tools/server.js'
 
 const server=await runServer()
-const serverHost=`127.0.0.1:${server.address().port}`
-const serverUrl=`http://${serverHost}/`
+const serverUrl=`http://127.0.0.1:${server.address().port}/`
 const dstDir='test-build/dist'
 await build('src',dstDir,'cache',[
 	[`https://unpkg.com/leaflet@1.7.1/dist/leaflet.js`,`leaflet.js`,`sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==`],
@@ -25,4 +24,7 @@ console.log(`bundle ready`)
 	const browser=await puppeteer.launch({headless:false})
 	const page=await browser.newPage()
 	await page.goto(browserUrl)
+	browser.on('disconnected',()=>{
+		server.close()
+	})
 }
