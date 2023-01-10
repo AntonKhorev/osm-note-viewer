@@ -2,6 +2,7 @@
 	"compilerOptions": {
 		"target": "es2020",
 		"strict": true,
-		"allowUmdGlobalAccess": true
+		"allowUmdGlobalAccess": true,
+		"types": ["geojson","leaflet"]
 	}
 }
