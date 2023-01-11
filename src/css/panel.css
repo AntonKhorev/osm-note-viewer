@@ -176,9 +176,6 @@
 .panel.command [class|=icon] > svg {
 	vertical-align: middle;
 }
-.panel.command button[disabled] [class|=icon] {
-	opacity: .5;
-}
 .panel.command [class|=icon-map] > svg {
 	width: 19px;
 	height: 13px;
@@ -187,11 +184,26 @@
 	width: 9px;
 	height: 13px;
 }
+.panel.command [class|=icon-action] > svg {
+	width: 13px;
+	height: 13px;
+}
 .panel.command .icon-map-area {
 	--tools-map-area-part-visibility: visible;
 }
 .panel.command .icon-map-center {
 	--tools-map-center-part-visibility: visible;
+}
+.panel.command button[disabled] [class|=icon] {
+	opacity: .5;
+}
+.panel.command button.only-with-icon {
+	box-sizing: content-box;
+	height: 13px;
+	padding: 2px;
+}
+.panel.command button.only-with-icon [class|=icon] > svg {
+	vertical-align: inherit;
 }
 
 .panel input:invalid:not(.no-invalid-indication),

@@ -2,6 +2,7 @@ import type {Note} from '../data'
 import Server from '../server'
 import NoteMap from '../map'
 import FigureDialog from '../figure'
+import {makeElement} from '../html'
 
 export type ToolElements = Array<string|HTMLElement>
 
@@ -45,13 +46,20 @@ export abstract class Tool {
 }
 
 export function makeMapIcon(type: string): HTMLElement {
-	const $span=document.createElement('span')
-	$span.innerHTML=`<span class='icon-map-${type}'><svg><use href="#tools-map" /></svg><span>map ${type}</span></span>`
+	const $span=makeElement('span')(`icon-map-${type}`)()
+	$span.innerHTML=`<svg><use href="#tools-map" /></svg><span>map ${type}</span>`
 	return $span
 }
 
 export function makeNotesIcon(type: string): HTMLElement {
-	const $span=document.createElement('span')
-	$span.innerHTML=`<span class='icon-notes-${type}'><svg><use href="#tools-notes" /></svg><span>${type} notes</span></span>`
+	const $span=makeElement('span')(`icon-notes-${type}`)()
+	$span.innerHTML=`<svg><use href="#tools-notes" /></svg><span>${type} notes</span>`
+	return $span
+}
+
+export function makeActionIcon(type: string, text: string): HTMLElement {
+	const $span=makeElement('span')(`icon-action-${type}`)()
+	$span.innerHTML=`<svg><use href="#tools-${type}" /></svg>`
+	$span.append(makeElement('span')()(text))
 	return $span
 }

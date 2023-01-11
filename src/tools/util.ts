@@ -1,4 +1,4 @@
-import {Tool, ToolElements, ToolCallbacks, makeNotesIcon, makeMapIcon} from './base'
+import {Tool, ToolElements, ToolCallbacks, makeNotesIcon, makeMapIcon, makeActionIcon} from './base'
 import type {Note} from '../data'
 import Server from '../server'
 import NoteMap from '../map'
@@ -84,9 +84,9 @@ export class RefreshTool extends Tool {
 		`Automatically refresh downloaded notes`
 	)}
 	getTool(callbacks: ToolCallbacks): ToolElements {
-		const $runButton=makeElement('button')()(`Run`)
-		const $stopButton=makeElement('button')()(`Stop`)
-		const $refreshAllButton=makeElement('button')()(`Refresh now`)
+		const $runButton=makeElement('button')('only-with-icon')(makeActionIcon('play',`Run`))
+		const $stopButton=makeElement('button')('only-with-icon')(makeActionIcon('stop',`Stop`))
+		const $refreshAllButton=makeElement('button')('only-with-icon')(makeActionIcon('refresh',`Refresh now`))
 		const updateRunningState=(isRunning:boolean)=>{
 			$runButton.disabled=isRunning
 			$stopButton.disabled=!isRunning

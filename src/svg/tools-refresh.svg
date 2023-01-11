@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6.5 -6.5 13 13">
+<defs>
+<g id="arrow" stroke="currentColor" fill="none">
+<path d="M0,-4 a4,4 0,0,1 4,4" />
+<path d="M2,0 l2,2 l2,-2" stroke-width="1.5" />
+</g>
+</defs>
+<use href="#arrow" />
+<use href="#arrow" transform="scale(-1)" />
+</svg>
