@@ -11,7 +11,7 @@ export {
 }
 
 export const toolMakerSequence: Array<()=>Tool> = [
-	()=>new UtilTools.AutozoomTool, ()=>new UtilTools.CommentsTool,
+	()=>new UtilTools.AutozoomTool, ()=>new UtilTools.CommentsTool, ()=>new UtilTools.RefreshTool,
 	()=>new UtilTools.TimestampTool, ()=>new UtilTools.ParseTool,
 	()=>new OverpassTurboTool, ()=>new OverpassTool,
 	()=>new EditorTools.RcTool, ()=>new EditorTools.IdTool,

@@ -77,6 +77,36 @@ export class CommentsTool extends Tool {
 	}
 }
 
+export class RefreshTool extends Tool {
+	constructor() {super(
+		'refresh',
+		`Refresh notes`,
+		`Automatically refresh downloaded notes`
+	)}
+	getTool(callbacks: ToolCallbacks): ToolElements {
+		const $runButton=document.createElement('button')
+		$runButton.textContent=`Run`
+		const $stopButton=document.createElement('button')
+		$stopButton.textContent=`Stop`
+		const updateRunningState=(isRunning:boolean)=>{
+			$runButton.disabled=isRunning
+			$stopButton.disabled=!isRunning
+		}
+		updateRunningState(true)
+		$runButton.onclick=()=>{
+			updateRunningState(true)
+			callbacks.onRefresherRun(this)
+		}
+		$stopButton.onclick=()=>{
+			updateRunningState(false)
+			callbacks.onRefresherStop(this)
+		}
+		return [
+			$runButton,` `,$stopButton
+		]
+	}
+}
+
 export class TimestampTool extends Tool {
 	private $timestampInput=document.createElement('input')
 	constructor() {super(

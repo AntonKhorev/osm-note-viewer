@@ -6,6 +6,7 @@ const e=makeEscapeTag(encodeURIComponent)
 const clamp=(min:number,value:number,max:number)=>Math.max(min,Math.min(value,max))
 
 interface TimeoutCaller {
+	cancelScheduledCall: ()=>void
 	schedulePeriodicCall:  (callback:(timestamp:number)=>void)=>void
 	scheduleImmediateCall: (callback:(timestamp:number)=>void)=>void
 }
@@ -18,6 +19,7 @@ type ScheduleEntry = {
 }
 
 export default class NoteRefresher {
+	private isRunning=true
 	schedule=new Map<number,ScheduleEntry>()
 	constructor(
 		private refreshPeriod:number,
@@ -28,6 +30,16 @@ export default class NoteRefresher {
 		private reportPostpone:(id:number,message?:string)=>number
 	) {
 		this.timeoutCaller.schedulePeriodicCall((timestamp)=>this.receiveScheduledCall(timestamp))
+	}
+	run() {
+		if (this.isRunning) return
+		this.isRunning=true
+		this.timeoutCaller.schedulePeriodicCall((timestamp)=>this.receiveScheduledCall(timestamp))
+	}
+	stop() {
+		if (!this.isRunning) return
+		this.isRunning=false
+		this.timeoutCaller.cancelScheduledCall()
 	}
 	reset() {
 		this.schedule.clear()

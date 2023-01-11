@@ -18,9 +18,12 @@ const makeTimeoutCaller=(periodicCallDelay:number,immediateCallDelay:number)=>{
 	let timeoutId:number|undefined
 	const scheduleCall=(delay:number)=>(callback:(timestamp:number)=>void)=>{
 		clearTimeout(timeoutId)
-		setTimeout(()=>callback(Date.now()),delay)
+		timeoutId=setTimeout(()=>callback(Date.now()),delay)
 	}
 	return {
+		cancelScheduledCall() {
+			clearTimeout(timeoutId)
+		},
 		schedulePeriodicCall:  scheduleCall(periodicCallDelay),
 		scheduleImmediateCall: scheduleCall(immediateCallDelay),
 	}
@@ -85,6 +88,8 @@ export default class NoteTable {
 			this.$table.classList.toggle('only-first-comments',onlyFirst)
 			this.$table.classList.toggle('one-line-comments',oneLine)
 		}
+		toolPanel.onRefresherRun=()=>this.noteRefresher.run()
+		toolPanel.onRefresherStop=()=>this.noteRefresher.stop()
 		const that=this
 		let $clickReadyNoteSection: HTMLTableSectionElement | undefined
 		this.wrappedNoteSectionListeners=[
