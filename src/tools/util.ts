@@ -78,35 +78,46 @@ export class CommentsTool extends Tool {
 }
 
 export class RefreshTool extends Tool {
+	private $runButton=makeElement('button')('only-with-icon')(makeActionIcon('play',`Run`))
+	private $stopButton=makeElement('button')('only-with-icon')(makeActionIcon('stop',`Stop`))
+	private $refreshAllButton=makeElement('button')('only-with-icon')(makeActionIcon('refresh',`Refresh now`))
 	constructor() {super(
 		'refresh',
 		`Refresh notes`,
 		`Automatically refresh downloaded notes`
 	)}
 	getTool(callbacks: ToolCallbacks): ToolElements {
-		const $runButton=makeElement('button')('only-with-icon')(makeActionIcon('play',`Run`))
-		const $stopButton=makeElement('button')('only-with-icon')(makeActionIcon('stop',`Stop`))
-		const $refreshAllButton=makeElement('button')('only-with-icon')(makeActionIcon('refresh',`Refresh now`))
-		const updateRunningState=(isRunning:boolean)=>{
-			$runButton.disabled=isRunning
-			$stopButton.disabled=!isRunning
+		this.updateState(true)
+		this.$runButton.onclick=()=>{
+			this.updateState(true)
+			callbacks.onRefresherStateChange(this,true,undefined)
 		}
-		updateRunningState(true)
-		$runButton.onclick=()=>{
-			updateRunningState(true)
-			callbacks.onRefresherRunState(this,true)
+		this.$stopButton.onclick=()=>{
+			this.updateState(false)
+			callbacks.onRefresherStateChange(this,false,undefined)
 		}
-		$stopButton.onclick=()=>{
-			updateRunningState(false)
-			callbacks.onRefresherRunState(this,false)
-		}
-		$refreshAllButton.onclick=()=>{
+		this.$refreshAllButton.onclick=()=>{
 			callbacks.onRefresherRefreshAll(this)
 		}
 		return [
-			$runButton,` `,$stopButton,` `,
-			$refreshAllButton
+			this.$runButton,` `,this.$stopButton,` `,
+			this.$refreshAllButton
 		]
+	}
+	onRefresherStateChange(isRunning: boolean, message: string|undefined): boolean {
+		this.updateState(isRunning,message)
+		return true
+	}
+	private updateState(isRunning: boolean, message?: string) {
+		if (message==null) {
+			this.$runButton.classList.remove('error')
+			this.$runButton.title=''
+		} else {
+			this.$runButton.classList.add('error')
+			this.$runButton.title=message
+		}
+		this.$runButton.disabled=isRunning
+		this.$stopButton.disabled=!isRunning
 	}
 }
 

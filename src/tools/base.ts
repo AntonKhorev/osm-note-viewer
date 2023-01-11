@@ -11,10 +11,10 @@ export type ToolFitMode = 'allNotes' | 'selectedNotes' | 'inViewNotes' | undefin
 export interface ToolCallbacks {
 	onFitModeChange(fromTool: Tool, fitMode: ToolFitMode): void
 	onCommentsViewChange(fromTool: Tool, onlyFirst: boolean, oneLine: boolean): void
+	onRefresherStateChange(fromTool: Tool, isRunning: boolean, message: string|undefined): void
+	onRefresherRefreshAll(fromTool: Tool): void
 	onTimestampChange(fromTool: Tool, timestamp: string): void
 	onToolOpenToggle(fromTool: Tool, setToOpen: boolean): void
-	onRefresherRunState(fromTool: Tool, isRunning: boolean): void
-	onRefresherRefreshAll(fromTool: Tool): void
 }
 
 export abstract class Tool {
@@ -22,6 +22,7 @@ export abstract class Tool {
 	constructor(public id: string, public name: string, public title?: string ) {}
 	abstract getTool(callbacks: ToolCallbacks, server: Server, map: NoteMap, figureDialog: FigureDialog): ToolElements
 	getInfo(): ToolElements|undefined { return undefined }
+	onRefresherStateChange(isRunning: boolean, message: string|undefined): boolean { return false }
 	onTimestampChange(timestamp: string): boolean { return false }
 	onNoteCountsChange(nFetched: number, nVisible: number): boolean { return false }
 	onSelectedNotesChange(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean {

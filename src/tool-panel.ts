@@ -13,6 +13,9 @@ import {startOrResetFadeAnimation} from './html'
 class ToolBroadcaster {
 	private sources: Set<Tool> = new Set()
 	constructor(private readonly tools: [tool:Tool,$tool:HTMLElement][]) {}
+	broadcastRefresherStateChange(fromTool: Tool|null, isRunning: boolean, message: string|undefined): void {
+		this.broadcast(fromTool,tool=>tool.onRefresherStateChange(isRunning,message))
+	}
 	broadcastTimestampChange(fromTool: Tool|null, timestamp: string): void {
 		this.broadcast(fromTool,tool=>tool.onTimestampChange(timestamp))
 	}
@@ -42,7 +45,7 @@ export default class ToolPanel {
 	private toolBroadcaster: ToolBroadcaster
 	#fitMode: ToolFitMode
 	onCommentsViewChange?: (onlyFirst:boolean,oneLine:boolean)=>void
-	onRefresherRunState?: (isRunning:boolean)=>void
+	onRefresherStateChange?: (isRunning:boolean)=>void
 	onRefresherStop?: ()=>void
 	onRefresherRefreshAll?: ()=>void
 	constructor(
@@ -54,14 +57,14 @@ export default class ToolPanel {
 		const toolCallbacks: ToolCallbacks = {
 			onFitModeChange: (fromTool,fitMode)=>this.#fitMode=fitMode,
 			onCommentsViewChange: (fromTool,onlyFirst,oneLine)=>this.onCommentsViewChange?.(onlyFirst,oneLine),
+			onRefresherStateChange: (fromTool,isRunning,message)=>this.onRefresherStateChange?.(isRunning),
+			onRefresherRefreshAll: (fromTool)=>this.onRefresherRefreshAll?.(),
 			onTimestampChange: (fromTool,timestamp)=>{
 				this.toolBroadcaster.broadcastTimestampChange(fromTool,timestamp)
 			},
 			onToolOpenToggle: (fromTool: Tool, setToOpen: boolean)=>{
 				for (const [,$tool] of tools) $tool.open=setToOpen
-			},
-			onRefresherRunState: (fromTool,isRunning)=>this.onRefresherRunState?.(isRunning),
-			onRefresherRefreshAll: (fromTool)=>this.onRefresherRefreshAll?.()
+			}
 		}
 		for (const makeTool of toolMakerSequence) {
 			const tool=makeTool()
@@ -123,6 +126,9 @@ export default class ToolPanel {
 		globalEventsListener.timestampListener=(timestamp: string)=>{
 			this.toolBroadcaster.broadcastTimestampChange(null,timestamp)
 		}
+	}
+	receiveRefresherHalt(message: string) {
+		this.toolBroadcaster.broadcastRefresherStateChange(null,false,message)
 	}
 	receiveNoteCounts(nFetched: number, nVisible: number) { // TODO receive one object with all/visible/selected notes
 		this.toolBroadcaster.broadcastNoteCountsChange(null,nFetched,nVisible)

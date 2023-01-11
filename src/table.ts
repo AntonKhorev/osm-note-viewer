@@ -82,13 +82,16 @@ export default class NoteTable {
 				const refreshTimestamp=Date.now()
 				this.noteRefreshTimestampsById.set(id,refreshTimestamp)
 				return refreshTimestamp
+			},
+			(message:string)=>{
+				toolPanel.receiveRefresherHalt(message)
 			}
 		)
 		toolPanel.onCommentsViewChange=(onlyFirst:boolean,oneLine:boolean)=>{
 			this.$table.classList.toggle('only-first-comments',onlyFirst)
 			this.$table.classList.toggle('one-line-comments',oneLine)
 		}
-		toolPanel.onRefresherRunState=(isRunning)=>this.noteRefresher.setRunState(isRunning)
+		toolPanel.onRefresherStateChange=(isRunning)=>this.noteRefresher.setRunState(isRunning)
 		toolPanel.onRefresherRefreshAll=()=>this.noteRefresher.refreshAll()
 		const that=this
 		let $clickReadyNoteSection: HTMLTableSectionElement | undefined

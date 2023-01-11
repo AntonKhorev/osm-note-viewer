@@ -27,7 +27,8 @@ export default class NoteRefresher {
 		private timeoutCaller:TimeoutCaller,
 		private reportRefreshWaitProgress:(id:number,progress:number)=>void,
 		private reportUpdate:(id:number)=>void,
-		private reportPostpone:(id:number,message?:string)=>number
+		private reportPostpone:(id:number,message?:string)=>number,
+		private reportHalt:(message:string)=>void
 	) {
 		this.timeoutCaller.schedulePeriodicCall((timestamp)=>this.receiveScheduledCall(timestamp))
 	}
@@ -105,16 +106,24 @@ export default class NoteRefresher {
 				return earliestRefreshId
 			}
 		}
-		reportAllProgress()
-		const currentId=getNextId()
-		if (currentId==null) {
-			if (this.isRunning) {
-				this.timeoutCaller.schedulePeriodicCall((timestamp)=>this.receiveScheduledCall(timestamp))
+		let currentId: number|undefined
+		let futureId: number|undefined
+		try {
+			reportAllProgress()
+			currentId=getNextId()
+			if (currentId!=null) {
+				await this.fetch(timestamp,currentId)
+				futureId=getNextId()
 			}
+		} catch (ex) {
+			this.isRunning=false
+			let message=`unknown error`
+			if (ex instanceof Error) {
+				message=ex.message
+			}
+			this.reportHalt(message)
 			return
 		}
-		await this.fetch(timestamp,currentId)
-		const futureId=getNextId()
 		if (futureId) {
 			this.timeoutCaller.scheduleImmediateCall((timestamp)=>this.receiveScheduledCall(timestamp))
 		} else if (this.isRunning) {
