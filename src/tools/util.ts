@@ -92,7 +92,7 @@ export class RefreshTool extends Tool {
 		this.$refreshPeriodInput.type='number'
 		this.$refreshPeriodInput.min='1'
 		this.$refreshPeriodInput.size=5
-		// TODO step=any
+		this.$refreshPeriodInput.step='any'
 		this.$runButton.onclick=()=>{
 			this.updateState(true)
 			callbacks.onRefresherStateChange(this,true,undefined)
@@ -117,7 +117,11 @@ export class RefreshTool extends Tool {
 		]
 	}
 	onRefresherPeriodChange(refreshPeriod: number): boolean {
-		this.$refreshPeriodInput.value=String(Math.round(refreshPeriod/(60*1000)))
+		let minutes=(refreshPeriod/(60*1000)).toFixed(2)
+		if (minutes.includes('.')) {
+			minutes=minutes.replace(/\.?0+$/,'')
+		}
+		this.$refreshPeriodInput.value=minutes
 		return true
 	}
 	onRefresherStateChange(isRunning: boolean, message: string|undefined): boolean {
