@@ -205,6 +205,9 @@
 .panel.command button.only-with-icon [class|=icon] > svg {
 	vertical-align: inherit;
 }
+.panel.command input[type=number] {
+	width: 7ch;
+}
 
 .panel input:invalid:not(.no-invalid-indication),
 .panel textarea:invalid:not(.no-invalid-indication) {
