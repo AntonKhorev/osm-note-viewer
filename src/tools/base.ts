@@ -14,6 +14,7 @@ export interface ToolCallbacks {
 	onToolOpenToggle(fromTool: Tool, setToOpen: boolean): void
 	onRefresherRun(fromTool: Tool): void
 	onRefresherStop(fromTool: Tool): void
+	onRefresherRefreshAll(fromTool: Tool): void
 }
 
 export abstract class Tool {

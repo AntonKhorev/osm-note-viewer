@@ -90,6 +90,7 @@ export default class NoteTable {
 		}
 		toolPanel.onRefresherRun=()=>this.noteRefresher.run()
 		toolPanel.onRefresherStop=()=>this.noteRefresher.stop()
+		toolPanel.onRefresherRefreshAll=()=>this.noteRefresher.refreshAll()
 		const that=this
 		let $clickReadyNoteSection: HTMLTableSectionElement | undefined
 		this.wrappedNoteSectionListeners=[

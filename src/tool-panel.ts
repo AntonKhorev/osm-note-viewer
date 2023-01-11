@@ -44,6 +44,7 @@ export default class ToolPanel {
 	onCommentsViewChange?: (onlyFirst:boolean,oneLine:boolean)=>void
 	onRefresherRun?: ()=>void
 	onRefresherStop?: ()=>void
+	onRefresherRefreshAll?: ()=>void
 	constructor(
 		storage: NoteViewerStorage, server: Server, globalEventsListener: GlobalEventsListener,
 		$container: HTMLElement,
@@ -59,8 +60,9 @@ export default class ToolPanel {
 			onToolOpenToggle: (fromTool: Tool, setToOpen: boolean)=>{
 				for (const [,$tool] of tools) $tool.open=setToOpen
 			},
-			onRefresherRun:  (fromTool)=>this.onRefresherRun?.(),
-			onRefresherStop: (fromTool)=>this.onRefresherStop?.()
+			onRefresherRun: (fromTool)=>this.onRefresherRun?.(),
+			onRefresherStop: (fromTool)=>this.onRefresherStop?.(),
+			onRefresherRefreshAll: (fromTool)=>this.onRefresherRefreshAll?.()
 		}
 		for (const makeTool of toolMakerSequence) {
 			const tool=makeTool()

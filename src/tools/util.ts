@@ -84,10 +84,9 @@ export class RefreshTool extends Tool {
 		`Automatically refresh downloaded notes`
 	)}
 	getTool(callbacks: ToolCallbacks): ToolElements {
-		const $runButton=document.createElement('button')
-		$runButton.textContent=`Run`
-		const $stopButton=document.createElement('button')
-		$stopButton.textContent=`Stop`
+		const $runButton=makeElement('button')()(`Run`)
+		const $stopButton=makeElement('button')()(`Stop`)
+		const $refreshAllButton=makeElement('button')()(`Refresh now`)
 		const updateRunningState=(isRunning:boolean)=>{
 			$runButton.disabled=isRunning
 			$stopButton.disabled=!isRunning
@@ -101,8 +100,13 @@ export class RefreshTool extends Tool {
 			updateRunningState(false)
 			callbacks.onRefresherStop(this)
 		}
+		$refreshAllButton.onclick=()=>{
+			updateRunningState(true)
+			callbacks.onRefresherRefreshAll(this)
+		}
 		return [
-			$runButton,` `,$stopButton
+			$runButton,` `,$stopButton,` `,
+			$refreshAllButton
 		]
 	}
 }
