@@ -13,6 +13,7 @@ export interface ToolCallbacks {
 	onCommentsViewChange(fromTool: Tool, onlyFirst: boolean, oneLine: boolean): void
 	onRefresherStateChange(fromTool: Tool, isRunning: boolean, message: string|undefined): void
 	onRefresherRefreshAll(fromTool: Tool): void
+	onRefresherPeriodChange(fromTool: Tool, refreshPeriod: number): void
 	onTimestampChange(fromTool: Tool, timestamp: string): void
 	onToolOpenToggle(fromTool: Tool, setToOpen: boolean): void
 }
@@ -23,6 +24,7 @@ export abstract class Tool {
 	abstract getTool(callbacks: ToolCallbacks, server: Server, map: NoteMap, figureDialog: FigureDialog): ToolElements
 	getInfo(): ToolElements|undefined { return undefined }
 	onRefresherStateChange(isRunning: boolean, message: string|undefined): boolean { return false }
+	onRefresherPeriodChange(refreshPeriod: number): boolean { return false }
 	onTimestampChange(timestamp: string): boolean { return false }
 	onNoteCountsChange(nFetched: number, nVisible: number): boolean { return false }
 	onSelectedNotesChange(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean {

@@ -58,8 +58,9 @@ export default class NoteTable {
 		figureDialog: FigureDialog,
 		private server: Server
 	) {
+		const refreshPeriod=5*60*1000
 		this.noteRefresher=new NoteRefresher(
-			5*60*1000,server,makeTimeoutCaller(10*1000,100),
+			refreshPeriod,server,makeTimeoutCaller(10*1000,100),
 			(id,progress)=>{
 				const $noteSection=this.getNoteSection(id)
 				if ($noteSection) {
@@ -93,6 +94,8 @@ export default class NoteTable {
 		}
 		toolPanel.onRefresherStateChange=(isRunning)=>this.noteRefresher.setRunState(isRunning)
 		toolPanel.onRefresherRefreshAll=()=>this.noteRefresher.refreshAll()
+		toolPanel.onRefresherPeriodChange=(refreshPeriod)=>this.noteRefresher.setPeriod(refreshPeriod)
+		toolPanel.receiveRefresherPeriodChange(refreshPeriod)
 		const that=this
 		let $clickReadyNoteSection: HTMLTableSectionElement | undefined
 		this.wrappedNoteSectionListeners=[

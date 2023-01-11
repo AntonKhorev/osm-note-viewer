@@ -16,6 +16,9 @@ class ToolBroadcaster {
 	broadcastRefresherStateChange(fromTool: Tool|null, isRunning: boolean, message: string|undefined): void {
 		this.broadcast(fromTool,tool=>tool.onRefresherStateChange(isRunning,message))
 	}
+	broadcastRefresherPeriodChange(fromTool: Tool|null, refreshPeriod: number): void {
+		this.broadcast(fromTool,tool=>tool.onRefresherPeriodChange(refreshPeriod))
+	}
 	broadcastTimestampChange(fromTool: Tool|null, timestamp: string): void {
 		this.broadcast(fromTool,tool=>tool.onTimestampChange(timestamp))
 	}
@@ -46,8 +49,8 @@ export default class ToolPanel {
 	#fitMode: ToolFitMode
 	onCommentsViewChange?: (onlyFirst:boolean,oneLine:boolean)=>void
 	onRefresherStateChange?: (isRunning:boolean)=>void
-	onRefresherStop?: ()=>void
 	onRefresherRefreshAll?: ()=>void
+	onRefresherPeriodChange?: (refreshPeriod:number)=>void
 	constructor(
 		storage: NoteViewerStorage, server: Server, globalEventsListener: GlobalEventsListener,
 		$container: HTMLElement,
@@ -59,6 +62,7 @@ export default class ToolPanel {
 			onCommentsViewChange: (fromTool,onlyFirst,oneLine)=>this.onCommentsViewChange?.(onlyFirst,oneLine),
 			onRefresherStateChange: (fromTool,isRunning,message)=>this.onRefresherStateChange?.(isRunning),
 			onRefresherRefreshAll: (fromTool)=>this.onRefresherRefreshAll?.(),
+			onRefresherPeriodChange: (fromTool,refreshPeriod)=>this.onRefresherPeriodChange?.(refreshPeriod),
 			onTimestampChange: (fromTool,timestamp)=>{
 				this.toolBroadcaster.broadcastTimestampChange(fromTool,timestamp)
 			},
@@ -129,6 +133,9 @@ export default class ToolPanel {
 	}
 	receiveRefresherHalt(message: string) {
 		this.toolBroadcaster.broadcastRefresherStateChange(null,false,message)
+	}
+	receiveRefresherPeriodChange(refreshPeriod: number) {
+		this.toolBroadcaster.broadcastRefresherPeriodChange(null,refreshPeriod)
 	}
 	receiveNoteCounts(nFetched: number, nVisible: number) { // TODO receive one object with all/visible/selected notes
 		this.toolBroadcaster.broadcastNoteCountsChange(null,nFetched,nVisible)

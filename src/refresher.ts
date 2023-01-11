@@ -20,7 +20,7 @@ type ScheduleEntry = {
 
 export default class NoteRefresher {
 	private isRunning=true
-	schedule=new Map<number,ScheduleEntry>()
+	private schedule=new Map<number,ScheduleEntry>()
 	constructor(
 		private refreshPeriod:number,
 		private apiFetcher:ApiFetcher,
@@ -31,6 +31,10 @@ export default class NoteRefresher {
 		private reportHalt:(message:string)=>void
 	) {
 		this.timeoutCaller.schedulePeriodicCall((timestamp)=>this.receiveScheduledCall(timestamp))
+	}
+	setPeriod(refreshPeriod:number):void {
+		this.refreshPeriod=refreshPeriod
+		// TODO update progress bars
 	}
 	setRunState(isRunning:boolean):void {
 		if (isRunning==this.isRunning) return

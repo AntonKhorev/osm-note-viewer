@@ -3,7 +3,7 @@ import type {Note} from '../data'
 import Server from '../server'
 import NoteMap from '../map'
 import CommentWriter from '../comment-writer'
-import {makeElement, makeLink} from '../html'
+import {makeElement, makeLink, makeLabel} from '../html'
 
 type InfoElements = Array<string|HTMLElement>
 const p=(...ss: InfoElements)=>makeElement('p')()(...ss)
@@ -81,6 +81,7 @@ export class RefreshTool extends Tool {
 	private $runButton=makeElement('button')('only-with-icon')(makeActionIcon('play',`Run`))
 	private $stopButton=makeElement('button')('only-with-icon')(makeActionIcon('stop',`Stop`))
 	private $refreshAllButton=makeElement('button')('only-with-icon')(makeActionIcon('refresh',`Refresh now`))
+	private $refreshPeriodInput=document.createElement('input')
 	constructor() {super(
 		'refresh',
 		`Refresh notes`,
@@ -88,6 +89,10 @@ export class RefreshTool extends Tool {
 	)}
 	getTool(callbacks: ToolCallbacks): ToolElements {
 		this.updateState(true)
+		this.$refreshPeriodInput.type='number'
+		this.$refreshPeriodInput.min='1'
+		this.$refreshPeriodInput.size=5
+		// TODO step=any
 		this.$runButton.onclick=()=>{
 			this.updateState(true)
 			callbacks.onRefresherStateChange(this,true,undefined)
@@ -99,10 +104,21 @@ export class RefreshTool extends Tool {
 		this.$refreshAllButton.onclick=()=>{
 			callbacks.onRefresherRefreshAll(this)
 		}
+		this.$refreshPeriodInput.oninput=()=>{
+			const str=this.$refreshPeriodInput.value
+			if (!str) return
+			const minutes=Number(str)
+			if (!Number.isFinite(minutes) || minutes<=0) return
+			callbacks.onRefresherPeriodChange(this,minutes*60*1000)
+		}
 		return [
-			this.$runButton,` `,this.$stopButton,` `,
-			this.$refreshAllButton
+			this.$runButton,` `,this.$stopButton,` `,this.$refreshAllButton,`; `,
+			makeLabel('inline')(`refresh period: `,this.$refreshPeriodInput),` min.`
 		]
+	}
+	onRefresherPeriodChange(refreshPeriod: number): boolean {
+		this.$refreshPeriodInput.value=String(Math.round(refreshPeriod/(60*1000)))
+		return true
 	}
 	onRefresherStateChange(isRunning: boolean, message: string|undefined): boolean {
 		this.updateState(isRunning,message)
