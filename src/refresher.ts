@@ -109,14 +109,16 @@ export default class NoteRefresher {
 		reportAllProgress()
 		const currentId=getNextId()
 		if (currentId==null) {
-			this.timeoutCaller.schedulePeriodicCall((timestamp)=>this.receiveScheduledCall(timestamp))
+			if (this.isRunning) {
+				this.timeoutCaller.schedulePeriodicCall((timestamp)=>this.receiveScheduledCall(timestamp))
+			}
 			return
 		}
 		await this.fetch(timestamp,currentId)
 		const futureId=getNextId()
 		if (futureId) {
 			this.timeoutCaller.scheduleImmediateCall((timestamp)=>this.receiveScheduledCall(timestamp))
-		} else {
+		} else if (this.isRunning) {
 			this.timeoutCaller.schedulePeriodicCall((timestamp)=>this.receiveScheduledCall(timestamp))
 		}
 	}

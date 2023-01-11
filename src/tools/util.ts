@@ -101,7 +101,6 @@ export class RefreshTool extends Tool {
 			callbacks.onRefresherStop(this)
 		}
 		$refreshAllButton.onclick=()=>{
-			updateRunningState(true)
 			callbacks.onRefresherRefreshAll(this)
 		}
 		return [
