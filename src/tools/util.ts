@@ -85,7 +85,7 @@ export class RefreshTool extends Tool {
 	constructor() {super(
 		'refresh',
 		`Refresh notes`,
-		`Automatically refresh downloaded notes`
+		`Automatic and manual refresh of visible notes`
 	)}
 	getTool(callbacks: ToolCallbacks): ToolElements {
 		this.updateState(true)
@@ -97,6 +97,7 @@ export class RefreshTool extends Tool {
 			this.updateState(!this.isRunning)
 			callbacks.onRefresherStateChange(this,!this.isRunning,undefined)
 		}
+		this.$refreshAllButton.title=`Refresh all notes currently on the screen in the table above`
 		this.$refreshAllButton.onclick=()=>{
 			callbacks.onRefresherRefreshAll(this)
 		}
@@ -128,7 +129,7 @@ export class RefreshTool extends Tool {
 		this.isRunning=isRunning
 		if (message==null) {
 			this.$runButton.classList.remove('error')
-			this.$runButton.title=''
+			this.$runButton.title=(isRunning?`Stop`:`Start`)+` note auto refreshing`
 		} else {
 			this.$runButton.classList.add('error')
 			this.$runButton.title=message
