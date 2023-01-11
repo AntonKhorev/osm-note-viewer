@@ -19,18 +19,20 @@ type ScheduleEntry = {
 }
 
 export default class NoteRefresher {
-	private isRunning=true
 	private schedule=new Map<number,ScheduleEntry>()
 	constructor(
-		private refreshPeriod:number,
-		private apiFetcher:ApiFetcher,
-		private timeoutCaller:TimeoutCaller,
-		private reportRefreshWaitProgress:(id:number,progress:number)=>void,
-		private reportUpdate:(id:number)=>void,
-		private reportPostpone:(id:number,message?:string)=>number,
-		private reportHalt:(message:string)=>void
+		public isRunning: boolean,
+		private refreshPeriod: number,
+		private apiFetcher: ApiFetcher,
+		private timeoutCaller: TimeoutCaller,
+		private reportRefreshWaitProgress: (id:number,progress:number)=>void,
+		private reportUpdate: (id:number)=>void,
+		private reportPostpone: (id:number,message?:string)=>number,
+		private reportHalt: (message:string)=>void
 	) {
-		this.timeoutCaller.schedulePeriodicCall((timestamp)=>this.receiveScheduledCall(timestamp))
+		if (isRunning) {
+			this.timeoutCaller.schedulePeriodicCall((timestamp)=>this.receiveScheduledCall(timestamp))
+		}
 	}
 	setPeriod(refreshPeriod:number):void {
 		this.refreshPeriod=refreshPeriod

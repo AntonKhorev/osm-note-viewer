@@ -1,4 +1,4 @@
-import {Note, NoteComment, Users, getNoteUpdateDate} from './data'
+import {Note, NoteComment, Users} from './data'
 import NoteMap from './map'
 import NoteMarker from './marker'
 import LooseParserListener from './loose-listen'
@@ -9,31 +9,10 @@ import CommentWriter, {handleShowImagesUpdate, makeDateOutput} from './comment-w
 import ToolPanel from './tool-panel'
 import NoteFilter from './filter'
 import NoteSectionVisibilityObserver from './observer'
-import NoteRefresher from './refresher' // TODO move outside b/c all other network stuff is outside
+import NoteTableAndRefresherConnector from './refresher-connector'
 import {toReadableDate} from './query-date'
 import type Server from './server'
 import {makeDiv, makeLink, resetFadeAnimation} from './html'
-
-const makeTimeoutCaller=(periodicCallDelay:number,immediateCallDelay:number)=>{
-	let timeoutId:number|undefined
-	const scheduleCall=(delay:number)=>(callback:(timestamp:number)=>void)=>{
-		clearTimeout(timeoutId)
-		timeoutId=setTimeout(()=>callback(Date.now()),delay)
-	}
-	return {
-		cancelScheduledCall() {
-			clearTimeout(timeoutId)
-		},
-		schedulePeriodicCall:  scheduleCall(periodicCallDelay),
-		scheduleImmediateCall: scheduleCall(immediateCallDelay),
-	}
-}
-
-const setNoteSectionProgress=($noteSection:HTMLElement,progress:number)=>{
-	const $refreshWaitProgress=$noteSection.querySelector('td.note-link progress')
-	if (!($refreshWaitProgress instanceof HTMLProgressElement)) return
-	$refreshWaitProgress.value=progress
-}
 
 export default class NoteTable {
 	private wrappedNoteSectionListeners: Array<[event: string, listener: (this:HTMLTableSectionElement)=>void]>
@@ -46,56 +25,24 @@ export default class NoteTable {
 	private $selectAllCheckbox = document.createElement('input')
 	private $lastClickedNoteSection: HTMLTableSectionElement | undefined
 	private notesById = new Map<number,Note>() // in the future these might be windowed to limit the amount of stuff on one page
-	private noteRefreshTimestampsById = new Map<number,number>()
-	private notesWithPendingUpdate = new Set<number>()
+	private refresherConnector: NoteTableAndRefresherConnector
 	private usersById = new Map<number,string>()
 	private commentWriter: CommentWriter
 	private showImages: boolean = false
-	private noteRefresher: NoteRefresher
 	constructor(
 		$container: HTMLElement,
 		private toolPanel: ToolPanel, private map: NoteMap, private filter: NoteFilter,
 		figureDialog: FigureDialog,
 		private server: Server
 	) {
-		const refreshPeriod=5*60*1000
-		this.noteRefresher=new NoteRefresher(
-			refreshPeriod,server,makeTimeoutCaller(10*1000,100),
-			(id,progress)=>{
-				const $noteSection=this.getNoteSection(id)
-				if ($noteSection) {
-					setNoteSectionProgress($noteSection,progress)
-				}
-			},
-			(id)=>{
-				const $noteSection=this.getNoteSection(id)
-				if ($noteSection) {
-					$noteSection.dataset.updated='updated'
-				}
-				this.notesWithPendingUpdate.add(id)
-			},
-			(id:number,message?:string)=>{
-				// TODO report error by altering the link
-				const $noteSection=this.getNoteSection(id)
-				if ($noteSection) {
-					setNoteSectionProgress($noteSection,0)
-				}
-				const refreshTimestamp=Date.now()
-				this.noteRefreshTimestampsById.set(id,refreshTimestamp)
-				return refreshTimestamp
-			},
-			(message:string)=>{
-				toolPanel.receiveRefresherHalt(message)
-			}
+		this.refresherConnector=new NoteTableAndRefresherConnector(
+			toolPanel,server,
+			id=>this.getNoteSection(id)
 		)
 		toolPanel.onCommentsViewChange=(onlyFirst:boolean,oneLine:boolean)=>{
 			this.$table.classList.toggle('only-first-comments',onlyFirst)
 			this.$table.classList.toggle('one-line-comments',oneLine)
 		}
-		toolPanel.onRefresherStateChange=(isRunning)=>this.noteRefresher.setRunState(isRunning)
-		toolPanel.onRefresherRefreshAll=()=>this.noteRefresher.refreshAll()
-		toolPanel.onRefresherPeriodChange=(refreshPeriod)=>this.noteRefresher.setPeriod(refreshPeriod)
-		toolPanel.receiveRefresherPeriodChange(refreshPeriod)
 		const that=this
 		let $clickReadyNoteSection: HTMLTableSectionElement | undefined
 		this.wrappedNoteSectionListeners=[
@@ -139,15 +86,9 @@ export default class NoteTable {
 		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver((visibleNoteIds,isMapFittingHalted)=>{
 			map.showNoteTrack(visibleNoteIds)
 			if (!isMapFittingHalted && toolPanel.fitMode=='inViewNotes') map.fitNoteTrack()
-			const noteRefreshList:[id:number,lastRefreshTimestamp:number,updateDate:number,hasPendingUpdate:boolean][]=[]
-			for (const id of visibleNoteIds) {
-				const lastRefreshTimestamp=this.noteRefreshTimestampsById.get(id)
-				if (!lastRefreshTimestamp) continue
-				const note=this.notesById.get(id)
-				if (!note) continue
-				noteRefreshList.push([id,lastRefreshTimestamp,getNoteUpdateDate(note),this.notesWithPendingUpdate.has(id)])
-			}
-			this.noteRefresher.observe(noteRefreshList)
+			this.refresherConnector.observeNotesByRefresher(
+				visibleNoteIds.map(id=>this.notesById.get(id)).filter(isDefined)
+			)
 		})
 		this.commentWriter=new CommentWriter(server)
 		$container.append(this.$table)
@@ -160,9 +101,7 @@ export default class NoteTable {
 		})
 	}
 	reset(): void {
-		this.noteRefresher.reset()
-		this.noteRefreshTimestampsById.clear()
-		this.notesWithPendingUpdate.clear()
+		this.refresherConnector.reset()
 		this.notesById.clear()
 		this.usersById.clear()
 		this.$lastClickedNoteSection=undefined
@@ -210,7 +149,6 @@ export default class NoteTable {
 		for (const note of notes) {
 			noteSequence.push(note)
 			this.notesById.set(note.id,note)
-			this.notesWithPendingUpdate.delete(note.id)
 		}
 		for (const [uid,username] of Object.entries(users)) {
 			this.usersById.set(Number(uid),username)
@@ -227,6 +165,7 @@ export default class NoteTable {
 			this.noteSectionVisibilityObserver.observe($noteSection)
 			this.makeMarker(note,isVisible)
 			this.writeNoteSection($noteSection,note,users,isVisible)
+			this.refresherConnector.registerNote(note)
 		}
 		if (this.toolPanel.fitMode=='allNotes') {
 			this.map.fitNotes()
@@ -246,19 +185,17 @@ export default class NoteTable {
 		this.notesById.set(note.id,note)
 		for (const [uid,username] of Object.entries(users)) {
 			this.usersById.set(Number(uid),username)
-			this.notesWithPendingUpdate.delete(note.id)
 		}
 		// output table section
 		$noteSection.innerHTML=''
+		delete $noteSection.dataset.updated
 		const getUsername=(uid:number)=>users[uid]
 		const isVisible=this.filter.matchNote(note,getUsername)
 		this.makeMarker(note,isVisible)
 		this.writeNoteSection($noteSection,note,users,isVisible)
 		if (isVisible) this.setNoteSelection($noteSection,wasSelected)
+		this.refresherConnector.registerNote(note)
 		this.sendNoteCountsUpdate() // TODO only do if visibility changed
-		// update refresher
-		delete $noteSection.dataset.updated
-		this.noteRefresher.update(note.id,Date.now(),getNoteUpdateDate(note))
 	}
 	getVisibleNoteIds(): number[] {
 		const ids: number[] = []
@@ -414,7 +351,6 @@ export default class NoteTable {
 			}
 			iComment++
 		}
-		this.noteRefreshTimestampsById.set(note.id,Date.now())
 	}
 	private sendNoteCountsUpdate(): void {
 		let nFetched=0
@@ -610,4 +546,8 @@ function getActionClass(action: NoteComment['action']): string {
 	} else {
 		return 'other'
 	}
+}
+
+function isDefined<T>(argument: T | undefined): argument is T {
+	return argument !== undefined
 }
