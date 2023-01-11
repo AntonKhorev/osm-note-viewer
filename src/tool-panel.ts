@@ -131,8 +131,8 @@ export default class ToolPanel {
 			this.toolBroadcaster.broadcastTimestampChange(null,timestamp)
 		}
 	}
-	receiveRefresherHalt(message: string|undefined) {
-		this.toolBroadcaster.broadcastRefresherStateChange(null,false,message)
+	receiveRefresherStateChange(isRunning: boolean, message: string|undefined) {
+		this.toolBroadcaster.broadcastRefresherStateChange(null,isRunning,message)
 	}
 	receiveRefresherPeriodChange(refreshPeriod: number) {
 		this.toolBroadcaster.broadcastRefresherPeriodChange(null,refreshPeriod)

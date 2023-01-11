@@ -40,20 +40,31 @@ export default class NoteTableAndRefresherConnector {
 				return refreshTimestamp
 			},
 			(message:string)=>{
-				toolPanel.receiveRefresherHalt(message)
+				toolPanel.receiveRefresherStateChange(false,message)
 			}
 		)
-		toolPanel.onRefresherStateChange=(isRunning)=>this.noteRefresher.setRunState(isRunning)
+		let stoppedBecauseOffline=!isOnline
+		toolPanel.onRefresherStateChange=(isRunning)=>{
+			this.noteRefresher.setRunState(isRunning)
+			stoppedBecauseOffline=false
+		}
 		toolPanel.onRefresherRefreshAll=()=>this.noteRefresher.refreshAll()
 		toolPanel.onRefresherPeriodChange=(refreshPeriod)=>this.noteRefresher.setPeriod(refreshPeriod)
 		toolPanel.receiveRefresherPeriodChange(refreshPeriod)
 		if (!isOnline) {
-			toolPanel.receiveRefresherHalt(undefined)
+			toolPanel.receiveRefresherStateChange(false,undefined)
 		}
 		window.addEventListener('offline',()=>{
 			if (!this.noteRefresher.isRunning) return
 			this.noteRefresher.setRunState(false)
-			toolPanel.receiveRefresherHalt(`refreshes stopped in offline mode`)
+			toolPanel.receiveRefresherStateChange(false,`refreshes stopped in offline mode`)
+			stoppedBecauseOffline=true
+		})
+		window.addEventListener('online',()=>{
+			if (!stoppedBecauseOffline) return
+			stoppedBecauseOffline=false
+			this.noteRefresher.setRunState(true)
+			toolPanel.receiveRefresherStateChange(true,undefined)
 		})
 	}
 	reset(): void {
