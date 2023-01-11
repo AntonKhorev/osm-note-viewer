@@ -94,11 +94,11 @@ export class RefreshTool extends Tool {
 		updateRunningState(true)
 		$runButton.onclick=()=>{
 			updateRunningState(true)
-			callbacks.onRefresherRun(this)
+			callbacks.onRefresherRunState(this,true)
 		}
 		$stopButton.onclick=()=>{
 			updateRunningState(false)
-			callbacks.onRefresherStop(this)
+			callbacks.onRefresherRunState(this,false)
 		}
 		$refreshAllButton.onclick=()=>{
 			callbacks.onRefresherRefreshAll(this)

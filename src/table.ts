@@ -88,8 +88,7 @@ export default class NoteTable {
 			this.$table.classList.toggle('only-first-comments',onlyFirst)
 			this.$table.classList.toggle('one-line-comments',oneLine)
 		}
-		toolPanel.onRefresherRun=()=>this.noteRefresher.run()
-		toolPanel.onRefresherStop=()=>this.noteRefresher.stop()
+		toolPanel.onRefresherRunState=(isRunning)=>this.noteRefresher.setRunState(isRunning)
 		toolPanel.onRefresherRefreshAll=()=>this.noteRefresher.refreshAll()
 		const that=this
 		let $clickReadyNoteSection: HTMLTableSectionElement | undefined

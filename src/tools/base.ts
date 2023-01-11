@@ -13,8 +13,7 @@ export interface ToolCallbacks {
 	onCommentsViewChange(fromTool: Tool, onlyFirst: boolean, oneLine: boolean): void
 	onTimestampChange(fromTool: Tool, timestamp: string): void
 	onToolOpenToggle(fromTool: Tool, setToOpen: boolean): void
-	onRefresherRun(fromTool: Tool): void
-	onRefresherStop(fromTool: Tool): void
+	onRefresherRunState(fromTool: Tool, isRunning: boolean): void
 	onRefresherRefreshAll(fromTool: Tool): void
 }
 

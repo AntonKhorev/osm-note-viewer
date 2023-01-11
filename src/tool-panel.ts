@@ -42,7 +42,7 @@ export default class ToolPanel {
 	private toolBroadcaster: ToolBroadcaster
 	#fitMode: ToolFitMode
 	onCommentsViewChange?: (onlyFirst:boolean,oneLine:boolean)=>void
-	onRefresherRun?: ()=>void
+	onRefresherRunState?: (isRunning:boolean)=>void
 	onRefresherStop?: ()=>void
 	onRefresherRefreshAll?: ()=>void
 	constructor(
@@ -60,8 +60,7 @@ export default class ToolPanel {
 			onToolOpenToggle: (fromTool: Tool, setToOpen: boolean)=>{
 				for (const [,$tool] of tools) $tool.open=setToOpen
 			},
-			onRefresherRun: (fromTool)=>this.onRefresherRun?.(),
-			onRefresherStop: (fromTool)=>this.onRefresherStop?.(),
+			onRefresherRunState: (fromTool,isRunning)=>this.onRefresherRunState?.(isRunning),
 			onRefresherRefreshAll: (fromTool)=>this.onRefresherRefreshAll?.()
 		}
 		for (const makeTool of toolMakerSequence) {

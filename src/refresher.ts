@@ -31,17 +31,16 @@ export default class NoteRefresher {
 	) {
 		this.timeoutCaller.schedulePeriodicCall((timestamp)=>this.receiveScheduledCall(timestamp))
 	}
-	run() {
-		if (this.isRunning) return
-		this.isRunning=true
-		this.timeoutCaller.schedulePeriodicCall((timestamp)=>this.receiveScheduledCall(timestamp))
+	setRunState(isRunning:boolean):void {
+		if (isRunning==this.isRunning) return
+		this.isRunning=isRunning
+		if (isRunning) {
+			this.timeoutCaller.schedulePeriodicCall((timestamp)=>this.receiveScheduledCall(timestamp))
+		} else {
+			this.timeoutCaller.cancelScheduledCall()
+		}
 	}
-	stop() {
-		if (!this.isRunning) return
-		this.isRunning=false
-		this.timeoutCaller.cancelScheduledCall()
-	}
-	reset() {
+	reset():void {
 		this.schedule.clear()
 	}
 	refreshAll():void {
