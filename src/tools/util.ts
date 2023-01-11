@@ -78,8 +78,8 @@ export class CommentsTool extends Tool {
 }
 
 export class RefreshTool extends Tool {
-	private $runButton=makeElement('button')('only-with-icon')(makeActionIcon('play',`Run`))
-	private $stopButton=makeElement('button')('only-with-icon')(makeActionIcon('stop',`Stop`))
+	private isRunning=true
+	private $runButton=makeElement('button')('only-with-icon')()
 	private $refreshAllButton=makeElement('button')('only-with-icon')(makeActionIcon('refresh',`Refresh now`))
 	private $refreshPeriodInput=document.createElement('input')
 	constructor() {super(
@@ -94,12 +94,8 @@ export class RefreshTool extends Tool {
 		this.$refreshPeriodInput.size=5
 		this.$refreshPeriodInput.step='any'
 		this.$runButton.onclick=()=>{
-			this.updateState(true)
-			callbacks.onRefresherStateChange(this,true,undefined)
-		}
-		this.$stopButton.onclick=()=>{
-			this.updateState(false)
-			callbacks.onRefresherStateChange(this,false,undefined)
+			this.updateState(!this.isRunning)
+			callbacks.onRefresherStateChange(this,!this.isRunning,undefined)
 		}
 		this.$refreshAllButton.onclick=()=>{
 			callbacks.onRefresherRefreshAll(this)
@@ -112,7 +108,7 @@ export class RefreshTool extends Tool {
 			callbacks.onRefresherPeriodChange(this,minutes*60*1000)
 		}
 		return [
-			this.$runButton,` `,this.$stopButton,` `,this.$refreshAllButton,`; `,
+			this.$runButton,` `,this.$refreshAllButton,`; `,
 			makeLabel('inline')(`refresh period: `,this.$refreshPeriodInput),` min.`
 		]
 	}
@@ -129,6 +125,7 @@ export class RefreshTool extends Tool {
 		return true
 	}
 	private updateState(isRunning: boolean, message?: string) {
+		this.isRunning=isRunning
 		if (message==null) {
 			this.$runButton.classList.remove('error')
 			this.$runButton.title=''
@@ -136,8 +133,10 @@ export class RefreshTool extends Tool {
 			this.$runButton.classList.add('error')
 			this.$runButton.title=message
 		}
-		this.$runButton.disabled=isRunning
-		this.$stopButton.disabled=!isRunning
+		this.$runButton.replaceChildren(isRunning
+			? makeActionIcon('stop',`Stop`)
+			: makeActionIcon('play',`Run`)
+		)
 	}
 }
 
