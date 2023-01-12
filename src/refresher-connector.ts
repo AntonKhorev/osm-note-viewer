@@ -1,4 +1,4 @@
-import {Note, getNoteUpdateDate} from './data'
+import {Note, Users, getNoteUpdateDate} from './data'
 import NoteRefresher from './refresher'
 import ToolPanel from './tool-panel'
 import ApiFetcher from './server'
@@ -10,31 +10,26 @@ export default class NoteTableAndRefresherConnector {
 	constructor(
 		toolPanel: ToolPanel,
 		apiFetcher: ApiFetcher,
-		getNoteSection: (id:number)=>HTMLTableSectionElement|undefined
+		setNoteProgress: (id:number,progress:number)=>void,
+		setNoteUpdatedState: (id:number)=>void,
+		updateNote: (note:Note,users:Users)=>void,
 	) {
 		const isOnline=navigator.onLine
 		const refreshPeriod=5*60*1000
 		this.noteRefresher=new NoteRefresher(
 			isOnline,refreshPeriod,apiFetcher,makeTimeoutCaller(10*1000,100),
-			(id,progress)=>{
-				const $noteSection=getNoteSection(id)
-				if ($noteSection) {
-					setNoteSectionProgress($noteSection,progress)
+			setNoteProgress,
+			(note,users)=>{
+				if (toolPanel.replaceUpdatedNotes) {
+					updateNote(note,users)
+				} else {
+					setNoteUpdatedState(note.id)
+					this.notesWithPendingUpdate.add(note.id)
 				}
-			},
-			(id)=>{
-				const $noteSection=getNoteSection(id)
-				if ($noteSection) {
-					$noteSection.dataset.updated='updated'
-				}
-				this.notesWithPendingUpdate.add(id)
 			},
 			(id:number,message?:string)=>{
 				// TODO report error by altering the link
-				const $noteSection=getNoteSection(id)
-				if ($noteSection) {
-					setNoteSectionProgress($noteSection,0)
-				}
+				setNoteProgress(id,0)
 				const refreshTimestamp=Date.now()
 				this.noteRefreshTimestampsById.set(id,refreshTimestamp)
 				return refreshTimestamp
@@ -101,10 +96,4 @@ function makeTimeoutCaller(periodicCallDelay:number,immediateCallDelay:number) {
 		schedulePeriodicCall:  scheduleCall(periodicCallDelay),
 		scheduleImmediateCall: scheduleCall(immediateCallDelay),
 	}
-}
-
-function setNoteSectionProgress($noteSection:HTMLElement,progress:number) {
-	const $refreshWaitProgress=$noteSection.querySelector('td.note-link progress')
-	if (!($refreshWaitProgress instanceof HTMLProgressElement)) return
-	$refreshWaitProgress.value=progress
 }

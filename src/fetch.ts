@@ -266,7 +266,7 @@ export abstract class NoteFetcherRun {
 	reactToLimitUpdateForAdvancedMode() {
 		this.updateRequestHintInAdvancedMode()
 	}
-	async updateNote($a: HTMLAnchorElement, noteId: number) {
+	async updateNote($a: HTMLAnchorElement, noteId: number) { // TODO why is it here? it's not related to any specific fetch run (except *) and refresher does the same thing
 		$a.classList.add('loading')
 		try {
 			const response=await this.server.apiFetch(e`notes/${noteId}.json`)
@@ -279,7 +279,7 @@ export abstract class NoteFetcherRun {
 			if (newNote.id!=noteId) throw new TypeError(`note reload received unexpected note`)
 			$a.classList.remove('absent')
 			$a.title=''
-			if (this.fetchEntry) await this.db.updateDataInFetch(Date.now(),this.fetchEntry,newNote,newUsers)
+			if (this.fetchEntry) await this.db.updateDataInFetch(Date.now(),this.fetchEntry,newNote,newUsers) // TODO *this is run-related: this.db.updateDataInFetch()
 			this.noteTable.replaceNote(newNote,newUsers)
 		} catch (ex) {
 			$a.classList.add('absent')

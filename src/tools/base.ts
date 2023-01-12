@@ -12,8 +12,9 @@ export interface ToolCallbacks {
 	onFitModeChange(fromTool: Tool, fitMode: ToolFitMode): void
 	onCommentsViewChange(fromTool: Tool, onlyFirst: boolean, oneLine: boolean): void
 	onRefresherStateChange(fromTool: Tool, isRunning: boolean, message: string|undefined): void
-	onRefresherRefreshAll(fromTool: Tool): void
+	onRefresherRefreshChange(fromTool: Tool, replaceUpdatedNotes: boolean): void
 	onRefresherPeriodChange(fromTool: Tool, refreshPeriod: number): void
+	onRefresherRefreshAll(fromTool: Tool): void
 	onTimestampChange(fromTool: Tool, timestamp: string): void
 	onToolOpenToggle(fromTool: Tool, setToOpen: boolean): void
 }

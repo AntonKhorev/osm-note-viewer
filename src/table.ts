@@ -42,7 +42,19 @@ export default class NoteTable implements NoteTableUpdater {
 	) {
 		this.refresherConnector=new NoteTableAndRefresherConnector(
 			toolPanel,server,
-			id=>this.getNoteSection(id)
+			(id,progress)=>{
+				const $refreshWaitProgress=this.getNoteSection(id)?.querySelector('td.note-link progress')
+				if (!($refreshWaitProgress instanceof HTMLProgressElement)) return
+				$refreshWaitProgress.value=progress
+			},
+			(id)=>{
+				const $noteSection=this.getNoteSection(id)
+				if (!$noteSection) return
+				$noteSection.dataset.updated='updated'
+			},
+			(note,users)=>{
+				this.replaceNote(note,users)
+			}
 		)
 		toolPanel.onCommentsViewChange=(onlyFirst:boolean,oneLine:boolean)=>{
 			this.$table.classList.toggle('only-first-comments',onlyFirst)

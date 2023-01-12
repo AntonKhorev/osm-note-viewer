@@ -47,10 +47,11 @@ class ToolBroadcaster {
 export default class ToolPanel {
 	private toolBroadcaster: ToolBroadcaster
 	#fitMode: ToolFitMode
+	#replaceUpdatedNotes: boolean = false
 	onCommentsViewChange?: (onlyFirst:boolean,oneLine:boolean)=>void
 	onRefresherStateChange?: (isRunning:boolean)=>void
-	onRefresherRefreshAll?: ()=>void
 	onRefresherPeriodChange?: (refreshPeriod:number)=>void
+	onRefresherRefreshAll?: ()=>void
 	constructor(
 		storage: NoteViewerStorage, server: Server, globalEventsListener: GlobalEventsListener,
 		$container: HTMLElement,
@@ -61,8 +62,9 @@ export default class ToolPanel {
 			onFitModeChange: (fromTool,fitMode)=>this.#fitMode=fitMode,
 			onCommentsViewChange: (fromTool,onlyFirst,oneLine)=>this.onCommentsViewChange?.(onlyFirst,oneLine),
 			onRefresherStateChange: (fromTool,isRunning,message)=>this.onRefresherStateChange?.(isRunning),
-			onRefresherRefreshAll: (fromTool)=>this.onRefresherRefreshAll?.(),
+			onRefresherRefreshChange: (fromTool,replaceUpdatedNotes)=>this.#replaceUpdatedNotes=replaceUpdatedNotes,
 			onRefresherPeriodChange: (fromTool,refreshPeriod)=>this.onRefresherPeriodChange?.(refreshPeriod),
+			onRefresherRefreshAll: (fromTool)=>this.onRefresherRefreshAll?.(),
 			onTimestampChange: (fromTool,timestamp)=>{
 				this.toolBroadcaster.broadcastTimestampChange(fromTool,timestamp)
 			},
@@ -145,6 +147,9 @@ export default class ToolPanel {
 	}
 	get fitMode(): ToolFitMode {
 		return this.#fitMode
+	}
+	get replaceUpdatedNotes(): boolean {
+		return this.#replaceUpdatedNotes
 	}
 }
 

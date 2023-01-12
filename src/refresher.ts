@@ -1,3 +1,4 @@
+import {Note, Users} from './data'
 import type {ApiFetcher} from './server'
 import {isNoteFeature, transformFeatureToNotesAndUsers, getNoteUpdateDate} from './data'
 import {makeEscapeTag} from './escape'
@@ -26,7 +27,7 @@ export default class NoteRefresher {
 		private apiFetcher: ApiFetcher,
 		private timeoutCaller: TimeoutCaller,
 		private reportRefreshWaitProgress: (id:number,progress:number)=>void,
-		private reportUpdate: (id:number)=>void,
+		private reportUpdate: (note:Note,users:Users)=>void,
 		private reportPostpone: (id:number,message?:string)=>number,
 		private reportHalt: (message:string)=>void
 	) {
@@ -152,13 +153,13 @@ export default class NoteRefresher {
 		if (!response.ok) return postpone(`note refresh failed`)
 		const data=await response.json()
 		if (!isNoteFeature(data)) return postpone(`note refresh received invalid data`)
-		const [newNotes]=transformFeatureToNotesAndUsers(data)
+		const [newNotes,newUsers]=transformFeatureToNotesAndUsers(data)
 		if (newNotes.length!=1) return postpone(`note refresh received unexpected number of notes`)
 		const [newNote]=newNotes
 		if (newNote.id!=id) return postpone(`note refresh received unexpected note`)
 		const newUpdateDate=getNoteUpdateDate(newNote)
 		if (newUpdateDate<=scheduleEntry.updateDate) return postpone()
 		scheduleEntry.hasPendingUpdate=true
-		this.reportUpdate(id)
+		this.reportUpdate(newNote,newUsers)
 	}
 }

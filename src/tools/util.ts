@@ -27,8 +27,7 @@ export class AutozoomTool extends Tool {
 		`This option is convenient to use when `,em(`Track between notes`),` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`
 	)]}
 	getTool(callbacks: ToolCallbacks, server: Server, map: NoteMap): ToolElements {
-		const $fitModeSelect=document.createElement('select')
-		$fitModeSelect.append(
+		const $fitModeSelect=makeElement('select')()(
 			new Option('is disabled','none'),
 			new Option('to selected notes','selectedNotes'),
 			new Option('to notes on screen in table','inViewNotes'),
@@ -80,7 +79,6 @@ export class CommentsTool extends Tool {
 export class RefreshTool extends Tool {
 	private isRunning=true
 	private $runButton=makeElement('button')('only-with-icon')()
-	private $refreshAllButton=makeElement('button')('only-with-icon')(makeActionIcon('refresh',`Refresh now`))
 	private $refreshPeriodInput=document.createElement('input')
 	constructor() {super(
 		'refresh',
@@ -89,18 +87,25 @@ export class RefreshTool extends Tool {
 	)}
 	getTool(callbacks: ToolCallbacks): ToolElements {
 		this.updateState(true)
+		const $refreshSelect=makeElement('select')()(
+			new Option('report'),
+			new Option('replace')
+		)
 		this.$refreshPeriodInput.type='number'
 		this.$refreshPeriodInput.min='1'
 		this.$refreshPeriodInput.size=5
 		this.$refreshPeriodInput.step='any'
+		const $refreshAllButton=makeElement('button')('only-with-icon')(makeActionIcon('refresh',`Refresh now`))
+		$refreshAllButton.title=`Refresh all notes currently on the screen in the table above`
 		this.$runButton.onclick=()=>{
 			const newIsRunning=!this.isRunning
 			this.updateState(newIsRunning)
 			callbacks.onRefresherStateChange(this,newIsRunning,undefined)
 		}
-		this.$refreshAllButton.title=`Refresh all notes currently on the screen in the table above`
-		this.$refreshAllButton.onclick=()=>{
-			callbacks.onRefresherRefreshAll(this)
+		$refreshSelect.onchange=()=>{
+			callbacks.onRefresherRefreshChange(this,
+				$refreshSelect.value=='replace'
+			)
 		}
 		this.$refreshPeriodInput.oninput=()=>{
 			const str=this.$refreshPeriodInput.value
@@ -109,10 +114,19 @@ export class RefreshTool extends Tool {
 			if (!Number.isFinite(minutes) || minutes<=0) return
 			callbacks.onRefresherPeriodChange(this,minutes*60*1000)
 		}
+		$refreshAllButton.onclick=()=>{
+			callbacks.onRefresherRefreshAll(this)
+		}
 		return [
-			this.$runButton,` `,this.$refreshAllButton,`; `,
-			makeLabel('inline')(`refresh period: `,this.$refreshPeriodInput),` min.`
+			this.$runButton,` `,
+			makeLabel('inline')($refreshSelect,` updated notes`),` `,
+			makeLabel('inline')(`every `,this.$refreshPeriodInput),` min. or `,
+			$refreshAllButton
 		]
+	}
+	onRefresherStateChange(isRunning: boolean, message: string|undefined): boolean {
+		this.updateState(isRunning,message)
+		return true
 	}
 	onRefresherPeriodChange(refreshPeriod: number): boolean {
 		let minutes=(refreshPeriod/(60*1000)).toFixed(2)
@@ -120,10 +134,6 @@ export class RefreshTool extends Tool {
 			minutes=minutes.replace(/\.?0+$/,'')
 		}
 		this.$refreshPeriodInput.value=minutes
-		return true
-	}
-	onRefresherStateChange(isRunning: boolean, message: string|undefined): boolean {
-		this.updateState(isRunning,message)
 		return true
 	}
 	private updateState(isRunning: boolean, message?: string) {

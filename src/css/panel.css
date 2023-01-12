@@ -201,6 +201,7 @@
 	box-sizing: content-box;
 	height: 13px;
 	padding: 2px;
+	vertical-align: bottom;
 }
 .panel.command button.only-with-icon [class|=icon] > svg {
 	vertical-align: inherit;
