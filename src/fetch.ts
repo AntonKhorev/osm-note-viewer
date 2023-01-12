@@ -266,31 +266,9 @@ export abstract class NoteFetcherRun {
 	reactToLimitUpdateForAdvancedMode() {
 		this.updateRequestHintInAdvancedMode()
 	}
-	async updateNote($a: HTMLAnchorElement, noteId: number) { // TODO why is it here? it's not related to any specific fetch run (except *) and refresher does the same thing
-		$a.classList.add('loading')
-		try {
-			const response=await this.server.apiFetch(e`notes/${noteId}.json`)
-			if (!response.ok) throw new TypeError(`note reload failed`)
-			const data=await response.json()
-			if (!isNoteFeature(data)) throw new TypeError(`note reload received invalid data`)
-			const [newNotes,newUsers]=transformFeatureToNotesAndUsers(data)
-			if (newNotes.length!=1) throw new TypeError(`note reload received unexpected number of notes`)
-			const [newNote]=newNotes
-			if (newNote.id!=noteId) throw new TypeError(`note reload received unexpected note`)
-			$a.classList.remove('absent')
-			$a.title=''
-			if (this.fetchEntry) await this.db.updateDataInFetch(Date.now(),this.fetchEntry,newNote,newUsers) // TODO *this is run-related: this.db.updateDataInFetch()
-			this.noteTable.replaceNote(newNote,newUsers)
-		} catch (ex) {
-			$a.classList.add('absent')
-			if (ex instanceof TypeError) {
-				$a.title=ex.message
-			} else {
-				$a.title=`unknown error ${ex}`
-			}
-		} finally {
-			$a.classList.remove('loading')
-		}
+	async updateNote(newNote: Note, newUsers: Users) {
+		if (!this.fetchEntry) return
+		await this.db.updateDataInFetch(Date.now(),this.fetchEntry,newNote,newUsers)
 	}
 	private recordData(newNotes: Readonly<Note[]>, newUsers: Readonly<Users>): void {
 		this.prevLastNote=this.lastNote

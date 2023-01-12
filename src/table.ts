@@ -12,6 +12,7 @@ import NoteSectionVisibilityObserver from './observer'
 import NoteTableAndRefresherConnector from './refresher-connector'
 import {toReadableDate} from './query-date'
 import type Server from './server'
+import fetchTableNote from './fetch-note'
 import {makeDiv, makeLink, resetFadeAnimation} from './html'
 
 export interface NoteTableUpdater {
@@ -34,6 +35,7 @@ export default class NoteTable implements NoteTableUpdater {
 	private usersById = new Map<number,string>()
 	private commentWriter: CommentWriter
 	private showImages: boolean = false
+	onRefresherUpdate?: (note:Note,users:Users)=>Promise<void>
 	constructor(
 		$container: HTMLElement,
 		private toolPanel: ToolPanel, private map: NoteMap, private filter: NoteFilter,
@@ -41,7 +43,7 @@ export default class NoteTable implements NoteTableUpdater {
 		private server: Server
 	) {
 		this.refresherConnector=new NoteTableAndRefresherConnector(
-			toolPanel,server,
+			toolPanel,
 			(id,progress)=>{
 				const $refreshWaitProgress=this.getNoteSection(id)?.querySelector('td.note-link progress')
 				if (!($refreshWaitProgress instanceof HTMLProgressElement)) return
@@ -54,6 +56,15 @@ export default class NoteTable implements NoteTableUpdater {
 			},
 			(note,users)=>{
 				this.replaceNote(note,users)
+			},
+			async(id)=>{
+				const $a=this.getNoteSection(id)?.querySelector('td.note-link a')
+				if (!($a instanceof HTMLAnchorElement)) {
+					throw new Error(`note link not found during single note fetch`)
+				}
+				const [note,users]=await fetchTableNote(server,$a,Number(id))
+				await this.onRefresherUpdate?.(note,users)
+				return [note,users]
 			}
 		)
 		toolPanel.onCommentsViewChange=(onlyFirst:boolean,oneLine:boolean)=>{

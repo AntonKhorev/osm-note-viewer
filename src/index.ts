@@ -10,6 +10,7 @@ import NoteFetchPanel from './fetch-panel'
 import NoteFilterPanel from './filter-panel'
 import NoteTable from './table'
 import ToolPanel from './tool-panel'
+import fetchTableNote from './fetch-note'
 import {downloadAndShowChangeset, downloadAndShowElement} from './osm'
 import {makeDiv} from './html'
 import serverListConfig from './server-list-config'
@@ -60,8 +61,19 @@ async function main() {
 		$fetchContainer,$moreContainer,
 		navbar,noteTable,map,figureDialog
 	)
-	globalEventsListener.noteSelfListener=($a,noteId)=>{
-		fetchPanel.updateNote($a,Number(noteId))
+	if (noteTable) {
+		noteTable.onRefresherUpdate=async(note,users)=>{
+			await fetchPanel.fetcherRun?.updateNote(note,users)
+		}
+	}
+	if (globalHistory.hasServer()) {
+		globalEventsListener.noteSelfListener=async($a,noteId)=>{
+			try {
+				const [note,users]=await fetchTableNote(globalHistory.server,$a,Number(noteId))
+				await fetchPanel.fetcherRun?.updateNote(note,users)
+				noteTable?.replaceNote(note,users)
+			} catch {}
+		}
 	}
 	globalHistory.restoreScrollPosition()
 }

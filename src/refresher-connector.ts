@@ -1,7 +1,6 @@
 import {Note, Users, getNoteUpdateDate} from './data'
 import NoteRefresher from './refresher'
 import ToolPanel from './tool-panel'
-import ApiFetcher from './server'
 
 export default class NoteTableAndRefresherConnector {
 	private noteRefresher: NoteRefresher
@@ -9,15 +8,15 @@ export default class NoteTableAndRefresherConnector {
 	private notesWithPendingUpdate = new Set<number>()
 	constructor(
 		toolPanel: ToolPanel,
-		apiFetcher: ApiFetcher,
 		setNoteProgress: (id:number,progress:number)=>void,
 		setNoteUpdatedState: (id:number)=>void,
 		updateNote: (note:Note,users:Users)=>void,
+		fetchSingleNote: (id:number)=>Promise<[note:Note,users:Users]>
 	) {
 		const isOnline=navigator.onLine
 		const refreshPeriod=5*60*1000
 		this.noteRefresher=new NoteRefresher(
-			isOnline,refreshPeriod,apiFetcher,makeTimeoutCaller(10*1000,100),
+			isOnline,refreshPeriod,makeTimeoutCaller(10*1000,100),
 			setNoteProgress,
 			(note,users)=>{
 				if (toolPanel.replaceUpdatedNotes) {
@@ -28,7 +27,6 @@ export default class NoteTableAndRefresherConnector {
 				}
 			},
 			(id:number,message?:string)=>{
-				// TODO report error by altering the link
 				setNoteProgress(id,0)
 				const refreshTimestamp=Date.now()
 				this.noteRefreshTimestampsById.set(id,refreshTimestamp)
@@ -36,7 +34,8 @@ export default class NoteTableAndRefresherConnector {
 			},
 			(message:string)=>{
 				toolPanel.receiveRefresherStateChange(false,message)
-			}
+			},
+			fetchSingleNote
 		)
 		let stoppedBecauseOffline=!isOnline
 		toolPanel.onRefresherStateChange=(isRunning)=>{

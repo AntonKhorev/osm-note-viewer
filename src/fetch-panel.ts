@@ -13,7 +13,7 @@ import NoteFetchDialogs, {NoteFetchDialog} from './fetch-dialog'
 
 export default class NoteFetchPanel {
 	// TODO have invoking dialog object; react only on dl params change in it; display that fieldset differently
-	private fetcherRun?: NoteFetcherRun
+	fetcherRun?: NoteFetcherRun
 	private fetcherInvoker?: NoteFetchDialog
 	constructor(
 		storage: NoteViewerStorage, db: NoteViewerDB,
@@ -134,10 +134,6 @@ export default class NoteFetchPanel {
 				: ''
 			globalHistory.setQueryHash(queryHash,push)
 		}
-	}
-	updateNote($a: HTMLAnchorElement, noteId: number): void {
-		if (!this.fetcherRun) return
-		this.fetcherRun.updateNote($a,noteId)
 	}
 }
 

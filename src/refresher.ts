@@ -1,9 +1,6 @@
-import {Note, Users} from './data'
-import type {ApiFetcher} from './server'
-import {isNoteFeature, transformFeatureToNotesAndUsers, getNoteUpdateDate} from './data'
-import {makeEscapeTag} from './escape'
+import {Note, Users, getNoteUpdateDate} from './data'
+import {NoteDataError} from './fetch-note'
 
-const e=makeEscapeTag(encodeURIComponent)
 const clamp=(min:number,value:number,max:number)=>Math.max(min,Math.min(value,max))
 
 interface TimeoutCaller {
@@ -24,12 +21,12 @@ export default class NoteRefresher {
 	constructor(
 		public isRunning: boolean,
 		private refreshPeriod: number,
-		private apiFetcher: ApiFetcher,
 		private timeoutCaller: TimeoutCaller,
 		private reportRefreshWaitProgress: (id:number,progress:number)=>void,
 		private reportUpdate: (note:Note,users:Users)=>void,
 		private reportPostpone: (id:number,message?:string)=>number,
-		private reportHalt: (message:string)=>void
+		private reportHalt: (message:string)=>void,
+		private fetchSingleNote: (id:number)=>Promise<[note:Note,users:Users]>
 	) {
 		if (isRunning) {
 			this.timeoutCaller.schedulePeriodicCall((timestamp)=>this.receiveScheduledCall(timestamp))
@@ -145,21 +142,19 @@ export default class NoteRefresher {
 			scheduleEntry.refreshTimestamp=newRefreshTimestamp
 		}
 		scheduleEntry.needImmediateRefresh=false
-		// const progress=clamp(0,(timestamp-scheduleEntry.refreshTimestamp)/this.refreshPeriod,1)
 		scheduleEntry.refreshTimestamp=timestamp
-		// this.reportRefreshWaitProgress(id,progress)
-		const apiPath=e`notes/${id}.json`
-		const response=await this.apiFetcher.apiFetch(apiPath)
-		if (!response.ok) return postpone(`note refresh failed`)
-		const data=await response.json()
-		if (!isNoteFeature(data)) return postpone(`note refresh received invalid data`)
-		const [newNotes,newUsers]=transformFeatureToNotesAndUsers(data)
-		if (newNotes.length!=1) return postpone(`note refresh received unexpected number of notes`)
-		const [newNote]=newNotes
-		if (newNote.id!=id) return postpone(`note refresh received unexpected note`)
-		const newUpdateDate=getNoteUpdateDate(newNote)
-		if (newUpdateDate<=scheduleEntry.updateDate) return postpone()
-		scheduleEntry.hasPendingUpdate=true
-		this.reportUpdate(newNote,newUsers)
+		try {
+			const [newNote,newUsers]=await this.fetchSingleNote(id)
+			const newUpdateDate=getNoteUpdateDate(newNote)
+			if (newUpdateDate<=scheduleEntry.updateDate) return postpone()
+			scheduleEntry.hasPendingUpdate=true
+			this.reportUpdate(newNote,newUsers)
+		} catch (ex) {
+			if (ex instanceof NoteDataError) {
+				return postpone(ex.message)
+			} else {
+				throw ex
+			}
+		}
 	}
 }
