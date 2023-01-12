@@ -12,6 +12,10 @@ const downloads=await readJson('downloads.json')
 const dstDir='test-build/dist'
 const browserUrl=`${url.pathToFileURL(`${dstDir}/index.html`)}`
 
+// can test XPath in browser like this:
+// document.evaluate(`//button[not(@disabled) and contains(.,"Halt")]`,document).iterateNext()
+const buttonPath=(text)=>`//button[not(@disabled) and contains(.,"${text}")]`
+
 describe("browser tests",function(){
 	if (visible) this.timeout(0)
 	before(async function(){
@@ -56,9 +60,9 @@ describe("browser tests",function(){
 			"text": "the-only-note-comment"
 		}])
 		const page=await this.openPage()
-		const button=await this.waitForFetchButton()
+		const fetchButton=await this.waitForFetchButton()
 		await this.assertNoText(page,"the-only-note-comment")
-		await button.click()
+		await fetchButton.click()
 		await page.waitForSelector('.notes tbody')
 		await this.assertText(page,"the-only-note-comment")
 	})
@@ -71,10 +75,10 @@ describe("browser tests",function(){
 			}]
 		}])
 		const page=await this.openPage()
-		const button=await this.waitForFetchButton()
+		const fetchButton=await this.waitForFetchButton()
 		await this.assertNoText(page,"the-first-note-comment")
 		await this.assertNoText(page,"the-second-note-comment")
-		await button.click()
+		await fetchButton.click()
 		await page.waitForSelector('.notes tbody')
 		await this.assertText(page,"the-first-note-comment")
 		await this.assertNoText(page,"the-second-note-comment")
@@ -130,6 +134,50 @@ describe("browser tests",function(){
 		await this.assertAlternativeText(button,1,'Halt','Resume')
 		await page.setOfflineMode(false)
 		await this.assertAlternativeText(button,0,'Halt','Resume')
+	})
+	it("replaces note after it has reported update",async function(){
+		this.timeout(5000)
+		this.server.setNotes([{
+			"id": 101,
+			"comments": [{
+				"date": "2022-04-01",
+				"text": "the-first-note-comment"
+			}]
+		}])
+		const page=await this.openPage()
+		const fetchButton=await this.waitForFetchButton()
+		const tool=await this.waitForTool(`Refresh notes`)
+		await tool.click()
+		const [haltButton]=await tool.$x(buttonPath('Halt'))
+		const [refreshButton]=await tool.$x(buttonPath('Refresh'))
+		await this.assertNoText(page,"the-first-note-comment")
+		await this.assertNoText(page,"the-second-note-comment")
+		await haltButton.click()
+		await fetchButton.click()
+		await page.waitForSelector('.notes tbody')
+		await this.assertText(page,"the-first-note-comment")
+		await this.assertNoText(page,"the-second-note-comment")
+		await (await page.$('.notes tbody a')).focus()
+		this.server.setNotes([{
+			"id": 101,
+			"comments": [{
+				"date": "2022-04-01",
+				"text": "the-first-note-comment"
+			},{
+				"date": "2022-04-02",
+				"text": "the-second-note-comment"
+			}]
+		}])
+		await refreshButton.click()
+		await page.waitForSelector('.notes tbody[data-updated]')
+		await this.assertText(page,"the-first-note-comment")
+		await this.assertNoText(page,"the-second-note-comment")
+		const [refreshSelect]=await tool.$x(`//select[contains(.,"replace")]`)
+		await refreshSelect.select('replace')
+		await refreshButton.click()
+		await page.waitForSelector('.notes tbody tr + tr')
+		await this.assertText(page,"the-first-note-comment")
+		await this.assertText(page,"the-second-note-comment")
 	})
 })
 

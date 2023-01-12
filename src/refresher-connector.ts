@@ -42,7 +42,7 @@ export default class NoteTableAndRefresherConnector {
 			this.noteRefresher.setRunState(isRunning)
 			stoppedBecauseOffline=false
 		}
-		toolPanel.onRefresherRefreshAll=()=>this.noteRefresher.refreshAll()
+		toolPanel.onRefresherRefreshAll=()=>this.noteRefresher.refreshAll(toolPanel.replaceUpdatedNotes)
 		toolPanel.onRefresherPeriodChange=(refreshPeriod)=>this.noteRefresher.setPeriod(refreshPeriod)
 		toolPanel.receiveRefresherPeriodChange(refreshPeriod)
 		if (!isOnline) {
@@ -78,7 +78,7 @@ export default class NoteTableAndRefresherConnector {
 	registerNote(note: Note) {
 		this.notesWithPendingUpdate.delete(note.id)
 		this.noteRefreshTimestampsById.set(note.id,Date.now())
-		this.noteRefresher.update(note.id,Date.now(),getNoteUpdateDate(note))
+		this.noteRefresher.replaceNote(note.id,Date.now(),getNoteUpdateDate(note))
 	}
 }
 

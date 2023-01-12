@@ -48,9 +48,12 @@ export default class NoteRefresher {
 	reset():void {
 		this.schedule.clear()
 	}
-	refreshAll():void {
+	refreshAll(alsoRefreshNotesWithRendingUpdate:boolean):void {
 		for (const scheduleEntry of this.schedule.values()) {
-			scheduleEntry.needImmediateRefresh=true
+			scheduleEntry.needImmediateRefresh=(
+				alsoRefreshNotesWithRendingUpdate ||
+				!scheduleEntry.hasPendingUpdate
+			)
 		}
 		this.timeoutCaller.scheduleImmediateCall((timestamp)=>this.receiveScheduledCall(timestamp))
 	}
@@ -74,7 +77,7 @@ export default class NoteRefresher {
 			this.schedule.delete(id)
 		}
 	}
-	update(id:number,refreshTimestamp:number,updateDate:number):void {
+	replaceNote(id:number,refreshTimestamp:number,updateDate:number):void {
 		const entry=this.schedule.get(id)
 		if (!entry) return
 		entry.refreshTimestamp=refreshTimestamp
@@ -97,10 +100,10 @@ export default class NoteRefresher {
 			let earliestRefreshTimestamp=+Infinity
 			let earliestRefreshId
 			for (const [id,{refreshTimestamp,needImmediateRefresh,hasPendingUpdate}] of this.schedule) {
-				if (hasPendingUpdate) continue
 				if (needImmediateRefresh) {
 					return id
 				}
+				if (hasPendingUpdate) continue
 				if (earliestRefreshTimestamp>refreshTimestamp) {
 					earliestRefreshTimestamp=refreshTimestamp
 					earliestRefreshId=id
