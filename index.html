@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" crossorigin="" />
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
 </head>
-<body data-build="2023-01-07T06:12:51.750Z">
+<body data-build="2023-01-12T14:23:16.238Z">
 <svg class="symbols">
 <style>
 #flip .hor { visibility: var(--flip-hor-part-visibility,hidden); }
@@ -149,6 +149,23 @@
 <symbol id="tools-notes" viewBox="-4.5 -6.5 9 13">
 <path d="M0,5 L-4,1 V-4 a2,2 1,0,1 2,-2 H2 a2,2 1,0,1 2,2 V1 Z" stroke="black" fill="#06E" />
 <path d="M-2.5,-1.5 l2,2 l3,-3" stroke="white" stroke-width="1.5" fill="none" />
+</symbol>
+<symbol id="tools-pause" viewBox="-6.5 -6.5 13 13">
+<rect x="-6" y="-6" width="4" height="12" stroke="currentColor" fill="currentColor" />
+<rect x="2" y="-6" width="4" height="12" stroke="currentColor" fill="currentColor" />
+</symbol>
+<symbol id="tools-play" viewBox="-6.5 -6.5 13 13">
+<polygon points="-5,-6 5,0 -5,6" stroke="currentColor" fill="currentColor" />
+</symbol>
+<symbol id="tools-refresh" viewBox="-6.5 -6.5 13 13">
+<defs>
+<g id="arrow" stroke="currentColor" fill="none">
+<path d="M0,-4 a4,4 0,0,1 4,4" />
+<path d="M2,0 l2,2 l2,-2" stroke-width="1.5" />
+</g>
+</defs>
+<use href="#arrow" />
+<use href="#arrow" transform="scale(-1)" />
 </symbol>
 </svg>
 <script src=index.js></script>

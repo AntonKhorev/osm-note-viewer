@@ -2581,39 +2581,10 @@ class NoteFetcherRun {
     reactToLimitUpdateForAdvancedMode() {
         this.updateRequestHintInAdvancedMode();
     }
-    async updateNote($a, noteId) {
-        $a.classList.add('loading');
-        try {
-            const response = await this.server.apiFetch(e$3 `notes/${noteId}.json`);
-            if (!response.ok)
-                throw new TypeError(`note reload failed`);
-            const data = await response.json();
-            if (!isNoteFeature(data))
-                throw new TypeError(`note reload received invalid data`);
-            const [newNotes, newUsers] = transformFeatureToNotesAndUsers(data);
-            if (newNotes.length != 1)
-                throw new TypeError(`note reload received unexpected number of notes`);
-            const [newNote] = newNotes;
-            if (newNote.id != noteId)
-                throw new TypeError(`note reload received unexpected note`);
-            $a.classList.remove('absent');
-            $a.title = '';
-            if (this.fetchEntry)
-                await this.db.updateDataInFetch(Date.now(), this.fetchEntry, newNote, newUsers);
-            this.noteTable.replaceNote(newNote, newUsers);
-        }
-        catch (ex) {
-            $a.classList.add('absent');
-            if (ex instanceof TypeError) {
-                $a.title = ex.message;
-            }
-            else {
-                $a.title = `unknown error ${ex}`;
-            }
-        }
-        finally {
-            $a.classList.remove('loading');
-        }
+    async updateNote(newNote, newUsers) {
+        if (!this.fetchEntry)
+            return;
+        await this.db.updateDataInFetch(Date.now(), this.fetchEntry, newNote, newUsers);
     }
     recordData(newNotes, newUsers) {
         this.prevLastNote = this.lastNote;
@@ -4279,11 +4250,6 @@ class NoteFetchPanel {
             globalHistory.setQueryHash(queryHash, push);
         }
     }
-    updateNote($a, noteId) {
-        if (!this.fetcherRun)
-            return;
-        this.fetcherRun.updateNote($a, noteId);
-    }
 }
 function openQueryDialog(navbar, fetchDialogs, query, initial) {
     if (!query) {
@@ -5010,24 +4976,86 @@ class NoteSectionVisibilityObserver {
 }
 
 const e$1 = makeEscapeTag(encodeURIComponent);
+/**
+ * Errors expected with working connection to the API
+ */
+class NoteDataError extends TypeError {
+}
+/**
+ * Reload a single note updating its link
+ */
+async function fetchTableNote(apiFetcher, $a, noteId) {
+    $a.classList.add('loading');
+    try {
+        const response = await apiFetcher.apiFetch(e$1 `notes/${noteId}.json`);
+        if (!response.ok)
+            throw new NoteDataError(`note reload failed`);
+        const data = await response.json();
+        if (!isNoteFeature(data))
+            throw new NoteDataError(`note reload received invalid data`);
+        const [newNotes, newUsers] = transformFeatureToNotesAndUsers(data);
+        if (newNotes.length != 1)
+            throw new NoteDataError(`note reload received unexpected number of notes`);
+        const [newNote] = newNotes;
+        if (newNote.id != noteId)
+            throw new NoteDataError(`note reload received unexpected note`);
+        $a.classList.remove('absent');
+        $a.title = '';
+        return [newNote, newUsers];
+    }
+    catch (ex) {
+        $a.classList.add('absent');
+        if (ex instanceof TypeError) {
+            $a.title = ex.message;
+        }
+        else {
+            $a.title = `unknown error ${ex}`;
+        }
+        throw ex;
+    }
+    finally {
+        $a.classList.remove('loading');
+    }
+}
+
 const clamp = (min, value, max) => Math.max(min, Math.min(value, max));
 class NoteRefresher {
-    constructor(refreshPeriod, apiFetcher, timeoutCaller, reportRefreshWaitProgress, reportUpdate, reportPostpone) {
+    constructor(isRunning, refreshPeriod, timeoutCaller, reportRefreshWaitProgress, reportUpdate, reportPostpone, reportHalt, fetchSingleNote) {
+        this.isRunning = isRunning;
         this.refreshPeriod = refreshPeriod;
-        this.apiFetcher = apiFetcher;
         this.timeoutCaller = timeoutCaller;
         this.reportRefreshWaitProgress = reportRefreshWaitProgress;
         this.reportUpdate = reportUpdate;
         this.reportPostpone = reportPostpone;
+        this.reportHalt = reportHalt;
+        this.fetchSingleNote = fetchSingleNote;
         this.schedule = new Map();
-        this.timeoutCaller.schedulePeriodicCall((timestamp) => this.receiveScheduledCall(timestamp));
+        if (isRunning) {
+            this.timeoutCaller.schedulePeriodicCall((timestamp) => this.receiveScheduledCall(timestamp));
+        }
+    }
+    setPeriod(refreshPeriod) {
+        this.refreshPeriod = refreshPeriod;
+        // TODO update progress bars
+    }
+    setRunState(isRunning) {
+        if (isRunning == this.isRunning)
+            return;
+        this.isRunning = isRunning;
+        if (isRunning) {
+            this.timeoutCaller.schedulePeriodicCall((timestamp) => this.receiveScheduledCall(timestamp));
+        }
+        else {
+            this.timeoutCaller.cancelScheduledCall();
+        }
     }
     reset() {
         this.schedule.clear();
     }
-    refreshAll() {
+    refreshAll(alsoRefreshNotesWithRendingUpdate) {
         for (const scheduleEntry of this.schedule.values()) {
-            scheduleEntry.needImmediateRefresh = true;
+            scheduleEntry.needImmediateRefresh = (alsoRefreshNotesWithRendingUpdate ||
+                !scheduleEntry.hasPendingUpdate);
         }
         this.timeoutCaller.scheduleImmediateCall((timestamp) => this.receiveScheduledCall(timestamp));
     }
@@ -5052,7 +5080,7 @@ class NoteRefresher {
             this.schedule.delete(id);
         }
     }
-    update(id, refreshTimestamp, updateDate) {
+    replaceNote(id, refreshTimestamp, updateDate) {
         const entry = this.schedule.get(id);
         if (!entry)
             return;
@@ -5077,11 +5105,11 @@ class NoteRefresher {
             let earliestRefreshTimestamp = +Infinity;
             let earliestRefreshId;
             for (const [id, { refreshTimestamp, needImmediateRefresh, hasPendingUpdate }] of this.schedule) {
-                if (hasPendingUpdate)
-                    continue;
                 if (needImmediateRefresh) {
                     return id;
                 }
+                if (hasPendingUpdate)
+                    continue;
                 if (earliestRefreshTimestamp > refreshTimestamp) {
                     earliestRefreshTimestamp = refreshTimestamp;
                     earliestRefreshId = id;
@@ -5091,18 +5119,29 @@ class NoteRefresher {
                 return earliestRefreshId;
             }
         };
-        reportAllProgress();
-        const currentId = getNextId();
-        if (currentId == null) {
-            this.timeoutCaller.schedulePeriodicCall((timestamp) => this.receiveScheduledCall(timestamp));
+        let currentId;
+        let futureId;
+        try {
+            reportAllProgress();
+            currentId = getNextId();
+            if (currentId != null) {
+                await this.fetch(timestamp, currentId);
+                futureId = getNextId();
+            }
+        }
+        catch (ex) {
+            this.isRunning = false;
+            let message = `unknown error`;
+            if (ex instanceof Error) {
+                message = ex.message;
+            }
+            this.reportHalt(message);
             return;
         }
-        await this.fetch(timestamp, currentId);
-        const futureId = getNextId();
         if (futureId) {
             this.timeoutCaller.scheduleImmediateCall((timestamp) => this.receiveScheduledCall(timestamp));
         }
-        else {
+        else if (this.isRunning) {
             this.timeoutCaller.schedulePeriodicCall((timestamp) => this.receiveScheduledCall(timestamp));
         }
     }
@@ -5115,47 +5154,110 @@ class NoteRefresher {
             scheduleEntry.refreshTimestamp = newRefreshTimestamp;
         };
         scheduleEntry.needImmediateRefresh = false;
-        // const progress=clamp(0,(timestamp-scheduleEntry.refreshTimestamp)/this.refreshPeriod,1)
         scheduleEntry.refreshTimestamp = timestamp;
-        // this.reportRefreshWaitProgress(id,progress)
-        const apiPath = e$1 `notes/${id}.json`;
-        const response = await this.apiFetcher.apiFetch(apiPath);
-        if (!response.ok)
-            return postpone(`note refresh failed`);
-        const data = await response.json();
-        if (!isNoteFeature(data))
-            return postpone(`note refresh received invalid data`);
-        const [newNotes] = transformFeatureToNotesAndUsers(data);
-        if (newNotes.length != 1)
-            return postpone(`note refresh received unexpected number of notes`);
-        const [newNote] = newNotes;
-        if (newNote.id != id)
-            return postpone(`note refresh received unexpected note`);
-        const newUpdateDate = getNoteUpdateDate(newNote);
-        if (newUpdateDate <= scheduleEntry.updateDate)
-            return postpone();
-        scheduleEntry.hasPendingUpdate = true;
-        this.reportUpdate(id);
+        try {
+            const [newNote, newUsers] = await this.fetchSingleNote(id);
+            const newUpdateDate = getNoteUpdateDate(newNote);
+            if (newUpdateDate <= scheduleEntry.updateDate)
+                return postpone();
+            scheduleEntry.hasPendingUpdate = true;
+            this.reportUpdate(newNote, newUsers);
+        }
+        catch (ex) {
+            if (ex instanceof NoteDataError) {
+                return postpone(ex.message);
+            }
+            else {
+                throw ex;
+            }
+        }
     }
 }
 
-const makeTimeoutCaller = (periodicCallDelay, immediateCallDelay) => {
+class NoteTableAndRefresherConnector {
+    constructor(toolPanel, setNoteProgress, setNoteUpdatedState, updateNote, fetchSingleNote) {
+        this.noteRefreshTimestampsById = new Map();
+        this.notesWithPendingUpdate = new Set();
+        const isOnline = navigator.onLine;
+        const refreshPeriod = 5 * 60 * 1000;
+        this.noteRefresher = new NoteRefresher(isOnline, refreshPeriod, makeTimeoutCaller(10 * 1000, 100), setNoteProgress, (note, users) => {
+            if (toolPanel.replaceUpdatedNotes) {
+                updateNote(note, users);
+            }
+            else {
+                setNoteUpdatedState(note.id);
+                this.notesWithPendingUpdate.add(note.id);
+            }
+        }, (id, message) => {
+            setNoteProgress(id, 0);
+            const refreshTimestamp = Date.now();
+            this.noteRefreshTimestampsById.set(id, refreshTimestamp);
+            return refreshTimestamp;
+        }, (message) => {
+            toolPanel.receiveRefresherStateChange(false, message);
+        }, fetchSingleNote);
+        let stoppedBecauseOffline = !isOnline;
+        toolPanel.onRefresherStateChange = (isRunning) => {
+            this.noteRefresher.setRunState(isRunning);
+            stoppedBecauseOffline = false;
+        };
+        toolPanel.onRefresherRefreshAll = () => this.noteRefresher.refreshAll(toolPanel.replaceUpdatedNotes);
+        toolPanel.onRefresherPeriodChange = (refreshPeriod) => this.noteRefresher.setPeriod(refreshPeriod);
+        toolPanel.receiveRefresherPeriodChange(refreshPeriod);
+        if (!isOnline) {
+            toolPanel.receiveRefresherStateChange(false, undefined);
+        }
+        window.addEventListener('offline', () => {
+            if (!this.noteRefresher.isRunning)
+                return;
+            this.noteRefresher.setRunState(false);
+            toolPanel.receiveRefresherStateChange(false, `refreshes stopped in offline mode`);
+            stoppedBecauseOffline = true;
+        });
+        window.addEventListener('online', () => {
+            if (!stoppedBecauseOffline)
+                return;
+            stoppedBecauseOffline = false;
+            this.noteRefresher.setRunState(true);
+            toolPanel.receiveRefresherStateChange(true, undefined);
+        });
+    }
+    reset() {
+        this.noteRefresher.reset();
+        this.noteRefreshTimestampsById.clear();
+        this.notesWithPendingUpdate.clear();
+    }
+    observeNotesByRefresher(notes) {
+        const noteRefreshList = [];
+        for (const note of notes) {
+            const lastRefreshTimestamp = this.noteRefreshTimestampsById.get(note.id);
+            if (!lastRefreshTimestamp)
+                continue;
+            noteRefreshList.push([note.id, lastRefreshTimestamp, getNoteUpdateDate(note), this.notesWithPendingUpdate.has(note.id)]);
+        }
+        this.noteRefresher.observe(noteRefreshList);
+    }
+    registerNote(note) {
+        this.notesWithPendingUpdate.delete(note.id);
+        this.noteRefreshTimestampsById.set(note.id, Date.now());
+        this.noteRefresher.replaceNote(note.id, Date.now(), getNoteUpdateDate(note));
+    }
+}
+function makeTimeoutCaller(periodicCallDelay, immediateCallDelay) {
     let timeoutId;
     const scheduleCall = (delay) => (callback) => {
         clearTimeout(timeoutId);
-        setTimeout(() => callback(Date.now()), delay);
+        timeoutId = setTimeout(() => callback(Date.now()), delay);
     };
     return {
+        cancelScheduledCall() {
+            clearTimeout(timeoutId);
+        },
         schedulePeriodicCall: scheduleCall(periodicCallDelay),
         scheduleImmediateCall: scheduleCall(immediateCallDelay),
     };
-};
-const setNoteSectionProgress = ($noteSection, progress) => {
-    const $refreshWaitProgress = $noteSection.querySelector('td.note-link progress');
-    if (!($refreshWaitProgress instanceof HTMLProgressElement))
-        return;
-    $refreshWaitProgress.value = progress;
-};
+}
+
 class NoteTable {
     constructor($container, toolPanel, map, filter, figureDialog, server) {
         this.toolPanel = toolPanel;
@@ -5165,30 +5267,28 @@ class NoteTable {
         this.$table = document.createElement('table');
         this.$selectAllCheckbox = document.createElement('input');
         this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
-        this.noteRefreshTimestampsById = new Map();
-        this.notesWithPendingUpdate = new Set();
         this.usersById = new Map();
         this.showImages = false;
-        this.noteRefresher = new NoteRefresher(5 * 60 * 1000, server, makeTimeoutCaller(10 * 1000, 100), (id, progress) => {
-            const $noteSection = this.getNoteSection(id);
-            if ($noteSection) {
-                setNoteSectionProgress($noteSection, progress);
-            }
+        this.refresherConnector = new NoteTableAndRefresherConnector(toolPanel, (id, progress) => {
+            const $refreshWaitProgress = this.getNoteSection(id)?.querySelector('td.note-link progress');
+            if (!($refreshWaitProgress instanceof HTMLProgressElement))
+                return;
+            $refreshWaitProgress.value = progress;
         }, (id) => {
             const $noteSection = this.getNoteSection(id);
-            if ($noteSection) {
-                $noteSection.dataset.updated = 'updated';
+            if (!$noteSection)
+                return;
+            $noteSection.dataset.updated = 'updated';
+        }, (note, users) => {
+            this.replaceNote(note, users);
+        }, async (id) => {
+            const $a = this.getNoteSection(id)?.querySelector('td.note-link a');
+            if (!($a instanceof HTMLAnchorElement)) {
+                throw new Error(`note link not found during single note fetch`);
             }
-            this.notesWithPendingUpdate.add(id);
-        }, (id, message) => {
-            // TODO report error by altering the link
-            const $noteSection = this.getNoteSection(id);
-            if ($noteSection) {
-                setNoteSectionProgress($noteSection, 0);
-            }
-            const refreshTimestamp = Date.now();
-            this.noteRefreshTimestampsById.set(id, refreshTimestamp);
-            return refreshTimestamp;
+            const [note, users] = await fetchTableNote(server, $a, Number(id));
+            await this.onRefresherUpdate?.(note, users);
+            return [note, users];
         });
         toolPanel.onCommentsViewChange = (onlyFirst, oneLine) => {
             this.$table.classList.toggle('only-first-comments', onlyFirst);
@@ -5239,17 +5339,7 @@ class NoteTable {
             map.showNoteTrack(visibleNoteIds);
             if (!isMapFittingHalted && toolPanel.fitMode == 'inViewNotes')
                 map.fitNoteTrack();
-            const noteRefreshList = [];
-            for (const id of visibleNoteIds) {
-                const lastRefreshTimestamp = this.noteRefreshTimestampsById.get(id);
-                if (!lastRefreshTimestamp)
-                    continue;
-                const note = this.notesById.get(id);
-                if (!note)
-                    continue;
-                noteRefreshList.push([id, lastRefreshTimestamp, getNoteUpdateDate(note), this.notesWithPendingUpdate.has(id)]);
-            }
-            this.noteRefresher.observe(noteRefreshList);
+            this.refresherConnector.observeNotesByRefresher(visibleNoteIds.map(id => this.notesById.get(id)).filter(isDefined));
         });
         this.commentWriter = new CommentWriter(server);
         $container.append(this.$table);
@@ -5263,9 +5353,7 @@ class NoteTable {
         });
     }
     reset() {
-        this.noteRefresher.reset();
-        this.noteRefreshTimestampsById.clear();
-        this.notesWithPendingUpdate.clear();
+        this.refresherConnector.reset();
         this.notesById.clear();
         this.usersById.clear();
         this.$lastClickedNoteSection = undefined;
@@ -5315,7 +5403,6 @@ class NoteTable {
         for (const note of notes) {
             noteSequence.push(note);
             this.notesById.set(note.id, note);
-            this.notesWithPendingUpdate.delete(note.id);
         }
         for (const [uid, username] of Object.entries(users)) {
             this.usersById.set(Number(uid), username);
@@ -5334,6 +5421,7 @@ class NoteTable {
             this.noteSectionVisibilityObserver.observe($noteSection);
             this.makeMarker(note, isVisible);
             this.writeNoteSection($noteSection, note, users, isVisible);
+            this.refresherConnector.registerNote(note);
         }
         if (this.toolPanel.fitMode == 'allNotes') {
             this.map.fitNotes();
@@ -5355,20 +5443,18 @@ class NoteTable {
         this.notesById.set(note.id, note);
         for (const [uid, username] of Object.entries(users)) {
             this.usersById.set(Number(uid), username);
-            this.notesWithPendingUpdate.delete(note.id);
         }
         // output table section
         $noteSection.innerHTML = '';
+        delete $noteSection.dataset.updated;
         const getUsername = (uid) => users[uid];
         const isVisible = this.filter.matchNote(note, getUsername);
         this.makeMarker(note, isVisible);
         this.writeNoteSection($noteSection, note, users, isVisible);
         if (isVisible)
             this.setNoteSelection($noteSection, wasSelected);
+        this.refresherConnector.registerNote(note);
         this.sendNoteCountsUpdate(); // TODO only do if visibility changed
-        // update refresher
-        delete $noteSection.dataset.updated;
-        this.noteRefresher.update(note.id, Date.now(), getNoteUpdateDate(note));
     }
     getVisibleNoteIds() {
         const ids = [];
@@ -5527,7 +5613,6 @@ class NoteTable {
             }
             iComment++;
         }
-        this.noteRefreshTimestampsById.set(note.id, Date.now());
     }
     sendNoteCountsUpdate() {
         let nFetched = 0;
@@ -5750,6 +5835,9 @@ function getActionClass(action) {
         return 'other';
     }
 }
+function isDefined(argument) {
+    return argument !== undefined;
+}
 
 /******************************************************************************
 Copyright (c) Microsoft Corporation.
@@ -5787,6 +5875,8 @@ class Tool {
         this.$buttonsRequiringSelectedNotes = [];
     }
     getInfo() { return undefined; }
+    onRefresherStateChange(isRunning, message) { return false; }
+    onRefresherPeriodChange(refreshPeriod) { return false; }
     onTimestampChange(timestamp) { return false; }
     onNoteCountsChange(nFetched, nVisible) { return false; }
     onSelectedNotesChange(selectedNotes, selectedNoteUsers) {
@@ -5809,13 +5899,19 @@ class Tool {
     }
 }
 function makeMapIcon(type) {
-    const $span = document.createElement('span');
-    $span.innerHTML = `<span class='icon-map-${type}'><svg><use href="#tools-map" /></svg><span>map ${type}</span></span>`;
+    const $span = makeElement('span')(`icon-map-${type}`)();
+    $span.innerHTML = `<svg><use href="#tools-map" /></svg><span>map ${type}</span>`;
     return $span;
 }
 function makeNotesIcon(type) {
-    const $span = document.createElement('span');
-    $span.innerHTML = `<span class='icon-notes-${type}'><svg><use href="#tools-notes" /></svg><span>${type} notes</span></span>`;
+    const $span = makeElement('span')(`icon-notes-${type}`)();
+    $span.innerHTML = `<svg><use href="#tools-notes" /></svg><span>${type} notes</span>`;
+    return $span;
+}
+function makeActionIcon(type, text) {
+    const $span = makeElement('span')(`icon-action-${type}`)();
+    $span.innerHTML = `<svg><use href="#tools-${type}" /></svg>`;
+    $span.append(makeElement('span')()(text));
     return $span;
 }
 
@@ -5833,8 +5929,7 @@ class AutozoomTool extends Tool {
         return [p$4(`Pan and zoom the map to notes in the table. `, `Can be used as `, em$2(`zoom to data`), ` for notes layer if `, dfn$1(`to all visible notes`), ` is selected. `), p$4(dfn$1(`To notes on screen in table`), ` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `, `This option is convenient to use when `, em$2(`Track between notes`), ` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`)];
     }
     getTool(callbacks, server, map) {
-        const $fitModeSelect = document.createElement('select');
-        $fitModeSelect.append(new Option('is disabled', 'none'), new Option('to selected notes', 'selectedNotes'), new Option('to notes on screen in table', 'inViewNotes'), new Option('to all visible notes', 'allNotes'));
+        const $fitModeSelect = makeElement('select')()(new Option('is disabled', 'none'), new Option('to selected notes', 'selectedNotes'), new Option('to notes on screen in table', 'inViewNotes'), new Option('to all visible notes', 'allNotes'));
         $fitModeSelect.onchange = () => {
             if ($fitModeSelect.value == 'allNotes') {
                 callbacks.onFitModeChange(this, $fitModeSelect.value);
@@ -5872,6 +5967,76 @@ class CommentsTool extends Tool {
             label($onlyFirstCommentsCheckbox, ` only 1st`), `; `,
             label($oneLineCommentsCheckbox, ` on 1 line`),
         ];
+    }
+}
+class RefreshTool extends Tool {
+    constructor() {
+        super('refresh', `Refresh notes`, `Automatic and manual refresh of visible notes`);
+        this.isRunning = true;
+        this.$runButton = makeElement('button')('only-with-icon')();
+        this.$refreshPeriodInput = document.createElement('input');
+    }
+    getTool(callbacks) {
+        this.updateState(true);
+        const $refreshSelect = makeElement('select')()(new Option('report'), new Option('replace'));
+        this.$refreshPeriodInput.type = 'number';
+        this.$refreshPeriodInput.min = '1';
+        this.$refreshPeriodInput.size = 5;
+        this.$refreshPeriodInput.step = 'any';
+        const $refreshAllButton = makeElement('button')('only-with-icon')(makeActionIcon('refresh', `Refresh now`));
+        $refreshAllButton.title = `Refresh all notes currently on the screen in the table above`;
+        this.$runButton.onclick = () => {
+            const newIsRunning = !this.isRunning;
+            this.updateState(newIsRunning);
+            callbacks.onRefresherStateChange(this, newIsRunning, undefined);
+        };
+        $refreshSelect.onchange = () => {
+            callbacks.onRefresherRefreshChange(this, $refreshSelect.value == 'replace');
+        };
+        this.$refreshPeriodInput.oninput = () => {
+            const str = this.$refreshPeriodInput.value;
+            if (!str)
+                return;
+            const minutes = Number(str);
+            if (!Number.isFinite(minutes) || minutes <= 0)
+                return;
+            callbacks.onRefresherPeriodChange(this, minutes * 60 * 1000);
+        };
+        $refreshAllButton.onclick = () => {
+            callbacks.onRefresherRefreshAll(this);
+        };
+        return [
+            this.$runButton, ` `,
+            makeLabel('inline')($refreshSelect, ` updated notes`), ` `,
+            makeLabel('inline')(`every `, this.$refreshPeriodInput), ` min. or `,
+            $refreshAllButton
+        ];
+    }
+    onRefresherStateChange(isRunning, message) {
+        this.updateState(isRunning, message);
+        return true;
+    }
+    onRefresherPeriodChange(refreshPeriod) {
+        let minutes = (refreshPeriod / (60 * 1000)).toFixed(2);
+        if (minutes.includes('.')) {
+            minutes = minutes.replace(/\.?0+$/, '');
+        }
+        this.$refreshPeriodInput.value = minutes;
+        return true;
+    }
+    updateState(isRunning, message) {
+        this.isRunning = isRunning;
+        if (message == null) {
+            this.$runButton.classList.remove('error');
+            this.$runButton.title = (isRunning ? `Halt` : `Resume`) + ` note auto refreshing`;
+        }
+        else {
+            this.$runButton.classList.add('error');
+            this.$runButton.title = message;
+        }
+        this.$runButton.replaceChildren(isRunning
+            ? makeActionIcon('pause', `Halt`)
+            : makeActionIcon('play', `Resume`));
     }
 }
 class TimestampTool extends Tool {
@@ -6588,7 +6753,7 @@ class MapillaryTool extends StreetViewTool {
 }
 
 const toolMakerSequence = [
-    () => new AutozoomTool, () => new CommentsTool,
+    () => new AutozoomTool, () => new CommentsTool, () => new RefreshTool,
     () => new TimestampTool, () => new ParseTool,
     () => new OverpassTurboTool, () => new OverpassTool,
     () => new RcTool, () => new IdTool,
@@ -6597,11 +6762,17 @@ const toolMakerSequence = [
     () => new CountTool, () => new LegendTool, () => new SettingsTool
 ];
 
-var _ToolPanel_fitMode;
+var _ToolPanel_fitMode, _ToolPanel_replaceUpdatedNotes;
 class ToolBroadcaster {
     constructor(tools) {
         this.tools = tools;
         this.sources = new Set();
+    }
+    broadcastRefresherStateChange(fromTool, isRunning, message) {
+        this.broadcast(fromTool, tool => tool.onRefresherStateChange(isRunning, message));
+    }
+    broadcastRefresherPeriodChange(fromTool, refreshPeriod) {
+        this.broadcast(fromTool, tool => tool.onRefresherPeriodChange(refreshPeriod));
     }
     broadcastTimestampChange(fromTool, timestamp) {
         this.broadcast(fromTool, tool => tool.onTimestampChange(timestamp));
@@ -6633,10 +6804,15 @@ class ToolBroadcaster {
 class ToolPanel {
     constructor(storage, server, globalEventsListener, $container, map, figureDialog) {
         _ToolPanel_fitMode.set(this, void 0);
+        _ToolPanel_replaceUpdatedNotes.set(this, false);
         const tools = [];
         const toolCallbacks = {
             onFitModeChange: (fromTool, fitMode) => __classPrivateFieldSet(this, _ToolPanel_fitMode, fitMode, "f"),
             onCommentsViewChange: (fromTool, onlyFirst, oneLine) => this.onCommentsViewChange?.(onlyFirst, oneLine),
+            onRefresherStateChange: (fromTool, isRunning, message) => this.onRefresherStateChange?.(isRunning),
+            onRefresherRefreshChange: (fromTool, replaceUpdatedNotes) => __classPrivateFieldSet(this, _ToolPanel_replaceUpdatedNotes, replaceUpdatedNotes, "f"),
+            onRefresherPeriodChange: (fromTool, refreshPeriod) => this.onRefresherPeriodChange?.(refreshPeriod),
+            onRefresherRefreshAll: (fromTool) => this.onRefresherRefreshAll?.(),
             onTimestampChange: (fromTool, timestamp) => {
                 this.toolBroadcaster.broadcastTimestampChange(fromTool, timestamp);
             },
@@ -6714,6 +6890,12 @@ class ToolPanel {
             this.toolBroadcaster.broadcastTimestampChange(null, timestamp);
         };
     }
+    receiveRefresherStateChange(isRunning, message) {
+        this.toolBroadcaster.broadcastRefresherStateChange(null, isRunning, message);
+    }
+    receiveRefresherPeriodChange(refreshPeriod) {
+        this.toolBroadcaster.broadcastRefresherPeriodChange(null, refreshPeriod);
+    }
     receiveNoteCounts(nFetched, nVisible) {
         this.toolBroadcaster.broadcastNoteCountsChange(null, nFetched, nVisible);
     }
@@ -6723,8 +6905,11 @@ class ToolPanel {
     get fitMode() {
         return __classPrivateFieldGet(this, _ToolPanel_fitMode, "f");
     }
+    get replaceUpdatedNotes() {
+        return __classPrivateFieldGet(this, _ToolPanel_replaceUpdatedNotes, "f");
+    }
 }
-_ToolPanel_fitMode = new WeakMap();
+_ToolPanel_fitMode = new WeakMap(), _ToolPanel_replaceUpdatedNotes = new WeakMap();
 function toolAnimationEndListener() {
     this.classList.remove('ping');
 }
@@ -7137,9 +7322,21 @@ async function main() {
     }
     const navbar = new Navbar(storage, $navbarContainer, map);
     const fetchPanel = new NoteFetchPanel(storage, db, globalEventsListener, globalHistory, $fetchContainer, $moreContainer, navbar, noteTable, map, figureDialog);
-    globalEventsListener.noteSelfListener = ($a, noteId) => {
-        fetchPanel.updateNote($a, Number(noteId));
-    };
+    if (noteTable) {
+        noteTable.onRefresherUpdate = async (note, users) => {
+            await fetchPanel.fetcherRun?.updateNote(note, users);
+        };
+    }
+    if (globalHistory.hasServer()) {
+        globalEventsListener.noteSelfListener = async ($a, noteId) => {
+            try {
+                const [note, users] = await fetchTableNote(globalHistory.server, $a, Number(noteId));
+                await fetchPanel.fetcherRun?.updateNote(note, users);
+                noteTable?.replaceNote(note, users);
+            }
+            catch { }
+        };
+    }
     globalHistory.restoreScrollPosition();
 }
 function writeGraphicSide(globalEventsListener, globalHistory) {
