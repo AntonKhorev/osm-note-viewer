@@ -5,8 +5,13 @@ import puppeteer from 'puppeteer'
 import runServer from '../tools/server.js'
 import {buildWithTestServer} from '../tools/build.js'
 
+const keepBrowser=true
 // const visible=true
 const visible=false
+const browserOptions=visible?{
+	headless: false,
+	slowMo: 200
+}:{}
 
 const downloads=await readJson('downloads.json')
 const dstDir='test-build/dist'
@@ -22,16 +27,15 @@ describe("browser tests",function(){
 		this.timeout(0)
 		this.server=await runServer()
 		await buildWithTestServer('src',dstDir,'cache',downloads,this.server.url)
+		if (keepBrowser) this.browser=await puppeteer.launch(browserOptions)
 	})
 	after(async function(){
+		if (keepBrowser) await this.browser.close()
 		await this.server.close()
 	})
 	beforeEach(async function(){
 		this.server.clearNotes()
-		this.browser=await puppeteer.launch(visible?{
-			headless: false,
-			slowMo: 200
-		}:{})
+		if (!keepBrowser) this.browser=await puppeteer.launch(browserOptions)
 		const page=await this.browser.newPage()
 		this.openPage=async()=>{
 			await page.goto(browserUrl)
@@ -53,7 +57,7 @@ describe("browser tests",function(){
 		}
 	})
 	afterEach(async function(){
-		await this.browser.close()
+		if (!keepBrowser) await this.browser.close()
 	})
 	it("runs basic query",async function(){
 		this.server.setNotes([{
