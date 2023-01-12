@@ -68,7 +68,11 @@ Note-viewer won't run entirely locally because the whole point of it is to acces
 
 To build from source you need [Node.js](https://nodejs.org/). v14 is enough, may also work on earlier versions because Node.js is used only for building and testing. Run `npm install` and `npm run build` to get the build in `dist` directory.
 
-`npm test` runs unit tests. `npm test test-browser` runs slower in-browser tests.
+### Testing
+
+- `npm test` runs unit tests 
+- `npm test test-browser` runs slower in-browser tests
+- `npm test -- test-browser -g "test name"` runs a specific in-browser test
 
 [github-host]: https://antonkhorev.github.io/osm-note-viewer/
 [api-search]: https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch

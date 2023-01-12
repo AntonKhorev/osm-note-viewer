@@ -94,8 +94,9 @@ export class RefreshTool extends Tool {
 		this.$refreshPeriodInput.size=5
 		this.$refreshPeriodInput.step='any'
 		this.$runButton.onclick=()=>{
-			this.updateState(!this.isRunning)
-			callbacks.onRefresherStateChange(this,!this.isRunning,undefined)
+			const newIsRunning=!this.isRunning
+			this.updateState(newIsRunning)
+			callbacks.onRefresherStateChange(this,newIsRunning,undefined)
 		}
 		this.$refreshAllButton.title=`Refresh all notes currently on the screen in the table above`
 		this.$refreshAllButton.onclick=()=>{
