@@ -129,14 +129,14 @@ export class RefreshTool extends Tool {
 		this.isRunning=isRunning
 		if (message==null) {
 			this.$runButton.classList.remove('error')
-			this.$runButton.title=(isRunning?`Stop`:`Start`)+` note auto refreshing`
+			this.$runButton.title=(isRunning?`Halt`:`Resume`)+` note auto refreshing`
 		} else {
 			this.$runButton.classList.add('error')
 			this.$runButton.title=message
 		}
 		this.$runButton.replaceChildren(isRunning
-			? makeActionIcon('stop',`Stop`)
-			: makeActionIcon('play',`Run`)
+			? makeActionIcon('pause',`Halt`)
+			: makeActionIcon('play',`Resume`)
 		)
 	}
 }
