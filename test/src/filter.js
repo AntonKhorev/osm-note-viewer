@@ -1,5 +1,5 @@
 import {strict as assert} from 'assert'
-import NoteFilter from '../test-build/filter.js'
+import NoteFilter from '../../test-build/filter.js'
 
 class ApiAndWebUrlLister {
 	constructor(apiUrl,webUrls) {

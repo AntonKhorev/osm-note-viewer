@@ -1,5 +1,5 @@
 import {strict as assert} from 'assert'
-import {transformFeatureCollectionToNotesAndUsers} from '../test-build/data.js'
+import {transformFeatureCollectionToNotesAndUsers} from '../../test-build/data.js'
 
 describe("data module",()=>{
 	it("parses date",()=>{

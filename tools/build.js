@@ -30,19 +30,27 @@ export async function buildWithTestServer(srcDir,dstDir,cacheDir,downloads,serve
 export async function buildTest(srcDir,testDir,dstDir) {
 	await cleanupDirectory(dstDir)
 	const input=[]
-	for (const testDirEntry of await fs.readdir(testDir,{withFileTypes:true})) {
-		if (testDirEntry.isDirectory()) continue
-		const filename=testDirEntry.name
-		const match=filename.match(/^(.*)\.js$/)
-		if (!match) continue
-		const [,script]=match
-		input.push(`${srcDir}/${script}.ts`)
+	const scanTestDirectory=async(subpath='')=>{
+		for (const testDirEntry of await fs.readdir(`${testDir}${subpath}`,{withFileTypes:true})) {
+			if (testDirEntry.isDirectory()) {
+				await scanTestDirectory('/'+testDirEntry.name)
+			} else {
+				const filename=testDirEntry.name
+				const match=filename.match(/^(.*)\.js$/)
+				if (!match) continue
+				const [,script]=match
+				input.push(`${srcDir}${subpath}/${script}.ts`)
+			}
+		}
 	}
+	await scanTestDirectory()
 	const bundle=await rollup({
 		input,
 		plugins: [typescript()]
 	})
 	bundle.write({
+		preserveModules: true,
+		preserveModulesRoot: srcDir,
 		dir: dstDir
 	})
 	bundle.close()

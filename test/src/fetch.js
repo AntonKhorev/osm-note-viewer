@@ -1,5 +1,5 @@
 import {strict as assert} from 'assert'
-import {NoteIdsFetcherRequest} from '../test-build/fetch.js'
+import {NoteIdsFetcherRequest} from '../../test-build/fetch.js'
 
 describe("NoteIdsFetcherRequest",()=>{
 	it("returns correct api urls for one note",()=>{

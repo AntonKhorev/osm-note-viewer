@@ -1,5 +1,5 @@
 import {strict as assert} from 'assert'
-import {NominatimBboxFetcher} from '../test-build/nominatim.js'
+import {NominatimBboxFetcher} from '../../test-build/nominatim.js'
 
 function bboxResponse(boundingbox) {
 	return [

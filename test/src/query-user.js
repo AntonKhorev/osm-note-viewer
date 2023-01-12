@@ -1,5 +1,5 @@
 import {strict as assert} from 'assert'
-import {toUserQuery} from '../test-build/query-user.js'
+import {toUserQuery} from '../../test-build/query-user.js'
 
 class ApiAndWebUrlLister {
 	constructor(apiUrl,webUrls) {

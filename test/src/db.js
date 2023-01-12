@@ -1,7 +1,7 @@
 import {strict as assert} from 'assert'
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
-import NoteViewerDB from '../test-build/db.js'
+import NoteViewerDB from '../../test-build/db.js'
 
 describe("NoteViewerDB",()=>{
 	const makeNote=(id)=>({id, lat:60, lon:30, status:'open', comments:[]})

@@ -1,5 +1,5 @@
 import {strict as assert} from 'assert'
-import parseLoose from '../test-build/loose.js'
+import parseLoose from '../../test-build/loose.js'
 
 describe("loose parser module",()=>{
 	it("returns null on empty input",()=>{

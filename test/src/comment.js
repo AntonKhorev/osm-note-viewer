@@ -1,5 +1,5 @@
 import {strict as assert} from 'assert'
-import getCommentItems from '../test-build/comment.js'
+import getCommentItems from '../../test-build/comment.js'
 
 class WebUrlLister {
 	constructor(webUrls) {

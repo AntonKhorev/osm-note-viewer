@@ -1,5 +1,5 @@
 import {strict as assert} from 'assert'
-import {getNextFetchDetails, makeNoteQueryFromHash} from '../test-build/query.js'
+import {getNextFetchDetails, makeNoteQueryFromHash} from '../../test-build/query.js'
 
 const makeNote=(id,...dates)=>({
 	id,

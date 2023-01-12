@@ -1,5 +1,5 @@
 import {strict as assert} from 'assert'
-import {toReadableDate, toDateQuery} from '../test-build/query-date.js'
+import {toReadableDate, toDateQuery} from '../../test-build/query-date.js'
 
 describe("date query module / toReadableDate()",()=>{
 	it("returns blank for undefined date",()=>{
