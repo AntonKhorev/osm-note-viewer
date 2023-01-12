@@ -14,7 +14,12 @@ import {toReadableDate} from './query-date'
 import type Server from './server'
 import {makeDiv, makeLink, resetFadeAnimation} from './html'
 
-export default class NoteTable {
+export interface NoteTableUpdater {
+	addNotes(notes: Iterable<Note>, users: Users): number
+	replaceNote(note: Note, users: Users): void
+}
+
+export default class NoteTable implements NoteTableUpdater {
 	private wrappedNoteSectionListeners: Array<[event: string, listener: (this:HTMLTableSectionElement)=>void]>
 	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedAllNotesCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void

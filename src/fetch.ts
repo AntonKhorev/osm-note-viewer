@@ -2,6 +2,7 @@ import NoteViewerDB, {FetchEntry} from './db'
 import Server from './server' // TODO limit to just ApiFetcher - that requires abstracting out 'load more'
 import {Note, Users, isNoteFeatureCollection, isNoteFeature, transformFeatureCollectionToNotesAndUsers, transformFeatureToNotesAndUsers} from './data'
 import {NoteQuery, NoteSearchQuery, NoteBboxQuery, NoteIdsQuery, NoteFetchDetails, makeNoteQueryStringWithHostHash, getNextFetchDetails} from './query'
+import type {NoteTableUpdater} from './table'
 import {makeElement, makeDiv, makeLink} from './html'
 import {makeEscapeTag} from './escape'
 
@@ -61,11 +62,6 @@ export class NoteIdsFetcherRequest extends NoteFetcherRequest {
 		if (query.ids.length==0) return
 		return [String(query.ids[0]),''] // TODO actually going to do several requests, can list them here somehow?
 	}
-}
-
-export interface NoteTableUpdater {
-	addNotes(notes: Iterable<Note>, users: Users): number
-	replaceNote(note: Note, users: Users): void
 }
 
 export interface NoteFetcherEnvironment {
