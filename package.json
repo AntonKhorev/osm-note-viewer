@@ -1,7 +1,7 @@
 {
   "name": "osm-note-viewer",
   "version": "0.0.0",
-  "description": "View OSM notes of an user",
+  "description": "Browse results of OSM API note requests",
   "type": "module",
   "scripts": {
     "build": "node build.js",
