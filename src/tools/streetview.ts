@@ -23,7 +23,7 @@ export class YandexPanoramasTool extends StreetViewTool {
 	constructor() {super(
 		'yandex-panoramas',
 		`Y.Panoramas`,
-		`Yandex.Panoramas (Яндекс.Панорамы)`
+		`Open a Yandex.Panoramas (Яндекс.Панорамы) window`
 	)}
 	getInfo() {return[p(
 		`Open a map location in `,makeLink(`Yandex.Panoramas`,'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B'),` street view. `,
@@ -40,7 +40,8 @@ export class YandexPanoramasTool extends StreetViewTool {
 export class MapillaryTool extends StreetViewTool {
 	constructor() {super(
 		'mapillary',
-		`Mapillary`
+		`Mapillary`,
+		`Open a Mapillary window`
 	)}
 	getInfo() {return[p(
 		`Open a map location in `,makeLink(`Mapillary`,'https://wiki.openstreetmap.org/wiki/Mapillary'),`. `,

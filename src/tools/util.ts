@@ -17,7 +17,7 @@ export class AutozoomTool extends Tool {
 	constructor() {super(
 		'autozoom',
 		`Map autozoom`,
-		`Pan and zoom the map to visible notes`
+		`Select how the map is panned/zoomed to notes`
 	)}
 	getInfo() {return[p(
 		`Pan and zoom the map to notes in the table. `,
@@ -55,7 +55,7 @@ export class CommentsTool extends Tool {
 	constructor() {super(
 		'comments',
 		`Table comments`,
-		`Change how comments are displayed in notes table`
+		`Change how comments are displayed in the notes table`
 	)}
 	getTool(callbacks: ToolCallbacks): ToolElements {
 		const $onlyFirstCommentsCheckbox=document.createElement('input')
@@ -83,7 +83,7 @@ export class RefreshTool extends Tool {
 	constructor() {super(
 		'refresh',
 		`Refresh notes`,
-		`Automatic and manual refresh of visible notes`
+		`Control automatic and manual refreshing of notes`
 	)}
 	getTool(callbacks: ToolCallbacks): ToolElements {
 		this.updateState(true)
@@ -156,7 +156,8 @@ export class TimestampTool extends Tool {
 	private $timestampInput=document.createElement('input')
 	constructor() {super(
 		'timestamp',
-		`Timestamp for historic queries`
+		`Timestamp for historic queries`,
+		`Set timestamp for queries run by Overpass`
 	)}
 	getInfo() {return[p(
 		`Allows to select a timestamp for use with `,em(`Overpass`),` and `,em(`Overpass turbo`),` commands. `,
@@ -192,10 +193,11 @@ export class TimestampTool extends Tool {
 export class ParseTool extends Tool {
 	constructor() {super(
 		'parse',
-		`Parse links`
+		`Parse links`,
+		`Extract interactive links from plaintext`
 	)}
 	getInfo() {return[p(
-		`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →.`,
+		`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →. `,
 		`Currently detected active elements are: `,
 	),ul(
 		li(`links to images made in `,makeLink(`StreetComplete`,`https://wiki.openstreetmap.org/wiki/StreetComplete`)),
@@ -251,7 +253,8 @@ export class CountTool extends Tool {
 	private $selectedNoteCount=document.createElement('output')
 	constructor() {super(
 		'counts',
-		`Note counts`
+		`Note counts`,
+		`See number of fetched/visible/selected notes`
 	)}
 	getTool(): ToolElements {
 		this.$fetchedNoteCount.textContent='0'

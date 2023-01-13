@@ -15,7 +15,7 @@ export class RcTool extends Tool {
 	constructor() {super(
 		'rc',
 		`RC`,
-		`JOSM (or another editor) Remote Control`
+		`Run remote control commands in external editors (usually JOSM)`
 	)}
 	getInfo() {return[p(
 		`Load note/map data to an editor with `,
@@ -54,7 +54,8 @@ export class RcTool extends Tool {
 export class IdTool extends Tool {
 	constructor() {super(
 		'id',
-		`iD`
+		`iD`,
+		`Open an iD editor window`
 	)}
 	getInfo() {return[p(
 		`Follow your notes by zooming from one place to another in one `,makeLink(`iD editor`,'https://wiki.openstreetmap.org/wiki/ID'),` window. `,

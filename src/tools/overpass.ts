@@ -26,7 +26,8 @@ abstract class OverpassBaseTool extends Tool {
 export class OverpassTurboTool extends OverpassBaseTool {
 	constructor() {super(
 		'overpass-turbo',
-		`Overpass turbo`
+		`Overpass turbo`,
+		`Open an Overpass turbo window with various queries`
 	)}
 	getInfo() {return[p(
 		`Some Overpass queries to run from `,
@@ -81,7 +82,8 @@ export class OverpassTurboTool extends OverpassBaseTool {
 export class OverpassTool extends OverpassBaseTool {
 	constructor() {super(
 		'overpass',
-		`Overpass`
+		`Overpass`,
+		`Run an Overpass query`
 	)}
 	getInfo() {return[p(
 		`Query `,makeLink(`Overpass API`,'https://wiki.openstreetmap.org/wiki/Overpass_API'),` without going through Overpass turbo. `,

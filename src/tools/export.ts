@@ -112,7 +112,8 @@ abstract class ExportTool extends Tool {
 export class GpxTool extends ExportTool {
 	constructor() {super(
 		'gpx',
-		`GPX`
+		`GPX`,
+		`Export selected notes to a .gpx file`
 	)}
 	protected getInfoWithoutDragAndDrop() {return[p(
 		`Export selected notes in `,makeLink(`GPX`,'https://wiki.openstreetmap.org/wiki/GPX'),` (GPS exchange) format. `,
@@ -204,7 +205,8 @@ export class GpxTool extends ExportTool {
 export class GeoJsonTool extends ExportTool {
 	constructor() {super(
 		'geojson',
-		`GeoJSON`
+		`GeoJSON`,
+		`Export selected notes to a .geojson file`
 	)}
 	protected getInfoWithoutDragAndDrop() {return[p(
 		`Export selected notes in `,makeLink(`GeoJSON`,'https://wiki.openstreetmap.org/wiki/GeoJSON'),` format. `,
