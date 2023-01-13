@@ -78,9 +78,7 @@ export interface NoteFetcherEnvironment {
 
 export abstract class NoteFetcherRun {
 	private db: NoteViewerDB
-	private server: Server
 	private fetchEntry: Readonly<FetchEntry>|null = null
-	private noteTable: NoteTableUpdater
 	readonly notes = new Map<number,Note>()
 	readonly users: Users = {}
 	lastNote: Note | undefined
@@ -94,8 +92,6 @@ export abstract class NoteFetcherRun {
 		clearStore: boolean
 	) {
 		this.db=db
-		this.server=server
-		this.noteTable=noteTable
 	;(async()=>{
 		const queryString=makeNoteQueryStringWithHostHash(query,hostHashValue) // empty string == don't know how to encode the query, thus won't save it to db
 		this.fetchEntry = await(async()=>{ // null fetch entry == don't save to db
