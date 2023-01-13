@@ -20,18 +20,22 @@ export class InteractTool extends Tool {
 	getTool(callbacks: ToolCallbacks, server: Server): ToolElements {
 		const e=makeEscapeTag(encodeURIComponent)
 		const getReportUrl=(id:number)=>server.getWebUrl(e`reports/new?reportable_id=${id}&reportable_type=Note`)
+		const getNoteListItem=(id:number)=>`- `+server.getWebUrl(e`note/${id}`)+`\n`
+		const getNoteList=()=>this.selectedNoteIds.map(getNoteListItem).join('')
+		const copyNoteList=()=>navigator.clipboard.writeText(getNoteList())
 		const $reportOneButton=this.makeRequiringSelectedNotesButton()
 		$reportOneButton.append(`Report `,makeNotesIcon('selected'),` in one window`)
-		$reportOneButton.onclick=()=>{
-			// TODO copy note urls to clipboard
+		$reportOneButton.onclick=async()=>{
+			await copyNoteList()
 			const id=this.selectedNoteIds[0]
 			open(getReportUrl(id))
 		}
 		const $reportManyButton=this.makeRequiringSelectedNotesButton()
 		$reportManyButton.append(`Report `,makeNotesIcon('selected'),` in `,this.$windowCountOutput)
-		$reportManyButton.onclick=()=>{
+		$reportManyButton.onclick=async()=>{
 			// TODO write in description that browser might complain about to many opened windows
 			// TODO warn if opens too many windows
+			await copyNoteList()
 			for (const id of this.selectedNoteIds) {
 				open(getReportUrl(id))
 			}
