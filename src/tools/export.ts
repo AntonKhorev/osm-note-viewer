@@ -5,7 +5,7 @@ import type {
 
 import {Tool, ToolElements, ToolCallbacks, makeNotesIcon} from './base'
 import type {Note, NoteComment} from '../data'
-import Server from '../server'
+import type Server from '../server'
 import {toReadableDate, toUrlDate} from '../query-date'
 import {makeElement, makeLink, makeLabel} from '../html'
 import {escapeXml, makeEscapeTag} from '../escape'

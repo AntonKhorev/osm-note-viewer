@@ -1,7 +1,7 @@
 import type {Note} from '../data'
-import Server from '../server'
-import NoteMap from '../map'
-import FigureDialog from '../figure'
+import type Server from '../server'
+import type NoteMap from '../map'
+import type FigureDialog from '../figure'
 import {makeElement} from '../html'
 
 export type ToolElements = Array<string|HTMLElement>

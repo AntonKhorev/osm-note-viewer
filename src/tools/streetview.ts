@@ -1,6 +1,6 @@
 import {Tool, ToolElements, ToolCallbacks, makeMapIcon} from './base'
-import Server from '../server'
-import NoteMap from '../map'
+import type Server from '../server'
+import type NoteMap from '../map'
 import {makeElement, makeLink} from '../html'
 import {makeEscapeTag} from '../escape'
 
