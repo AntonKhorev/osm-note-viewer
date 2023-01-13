@@ -2,10 +2,12 @@ import {Tool, ToolElements, ToolCallbacks, makeNotesIcon} from './base'
 import type {Note} from '../data'
 import type Server from '../server'
 import {makeEscapeTag} from '../escape'
+import ConfirmedButtonListener from '../confirmed-button-listener'
 
 export class InteractTool extends Tool {
-	protected selectedNoteIds: ReadonlyArray<number> = []
+	private selectedNoteIds: ReadonlyArray<number> = []
 	private $windowCountOutput=document.createElement('output')
+	private reportManyListener?: ConfirmedButtonListener
 	constructor() {super(
 		'interact',
 		`Interact`,
@@ -15,6 +17,7 @@ export class InteractTool extends Tool {
 		this.selectedNoteIds=selectedNotes.map(note=>note.id)
 		const count=selectedNotes.length
 		this.$windowCountOutput.textContent=`${count} window${count==1?'':'s'}`
+		this.reportManyListener?.reset()
 		return true
 	}
 	getTool(callbacks: ToolCallbacks, server: Server): ToolElements {
@@ -24,24 +27,33 @@ export class InteractTool extends Tool {
 		const getNoteList=()=>this.selectedNoteIds.map(getNoteListItem).join('')
 		const copyNoteList=()=>navigator.clipboard.writeText(getNoteList())
 		const $reportOneButton=this.makeRequiringSelectedNotesButton()
+		const $reportManyButton=this.makeRequiringSelectedNotesButton()
+		const $cancelReportManyButton=this.makeRequiringSelectedNotesButton()
+		const $confirmReportManyButton=this.makeRequiringSelectedNotesButton()
 		$reportOneButton.append(`Report `,makeNotesIcon('selected'),` in one window`)
+		$reportManyButton.append(`Report `,makeNotesIcon('selected'),` in `,this.$windowCountOutput)
+		$cancelReportManyButton.append(`Cancel reporting `,makeNotesIcon('selected'),` in many windows`)
+		$confirmReportManyButton.append(`Confirm reporting `,makeNotesIcon('selected'),` in many windows`)
 		$reportOneButton.onclick=async()=>{
 			await copyNoteList()
 			const id=this.selectedNoteIds[0]
 			open(getReportUrl(id))
 		}
-		const $reportManyButton=this.makeRequiringSelectedNotesButton()
-		$reportManyButton.append(`Report `,makeNotesIcon('selected'),` in `,this.$windowCountOutput)
-		$reportManyButton.onclick=async()=>{
-			// TODO write in description that browser might complain about to many opened windows
-			// TODO warn if opens too many windows
-			await copyNoteList()
-			for (const id of this.selectedNoteIds) {
-				open(getReportUrl(id))
-			}
-		}
+		this.reportManyListener=new ConfirmedButtonListener(
+			$reportManyButton,$cancelReportManyButton,$confirmReportManyButton,
+			async()=>{
+				// TODO write in description that browser might complain about to many opened windows
+				await copyNoteList()
+				for (const id of this.selectedNoteIds) {
+					open(getReportUrl(id))
+				}
+			},
+			()=>this.selectedNoteIds.length>5
+		)
+
 		return [
-			$reportOneButton,` `,$reportManyButton
+			$reportOneButton,` `,
+			$reportManyButton,` `,$cancelReportManyButton,` `,$confirmReportManyButton
 		]
 	}
 }

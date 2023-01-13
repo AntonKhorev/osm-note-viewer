@@ -3,11 +3,12 @@ import NoteViewerDB, {FetchEntry} from './db'
 import Server, {NominatimProvider, OverpassProvider} from './server'
 import ServerList from './server-list'
 import {NavDialog} from './navbar'
-import {makeElement, makeDiv, makeLink, makeLabel} from './html'
+import {makeElement, makeDiv, makeLink} from './html'
 import makeCodeForm from './code'
 import {escapeHash} from './escape'
 import serverListConfig from './server-list-config'
 import {parseServerListSource} from './server-list-parser'
+import ConfirmedButtonListener from './confirmed-button-listener'
 
 const syntaxDescription=`<summary>Custom server configuration syntax</summary>
 <p>Uses <a href=https://en.wikipedia.org/wiki/JSON>JSON</a> format to describe one or more custom servers.
@@ -259,32 +260,12 @@ export default class AboutDialog extends NavDialog {
 		{
 			const $clearButton=makeElement('button')()(`Clear settings`)
 			const $cancelButton=makeElement('button')()(`Cancel clear settings`)
-			hide($cancelButton)
 			const $confirmButton=makeElement('button')()(`Confirm clear settings`)
-			hide($confirmButton)
-			$clearButton.onclick=()=>{
-				hide($clearButton)
-				unhide($cancelButton)
-				unhide($confirmButton)
-			}
-			$cancelButton.onclick=()=>{
-				unhide($clearButton)
-				hide($cancelButton)
-				hide($confirmButton)
-			}
-			$confirmButton.onclick=()=>{
-				this.storage.clear()
-				unhide($clearButton)
-				hide($cancelButton)
-				hide($confirmButton)
-			}
+			new ConfirmedButtonListener(
+				$clearButton,$cancelButton,$confirmButton,
+				async()=>this.storage.clear()
+			)
 			this.$section.append(makeDiv('major-input')($clearButton,$cancelButton,$confirmButton))
-			function hide($e:HTMLElement) {
-				$e.style.display='none'
-			}
-			function unhide($e:HTMLElement) {
-				$e.style.removeProperty('display')
-			}
 		}
 		writeSubheading(`Extra information`)
 		this.$section.append(makeDiv()(
