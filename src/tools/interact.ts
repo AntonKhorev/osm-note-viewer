@@ -7,6 +7,7 @@ import ConfirmedButtonListener from '../confirmed-button-listener'
 export class InteractTool extends Tool {
 	private selectedNoteIds: ReadonlyArray<number> = []
 	private $windowCountOutput=document.createElement('output')
+	private $confirmWindowCountOutput=document.createElement('output')
 	private reportManyListener?: ConfirmedButtonListener
 	constructor() {super(
 		'interact',
@@ -16,7 +17,7 @@ export class InteractTool extends Tool {
 	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>): boolean {
 		this.selectedNoteIds=selectedNotes.map(note=>note.id)
 		const count=selectedNotes.length
-		this.$windowCountOutput.textContent=`${count} window${count==1?'':'s'}`
+		this.$windowCountOutput.textContent=this.$confirmWindowCountOutput.textContent=`${count} window${count==1?'':'s'}`
 		this.reportManyListener?.reset()
 		return true
 	}
@@ -32,8 +33,8 @@ export class InteractTool extends Tool {
 		const $confirmReportManyButton=this.makeRequiringSelectedNotesButton()
 		$reportOneButton.append(`Report `,makeNotesIcon('selected'),` in one window`)
 		$reportManyButton.append(`Report `,makeNotesIcon('selected'),` in `,this.$windowCountOutput)
-		$cancelReportManyButton.append(`Cancel reporting `,makeNotesIcon('selected'),` in many windows`)
-		$confirmReportManyButton.append(`Confirm reporting `,makeNotesIcon('selected'),` in many windows`)
+		$cancelReportManyButton.append(`Cancel reporting `,makeNotesIcon('selected'),` in `,this.$confirmWindowCountOutput)
+		$confirmReportManyButton.append(`Confirm`)
 		$reportOneButton.onclick=async()=>{
 			await copyNoteList()
 			const id=this.selectedNoteIds[0]
@@ -50,7 +51,6 @@ export class InteractTool extends Tool {
 			},
 			()=>this.selectedNoteIds.length>5
 		)
-
 		return [
 			$reportOneButton,` `,
 			$reportManyButton,` `,$cancelReportManyButton,` `,$confirmReportManyButton
