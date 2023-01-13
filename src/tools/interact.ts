@@ -2,14 +2,9 @@ import {Tool, ToolElements, ToolCallbacks, makeNotesIcon} from './base'
 import type {Note} from '../data'
 import type Server from '../server'
 import ConfirmedButtonListener from '../confirmed-button-listener'
-import {makeElement, makeLink} from '../html'
+import {makeLink} from '../html'
+import {em,p,ul,li} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
-
-type InfoElements = Array<string|HTMLElement>
-const p=(...ss: InfoElements)=>makeElement('p')()(...ss)
-const em=(s: string)=>makeElement('em')()(s)
-const ul=(...ss: InfoElements)=>makeElement('ul')()(...ss)
-const li=(...ss: InfoElements)=>makeElement('li')()(...ss)
 
 export class InteractTool extends Tool {
 	private selectedNoteIds: ReadonlyArray<number> = []

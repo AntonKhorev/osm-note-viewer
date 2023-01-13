@@ -1,9 +1,8 @@
 import {NominatimProvider} from '../server'
 import {NominatimBbox, NominatimBboxFetcher} from '../nominatim'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
+import {em,code} from '../html-shortcuts'
 
-const em=(...ss: Array<string|HTMLElement>)=>makeElement('em')()(...ss)
-const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
 const spanRequest=(...ss: Array<string|HTMLElement>)=>makeElement('span')('advanced-hint')(...ss)
 
 export default class NominatimSubForm {

@@ -2,10 +2,7 @@ import Server from '../server'
 import {NavDialog} from '../navbar'
 import {NoteQuery} from '../query'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
-
-const em=(...ss: Array<string|HTMLElement>)=>makeElement('em')()(...ss)
-const sup=(...ss: Array<string|HTMLElement>)=>makeElement('sup')()(...ss)
-const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
+import {em,sup,code} from '../html-shortcuts'
 
 export interface NoteFetchDialogSharedCheckboxes {
 	showImages: HTMLInputElement[]

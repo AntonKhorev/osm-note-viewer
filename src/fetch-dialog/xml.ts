@@ -1,12 +1,7 @@
 import {NoteIdsFetchDialog} from './base'
 import {NoteQuery, NoteIdsQuery} from '../query'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
-
-const em=(...ss: Array<string|HTMLElement>)=>makeElement('em')()(...ss)
-const p=(...ss: Array<string|HTMLElement>)=>makeElement('p')()(...ss)
-const ol=(...ss: Array<string|HTMLElement>)=>makeElement('ol')()(...ss)
-const ul=(...ss: Array<string|HTMLElement>)=>makeElement('ul')()(...ss)
-const li=(...ss: Array<string|HTMLElement>)=>makeElement('li')()(...ss)
+import {em,p,ul,ol,li} from '../html-shortcuts'
 
 export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 	shortTitle=`XML`

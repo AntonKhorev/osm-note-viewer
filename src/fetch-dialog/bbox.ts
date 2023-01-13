@@ -5,9 +5,8 @@ import NoteMap, {NoteMapFreezeMode} from '../map'
 import {NoteQuery, makeNoteBboxQueryFromValues} from '../query'
 import {NominatimBbox} from '../nominatim'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
+import {em,code} from '../html-shortcuts'
 
-const em=(...ss: Array<string|HTMLElement>)=>makeElement('em')()(...ss)
-const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
 const rq=(param: string)=>makeElement('span')('advanced-hint')(` (`,code(param),` parameter)`)
 const spanRequest=(...ss: Array<string|HTMLElement>)=>makeElement('span')('advanced-hint')(...ss)
 

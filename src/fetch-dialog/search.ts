@@ -3,9 +3,8 @@ import {NoteQuery, makeNoteSearchQueryFromValues} from '../query'
 import {toUserQuery} from '../query-user'
 import {toDateQuery, toReadableDate} from '../query-date'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
+import {em,code} from '../html-shortcuts'
 
-const em=(...ss: Array<string|HTMLElement>)=>makeElement('em')()(...ss)
-const code=(...ss: Array<string|HTMLElement>)=>makeElement('code')()(...ss)
 const rq=(param: string)=>makeElement('span')('advanced-hint')(` (`,code(param),` parameter)`)
 const rq2=(param1: string, param2: string)=>makeElement('span')('advanced-hint')(` (`,code(param1),` or `,code(param2),` parameter)`)
 

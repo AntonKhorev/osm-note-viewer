@@ -3,12 +3,9 @@ import {Tool, ToolElements, ToolCallbacks, makeNotesIcon, makeMapIcon} from './b
 import type {Note} from '../data'
 import type Server from '../server'
 import type NoteMap from '../map'
-import {makeElement, makeLink} from '../html'
+import {makeLink} from '../html'
+import {p,em} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
-
-type InfoElements = Array<string|HTMLElement>
-const p=(...ss: InfoElements)=>makeElement('p')()(...ss)
-const em=(s: string)=>makeElement('em')()(s)
 
 export class RcTool extends Tool {
 	private selectedNotes: ReadonlyArray<Note> = []

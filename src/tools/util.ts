@@ -4,13 +4,9 @@ import type Server from '../server'
 import type NoteMap from '../map'
 import CommentWriter from '../comment-writer'
 import {makeElement, makeLink, makeLabel} from '../html'
+import {em,dfn,p,ul,li} from '../html-shortcuts'
 
 type InfoElements = Array<string|HTMLElement>
-const p=(...ss: InfoElements)=>makeElement('p')()(...ss)
-const em=(s: string)=>makeElement('em')()(s)
-const dfn=(s: string)=>makeElement('dfn')()(s)
-const ul=(...ss: InfoElements)=>makeElement('ul')()(...ss)
-const li=(...ss: InfoElements)=>makeElement('li')()(...ss)
 const label=(...ss: InfoElements)=>makeElement('label')('inline')(...ss)
 
 export class AutozoomTool extends Tool {

@@ -1,11 +1,9 @@
 import {Tool, ToolElements, ToolCallbacks, makeMapIcon} from './base'
 import type Server from '../server'
 import type NoteMap from '../map'
-import {makeElement, makeLink} from '../html'
+import {makeLink} from '../html'
+import {p} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
-
-type InfoElements = Array<string|HTMLElement>
-const p=(...ss: InfoElements)=>makeElement('p')()(...ss)
 
 export abstract class StreetViewTool extends Tool {
 	getTool(callbacks: ToolCallbacks, server: Server, map: NoteMap): ToolElements {

@@ -1,11 +1,9 @@
 import {Tool, ToolElements, ToolCallbacks, makeMapIcon} from './base'
 import Server, {QueryError} from '../server'
 import type NoteMap from '../map'
-import {makeElement, makeLink} from '../html'
+import {makeLink} from '../html'
+import {p} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
-
-type InfoElements = Array<string|HTMLElement>
-const p=(...ss: InfoElements)=>makeElement('p')()(...ss)
 
 abstract class OverpassBaseTool extends Tool {
 	protected timestamp: string = ''

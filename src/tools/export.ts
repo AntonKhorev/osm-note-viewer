@@ -7,16 +7,9 @@ import {Tool, ToolElements, ToolCallbacks, makeNotesIcon} from './base'
 import type {Note, NoteComment} from '../data'
 import type Server from '../server'
 import {toReadableDate, toUrlDate} from '../query-date'
-import {makeElement, makeLink, makeLabel} from '../html'
+import {makeLink, makeLabel} from '../html'
+import {em,dfn,code,p,ul,li} from '../html-shortcuts'
 import {escapeXml, makeEscapeTag} from '../escape'
-
-type InfoElements = Array<string|HTMLElement>
-const p=(...ss: InfoElements)=>makeElement('p')()(...ss)
-const em=(s: string)=>makeElement('em')()(s)
-const dfn=(s: string)=>makeElement('dfn')()(s)
-const code=(s: string)=>makeElement('code')()(s)
-const ul=(...ss: InfoElements)=>makeElement('ul')()(...ss)
-const li=(...ss: InfoElements)=>makeElement('li')()(...ss)
 
 abstract class ExportTool extends Tool {
 	protected selectedNotes: ReadonlyArray<Note> = []
