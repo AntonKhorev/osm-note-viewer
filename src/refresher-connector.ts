@@ -13,10 +13,10 @@ export default class NoteTableAndRefresherConnector {
 		updateNote: (note:Note,users:Users)=>void,
 		fetchSingleNote: (id:number)=>Promise<[note:Note,users:Users]>
 	) {
-		const isOnline=navigator.onLine
+		const isOnlineAndVisible=navigator.onLine && document.visibilityState=='visible'
 		const refreshPeriod=5*60*1000
 		this.noteRefresher=new NoteRefresher(
-			isOnline,refreshPeriod,makeTimeoutCaller(10*1000,100),
+			isOnlineAndVisible,refreshPeriod,makeTimeoutCaller(10*1000,100),
 			setNoteProgress,
 			(note,users)=>{
 				if (toolPanel.replaceUpdatedNotes) {
@@ -37,29 +37,37 @@ export default class NoteTableAndRefresherConnector {
 			},
 			fetchSingleNote
 		)
-		let stoppedBecauseOffline=!isOnline
+		let stoppedBecauseOfflineOrHidden=!isOnlineAndVisible
 		toolPanel.onRefresherStateChange=(isRunning)=>{
 			this.noteRefresher.setRunState(isRunning)
-			stoppedBecauseOffline=false
+			stoppedBecauseOfflineOrHidden=false
 		}
 		toolPanel.onRefresherRefreshAll=()=>this.noteRefresher.refreshAll(toolPanel.replaceUpdatedNotes)
 		toolPanel.onRefresherPeriodChange=(refreshPeriod)=>this.noteRefresher.setPeriod(refreshPeriod)
 		toolPanel.receiveRefresherPeriodChange(refreshPeriod)
-		if (!isOnline) {
-			toolPanel.receiveRefresherStateChange(false,undefined)
+		const getHaltMessage=()=>(!navigator.onLine
+			? `Refreshes halted in offline mode`
+			: `Refreshes halted while the browser window is hidden`
+		)+`. Click to attempt to resume.`
+		if (!isOnlineAndVisible) {
+			toolPanel.receiveRefresherStateChange(false,getHaltMessage())
 		}
-		window.addEventListener('offline',()=>{
-			if (!this.noteRefresher.isRunning) return
-			this.noteRefresher.setRunState(false)
-			toolPanel.receiveRefresherStateChange(false,`refreshes stopped in offline mode`)
-			stoppedBecauseOffline=true
-		})
-		window.addEventListener('online',()=>{
-			if (!stoppedBecauseOffline) return
-			stoppedBecauseOffline=false
-			this.noteRefresher.setRunState(true)
-			toolPanel.receiveRefresherStateChange(true,undefined)
-		})
+		const handleTemporaryHaltConditions=()=>{
+			if (navigator.onLine && document.visibilityState=='visible') {
+				if (!stoppedBecauseOfflineOrHidden) return
+				stoppedBecauseOfflineOrHidden=false
+				this.noteRefresher.setRunState(true)
+				toolPanel.receiveRefresherStateChange(true,undefined)
+			} else {
+				if (!this.noteRefresher.isRunning) return
+				this.noteRefresher.setRunState(false)
+				toolPanel.receiveRefresherStateChange(false,getHaltMessage())
+				stoppedBecauseOfflineOrHidden=true
+			}
+		}
+		window.addEventListener('offline',handleTemporaryHaltConditions)
+		window.addEventListener('online',handleTemporaryHaltConditions)
+		document.addEventListener('visibilitychange',handleTemporaryHaltConditions)
 	}
 	reset(): void {
 		this.noteRefresher.reset()
