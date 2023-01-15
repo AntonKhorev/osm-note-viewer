@@ -3,6 +3,7 @@ import NoteViewerDB from './db'
 import ServerList from './server-list'
 import GlobalEventsListener from './events'
 import GlobalHistory, {GlobalHistoryWithServer} from './history'
+import Auth, {DummyAuth, RealAuth} from './auth'
 import NoteMap from './map'
 import FigureDialog from './figure'
 import Navbar from './navbar'
@@ -42,6 +43,15 @@ async function main() {
 	document.body.append(makeDiv('text-side')($scrollingPart,$stickyPart))
 
 	const globalHistory=new GlobalHistory($scrollingPart,serverList)
+	// TODO don't output html before handling auth callback parameters
+	let auth: Auth
+	if (globalHistory.hasServer()) {
+		auth=new RealAuth(storage,globalHistory.server)
+	} else {
+		auth=new DummyAuth()
+	}
+	// TODO handle auth callback parameters
+	
 	let map: NoteMap|undefined
 	let figureDialog: FigureDialog|undefined
 	let noteTable: NoteTable|undefined
@@ -57,7 +67,7 @@ async function main() {
 	}
 	const navbar=new Navbar(storage,$navbarContainer,map)
 	const fetchPanel=new NoteFetchPanel(
-		storage,db,globalEventsListener,globalHistory,
+		storage,db,globalEventsListener,globalHistory,auth,
 		$fetchContainer,$moreContainer,
 		navbar,noteTable,map,figureDialog
 	)

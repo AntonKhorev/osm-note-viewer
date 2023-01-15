@@ -2,6 +2,7 @@ import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
 import GlobalEventsListener from './events'
 import GlobalHistory from './history'
+import type Auth from './auth'
 import NoteMap from './map'
 import Navbar from './navbar'
 import AboutDialog from './about-dialog'
@@ -17,7 +18,7 @@ export default class NoteFetchPanel {
 	private fetcherInvoker?: NoteFetchDialog
 	constructor(
 		storage: NoteViewerStorage, db: NoteViewerDB,
-		globalEventsListener: GlobalEventsListener, globalHistory: GlobalHistory,
+		globalEventsListener: GlobalEventsListener, globalHistory: GlobalHistory, auth: Auth,
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		navbar: Navbar, noteTable: NoteTable|undefined, map: NoteMap|undefined, figureDialog: FigureDialog|undefined
 	) {
@@ -44,7 +45,7 @@ export default class NoteFetchPanel {
 				navbar.addTab(dialog)
 			}
 		}
-		const aboutDialog=new AboutDialog(storage,db,server,globalHistory.serverList,globalHistory.serverHash)
+		const aboutDialog=new AboutDialog(storage,db,server,globalHistory.serverList,globalHistory.serverHash,auth)
 		aboutDialog.write($container)
 		navbar.addTab(aboutDialog,true)
 		
