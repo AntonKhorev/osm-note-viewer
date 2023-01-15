@@ -93,6 +93,17 @@ a.other-note.absent:active {
 	cursor: not-allowed;
 }
 
+kbd.copy {
+	text-decoration: underline dotted 1px;
+}
+kbd.copy::after {
+	content: ' (copy)';
+	opacity: 0;
+}
+kbd.copy:hover::after {
+	opacity: 0.5;
+}
+
 button.global {
 	position: absolute;
 	width: 2rem;

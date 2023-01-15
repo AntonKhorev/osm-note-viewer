@@ -3,7 +3,8 @@ import NoteViewerDB, {FetchEntry} from './db'
 import Server, {NominatimProvider, OverpassProvider} from './server'
 import ServerList from './server-list'
 import {NavDialog} from './navbar'
-import {makeElement, makeDiv, makeLink} from './html'
+import {makeElement, makeDiv, makeLink, makeLabel} from './html'
+import {ol,ul,li,em} from './html-shortcuts'
 import makeCodeForm from './code'
 import {escapeHash} from './escape'
 import serverListConfig from './server-list-config'
@@ -86,8 +87,8 @@ export default class AboutDialog extends NavDialog {
 	shortTitle=`About`
 	title=`About`
 	constructor(
-		private storage: NoteViewerStorage, private db: NoteViewerDB,
-		private server: Server|undefined, private serverList: ServerList, private serverHash: string
+		private readonly storage: NoteViewerStorage, private readonly db: NoteViewerDB,
+		private readonly server: Server|undefined, private readonly serverList: ServerList, private readonly serverHash: string
 	) {
 		super()
 	}
@@ -183,6 +184,52 @@ export default class AboutDialog extends NavDialog {
 				},
 				syntaxDescription,syntaxExamples
 			))
+		}
+		if (this.server) writeSubheading(`Logins`)
+		if (this.server) {
+			const server=this.server
+			const $form=document.createElement('form') // TODO don't need a form
+			const value=(text:string)=>{
+				const $kbd=makeElement('kbd')('copy')(text)
+				$kbd.onclick=()=>navigator.clipboard.writeText(text)
+				return $kbd
+			}
+			const $input=document.createElement('input')
+			$input.type='text'
+			$input.value=this.storage.getItem(`host[${server.host}].clientId`)??''
+			$input.oninput=()=>{
+				this.storage.setItem(`host[${server.host}].clientId`,$input.value)
+			}
+			$form.append(ol(
+				li(
+					`go to `,makeLink(`My Settings > OAuth 2 applications > Register new application`,this.server.getWebUrl(`oauth2/applications/new`)),
+					` on `,em(this.server.host)
+				),li(
+					`for `,em(`Name`),` enter anything you like, for example, `,
+					value(`osm-note-viewer installed at ${location.protocol}//${location.pathname}${location.search}`)
+				),li(
+					`for `,em(`Redirect URIs`),` enter `,
+					value(`urn:ietf:wg:oauth:2.0:oob`)
+				),li(
+					`uncheck `,em(`Confidential application?`)
+				),li(
+					`in `,em(`Permissions`),` check:`,ul(
+						li(`Read user preferences`),
+						li(`Modify notes`)
+					)
+				),li(
+					`click `,em(`Register`)
+				),li(
+					`copy `,em(`Client ID`),` to an input below`
+				),li(
+					`ignore `,em(`Client Secret`),`, this is only for confidential apps, osm-note-viewer is not a confidential apps`
+				)
+			),makeDiv('major-input')(
+				makeLabel()(
+					`Client ID: `,$input
+				)
+			))
+			this.$section.append($form)
 		}
 		writeSubheading(`Storage`)
 		const $updateFetchesButton=document.createElement('button')
