@@ -9,6 +9,7 @@ import serverListConfig from './server-list-config'
 import {parseServerListSource} from './server-list-parser'
 import ConfirmedButtonListener from './confirmed-button-listener'
 import {makeElement, makeDiv, makeLink} from './html'
+import {p,code} from './html-shortcuts'
 import {escapeHash} from './escape'
 
 const syntaxDescription=`<summary>Custom server configuration syntax</summary>
@@ -98,20 +99,31 @@ export default class AboutDialog extends NavDialog {
 			this.$section.append(makeElement('h3')()(s))
 		}
 		{
-			const $block=makeDiv()(
+			const $section=makeElement('section')()(
 				makeElement('strong')()(`note-viewer`)
 			)
 			const build=document.body.dataset.build
-			if (build) $block.append(` build ${build}`)
-			$block.append(
+			if (build) $section.append(` build ${build}`)
+			$section.append(
 				` — `,makeLink(`source code`,`https://github.com/AntonKhorev/osm-note-viewer`)
 			)
-			this.$section.append($block)
+			this.$section.append($section)
 		}
-		writeSubheading(`Servers`)
-		if (!this.server) this.$section.append(makeDiv('notice','error')(
+		this.writeServersSubsection()
+		if (this.auth instanceof RealAuth) {
+			this.$section.append(
+				this.auth.$appSection,
+				this.auth.$loginSection
+			)
+		}
+		this.writeStorageSubsection()
+		this.writeExtraSubsection()
+	}
+	writeServersSubsection() {
+		const $subsection=startSubsection(`Servers`)
+		if (!this.server) $subsection.append(makeDiv('notice','error')(
 			`Unknown server in URL hash parameter `,
-			makeElement('code')()(this.serverHash),
+			code(this.serverHash),
 			`. Please select one of the servers below.`
 		))
 		{
@@ -162,42 +174,36 @@ export default class AboutDialog extends NavDialog {
 				)
 			}
 			$form.append($table)
-			this.$section.append($form)
-		}{
-			this.$section.append(makeCodeForm(
-				this.storage.getString('servers'),
-				`Custom servers`,`Apply changes`,
-				input=>input==this.storage.getString('servers'),
-				input=>{
-					if (input.trim()=='') return
-					const configSource=JSON.parse(input)
-					parseServerListSource(configSource)
-				},
-				input=>{
-					this.storage.setString('servers',input.trim())
-				},
-				()=>{
-					location.reload()
-				},
-				syntaxDescription,syntaxExamples
-			))
+			$subsection.append($form)
 		}
-		if (this.auth instanceof RealAuth) {
-			this.$section.append(
-				this.auth.$appSection,
-				this.auth.$loginSection
-			)
-		}
-		writeSubheading(`Storage`)
+		$subsection.append(makeCodeForm(
+			this.storage.getString('servers'),
+			`Custom servers`,`Apply changes`,
+			input=>input==this.storage.getString('servers'),
+			input=>{
+				if (input.trim()=='') return
+				const configSource=JSON.parse(input)
+				parseServerListSource(configSource)
+			},
+			input=>{
+				this.storage.setString('servers',input.trim())
+			},
+			()=>{
+				location.reload()
+			},
+			syntaxDescription,syntaxExamples
+		))
+		this.$section.append($subsection)
+	}
+	writeStorageSubsection() {
+		const $subsection=startSubsection(`Storage`)
 		const $updateFetchesButton=document.createElement('button')
-		{
-			$updateFetchesButton.textContent=`Update stored fetch list`
-			this.$section.append(makeDiv('major-input')($updateFetchesButton))
-		}
+		$updateFetchesButton.textContent=`Update stored fetch list`
+		$subsection.append(makeDiv('major-input')($updateFetchesButton))
 		const $fetchesContainer=makeDiv()(
 			`Click Update button above to see stored fetches`
 		)
-		this.$section.append($fetchesContainer)
+		$subsection.append($fetchesContainer)
 		$updateFetchesButton.addEventListener('click',async()=>{
 			$updateFetchesButton.disabled=true
 			let fetchEntries: FetchEntry[] =[]
@@ -269,10 +275,13 @@ export default class AboutDialog extends NavDialog {
 				$clearButton,$cancelButton,$confirmButton,
 				async()=>this.storage.clear()
 			)
-			this.$section.append(makeDiv('major-input')($clearButton,$cancelButton,$confirmButton))
+			$subsection.append(makeDiv('major-input')($clearButton,$cancelButton,$confirmButton))
 		}
-		writeSubheading(`Extra information`)
-		this.$section.append(makeDiv()(
+		this.$section.append($subsection)
+	}
+	writeExtraSubsection() {
+		const $subsection=startSubsection(`Extra information`)
+		$subsection.append(p(
 			`Notes implementation code: `,
 			makeLink(`notes api controller`,`https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`),
 			` (db search query is build there), `,
@@ -286,10 +295,16 @@ export default class AboutDialog extends NavDialog {
 			` (not implemented in `,
 			makeLink(`CGIMap`,`https://wiki.openstreetmap.org/wiki/Cgimap`),
 			`)`
-		))
-		this.$section.append(makeDiv()(
+		),p(
 			`Other documentation: `,
 			makeLink(`Overpass queries`,`https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`)
 		))
+		this.$section.append($subsection)
 	}
+}
+
+function startSubsection(heading:string): HTMLElement {
+	return makeElement('section')()(
+		makeElement('h3')()(heading)
+	)
 }
