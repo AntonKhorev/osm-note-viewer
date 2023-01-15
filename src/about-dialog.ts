@@ -164,20 +164,16 @@ export default class AboutDialog extends NavDialog {
 			this.$section.append($form)
 		}{
 			this.$section.append(makeCodeForm(
-				this.storage.getItem('servers')??'',
+				this.storage.getString('servers'),
 				`Custom servers`,`Apply changes`,
-				input=>input==this.storage.getItem('servers')??'',
+				input=>input==this.storage.getString('servers'),
 				input=>{
 					if (input.trim()=='') return
 					const configSource=JSON.parse(input)
 					parseServerListSource(configSource)
 				},
 				input=>{
-					if (input.trim()=='') {
-						this.storage.removeItem('servers')
-					} else {
-						this.storage.setItem('servers',input)
-					}
+					this.storage.setString('servers',input.trim())
 				},
 				()=>{
 					location.reload()
@@ -196,9 +192,9 @@ export default class AboutDialog extends NavDialog {
 			}
 			const $input=document.createElement('input')
 			$input.type='text'
-			$input.value=this.storage.getItem(`host[${server.host}].clientId`)??''
+			$input.value=this.storage.getString(`host[${server.host}].clientId`)
 			$input.oninput=()=>{
-				this.storage.setItem(`host[${server.host}].clientId`,$input.value)
+				this.storage.setString(`host[${server.host}].clientId`,$input.value)
 			}
 			$form.append(ol(
 				li(
