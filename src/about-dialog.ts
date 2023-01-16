@@ -299,7 +299,9 @@ export default class AboutDialog extends NavDialog {
 			`Other documentation: `,
 			makeLink(`Overpass queries`,`https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`),`, `,
 			makeLink(`OAuth 2.0`,`https://www.rfc-editor.org/rfc/rfc6749`),`, `,
-			makeLink(`Doorkeeper`,`https://github.com/doorkeeper-gem/doorkeeper`),` (OAuth implementation used in `,em(`openstreetmap-website`),`)`,
+			makeLink(`Doorkeeper`,`https://github.com/doorkeeper-gem/doorkeeper`),` (OAuth implementation used in `,em(`openstreetmap-website`),`), `,
+			makeLink(`OAuth on OSM wiki`,`https://wiki.openstreetmap.org/wiki/OAuth`),`, `,
+			makeLink(`Puppeteer`,`https://pptr.dev/`),` (in-browser testing)`
 		))
 		this.$section.append($subsection)
 	}

@@ -140,4 +140,7 @@ export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, T
 	getWebUrl(webPath:string):string {
 		return `${this.webUrls[0]}${webPath}`
 	}
+	webFetch(webPath:string,init?:RequestInit) {
+		return fetch(this.getWebUrl(webPath),init)
+	}
 }

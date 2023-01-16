@@ -1,6 +1,6 @@
 import NoteViewerStorage from './storage'
 import Server from './server'
-import {ol,ul,li,em} from './html-shortcuts'
+import {p,ol,ul,li,em} from './html-shortcuts'
 import {makeElement, makeDiv, makeLink, makeLabel, toggleHideElement, toggleUnhideElement} from './html'
 
 export default class Auth {
@@ -20,12 +20,14 @@ export class RealAuth extends Auth {
 			$kbd.onclick=()=>navigator.clipboard.writeText(text)
 			return $kbd
 		}
-		const manualAuthCodeUri=`urn:ietf:wg:oauth:2.0:oob`
+		const manualCodeUri=`urn:ietf:wg:oauth:2.0:oob`
+		const getClientId=()=>storage.getString(`host[${server.host}].clientId`)
+		const setClientId=(clientId:string)=>storage.setString(`host[${server.host}].clientId`,$clientIdInput.value)
 
 		// app section
 		const $clientIdInput=document.createElement('input')
 		$clientIdInput.type='text'
-		$clientIdInput.value=storage.getString(`host[${server.host}].clientId`)
+		$clientIdInput.value=getClientId()
 		this.$appSection=makeElement('section')()(
 			makeElement('h3')()(`Register app`),
 			ol(
@@ -37,7 +39,7 @@ export class RealAuth extends Auth {
 					value(`osm-note-viewer installed at ${location.protocol}//${location.pathname}${location.search}`)
 				),li(
 					`for `,em(`Redirect URIs`),` enter `,
-					value(manualAuthCodeUri)
+					value(manualCodeUri)
 				),li(
 					`uncheck `,em(`Confidential application?`)
 				),li(
@@ -53,6 +55,7 @@ export class RealAuth extends Auth {
 					`ignore `,em(`Client Secret`),`, this is only for confidential apps, osm-note-viewer is not a confidential apps`
 				)
 			),
+			p(`After these steps you should be able to see osm-note-viewer in `,makeLink(`your client applications`,server.getWebUrl(`oauth2/applications`)),` and copy its client id from there.`),
 			makeDiv('major-input')(
 				makeLabel()(
 					`Client ID: `,$clientIdInput
@@ -64,36 +67,70 @@ export class RealAuth extends Auth {
 		const $clientIdRequired=makeDiv()(
 			`Please register the app and enter the `,em(`client id`),` above to be able to login.`
 		)
-		const $loginForm=document.createElement('form')
-		$loginForm.target='_blank' // TODO popup window
-		$loginForm.action=server.getWebUrl('oauth2/authorize')
-		const $loginButton=document.createElement('button')
-		$loginButton.textContent=`Login`
+		const $manualLoginForm=document.createElement('form')
+		$manualLoginForm.target='_blank' // TODO popup window
+		$manualLoginForm.action=server.getWebUrl('oauth2/authorize')
+		const $manualLoginButton=document.createElement('button')
+		$manualLoginButton.textContent=`Open an OSM login page that generates an authorization code`
 		const $clientIdHiddenInput=makeHiddenInput('client_id')
-		$loginForm.append(
+		$manualLoginForm.append(
 			$clientIdHiddenInput,
 			makeHiddenInput('response_type','code'),
 			makeHiddenInput('scope','read_prefs write_notes'),
-			makeHiddenInput('redirect_uri',manualAuthCodeUri),
-			makeDiv('major-input')($loginButton)
+			makeHiddenInput('redirect_uri',manualCodeUri),
+			makeDiv('major-input')($manualLoginButton)
+		)
+		const $manualCodeForm=document.createElement('form')
+		const $manualCodeInput=document.createElement('input')
+		$manualCodeInput.type='text'
+		$manualCodeInput.required=true
+		const $manualCodeButton=document.createElement('button')
+		$manualCodeButton.textContent=`Login with the authorization code`
+		$manualCodeForm.append(
+			makeDiv('major-input')(
+				makeLabel()(`Authorization code: `,$manualCodeInput)
+			),makeDiv('major-input')(
+				$manualCodeButton
+			)
 		)
 		const updateLoginSectionInResponseToAppRegistration=()=>{
-			$clientIdHiddenInput.value=$clientIdInput.value
-			const canLogin=!!$clientIdInput.value
+			const clientId=getClientId()
+			$clientIdHiddenInput.value=clientId
+			const canLogin=!!clientId
 			toggleHideElement($clientIdRequired,canLogin)
-			toggleUnhideElement($loginForm,canLogin)
+			toggleUnhideElement($manualLoginForm,canLogin)
+			toggleUnhideElement($manualCodeForm,canLogin)
 		}
 		updateLoginSectionInResponseToAppRegistration()
 		this.$loginSection=makeElement('section')()(
-			makeElement('h3')()(`Login`),
+			makeElement('h3')()(`Logins`),
 			$clientIdRequired,
-			$loginForm
+			$manualLoginForm,
+			$manualCodeForm
 		)
 
 		// event listeners
 		$clientIdInput.oninput=()=>{
-			storage.setString(`host[${server.host}].clientId`,$clientIdInput.value)
+			setClientId($clientIdInput.value)
 			updateLoginSectionInResponseToAppRegistration()
+		}
+		$manualCodeForm.onsubmit=async(ev)=>{
+			ev.preventDefault()
+			const parameters: [string,string][] = [
+				['client_id',getClientId()],
+				['redirect_uri',manualCodeUri],
+				['grant_type','authorization_code'],
+				['code',$manualCodeInput.value]
+			]
+			const response=await server.webFetch(`oauth2/token`,{
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded'
+				},
+				body: parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
+			})
+			// TODO disable/enable the button
+			// TODO report error
 		}
 	}
 }
