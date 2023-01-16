@@ -291,7 +291,7 @@ export default class AboutDialog extends NavDialog {
 			`, `,
 			makeLink(`note comment model`,`https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note_comment.rb`),
 			` in `,
-			makeLink(`Rails Port`,`https://wiki.openstreetmap.org/wiki/The_Rails_Port`),
+			makeLink(`openstreetmap-website`,`https://wiki.openstreetmap.org/wiki/Openstreetmap-website`),
 			` (not implemented in `,
 			makeLink(`CGIMap`,`https://wiki.openstreetmap.org/wiki/Cgimap`),
 			`)`
