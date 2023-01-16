@@ -111,7 +111,7 @@ export class RealAuth extends Auth {
 
 		// event listeners
 		$clientIdInput.oninput=()=>{
-			setClientId($clientIdInput.value)
+			setClientId($clientIdInput.value.trim())
 			updateLoginSectionInResponseToAppRegistration()
 		}
 		$manualCodeForm.onsubmit=async(ev)=>{
@@ -120,7 +120,7 @@ export class RealAuth extends Auth {
 				['client_id',getClientId()],
 				['redirect_uri',manualCodeUri],
 				['grant_type','authorization_code'],
-				['code',$manualCodeInput.value]
+				['code',$manualCodeInput.value.trim()]
 			]
 			const response=await server.webFetch(`oauth2/token`,{
 				method: 'POST',
