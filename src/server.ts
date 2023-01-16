@@ -128,8 +128,8 @@ export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, T
 		if (overpassUrl!=null) this.overpass=new OverpassProvider(overpassUrl)
 		if (overpassTurboUrl!=null) this.overpassTurbo=new OverpassTurboProvider(overpassTurboUrl)
 	}
-	apiFetch(apiPath:string) {
-		return fetch(this.getApiUrl(apiPath))
+	apiFetch(apiPath:string,init?:RequestInit) {
+		return fetch(this.getApiUrl(apiPath),init)
 	}
 	getApiUrl(apiPath:string):string {
 		return `${this.apiUrl}api/0.6/${apiPath}`
