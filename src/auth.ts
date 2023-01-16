@@ -1,7 +1,7 @@
 import NoteViewerStorage from './storage'
 import Server from './server'
 import {ol,ul,li,em} from './html-shortcuts'
-import {makeElement, makeDiv, makeLink, makeLabel} from './html'
+import {makeElement, makeDiv, makeLink, makeLabel, toggleHideElement, toggleUnhideElement} from './html'
 
 export default class Auth {
 }
@@ -20,12 +20,12 @@ export class RealAuth extends Auth {
 			$kbd.onclick=()=>navigator.clipboard.writeText(text)
 			return $kbd
 		}
-		const $input=document.createElement('input')
-		$input.type='text'
-		$input.value=storage.getString(`host[${server.host}].clientId`)
-		$input.oninput=()=>{
-			storage.setString(`host[${server.host}].clientId`,$input.value)
-		}
+		const manualAuthCodeUri=`urn:ietf:wg:oauth:2.0:oob`
+
+		// app section
+		const $clientIdInput=document.createElement('input')
+		$clientIdInput.type='text'
+		$clientIdInput.value=storage.getString(`host[${server.host}].clientId`)
 		this.$appSection=makeElement('section')()(
 			makeElement('h3')()(`Register app`),
 			ol(
@@ -37,7 +37,7 @@ export class RealAuth extends Auth {
 					value(`osm-note-viewer installed at ${location.protocol}//${location.pathname}${location.search}`)
 				),li(
 					`for `,em(`Redirect URIs`),` enter `,
-					value(`urn:ietf:wg:oauth:2.0:oob`)
+					value(manualAuthCodeUri)
 				),li(
 					`uncheck `,em(`Confidential application?`)
 				),li(
@@ -55,12 +55,53 @@ export class RealAuth extends Auth {
 			),
 			makeDiv('major-input')(
 				makeLabel()(
-					`Client ID: `,$input
+					`Client ID: `,$clientIdInput
 				)
 			)
 		)
+
+		// login section
+		const $clientIdRequired=makeDiv()(
+			`Please register the app and enter the `,em(`client id`),` above to be able to login.`
+		)
+		const $loginForm=document.createElement('form')
+		$loginForm.target='_blank' // TODO popup window
+		$loginForm.action=server.getWebUrl('oauth2/authorize')
+		const $loginButton=document.createElement('button')
+		$loginButton.textContent=`Login`
+		const $clientIdHiddenInput=makeHiddenInput('client_id')
+		$loginForm.append(
+			$clientIdHiddenInput,
+			makeHiddenInput('response_type','code'),
+			makeHiddenInput('scope','read_prefs write_notes'),
+			makeHiddenInput('redirect_uri',manualAuthCodeUri),
+			makeDiv('major-input')($loginButton)
+		)
+		const updateLoginSectionInResponseToAppRegistration=()=>{
+			$clientIdHiddenInput.value=$clientIdInput.value
+			const canLogin=!!$clientIdInput.value
+			toggleHideElement($clientIdRequired,canLogin)
+			toggleUnhideElement($loginForm,canLogin)
+		}
+		updateLoginSectionInResponseToAppRegistration()
 		this.$loginSection=makeElement('section')()(
 			makeElement('h3')()(`Login`),
+			$clientIdRequired,
+			$loginForm
 		)
+
+		// event listeners
+		$clientIdInput.oninput=()=>{
+			storage.setString(`host[${server.host}].clientId`,$clientIdInput.value)
+			updateLoginSectionInResponseToAppRegistration()
+		}
 	}
+}
+
+function makeHiddenInput(name:string,value?:string): HTMLInputElement {
+	const $input=document.createElement('input')
+	$input.type='hidden'
+	$input.name=name
+	if (value!=null) $input.value=value
+	return $input
 }

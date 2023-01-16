@@ -4,6 +4,7 @@
 	"words": [
 		"bbox",
 		"mapillary",
-		"nominatim"
+		"nominatim",
+		"prefs"
 	]
 }

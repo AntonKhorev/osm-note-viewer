@@ -18,6 +18,23 @@ export function makeElement<K extends keyof HTMLElementTagNameMap>(tag: K): ((..
 export const makeDiv=makeElement('div')
 export const makeLabel=makeElement('label')
 
+export function hideElement($e:HTMLElement) {
+	$e.style.display='none'
+}
+export function unhideElement($e:HTMLElement) {
+	$e.style.removeProperty('display')
+}
+export function toggleHideElement($e:HTMLElement,toggle:boolean) {
+	if (toggle) {
+		hideElement($e)
+	} else {
+		unhideElement($e)
+	}
+}
+export function toggleUnhideElement($e:HTMLElement,toggle:boolean) {
+	toggleHideElement($e,!toggle)
+}
+
 export function startOrResetFadeAnimation($element: HTMLElement, animationName: string, animationClass: string): void {
 	if ($element.classList.contains(animationClass)) {
 		resetFadeAnimation($element,animationName)
