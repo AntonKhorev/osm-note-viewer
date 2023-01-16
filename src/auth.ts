@@ -86,12 +86,13 @@ export class RealAuth extends Auth {
 		$manualCodeInput.required=true
 		const $manualCodeButton=document.createElement('button')
 		$manualCodeButton.textContent=`Login with the authorization code`
+		const $manualCodeError=makeDiv('notice','error')()
 		$manualCodeForm.append(
 			makeDiv('major-input')(
 				makeLabel()(`Authorization code: `,$manualCodeInput)
 			),makeDiv('major-input')(
 				$manualCodeButton
-			)
+			),$manualCodeError
 		)
 		const updateLoginSectionInResponseToAppRegistration=()=>{
 			const clientId=getClientId()
@@ -122,15 +123,27 @@ export class RealAuth extends Auth {
 				['grant_type','authorization_code'],
 				['code',$manualCodeInput.value.trim()]
 			]
-			const response=await server.webFetch(`oauth2/token`,{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/x-www-form-urlencoded'
-				},
-				body: parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
-			})
-			// TODO disable/enable the button
-			// TODO report error
+			try {
+				$manualCodeButton.disabled=true
+				const response=await server.webFetch(`oauth2/token`,{
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/x-www-form-urlencoded'
+					},
+					body: parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
+				})
+				const data=await response.json()
+				if (!response.ok) throw new TypeError(data.error_description)
+				$manualCodeError.textContent=''
+			} catch (ex) {
+				if (ex instanceof TypeError) {
+					$manualCodeError.textContent=ex.message
+				} else {
+					$manualCodeError.textContent=`Unknown error ${ex}`
+				}
+			} finally {
+				$manualCodeButton.disabled=false
+			}
 		}
 	}
 }
