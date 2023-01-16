@@ -9,7 +9,7 @@ import serverListConfig from './server-list-config'
 import {parseServerListSource} from './server-list-parser'
 import ConfirmedButtonListener from './confirmed-button-listener'
 import {makeElement, makeDiv, makeLink} from './html'
-import {p,code} from './html-shortcuts'
+import {p,code,em} from './html-shortcuts'
 import {escapeHash} from './escape'
 
 const syntaxDescription=`<summary>Custom server configuration syntax</summary>
@@ -297,7 +297,9 @@ export default class AboutDialog extends NavDialog {
 			`)`
 		),p(
 			`Other documentation: `,
-			makeLink(`Overpass queries`,`https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`)
+			makeLink(`Overpass queries`,`https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`),`, `,
+			makeLink(`OAuth 2.0`,`https://www.rfc-editor.org/rfc/rfc6749`),`, `,
+			makeLink(`Doorkeeper`,`https://github.com/doorkeeper-gem/doorkeeper`),` (OAuth implementation used in `,em(`openstreetmap-website`),`)`,
 		))
 		this.$section.append($subsection)
 	}
