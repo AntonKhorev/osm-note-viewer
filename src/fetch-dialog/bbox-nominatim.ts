@@ -1,6 +1,6 @@
 import {NominatimProvider} from '../server'
 import {NominatimBbox, NominatimBboxFetcher} from '../nominatim'
-import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
+import {makeElement, makeLink, makeDiv, makeLabel, wrapFetch} from '../html'
 import {em,code} from '../html-shortcuts'
 
 const spanRequest=(...ss: Array<string|HTMLElement>)=>makeElement('span')('advanced-hint')(...ss)
@@ -52,29 +52,16 @@ export default class NominatimSubForm {
 	}
 	addEventListeners(): void {
 		this.$input.addEventListener('input',()=>this.updateRequest())
-		this.$form.addEventListener('submit',async(ev)=>{
+		this.$form.onsubmit=(ev)=>wrapFetch(async()=>{
 			ev.preventDefault()
-			this.$button.disabled=true
-			this.$button.classList.remove('error')
-			try {
-				const bounds=this.getMapBounds()
-				const bbox=await this.bboxFetcher.fetch(
-					Date.now(),
-					this.$input.value,
-					bounds.getWest(),bounds.getSouth(),bounds.getEast(),bounds.getNorth()
-				)
-				this.setBbox(bbox)
-			} catch (ex) {
-				this.$button.classList.add('error')
-				if (ex instanceof TypeError) {
-					this.$button.title=ex.message
-				} else {
-					this.$button.title=`unknown error ${ex}`
-				}
-			} finally {
-				this.$button.disabled=false
-			}
-		})
+			const bounds=this.getMapBounds()
+			const bbox=await this.bboxFetcher.fetch(
+				Date.now(),
+				this.$input.value,
+				bounds.getWest(),bounds.getSouth(),bounds.getEast(),bounds.getNorth()
+			)
+			this.setBbox(bbox)
+		},TypeError,this.$button,this.$button,message=>this.$button.title=message)
 	}
 }
 

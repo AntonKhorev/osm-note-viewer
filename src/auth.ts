@@ -1,7 +1,10 @@
 import NoteViewerStorage from './storage'
 import Server from './server'
 import {p,ol,ul,li,em} from './html-shortcuts'
-import {makeElement, makeDiv, makeLink, makeLabel, toggleHideElement, toggleUnhideElement} from './html'
+import {
+	makeElement, makeDiv, makeLink, makeLabel,
+	toggleHideElement, toggleUnhideElement, wrapFetch
+} from './html'
 
 export default abstract class Auth {
 }
@@ -226,7 +229,7 @@ export class RealAuth extends Auth {
 			for (const [token,login] of logins) {
 				const userHref=server.getWebUrl(`user/`+encodeURIComponent(login.username))
 				const $logoutButton=makeElement('button')()(`Logout`)
-				$logoutButton.onclick=()=>fetchWrapper(async()=>{
+				$logoutButton.onclick=()=>wrapFetch(async()=>{
 					await webPostUrlencodedWithPossibleAuthError(`oauth2/revoke`,{},[
 						['token',token],
 						// ['token_type_hint','access_token']
@@ -234,7 +237,7 @@ export class RealAuth extends Auth {
 					],`while revoking a token`)
 					deleteLogin(token)
 					updateLoginSectionInResponseToLogin()
-				},$logoutButton,$logoutButton,message=>$logoutButton.title=message)
+				},AuthError,$logoutButton,$logoutButton,message=>$logoutButton.title=message)
 				$table.insertRow().append(
 					makeElement('td')()(String(login.uid)),
 					makeElement('td')()(makeLink(login.username,userHref)),
@@ -258,7 +261,7 @@ export class RealAuth extends Auth {
 			updateLoginSectionInResponseToAppRegistration()
 		}
 
-		$manualCodeForm.onsubmit=(ev)=>fetchWrapper(async()=>{
+		$manualCodeForm.onsubmit=(ev)=>wrapFetch(async()=>{
 			ev.preventDefault()
 			const tokenResponse=await webPostUrlencodedWithPossibleAuthError(`oauth2/token`,{},[
 				['client_id',getClientId()],
@@ -294,7 +297,7 @@ export class RealAuth extends Auth {
 				username: userData.user.display_name
 			})
 			updateLoginSectionInResponseToLogin()
-		},$manualCodeButton,$manualCodeError,message=>$manualCodeError.textContent=message)
+		},AuthError,$manualCodeButton,$manualCodeError,message=>$manualCodeError.textContent=message)
 	}
 }
 
@@ -304,26 +307,4 @@ function makeHiddenInput(name:string,value?:string): HTMLInputElement {
 	$input.name=name
 	if (value!=null) $input.value=value
 	return $input
-}
-
-async function fetchWrapper(
-	action: ()=>Promise<void>,
-	$actionButton: HTMLButtonElement,
-	$errorClassReceiver: HTMLElement,
-	errorMessageWriter: (message:string)=>void
-): Promise<void> {
-	try {
-		$actionButton.disabled=true
-		await action()
-		$errorClassReceiver.classList.remove('error')
-		errorMessageWriter('')
-	} catch (ex) {
-		$errorClassReceiver.classList.add('error')
-		errorMessageWriter((ex instanceof AuthError)
-			? ex.message
-			: `Unknown error ${ex}`
-		)
-	} finally {
-		$actionButton.disabled=false
-	}
 }
