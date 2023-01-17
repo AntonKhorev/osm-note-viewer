@@ -3,7 +3,8 @@ import Server from './server'
 import {p,ol,ul,li,em} from './html-shortcuts'
 import {
 	makeElement, makeDiv, makeLink, makeLabel,
-	toggleHideElement, toggleUnhideElement, wrapFetch
+	toggleHideElement, toggleUnhideElement,
+	wrapFetch, makeGetKnownErrorMessage
 } from './html'
 
 export default abstract class Auth {
@@ -229,7 +230,7 @@ export class RealAuth extends Auth {
 			for (const [token,login] of logins) {
 				const userHref=server.getWebUrl(`user/`+encodeURIComponent(login.username))
 				const $logoutButton=makeElement('button')()(`Logout`)
-				$logoutButton.onclick=()=>wrapFetch(async()=>{
+				$logoutButton.onclick=()=>wrapFetch($logoutButton,async()=>{
 					await webPostUrlencodedWithPossibleAuthError(`oauth2/revoke`,{},[
 						['token',token],
 						// ['token_type_hint','access_token']
@@ -237,7 +238,7 @@ export class RealAuth extends Auth {
 					],`while revoking a token`)
 					deleteLogin(token)
 					updateLoginSectionInResponseToLogin()
-				},AuthError,$logoutButton,$logoutButton,message=>$logoutButton.title=message)
+				},$logoutButton,makeGetKnownErrorMessage(AuthError),message=>$logoutButton.title=message)
 				$table.insertRow().append(
 					makeElement('td')()(String(login.uid)),
 					makeElement('td')()(makeLink(login.username,userHref)),
@@ -261,7 +262,7 @@ export class RealAuth extends Auth {
 			updateLoginSectionInResponseToAppRegistration()
 		}
 
-		$manualCodeForm.onsubmit=(ev)=>wrapFetch(async()=>{
+		$manualCodeForm.onsubmit=(ev)=>wrapFetch($manualCodeButton,async()=>{
 			ev.preventDefault()
 			const tokenResponse=await webPostUrlencodedWithPossibleAuthError(`oauth2/token`,{},[
 				['client_id',getClientId()],
@@ -297,7 +298,7 @@ export class RealAuth extends Auth {
 				username: userData.user.display_name
 			})
 			updateLoginSectionInResponseToLogin()
-		},AuthError,$manualCodeButton,$manualCodeError,message=>$manualCodeError.textContent=message)
+		},$manualCodeError,makeGetKnownErrorMessage(AuthError),message=>$manualCodeError.textContent=message)
 	}
 }
 

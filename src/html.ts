@@ -56,25 +56,33 @@ function getFadeAnimation($element: HTMLElement, animationName: string): CSSAnim
 }
 
 export async function wrapFetch(
-	action: ()=>Promise<void>,
-	KnownError: Function, // KnownError: typeof TypeError,
 	$actionButton: HTMLButtonElement,
+	action: ()=>Promise<void>,
 	$errorClassReceiver: HTMLElement,
-	errorMessageWriter: (message:string)=>void
+	getErrorMessage: (ex:unknown)=>string,
+	writeErrorMessage: (message:string)=>void
 ): Promise<void> {
 	try {
 		$actionButton.disabled=true
 		$errorClassReceiver.classList.remove('error')
-		errorMessageWriter('')
+		writeErrorMessage('')
 		await action()
 	} catch (ex) {
 		$errorClassReceiver.classList.add('error')
-		if (ex instanceof TypeError && ex instanceof KnownError) {
-			errorMessageWriter(ex.message)
-		} else {
-			errorMessageWriter(`Unknown error ${ex}`)
-		}
+		writeErrorMessage(getErrorMessage(ex))
 	} finally {
 		$actionButton.disabled=false
+	}
+}
+
+export function makeGetKnownErrorMessage(
+	KnownError: Function // KnownError: typeof TypeError,
+): (ex:unknown)=>string {
+	return (ex:unknown)=>{
+		if (ex instanceof TypeError && ex instanceof KnownError) {
+			return ex.message
+		} else {
+			return `Unknown error ${ex}`
+		}
 	}
 }

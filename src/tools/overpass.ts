@@ -1,7 +1,7 @@
 import {Tool, ToolElements, ToolCallbacks, makeMapIcon} from './base'
 import Server, {QueryError} from '../server'
 import type NoteMap from '../map'
-import {makeLink} from '../html'
+import {makeLink, wrapFetch} from '../html'
 import {p} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 
@@ -92,39 +92,31 @@ export class OverpassTool extends OverpassBaseTool {
 		$button.append(`Find closest node to `,makeMapIcon('center'))
 		const $output=document.createElement('code')
 		$output.textContent=`none`
-		$button.onclick=async()=>{
-			$button.disabled=true
+		$button.onclick=()=>wrapFetch($button,async()=>{
 			$output.textContent=`none`
-			try {
-				const radius=10
-				let query=this.getOverpassQueryPreamble(map)
-				query+=`node(around:${radius},${map.lat},${map.lon});\n`
-				query+=`out skel;`
-				if (!server.overpass) throw new ReferenceError(`no overpass provider`)
-				const doc=await server.overpass.fetch(query)
-				const closestNodeId=getClosestNodeId(doc,map.lat,map.lon)
-				if (!closestNodeId) {
-					$button.classList.add('error')
-					$button.title=`Could not find nodes nearby`
-					return
-				}
-				const url=server.getWebUrl(`node/`+encodeURIComponent(closestNodeId))
-				const $a=makeLink(`link`,url)
-				$a.dataset.elementType='node'
-				$a.dataset.elementId=String(closestNodeId)
-				$a.classList.add('listened','osm')
-				$output.replaceChildren($a)
-				$button.classList.remove('error')
-				$button.title=''
-			} catch (ex) {
-				$button.classList.add('error')
-				if (ex instanceof QueryError) {
-					$button.title=`Overpass query failed ${ex.reason}`
-				}
-			} finally {
-				$button.disabled=false
+			const radius=10
+			let query=this.getOverpassQueryPreamble(map)
+			query+=`node(around:${radius},${map.lat},${map.lon});\n`
+			query+=`out skel;`
+			if (!server.overpass) throw new ReferenceError(`no overpass provider`)
+			const doc=await server.overpass.fetch(query)
+			const closestNodeId=getClosestNodeId(doc,map.lat,map.lon)
+			if (!closestNodeId) throw `Could not find nodes nearby`
+			const url=server.getWebUrl(`node/`+encodeURIComponent(closestNodeId))
+			const $a=makeLink(`link`,url)
+			$a.dataset.elementType='node'
+			$a.dataset.elementId=String(closestNodeId)
+			$a.classList.add('listened','osm')
+			$output.replaceChildren($a)
+		},$button,ex=>{
+			if (typeof ex == 'string') {
+				return ex
+			} else if (ex instanceof QueryError) {
+				return `Overpass query failed ${ex.reason}`
+			} else {
+				return `Unknown error ${ex}`
 			}
-		}
+		},message=>$button.title=message)
 		return [$button,` → `,$output]
 	}
 }
