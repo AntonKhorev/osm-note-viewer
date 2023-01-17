@@ -192,7 +192,7 @@ export class RealAuth extends Auth {
 		$manualCodeInput.required=true
 		const $manualCodeButton=document.createElement('button')
 		$manualCodeButton.textContent=`Login with the authorization code`
-		const $manualCodeError=makeDiv('notice','error')()
+		const $manualCodeError=makeDiv('notice')()
 		$manualCodeForm.append(
 			makeDiv('major-input')(
 				makeLabel()(`Authorization code: `,$manualCodeInput)
@@ -226,29 +226,15 @@ export class RealAuth extends Auth {
 			for (const [token,login] of logins) {
 				const userHref=server.getWebUrl(`user/`+encodeURIComponent(login.username))
 				const $logoutButton=makeElement('button')()(`Logout`)
-				$logoutButton.onclick=async()=>{
-					try {
-						$logoutButton.disabled=true
-						await webPostUrlencodedWithPossibleAuthError(`oauth2/revoke`,{},[
-							['token',token],
-							// ['token_type_hint','access_token']
-							['client_id',getClientId()] // https://stackoverflow.com/questions/40782440/oauth2-revoke-access-token-from-implicit-grant-type
-						],`while revoking a token`)
-						deleteLogin(token)
-						updateLoginSectionInResponseToLogin()
-						$logoutButton.classList.remove('error')
-						$logoutButton.title=''
-					} catch (ex) {
-						$logoutButton.classList.add('error')
-						if (ex instanceof AuthError) {
-							$logoutButton.title=ex.message
-						} else {
-							$logoutButton.title=`Unknown error ${ex}`
-						}
-					} finally {
-						$logoutButton.disabled=false
-					}
-				}
+				$logoutButton.onclick=()=>fetchWrapper(async()=>{
+					await webPostUrlencodedWithPossibleAuthError(`oauth2/revoke`,{},[
+						['token',token],
+						// ['token_type_hint','access_token']
+						['client_id',getClientId()] // https://stackoverflow.com/questions/40782440/oauth2-revoke-access-token-from-implicit-grant-type
+					],`while revoking a token`)
+					deleteLogin(token)
+					updateLoginSectionInResponseToLogin()
+				},$logoutButton,$logoutButton,message=>$logoutButton.title=message)
 				$table.insertRow().append(
 					makeElement('td')()(String(login.uid)),
 					makeElement('td')()(makeLink(login.username,userHref)),
@@ -271,55 +257,44 @@ export class RealAuth extends Auth {
 			setClientId($clientIdInput.value.trim())
 			updateLoginSectionInResponseToAppRegistration()
 		}
-		$manualCodeForm.onsubmit=async(ev)=>{
+
+		$manualCodeForm.onsubmit=(ev)=>fetchWrapper(async()=>{
 			ev.preventDefault()
+			const tokenResponse=await webPostUrlencodedWithPossibleAuthError(`oauth2/token`,{},[
+				['client_id',getClientId()],
+				['redirect_uri',manualCodeUri],
+				['grant_type','authorization_code'],
+				['code',$manualCodeInput.value.trim()]
+			],`while getting a token`)
+			let tokenData: unknown
 			try {
-				$manualCodeButton.disabled=true
-				const tokenResponse=await webPostUrlencodedWithPossibleAuthError(`oauth2/token`,{},[
-					['client_id',getClientId()],
-					['redirect_uri',manualCodeUri],
-					['grant_type','authorization_code'],
-					['code',$manualCodeInput.value.trim()]
-				],`while getting a token`)
-				let tokenData: unknown
-				try {
-					tokenData=await tokenResponse.json()
-				} catch {}
-				if (!isAuthTokenData(tokenData)) {
-					throw new AuthError(`Unexpected response format when getting a token`)
-				}
-				const userResponse=await server.apiFetch(`user/details.json`,{
-					headers: {
-						Authorization: 'Bearer '+tokenData.access_token
-					}
-				})
-				if (!userResponse.ok) {
-					throw new AuthError(`Error while getting user details`)
-				}
-				let userData: unknown
-				try {
-					userData=await userResponse.json() as unknown
-				} catch {}
-				if (!isUserData(userData)) {
-					throw new AuthError(`Unexpected response format when getting user details`)
-				}
-				setLogin(tokenData.access_token,{
-					scope: tokenData.scope,
-					uid: userData.user.id,
-					username: userData.user.display_name
-				})
-				updateLoginSectionInResponseToLogin()
-				$manualCodeError.textContent=''
-			} catch (ex) {
-				if (ex instanceof AuthError) {
-					$manualCodeError.textContent=ex.message
-				} else {
-					$manualCodeError.textContent=`Unknown error ${ex}`
-				}
-			} finally {
-				$manualCodeButton.disabled=false
+				tokenData=await tokenResponse.json()
+			} catch {}
+			if (!isAuthTokenData(tokenData)) {
+				throw new AuthError(`Unexpected response format when getting a token`)
 			}
-		}
+			const userResponse=await server.apiFetch(`user/details.json`,{
+				headers: {
+					Authorization: 'Bearer '+tokenData.access_token
+				}
+			})
+			if (!userResponse.ok) {
+				throw new AuthError(`Error while getting user details`)
+			}
+			let userData: unknown
+			try {
+				userData=await userResponse.json() as unknown
+			} catch {}
+			if (!isUserData(userData)) {
+				throw new AuthError(`Unexpected response format when getting user details`)
+			}
+			setLogin(tokenData.access_token,{
+				scope: tokenData.scope,
+				uid: userData.user.id,
+				username: userData.user.display_name
+			})
+			updateLoginSectionInResponseToLogin()
+		},$manualCodeButton,$manualCodeError,message=>$manualCodeError.textContent=message)
 	}
 }
 
@@ -329,4 +304,26 @@ function makeHiddenInput(name:string,value?:string): HTMLInputElement {
 	$input.name=name
 	if (value!=null) $input.value=value
 	return $input
+}
+
+async function fetchWrapper(
+	action: ()=>Promise<void>,
+	$actionButton: HTMLButtonElement,
+	$errorClassReceiver: HTMLElement,
+	errorMessageWriter: (message:string)=>void
+): Promise<void> {
+	try {
+		$actionButton.disabled=true
+		await action()
+		$errorClassReceiver.classList.remove('error')
+		errorMessageWriter('')
+	} catch (ex) {
+		$errorClassReceiver.classList.add('error')
+		errorMessageWriter((ex instanceof AuthError)
+			? ex.message
+			: `Unknown error ${ex}`
+		)
+	} finally {
+		$actionButton.disabled=false
+	}
 }
