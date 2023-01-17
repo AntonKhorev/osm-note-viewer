@@ -1,7 +1,7 @@
 import {Tool, ToolElements, ToolCallbacks, makeMapIcon} from './base'
 import Server, {QueryError} from '../server'
 import type NoteMap from '../map'
-import {makeLink, wrapFetch} from '../html'
+import {makeLink, wrapFetchForButton} from '../html'
 import {p} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 
@@ -92,7 +92,7 @@ export class OverpassTool extends OverpassBaseTool {
 		$button.append(`Find closest node to `,makeMapIcon('center'))
 		const $output=document.createElement('code')
 		$output.textContent=`none`
-		$button.onclick=()=>wrapFetch($button,async()=>{
+		$button.onclick=()=>wrapFetchForButton($button,async()=>{
 			$output.textContent=`none`
 			const radius=10
 			let query=this.getOverpassQueryPreamble(map)
@@ -108,7 +108,7 @@ export class OverpassTool extends OverpassBaseTool {
 			$a.dataset.elementId=String(closestNodeId)
 			$a.classList.add('listened','osm')
 			$output.replaceChildren($a)
-		},$button,ex=>{
+		},ex=>{
 			if (typeof ex == 'string') {
 				return ex
 			} else if (ex instanceof QueryError) {
@@ -116,7 +116,7 @@ export class OverpassTool extends OverpassBaseTool {
 			} else {
 				return `Unknown error ${ex}`
 			}
-		},message=>$button.title=message)
+		})
 		return [$button,` → `,$output]
 	}
 }

@@ -58,8 +58,8 @@ function getFadeAnimation($element: HTMLElement, animationName: string): CSSAnim
 export async function wrapFetch(
 	$actionButton: HTMLButtonElement,
 	action: ()=>Promise<void>,
-	$errorClassReceiver: HTMLElement,
 	getErrorMessage: (ex:unknown)=>string,
+	$errorClassReceiver: HTMLElement,
 	writeErrorMessage: (message:string)=>void
 ): Promise<void> {
 	try {
@@ -73,6 +73,19 @@ export async function wrapFetch(
 	} finally {
 		$actionButton.disabled=false
 	}
+}
+export function wrapFetchForButton(
+	$actionButton: HTMLButtonElement,
+	action: ()=>Promise<void>,
+	getErrorMessage: (ex:unknown)=>string
+): Promise<void> {
+	return wrapFetch(
+		$actionButton,
+		action,
+		getErrorMessage,
+		$actionButton,
+		message=>$actionButton.title=message
+	)
 }
 
 export function makeGetKnownErrorMessage(

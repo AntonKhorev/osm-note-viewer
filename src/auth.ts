@@ -4,7 +4,7 @@ import {p,ol,ul,li,em} from './html-shortcuts'
 import {
 	makeElement, makeDiv, makeLink, makeLabel,
 	toggleHideElement, toggleUnhideElement,
-	wrapFetch, makeGetKnownErrorMessage
+	wrapFetch, wrapFetchForButton, makeGetKnownErrorMessage
 } from './html'
 
 export default abstract class Auth {
@@ -133,6 +133,24 @@ export class RealAuth extends Auth {
 				throw new AuthError(`Error ${whenMessage} with unknown error format`)
 			}
 		}
+		const fetchUserData=async(token:string):Promise<UserData>=>{
+			const userResponse=await server.apiFetch(`user/details.json`,{
+				headers: {
+					Authorization: 'Bearer '+token
+				}
+			})
+			if (!userResponse.ok) {
+				throw new AuthError(`Error while getting user details`)
+			}
+			let userData: unknown
+			try {
+				userData=await userResponse.json() as unknown
+			} catch {}
+			if (!isUserData(userData)) {
+				throw new AuthError(`Unexpected response format when getting user details`)
+			}
+			return userData
+		}
 
 		// app section
 		const $clientIdInput=document.createElement('input')
@@ -225,12 +243,23 @@ export class RealAuth extends Auth {
 			$table.insertRow().append(
 				makeElement('th')()(`user id`),
 				makeElement('th')()(`username`),
+				makeElement('th')()(),
 				makeElement('th')()()
 			)
 			for (const [token,login] of logins) {
 				const userHref=server.getWebUrl(`user/`+encodeURIComponent(login.username))
+				const $updateButton=makeElement('button')()(`Update user info`)
 				const $logoutButton=makeElement('button')()(`Logout`)
-				$logoutButton.onclick=()=>wrapFetch($logoutButton,async()=>{
+				$updateButton.onclick=()=>wrapFetchForButton($updateButton,async()=>{
+					const userData=await fetchUserData(token)
+					setLogin(token,{
+						...login,
+						uid: userData.user.id,
+						username: userData.user.display_name
+					})
+					updateLoginSectionInResponseToLogin()
+				},makeGetKnownErrorMessage(AuthError))
+				$logoutButton.onclick=()=>wrapFetchForButton($logoutButton,async()=>{
 					await webPostUrlencodedWithPossibleAuthError(`oauth2/revoke`,{},[
 						['token',token],
 						// ['token_type_hint','access_token']
@@ -238,10 +267,11 @@ export class RealAuth extends Auth {
 					],`while revoking a token`)
 					deleteLogin(token)
 					updateLoginSectionInResponseToLogin()
-				},$logoutButton,makeGetKnownErrorMessage(AuthError),message=>$logoutButton.title=message)
+				},makeGetKnownErrorMessage(AuthError))
 				$table.insertRow().append(
 					makeElement('td')()(String(login.uid)),
 					makeElement('td')()(makeLink(login.username,userHref)),
+					makeElement('td')()($updateButton),
 					makeElement('td')()($logoutButton),
 				)
 			}
@@ -261,7 +291,6 @@ export class RealAuth extends Auth {
 			setClientId($clientIdInput.value.trim())
 			updateLoginSectionInResponseToAppRegistration()
 		}
-
 		$manualCodeForm.onsubmit=(ev)=>wrapFetch($manualCodeButton,async()=>{
 			ev.preventDefault()
 			const tokenResponse=await webPostUrlencodedWithPossibleAuthError(`oauth2/token`,{},[
@@ -277,28 +306,14 @@ export class RealAuth extends Auth {
 			if (!isAuthTokenData(tokenData)) {
 				throw new AuthError(`Unexpected response format when getting a token`)
 			}
-			const userResponse=await server.apiFetch(`user/details.json`,{
-				headers: {
-					Authorization: 'Bearer '+tokenData.access_token
-				}
-			})
-			if (!userResponse.ok) {
-				throw new AuthError(`Error while getting user details`)
-			}
-			let userData: unknown
-			try {
-				userData=await userResponse.json() as unknown
-			} catch {}
-			if (!isUserData(userData)) {
-				throw new AuthError(`Unexpected response format when getting user details`)
-			}
+			const userData=await fetchUserData(tokenData.access_token)
 			setLogin(tokenData.access_token,{
 				scope: tokenData.scope,
 				uid: userData.user.id,
 				username: userData.user.display_name
 			})
 			updateLoginSectionInResponseToLogin()
-		},$manualCodeError,makeGetKnownErrorMessage(AuthError),message=>$manualCodeError.textContent=message)
+		},makeGetKnownErrorMessage(AuthError),$manualCodeError,message=>$manualCodeError.textContent=message)
 	}
 }
 

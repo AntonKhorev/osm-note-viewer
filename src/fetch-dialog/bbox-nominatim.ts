@@ -2,7 +2,7 @@ import {NominatimProvider} from '../server'
 import {NominatimBbox, NominatimBboxFetcher} from '../nominatim'
 import {
 	makeElement, makeLink, makeDiv, makeLabel,
-	wrapFetch, makeGetKnownErrorMessage
+	wrapFetchForButton, makeGetKnownErrorMessage
 } from '../html'
 import {em,code} from '../html-shortcuts'
 
@@ -55,7 +55,7 @@ export default class NominatimSubForm {
 	}
 	addEventListeners(): void {
 		this.$input.addEventListener('input',()=>this.updateRequest())
-		this.$form.onsubmit=(ev)=>wrapFetch(this.$button,async()=>{
+		this.$form.onsubmit=(ev)=>wrapFetchForButton(this.$button,async()=>{
 			ev.preventDefault()
 			const bounds=this.getMapBounds()
 			const bbox=await this.bboxFetcher.fetch(
@@ -64,7 +64,7 @@ export default class NominatimSubForm {
 				bounds.getWest(),bounds.getSouth(),bounds.getEast(),bounds.getNorth()
 			)
 			this.setBbox(bbox)
-		},this.$button,makeGetKnownErrorMessage(TypeError),message=>this.$button.title=message)
+		},makeGetKnownErrorMessage(TypeError))
 	}
 }
 
