@@ -103,6 +103,32 @@ export class RealAuth extends Auth {
 			logins.set(token,login)
 			storage.setItem(`host[${server.host}].logins`,JSON.stringify([...logins.entries()]))
 		}
+		const deleteLogin=(token:string)=>{
+			const logins=getLogins()
+			logins.delete(token)
+			storage.setItem(`host[${server.host}].logins`,JSON.stringify([...logins.entries()]))
+		}
+		const webPostUrlencoded=(webPath:string,headers:{[k:string]:string},parameters:[k:string,v:string][])=>server.webFetch(webPath,{
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded',
+				...headers
+			},
+			body: parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
+		})
+		const webPostUrlencodedWithPossibleAuthError=async(webPath:string,headers:{[k:string]:string},parameters:[k:string,v:string][],whenMessage:string)=>{
+			const response=await webPostUrlencoded(webPath,headers,parameters)
+			if (response.ok) return response
+			let errorData: unknown
+			try {
+				errorData=await response.json()
+			} catch {}
+			if (isAuthErrorData(errorData)) {
+				throw new AuthError(`Error ${whenMessage}: ${errorData.error_description}`)
+			} else {
+				throw new AuthError(`Error ${whenMessage} with unknown error format`)
+			}
+		}
 
 		// app section
 		const $clientIdInput=document.createElement('input')
@@ -167,14 +193,14 @@ export class RealAuth extends Auth {
 		const $manualCodeButton=document.createElement('button')
 		$manualCodeButton.textContent=`Login with the authorization code`
 		const $manualCodeError=makeDiv('notice','error')()
-		const $logins=makeDiv()()
 		$manualCodeForm.append(
 			makeDiv('major-input')(
 				makeLabel()(`Authorization code: `,$manualCodeInput)
 			),makeDiv('major-input')(
 				$manualCodeButton
-			),$manualCodeError,$logins
+			),$manualCodeError
 		)
+		const $logins=makeDiv()()
 		const updateLoginSectionInResponseToAppRegistration=()=>{
 			const clientId=getClientId()
 			$clientIdHiddenInput.value=clientId
@@ -182,6 +208,7 @@ export class RealAuth extends Auth {
 			toggleHideElement($clientIdRequired,canLogin)
 			toggleUnhideElement($manualLoginForm,canLogin)
 			toggleUnhideElement($manualCodeForm,canLogin)
+			toggleUnhideElement($logins,canLogin)
 		}
 		updateLoginSectionInResponseToAppRegistration()
 		const updateLoginSectionInResponseToLogin=()=>{
@@ -193,13 +220,39 @@ export class RealAuth extends Auth {
 			const $table=document.createElement('table')
 			$table.insertRow().append(
 				makeElement('th')()(`user id`),
-				makeElement('th')()(`username`)
+				makeElement('th')()(`username`),
+				makeElement('th')()()
 			)
 			for (const [token,login] of logins) {
 				const userHref=server.getWebUrl(`user/`+encodeURIComponent(login.username))
+				const $logoutButton=makeElement('button')()(`Logout`)
+				$logoutButton.onclick=async()=>{
+					try {
+						$logoutButton.disabled=true
+						await webPostUrlencodedWithPossibleAuthError(`oauth2/revoke`,{},[
+							['token',token],
+							// ['token_type_hint','access_token']
+							['client_id',getClientId()] // https://stackoverflow.com/questions/40782440/oauth2-revoke-access-token-from-implicit-grant-type
+						],`while revoking a token`)
+						deleteLogin(token)
+						updateLoginSectionInResponseToLogin()
+						$logoutButton.classList.remove('error')
+						$logoutButton.title=''
+					} catch (ex) {
+						$logoutButton.classList.add('error')
+						if (ex instanceof AuthError) {
+							$logoutButton.title=ex.message
+						} else {
+							$logoutButton.title=`Unknown error ${ex}`
+						}
+					} finally {
+						$logoutButton.disabled=false
+					}
+				}
 				$table.insertRow().append(
 					makeElement('td')()(String(login.uid)),
-					makeElement('td')()(makeLink(login.username,userHref))
+					makeElement('td')()(makeLink(login.username,userHref)),
+					makeElement('td')()($logoutButton),
 				)
 			}
 			$logins.replaceChildren($table)
@@ -209,7 +262,8 @@ export class RealAuth extends Auth {
 			makeElement('h3')()(`Logins`),
 			$clientIdRequired,
 			$manualLoginForm,
-			$manualCodeForm
+			$manualCodeForm,
+			$logins
 		)
 
 		// event listeners
@@ -219,32 +273,14 @@ export class RealAuth extends Auth {
 		}
 		$manualCodeForm.onsubmit=async(ev)=>{
 			ev.preventDefault()
-			const parameters: [string,string][] = [
-				['client_id',getClientId()],
-				['redirect_uri',manualCodeUri],
-				['grant_type','authorization_code'],
-				['code',$manualCodeInput.value.trim()]
-			]
 			try {
 				$manualCodeButton.disabled=true
-				const tokenResponse=await server.webFetch(`oauth2/token`,{
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/x-www-form-urlencoded'
-					},
-					body: parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
-				})
-				if (!tokenResponse.ok) {
-					let errorData: unknown
-					try {
-						errorData=await tokenResponse.json()
-					} catch {}
-					if (isAuthErrorData(errorData)) {
-						throw new AuthError(`Error while getting a token: ${errorData.error_description}`)
-					} else {
-						throw new AuthError(`Error while getting a token with unknown error format`)
-					}
-				}
+				const tokenResponse=await webPostUrlencodedWithPossibleAuthError(`oauth2/token`,{},[
+					['client_id',getClientId()],
+					['redirect_uri',manualCodeUri],
+					['grant_type','authorization_code'],
+					['code',$manualCodeInput.value.trim()]
+				],`while getting a token`)
 				let tokenData: unknown
 				try {
 					tokenData=await tokenResponse.json()
