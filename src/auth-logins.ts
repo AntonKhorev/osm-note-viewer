@@ -56,7 +56,9 @@ export default class AuthLoginSection {
 	)
 	private readonly $manualLoginForm=document.createElement('form')
 	private readonly $manualCodeForm=document.createElement('form')
+	private readonly $manualCodeInput=document.createElement('input')
 	private readonly $logins=makeDiv()()
+	private isWaitingForCode=false
 	constructor(
 		$section: HTMLElement,
 		private readonly authStorage: AuthStorage,
@@ -114,21 +116,21 @@ export default class AuthLoginSection {
 			makeHiddenInput('redirect_uri',manualCodeUri),
 			makeDiv('major-input')($manualLoginButton)
 		)
-		const $manualCodeInput=document.createElement('input')
-		$manualCodeInput.type='text'
-		$manualCodeInput.required=true
+		this.$manualCodeInput.type='text'
+		this.$manualCodeInput.required=true
 		const $manualCodeButton=document.createElement('button')
 		$manualCodeButton.textContent=`Login with the authorization code`
 		const $manualCodeError=makeDiv('notice')()
 		this.$manualCodeForm.append(
 			makeDiv('major-input')(
-				makeLabel()(`Authorization code: `,$manualCodeInput)
+				makeLabel()(`Authorization code: `,this.$manualCodeInput)
 			),makeDiv('major-input')(
 				$manualCodeButton
 			),$manualCodeError
 		)
 		this.updateInResponseToAppRegistration()
 		const updateInResponseToLogin=()=>{
+			toggleUnhideElement(this.$manualCodeForm,this.isWaitingForCode)
 			const logins=authStorage.getLogins()
 			if (logins.size==0) {
 				this.$logins.textContent=`No active logins. Use the form above to login if you'd like to manipulate notes.`
@@ -181,13 +183,17 @@ export default class AuthLoginSection {
 			this.$logins
 		)
 
+		this.$manualLoginForm.onsubmit=(ev)=>{
+			this.waitForCode()
+			updateInResponseToLogin()
+		}
 		this.$manualCodeForm.onsubmit=(ev)=>wrapFetch($manualCodeButton,async()=>{
 			ev.preventDefault()
 			const tokenResponse=await webPostUrlencodedWithPossibleAuthError(`oauth2/token`,{},[
 				['client_id',authStorage.clientId],
 				['redirect_uri',manualCodeUri],
 				['grant_type','authorization_code'],
-				['code',$manualCodeInput.value.trim()]
+				['code',this.$manualCodeInput.value.trim()]
 			],`while getting a token`)
 			let tokenData: unknown
 			try {
@@ -202,17 +208,26 @@ export default class AuthLoginSection {
 				uid: userData.user.id,
 				username: userData.user.display_name
 			})
+			this.stopWaitingForCode()
 			updateInResponseToLogin()
 		},makeGetKnownErrorMessage(AuthError),$manualCodeError,message=>$manualCodeError.textContent=message)
 	}
 	updateInResponseToAppRegistration(): void {
+		this.stopWaitingForCode()
 		const clientId=this.authStorage.clientId
 		this.$clientIdHiddenInput.value=clientId
 		const canLogin=!!clientId
 		toggleHideElement(this.$clientIdRequired,canLogin)
 		toggleUnhideElement(this.$manualLoginForm,canLogin)
-		toggleUnhideElement(this.$manualCodeForm,canLogin)
+		toggleUnhideElement(this.$manualCodeForm,this.isWaitingForCode)
 		toggleUnhideElement(this.$logins,canLogin)
+	}
+	private waitForCode() {
+		this.isWaitingForCode=true
+	}
+	private stopWaitingForCode() {
+		this.isWaitingForCode=false
+		this.$manualCodeInput.value=''
 	}
 }
 
