@@ -1,7 +1,7 @@
 import NoteViewerStorage from './storage'
 import Server from './server'
 import AuthStorage from './auth-storage'
-import AuthLoginSection from './auth-logins'
+import AuthLoginSection from './auth-login-section'
 import {p,ol,ul,li,em} from './html-shortcuts'
 import {makeElement, makeDiv, makeLink, makeLabel} from './html'
 
