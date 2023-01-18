@@ -103,6 +103,8 @@ export default class AuthLoginSection {
 
 		// server.getWebUrl('oauth2/authorize'),manualCodeUri
 		this.loginForms=new AuthLoginForms(this.$loginForms,(codeChallenge:string)=>{
+			const width=600
+			const height=600
 			open(server.getWebUrl('oauth2/authorize')+'?'+[
 				['client_id',authStorage.clientId],
 				['redirect_uri',manualCodeUri],
@@ -110,8 +112,9 @@ export default class AuthLoginSection {
 				['response_type','code'],
 				['code_challenge',codeChallenge],
 				['code_challenge_method','S256']
-			].map(([k,v])=>k+'='+encodeURIComponent(v)).join('&'),'_blank')
-			// TODO popup window
+			].map(([k,v])=>k+'='+encodeURIComponent(v)).join('&'),'_blank',
+				`width=${width},height=${height},left=${screen.width/2-width/2},top=${screen.height/2-height/2}`
+			)
 		},async(code:string,codeVerifier:string)=>{
 			const tokenResponse=await webPostUrlencodedWithPossibleAuthError(`oauth2/token`,{},[
 				['client_id',authStorage.clientId],
