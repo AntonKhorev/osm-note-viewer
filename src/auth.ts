@@ -1,12 +1,9 @@
 import NoteViewerStorage from './storage'
 import Server from './server'
 import AuthStorage from './auth-storage'
+import AuthLoginSection from './auth-logins'
 import {p,ol,ul,li,em} from './html-shortcuts'
-import {
-	makeElement, makeDiv, makeLink, makeLabel,
-	toggleHideElement, toggleUnhideElement,
-	wrapFetch, wrapFetchForButton, makeGetKnownErrorMessage
-} from './html'
+import {makeElement, makeDiv, makeLink, makeLabel} from './html'
 
 export default abstract class Auth {
 }
@@ -15,51 +12,9 @@ export class DummyAuth extends Auth {
 	// TODO just clean up callback params
 }
 
-type AuthErrorData = {
-	error_description: string
-}
-function isAuthErrorData(data:any): data is AuthErrorData {
-	return (
-		data &&
-		typeof data == 'object' &&
-		typeof data.error_description == 'string'
-	)
-}
-
-type AuthTokenData = {
-	access_token: string,
-	scope: string
-}
-function isAuthTokenData(data:any): data is AuthTokenData {
-	return (
-		data &&
-		typeof data == 'object' &&
-		typeof data.access_token == 'string' &&
-		typeof data.scope == 'string'
-	)
-}
-
-type UserData = {
-	user: {
-		id: number,
-		display_name: string
-	}
-}
-function isUserData(data:any): data is UserData {
-	return (
-		data &&
-		data.user &&
-		typeof data.user == 'object' && 
-		typeof data.user.id == 'number' &&
-		typeof data.user.display_name == 'string'
-	)
-}
-
-class AuthError extends TypeError {}
-
 export class RealAuth extends Auth {
 	$appSection: HTMLElement
-	$loginSection: HTMLElement
+	$loginSection=makeElement('section')()()
 	constructor(storage: NoteViewerStorage, server: Server) {
 		super()
 		const authStorage=new AuthStorage(storage,server.host)
@@ -69,45 +24,6 @@ export class RealAuth extends Auth {
 			return $kbd
 		}
 		const manualCodeUri=`urn:ietf:wg:oauth:2.0:oob`
-		const webPostUrlencoded=(webPath:string,headers:{[k:string]:string},parameters:[k:string,v:string][])=>server.webFetch(webPath,{
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded',
-				...headers
-			},
-			body: parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
-		})
-		const webPostUrlencodedWithPossibleAuthError=async(webPath:string,headers:{[k:string]:string},parameters:[k:string,v:string][],whenMessage:string)=>{
-			const response=await webPostUrlencoded(webPath,headers,parameters)
-			if (response.ok) return response
-			let errorData: unknown
-			try {
-				errorData=await response.json()
-			} catch {}
-			if (isAuthErrorData(errorData)) {
-				throw new AuthError(`Error ${whenMessage}: ${errorData.error_description}`)
-			} else {
-				throw new AuthError(`Error ${whenMessage} with unknown error format`)
-			}
-		}
-		const fetchUserData=async(token:string):Promise<UserData>=>{
-			const userResponse=await server.apiFetch(`user/details.json`,{
-				headers: {
-					Authorization: 'Bearer '+token
-				}
-			})
-			if (!userResponse.ok) {
-				throw new AuthError(`Error while getting user details`)
-			}
-			let userData: unknown
-			try {
-				userData=await userResponse.json() as unknown
-			} catch {}
-			if (!isUserData(userData)) {
-				throw new AuthError(`Unexpected response format when getting user details`)
-			}
-			return userData
-		}
 
 		// app section
 		const $clientIdInput=document.createElement('input')
@@ -148,136 +64,12 @@ export class RealAuth extends Auth {
 			)
 		)
 
-		// login section
-		const $clientIdRequired=makeDiv()(
-			`Please register the app and enter the `,em(`client id`),` above to be able to login.`
-		)
-		const $manualLoginForm=document.createElement('form')
-		$manualLoginForm.target='_blank' // TODO popup window
-		$manualLoginForm.action=server.getWebUrl('oauth2/authorize')
-		const $manualLoginButton=document.createElement('button')
-		$manualLoginButton.textContent=`Open an OSM login page that generates an authorization code`
-		const $clientIdHiddenInput=makeHiddenInput('client_id')
-		$manualLoginForm.append(
-			$clientIdHiddenInput,
-			makeHiddenInput('response_type','code'),
-			makeHiddenInput('scope','read_prefs write_notes'),
-			makeHiddenInput('redirect_uri',manualCodeUri),
-			makeDiv('major-input')($manualLoginButton)
-		)
-		const $manualCodeForm=document.createElement('form')
-		const $manualCodeInput=document.createElement('input')
-		$manualCodeInput.type='text'
-		$manualCodeInput.required=true
-		const $manualCodeButton=document.createElement('button')
-		$manualCodeButton.textContent=`Login with the authorization code`
-		const $manualCodeError=makeDiv('notice')()
-		$manualCodeForm.append(
-			makeDiv('major-input')(
-				makeLabel()(`Authorization code: `,$manualCodeInput)
-			),makeDiv('major-input')(
-				$manualCodeButton
-			),$manualCodeError
-		)
-		const $logins=makeDiv()()
-		const updateLoginSectionInResponseToAppRegistration=()=>{
-			const clientId=authStorage.clientId
-			$clientIdHiddenInput.value=clientId
-			const canLogin=!!clientId
-			toggleHideElement($clientIdRequired,canLogin)
-			toggleUnhideElement($manualLoginForm,canLogin)
-			toggleUnhideElement($manualCodeForm,canLogin)
-			toggleUnhideElement($logins,canLogin)
-		}
-		updateLoginSectionInResponseToAppRegistration()
-		const updateLoginSectionInResponseToLogin=()=>{
-			const logins=authStorage.getLogins()
-			if (logins.size==0) {
-				$logins.textContent=`No active logins. Use the form above to login if you'd like to manipulate notes.`
-				return
-			}
-			const $table=document.createElement('table')
-			$table.insertRow().append(
-				makeElement('th')()(`user id`),
-				makeElement('th')()(`username`),
-				makeElement('th')()(),
-				makeElement('th')()()
-			)
-			for (const [token,login] of logins) {
-				const userHref=server.getWebUrl(`user/`+encodeURIComponent(login.username))
-				const $updateButton=makeElement('button')()(`Update user info`)
-				const $logoutButton=makeElement('button')()(`Logout`)
-				$updateButton.onclick=()=>wrapFetchForButton($updateButton,async()=>{
-					const userData=await fetchUserData(token)
-					authStorage.setLogin(token,{
-						...login,
-						uid: userData.user.id,
-						username: userData.user.display_name
-					})
-					updateLoginSectionInResponseToLogin()
-				},makeGetKnownErrorMessage(AuthError))
-				$logoutButton.onclick=()=>wrapFetchForButton($logoutButton,async()=>{
-					await webPostUrlencodedWithPossibleAuthError(`oauth2/revoke`,{},[
-						['token',token],
-						// ['token_type_hint','access_token']
-						['client_id',authStorage.clientId]
-					],`while revoking a token`)
-					authStorage.deleteLogin(token)
-					updateLoginSectionInResponseToLogin()
-				},makeGetKnownErrorMessage(AuthError))
-				$table.insertRow().append(
-					makeElement('td')()(String(login.uid)),
-					makeElement('td')()(makeLink(login.username,userHref)),
-					makeElement('td')()($updateButton),
-					makeElement('td')()($logoutButton),
-				)
-			}
-			$logins.replaceChildren($table)
-		}
-		updateLoginSectionInResponseToLogin()
-		this.$loginSection=makeElement('section')()(
-			makeElement('h3')()(`Logins`),
-			$clientIdRequired,
-			$manualLoginForm,
-			$manualCodeForm,
-			$logins
-		)
+		const loginSection=new AuthLoginSection(this.$loginSection,authStorage,server,manualCodeUri)
 
 		// event listeners
 		$clientIdInput.oninput=()=>{
 			authStorage.clientId=$clientIdInput.value.trim()
-			updateLoginSectionInResponseToAppRegistration()
+			loginSection.updateInResponseToAppRegistration()
 		}
-		$manualCodeForm.onsubmit=(ev)=>wrapFetch($manualCodeButton,async()=>{
-			ev.preventDefault()
-			const tokenResponse=await webPostUrlencodedWithPossibleAuthError(`oauth2/token`,{},[
-				['client_id',authStorage.clientId],
-				['redirect_uri',manualCodeUri],
-				['grant_type','authorization_code'],
-				['code',$manualCodeInput.value.trim()]
-			],`while getting a token`)
-			let tokenData: unknown
-			try {
-				tokenData=await tokenResponse.json()
-			} catch {}
-			if (!isAuthTokenData(tokenData)) {
-				throw new AuthError(`Unexpected response format when getting a token`)
-			}
-			const userData=await fetchUserData(tokenData.access_token)
-			authStorage.setLogin(tokenData.access_token,{
-				scope: tokenData.scope,
-				uid: userData.user.id,
-				username: userData.user.display_name
-			})
-			updateLoginSectionInResponseToLogin()
-		},makeGetKnownErrorMessage(AuthError),$manualCodeError,message=>$manualCodeError.textContent=message)
 	}
-}
-
-function makeHiddenInput(name:string,value?:string): HTMLInputElement {
-	const $input=document.createElement('input')
-	$input.type='hidden'
-	$input.name=name
-	if (value!=null) $input.value=value
-	return $input
 }
