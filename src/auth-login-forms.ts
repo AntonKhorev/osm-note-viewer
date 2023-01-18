@@ -7,30 +7,16 @@ import {
 export class AuthError extends TypeError {}
 
 export default class AuthLoginForms {
-	readonly $manualLoginForm=document.createElement('form')
-	readonly $manualCodeForm=document.createElement('form')
+	private readonly $manualCodeForm=document.createElement('form')
 	private readonly $manualLoginButton=makeElement('button')()(`Open an OSM login page that generates an authorization code`)
 	private readonly $cancelManualLoginButton=makeElement('button')()(`Cancel login`)
-	private readonly $clientIdHiddenInput=makeHiddenInput('client_id')
 	private readonly $manualCodeInput=document.createElement('input')
+	private codeVerifier?: string
 	constructor(
-		authorizeUrl: string,
-		manualCodeUri: string,
-		exchangeCodeForToken: (clientId:string,redirectUri:string,code:string)=>Promise<void>
+		$container: HTMLElement,
+		requestCode: (codeChallenge:string)=>void,
+		exchangeCodeForToken: (code:string,codeVerifier:string)=>Promise<void>
 	) {
-		this.$manualLoginForm.target='_blank' // TODO popup window
-		this.$manualLoginForm.action=authorizeUrl
-		this.$cancelManualLoginButton.type='button'
-		this.$manualLoginForm.append(
-			this.$clientIdHiddenInput,
-			makeHiddenInput('response_type','code'),
-			makeHiddenInput('scope','read_prefs write_notes'),
-			makeHiddenInput('redirect_uri',manualCodeUri),
-			makeDiv('major-input')(
-				this.$manualLoginButton,
-				this.$cancelManualLoginButton
-			)
-		)
 		this.$manualCodeInput.type='text'
 		this.$manualCodeInput.required=true
 		const $manualCodeButton=document.createElement('button')
@@ -38,15 +24,22 @@ export default class AuthLoginForms {
 		const $manualCodeError=makeDiv('notice')()
 		this.stopWaitingForCode()
 
-		this.$manualLoginForm.onsubmit=()=>{
+		this.$manualLoginButton.onclick=async()=>{
 			this.waitForCode()
+			if (this.codeVerifier!=null) {
+				requestCode(await getChallenge(this.codeVerifier))
+			} else {
+				this.stopWaitingForCode() // shouldn't happen
+			}
 		}
 		this.$cancelManualLoginButton.onclick=()=>{
 			this.stopWaitingForCode()
 		}
 		this.$manualCodeForm.onsubmit=(ev)=>wrapFetch($manualCodeButton,async()=>{
 			ev.preventDefault()
-			await exchangeCodeForToken(this.$clientIdHiddenInput.value,manualCodeUri,this.$manualCodeInput.value.trim())
+			if (this.codeVerifier!=null) {
+				await exchangeCodeForToken(this.$manualCodeInput.value.trim(),this.codeVerifier)
+			}
 			this.stopWaitingForCode()
 		},makeGetKnownErrorMessage(AuthError),$manualCodeError,message=>$manualCodeError.textContent=message)
 
@@ -57,17 +50,22 @@ export default class AuthLoginForms {
 				$manualCodeButton
 			),$manualCodeError
 		)
-	}
-	set clientId(clientId:string) {
-		this.stopWaitingForCode()
-		this.$clientIdHiddenInput.value=clientId
+		$container.append(
+			makeDiv('major-input')(
+				this.$manualLoginButton,
+				this.$cancelManualLoginButton
+			),
+			this.$manualCodeForm
+		)
 	}
 	private waitForCode() {
+		this.codeVerifier=getVerifier()
 		hideElement(this.$manualLoginButton)
 		unhideElement(this.$cancelManualLoginButton)
 		unhideElement(this.$manualCodeForm)
 	}
-	private stopWaitingForCode() {
+	stopWaitingForCode() {
+		this.codeVerifier=undefined
 		unhideElement(this.$manualLoginButton)
 		hideElement(this.$cancelManualLoginButton)
 		hideElement(this.$manualCodeForm)
@@ -75,10 +73,18 @@ export default class AuthLoginForms {
 	}
 }
 
-function makeHiddenInput(name:string,value?:string): HTMLInputElement {
-	const $input=document.createElement('input')
-	$input.type='hidden'
-	$input.name=name
-	if (value!=null) $input.value=value
-	return $input
+function getVerifier():string {
+	const byteLength=48 // verifier string length == byteLength * 8/6
+	return base64url(crypto.getRandomValues(new Uint8Array(byteLength)))
+}
+
+async function getChallenge(verifier:string):Promise<string> {
+	const verifierArray=new TextEncoder().encode(verifier)
+	const challengeBuffer=await crypto.subtle.digest('SHA-256',verifierArray)
+	return base64url(new Uint8Array(challengeBuffer))
+}
+
+function base64url(bytes:Uint8Array):string { // https://www.rfc-editor.org/rfc/rfc4648#section-5
+	const string=String.fromCharCode(...bytes)
+	return btoa(string).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')
 }

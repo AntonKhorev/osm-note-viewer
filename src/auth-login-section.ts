@@ -52,6 +52,7 @@ export default class AuthLoginSection {
 	private readonly $clientIdRequired=makeDiv()(
 		`Please register the app and enter the `,em(`client id`),` above to be able to login.`
 	)
+	private readonly $loginForms=makeDiv()()
 	private readonly loginForms: AuthLoginForms
 	private readonly $logins=makeDiv()()
 	constructor(
@@ -100,12 +101,24 @@ export default class AuthLoginSection {
 			return userData
 		}
 
-		this.loginForms=new AuthLoginForms(server.getWebUrl('oauth2/authorize'),manualCodeUri,async(clientId:string,redirectUri:string,code:string)=>{
+		// server.getWebUrl('oauth2/authorize'),manualCodeUri
+		this.loginForms=new AuthLoginForms(this.$loginForms,(codeChallenge:string)=>{
+			open(server.getWebUrl('oauth2/authorize')+'?'+[
+				['client_id',authStorage.clientId],
+				['redirect_uri',manualCodeUri],
+				['scope','read_prefs write_notes'],
+				['response_type','code'],
+				['code_challenge',codeChallenge],
+				['code_challenge_method','S256']
+			].map(([k,v])=>k+'='+encodeURIComponent(v)).join('&'),'_blank')
+			// TODO popup window
+		},async(code:string,codeVerifier:string)=>{
 			const tokenResponse=await webPostUrlencodedWithPossibleAuthError(`oauth2/token`,{},[
-				['client_id',clientId],
-				['redirect_uri',redirectUri],
+				['client_id',authStorage.clientId],
+				['redirect_uri',manualCodeUri],
 				['grant_type','authorization_code'],
-				['code',code]
+				['code',code],
+				['code_verifier',codeVerifier]
 			],`while getting a token`)
 			let tokenData: unknown
 			try {
@@ -171,17 +184,15 @@ export default class AuthLoginSection {
 		$section.append(
 			makeElement('h3')()(`Logins`),
 			this.$clientIdRequired,
-			this.loginForms.$manualLoginForm,
-			this.loginForms.$manualCodeForm,
+			this.$loginForms,
 			this.$logins
 		)
 	}
 	updateInResponseToAppRegistration(): void {
-		const clientId=this.authStorage.clientId
-		this.loginForms.clientId=clientId
-		const canLogin=!!clientId
+		this.loginForms.stopWaitingForCode()
+		const canLogin=!!this.authStorage.clientId
 		toggleHideElement(this.$clientIdRequired,canLogin)
-		toggleUnhideElement(this.loginForms.$manualLoginForm,canLogin)
+		toggleUnhideElement(this.$loginForms,canLogin)
 		toggleUnhideElement(this.$logins,canLogin)
 	}
 }
