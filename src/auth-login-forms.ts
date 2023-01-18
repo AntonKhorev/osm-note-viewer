@@ -1,5 +1,5 @@
 import {
-	makeDiv, makeLabel,
+	makeElement, makeDiv, makeLabel,
 	hideElement, unhideElement,
 	wrapFetch, makeGetKnownErrorMessage
 } from './html'
@@ -9,6 +9,8 @@ export class AuthError extends TypeError {}
 export default class AuthLoginForms {
 	readonly $manualLoginForm=document.createElement('form')
 	readonly $manualCodeForm=document.createElement('form')
+	private readonly $manualLoginButton=makeElement('button')()(`Open an OSM login page that generates an authorization code`)
+	private readonly $cancelManualLoginButton=makeElement('button')()(`Cancel login`)
 	private readonly $clientIdHiddenInput=makeHiddenInput('client_id')
 	private readonly $manualCodeInput=document.createElement('input')
 	constructor(
@@ -18,14 +20,16 @@ export default class AuthLoginForms {
 	) {
 		this.$manualLoginForm.target='_blank' // TODO popup window
 		this.$manualLoginForm.action=authorizeUrl
-		const $manualLoginButton=document.createElement('button')
-		$manualLoginButton.textContent=`Open an OSM login page that generates an authorization code`
+		this.$cancelManualLoginButton.type='button'
 		this.$manualLoginForm.append(
 			this.$clientIdHiddenInput,
 			makeHiddenInput('response_type','code'),
 			makeHiddenInput('scope','read_prefs write_notes'),
 			makeHiddenInput('redirect_uri',manualCodeUri),
-			makeDiv('major-input')($manualLoginButton)
+			makeDiv('major-input')(
+				this.$manualLoginButton,
+				this.$cancelManualLoginButton
+			)
 		)
 		this.$manualCodeInput.type='text'
 		this.$manualCodeInput.required=true
@@ -36,6 +40,9 @@ export default class AuthLoginForms {
 
 		this.$manualLoginForm.onsubmit=()=>{
 			this.waitForCode()
+		}
+		this.$cancelManualLoginButton.onclick=()=>{
+			this.stopWaitingForCode()
 		}
 		this.$manualCodeForm.onsubmit=(ev)=>wrapFetch($manualCodeButton,async()=>{
 			ev.preventDefault()
@@ -56,9 +63,13 @@ export default class AuthLoginForms {
 		this.$clientIdHiddenInput.value=clientId
 	}
 	private waitForCode() {
+		hideElement(this.$manualLoginButton)
+		unhideElement(this.$cancelManualLoginButton)
 		unhideElement(this.$manualCodeForm)
 	}
 	private stopWaitingForCode() {
+		unhideElement(this.$manualLoginButton)
+		hideElement(this.$cancelManualLoginButton)
 		hideElement(this.$manualCodeForm)
 		this.$manualCodeInput.value=''
 	}
