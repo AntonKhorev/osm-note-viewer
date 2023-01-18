@@ -1,5 +1,6 @@
 import NoteViewerStorage from './storage'
 import Server from './server'
+import AuthStorage from './auth-storage'
 import {p,ol,ul,li,em} from './html-shortcuts'
 import {
 	makeElement, makeDiv, makeLink, makeLabel,
@@ -12,21 +13,6 @@ export default abstract class Auth {
 
 export class DummyAuth extends Auth {
 	// TODO just clean up callback params
-}
-
-type Login = {
-	scope: string,
-	uid: number,
-	username: string
-}
-function isLogin(data:any): data is Login {
-	return (
-		data && 
-		typeof data == 'object' &&
-		typeof data.scope == 'string' &&
-		typeof data.uid == 'number' &&
-		typeof data.username == 'string'
-	)
 }
 
 type AuthErrorData = {
@@ -76,42 +62,13 @@ export class RealAuth extends Auth {
 	$loginSection: HTMLElement
 	constructor(storage: NoteViewerStorage, server: Server) {
 		super()
+		const authStorage=new AuthStorage(storage,server.host)
 		const value=(text:string)=>{
 			const $kbd=makeElement('kbd')('copy')(text)
 			$kbd.onclick=()=>navigator.clipboard.writeText(text)
 			return $kbd
 		}
 		const manualCodeUri=`urn:ietf:wg:oauth:2.0:oob`
-		const getClientId=()=>storage.getString(`host[${server.host}].clientId`)
-		const setClientId=(clientId:string)=>storage.setString(`host[${server.host}].clientId`,$clientIdInput.value)
-		const getLogins=():Map<string,Login>=>{
-			const logins=new Map<string,Login>
-			const loginsString=storage.getItem(`host[${server.host}].logins`)
-			if (loginsString==null) return logins
-			let loginsArray: unknown
-			try {
-				loginsArray=JSON.parse(loginsString)
-			} catch {}
-			if (!Array.isArray(loginsArray)) return logins
-			for (const loginsArrayEntry of loginsArray) {
-				if (!Array.isArray(loginsArrayEntry)) continue
-				const [token,login]=loginsArrayEntry
-				if (typeof token != 'string') continue
-				if (!isLogin(login)) continue
-				logins.set(token,login)
-			}
-			return logins
-		}
-		const setLogin=(token:string,login:Login)=>{
-			const logins=getLogins()
-			logins.set(token,login)
-			storage.setItem(`host[${server.host}].logins`,JSON.stringify([...logins.entries()]))
-		}
-		const deleteLogin=(token:string)=>{
-			const logins=getLogins()
-			logins.delete(token)
-			storage.setItem(`host[${server.host}].logins`,JSON.stringify([...logins.entries()]))
-		}
 		const webPostUrlencoded=(webPath:string,headers:{[k:string]:string},parameters:[k:string,v:string][])=>server.webFetch(webPath,{
 			method: 'POST',
 			headers: {
@@ -155,7 +112,7 @@ export class RealAuth extends Auth {
 		// app section
 		const $clientIdInput=document.createElement('input')
 		$clientIdInput.type='text'
-		$clientIdInput.value=getClientId()
+		$clientIdInput.value=authStorage.clientId
 		this.$appSection=makeElement('section')()(
 			makeElement('h3')()(`Register app`),
 			ol(
@@ -224,7 +181,7 @@ export class RealAuth extends Auth {
 		)
 		const $logins=makeDiv()()
 		const updateLoginSectionInResponseToAppRegistration=()=>{
-			const clientId=getClientId()
+			const clientId=authStorage.clientId
 			$clientIdHiddenInput.value=clientId
 			const canLogin=!!clientId
 			toggleHideElement($clientIdRequired,canLogin)
@@ -234,7 +191,7 @@ export class RealAuth extends Auth {
 		}
 		updateLoginSectionInResponseToAppRegistration()
 		const updateLoginSectionInResponseToLogin=()=>{
-			const logins=getLogins()
+			const logins=authStorage.getLogins()
 			if (logins.size==0) {
 				$logins.textContent=`No active logins. Use the form above to login if you'd like to manipulate notes.`
 				return
@@ -252,7 +209,7 @@ export class RealAuth extends Auth {
 				const $logoutButton=makeElement('button')()(`Logout`)
 				$updateButton.onclick=()=>wrapFetchForButton($updateButton,async()=>{
 					const userData=await fetchUserData(token)
-					setLogin(token,{
+					authStorage.setLogin(token,{
 						...login,
 						uid: userData.user.id,
 						username: userData.user.display_name
@@ -263,9 +220,9 @@ export class RealAuth extends Auth {
 					await webPostUrlencodedWithPossibleAuthError(`oauth2/revoke`,{},[
 						['token',token],
 						// ['token_type_hint','access_token']
-						['client_id',getClientId()] // https://stackoverflow.com/questions/40782440/oauth2-revoke-access-token-from-implicit-grant-type
+						['client_id',authStorage.clientId]
 					],`while revoking a token`)
-					deleteLogin(token)
+					authStorage.deleteLogin(token)
 					updateLoginSectionInResponseToLogin()
 				},makeGetKnownErrorMessage(AuthError))
 				$table.insertRow().append(
@@ -288,13 +245,13 @@ export class RealAuth extends Auth {
 
 		// event listeners
 		$clientIdInput.oninput=()=>{
-			setClientId($clientIdInput.value.trim())
+			authStorage.clientId=$clientIdInput.value.trim()
 			updateLoginSectionInResponseToAppRegistration()
 		}
 		$manualCodeForm.onsubmit=(ev)=>wrapFetch($manualCodeButton,async()=>{
 			ev.preventDefault()
 			const tokenResponse=await webPostUrlencodedWithPossibleAuthError(`oauth2/token`,{},[
-				['client_id',getClientId()],
+				['client_id',authStorage.clientId],
 				['redirect_uri',manualCodeUri],
 				['grant_type','authorization_code'],
 				['code',$manualCodeInput.value.trim()]
@@ -307,7 +264,7 @@ export class RealAuth extends Auth {
 				throw new AuthError(`Unexpected response format when getting a token`)
 			}
 			const userData=await fetchUserData(tokenData.access_token)
-			setLogin(tokenData.access_token,{
+			authStorage.setLogin(tokenData.access_token,{
 				scope: tokenData.scope,
 				uid: userData.user.id,
 				username: userData.user.display_name
