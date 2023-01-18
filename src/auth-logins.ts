@@ -2,7 +2,7 @@ import type AuthStorage from './auth-storage'
 import type Server from './server'
 import {
 	makeElement, makeDiv, makeLink, makeLabel,
-	toggleHideElement, toggleUnhideElement,
+	hideElement, unhideElement, toggleHideElement, toggleUnhideElement,
 	wrapFetch, wrapFetchForButton, makeGetKnownErrorMessage
 } from './html'
 import {em} from './html-shortcuts'
@@ -49,16 +49,70 @@ function isUserData(data:any): data is UserData {
 
 class AuthError extends TypeError {}
 
-export default class AuthLoginSection {
+class AuthLoginForms {
+	readonly $manualLoginForm=document.createElement('form')
+	readonly $manualCodeForm=document.createElement('form')
 	private readonly $clientIdHiddenInput=makeHiddenInput('client_id')
+	private readonly $manualCodeInput=document.createElement('input')
+	constructor(
+		server: Server,
+		manualCodeUri: string ,
+		exchangeCodeForToken: (clientId:string,redirectUri:string,code:string)=>Promise<void>
+	) {
+		this.$manualLoginForm.target='_blank' // TODO popup window
+		this.$manualLoginForm.action=server.getWebUrl('oauth2/authorize')
+		const $manualLoginButton=document.createElement('button')
+		$manualLoginButton.textContent=`Open an OSM login page that generates an authorization code`
+		this.$manualLoginForm.append(
+			this.$clientIdHiddenInput,
+			makeHiddenInput('response_type','code'),
+			makeHiddenInput('scope','read_prefs write_notes'),
+			makeHiddenInput('redirect_uri',manualCodeUri),
+			makeDiv('major-input')($manualLoginButton)
+		)
+		this.$manualCodeInput.type='text'
+		this.$manualCodeInput.required=true
+		const $manualCodeButton=document.createElement('button')
+		$manualCodeButton.textContent=`Login with the authorization code`
+		const $manualCodeError=makeDiv('notice')()
+		this.stopWaitingForCode()
+
+		this.$manualLoginForm.onsubmit=()=>{
+			this.waitForCode()
+		}
+		this.$manualCodeForm.onsubmit=(ev)=>wrapFetch($manualCodeButton,async()=>{
+			ev.preventDefault()
+			await exchangeCodeForToken(this.$clientIdHiddenInput.value,manualCodeUri,this.$manualCodeInput.value.trim())
+			this.stopWaitingForCode()
+		},makeGetKnownErrorMessage(AuthError),$manualCodeError,message=>$manualCodeError.textContent=message)
+
+		this.$manualCodeForm.append(
+			makeDiv('major-input')(
+				makeLabel()(`Authorization code: `,this.$manualCodeInput)
+			),makeDiv('major-input')(
+				$manualCodeButton
+			),$manualCodeError
+		)
+	}
+	set clientId(clientId:string) {
+		this.stopWaitingForCode()
+		this.$clientIdHiddenInput.value=clientId
+	}
+	private waitForCode() {
+		unhideElement(this.$manualCodeForm)
+	}
+	private stopWaitingForCode() {
+		hideElement(this.$manualCodeForm)
+		this.$manualCodeInput.value=''
+	}
+}
+
+export default class AuthLoginSection {
 	private readonly $clientIdRequired=makeDiv()(
 		`Please register the app and enter the `,em(`client id`),` above to be able to login.`
 	)
-	private readonly $manualLoginForm=document.createElement('form')
-	private readonly $manualCodeForm=document.createElement('form')
-	private readonly $manualCodeInput=document.createElement('input')
+	private readonly loginForms: AuthLoginForms
 	private readonly $logins=makeDiv()()
-	private isWaitingForCode=false
 	constructor(
 		$section: HTMLElement,
 		private readonly authStorage: AuthStorage,
@@ -105,32 +159,30 @@ export default class AuthLoginSection {
 			return userData
 		}
 
-		this.$manualLoginForm.target='_blank' // TODO popup window
-		this.$manualLoginForm.action=server.getWebUrl('oauth2/authorize')
-		const $manualLoginButton=document.createElement('button')
-		$manualLoginButton.textContent=`Open an OSM login page that generates an authorization code`
-		this.$manualLoginForm.append(
-			this.$clientIdHiddenInput,
-			makeHiddenInput('response_type','code'),
-			makeHiddenInput('scope','read_prefs write_notes'),
-			makeHiddenInput('redirect_uri',manualCodeUri),
-			makeDiv('major-input')($manualLoginButton)
-		)
-		this.$manualCodeInput.type='text'
-		this.$manualCodeInput.required=true
-		const $manualCodeButton=document.createElement('button')
-		$manualCodeButton.textContent=`Login with the authorization code`
-		const $manualCodeError=makeDiv('notice')()
-		this.$manualCodeForm.append(
-			makeDiv('major-input')(
-				makeLabel()(`Authorization code: `,this.$manualCodeInput)
-			),makeDiv('major-input')(
-				$manualCodeButton
-			),$manualCodeError
-		)
+		this.loginForms=new AuthLoginForms(server,manualCodeUri,async(clientId:string,redirectUri:string,code:string)=>{
+			const tokenResponse=await webPostUrlencodedWithPossibleAuthError(`oauth2/token`,{},[
+				['client_id',clientId],
+				['redirect_uri',redirectUri],
+				['grant_type','authorization_code'],
+				['code',code]
+			],`while getting a token`)
+			let tokenData: unknown
+			try {
+				tokenData=await tokenResponse.json()
+			} catch {}
+			if (!isAuthTokenData(tokenData)) {
+				throw new AuthError(`Unexpected response format when getting a token`)
+			}
+			const userData=await fetchUserData(tokenData.access_token)
+			authStorage.setLogin(tokenData.access_token,{
+				scope: tokenData.scope,
+				uid: userData.user.id,
+				username: userData.user.display_name
+			})
+			updateInResponseToLogin()
+		})
 		this.updateInResponseToAppRegistration()
 		const updateInResponseToLogin=()=>{
-			toggleUnhideElement(this.$manualCodeForm,this.isWaitingForCode)
 			const logins=authStorage.getLogins()
 			if (logins.size==0) {
 				this.$logins.textContent=`No active logins. Use the form above to login if you'd like to manipulate notes.`
@@ -178,56 +230,18 @@ export default class AuthLoginSection {
 		$section.append(
 			makeElement('h3')()(`Logins`),
 			this.$clientIdRequired,
-			this.$manualLoginForm,
-			this.$manualCodeForm,
+			this.loginForms.$manualLoginForm,
+			this.loginForms.$manualCodeForm,
 			this.$logins
 		)
-
-		this.$manualLoginForm.onsubmit=(ev)=>{
-			this.waitForCode()
-			updateInResponseToLogin()
-		}
-		this.$manualCodeForm.onsubmit=(ev)=>wrapFetch($manualCodeButton,async()=>{
-			ev.preventDefault()
-			const tokenResponse=await webPostUrlencodedWithPossibleAuthError(`oauth2/token`,{},[
-				['client_id',authStorage.clientId],
-				['redirect_uri',manualCodeUri],
-				['grant_type','authorization_code'],
-				['code',this.$manualCodeInput.value.trim()]
-			],`while getting a token`)
-			let tokenData: unknown
-			try {
-				tokenData=await tokenResponse.json()
-			} catch {}
-			if (!isAuthTokenData(tokenData)) {
-				throw new AuthError(`Unexpected response format when getting a token`)
-			}
-			const userData=await fetchUserData(tokenData.access_token)
-			authStorage.setLogin(tokenData.access_token,{
-				scope: tokenData.scope,
-				uid: userData.user.id,
-				username: userData.user.display_name
-			})
-			this.stopWaitingForCode()
-			updateInResponseToLogin()
-		},makeGetKnownErrorMessage(AuthError),$manualCodeError,message=>$manualCodeError.textContent=message)
 	}
 	updateInResponseToAppRegistration(): void {
-		this.stopWaitingForCode()
 		const clientId=this.authStorage.clientId
-		this.$clientIdHiddenInput.value=clientId
+		this.loginForms.clientId=clientId
 		const canLogin=!!clientId
 		toggleHideElement(this.$clientIdRequired,canLogin)
-		toggleUnhideElement(this.$manualLoginForm,canLogin)
-		toggleUnhideElement(this.$manualCodeForm,this.isWaitingForCode)
+		toggleUnhideElement(this.loginForms.$manualLoginForm,canLogin)
 		toggleUnhideElement(this.$logins,canLogin)
-	}
-	private waitForCode() {
-		this.isWaitingForCode=true
-	}
-	private stopWaitingForCode() {
-		this.isWaitingForCode=false
-		this.$manualCodeInput.value=''
 	}
 }
 
