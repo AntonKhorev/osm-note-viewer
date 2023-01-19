@@ -2,7 +2,7 @@ import NoteViewerStorage from './storage'
 import Server from './server'
 import AuthStorage from './auth-storage'
 import AuthLoginSection from './auth-login-section'
-import {p,ol,ul,li,em} from './html-shortcuts'
+import {p,ol,ul,li,em,strong} from './html-shortcuts'
 import {makeElement, makeDiv, makeLink, makeLabel} from './html'
 
 export default abstract class Auth {
@@ -79,7 +79,14 @@ export class RealAuth extends Auth {
 				installUrl,
 				`Instructions for setting up automatic logins`,[
 					p(`This method sets up the most expected login workflow: login happens after the `,em(`Authorize`),` button is pressed.`),` `,
-					p(`This method will only work when `,app(),` served over `,em(`https`),` or over `,em(`http`),` on localhost.`)
+					p(`This method will only work when `,app(),` served over `,em(`https`),` or over `,em(`http`),` on localhost. `,...(isSecureWebInstall
+						? [`This seems to be the case with your install.`]
+						: [
+							strong(`This doesn't seem to be the case with your install.`),` `,
+							`If you register `,app(),` with this method, logins will likely fail after pressing the `,em(`Authorize`),` button. `,
+							`Use the registration method with manual code entry described below or move `,app(),` to a secure web server.`
+						]
+					))
 				]
 			),
 			registrationDetails(
@@ -87,7 +94,13 @@ export class RealAuth extends Auth {
 				manualCodeUri,
 				`Instructions for setting up logins where users have to copy the authorization code manually`,[
 					p(`This sets up a less user-friendly login workflow: after pressing the `,em(`Authorize`),` an `,em(`Authorization code`),` appears that has to be copied into the `,em(`Authorization code`),` input below the login button on this page.`),` `,
-					p(`This setup method is required when `,app(),` is not running on a secure web server.`)
+					p(`This setup method is required when `,app(),` is not running on a secure web server. `,...(!isSecureWebInstall
+						? [`This seems to be the case with your install.`]
+						: [
+							strong(`This doesn't seem to be the case with your install.`),` `,
+							`You may still use this method but the one described before gives a simpler login workflow.`
+						]
+					))
 				]
 			),
 			makeDiv('major-input')(
