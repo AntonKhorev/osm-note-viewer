@@ -1,6 +1,6 @@
+import type Server from './server'
 import type AuthStorage from './auth-storage'
 import AuthLoginForms, {AuthError} from './auth-login-forms'
-import type Server from './server'
 import {
 	makeElement, makeDiv, makeLink,
 	toggleHideElement, toggleUnhideElement,
