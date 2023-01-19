@@ -3,12 +3,13 @@ import {
 	hideElement, unhideElement,
 	wrapFetch, makeGetKnownErrorMessage
 } from './html'
+import {p,em} from './html-shortcuts'
 
 export class AuthError extends TypeError {}
 
 export default class AuthLoginForms {
 	private readonly $manualCodeForm=document.createElement('form')
-	private readonly $manualLoginButton=makeElement('button')()(`Open an OSM login page that generates an authorization code`)
+	private readonly $manualLoginButton=makeElement('button')()(`Login`)
 	private readonly $cancelManualLoginButton=makeElement('button')()(`Cancel login`)
 	private readonly $manualCodeInput=document.createElement('input')
 	private codeVerifier?: string
@@ -45,7 +46,11 @@ export default class AuthLoginForms {
 			this.stopWaitingForCode()
 		},makeGetKnownErrorMessage(AuthError),$manualCodeError,message=>$manualCodeError.textContent=message)
 
+		// TODO write that you may not get a confirmation page if you are already logged in - in this case logout first
+		//	^ to do this, need to check if anything user-visible appears in the popup at all with auto-code registrations
+		const app=()=>em(`osm-note-viewer`)
 		this.$manualCodeForm.append(
+			p(`If the manual code copying method was used to register `,app(),`, copy the code into the input below.`),
 			makeDiv('major-input')(
 				makeLabel()(`Authorization code: `,this.$manualCodeInput)
 			),makeDiv('major-input')(
