@@ -105,7 +105,7 @@ export default class AuthLoginSection {
 		this.loginForms=new AuthLoginForms(this.$loginForms,(codeChallenge:string)=>{
 			const width=600
 			const height=600
-			open(server.getWebUrl('oauth2/authorize')+'?'+[
+			return open(server.getWebUrl('oauth2/authorize')+'?'+[
 				['client_id',authStorage.clientId],
 				['redirect_uri',manualCodeUri],
 				['scope','read_prefs write_notes'],

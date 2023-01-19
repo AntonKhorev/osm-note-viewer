@@ -12,9 +12,10 @@ export default class AuthLoginForms {
 	private readonly $cancelManualLoginButton=makeElement('button')()(`Cancel login`)
 	private readonly $manualCodeInput=document.createElement('input')
 	private codeVerifier?: string
+	private loginWindow?: Window
 	constructor(
 		$container: HTMLElement,
-		requestCode: (codeChallenge:string)=>void,
+		requestCode: (codeChallenge:string)=>Window|null,
 		exchangeCodeForToken: (code:string,codeVerifier:string)=>Promise<void>
 	) {
 		this.$manualCodeInput.type='text'
@@ -27,8 +28,9 @@ export default class AuthLoginForms {
 		this.$manualLoginButton.onclick=async()=>{
 			this.waitForCode()
 			if (this.codeVerifier!=null) {
-				requestCode(await getChallenge(this.codeVerifier))
-			} else {
+				this.loginWindow=requestCode(await getChallenge(this.codeVerifier))??undefined
+			}
+			if (this.codeVerifier==null || this.loginWindow==null) {
 				this.stopWaitingForCode() // shouldn't happen
 			}
 		}
@@ -65,6 +67,8 @@ export default class AuthLoginForms {
 		unhideElement(this.$manualCodeForm)
 	}
 	stopWaitingForCode() {
+		this.loginWindow?.close()
+		this.loginWindow=undefined
 		this.codeVerifier=undefined
 		unhideElement(this.$manualLoginButton)
 		hideElement(this.$cancelManualLoginButton)
