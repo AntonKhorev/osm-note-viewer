@@ -73,6 +73,10 @@ export class RealAuth extends Auth {
 		$clientIdInput.value=clientId
 		this.$appSection=makeElement('section')()(
 			makeElement('h3')()(`Register app`),
+			p(
+				`Only required if you don't yet have a `,em(`client id`),`. `,
+				`You have to get a `,em(`client id`),` if you want to run your own copy of `,app(),` and be able to manipulate notes from it.`
+			),
 			registrationDetails(
 				!clientId && isSecureWebInstall,
 				installUrl,
