@@ -51,9 +51,9 @@ export class RealAuth extends Auth {
 				),li(
 					`click `,em(`Register`)
 				),li(
-					`copy `,em(`Client ID`),` to an input below`
+					`copy the `,em(`Client ID`),` to an input below`
 				),li(
-					`ignore `,em(`Client Secret`),`, this is only for confidential apps, osm-note-viewer is not a confidential apps`
+					`don't copy the `,em(`Client Secret`),`; you can write it down somewhere but it's going to be useless because osm-note-viewer is not a confidential app and can't keep secrets`
 				)
 			),
 			p(`After these steps you should be able to see osm-note-viewer in `,makeLink(`your client applications`,server.getWebUrl(`oauth2/applications`)),` and copy its client id from there.`),
