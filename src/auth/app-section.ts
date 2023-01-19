@@ -1,7 +1,7 @@
-import type Server from './server'
-import type AuthStorage from './auth-storage'
-import {p,ol,ul,li,em,strong} from './html-shortcuts'
-import {makeElement, makeDiv, makeLink, makeLabel} from './html'
+import type Server from '../server'
+import type AuthStorage from './storage'
+import {p,ol,ul,li,em,strong} from '../html-shortcuts'
+import {makeElement, makeDiv, makeLink, makeLabel} from '../html'
 
 export default class AuthAppSection {
 	onRegistrationUpdate?: ()=>void

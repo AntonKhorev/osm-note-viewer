@@ -1,4 +1,4 @@
-import type NoteViewerStorage from './storage'
+import type NoteViewerStorage from '../storage'
 
 type Login = {
 	scope: string,

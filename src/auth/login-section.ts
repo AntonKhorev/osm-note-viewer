@@ -1,12 +1,12 @@
-import type Server from './server'
-import type AuthStorage from './auth-storage'
-import AuthLoginForms, {AuthError} from './auth-login-forms'
+import type Server from '../server'
+import type AuthStorage from './storage'
+import AuthLoginForms, {AuthError} from './login-forms'
 import {
 	makeElement, makeDiv, makeLink,
 	toggleHideElement, toggleUnhideElement,
 	wrapFetchForButton, makeGetKnownErrorMessage
-} from './html'
-import {em} from './html-shortcuts'
+} from '../html'
+import {em} from '../html-shortcuts'
 
 type AuthErrorData = {
 	error_description: string

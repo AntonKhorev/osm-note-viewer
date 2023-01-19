@@ -2,8 +2,8 @@ import {
 	makeElement, makeDiv, makeLabel,
 	hideElement, unhideElement,
 	wrapFetch, makeGetKnownErrorMessage
-} from './html'
-import {p,em} from './html-shortcuts'
+} from '../html'
+import {p,em} from '../html-shortcuts'
 
 export class AuthError extends TypeError {}
 
