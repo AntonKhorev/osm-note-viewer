@@ -37,9 +37,8 @@ export class RealAuth extends Auth {
 						`Go to `,makeLink(`My Settings > OAuth 2 applications > Register new application`,server.getWebUrl(`oauth2/applications/new`)),
 						` on `,em(server.host),`.`
 					),li(
-						`For `,em(`Name`),` enter anything you like, for example, `,
-						value(`osm-note-viewer @ ${installUrl}`),`. `,
-						`Users will be able to find `,app(),` by this name in their `,makeLink(`authorizations`,server.getWebUrl(`oauth2/authorized_applications`)),` after they log in here.`
+						`For `,em(`Name`),` enter anything that would help users to identify your copy of `,app(),`, for example, `,value(`osm-note-viewer @ ${installUrl}`),`. `,
+						`Users will see this name on the authorization granting page and in their `,makeLink(`active authorizations list`,server.getWebUrl(`oauth2/authorized_applications`)),` after they log in here.`
 					),li(
 						`For `,em(`Redirect URIs`),` enter `,
 						value(redirectUrl),`.`
