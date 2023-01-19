@@ -37,7 +37,7 @@ export class RealAuth extends Auth {
 					` on `,em(server.host)
 				),li(
 					`for `,em(`Name`),` enter anything you like, for example, `,
-					value(`osm-note-viewer @ ${location.protocol}//${location.pathname}${location.search}`)
+					value(`osm-note-viewer @ ${location.protocol}//${location.host}${location.pathname}`)
 				),li(
 					`for `,em(`Redirect URIs`),` enter `,
 					value(manualCodeUri)
