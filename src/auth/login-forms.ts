@@ -1,6 +1,6 @@
 import {
 	makeElement, makeDiv, makeLabel,
-	hideElement, unhideElement,
+	hideElement, unhideElement, toggleUnhideElement,
 	wrapFetch, makeGetKnownErrorMessage
 } from '../html'
 import {p,em} from '../html-shortcuts'
@@ -9,9 +9,10 @@ export class AuthError extends TypeError {}
 
 export default class AuthLoginForms {
 	private readonly $manualCodeForm=document.createElement('form')
-	private readonly $manualLoginButton=makeElement('button')()(`Login`)
+	private readonly $loginButton=makeElement('button')()(`Login`)
 	private readonly $cancelManualLoginButton=makeElement('button')()(`Cancel login`)
 	private readonly $manualCodeInput=document.createElement('input')
+	private isManualCodeEntry=false
 	private codeVerifier?: string
 	private loginWindow?: Window
 	constructor(
@@ -24,26 +25,28 @@ export default class AuthLoginForms {
 		const $manualCodeButton=document.createElement('button')
 		$manualCodeButton.textContent=`Login with the authorization code`
 		const $manualCodeError=makeDiv('notice')()
-		this.stopWaitingForCode()
+		hideElement(this.$loginButton)
+		hideElement(this.$cancelManualLoginButton)
+		hideElement(this.$manualCodeForm)
 
-		this.$manualLoginButton.onclick=async()=>{
-			this.waitForCode()
+		this.$loginButton.onclick=async()=>{
+			this.waitForAuthorization()
 			if (this.codeVerifier!=null) {
 				this.loginWindow=requestCode(await getChallenge(this.codeVerifier))??undefined
 			}
 			if (this.codeVerifier==null || this.loginWindow==null) {
-				this.stopWaitingForCode() // shouldn't happen
+				this.stopWaitingForAuthorization() // shouldn't happen
 			}
 		}
 		this.$cancelManualLoginButton.onclick=()=>{
-			this.stopWaitingForCode()
+			this.stopWaitingForAuthorization()
 		}
 		this.$manualCodeForm.onsubmit=(ev)=>wrapFetch($manualCodeButton,async()=>{
 			ev.preventDefault()
 			if (this.codeVerifier!=null) {
 				await exchangeCodeForToken(this.$manualCodeInput.value.trim(),this.codeVerifier)
 			}
-			this.stopWaitingForCode()
+			this.stopWaitingForAuthorization()
 		},makeGetKnownErrorMessage(AuthError),$manualCodeError,message=>$manualCodeError.textContent=message)
 
 		// TODO write that you may not get a confirmation page if you are already logged in - in this case logout first
@@ -59,23 +62,27 @@ export default class AuthLoginForms {
 		)
 		$container.append(
 			makeDiv('major-input')(
-				this.$manualLoginButton,
+				this.$loginButton,
 				this.$cancelManualLoginButton
 			),
 			this.$manualCodeForm
 		)
 	}
-	private waitForCode() {
-		this.codeVerifier=getVerifier()
-		hideElement(this.$manualLoginButton)
-		unhideElement(this.$cancelManualLoginButton)
-		unhideElement(this.$manualCodeForm)
+	respondToAppRegistration(isManualCodeEntry:boolean) {
+		this.isManualCodeEntry=isManualCodeEntry
+		this.stopWaitingForAuthorization()
 	}
-	stopWaitingForCode() {
+	private waitForAuthorization() {
+		this.codeVerifier=getVerifier()
+		hideElement(this.$loginButton)
+		unhideElement(this.$cancelManualLoginButton)
+		toggleUnhideElement(this.$manualCodeForm,this.isManualCodeEntry)
+	}
+	private stopWaitingForAuthorization() {
 		this.loginWindow?.close()
 		this.loginWindow=undefined
 		this.codeVerifier=undefined
-		unhideElement(this.$manualLoginButton)
+		unhideElement(this.$loginButton)
 		hideElement(this.$cancelManualLoginButton)
 		hideElement(this.$manualCodeForm)
 		this.$manualCodeInput.value=''
@@ -84,16 +91,16 @@ export default class AuthLoginForms {
 
 function getVerifier():string {
 	const byteLength=48 // verifier string length == byteLength * 8/6
-	return base64url(crypto.getRandomValues(new Uint8Array(byteLength)))
+	return encodeBase64url(crypto.getRandomValues(new Uint8Array(byteLength)))
 }
 
 async function getChallenge(verifier:string):Promise<string> {
 	const verifierArray=new TextEncoder().encode(verifier)
 	const challengeBuffer=await crypto.subtle.digest('SHA-256',verifierArray)
-	return base64url(new Uint8Array(challengeBuffer))
+	return encodeBase64url(new Uint8Array(challengeBuffer))
 }
 
-function base64url(bytes:Uint8Array):string { // https://www.rfc-editor.org/rfc/rfc4648#section-5
+function encodeBase64url(bytes:Uint8Array):string { // https://www.rfc-editor.org/rfc/rfc4648#section-5
 	const string=String.fromCharCode(...bytes)
 	return btoa(string).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')
 }

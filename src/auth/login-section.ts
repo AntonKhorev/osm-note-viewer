@@ -58,8 +58,7 @@ export default class AuthLoginSection {
 	constructor(
 		$section: HTMLElement,
 		private readonly authStorage: AuthStorage,
-		server: Server,
-		manualCodeUri: string
+		server: Server
 	) {
 		const webPostUrlencoded=(webPath:string,headers:{[k:string]:string},parameters:[k:string,v:string][])=>server.webFetch(webPath,{
 			method: 'POST',
@@ -101,13 +100,12 @@ export default class AuthLoginSection {
 			return userData
 		}
 
-		// server.getWebUrl('oauth2/authorize'),manualCodeUri
 		this.loginForms=new AuthLoginForms(this.$loginForms,(codeChallenge:string)=>{
 			const width=600
 			const height=600
 			return open(server.getWebUrl('oauth2/authorize')+'?'+[
 				['client_id',authStorage.clientId],
-				['redirect_uri',manualCodeUri],
+				['redirect_uri',authStorage.redirectUri],
 				['scope','read_prefs write_notes'],
 				['response_type','code'],
 				['code_challenge',codeChallenge],
@@ -118,7 +116,7 @@ export default class AuthLoginSection {
 		},async(code:string,codeVerifier:string)=>{
 			const tokenResponse=await webPostUrlencodedWithPossibleAuthError(`oauth2/token`,{},[
 				['client_id',authStorage.clientId],
-				['redirect_uri',manualCodeUri],
+				['redirect_uri',authStorage.redirectUri],
 				['grant_type','authorization_code'],
 				['code',code],
 				['code_verifier',codeVerifier]
@@ -138,7 +136,7 @@ export default class AuthLoginSection {
 			})
 			updateInResponseToLogin()
 		})
-		this.updateInResponseToAppRegistration()
+		this.respondToAppRegistration()
 		const updateInResponseToLogin=()=>{
 			const logins=authStorage.getLogins()
 			if (logins.size==0) {
@@ -191,8 +189,8 @@ export default class AuthLoginSection {
 			this.$logins
 		)
 	}
-	updateInResponseToAppRegistration(): void {
-		this.loginForms.stopWaitingForCode()
+	respondToAppRegistration(): void {
+		this.loginForms.respondToAppRegistration(this.authStorage.isManualCodeEntry)
 		const canLogin=!!this.authStorage.clientId
 		toggleHideElement(this.$clientIdRequired,canLogin)
 		toggleUnhideElement(this.$loginForms,canLogin)

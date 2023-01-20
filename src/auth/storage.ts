@@ -16,19 +16,33 @@ function isLogin(data:any): data is Login {
 }
 
 export default class AuthStorage {
+	readonly manualCodeUri=`urn:ietf:wg:oauth:2.0:oob`
+	readonly installUri=`${location.protocol}//${location.host}${location.pathname}`
 	constructor(
 		private readonly storage: NoteViewerStorage,
 		private readonly host: string
 	) {}
+	get prefix():string {
+		return `host[${this.host}].`
+	}
 	get clientId():string {
-		return this.storage.getString(`host[${this.host}].clientId`)
+		return this.storage.getString(`${this.prefix}clientId`)
 	}
 	set clientId(clientId:string) {
-		this.storage.setString(`host[${this.host}].clientId`,clientId)
+		this.storage.setString(`${this.prefix}clientId`,clientId)
+	}
+	get isManualCodeEntry():boolean {
+		return this.storage.getBoolean(`${this.prefix}isManualCodeEntry`)
+	}
+	set isManualCodeEntry(isManualCodeEntry:boolean) {
+		this.storage.setBoolean(`${this.prefix}isManualCodeEntry`,isManualCodeEntry)
+	}
+	get redirectUri():string {
+		return this.isManualCodeEntry?this.manualCodeUri:this.installUri
 	}
 	getLogins():Map<string,Login> {
 		const logins=new Map<string,Login>
-		const loginsString=this.storage.getItem(`host[${this.host}].logins`)
+		const loginsString=this.storage.getItem(`${this.prefix}logins`)
 		if (loginsString==null) return logins
 		let loginsArray: unknown
 		try {
@@ -55,6 +69,6 @@ export default class AuthStorage {
 		this.setLoginsStorageItem(logins)
 	}
 	private setLoginsStorageItem(logins:Map<string,Login>):void {
-		this.storage.setItem(`host[${this.host}].logins`,JSON.stringify([...logins.entries()]))
+		this.storage.setItem(`${this.prefix}logins`,JSON.stringify([...logins.entries()]))
 	}
 }
