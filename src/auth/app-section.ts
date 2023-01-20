@@ -1,6 +1,6 @@
 import type Server from '../server'
 import type AuthStorage from './storage'
-import {p,ol,ul,li,em,strong} from '../html-shortcuts'
+import {p,ol,ul,li,em,strong,mark} from '../html-shortcuts'
 import {makeElement, makeDiv, makeLink, makeLabel} from '../html'
 
 export default class AuthAppSection {
@@ -32,8 +32,7 @@ export default class AuthAppSection {
 						`For `,em(`Name`),` enter anything that would help users to identify your copy of `,app(),`, for example, `,value(`osm-note-viewer @ ${authStorage.installUri}`),`. `,
 						`Users will see this name on the authorization granting page and in their `,makeLink(`active authorizations list`,server.getWebUrl(`oauth2/authorized_applications`)),` after they log in here.`
 					),li(
-						`For `,em(`Redirect URIs`),` enter `,
-						value(redirectUri),`.`
+						`For `,em(`Redirect URIs`),` enter `,mark(value(redirectUri)),`.`
 					),li(
 						`Uncheck `,em(`Confidential application?`)
 					),li(
@@ -49,7 +48,7 @@ export default class AuthAppSection {
 						`Don't copy the `,em(`Client Secret`),`. `,
 						`You can write it down somewhere but it's going to be useless because `,app(),` is not a confidential app and can't keep secrets.`
 					),li(
-						`${isManualCodeEntry?`Check`:`Uncheck`} `,em(manualCodeEntryLabel),` below`
+						mark(isManualCodeEntry?`Check`:`Uncheck`),` `,em(manualCodeEntryLabel),` below.`
 					)
 				),
 				p(`After these steps you should be able to see `,app(),` with its client id and permissions in `,makeLink(`your client applications`,server.getWebUrl(`oauth2/applications`)),`.`),
@@ -73,7 +72,9 @@ export default class AuthAppSection {
 			makeElement('h3')()(`Register app`),
 			p(
 				`Only required if you don't yet have a `,em(`client id`),`. `,
-				`You have to get a `,em(`client id`),` if you want to run your own copy of `,app(),` and be able to manipulate notes from it.`
+				`You have to get a `,em(`client id`),` if you want to run your own copy of `,app(),` and be able to manipulate notes from it. `,
+				`There are two possible app registration methods described below. `,
+				`Their necessary steps are the same except for the `,mark(`marked`),` parts.`
 			),
 			registrationDetails(
 				!clientId && isSecureWebInstall,
