@@ -10,6 +10,20 @@ export default class AuthAppSection {
 		authStorage: AuthStorage,
 		server: Server
 	) {
+		const clientId=authStorage.clientId
+		const isSecureWebInstall=(
+			location.protocol=='https:' ||
+			location.protocol=='http:' && location.hostname=='127.0.0.1'
+		)
+		const $clientIdInput=document.createElement('input')
+		$clientIdInput.id='auth-app-client-id'
+		$clientIdInput.type='text'
+		$clientIdInput.value=clientId
+		const manualCodeEntryLabel=`Manual authorization code entry`
+		const $manualCodeEntryCheckbox=document.createElement('input')
+		$manualCodeEntryCheckbox.id='auth-app-manual-code-entry'
+		$manualCodeEntryCheckbox.type='checkbox'
+		$manualCodeEntryCheckbox.checked=authStorage.isManualCodeEntry
 		const app=()=>em(`osm-note-viewer`)
 		const value=(text:string)=>{
 			const $kbd=makeElement('kbd')('copy')(text)
@@ -21,6 +35,17 @@ export default class AuthAppSection {
 			redirectUri:string,isManualCodeEntry:boolean,
 			summary:string,lead:(HTMLElement|string)[]
 		):HTMLDetailsElement=>{
+			const makeInputLink=($input:HTMLInputElement,...content:(string|HTMLElement)[])=>{
+				const $anchor=document.createElement('a')
+				$anchor.href='#'+$input.id
+				$anchor.classList.add('input-link')
+				$anchor.append(...content)
+				$anchor.onclick=ev=>{
+					ev.preventDefault()
+					$input.focus()
+				}
+				return $anchor
+			}
 			const $details=makeElement('details')()(
 				makeElement('summary')()(summary),
 				...lead,
@@ -43,12 +68,12 @@ export default class AuthAppSection {
 					),li(
 						`Click `,em(`Register`),`.`
 					),li(
-						`Copy the `,em(`Client ID`),` to an input below.`
+						`Copy the `,em(`Client ID`),` to `,makeInputLink($clientIdInput,`the input below`),`.`
 					),li(
 						`Don't copy the `,em(`Client Secret`),`. `,
 						`You can write it down somewhere but it's going to be useless because `,app(),` is not a confidential app and can't keep secrets.`
 					),li(
-						mark(isManualCodeEntry?`Check`:`Uncheck`),` `,em(manualCodeEntryLabel),` below.`
+						mark(isManualCodeEntry?`Check`:`Uncheck`),` `,makeInputLink($manualCodeEntryCheckbox,em(manualCodeEntryLabel),` below`),`.`
 					)
 				),
 				p(`After these steps you should be able to see `,app(),` with its client id and permissions in `,makeLink(`your client applications`,server.getWebUrl(`oauth2/applications`)),`.`),
@@ -56,18 +81,6 @@ export default class AuthAppSection {
 			if (isOpen) $details.open=true
 			return $details
 		}
-		const clientId=authStorage.clientId
-		const isSecureWebInstall=(
-			location.protocol=='https:' ||
-			location.protocol=='http:' && location.hostname=='127.0.0.1'
-		)
-		const $clientIdInput=document.createElement('input')
-		$clientIdInput.type='text'
-		$clientIdInput.value=clientId
-		const manualCodeEntryLabel=`Manual authorization code entry`
-		const $manualCodeEntryCheckbox=document.createElement('input')
-		$manualCodeEntryCheckbox.type='checkbox'
-		$manualCodeEntryCheckbox.checked=authStorage.isManualCodeEntry
 		$section.append(
 			makeElement('h3')()(`Register app`),
 			p(

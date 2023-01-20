@@ -74,14 +74,15 @@ body.only-text-side .graphic-side {
 	flex-grow: 1;
 }
 
+a.input-link,
+a.listened,
 time.listened {
 	text-decoration: underline dotted 1px;
-	color: var(--semi-link-color);
 	cursor: pointer;
 }
-a.listened {
-	text-decoration-style: dotted;
-	text-decoration-thickness: 1px;
+a.input-link,
+time.listened {
+	color: var(--semi-link-color);
 }
 a.listened.loading {
 	cursor: progress;
