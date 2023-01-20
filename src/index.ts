@@ -38,7 +38,7 @@ async function main() {
 	const $scrollingPart=makeDiv('scrolling')($navbarContainer,$fetchContainer)
 	const $stickyPart=makeDiv('sticky')()
 
-	const flipped=!!storage.getItem('flipped')
+	const flipped=storage.getBoolean('flipped')
 	if (flipped) document.body.classList.add('flipped')
 	document.body.append(makeDiv('text-side')($scrollingPart,$stickyPart))
 

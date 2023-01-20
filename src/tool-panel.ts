@@ -80,16 +80,12 @@ export default class ToolPanel {
 			const storageKey='commands-'+tool.id
 			const $toolDetails=document.createElement('details')
 			$toolDetails.classList.add('tool')
-			$toolDetails.open=!!storage.getItem(storageKey)
+			$toolDetails.open=storage.getBoolean(storageKey)
 			const $toolSummary=document.createElement('summary')
 			$toolSummary.textContent=tool.name
 			if (tool.title) $toolSummary.title=tool.title
 			$toolDetails.addEventListener('toggle',()=>{
-				if ($toolDetails.open) {
-					storage.setItem(storageKey,'1')
-				} else {
-					storage.removeItem(storageKey)
-				}
+				storage.setBoolean(storageKey,$toolDetails.open)
 			})
 			$toolDetails.append($toolSummary,...tool.getTool(toolCallbacks,server,map,figureDialog))
 			$toolDetails.addEventListener('animationend',toolAnimationEndListener)

@@ -19,6 +19,16 @@ export default class NoteViewerStorage {
 			this.removeItem(k)
 		}
 	}
+	getBoolean(k: string): boolean {
+		return !!this.getItem(k)
+	}
+	setBoolean(k: string, v: boolean): void {
+		if (v) {
+			this.setItem(k,'1')
+		} else {
+			this.removeItem(k)
+		}
+	}
 	getKeys(): string[] { // don't return iterator because may want to modify stuff while iterating
 		const result:string[]=[]
 		for (const k in localStorage) {

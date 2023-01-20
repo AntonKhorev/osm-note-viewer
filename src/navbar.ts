@@ -66,11 +66,7 @@ function makeFlipLayoutButton(storage: NoteViewerStorage, map: NoteMap): HTMLBut
 	$button.innerHTML=`<svg><title>Flip layout</title><use href="#flip" /></svg>`
 	$button.addEventListener('click',()=>{
 		document.body.classList.toggle('flipped')
-		if (document.body.classList.contains('flipped')) {
-			storage.setItem('flipped','1')
-		} else {
-			storage.removeItem('flipped')
-		}
+		storage.setBoolean('flipped',document.body.classList.contains('flipped'))
 		map.invalidateSize()
 	})
 	return $button
