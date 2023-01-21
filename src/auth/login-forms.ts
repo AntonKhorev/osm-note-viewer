@@ -64,7 +64,7 @@ export default class AuthLoginForms {
 	respondToAppRegistration(isManualCodeEntry:boolean) {
 		this.isManualCodeEntry=isManualCodeEntry
 		this.stopWaitingForAuthorization()
-		// TODO cleanup error message
+		this.clearError()
 	}
 	private waitForAuthorization(loginWindow:Window,submitCode:(code:string)=>Promise<void>) {
 		const wrapAction=(action:()=>Promise<void>)=>wrapFetch(
@@ -104,7 +104,7 @@ export default class AuthLoginForms {
 		hideElement(this.$loginButton)
 		unhideElement(this.$cancelLoginButton)
 		toggleUnhideElement(this.$manualCodeForm,this.isManualCodeEntry)
-		this.$error.replaceChildren()
+		this.clearError()
 	}
 	private stopWaitingForAuthorization() {
 		this.$manualCodeForm.onsubmit=(ev)=>ev.preventDefault()
@@ -116,6 +116,9 @@ export default class AuthLoginForms {
 		hideElement(this.$cancelLoginButton)
 		hideElement(this.$manualCodeForm)
 		this.$manualCodeInput.value=''
+	}
+	private clearError() {
+		this.$error.replaceChildren()
 	}
 }
 
