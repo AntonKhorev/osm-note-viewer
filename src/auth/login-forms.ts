@@ -77,8 +77,8 @@ export default class AuthLoginForms {
 				ev.preventDefault()
 				await wrapAction(async()=>{
 					await submitCode(this.$manualCodeInput.value.trim())
+					this.stopWaitingForAuthorization() // keep the login popup on error in case user copied the code incorrectly
 				})
-				this.stopWaitingForAuthorization()
 			}
 		} else {
 			(<any>window).receiveOsmNoteViewerAuthCode=async(code:unknown)=>{
