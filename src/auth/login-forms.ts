@@ -104,6 +104,7 @@ export default class AuthLoginForms {
 		hideElement(this.$loginButton)
 		unhideElement(this.$cancelLoginButton)
 		toggleUnhideElement(this.$manualCodeForm,this.isManualCodeEntry)
+		this.$error.replaceChildren()
 	}
 	private stopWaitingForAuthorization() {
 		this.$manualCodeForm.onsubmit=(ev)=>ev.preventDefault()
