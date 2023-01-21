@@ -19,6 +19,11 @@ import serverListConfig from './server-list-config'
 main()
 
 async function main() {
+	const auth=new Auth()
+	if (auth.checkReceivedCode()) {
+		return
+	}
+
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
 	const serverListConfigSources:unknown[]=[serverListConfig]
@@ -43,11 +48,6 @@ async function main() {
 	document.body.append(makeDiv('text-side')($scrollingPart,$stickyPart))
 
 	const globalHistory=new GlobalHistory($scrollingPart,serverList)
-	// TODO don't output html before handling auth callback parameters
-	const auth=new Auth()
-	if (auth.checkReceivedCode()) {
-		return
-	}
 	
 	let map: NoteMap|undefined
 	let figureDialog: FigureDialog|undefined
