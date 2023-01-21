@@ -40,6 +40,9 @@ export default class AuthLoginForms {
 		this.$cancelLoginButton.onclick=()=>{
 			this.stopWaitingForAuthorization()
 		}
+		window.addEventListener('beforeunload',()=>{
+			this.stopWaitingForAuthorization()
+		})
 
 		// TODO write that you may not get a confirmation page if you are already logged in - in this case logout first
 		//	^ to do this, need to check if anything user-visible appears in the popup at all with auto-code registrations
