@@ -37,8 +37,8 @@ describe("browser tests",function(){
 		this.server.clearNotes()
 		if (!keepBrowser) this.browser=await puppeteer.launch(browserOptions)
 		const page=await this.browser.newPage()
-		this.openPage=async()=>{
-			await page.goto(browserUrl)
+		this.openPage=async(url=browserUrl)=>{
+			await page.goto(url)
 			return page
 		}
 		this.waitForFetchButton=()=>page.waitForXPath(`//button[not(@disabled) and contains(.,"Fetch notes")]`)
@@ -200,6 +200,10 @@ describe("browser tests",function(){
 		await page.reload()
 		await getToAboutTab()
 		await probeLoginButton()
+	})
+	it("has error message when directly opening page with oauth redirect parameters",async function(){
+		const page=await this.openPage(browserUrl+'?code=wrong')
+		await this.assertText(page,"outside of a popup")
 	})
 })
 

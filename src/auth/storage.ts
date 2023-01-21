@@ -17,10 +17,10 @@ function isLogin(data:any): data is Login {
 
 export default class AuthStorage {
 	readonly manualCodeUri=`urn:ietf:wg:oauth:2.0:oob`
-	readonly installUri=`${location.protocol}//${location.host}${location.pathname}`
 	constructor(
 		private readonly storage: NoteViewerStorage,
-		private readonly host: string
+		private readonly host: string,
+		readonly installUri: string
 	) {}
 	get prefix():string {
 		return `host[${this.host}].`
