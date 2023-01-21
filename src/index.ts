@@ -20,7 +20,7 @@ main()
 
 async function main() {
 	const auth=new Auth()
-	if (auth.checkReceivedCode()) {
+	if (auth.checkRedirect()) {
 		return
 	}
 

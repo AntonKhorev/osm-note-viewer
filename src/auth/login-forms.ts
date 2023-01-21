@@ -8,10 +8,12 @@ import {p,em} from '../html-shortcuts'
 export class AuthError extends TypeError {}
 
 export default class AuthLoginForms {
-	private readonly $manualCodeForm=document.createElement('form')
 	private readonly $loginButton=makeElement('button')()(`Login`)
-	private readonly $cancelManualLoginButton=makeElement('button')()(`Cancel login`)
+	private readonly $cancelLoginButton=makeElement('button')()(`Cancel login`)
+	private readonly $manualCodeForm=document.createElement('form')
+	private readonly $manualCodeButton=document.createElement('button')
 	private readonly $manualCodeInput=document.createElement('input')
+	private readonly $error=makeDiv('notice')()
 	private loginWindow?: Window
 	constructor(
 		$container: HTMLElement,
@@ -21,9 +23,7 @@ export default class AuthLoginForms {
 	) {
 		this.$manualCodeInput.type='text'
 		this.$manualCodeInput.required=true
-		const $manualCodeButton=document.createElement('button')
-		$manualCodeButton.textContent=`Login with the authorization code`
-		const $manualCodeError=makeDiv('notice')()
+		this.$manualCodeButton.textContent=`Login with the authorization code`
 		this.stopWaitingForAuthorization()
 
 		this.$loginButton.onclick=async()=>{
@@ -35,13 +35,9 @@ export default class AuthLoginForms {
 				`width=${width},height=${height},left=${screen.width/2-width/2},top=${screen.height/2-height/2}`
 			)
 			if (loginWindow==null) return
-			const submitCode=(code:unknown)=>wrapFetch($manualCodeButton,async()=>{
-				if (typeof code != 'string') throw new AuthError(`Unexpected code parameter type`)
-				await exchangeCodeForToken(code,codeVerifier)
-			},makeGetKnownErrorMessage(AuthError),$manualCodeError,message=>$manualCodeError.textContent=message)
-			this.waitForAuthorization(loginWindow,submitCode)
+			this.waitForAuthorization(loginWindow,code=>exchangeCodeForToken(code,codeVerifier))
 		}
-		this.$cancelManualLoginButton.onclick=()=>{
+		this.$cancelLoginButton.onclick=()=>{
 			this.stopWaitingForAuthorization()
 		}
 
@@ -53,50 +49,72 @@ export default class AuthLoginForms {
 			makeDiv('major-input')(
 				makeLabel()(`Authorization code: `,this.$manualCodeInput)
 			),makeDiv('major-input')(
-				$manualCodeButton
+				this.$manualCodeButton
 			)
 		)
 		$container.append(
 			makeDiv('major-input')(
 				this.$loginButton,
-				this.$cancelManualLoginButton
+				this.$cancelLoginButton
 			),
 			this.$manualCodeForm,
-			$manualCodeError
+			this.$error
 		)
 	}
 	respondToAppRegistration(isManualCodeEntry:boolean) {
 		this.isManualCodeEntry=isManualCodeEntry
 		this.stopWaitingForAuthorization()
+		// TODO cleanup error message
 	}
-	private waitForAuthorization(loginWindow:Window,submitCode:(code:unknown)=>Promise<void>) {
+	private waitForAuthorization(loginWindow:Window,submitCode:(code:string)=>Promise<void>) {
+		const wrapAction=(action:()=>Promise<void>)=>wrapFetch(
+			this.$manualCodeButton,
+			action,
+			makeGetKnownErrorMessage(AuthError),this.$error,message=>this.$error.textContent=message
+		)
 		if (this.isManualCodeEntry) {
 			this.$manualCodeForm.onsubmit=async(ev)=>{
 				ev.preventDefault()
-				await submitCode(this.$manualCodeInput.value.trim())
+				await wrapAction(async()=>{
+					await submitCode(this.$manualCodeInput.value.trim())
+				})
 				this.stopWaitingForAuthorization()
 			}
 		} else {
 			(<any>window).receiveOsmNoteViewerAuthCode=async(code:unknown)=>{
-				await submitCode(code)
+				await wrapAction(async()=>{
+					if (typeof code != 'string') {
+						throw new AuthError(`Unexpected code parameter type received from popup window`)
+					}
+					await submitCode(code)
+				})
+				this.stopWaitingForAuthorization()
+			}
+			(<any>window).receiveOsmNoteViewerAuthDenial=async(errorDescription:unknown)=>{
+				await wrapAction(async()=>{
+					throw new AuthError(typeof errorDescription == 'string'
+						? errorDescription
+						: `Unknown authorization error`
+					)
+				})
 				this.stopWaitingForAuthorization()
 			}
 		}
 		this.loginWindow=loginWindow
 		hideElement(this.$loginButton)
-		unhideElement(this.$cancelManualLoginButton)
+		unhideElement(this.$cancelLoginButton)
 		toggleUnhideElement(this.$manualCodeForm,this.isManualCodeEntry)
 	}
 	private stopWaitingForAuthorization() {
 		this.$manualCodeForm.onsubmit=(ev)=>ev.preventDefault()
 		delete (<any>window).receiveOsmNoteViewerAuthCode
+		delete (<any>window).receiveOsmNoteViewerAuthDenial
 		this.loginWindow?.close()
 		this.loginWindow=undefined
 		unhideElement(this.$loginButton)
-		hideElement(this.$cancelManualLoginButton)
+		hideElement(this.$cancelLoginButton)
 		hideElement(this.$manualCodeForm)
 		this.$manualCodeInput.value=''
-		// TODO cleanup error message
 	}
 }
 

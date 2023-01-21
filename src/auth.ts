@@ -6,14 +6,23 @@ import AuthLoginSection from './auth/login-section'
 import {makeElement} from './html'
 
 export default class Auth {
-	checkReceivedCode(): boolean {
+	checkRedirect(): boolean {
 		const params=new URLSearchParams(location.search)
 		const code=params.get('code')
-		if (code==null) return false
-		if (window.opener && typeof window.opener.receiveOsmNoteViewerAuthCode == 'function') {
-			window.opener.receiveOsmNoteViewerAuthCode(code)
+		const error=params.get('error')
+		const errorDescription=params.get('error_description')
+		if (code!=null) {
+			if (window.opener && typeof window.opener.receiveOsmNoteViewerAuthCode == 'function') {
+				window.opener.receiveOsmNoteViewerAuthCode(code)
+			}
+			return true
+		} else if (error!=null) {
+			if (window.opener && typeof window.opener.receiveOsmNoteViewerAuthDenial == 'function') {
+				window.opener.receiveOsmNoteViewerAuthDenial(errorDescription??error)
+			}
+			return true
 		}
-		return true
+		return false
 	}
 	writeAboutDialogSections(
 		$container: HTMLElement,
