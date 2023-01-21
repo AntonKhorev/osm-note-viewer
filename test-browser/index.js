@@ -183,6 +183,24 @@ describe("browser tests",function(){
 		await this.assertText(page,"the-first-note-comment")
 		await this.assertText(page,"the-second-note-comment")
 	})
+	it("has login button in when app is registered",async function(){
+		const page=await this.openPage()
+		const getToAboutTab=async()=>{
+			await this.waitForFetchButton()
+			const aboutTab=await page.$('nav a[href="#section-About"]')
+			await aboutTab.click()
+		}
+		const probeLoginButton=async()=>{
+			await page.waitForXPath(`//button[contains(.,"Login")]`,{visible:true,timeout:1000})
+		}
+		await getToAboutTab()
+		const clientIdInput=await page.$('#auth-app-client-id')
+		await clientIdInput.type('fake')
+		await probeLoginButton()
+		await page.reload()
+		await getToAboutTab()
+		await probeLoginButton()
+	})
 })
 
 async function readJson(downloadsFilename) {

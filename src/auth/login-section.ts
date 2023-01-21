@@ -100,19 +100,15 @@ export default class AuthLoginSection {
 			return userData
 		}
 
-		this.loginForms=new AuthLoginForms(this.$loginForms,(codeChallenge:string)=>{
-			const width=600
-			const height=600
-			return open(server.getWebUrl('oauth2/authorize')+'?'+[
+		this.loginForms=new AuthLoginForms(this.$loginForms,authStorage.isManualCodeEntry,(codeChallenge:string)=>{
+			return server.getWebUrl('oauth2/authorize')+'?'+[
 				['client_id',authStorage.clientId],
 				['redirect_uri',authStorage.redirectUri],
 				['scope','read_prefs write_notes'],
 				['response_type','code'],
 				['code_challenge',codeChallenge],
 				['code_challenge_method','S256']
-			].map(([k,v])=>k+'='+encodeURIComponent(v)).join('&'),'_blank',
-				`width=${width},height=${height},left=${screen.width/2-width/2},top=${screen.height/2-height/2}`
-			)
+			].map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
 		},async(code:string,codeVerifier:string)=>{
 			const tokenResponse=await webPostUrlencodedWithPossibleAuthError(`oauth2/token`,{},[
 				['client_id',authStorage.clientId],
@@ -136,7 +132,7 @@ export default class AuthLoginSection {
 			})
 			updateInResponseToLogin()
 		})
-		this.respondToAppRegistration()
+		this.updateVisibility()
 		const updateInResponseToLogin=()=>{
 			const logins=authStorage.getLogins()
 			if (logins.size==0) {
@@ -191,6 +187,9 @@ export default class AuthLoginSection {
 	}
 	respondToAppRegistration(): void {
 		this.loginForms.respondToAppRegistration(this.authStorage.isManualCodeEntry)
+		this.updateVisibility()
+	}
+	private updateVisibility(): void {
 		const canLogin=!!this.authStorage.clientId
 		toggleHideElement(this.$clientIdRequired,canLogin)
 		toggleUnhideElement(this.$loginForms,canLogin)

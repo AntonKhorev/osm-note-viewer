@@ -6,6 +6,15 @@ import AuthLoginSection from './auth/login-section'
 import {makeElement} from './html'
 
 export default abstract class Auth {
+	receivedCode(): boolean {
+		const params=new URLSearchParams(location.search)
+		const code=params.get('code')
+		if (code==null) return false
+		if (window.opener && typeof window.opener.receiveOsmNoteViewerAuthCode == 'function') {
+			window.opener.receiveOsmNoteViewerAuthCode(code)
+		}
+		return true
+	}
 }
 
 export class DummyAuth extends Auth {

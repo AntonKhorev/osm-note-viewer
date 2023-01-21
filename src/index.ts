@@ -46,11 +46,14 @@ async function main() {
 	// TODO don't output html before handling auth callback parameters
 	let auth: Auth
 	if (globalHistory.hasServer()) {
+		// TODO don't write stuff here too
 		auth=new RealAuth(storage,globalHistory.server)
 	} else {
 		auth=new DummyAuth()
 	}
-	// TODO handle auth callback parameters
+	if (auth.receivedCode()) {
+		return
+	}
 	
 	let map: NoteMap|undefined
 	let figureDialog: FigureDialog|undefined
