@@ -3,7 +3,7 @@ import NoteViewerDB from './db'
 import ServerList from './server-list'
 import GlobalEventsListener from './events'
 import GlobalHistory, {GlobalHistoryWithServer} from './history'
-import Auth, {DummyAuth, RealAuth} from './auth'
+import Auth from './auth'
 import NoteMap from './map'
 import FigureDialog from './figure'
 import Navbar from './navbar'
@@ -44,14 +44,8 @@ async function main() {
 
 	const globalHistory=new GlobalHistory($scrollingPart,serverList)
 	// TODO don't output html before handling auth callback parameters
-	let auth: Auth
-	if (globalHistory.hasServer()) {
-		// TODO don't write stuff here too
-		auth=new RealAuth(storage,globalHistory.server)
-	} else {
-		auth=new DummyAuth()
-	}
-	if (auth.receivedCode()) {
+	const auth=new Auth()
+	if (auth.checkReceivedCode()) {
 		return
 	}
 	

@@ -5,8 +5,8 @@ import AuthAppSection from './auth/app-section'
 import AuthLoginSection from './auth/login-section'
 import {makeElement} from './html'
 
-export default abstract class Auth {
-	receivedCode(): boolean {
+export default class Auth {
+	checkReceivedCode(): boolean {
 		const params=new URLSearchParams(location.search)
 		const code=params.get('code')
 		if (code==null) return false
@@ -15,20 +15,17 @@ export default abstract class Auth {
 		}
 		return true
 	}
-}
-
-export class DummyAuth extends Auth {
-	// TODO just clean up callback params
-}
-
-export class RealAuth extends Auth {
-	$appSection=makeElement('section')()()
-	$loginSection=makeElement('section')()()
-	constructor(storage: NoteViewerStorage, server: Server) {
-		super()
+	writeAboutDialogSections(
+		$container: HTMLElement,
+		storage: NoteViewerStorage, server: Server|undefined
+	):void {
+		if (!server) return
+		const $appSection=makeElement('section')()()
+		const $loginSection=makeElement('section')()()
 		const authStorage=new AuthStorage(storage,server.host)
-		const appSection=new AuthAppSection(this.$appSection,authStorage,server)
-		const loginSection=new AuthLoginSection(this.$loginSection,authStorage,server)
+		const appSection=new AuthAppSection($appSection,authStorage,server)
+		const loginSection=new AuthLoginSection($loginSection,authStorage,server)
 		appSection.onRegistrationUpdate=()=>loginSection.respondToAppRegistration()
+		$container.append($appSection,$loginSection)
 	}
 }

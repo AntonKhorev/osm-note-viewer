@@ -2,7 +2,7 @@ import NoteViewerStorage from './storage'
 import NoteViewerDB, {FetchEntry} from './db'
 import Server, {NominatimProvider, OverpassProvider} from './server'
 import ServerList from './server-list'
-import Auth, {RealAuth} from './auth'
+import Auth from './auth'
 import {NavDialog} from './navbar'
 import makeCodeForm from './code'
 import serverListConfig from './server-list-config'
@@ -95,9 +95,6 @@ export default class AboutDialog extends NavDialog {
 		super()
 	}
 	writeSectionContent() {
-		const writeSubheading=(s:string)=>{
-			this.$section.append(makeElement('h3')()(s))
-		}
 		{
 			const $section=makeElement('section')()(
 				makeElement('strong')()(`note-viewer`)
@@ -110,12 +107,7 @@ export default class AboutDialog extends NavDialog {
 			this.$section.append($section)
 		}
 		this.writeServersSubsection()
-		if (this.auth instanceof RealAuth) {
-			this.$section.append(
-				this.auth.$appSection,
-				this.auth.$loginSection
-			)
-		}
+		this.auth.writeAboutDialogSections(this.$section,this.storage,this.server)
 		this.writeStorageSubsection()
 		this.writeExtraSubsection()
 	}
