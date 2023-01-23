@@ -1,25 +1,38 @@
 import * as fs from 'fs/promises'
 import url from 'url'
 import puppeteer from 'puppeteer'
-import runServer from './tools/server.js'
+import runOsmServer from './tools/osm-server.js'
+import runClientServer from './tools/client-server.js'
 import {buildWithTestServer} from './tools/build.js'
 
+const dstDir='test-build/dist'
+let clientServer,clientUrl
+if (process.argv.includes('--client-server')) {
+	console.log(`running client server`)
+	clientServer=await runClientServer(dstDir)
+	clientUrl=clientServer.url
+} else {
+	clientUrl=`${url.pathToFileURL(`${dstDir}/index.html`)}`
+}
+
+console.log(`running dummy osm server`)
 const downloads=await readJson('downloads.json')
 const demoNotes=await readJson('demo-notes.json')
-console.log(`running dummy osm server`)
-const server=await runServer()
-server.setNotes(demoNotes)
-const dstDir='test-build/dist'
+const osmServer=await runOsmServer(clientUrl)
+osmServer.setNotes(demoNotes)
+osmServer.setLogin(true)
+
 console.log(`bundling test build`)
-await buildWithTestServer('src',dstDir,'cache',downloads,server.url)
+await buildWithTestServer('src',dstDir,'cache',downloads,osmServer.url)
+
 console.log(`running puppeteer`)
 {
-	const browserUrl=`${url.pathToFileURL(`${dstDir}/index.html`)}`
 	const browser=await puppeteer.launch({headless:false})
 	const page=await browser.newPage()
-	await page.goto(browserUrl)
+	await page.goto(clientUrl)
 	browser.on('disconnected',()=>{
-		server.close()
+		osmServer.close()
+		if (clientServer) clientServer.close()
 	})
 }
 

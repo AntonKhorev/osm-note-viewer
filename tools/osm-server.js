@@ -2,10 +2,20 @@ import * as fs from 'fs/promises'
 import * as http from 'http'
 
 let notesById=new Map()
+let login={}
 
-export default async function runServer(port=0) {
+export default async function runOsmServer(authRedirectUrl,port=0) {
 	const tileData=await fs.readFile(new URL('./tile.png',import.meta.url))
 	const server=http.createServer(async(request,response)=>{
+		// console.log('> osm server request',request.method,request.url)
+		if (request.method=='OPTIONS') {
+			response.writeHead(204,{
+				'access-control-allow-origin': '*',
+				'access-control-allow-methods': 'POST, GET, OPTIONS',
+				'access-control-allow-headers': 'authorization'
+			})
+			return response.end()
+		}
 		const [pathname,query]=request.url.split(/\?(.*)/)
 		let match
 		if (pathname=='/') {
@@ -21,6 +31,33 @@ export default async function runServer(port=0) {
 		} else if (match=pathname.match(new RegExp('/api/0\\.6/notes/(\\d+)\\.json'))) {
 			const [,id]=match
 			respondToNote(response,Number(id))
+		} else if (pathname=='/oauth2/authorize') {
+			if (!login.authCode) {
+				response.writeHead(200) // empty page displayed to the user telling
+			} else {
+				response.writeHead(302,{
+					'location': `${authRedirectUrl}?${new URLSearchParams(login.authCode)}`
+				})
+			}
+			response.end()
+		} else if (pathname=='/oauth2/token') {
+			if (!login.authToken) {
+				serveJson(response,{
+					error: `invalid_grant`,
+					error_description: `The provided authorization grant is invalid, expired, revoked, does not match the redirection URI used in the authorization request, or was issued to another client.`
+				},400)
+			} else {
+				serveJson(response,login.authToken)
+			}
+		} else if (pathname=='/api/0.6/user/details.json') {
+			if (!login.userDetails) {
+				response.writeHead(401,{
+					'access-control-allow-origin': '*'
+				})
+				response.end(`Couldn't authenticate you`)
+			} else {
+				serveJson(response,login.userDetails)
+			}
 		} else {
 			response.writeHead(404)
 			response.end(`Route not defined`)
@@ -34,11 +71,54 @@ export default async function runServer(port=0) {
 		get url() {
 			return `http://127.0.0.1:${server.address().port}/`
 		},
-		clearNotes() {
+		clearData() {
 			notesById=new Map()
+			login={}
 		},
-		setNotes(notes) {
-			notesById=initializeNotes(notes)
+		setNotes(notesInput) {
+			notesById=initializeNotes(notesInput)
+		},
+		setLogin(loginInput) {
+			if (!loginInput) {
+				login={}
+				return
+			}
+			login={
+				authCode: {
+					"code":"auth-code-1"
+				},
+				authToken: {
+					"access_token":"auth-token-1",
+					"token_type":"Bearer",
+					"scope":"read_prefs write_notes",
+					"created_at":1674390614
+				},
+				userDetails: {
+					"version":"0.6",
+					"generator":"OpenStreetMap server",
+					"copyright":"OpenStreetMap and contributors",
+					"attribution":"http://www.openstreetmap.org/copyright",
+					"license":"http://opendatacommons.org/licenses/odbl/1-0/",
+					"user":{
+						"id":1042,
+						"display_name":"logged-in-user-name",
+						"account_created":"2023-01-02T03:04:05Z",
+						"description":"",
+						"contributor_terms":{"agreed":true,"pd":false},
+						"roles":["moderator"],
+						"changesets":{"count":6},
+						"traces":{"count":0},
+						"blocks":{
+							"received":{"count":0,"active":0},
+							"issued":{"count":0,"active":0}},
+							"languages":["en-US","en"],
+							"messages":{
+								"received":{"count":11,"unread":2},
+								"sent":{"count":11}
+							}
+					}
+				}
+			}
 		},
 		async close() {
 			server.close()
@@ -69,8 +149,8 @@ function respondToNote(response,id) {
 	serveJson(response,getNoteJson(note))
 }
 
-function serveJson(response,data) {
-	response.writeHead(200,{
+function serveJson(response,data,code=200) {
+	response.writeHead(code,{
 		'access-control-allow-origin': '*',
 		'content-type': 'application/json',
 		'cache-control': 'no-cache',

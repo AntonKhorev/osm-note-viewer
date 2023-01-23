@@ -2,12 +2,13 @@ import {strict as assert} from 'assert'
 import * as fs from 'fs/promises'
 import url from 'url'
 import puppeteer from 'puppeteer'
-import runServer from '../tools/server.js'
+import runOsmServer from '../tools/osm-server.js'
+import runClientServer from '../tools/client-server.js'
 import {buildWithTestServer} from '../tools/build.js'
 
+const useClientServer=true
 const keepBrowser=true
-// const visible=true
-const visible=false
+const visible=!!process.env.npm_config_visible
 const browserOptions=visible?{
 	headless: false,
 	slowMo: 200
@@ -15,7 +16,6 @@ const browserOptions=visible?{
 
 const downloads=await readJson('downloads.json')
 const dstDir='test-build/dist'
-const browserUrl=`${url.pathToFileURL(`${dstDir}/index.html`)}`
 
 // can test XPath in browser like this:
 // document.evaluate(`//button[not(@disabled) and contains(.,"Halt")]`,document).iterateNext()
@@ -25,24 +25,38 @@ describe("browser tests",function(){
 	if (visible) this.timeout(0)
 	before(async function(){
 		this.timeout(0)
-		this.server=await runServer()
-		await buildWithTestServer('src',dstDir,'cache',downloads,this.server.url)
+		if (useClientServer) {
+			this.clientServer=await runClientServer(dstDir)
+			this.clientUrl=this.clientServer.url
+		} else {
+			this.clientUrl=`${url.pathToFileURL(`${dstDir}/index.html`)}`
+		}
+		this.osmServer=await runOsmServer(this.clientUrl)
+		await buildWithTestServer('src',dstDir,'cache',downloads,this.osmServer.url)
 		if (keepBrowser) this.browser=await puppeteer.launch(browserOptions)
 	})
 	after(async function(){
 		if (keepBrowser) await this.browser.close()
-		await this.server.close()
+		await this.osmServer.close()
+		if (useClientServer) {
+			await this.clientServer.close()
+		}
 	})
 	beforeEach(async function(){
-		this.server.clearNotes()
+		this.osmServer.clearData()
 		if (!keepBrowser) this.browser=await puppeteer.launch(browserOptions)
 		const page=await this.browser.newPage()
-		this.openPage=async(url=browserUrl)=>{
-			await page.goto(url)
+		this.openPage=async(path='')=>{
+			await page.goto(this.clientUrl+path)
 			return page
 		}
 		this.waitForFetchButton=()=>page.waitForXPath(`//button[not(@disabled) and contains(.,"Fetch notes")]`)
 		this.waitForTool=(summaryText)=>page.waitForXPath(`//details[@class="tool" and contains(./summary,"${summaryText}")]`)
+		this.getToAboutTab=async()=>{
+			await this.waitForFetchButton()
+			const aboutTab=await page.$('nav a[href="#section-About"]')
+			await aboutTab.click()
+		}
 		const hasText=async(target,text)=>(await target.$x(`//*[contains(text(),"${text}")]`)).length
 		this.assertText=async(target,text)=>assert(await hasText(target,text),`missing expected text "${text}"`)
 		this.assertNoText=async(target,text)=>assert(!await hasText(target,text),`present unexpected text "${text}"`)
@@ -60,7 +74,7 @@ describe("browser tests",function(){
 		if (!keepBrowser) await this.browser.close()
 	})
 	it("runs basic query",async function(){
-		this.server.setNotes([{
+		this.osmServer.setNotes([{
 			"text": "the-only-note-comment"
 		}])
 		const page=await this.openPage()
@@ -71,7 +85,7 @@ describe("browser tests",function(){
 		await this.assertText(page,"the-only-note-comment")
 	})
 	it("updates the note",async function(){
-		this.server.setNotes([{
+		this.osmServer.setNotes([{
 			"id": 101,
 			"comments": [{
 				"date": "2022-04-01",
@@ -86,7 +100,7 @@ describe("browser tests",function(){
 		await page.waitForSelector('.notes tbody')
 		await this.assertText(page,"the-first-note-comment")
 		await this.assertNoText(page,"the-second-note-comment")
-		this.server.setNotes([{
+		this.osmServer.setNotes([{
 			"id": 101,
 			"comments": [{
 				"date": "2022-04-01",
@@ -141,7 +155,7 @@ describe("browser tests",function(){
 	})
 	it("replaces note after it has reported update",async function(){
 		this.timeout(5000)
-		this.server.setNotes([{
+		this.osmServer.setNotes([{
 			"id": 101,
 			"comments": [{
 				"date": "2022-04-01",
@@ -162,7 +176,7 @@ describe("browser tests",function(){
 		await this.assertText(page,"the-first-note-comment")
 		await this.assertNoText(page,"the-second-note-comment")
 		await (await page.$('.notes tbody a')).focus()
-		this.server.setNotes([{
+		this.osmServer.setNotes([{
 			"id": 101,
 			"comments": [{
 				"date": "2022-04-01",
@@ -185,25 +199,34 @@ describe("browser tests",function(){
 	})
 	it("has login button in when app is registered",async function(){
 		const page=await this.openPage()
-		const getToAboutTab=async()=>{
-			await this.waitForFetchButton()
-			const aboutTab=await page.$('nav a[href="#section-About"]')
-			await aboutTab.click()
-		}
 		const probeLoginButton=async()=>{
 			await page.waitForXPath(`//button[contains(.,"Login")]`,{visible:true,timeout:1000})
 		}
-		await getToAboutTab()
+		await this.getToAboutTab()
 		const clientIdInput=await page.$('#auth-app-client-id')
 		await clientIdInput.type('fake')
 		await probeLoginButton()
 		await page.reload()
-		await getToAboutTab()
+		await this.getToAboutTab()
 		await probeLoginButton()
 	})
 	it("has error message when directly opening page with oauth redirect parameters",async function(){
-		const page=await this.openPage(browserUrl+'?code=wrong')
+		const page=await this.openPage('?code=wrong')
 		await this.assertText(page,"outside of a popup")
+	})
+	it("can log in",async function(){
+		this.osmServer.setLogin(true)
+		const page=await this.openPage()
+		await this.getToAboutTab()
+		const clientIdInput=await page.$('#auth-app-client-id')
+		await clientIdInput.type('id')
+		const aboutSection=await page.$('#section-About')
+		const [loginSection]=await aboutSection.$x(`//section[contains(h3,"Logins")]`)
+		const loginButton=await loginSection.waitForXPath(`//button[contains(.,"Login")]`,{visible:true,timeout:1000})
+		await this.assertNoText(page,"logged-in-user-name")
+		loginButton.click()
+		await loginSection.waitForSelector('table')
+		await this.assertText(page,"logged-in-user-name")
 	})
 })
 

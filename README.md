@@ -72,6 +72,7 @@ To build from source you need [Node.js](https://nodejs.org/). v14 is enough, may
 
 - `npm test` runs unit tests 
 - `npm test test-browser` runs slower in-browser tests
+- `npm --visible test test-browser` runs in-browser tests in a visible browser window
 - `npm test -- test-browser -g "test name"` runs a specific in-browser test
 
 [github-host]: https://antonkhorev.github.io/osm-note-viewer/
