@@ -51,7 +51,7 @@ export function toUserQuery(urlLister: ApiUrlLister&WebUrlLister, value: string)
 	}
 	if (s.includes('/')) {
 		const hosts=new Set<string>()
-		for (const urlString of [urlLister.apiUrl,...urlLister.webUrls]) {
+		for (const urlString of [urlLister.api.url,...urlLister.web.urls]) {
 			try {
 				const url=new URL(urlString)
 				hosts.add(url.host)

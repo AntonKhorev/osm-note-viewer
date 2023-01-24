@@ -3,14 +3,14 @@ import NoteFilter from '../../test-build/filter.js'
 
 class ApiAndWebUrlLister {
 	constructor(apiUrl,webUrls) {
-		this.apiUrl=apiUrl
-		this.webUrls=webUrls
-	}
-	getApiUrl(apiPath) {
-		return `${this.apiUrl}api/0.6/${apiPath}`
-	}
-	getWebUrl(webPath) {
-		return `${this.webUrls[0]}${webPath}`
+		this.api={
+			url: apiUrl,
+			getUrl: apiPath=>`${apiUrl}api/0.6/${apiPath}`
+		}
+		this.web={
+			urls: webUrls,
+			getUrl: webPath=>`${webUrls[0]}${webPath}`
+		}
 	}
 }
 

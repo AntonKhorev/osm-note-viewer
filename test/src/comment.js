@@ -3,10 +3,10 @@ import getCommentItems from '../../test-build/comment.js'
 
 class WebUrlLister {
 	constructor(webUrls) {
-		this.webUrls=webUrls
-	}
-	getWebUrl(webPath) {
-		return `${this.webUrls[0]}${webPath}`
+		this.web={
+			urls: webUrls,
+			getUrl: webPath=>`${webUrls[0]}${webPath}`
+		}
 	}
 }
 

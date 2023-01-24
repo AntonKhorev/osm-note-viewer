@@ -39,8 +39,8 @@ export class InteractTool extends Tool {
 	}
 	getTool(callbacks: ToolCallbacks, auth: Auth): ToolElements {
 		const e=makeEscapeTag(encodeURIComponent)
-		const getReportUrl=(id:number)=>auth.server.getWebUrl(e`reports/new?reportable_id=${id}&reportable_type=Note`)
-		const getNoteListItem=(id:number)=>`- `+auth.server.getWebUrl(e`note/${id}`)+`\n`
+		const getReportUrl=(id:number)=>auth.server.web.getUrl(e`reports/new?reportable_id=${id}&reportable_type=Note`)
+		const getNoteListItem=(id:number)=>`- `+auth.server.web.getUrl(e`note/${id}`)+`\n`
 		const getNoteList=()=>this.selectedNoteIds.map(getNoteListItem).join('')
 		const copyNoteList=()=>navigator.clipboard.writeText(getNoteList())
 		const $commentText=document.createElement('textarea')

@@ -18,7 +18,7 @@ export default async function fetchTableNote(
 ): Promise<[note:Note,users:Users]> {
 		$a.classList.add('loading')
 		try {
-			const response=await apiFetcher.apiFetch(e`notes/${noteId}.json`)
+			const response=await apiFetcher.api.fetch(e`notes/${noteId}.json`)
 			if (!response.ok) throw new NoteDataError(`note reload failed`)
 			const data=await response.json()
 			if (!isNoteFeature(data)) throw new NoteDataError(`note reload received invalid data`)

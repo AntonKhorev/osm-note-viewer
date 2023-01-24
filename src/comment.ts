@@ -92,7 +92,7 @@ export default function getCommentItems(webUrlLister: WebUrlLister, commentText:
 }
 
 function makeWebUrlRegex(webUrlLister: WebUrlLister): string {
-	return '(?:'+webUrlLister.webUrls.map(webUrl=>escapeRegex(stripProtocol(webUrl))).join('|')+')'
+	return '(?:'+webUrlLister.web.urls.map(webUrl=>escapeRegex(stripProtocol(webUrl))).join('|')+')'
 }
 
 function stripProtocol(webUrl: string): string {
@@ -156,7 +156,7 @@ function getMatchItem(webUrlLister: WebUrlLister, groups: {[key:string]:string})
 }
 
 function rewriteOsmHref(webUrlLister: WebUrlLister, path: string|undefined, hash: string|undefined): string {
-	let href=webUrlLister.getWebUrl(path??'')
+	let href=webUrlLister.web.getUrl(path??'')
 	if (hash) href+=hash
 	return href
 }

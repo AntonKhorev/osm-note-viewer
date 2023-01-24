@@ -1,17 +1,23 @@
 import {makeEscapeTag} from './escape'
 
 export interface ApiFetcher {
-	apiFetch(apiPath:string): Promise<Response>
+	api: {
+		fetch(apiPath:string): Promise<Response>
+	}
 }
 
 export interface ApiUrlLister {
-	get apiUrl(): string
-	getApiUrl(apiPath:string):string
+	api: {
+		get url(): string
+		getUrl(apiPath:string): string
+	}
 }
 
 export interface WebUrlLister {
-	get webUrls(): readonly string[]
-	getWebUrl(webPath:string): string
+	web: {
+		get urls(): readonly string[]
+		getUrl(webPath:string): string
+	}
 }
 
 export interface TileSource {
@@ -104,14 +110,58 @@ export class OverpassTurboProvider {
 	}
 }
 
+abstract class OsmProvider {
+	abstract getUrl(path:string):string
+	fetch(path:string,init?:RequestInit) {
+		return fetch(this.getUrl(path),init)
+	}
+	postUrlencoded(path:string,headers:{[k:string]:string},parameters:[k:string,v:string][]) {
+		return this.fetch(path,{
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
+				...headers
+			},
+			body: parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
+		})
+	}
+}
+
+export class WebProvider extends OsmProvider {
+	constructor(
+		public readonly urls: string[]
+	) {
+		super()
+	}
+	getUrl(path:string):string {
+		return `${this.urls[0]}${path}`
+	}
+}
+
+export class ApiProvider extends OsmProvider {
+	constructor(
+		public readonly url: string
+	) {
+		super()
+	}
+	getUrl(path:string):string {
+		return `${this.url}api/0.6/${path}`
+	}
+	getRootUrl(rootPath:string):string { // only used in note export user urls for no good reason other than osm website doing so
+		return `${this.url}${rootPath}`
+	}
+}
+
 export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, TileSource {
+	public readonly web: WebProvider
+	public readonly api: ApiProvider
 	public readonly nominatim: NominatimProvider|undefined
 	public readonly overpass: OverpassProvider|undefined
 	public readonly overpassTurbo: OverpassTurboProvider|undefined
 	constructor(
 		public readonly host: string,
-		public readonly apiUrl: string,
-		public readonly webUrls: string[],
+		apiUrl: string,
+		webUrls: string[],
 		public readonly tileUrlTemplate: string,
 		public readonly tileAttributionUrl: string,
 		public readonly tileAttributionText: string,
@@ -124,23 +174,10 @@ export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, T
 		public readonly noteText: string|undefined,
 		public readonly world: string
 	) {
+		this.web=new WebProvider(webUrls)
+		this.api=new ApiProvider(apiUrl)
 		if (nominatimUrl!=null) this.nominatim=new NominatimProvider(nominatimUrl)
 		if (overpassUrl!=null) this.overpass=new OverpassProvider(overpassUrl)
 		if (overpassTurboUrl!=null) this.overpassTurbo=new OverpassTurboProvider(overpassTurboUrl)
-	}
-	apiFetch(apiPath:string,init?:RequestInit) {
-		return fetch(this.getApiUrl(apiPath),init)
-	}
-	getApiUrl(apiPath:string):string {
-		return `${this.apiUrl}api/0.6/${apiPath}`
-	}
-	getApiRootUrl(apiRootPath:string):string { // only used in note export user urls for no good reason other than osm website doing so
-		return `${this.apiUrl}${apiRootPath}`
-	}
-	getWebUrl(webPath:string):string {
-		return `${this.webUrls[0]}${webPath}`
-	}
-	webFetch(webPath:string,init?:RequestInit) {
-		return fetch(this.getWebUrl(webPath),init)
 	}
 }

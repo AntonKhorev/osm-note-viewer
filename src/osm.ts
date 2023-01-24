@@ -128,7 +128,7 @@ export async function downloadAndShowChangeset(
 	changesetId: string
 ): Promise<void> {
 	downloadCommon($a,map,async()=>{
-		const response=await server.apiFetch(e`changeset/${changesetId}.json`)
+		const response=await server.api.fetch(e`changeset/${changesetId}.json`)
 		if (!response.ok) {
 			if (response.status==404) {
 				throw new TypeError(`changeset doesn't exist`)
@@ -164,7 +164,7 @@ export async function downloadAndShowElement(
 ): Promise<void> {
 	downloadCommon($a,map,async()=>{
 		const fullBit=(elementType=='node' ? '' : '/full')
-		const response=await server.apiFetch(e`${elementType}/${elementId}`+`${fullBit}.json`)
+		const response=await server.api.fetch(e`${elementType}/${elementId}`+`${fullBit}.json`)
 		if (!response.ok) {
 			if (response.status==404) {
 				throw new TypeError(`element doesn't exist`)
@@ -286,7 +286,7 @@ function makeChangesetPopupContents(server: Server, changeset: OsmChangeset): HT
 	const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
 	const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
 	const c=(...s: Array<string|HTMLElement>)=>p(makeElement('em')()(...s))
-	const changesetHref=server.getWebUrl(e`changeset/${changeset.id}`)
+	const changesetHref=server.web.getUrl(e`changeset/${changeset.id}`)
 	contents.push(
 		h(`Changeset: `,makeLink(String(changeset.id),changesetHref))
 	)
@@ -313,11 +313,11 @@ function makeElementPopupContents(server: Server, element: OsmElement): HTMLElem
 	const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
 	const elementPath=e`${element.type}/${element.id}`
 	const contents: HTMLElement[] = [
-		h(capitalize(element.type)+`: `,makeLink(getElementName(element),server.getWebUrl(elementPath))),
+		h(capitalize(element.type)+`: `,makeLink(getElementName(element),server.web.getUrl(elementPath))),
 		h(
 			`Version #${element.version} · `,
-			makeLink(`View History`,server.getWebUrl(elementPath+'/history')),` · `,
-			makeLink(`Edit`,server.getWebUrl(e`edit?${element.type}=${element.id}`))
+			makeLink(`View History`,server.web.getUrl(elementPath+'/history')),` · `,
+			makeLink(`Edit`,server.web.getUrl(e`edit?${element.type}=${element.id}`))
 		),
 		p(
 			`Edited on `,getDate(element.timestamp),
@@ -367,7 +367,7 @@ function getUser(server: Server, data: OsmBase): HTMLElement {
 
 function getChangeset(server: Server, changesetId: number): HTMLElement {
 	const cid=String(changesetId)
-	const $a=makeLink(cid,server.getWebUrl(e`changeset/${cid}`))
+	const $a=makeLink(cid,server.web.getUrl(e`changeset/${cid}`))
 	$a.classList.add('listened')
 	$a.dataset.changesetId=cid
 	return $a
@@ -425,11 +425,11 @@ function makeUserLink(server: Server, uid: number, username?: string): HTMLEleme
 }
 
 function makeUserNameLink(server: Server, username: string): HTMLAnchorElement {
-	const fromName=(name: string)=>server.getWebUrl(e`user/${name}`)
+	const fromName=(name: string)=>server.web.getUrl(e`user/${name}`)
 	return makeLink(username,fromName(username))
 }
 
 function makeUserIdLink(server: Server, uid: number): HTMLAnchorElement {
-	const fromId=(id: number)=>server.getApiUrl(e`user/${id}`)
+	const fromId=(id: number)=>server.api.getUrl(e`user/${id}`)
 	return makeLink('#'+uid,fromId(uid))
 }

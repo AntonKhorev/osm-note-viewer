@@ -61,16 +61,8 @@ export default class AuthLoginSection {
 		private readonly authStorage: AuthStorage,
 		server: Server
 	) {
-		const webPostUrlencoded=(webPath:string,headers:{[k:string]:string},parameters:[k:string,v:string][])=>server.webFetch(webPath,{
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded',
-				...headers
-			},
-			body: parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
-		})
 		const webPostUrlencodedWithPossibleAuthError=async(webPath:string,headers:{[k:string]:string},parameters:[k:string,v:string][],whenMessage:string)=>{
-			const response=await webPostUrlencoded(webPath,headers,parameters)
+			const response=await server.web.postUrlencoded(webPath,headers,parameters)
 			if (response.ok) return response
 			let errorData: unknown
 			try {
@@ -83,7 +75,7 @@ export default class AuthLoginSection {
 			}
 		}
 		const fetchUserData=async(token:string):Promise<UserData>=>{
-			const userResponse=await server.apiFetch(`user/details.json`,{
+			const userResponse=await server.api.fetch(`user/details.json`,{
 				headers: {
 					Authorization: 'Bearer '+token
 				}
@@ -102,7 +94,7 @@ export default class AuthLoginSection {
 		}
 
 		this.loginForms=new AuthLoginForms(this.$loginForms,authStorage.isManualCodeEntry,(codeChallenge:string)=>{
-			return server.getWebUrl('oauth2/authorize')+'?'+[
+			return server.web.getUrl('oauth2/authorize')+'?'+[
 				['client_id',authStorage.clientId],
 				['redirect_uri',authStorage.redirectUri],
 				['scope','read_prefs write_notes'],
@@ -160,7 +152,7 @@ export default class AuthLoginSection {
 				]
 			})
 			for (const [token,login] of logins) {
-				const userHref=server.getWebUrl(`user/`+encodeURIComponent(login.username))
+				const userHref=server.web.getUrl(`user/`+encodeURIComponent(login.username))
 				const $updateButton=makeElement('button')()(`Update user info`)
 				const $logoutButton=makeElement('button')()(`Logout`)
 				$updateButton.onclick=()=>wrapFetchForButton($updateButton,async()=>{

@@ -103,7 +103,7 @@ export class OverpassTool extends OverpassBaseTool {
 			const doc=await server.overpass.fetch(query)
 			const closestNodeId=getClosestNodeId(doc,map.lat,map.lon)
 			if (!closestNodeId) throw `Could not find nodes nearby`
-			const url=server.getWebUrl(`node/`+encodeURIComponent(closestNodeId))
+			const url=server.web.getUrl(`node/`+encodeURIComponent(closestNodeId))
 			const $a=makeLink(`link`,url)
 			$a.dataset.elementType='node'
 			$a.dataset.elementId=String(closestNodeId)

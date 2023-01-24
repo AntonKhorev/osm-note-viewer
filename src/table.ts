@@ -324,7 +324,7 @@ export default class NoteTable implements NoteTableUpdater {
 			$cell.classList.add('note-link')
 			if (nComments>1) $cell.rowSpan=nComments
 			const $a=document.createElement('a')
-			$a.href=this.server.getWebUrl(`note/`+encodeURIComponent(note.id))
+			$a.href=this.server.web.getUrl(`note/`+encodeURIComponent(note.id))
 			$a.dataset.noteId=$a.textContent=`${note.id}`
 			$a.dataset.self='yes'
 			$a.classList.add('listened')
@@ -349,7 +349,7 @@ export default class NoteTable implements NoteTableUpdater {
 				if (comment.uid!=null) {
 					const username=users[comment.uid]
 					if (username!=null) {
-						const href=this.server.getWebUrl(`user/`+encodeURIComponent(username))
+						const href=this.server.web.getUrl(`user/`+encodeURIComponent(username))
 						const $a=makeLink(username,href)
 						$a.classList.add('listened')
 						$a.dataset.userName=username

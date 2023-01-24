@@ -174,7 +174,7 @@ export class GpxTool extends ExportTool {
 				gpx+=this.getCommentStrings(note.comments,options.commentQuantity=='all').map(escapeXml).join(`&#xA;\n`) // JOSM wants this kind of double newline, otherwise no space between comments is rendered
 				gpx+=`</desc>\n`
 			}
-			const noteUrl=server.getWebUrl(`note/`+encodeURIComponent(note.id))
+			const noteUrl=server.web.getUrl(`note/`+encodeURIComponent(note.id))
 			gpx+=e`<link href="${noteUrl}">\n`
 			gpx+=e`<text>note #${note.id} on osm</text>\n`
 			gpx+=e`</link>\n`
@@ -296,25 +296,25 @@ export class GeoJsonTool extends ExportTool {
 			if (username==null) return result
 			result.user=username
 			if (options.urls=='web') {
-				result.user_url=server.getWebUrl(e`user/${username}`)
+				result.user_url=server.web.getUrl(e`user/${username}`)
 			} else {
-				result.user_url=server.getApiRootUrl(e`user/${username}`)
+				result.user_url=server.api.getRootUrl(e`user/${username}`)
 			}
 			return result
 		}
 		const generateNoteUrls=(note:Note):{[key:string]:string}=>{
 			if (options.urls=='web') return {
-				url: server.getWebUrl(e`note/${note.id}`)
+				url: server.web.getUrl(e`note/${note.id}`)
 			}
 			const apiBasePath= e`notes/${note.id}`
 			const result: {[key:string]:string} = {
-				url: server.getApiUrl(apiBasePath+`.json`)
+				url: server.api.getUrl(apiBasePath+`.json`)
 			}
 			if (note.status=='closed') {
-				result.reopen_url=server.getApiUrl(apiBasePath+`/reopen.json`)
+				result.reopen_url=server.api.getUrl(apiBasePath+`/reopen.json`)
 			} else {
-				result.comment_url=server.getApiUrl(apiBasePath+`/comment.json`)
-				result.close_url=server.getApiUrl(apiBasePath+`/close.json`)
+				result.comment_url=server.api.getUrl(apiBasePath+`/comment.json`)
+				result.close_url=server.api.getUrl(apiBasePath+`/close.json`)
 			}
 			return result
 		}

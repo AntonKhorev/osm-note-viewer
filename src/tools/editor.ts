@@ -25,7 +25,7 @@ export class RcTool extends Tool {
 		$loadNotesButton.append(`Load `,makeNotesIcon('selected'))
 		$loadNotesButton.onclick=async()=>{
 			for (const {id} of this.selectedNotes) {
-				const noteUrl=server.getWebUrl(e`note/${id}`)
+				const noteUrl=server.web.getUrl(e`note/${id}`)
 				const rcUrl=e`http://127.0.0.1:8111/import?url=${noteUrl}`
 				const success=await openRcUrl($loadNotesButton,rcUrl)
 				if (!success) break
@@ -78,7 +78,7 @@ export class IdTool extends Tool {
 		$zoomButton.append(`Open `,makeMapIcon('center'))
 		$zoomButton.onclick=()=>{
 			const e=makeEscapeTag(encodeURIComponent)
-			const url=server.getWebUrl(e`id#map=${map.zoom}/${map.lat}/${map.lon}`)
+			const url=server.web.getUrl(e`id#map=${map.zoom}/${map.lat}/${map.lon}`)
 			open(url,'id')
 		}
 		return [$zoomButton]

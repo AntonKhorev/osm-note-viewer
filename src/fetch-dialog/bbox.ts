@@ -57,7 +57,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 	protected makeLeadAdvancedHint(): Array<string|HTMLElement> {
 		return [
 			`Get `,makeLink(`notes by bounding box`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`),
-			` request at `,code(this.server.getApiUrl(`notes?`),em(`parameters`)),`; see `,em(`parameters`),` below.`
+			` request at `,code(this.server.api.getUrl(`notes?`),em(`parameters`)),`; see `,em(`parameters`),` below.`
 		]
 	}
 	protected listParameters(closedDescriptionItems: Array<string|HTMLElement>): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][] {

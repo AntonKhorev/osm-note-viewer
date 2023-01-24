@@ -148,7 +148,7 @@ export default class AboutDialog extends NavDialog {
 					$radio.onclick=()=>$a.click()
 					return [
 						[$label],
-						availableServer.getWebUrl(''),
+						availableServer.web.getUrl(''),
 						availableServer.tileOwner,
 						availableServer.nominatim?.statusUrl,
 						availableServer.overpass?.statusUrl,
@@ -221,7 +221,7 @@ export default class AboutDialog extends NavDialog {
 				const fetchEntryServer=this.serverList.getServer(host)
 				if (username) {
 					if (fetchEntryServer) {
-						const href=fetchEntryServer.getWebUrl(`user/`+encodeURIComponent(username))
+						const href=fetchEntryServer.web.getUrl(`user/`+encodeURIComponent(username))
 						$userCell.append(`user `,makeLink(username,href))
 					} else {
 						$userCell.append(`user ${username}`)
@@ -231,7 +231,7 @@ export default class AboutDialog extends NavDialog {
 					if (match) {
 						const [id]=match
 						if (fetchEntryServer) {
-							const href=fetchEntryServer.getWebUrl(`note/`+encodeURIComponent(id))
+							const href=fetchEntryServer.web.getUrl(`note/`+encodeURIComponent(id))
 							$userCell.append(`note `,makeLink(id,href),`, ...`)
 						} else {
 							$userCell.append(`note ${id}, ...`)
