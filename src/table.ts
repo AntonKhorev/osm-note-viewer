@@ -62,7 +62,7 @@ export default class NoteTable implements NoteTableUpdater {
 				if (!($a instanceof HTMLAnchorElement)) {
 					throw new Error(`note link not found during single note fetch`)
 				}
-				const [note,users]=await fetchTableNote(server,$a,Number(id))
+				const [note,users]=await fetchTableNote(server.api,$a,Number(id))
 				await this.onRefresherUpdate?.(note,users)
 				return [note,users]
 			}

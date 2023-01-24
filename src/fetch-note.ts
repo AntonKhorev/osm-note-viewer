@@ -1,4 +1,4 @@
-import type {ApiFetcher} from './server'
+import type {ApiProvider} from './server'
 import {Note, Users, isNoteFeature, transformFeatureToNotesAndUsers} from './data'
 import {makeEscapeTag} from './escape'
 
@@ -13,12 +13,12 @@ export class NoteDataError extends TypeError {}
  * Reload a single note updating its link
  */
 export default async function fetchTableNote(
-	apiFetcher: ApiFetcher,
+	api: ApiProvider,
 	$a: HTMLAnchorElement, noteId: number
 ): Promise<[note:Note,users:Users]> {
 		$a.classList.add('loading')
 		try {
-			const response=await apiFetcher.api.fetch(e`notes/${noteId}.json`)
+			const response=await api.fetch(e`notes/${noteId}.json`)
 			if (!response.ok) throw new NoteDataError(`note reload failed`)
 			const data=await response.json()
 			if (!isNoteFeature(data)) throw new NoteDataError(`note reload received invalid data`)

@@ -77,7 +77,7 @@ async function main() {
 	if (globalHistory.hasServer()) {
 		globalEventsListener.noteSelfListener=async($a,noteId)=>{
 			try {
-				const [note,users]=await fetchTableNote(globalHistory.server,$a,Number(noteId))
+				const [note,users]=await fetchTableNote(globalHistory.server.api,$a,Number(noteId))
 				await fetchPanel.fetcherRun?.updateNote(note,users)
 				noteTable?.replaceNote(note,users)
 			} catch {}

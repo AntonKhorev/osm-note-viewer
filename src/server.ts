@@ -1,11 +1,5 @@
 import {makeEscapeTag} from './escape'
 
-export interface ApiFetcher {
-	api: {
-		fetch(apiPath:string): Promise<Response>
-	}
-}
-
 export interface ApiUrlLister {
 	api: {
 		get url(): string
@@ -152,7 +146,7 @@ export class ApiProvider extends OsmProvider {
 	}
 }
 
-export default class Server implements ApiFetcher, ApiUrlLister, WebUrlLister, TileSource {
+export default class Server implements ApiUrlLister, WebUrlLister, TileSource {
 	public readonly web: WebProvider
 	public readonly api: ApiProvider
 	public readonly nominatim: NominatimProvider|undefined
