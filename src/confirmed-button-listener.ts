@@ -1,10 +1,11 @@
 import {hideElement, unhideElement} from "./html"
 
 export default class ConfirmedButtonListener {
+	private confirmDelayId?: number
 	constructor(
-		private $initButton: HTMLButtonElement,
-		private $cancelButton: HTMLButtonElement,
-		private $confirmButton: HTMLButtonElement,
+		private readonly $initButton: HTMLButtonElement,
+		private readonly $cancelButton: HTMLButtonElement,
+		private readonly $confirmButton: HTMLButtonElement,
 		runAction: ()=>Promise<void>,
 		isConfirmationRequired: ()=>boolean = ()=>true
 	) {
@@ -25,11 +26,16 @@ export default class ConfirmedButtonListener {
 		}
 	}
 	reset() {
+		clearTimeout(this.confirmDelayId)
+		this.$confirmButton.disabled=true
 		unhideElement(this.$initButton)
 		hideElement(this.$confirmButton)
 		hideElement(this.$cancelButton)
 	}
 	private ask() {
+		this.confirmDelayId=setTimeout(()=>{
+			this.$confirmButton.disabled=false
+		},1000)
 		hideElement(this.$initButton)
 		unhideElement(this.$confirmButton)
 		unhideElement(this.$cancelButton)
