@@ -149,7 +149,7 @@ export default class AboutDialog extends NavDialog {
 					return [
 						[$label],
 						availableServer.web.getUrl(''),
-						availableServer.tileOwner,
+						availableServer.tile.owner,
 						availableServer.nominatim?.statusUrl,
 						availableServer.overpass?.statusUrl,
 						availableServer.overpassTurbo?.url,

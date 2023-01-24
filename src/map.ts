@@ -1,4 +1,4 @@
-import type {TileSource} from './server'
+import type {TileProvider} from './server'
 import NoteMarker from './marker'
 import {escapeXml, makeEscapeTag} from './escape'
 
@@ -26,14 +26,14 @@ export default class NoteMap {
 	needToFitNotes: boolean = false
 	freezeMode: NoteMapFreezeMode = 'no'
 	private queuedPopup: [layerId: number, writer: ()=>HTMLElement] | undefined
-	constructor($container: HTMLElement, tileSource: TileSource) {
+	constructor($container: HTMLElement, tile: TileProvider) {
 		this.leafletMap=L.map($container,{
 			worldCopyJump: true
 		})
 		this.leafletMap.addLayer(L.tileLayer(
-			tileSource.tileUrlTemplate,{
-				attribution: e`© <a href="${tileSource.tileAttributionUrl}">${tileSource.tileAttributionText}</a>`,
-				maxZoom: tileSource.tileMaxZoom
+			tile.urlTemplate,{
+				attribution: e`© <a href="${tile.attributionUrl}">${tile.attributionText}</a>`,
+				maxZoom: tile.maxZoom
 			}
 		)).fitWorld()
 		this.elementLayer=L.featureGroup().addTo(this.leafletMap)

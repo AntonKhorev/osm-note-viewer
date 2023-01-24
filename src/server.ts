@@ -14,13 +14,6 @@ export interface WebUrlLister {
 	}
 }
 
-export interface TileSource {
-	get tileUrlTemplate(): string
-	get tileAttributionUrl(): string
-	get tileAttributionText(): string
-	get tileMaxZoom(): number
-}
-
 export class QueryError {
 	get reason():string {
 		return `for unknown reason`
@@ -41,6 +34,58 @@ export class ResponseQueryError extends QueryError {
 	get reason():string {
 		return `receiving the following message: ${this.text}`
 	}
+}
+
+abstract class OsmProvider {
+	abstract getUrl(path:string):string
+	fetch(path:string,init?:RequestInit) {
+		return fetch(this.getUrl(path),init)
+	}
+	postUrlencoded(path:string,headers:{[k:string]:string},parameters:[k:string,v:string][]) {
+		return this.fetch(path,{
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
+				...headers
+			},
+			body: parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
+		})
+	}
+}
+
+export class WebProvider extends OsmProvider {
+	constructor(
+		public readonly urls: string[]
+	) {
+		super()
+	}
+	getUrl(path:string):string {
+		return `${this.urls[0]}${path}`
+	}
+}
+
+export class ApiProvider extends OsmProvider {
+	constructor(
+		public readonly url: string
+	) {
+		super()
+	}
+	getUrl(path:string):string {
+		return `${this.url}api/0.6/${path}`
+	}
+	getRootUrl(rootPath:string):string { // only used in note export user urls for no good reason other than osm website doing so
+		return `${this.url}${rootPath}`
+	}
+}
+
+export class TileProvider {
+	constructor(
+		public readonly urlTemplate: string,
+		public readonly attributionUrl: string,
+		public readonly attributionText: string,
+		public readonly maxZoom: number,
+		public readonly owner: boolean
+	) {}
 }
 
 export class NominatimProvider {
@@ -104,51 +149,10 @@ export class OverpassTurboProvider {
 	}
 }
 
-abstract class OsmProvider {
-	abstract getUrl(path:string):string
-	fetch(path:string,init?:RequestInit) {
-		return fetch(this.getUrl(path),init)
-	}
-	postUrlencoded(path:string,headers:{[k:string]:string},parameters:[k:string,v:string][]) {
-		return this.fetch(path,{
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
-				...headers
-			},
-			body: parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
-		})
-	}
-}
-
-export class WebProvider extends OsmProvider {
-	constructor(
-		public readonly urls: string[]
-	) {
-		super()
-	}
-	getUrl(path:string):string {
-		return `${this.urls[0]}${path}`
-	}
-}
-
-export class ApiProvider extends OsmProvider {
-	constructor(
-		public readonly url: string
-	) {
-		super()
-	}
-	getUrl(path:string):string {
-		return `${this.url}api/0.6/${path}`
-	}
-	getRootUrl(rootPath:string):string { // only used in note export user urls for no good reason other than osm website doing so
-		return `${this.url}${rootPath}`
-	}
-}
-
-export default class Server implements ApiUrlLister, WebUrlLister, TileSource {
+export default class Server implements ApiUrlLister, WebUrlLister {
 	public readonly web: WebProvider
 	public readonly api: ApiProvider
+	public readonly tile: TileProvider
 	public readonly nominatim: NominatimProvider|undefined
 	public readonly overpass: OverpassProvider|undefined
 	public readonly overpassTurbo: OverpassTurboProvider|undefined
@@ -156,11 +160,11 @@ export default class Server implements ApiUrlLister, WebUrlLister, TileSource {
 		public readonly host: string,
 		apiUrl: string,
 		webUrls: string[],
-		public readonly tileUrlTemplate: string,
-		public readonly tileAttributionUrl: string,
-		public readonly tileAttributionText: string,
-		public readonly tileMaxZoom: number,
-		public readonly tileOwner: boolean,
+		tileUrlTemplate: string,
+		tileAttributionUrl: string,
+		tileAttributionText: string,
+		tileMaxZoom: number,
+		tileOwner: boolean,
 		nominatimUrl: string|undefined,
 		overpassUrl: string|undefined,
 		overpassTurboUrl: string|undefined,
@@ -170,6 +174,13 @@ export default class Server implements ApiUrlLister, WebUrlLister, TileSource {
 	) {
 		this.web=new WebProvider(webUrls)
 		this.api=new ApiProvider(apiUrl)
+		this.tile=new TileProvider(
+			tileUrlTemplate,
+			tileAttributionUrl,
+			tileAttributionText,
+			tileMaxZoom,
+			tileOwner
+		)
 		if (nominatimUrl!=null) this.nominatim=new NominatimProvider(nominatimUrl)
 		if (overpassUrl!=null) this.overpass=new OverpassProvider(overpassUrl)
 		if (overpassTurboUrl!=null) this.overpassTurbo=new OverpassTurboProvider(overpassTurboUrl)

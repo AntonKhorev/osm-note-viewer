@@ -96,7 +96,7 @@ function writeGraphicSide(
 	$graphicSide.append($mapContainer,$figureDialog)
 	document.body.append($graphicSide)
 
-	const map=new NoteMap($mapContainer,globalHistory.server)
+	const map=new NoteMap($mapContainer,globalHistory.server.tile)
 	map.onMoveEnd(()=>{
 		globalHistory.setMapHash(map.hash)
 	})
