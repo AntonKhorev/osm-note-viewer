@@ -20,7 +20,7 @@ export interface ToolCallbacks {
 }
 
 export abstract class Tool {
-	private $buttonsRequiringSelectedNotes: HTMLButtonElement[] = []
+	private $buttonsRequiringSelectedNotes: [$button:HTMLButtonElement,activationCondition:()=>boolean][] = []
 	constructor(
 		public readonly id: string,
 		public readonly name: string,
@@ -35,20 +35,21 @@ export abstract class Tool {
 	onNoteCountsChange(nFetched: number, nVisible: number): boolean { return false }
 	onSelectedNotesChange(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean {
 		let reactedToButtons=false
-		if (this.$buttonsRequiringSelectedNotes.length>0) {
-			for (const $button of this.$buttonsRequiringSelectedNotes) {
-				$button.disabled=selectedNotes.length<=0
+		for (const [$button,activationCondition] of this.$buttonsRequiringSelectedNotes) {
+			const newDisabled=selectedNotes.length<=0 || !activationCondition()
+			if ($button.disabled!=newDisabled) {
+				$button.disabled=newDisabled
+				reactedToButtons=true
 			}
-			reactedToButtons=true
 		}
 		const reactedToOthers=this.onSelectedNotesChangeWithoutHandlingButtons(selectedNotes,selectedNoteUsers)
 		return reactedToButtons||reactedToOthers
 	}
 	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean { return false }
-	protected makeRequiringSelectedNotesButton(): HTMLButtonElement {
+	protected makeRequiringSelectedNotesButton(activationCondition:()=>boolean = ()=>true): HTMLButtonElement {
 		const $button=document.createElement('button')
 		$button.disabled=true
-		this.$buttonsRequiringSelectedNotes.push($button)
+		this.$buttonsRequiringSelectedNotes.push([$button,activationCondition])
 		return $button
 	}
 }

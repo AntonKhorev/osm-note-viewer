@@ -43,14 +43,21 @@ export class InteractTool extends Tool {
 		const getNoteListItem=(id:number)=>`- `+server.getWebUrl(e`note/${id}`)+`\n`
 		const getNoteList=()=>this.selectedNoteIds.map(getNoteListItem).join('')
 		const copyNoteList=()=>navigator.clipboard.writeText(getNoteList())
+		const $commentText=document.createElement('textarea')
+		const $commentButton=this.makeRequiringSelectedNotesButton(()=>!!$commentText.value)
 		const $reportOneButton=this.makeRequiringSelectedNotesButton()
 		const $reportManyButton=this.makeRequiringSelectedNotesButton()
 		const $cancelReportManyButton=this.makeRequiringSelectedNotesButton()
 		const $confirmReportManyButton=this.makeRequiringSelectedNotesButton()
+		$commentButton.append(`Comment `,makeNotesIcon('selected'))
 		$reportOneButton.append(`Report `,makeNotesIcon('selected'),` in one tab`)
 		$reportManyButton.append(`Report `,makeNotesIcon('selected'),` in `,this.$tabCountOutput)
 		$cancelReportManyButton.append(`Cancel reporting `,makeNotesIcon('selected'),` in `,this.$confirmTabCountOutput)
 		$confirmReportManyButton.append(`Confirm`)
+		$commentText.oninput=()=>{
+			const noSelectedNotes=$reportOneButton.disabled // TODO rewrite this hack
+			$commentButton.disabled=noSelectedNotes || !$commentText.value
+		}
 		$reportOneButton.onclick=async()=>{
 			await copyNoteList()
 			const id=this.selectedNoteIds[0]
@@ -67,6 +74,8 @@ export class InteractTool extends Tool {
 			()=>this.selectedNoteIds.length>5
 		)
 		return [
+			makeDiv('major-input')($commentText),
+			makeDiv('major-input')($commentButton),
 			makeDiv('major-input')($reportOneButton),
 			makeDiv('major-input')(
 				$reportManyButton,
