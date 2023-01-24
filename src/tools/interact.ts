@@ -2,9 +2,11 @@ import {Tool, ToolElements, ToolCallbacks, makeNotesIcon} from './base'
 import type {Note} from '../data'
 import type Auth from '../auth'
 import ConfirmedButtonListener from '../confirmed-button-listener'
-import {makeDiv,makeLink} from '../html'
+import {makeDiv, makeLink, wrapFetchForButton, makeGetKnownErrorMessage} from '../html'
 import {em,p,ul,li} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
+
+class NoteInteractionError extends TypeError {}
 
 export class InteractTool extends Tool {
 	private selectedNoteIds: ReadonlyArray<number> = []
@@ -57,6 +59,20 @@ export class InteractTool extends Tool {
 		$commentText.oninput=()=>{
 			const noSelectedNotes=$reportOneButton.disabled // TODO rewrite this hack
 			$commentButton.disabled=noSelectedNotes || !$commentText.value
+		}
+		$commentButton.onclick=async()=>{
+			await wrapFetchForButton($commentButton,async()=>{
+				for (const id of this.selectedNoteIds) {
+					const response=await auth.server.api.postUrlencoded(e`notes/${id}/comment`,{
+						Authorization: 'Bearer '+auth.token
+					},[
+						['text',$commentText.value],
+					])
+					if (!response.ok) {
+						throw new NoteInteractionError(await response.text())
+					}
+				}
+			},makeGetKnownErrorMessage(NoteInteractionError))
 		}
 		$reportOneButton.onclick=async()=>{
 			await copyNoteList()
