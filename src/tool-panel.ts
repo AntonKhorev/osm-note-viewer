@@ -1,5 +1,5 @@
 import NoteViewerStorage from './storage'
-import Server from './server'
+import Auth from './auth'
 import GlobalEventsListener from './events'
 import type {Note} from './data'
 import NoteMap from './map'
@@ -53,7 +53,7 @@ export default class ToolPanel {
 	onRefresherPeriodChange?: (refreshPeriod:number)=>void
 	onRefresherRefreshAll?: ()=>void
 	constructor(
-		storage: NoteViewerStorage, server: Server, globalEventsListener: GlobalEventsListener,
+		storage: NoteViewerStorage, auth: Auth, globalEventsListener: GlobalEventsListener,
 		$container: HTMLElement,
 		map: NoteMap, figureDialog: FigureDialog
 	) {
@@ -74,9 +74,9 @@ export default class ToolPanel {
 		}
 		for (const makeTool of toolMakerSequence) {
 			const tool=makeTool()
-			if (!server.overpassTurbo && tool instanceof OverpassTurboTool) continue
-			if (!server.overpass && tool instanceof OverpassTool) continue
-			if (server.world!='earth' && tool instanceof StreetViewTool) continue
+			if (!auth.server.overpassTurbo && tool instanceof OverpassTurboTool) continue
+			if (!auth.server.overpass && tool instanceof OverpassTool) continue
+			if (auth.server.world!='earth' && tool instanceof StreetViewTool) continue
 			const storageKey='commands-'+tool.id
 			const $toolDetails=document.createElement('details')
 			$toolDetails.classList.add('tool')
@@ -88,7 +88,7 @@ export default class ToolPanel {
 			$toolDetails.addEventListener('toggle',()=>{
 				storage.setBoolean(storageKey,$toolDetails.open)
 			})
-			$toolDetails.append($toolSummary,...tool.getTool(toolCallbacks,server,map,figureDialog))
+			$toolDetails.append($toolSummary,...tool.getTool(toolCallbacks,auth,map,figureDialog))
 			$toolDetails.addEventListener('animationend',toolAnimationEndListener)
 			const infoElements=tool.getInfo()
 			if (infoElements) {

@@ -1,5 +1,6 @@
 import {Tool, ToolElements, ToolCallbacks, makeMapIcon} from './base'
-import Server, {QueryError} from '../server'
+import Auth from '../auth'
+import {QueryError} from '../server'
 import type NoteMap from '../map'
 import {makeLink, wrapFetchForButton} from '../html'
 import {p} from '../html-shortcuts'
@@ -33,7 +34,7 @@ export class OverpassTurboTool extends OverpassBaseTool {
 		`, web UI for Overpass API. `,
 		`Useful to inspect historic data at the time a particular note comment was made.`
 	)]}
-	getTool(callbacks: ToolCallbacks, server: Server, map: NoteMap): ToolElements {
+	getTool(callbacks: ToolCallbacks, {server}: Auth, map: NoteMap): ToolElements {
 		const $overpassButtons: HTMLButtonElement[] = []
 		const buttonClickListener=(withRelations: boolean, onlyAround: boolean)=>{
 			const e=makeEscapeTag(encodeURIComponent)
@@ -87,7 +88,7 @@ export class OverpassTool extends OverpassBaseTool {
 		`Query `,makeLink(`Overpass API`,'https://wiki.openstreetmap.org/wiki/Overpass_API'),` without going through Overpass turbo. `,
 		`Shows results on the map. Also gives link to the element page on the OSM website.`
 	)]}
-	getTool(callbacks: ToolCallbacks, server: Server, map: NoteMap): ToolElements {
+	getTool(callbacks: ToolCallbacks, {server}: Auth, map: NoteMap): ToolElements {
 		const $button=document.createElement('button')
 		$button.append(`Find closest node to `,makeMapIcon('center'))
 		const $output=document.createElement('code')

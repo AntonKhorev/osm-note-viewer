@@ -1,5 +1,5 @@
 import type {Note} from '../data'
-import type Server from '../server'
+import type Auth from '../auth'
 import type NoteMap from '../map'
 import type FigureDialog from '../figure'
 import {makeElement} from '../html'
@@ -27,7 +27,7 @@ export abstract class Tool {
 		public readonly title?: string,
 		public readonly isFullWidth=false
 	) {}
-	abstract getTool(callbacks: ToolCallbacks, server: Server, map: NoteMap, figureDialog: FigureDialog): ToolElements
+	abstract getTool(callbacks: ToolCallbacks, auth: Auth, map: NoteMap, figureDialog: FigureDialog): ToolElements
 	getInfo(): ToolElements|undefined { return undefined }
 	onRefresherStateChange(isRunning: boolean, message: string|undefined): boolean { return false }
 	onRefresherPeriodChange(refreshPeriod: number): boolean { return false }

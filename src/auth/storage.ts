@@ -74,6 +74,9 @@ export default class AuthStorage {
 		logins.delete(token)
 		this.setLoginsStorageItem(logins)
 	}
+	get login():Login|undefined {
+		return this.getLogins().get(this.token)
+	}
 	private setLoginsStorageItem(logins:Map<string,Login>):void {
 		this.storage.setItem(`${this.prefix}logins`,JSON.stringify([...logins.entries()]))
 	}

@@ -18,7 +18,7 @@ export default class NoteFetchPanel {
 	private fetcherInvoker?: NoteFetchDialog
 	constructor(
 		storage: NoteViewerStorage, db: NoteViewerDB,
-		globalEventsListener: GlobalEventsListener, globalHistory: GlobalHistory, auth: Auth,
+		globalEventsListener: GlobalEventsListener, globalHistory: GlobalHistory, auth: Auth|undefined,
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		navbar: Navbar, noteTable: NoteTable|undefined, map: NoteMap|undefined, figureDialog: FigureDialog|undefined
 	) {

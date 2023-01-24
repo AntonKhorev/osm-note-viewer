@@ -91,7 +91,7 @@ export default class AboutDialog extends NavDialog {
 	constructor(
 		private readonly storage: NoteViewerStorage, private readonly db: NoteViewerDB,
 		private readonly server: Server|undefined, private readonly serverList: ServerList, private readonly serverHash: string,
-		private readonly auth: Auth
+		private readonly auth: Auth|undefined
 	) {
 		super()
 	}
@@ -108,7 +108,7 @@ export default class AboutDialog extends NavDialog {
 			this.$section.append($section)
 		}
 		this.writeServersSubsection()
-		this.auth.writeAboutDialogSections(this.$section,this.storage,this.server)
+		this.auth?.writeAboutDialogSections(this.$section)
 		this.writeStorageSubsection()
 		this.writeExtraSubsection()
 	}

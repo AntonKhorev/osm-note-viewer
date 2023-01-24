@@ -3,7 +3,7 @@ import NoteViewerDB from './db'
 import ServerList from './server-list'
 import GlobalEventsListener from './events'
 import GlobalHistory, {GlobalHistoryWithServer} from './history'
-import Auth from './auth'
+import Auth, {checkAuthRedirect} from './auth'
 import NoteMap from './map'
 import FigureDialog from './figure'
 import Navbar from './navbar'
@@ -19,8 +19,7 @@ import serverListConfig from './server-list-config'
 main()
 
 async function main() {
-	const auth=new Auth()
-	if (auth.checkRedirect()) {
+	if (checkAuthRedirect()) {
 		return
 	}
 
@@ -49,14 +48,16 @@ async function main() {
 
 	const globalHistory=new GlobalHistory($scrollingPart,serverList)
 	
+	let auth: Auth|undefined
 	let map: NoteMap|undefined
 	let figureDialog: FigureDialog|undefined
 	let noteTable: NoteTable|undefined
 	if (globalHistory.hasServer()) {
-		[map,figureDialog]=writeGraphicSide(globalEventsListener,globalHistory)
+		auth=new Auth(storage,globalHistory.server)
+		;[map,figureDialog]=writeGraphicSide(globalEventsListener,globalHistory)
 		noteTable=writeBelowFetchPanel(
 			$scrollingPart,$stickyPart,$moreContainer,
-			storage,globalEventsListener,globalHistory,
+			storage,auth,globalEventsListener,globalHistory,
 			map,figureDialog
 		)
 	} else {
@@ -129,7 +130,7 @@ function writeGraphicSide(
 
 function writeBelowFetchPanel(
 	$scrollingPart:HTMLElement, $stickyPart:HTMLElement, $moreContainer:HTMLElement,
-	storage:NoteViewerStorage, globalEventsListener:GlobalEventsListener, globalHistory:GlobalHistoryWithServer,
+	storage:NoteViewerStorage, auth:Auth, globalEventsListener:GlobalEventsListener, globalHistory:GlobalHistoryWithServer,
 	map:NoteMap, figureDialog:FigureDialog
 ): NoteTable {
 	const $filterContainer=makeDiv('panel','fetch')()
@@ -140,7 +141,7 @@ function writeBelowFetchPanel(
 	$stickyPart.append($toolContainer)
 
 	const toolPanel=new ToolPanel(
-		storage,globalHistory.server,globalEventsListener,
+		storage,auth,globalEventsListener,
 		$toolContainer,map,figureDialog
 	)
 	const noteTable=new NoteTable(

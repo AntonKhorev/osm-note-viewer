@@ -1,6 +1,6 @@
 import {Tool, ToolElements, ToolCallbacks, makeNotesIcon} from './base'
 import type {Note} from '../data'
-import type Server from '../server'
+import type Auth from '../auth'
 import ConfirmedButtonListener from '../confirmed-button-listener'
 import {makeDiv,makeLink} from '../html'
 import {em,p,ul,li} from '../html-shortcuts'
@@ -37,10 +37,10 @@ export class InteractTool extends Tool {
 		this.reportManyListener?.reset()
 		return true
 	}
-	getTool(callbacks: ToolCallbacks, server: Server): ToolElements {
+	getTool(callbacks: ToolCallbacks, auth: Auth): ToolElements {
 		const e=makeEscapeTag(encodeURIComponent)
-		const getReportUrl=(id:number)=>server.getWebUrl(e`reports/new?reportable_id=${id}&reportable_type=Note`)
-		const getNoteListItem=(id:number)=>`- `+server.getWebUrl(e`note/${id}`)+`\n`
+		const getReportUrl=(id:number)=>auth.server.getWebUrl(e`reports/new?reportable_id=${id}&reportable_type=Note`)
+		const getNoteListItem=(id:number)=>`- `+auth.server.getWebUrl(e`note/${id}`)+`\n`
 		const getNoteList=()=>this.selectedNoteIds.map(getNoteListItem).join('')
 		const copyNoteList=()=>navigator.clipboard.writeText(getNoteList())
 		const $commentText=document.createElement('textarea')

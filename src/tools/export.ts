@@ -6,6 +6,7 @@ import type {
 import {Tool, ToolElements, ToolCallbacks, makeNotesIcon} from './base'
 import type {Note, NoteComment} from '../data'
 import type Server from '../server'
+import type Auth from '../auth'
 import {toReadableDate, toUrlDate} from '../query-date'
 import {makeLink, makeLabel} from '../html'
 import {em,dfn,code,p,ul,li} from '../html-shortcuts'
@@ -29,7 +30,7 @@ abstract class ExportTool extends Tool {
 			)
 		]
 	}
-	getTool(callbacks: ToolCallbacks, server: Server): ToolElements {
+	getTool(callbacks: ToolCallbacks, {server}: Auth): ToolElements {
 		const $optionSelects=Object.fromEntries(
 			Object.entries(this.describeOptions()).map(([key,valuesWithTexts])=>{
 				const $select=document.createElement('select')
