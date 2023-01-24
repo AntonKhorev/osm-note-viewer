@@ -8,6 +8,7 @@ import makeCodeForm from './code'
 import serverListConfig from './server-list-config'
 import {parseServerListSource} from './server-list-parser'
 import ConfirmedButtonListener from './confirmed-button-listener'
+import RadioTable from './radio-table'
 import {makeElement, makeDiv, makeLink} from './html'
 import {p,code,em} from './html-shortcuts'
 import {escapeHash} from './escape'
@@ -119,19 +120,16 @@ export default class AboutDialog extends NavDialog {
 			`. Please select one of the servers below.`
 		))
 		{
-			const $form=document.createElement('form')
-			const $table=makeElement('table')('servers')()
+			const serverTable=new RadioTable('host',[
+				[[],[`host`]],
+				[['capability'],[`website`]],
+				[['capability'],[`own tiles`]],
+				[['capability'],[`Nominatim`]],
+				[['capability'],[`Overpass`]],
+				[['capability'],[`Overpass turbo`]],
+				[[],[`note`]],
+			])
 			const baseLocation=location.pathname+location.search
-			$table.insertRow().append(
-				makeElement('th')()(),
-				makeElement('th')()(`host`),
-				makeElement('th')('capability')(`website`),
-				makeElement('th')('capability')(`own tiles`),
-				makeElement('th')('capability')(`Nominatim`),
-				makeElement('th')('capability')(`Overpass`),
-				makeElement('th')('capability')(`Overpass turbo`),
-				makeElement('th')()(`note`),
-			)
 			for (const [availableHost,availableServer] of this.serverList.servers) {
 				const hashValue=this.serverList.getHostHashValue(availableServer)
 				const availableServerLocation=baseLocation+(hashValue ? `#host=`+escapeHash(hashValue) : '')
@@ -141,32 +139,25 @@ export default class AboutDialog extends NavDialog {
 				} else if (availableServer.noteUrl) {
 					note=makeLink(availableServer.noteText||`[note]`,availableServer.noteUrl)
 				}
-				const $radio=document.createElement('input')
-				const $label=document.createElement('label')
-				const $a=makeLink(availableHost,availableServerLocation)
-				$radio.type='radio'
-				$radio.name='host'
-				$label.htmlFor=$radio.id='host-'+availableHost
-				$radio.checked=this.server==availableServer
-				$radio.tabIndex=-1
-				$label.append($a)
-				$radio.onclick=()=>$a.click()
-				const makeStatusCell=(provider:undefined|NominatimProvider|OverpassProvider)=>makeElement('td')('capability')(
-					makeElement('td')('capability')(provider ? makeLink('+',provider.statusUrl) : ''),
-				)
-				$table.insertRow().append(
-					makeElement('td')()($radio),
-					makeElement('td')()($label),
-					makeElement('td')('capability')(makeLink('+',availableServer.getWebUrl(''))),
-					makeElement('td')('capability')(availableServer.tileOwner ? '+' : ''),
-					makeStatusCell(availableServer.nominatim),
-					makeStatusCell(availableServer.overpass),
-					makeElement('td')('capability')(availableServer.overpassTurbo ? makeLink('+',availableServer.overpassTurbo.url) : ''),
-					makeElement('td')()(note)
-				)
+				serverTable.addRow(($radio)=>{
+					$radio.checked=this.server==availableServer
+					$radio.tabIndex=-1
+					const $a=makeLink(availableHost,availableServerLocation)
+					const $label=makeElement('label')()($a)
+					$label.htmlFor=$radio.id
+					$radio.onclick=()=>$a.click()
+					return [
+						[$label],
+						availableServer.getWebUrl(''),
+						availableServer.tileOwner,
+						availableServer.nominatim?.statusUrl,
+						availableServer.overpass?.statusUrl,
+						availableServer.overpassTurbo?.url,
+						[note]
+					]
+				})
 			}
-			$form.append($table)
-			$subsection.append($form)
+			$subsection.append(serverTable.$table)
 		}
 		$subsection.append(makeCodeForm(
 			this.storage.getString('servers'),

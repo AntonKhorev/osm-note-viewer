@@ -1,6 +1,7 @@
 import type Server from '../server'
 import type AuthStorage from './storage'
 import AuthLoginForms, {AuthError} from './login-forms'
+import RadioTable from '../radio-table'
 import {
 	makeElement, makeDiv, makeLink,
 	toggleHideElement, toggleUnhideElement,
@@ -139,13 +140,11 @@ export default class AuthLoginSection {
 				this.$logins.textContent=`No active logins. Use the form above to login if you'd like to manipulate notes.`
 				return
 			}
-			const $table=document.createElement('table')
-			$table.insertRow().append(
-				makeElement('th')()(`user id`),
-				makeElement('th')()(`username`),
-				makeElement('th')()(),
-				makeElement('th')()()
-			)
+			const loginTable=new RadioTable('login',[
+				[['number'],[`user id`]],
+				[[],[`username`]],
+				[['capability'],[`profile`]],
+			])
 			for (const [token,login] of logins) {
 				const userHref=server.getWebUrl(`user/`+encodeURIComponent(login.username))
 				const $updateButton=makeElement('button')()(`Update user info`)
@@ -168,14 +167,20 @@ export default class AuthLoginSection {
 					authStorage.deleteLogin(token)
 					updateInResponseToLogin()
 				},makeGetKnownErrorMessage(AuthError))
-				$table.insertRow().append(
-					makeElement('td')()(String(login.uid)),
-					makeElement('td')()(makeLink(login.username,userHref)),
-					makeElement('td')()($updateButton),
-					makeElement('td')()($logoutButton),
-				)
+				loginTable.addRow(($radio)=>{
+					const $uidLabel=makeElement('label')()(String(login.uid))
+					const $usernameLabel=makeElement('label')()(login.username)
+					$uidLabel.htmlFor=$usernameLabel.htmlFor=$radio.id
+					return [
+						[$uidLabel],
+						[$usernameLabel],
+						userHref,
+						[$updateButton],
+						[$logoutButton],
+					]
+				})
 			}
-			this.$logins.replaceChildren($table)
+			this.$logins.replaceChildren(loginTable.$table)
 		}
 		updateInResponseToLogin()
 		$section.append(

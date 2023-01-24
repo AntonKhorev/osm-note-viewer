@@ -324,21 +324,24 @@
 	white-space: pre-wrap;
 }
 
-.panel table.servers th {
+.panel table th {
 	vertical-align: bottom;
 }
-.panel table.servers th.capability {
+.panel table td.number {
+	text-align: right;
+}
+.panel table th.capability {
 	min-width: 1em;
 	writing-mode: vertical-rl;
 	vertical-align: top;
 	transform: rotate(180deg);
 }
-.panel table.servers td.capability {
+.panel table td.capability {
 	text-align: center;
 }
-.panel table.servers td.capability a {
+.panel table td.capability a {
 	text-decoration: none;
 }
-.panel table.servers input[type=radio] {
+.panel table input[type=radio] {
 	cursor: pointer;
 }
