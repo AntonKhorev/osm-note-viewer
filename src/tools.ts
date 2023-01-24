@@ -1,5 +1,6 @@
 import {Tool, ToolFitMode, ToolCallbacks} from './tools/base'
 import * as UtilTools from './tools/util'
+import {RefreshTool} from './tools/refresh'
 import {OverpassTurboTool, OverpassTool} from './tools/overpass'
 import * as EditorTools from './tools/editor'
 import * as ExportTools from './tools/export'
@@ -13,7 +14,8 @@ export {
 
 export const toolMakerSequence: Array<()=>Tool> = [
 	()=>new InteractTool,
-	()=>new UtilTools.AutozoomTool, ()=>new UtilTools.CommentsTool, ()=>new UtilTools.RefreshTool,
+	()=>new UtilTools.AutozoomTool, ()=>new UtilTools.CommentsTool,
+	()=>new RefreshTool,
 	()=>new UtilTools.TimestampTool, ()=>new UtilTools.ParseTool,
 	()=>new OverpassTurboTool, ()=>new OverpassTool,
 	()=>new EditorTools.RcTool, ()=>new EditorTools.IdTool,
