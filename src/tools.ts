@@ -12,12 +12,12 @@ export {
 }
 
 export const toolMakerSequence: Array<()=>Tool> = [
+	()=>new InteractTool,
 	()=>new UtilTools.AutozoomTool, ()=>new UtilTools.CommentsTool, ()=>new UtilTools.RefreshTool,
 	()=>new UtilTools.TimestampTool, ()=>new UtilTools.ParseTool,
 	()=>new OverpassTurboTool, ()=>new OverpassTool,
 	()=>new EditorTools.RcTool, ()=>new EditorTools.IdTool,
 	()=>new ExportTools.GpxTool, ()=>new ExportTools.GeoJsonTool,
 	()=>new YandexPanoramasTool, ()=>new MapillaryTool,
-	()=>new InteractTool,
 	()=>new UtilTools.CountTool, ()=>new UtilTools.LegendTool, ()=>new UtilTools.SettingsTool
 ]

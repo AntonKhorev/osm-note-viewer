@@ -2,7 +2,7 @@ import {Tool, ToolElements, ToolCallbacks, makeNotesIcon} from './base'
 import type {Note} from '../data'
 import type Server from '../server'
 import ConfirmedButtonListener from '../confirmed-button-listener'
-import {makeLink} from '../html'
+import {makeDiv,makeLink} from '../html'
 import {em,p,ul,li} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 
@@ -14,7 +14,8 @@ export class InteractTool extends Tool {
 	constructor() {super(
 		'interact',
 		`Interact`,
-		`Interact with notes on OSM server`
+		`Interact with notes on OSM server`,
+		true
 	)}
 	getInfo() {return[p(
 		`Currently allows `,makeLink(`reporting`,'https://wiki.openstreetmap.org/wiki/Notes#Reporting_notes'),` selected notes. `,
@@ -66,8 +67,12 @@ export class InteractTool extends Tool {
 			()=>this.selectedNoteIds.length>5
 		)
 		return [
-			$reportOneButton,` `,
-			$reportManyButton,` `,$cancelReportManyButton,` `,$confirmReportManyButton
+			makeDiv('major-input')($reportOneButton),
+			makeDiv('major-input')(
+				$reportManyButton,
+				$cancelReportManyButton,
+				$confirmReportManyButton
+			)
 		]
 	}
 }

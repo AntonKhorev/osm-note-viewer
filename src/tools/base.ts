@@ -21,7 +21,12 @@ export interface ToolCallbacks {
 
 export abstract class Tool {
 	private $buttonsRequiringSelectedNotes: HTMLButtonElement[] = []
-	constructor(public id: string, public name: string, public title?: string ) {}
+	constructor(
+		public readonly id: string,
+		public readonly name: string,
+		public readonly title?: string,
+		public readonly isFullWidth=false
+	) {}
 	abstract getTool(callbacks: ToolCallbacks, server: Server, map: NoteMap, figureDialog: FigureDialog): ToolElements
 	getInfo(): ToolElements|undefined { return undefined }
 	onRefresherStateChange(isRunning: boolean, message: string|undefined): boolean { return false }

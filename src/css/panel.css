@@ -76,6 +76,9 @@
 	margin: 0;
 	line-height: 1.4em;
 }
+.panel.command details.tool.full-width[open] {
+	width: 100%;
+}
 .panel.command details.tool {
 	outline: none;
 }
@@ -169,6 +172,9 @@
 }
 .panel.command details.info summary {
 	display: none;
+}
+.panel.command details.tool .major-input {
+	margin: .2em 0;
 }
 .panel.command [class|=icon] > span {
 	display: none;

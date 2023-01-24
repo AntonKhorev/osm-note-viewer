@@ -80,6 +80,7 @@ export default class ToolPanel {
 			const storageKey='commands-'+tool.id
 			const $toolDetails=document.createElement('details')
 			$toolDetails.classList.add('tool')
+			$toolDetails.classList.toggle('full-width',tool.isFullWidth)
 			$toolDetails.open=storage.getBoolean(storageKey)
 			const $toolSummary=document.createElement('summary')
 			$toolSummary.textContent=tool.name
