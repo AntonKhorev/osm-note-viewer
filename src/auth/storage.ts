@@ -37,6 +37,12 @@ export default class AuthStorage {
 	set isManualCodeEntry(isManualCodeEntry:boolean) {
 		this.storage.setBoolean(`${this.prefix}isManualCodeEntry`,isManualCodeEntry)
 	}
+	get token():string {
+		return this.storage.getString(`${this.prefix}token`)
+	}
+	set token(token:string) {
+		this.storage.setString(`${this.prefix}token`,token)
+	}
 	get redirectUri():string {
 		return this.isManualCodeEntry?this.manualCodeUri:this.installUri
 	}

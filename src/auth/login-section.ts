@@ -131,6 +131,7 @@ export default class AuthLoginSection {
 				uid: userData.user.id,
 				username: userData.user.display_name
 			})
+			authStorage.token=tokenData.access_token
 			updateInResponseToLogin()
 		})
 		this.updateVisibility()
@@ -145,6 +146,19 @@ export default class AuthLoginSection {
 				[[],[`username`]],
 				[['capability'],[`profile`]],
 			])
+			loginTable.addRow(($radio)=>{
+				$radio.checked=!authStorage.token
+				$radio.onclick=()=>{
+					authStorage.token=''
+					// updateInResponseToLogin() // TODO some callback
+				}
+				const $usernameLabel=makeElement('label')()(em(`anonymous`))
+				$usernameLabel.htmlFor=$radio.id
+				return [
+					[],
+					[$usernameLabel]
+				]
+			})
 			for (const [token,login] of logins) {
 				const userHref=server.getWebUrl(`user/`+encodeURIComponent(login.username))
 				const $updateButton=makeElement('button')()(`Update user info`)
@@ -165,9 +179,17 @@ export default class AuthLoginSection {
 						['client_id',authStorage.clientId]
 					],`while revoking a token`)
 					authStorage.deleteLogin(token)
+					if (authStorage.token==token) {
+						authStorage.token=''
+					}
 					updateInResponseToLogin()
 				},makeGetKnownErrorMessage(AuthError))
 				loginTable.addRow(($radio)=>{
+					$radio.checked=authStorage.token==token
+					$radio.onclick=()=>{
+						authStorage.token=token
+						// updateInResponseToLogin() // TODO some callback
+					}
 					const $uidLabel=makeElement('label')()(String(login.uid))
 					const $usernameLabel=makeElement('label')()(login.username)
 					$uidLabel.htmlFor=$usernameLabel.htmlFor=$radio.id
