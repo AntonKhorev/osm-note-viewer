@@ -295,10 +295,11 @@ export class GeoJsonTool extends ExportTool {
 			const username=this.selectedNoteUsers.get(comment.uid)
 			if (username==null) return result
 			result.user=username
-			result.user_url=server[options.urls=='web'
-				? 'getWebUrl'
-				: 'getApiRootUrl'
-			](e`user/${username}`)
+			if (options.urls=='web') {
+				result.user_url=server.getWebUrl(e`user/${username}`)
+			} else {
+				result.user_url=server.getApiRootUrl(e`user/${username}`)
+			}
 			return result
 		}
 		const generateNoteUrls=(note:Note):{[key:string]:string}=>{
