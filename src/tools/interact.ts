@@ -53,13 +53,15 @@ export class InteractTool extends Tool {
 		const $commentText=document.createElement('textarea')
 		const $commentButton=this.makeRequiringSelectedNotesButton(()=>!!$commentText.value)
 		const $closeButton=this.makeRequiringSelectedNotesButton()
-		this.$postButtons.push($commentButton,$closeButton)
+		const $reopenButton=this.makeRequiringSelectedNotesButton()
+		this.$postButtons.push($commentButton,$closeButton,$reopenButton)
 		const $reportOneButton=this.makeRequiringSelectedNotesButton()
 		const $reportManyButton=this.makeRequiringSelectedNotesButton()
 		const $cancelReportManyButton=this.makeRequiringSelectedNotesButton()
 		const $confirmReportManyButton=this.makeRequiringSelectedNotesButton()
 		$commentButton.append(`Comment `,makeNotesIcon('selected'))
 		$closeButton.append(`Close `,makeNotesIcon('selected'))
+		$reopenButton.append(`Reopen `,makeNotesIcon('selected'))
 		$reportOneButton.append(`Report `,makeNotesIcon('selected'),` in one tab`)
 		$reportManyButton.append(`Report `,makeNotesIcon('selected'),` in `,this.$tabCountOutput)
 		$cancelReportManyButton.append(`Cancel reporting `,makeNotesIcon('selected'),` in `,this.$confirmTabCountOutput)
@@ -88,6 +90,9 @@ export class InteractTool extends Tool {
 		$closeButton.onclick=async()=>{
 			await act($commentButton,'close')
 		}
+		$reopenButton.onclick=async()=>{
+			await act($reopenButton,'reopen')
+		}
 		$reportOneButton.onclick=async()=>{
 			await copyNoteList()
 			const id=this.selectedNoteIds[0]
@@ -105,8 +110,7 @@ export class InteractTool extends Tool {
 		)
 		return [
 			makeDiv('major-input')($commentText),
-			makeDiv('major-input')($commentButton),
-			makeDiv('major-input')($closeButton),
+			...this.$postButtons.map($postButton=>makeDiv('major-input')($postButton)),
 			makeDiv('major-input')($reportOneButton),
 			makeDiv('major-input')(
 				$reportManyButton,
