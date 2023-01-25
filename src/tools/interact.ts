@@ -72,7 +72,9 @@ export class InteractTool extends Tool {
 						throw new NoteInteractionError(await response.text())
 					}
 				}
+				$commentText.value=''
 			},makeGetKnownErrorMessage(NoteInteractionError))
+			$commentButton.disabled=!$commentText.value
 		}
 		$reportOneButton.onclick=async()=>{
 			await copyNoteList()
