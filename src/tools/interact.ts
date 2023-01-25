@@ -9,8 +9,7 @@ import {makeEscapeTag} from '../escape'
 class NoteInteractionError extends TypeError {}
 
 export class InteractTool extends Tool {
-	private $commentText=document.createElement('textarea')
-	private $commentButton=this.makeRequiringSelectedNotesButton(()=>!!this.$commentText.value)
+	private $postButtons: HTMLButtonElement[] =[]
 	private selectedNoteIds: ReadonlyArray<number> = []
 	private $tabCountOutput=document.createElement('output')
 	private $confirmTabCountOutput=document.createElement('output')
@@ -36,8 +35,10 @@ export class InteractTool extends Tool {
 	)]}
 	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>): boolean {
 		this.selectedNoteIds=selectedNotes.map(note=>note.id)
-		this.$commentButton.classList.remove('error')
-		this.$commentButton.title=''
+		for (const $postButton of this.$postButtons) {
+			$postButton.classList.remove('error')
+			$postButton.title=''
+		}
 		const count=selectedNotes.length
 		this.$tabCountOutput.textContent=this.$confirmTabCountOutput.textContent=`${count} tab${count==1?'':'s'}`
 		this.reportManyListener?.reset()
@@ -49,34 +50,43 @@ export class InteractTool extends Tool {
 		const getNoteListItem=(id:number)=>`- `+auth.server.web.getUrl(e`note/${id}`)+`\n`
 		const getNoteList=()=>this.selectedNoteIds.map(getNoteListItem).join('')
 		const copyNoteList=()=>navigator.clipboard.writeText(getNoteList())
+		const $commentText=document.createElement('textarea')
+		const $commentButton=this.makeRequiringSelectedNotesButton(()=>!!$commentText.value)
+		const $closeButton=this.makeRequiringSelectedNotesButton()
+		this.$postButtons.push($commentButton,$closeButton)
 		const $reportOneButton=this.makeRequiringSelectedNotesButton()
 		const $reportManyButton=this.makeRequiringSelectedNotesButton()
 		const $cancelReportManyButton=this.makeRequiringSelectedNotesButton()
 		const $confirmReportManyButton=this.makeRequiringSelectedNotesButton()
-		this.$commentButton.append(`Comment `,makeNotesIcon('selected'))
+		$commentButton.append(`Comment `,makeNotesIcon('selected'))
+		$closeButton.append(`Close `,makeNotesIcon('selected'))
 		$reportOneButton.append(`Report `,makeNotesIcon('selected'),` in one tab`)
 		$reportManyButton.append(`Report `,makeNotesIcon('selected'),` in `,this.$tabCountOutput)
 		$cancelReportManyButton.append(`Cancel reporting `,makeNotesIcon('selected'),` in `,this.$confirmTabCountOutput)
 		$confirmReportManyButton.append(`Confirm`)
-		this.$commentText.oninput=()=>{
+		$commentText.oninput=()=>{
 			const noSelectedNotes=$reportOneButton.disabled // TODO rewrite this hack
-			this.$commentButton.disabled=noSelectedNotes || !this.$commentText.value
+			$commentButton.disabled=noSelectedNotes || !$commentText.value
 		}
-		this.$commentButton.onclick=async()=>{
-			await wrapFetchForButton(this.$commentButton,async()=>{
-				for (const id of this.selectedNoteIds) {
-					const response=await auth.server.api.postUrlencoded(e`notes/${id}/comment`,{
-						Authorization: 'Bearer '+auth.token
-					},[
-						['text',this.$commentText.value],
-					])
-					if (!response.ok) {
-						throw new NoteInteractionError(await response.text())
-					}
+		const act=($button:HTMLButtonElement,endpoint:string)=>wrapFetchForButton($button,async()=>{
+			for (const id of this.selectedNoteIds) {
+				const response=await auth.server.api.postUrlencoded(e`notes/${id}/${endpoint}`,{
+					Authorization: 'Bearer '+auth.token
+				},[
+					['text',$commentText.value],
+				])
+				if (!response.ok) {
+					throw new NoteInteractionError(await response.text())
 				}
-				this.$commentText.value=''
-			},makeGetKnownErrorMessage(NoteInteractionError))
-			this.$commentButton.disabled=!this.$commentText.value
+			}
+			$commentText.value=''
+		},makeGetKnownErrorMessage(NoteInteractionError))
+		$commentButton.onclick=async()=>{
+			await act($commentButton,'comment')
+			$commentButton.disabled=!$commentText.value
+		}
+		$closeButton.onclick=async()=>{
+			await act($commentButton,'close')
 		}
 		$reportOneButton.onclick=async()=>{
 			await copyNoteList()
@@ -94,8 +104,9 @@ export class InteractTool extends Tool {
 			()=>this.selectedNoteIds.length>5
 		)
 		return [
-			makeDiv('major-input')(this.$commentText),
-			makeDiv('major-input')(this.$commentButton),
+			makeDiv('major-input')($commentText),
+			makeDiv('major-input')($commentButton),
+			makeDiv('major-input')($closeButton),
 			makeDiv('major-input')($reportOneButton),
 			makeDiv('major-input')(
 				$reportManyButton,
