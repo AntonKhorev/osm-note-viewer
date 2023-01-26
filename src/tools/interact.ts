@@ -1,12 +1,14 @@
 import {Tool, ToolElements, ToolCallbacks, makeNotesIcon} from './base'
 import type {Note} from '../data'
 import type Auth from '../auth'
-import {makeDiv, wrapFetchForButton, makeGetKnownErrorMessage} from '../html'
+import {makeDiv, wrapFetchForButton, makeGetKnownErrorMessage, makeLink} from '../html'
 import {makeEscapeTag} from '../escape'
 
 class NoteInteractionError extends TypeError {}
 
 export class InteractTool extends Tool {
+	private $asOutput=document.createElement('output')
+	private $withOutput=document.createElement('output')
 	private $postButtons: HTMLButtonElement[] =[]
 	private selectedNoteIds: ReadonlyArray<number> = [] // TODO also save open/closed status
 	constructor() {super(
@@ -25,6 +27,20 @@ export class InteractTool extends Tool {
 	}
 	getTool(callbacks: ToolCallbacks, auth: Auth): ToolElements {
 		const e=makeEscapeTag(encodeURIComponent)
+		if (auth.username==null || auth.uid==null) {
+			this.$asOutput.replaceChildren(
+				`anonymously`
+			)
+		} else {
+			const href=auth.server.web.getUrl(e`user/${auth.username}`)
+			const $a=makeLink(auth.username,href)
+			$a.classList.add('listened')
+			$a.dataset.userName=auth.username
+			$a.dataset.userId=String(auth.uid)
+			this.$asOutput.replaceChildren(
+				`as `,$a
+			)
+		}
 		const $commentText=document.createElement('textarea')
 		const $commentButton=this.makeRequiringSelectedNotesButton(()=>!!$commentText.value)
 		const $closeButton=this.makeRequiringSelectedNotesButton()
@@ -60,6 +76,7 @@ export class InteractTool extends Tool {
 			await act($reopenButton,'reopen')
 		}
 		return [
+			this.$asOutput,` `,this.$withOutput,` `,
 			makeDiv('major-input')($commentText),
 			...this.$postButtons.map($postButton=>makeDiv('major-input')($postButton))
 		]

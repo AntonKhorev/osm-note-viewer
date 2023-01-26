@@ -64,4 +64,7 @@ export default class Auth {
 	get username(): string|undefined {
 		return this.authStorage.login?.username
 	}
+	get uid(): number|undefined {
+		return this.authStorage.login?.uid
+	}
 }
