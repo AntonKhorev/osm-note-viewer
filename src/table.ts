@@ -1,19 +1,19 @@
-import {Note, NoteComment, Users} from './data'
+import {Note, Users} from './data'
 import NoteMap from './map'
 import NoteMarker from './marker'
 import LooseParserListener from './loose-listen'
 import LooseParserPopup from './loose-popup'
 import parseLoose from './loose'
 import FigureDialog from './figure'
-import CommentWriter, {handleShowImagesUpdate, makeDateOutput} from './comment-writer'
+import writeNoteSectionRows from './table-section'
+import CommentWriter, {handleShowImagesUpdate} from './comment-writer'
 import ToolPanel from './tool-panel'
 import NoteFilter from './filter'
 import NoteSectionVisibilityObserver from './observer'
 import NoteTableAndRefresherConnector from './refresher-connector'
-import {toReadableDate} from './query-date'
 import type Server from './server'
 import fetchTableNote from './fetch-note'
-import {makeDiv, makeLink, resetFadeAnimation} from './html'
+import {resetFadeAnimation} from './html'
 
 export interface NoteTableUpdater {
 	addNotes(notes: Iterable<Note>, users: Users): number
@@ -308,76 +308,13 @@ export default class NoteTable implements NoteTableUpdater {
 				this.$selectAllCheckbox.indeterminate=true
 			}
 		}
-		let $row=$noteSection.insertRow()
-		const nComments=note.comments.length
-		{
-			const $cell=$row.insertCell()
-			$cell.classList.add('note-checkbox')
-			if (nComments>1) $cell.rowSpan=nComments
-			const $checkbox=document.createElement('input')
-			$checkbox.type='checkbox'
-			$checkbox.title=`shift+click to check/uncheck a range`
-			$checkbox.addEventListener('click',this.wrappedNoteCheckboxClickListener)
-			$cell.append($checkbox)
-		}{
-			const $cell=$row.insertCell()
-			$cell.classList.add('note-link')
-			if (nComments>1) $cell.rowSpan=nComments
-			const $a=document.createElement('a')
-			$a.href=this.server.web.getUrl(`note/`+encodeURIComponent(note.id))
-			$a.dataset.noteId=$a.textContent=`${note.id}`
-			$a.dataset.self='yes'
-			$a.classList.add('listened')
-			$a.title=`click to reload the note if you know it was updated or want to check it`
-			const $refreshWaitProgress=document.createElement('progress')
-			$refreshWaitProgress.value=0
-			$cell.append(makeDiv()($a,$refreshWaitProgress))
-		}
-		let iComment=0
-		for (const comment of note.comments) {
-			{
-				if (iComment>0) {
-					$row=$noteSection.insertRow()
-				}
-			}{
-				const $cell=$row.insertCell()
-				$cell.classList.add('note-date')
-				$cell.append(makeDateOutput(toReadableDate(comment.date)))
-			}{
-				const $cell=$row.insertCell()
-				$cell.classList.add('note-user')
-				if (comment.uid!=null) {
-					const username=users[comment.uid]
-					if (username!=null) {
-						const href=this.server.web.getUrl(`user/`+encodeURIComponent(username))
-						const $a=makeLink(username,href)
-						$a.classList.add('listened')
-						$a.dataset.userName=username
-						$a.dataset.userId=String(comment.uid)
-						$cell.append($a)
-					} else {
-						$cell.append(`#${comment.uid}`)
-					}
-				}
-			}{
-				let svgs=`<svg class="icon-status-${getActionClass(comment.action)}">`+
-					`<title>${comment.action}</title><use href="#table-note" />`+
-				`</svg>`
-				if (note.comments.length>1) {
-					svgs+=` <svg class="icon-comments-count">`+
-						`<title>number of additional comments</title><use href="#table-comments" /><text x="8" y="8">${note.comments.length-1}</text>`+
-					`</svg>`
-				}
-				const $cell=$row.insertCell()
-				$cell.classList.add('note-action')
-				$cell.innerHTML=svgs
-			}{
-				const $cell=$row.insertCell()
-				$cell.classList.add('note-comment')
-				this.commentWriter.writeComment($cell,comment.text,this.showImages)
-				this.looseParserListener.listen($cell)
-			}
-			iComment++
+		const [$checkbox,$commentCells]=writeNoteSectionRows(
+			this.server.web,this.commentWriter,
+			$noteSection,note,users,this.showImages
+		)
+		$checkbox.addEventListener('click',this.wrappedNoteCheckboxClickListener)
+		for (const $commentCell of $commentCells) {
+			this.looseParserListener.listen($commentCell)
 		}
 	}
 	private sendNoteCountsUpdate(): void {
@@ -560,16 +497,6 @@ function getStatusClass(status: Note['status']): string {
 	if (status=='open') {
 		return 'open'
 	} else if (status=='closed' || status=='hidden') {
-		return 'closed'
-	} else {
-		return 'other'
-	}
-}
-
-function getActionClass(action: NoteComment['action']): string {
-	if (action=='opened' || action=='reopened') {
-		return 'open'
-	} else if (action=='closed' || action=='hidden') {
 		return 'closed'
 	} else {
 		return 'other'
