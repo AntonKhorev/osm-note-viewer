@@ -110,7 +110,7 @@ export class InteractTool extends Tool {
 			}
 			if (!first) this.$withOutput.append(`, `)
 			first=false
-			this.$withOutput.append(`${ids.length} × `,makeNoteStatusIcon(status))
+			this.$withOutput.append(`${ids.length} × `,makeNoteStatusIcon(status,ids.length))
 		}
 		const nSelectedNotes=this.selectedOpenNoteIds.length+this.selectedClosedNoteIds.length
 		if (nSelectedNotes==0) {
