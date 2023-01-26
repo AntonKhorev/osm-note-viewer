@@ -66,8 +66,10 @@ export default function writeNoteSectionRows(
 				`<title>${comment.action}</title><use href="#table-note" />`+
 			`</svg>`
 			if (note.comments.length>1) {
+				const nAdditionalComments=note.comments.length-1
+				const title=`${nAdditionalComments} additional comment${nAdditionalComments>1?`s`:``}`
 				svgs+=` <svg class="icon-comments-count">`+
-					`<title>number of additional comments</title><use href="#table-comments" /><text x="8" y="8">${note.comments.length-1}</text>`+
+					`<title>${title}</title><use href="#table-comments" /><text x="8" y="8">${nAdditionalComments}</text>`+
 				`</svg>`
 			}
 			const $cell=$row.insertCell()
