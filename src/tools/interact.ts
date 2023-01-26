@@ -24,24 +24,7 @@ export class InteractTool extends Tool {
 	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>): boolean {
 		this.selectedOpenNoteIds=selectedNotes.filter(note=>note.status=='open').map(note=>note.id)
 		this.selectedClosedNoteIds=selectedNotes.filter(note=>note.status=='closed').map(note=>note.id)
-		if (selectedNotes.length==0) {
-			this.$withOutput.replaceChildren(
-				`with nothing`
-			)
-		} else if (selectedNotes.length==1) {
-			const note=selectedNotes[0]
-			const href=this.auth.server.web.getUrl(e`note/${note.id}`)
-			const $a=makeLink(String(note.id),href)
-			$a.classList.add('listened')
-			$a.dataset.noteId=String(note.id)
-			this.$withOutput.replaceChildren(
-				`with `,$a
-			)
-		} else {
-			this.$withOutput.replaceChildren(
-				`with notes` // TODO
-			)
-		}
+		this.updateWithOutput()
 		for (const $postButton of this.$postButtons) {
 			$postButton.classList.remove('error')
 			$postButton.title=''
@@ -50,6 +33,7 @@ export class InteractTool extends Tool {
 	}
 	getTool(callbacks: ToolCallbacks): ToolElements {
 		this.updateAsOutput()
+		this.updateWithOutput()
 		this.$withOutput.replaceChildren(
 			`with nothing`
 		)
@@ -106,6 +90,28 @@ export class InteractTool extends Tool {
 			$a.dataset.userId=String(this.auth.uid)
 			this.$asOutput.replaceChildren(
 				`as `,$a
+			)
+		}
+	}
+	private updateWithOutput() {
+		const nSelectedNotes=this.selectedOpenNoteIds.length+this.selectedClosedNoteIds.length
+		if (nSelectedNotes==0) {
+			this.$withOutput.replaceChildren(`with nothing`)
+		} else if (nSelectedNotes<=5) {
+			this.$withOutput.replaceChildren(`with `)
+			let first=true
+			for (const noteId of [...this.selectedOpenNoteIds,...this.selectedClosedNoteIds]) {
+				if (!first) this.$withOutput.append(`, `)
+				first=false
+				const href=this.auth.server.web.getUrl(e`note/${noteId}`)
+				const $a=makeLink(String(noteId),href)
+				$a.classList.add('listened')
+				$a.dataset.noteId=String(noteId)
+				this.$withOutput.append($a)
+			}
+		} else {
+			this.$withOutput.replaceChildren(
+				`with notes` // TODO
 			)
 		}
 	}
