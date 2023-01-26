@@ -41,6 +41,7 @@ export function checkAuthRedirect(): boolean {
 }
 
 export default class Auth {
+	onLoginChange?: ()=>void
 	readonly authStorage: AuthStorage
 	constructor(
 		storage: NoteViewerStorage,
@@ -54,7 +55,9 @@ export default class Auth {
 		const $appSection=makeElement('section')()()
 		const $loginSection=makeElement('section')()()
 		const appSection=new AuthAppSection($appSection,this.authStorage,this.server)
-		const loginSection=new AuthLoginSection($loginSection,this.authStorage,this.server)
+		const loginSection=new AuthLoginSection($loginSection,this.authStorage,this.server,
+			()=>this.onLoginChange?.()
+		)
 		appSection.onRegistrationUpdate=()=>loginSection.respondToAppRegistration()
 		$container.append($appSection,$loginSection)
 	}

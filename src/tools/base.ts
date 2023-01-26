@@ -30,6 +30,7 @@ export abstract class Tool {
 	){}
 	abstract getTool(callbacks: ToolCallbacks, map: NoteMap, figureDialog: FigureDialog): ToolElements
 	getInfo(): ToolElements|undefined { return undefined }
+	onLoginChange(): boolean { return false }
 	onRefresherStateChange(isRunning: boolean, message: string|undefined): boolean { return false }
 	onRefresherPeriodChange(refreshPeriod: number): boolean { return false }
 	onTimestampChange(timestamp: string): boolean { return false }

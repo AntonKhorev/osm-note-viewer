@@ -3,6 +3,8 @@ import type {Note} from '../data'
 import {makeDiv, wrapFetchForButton, makeGetKnownErrorMessage, makeLink} from '../html'
 import {makeEscapeTag} from '../escape'
 
+const e=makeEscapeTag(encodeURIComponent)
+
 class NoteInteractionError extends TypeError {}
 
 export class InteractTool extends Tool {
@@ -15,8 +17,11 @@ export class InteractTool extends Tool {
 	private $postButtons: HTMLButtonElement[] =[]
 	private selectedOpenNoteIds: ReadonlyArray<number> = []
 	private selectedClosedNoteIds: ReadonlyArray<number> = []
+	onLoginChange(): boolean {
+		this.updateAsOutput()
+		return true
+	}
 	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>): boolean {
-		const e=makeEscapeTag(encodeURIComponent)
 		this.selectedOpenNoteIds=selectedNotes.filter(note=>note.status=='open').map(note=>note.id)
 		this.selectedClosedNoteIds=selectedNotes.filter(note=>note.status=='closed').map(note=>note.id)
 		if (selectedNotes.length==0) {
@@ -44,21 +49,7 @@ export class InteractTool extends Tool {
 		return true
 	}
 	getTool(callbacks: ToolCallbacks): ToolElements {
-		const e=makeEscapeTag(encodeURIComponent)
-		if (this.auth.username==null || this.auth.uid==null) {
-			this.$asOutput.replaceChildren(
-				`anonymously`
-			)
-		} else {
-			const href=this.auth.server.web.getUrl(e`user/${this.auth.username}`)
-			const $a=makeLink(this.auth.username,href)
-			$a.classList.add('listened')
-			$a.dataset.userName=this.auth.username
-			$a.dataset.userId=String(this.auth.uid)
-			this.$asOutput.replaceChildren(
-				`as `,$a
-			)
-		}
+		this.updateAsOutput()
 		this.$withOutput.replaceChildren(
 			`with nothing`
 		)
@@ -101,5 +92,21 @@ export class InteractTool extends Tool {
 			makeDiv('major-input')($commentText),
 			...this.$postButtons.map($postButton=>makeDiv('major-input')($postButton))
 		]
+	}
+	private updateAsOutput() {
+		if (this.auth.username==null || this.auth.uid==null) {
+			this.$asOutput.replaceChildren(
+				`anonymously`
+			)
+		} else {
+			const href=this.auth.server.web.getUrl(e`user/${this.auth.username}`)
+			const $a=makeLink(this.auth.username,href)
+			$a.classList.add('listened')
+			$a.dataset.userName=this.auth.username
+			$a.dataset.userId=String(this.auth.uid)
+			this.$asOutput.replaceChildren(
+				`as `,$a
+			)
+		}
 	}
 }

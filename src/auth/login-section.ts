@@ -59,7 +59,8 @@ export default class AuthLoginSection {
 	constructor(
 		$section: HTMLElement,
 		private readonly authStorage: AuthStorage,
-		server: Server
+		server: Server,
+		onLoginChange: ()=>void
 	) {
 		const webPostUrlencodedWithPossibleAuthError=async(webPath:string,headers:{[k:string]:string},parameters:[k:string,v:string][],whenMessage:string)=>{
 			const response=await server.web.postUrlencoded(webPath,headers,parameters)
@@ -142,7 +143,7 @@ export default class AuthLoginSection {
 				$radio.checked=!authStorage.token
 				$radio.onclick=()=>{
 					authStorage.token=''
-					// updateInResponseToLogin() // TODO some callback
+					onLoginChange()
 				}
 				const $usernameLabel=makeElement('label')()(em(`anonymous`))
 				$usernameLabel.htmlFor=$radio.id
@@ -180,7 +181,7 @@ export default class AuthLoginSection {
 					$radio.checked=authStorage.token==token
 					$radio.onclick=()=>{
 						authStorage.token=token
-						// updateInResponseToLogin() // TODO some callback
+						onLoginChange()
 					}
 					const $uidLabel=makeElement('label')()(String(login.uid))
 					const $usernameLabel=makeElement('label')()(login.username)

@@ -13,6 +13,9 @@ import {startOrResetFadeAnimation} from './html'
 class ToolBroadcaster {
 	private sources: Set<Tool> = new Set()
 	constructor(private readonly tools: [tool:Tool,$tool:HTMLElement][]) {}
+	broadcastLoginChange(fromTool: Tool|null): void {
+		this.broadcast(fromTool,tool=>tool.onLoginChange())
+	}
 	broadcastRefresherStateChange(fromTool: Tool|null, isRunning: boolean, message: string|undefined): void {
 		this.broadcast(fromTool,tool=>tool.onRefresherStateChange(isRunning,message))
 	}
@@ -129,6 +132,9 @@ export default class ToolPanel {
 		globalEventsListener.timestampListener=(timestamp: string)=>{
 			this.toolBroadcaster.broadcastTimestampChange(null,timestamp)
 		}
+	}
+	receiveLoginChange() {
+		this.toolBroadcaster.broadcastLoginChange(null)
 	}
 	receiveRefresherStateChange(isRunning: boolean, message: string|undefined) {
 		this.toolBroadcaster.broadcastRefresherStateChange(null,isRunning,message)
