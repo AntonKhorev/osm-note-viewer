@@ -1,4 +1,4 @@
-import {Tool, ToolElements, ToolCallbacks, makeNotesIcon, makeMapIcon} from './base'
+import {Tool, ToolElements, ToolCallbacks, makeNotesIcon,  makeMapIcon, makeNoteStatusIcon} from './base'
 import type {Note} from '../data'
 import type NoteMap from '../map'
 import {makeElement, makeLink} from '../html'
@@ -136,7 +136,11 @@ export class LegendTool extends Tool {
 	title=`What do icons in command panel mean`
 	getTool(): ToolElements {
 		return [
-			makeMapIcon('center'),` = map center, `,makeMapIcon('area'),` = map area, `,makeNotesIcon('selected'),` = selected notes`
+			makeMapIcon('center'),` = map center, `,
+			makeMapIcon('area'),` = map area, `,
+			makeNotesIcon('selected'),` = selected notes, `,
+			makeNoteStatusIcon('open'),` = open (selected) note, `,
+			makeNoteStatusIcon('closed'),` = closed (selected) note`
 		]
 	}
 }
