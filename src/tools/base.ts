@@ -24,7 +24,7 @@ export abstract class Tool {
 	public abstract readonly name: string
 	public readonly title?: string
 	public readonly isFullWidth: boolean = false
-	private $buttonsRequiringSelectedNotes: [$button:HTMLButtonElement,activationCondition:()=>boolean][] = []
+	private $buttonsRequiringSelectedNotes: HTMLButtonElement[] = []
 	constructor(
 		protected readonly auth: Auth
 	){}
@@ -37,8 +37,8 @@ export abstract class Tool {
 	onNoteCountsChange(nFetched: number, nVisible: number): boolean { return false }
 	onSelectedNotesChange(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean {
 		let reactedToButtons=false
-		for (const [$button,activationCondition] of this.$buttonsRequiringSelectedNotes) {
-			const newDisabled=selectedNotes.length<=0 || !activationCondition()
+		for (const $button of this.$buttonsRequiringSelectedNotes) {
+			const newDisabled=selectedNotes.length<=0
 			if ($button.disabled!=newDisabled) {
 				$button.disabled=newDisabled
 				reactedToButtons=true
@@ -48,10 +48,10 @@ export abstract class Tool {
 		return reactedToButtons||reactedToOthers
 	}
 	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean { return false }
-	protected makeRequiringSelectedNotesButton(activationCondition:()=>boolean = ()=>true): HTMLButtonElement {
+	protected makeRequiringSelectedNotesButton(): HTMLButtonElement {
 		const $button=document.createElement('button')
 		$button.disabled=true
-		this.$buttonsRequiringSelectedNotes.push([$button,activationCondition])
+		this.$buttonsRequiringSelectedNotes.push($button)
 		return $button
 	}
 }
