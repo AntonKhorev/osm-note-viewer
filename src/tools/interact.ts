@@ -7,18 +7,16 @@ import {makeEscapeTag} from '../escape'
 class NoteInteractionError extends TypeError {}
 
 export class InteractTool extends Tool {
+	id='interact'
+	name=`Interact`
+	title=`Interact with notes on OSM server`
+	isFullWidth=true
 	private auth?: Auth
 	private $asOutput=document.createElement('output')
 	private $withOutput=document.createElement('output')
 	private $postButtons: HTMLButtonElement[] =[]
 	private selectedOpenNoteIds: ReadonlyArray<number> = []
 	private selectedClosedNoteIds: ReadonlyArray<number> = []
-	constructor() {super(
-		'interact',
-		`Interact`,
-		`Interact with notes on OSM server`,
-		true
-	)}
 	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>): boolean {
 		const e=makeEscapeTag(encodeURIComponent)
 		this.selectedOpenNoteIds=selectedNotes.filter(note=>note.status=='open').map(note=>note.id)

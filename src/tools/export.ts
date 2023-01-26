@@ -104,11 +104,9 @@ abstract class ExportTool extends Tool {
 }
 
 export class GpxTool extends ExportTool {
-	constructor() {super(
-		'gpx',
-		`GPX`,
-		`Export selected notes to a .gpx file`
-	)}
+	id='gpx'
+	name=`GPX`
+	title=`Export selected notes to a .gpx file`
 	protected getInfoWithoutDragAndDrop() {return[p(
 		`Export selected notes in `,makeLink(`GPX`,'https://wiki.openstreetmap.org/wiki/GPX'),` (GPS exchange) format. `,
 		`During the export, each selected note is treated as a waypoint with its name set to note id, description set to comments and link pointing to note's page on the OSM website. `,
@@ -197,11 +195,9 @@ export class GpxTool extends ExportTool {
 }
 
 export class GeoJsonTool extends ExportTool {
-	constructor() {super(
-		'geojson',
-		`GeoJSON`,
-		`Export selected notes to a .geojson file`
-	)}
+	id='geojson'
+	name=`GeoJSON`
+	title=`Export selected notes to a .geojson file`
 	protected getInfoWithoutDragAndDrop() {return[p(
 		`Export selected notes in `,makeLink(`GeoJSON`,'https://wiki.openstreetmap.org/wiki/GeoJSON'),` format. `,
 		`The exact features and properties exported are made to be close to OSM API `,code(`.json`),` output:`

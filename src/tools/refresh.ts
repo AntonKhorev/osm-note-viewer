@@ -2,14 +2,12 @@ import {Tool, ToolElements, ToolCallbacks, makeActionIcon} from './base'
 import {makeElement, makeLabel} from '../html'
 
 export class RefreshTool extends Tool {
+	id='refresh'
+	name=`Refresh notes`
+	title=`Control automatic and manual refreshing of notes`
 	private isRunning=true
 	private $runButton=makeElement('button')('only-with-icon')()
 	private $refreshPeriodInput=document.createElement('input')
-	constructor() {super(
-		'refresh',
-		`Refresh notes`,
-		`Control automatic and manual refreshing of notes`
-	)}
 	getTool(callbacks: ToolCallbacks): ToolElements {
 		this.updateState(true)
 		const $refreshSelect=makeElement('select')()(

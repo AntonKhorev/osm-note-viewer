@@ -7,15 +7,13 @@ import {em,p,ul,li} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 
 export class ReportTool extends Tool {
+	id='report'
+	name=`Report`
+	title=`Report notes on OSM website`
 	private selectedNoteIds: ReadonlyArray<number> = []
 	private $tabCountOutput=document.createElement('output')
 	private $confirmTabCountOutput=document.createElement('output')
 	private reportManyListener?: ConfirmedButtonListener
-	constructor() {super(
-		'report',
-		`Report`,
-		`Report notes on OSM website`
-	)}
 	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>): boolean {
 		this.selectedNoteIds=selectedNotes.map(note=>note.id)
 		const count=selectedNotes.length

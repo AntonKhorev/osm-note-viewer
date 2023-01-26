@@ -8,12 +8,10 @@ import {p,em} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 
 export class RcTool extends Tool {
+	id='rc'
+	name=`RC`
+	title=`Run remote control commands in external editors (usually JOSM)`
 	private selectedNotes: ReadonlyArray<Note> = []
-	constructor() {super(
-		'rc',
-		`RC`,
-		`Run remote control commands in external editors (usually JOSM)`
-	)}
 	getInfo() {return[p(
 		`Load note/map data to an editor with `,
 		makeLink(`remote control`,'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl'),
@@ -49,11 +47,9 @@ export class RcTool extends Tool {
 }
 
 export class IdTool extends Tool {
-	constructor() {super(
-		'id',
-		`iD`,
-		`Open an iD editor window`
-	)}
+	id='id'
+	name=`iD`
+	title=`Open an iD editor window`
 	getInfo() {return[p(
 		`Follow your notes by zooming from one place to another in one `,makeLink(`iD editor`,'https://wiki.openstreetmap.org/wiki/ID'),` window. `,
 		`It could be faster to do first here in note-viewer than in iD directly because note-viewer won't try to download more data during panning. `,

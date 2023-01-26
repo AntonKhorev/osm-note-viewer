@@ -8,11 +8,9 @@ type InfoElements = Array<string|HTMLElement>
 const label=(...ss: InfoElements)=>makeElement('label')('inline')(...ss)
 
 export class AutozoomTool extends Tool {
-	constructor() {super(
-		'autozoom',
-		`Map autozoom`,
-		`Select how the map is panned/zoomed to notes`
-	)}
+	id='autozoom'
+	name=`Map autozoom`
+	title=`Select how the map is panned/zoomed to notes`
 	getInfo() {return[p(
 		`Pan and zoom the map to notes in the table. `,
 		`Can be used as `,em(`zoom to data`),` for notes layer if `,dfn(`to all visible notes`),` is selected. `,
@@ -46,11 +44,9 @@ export class AutozoomTool extends Tool {
 }
 
 export class CommentsTool extends Tool {
-	constructor() {super(
-		'comments',
-		`Table comments`,
-		`Change how comments are displayed in the notes table`
-	)}
+	id='comments'
+	name=`Table comments`
+	title=`Change how comments are displayed in the notes table`
 	getTool(callbacks: ToolCallbacks): ToolElements {
 		const $onlyFirstCommentsCheckbox=document.createElement('input')
 		$onlyFirstCommentsCheckbox.type='checkbox'
@@ -71,12 +67,10 @@ export class CommentsTool extends Tool {
 }
 
 export class TimestampTool extends Tool {
+	id='timestamp'
+	name=`Timestamp for historic queries`
+	title=`Set timestamp for queries run by Overpass`
 	private $timestampInput=document.createElement('input')
-	constructor() {super(
-		'timestamp',
-		`Timestamp for historic queries`,
-		`Set timestamp for queries run by Overpass`
-	)}
 	getInfo() {return[p(
 		`Allows to select a timestamp for use with `,em(`Overpass`),` and `,em(`Overpass turbo`),` commands. `,
 		`You can either enter the timestamp in ISO format (or anything else that Overpass understands) manually here click on a date of/in a note comment. `,
@@ -109,14 +103,12 @@ export class TimestampTool extends Tool {
 }
 
 export class CountTool extends Tool {
+	id='counts'
+	name=`Note counts`
+	title=`See number of fetched/visible/selected notes`
 	private $fetchedNoteCount=document.createElement('output')
 	private $visibleNoteCount=document.createElement('output')
 	private $selectedNoteCount=document.createElement('output')
-	constructor() {super(
-		'counts',
-		`Note counts`,
-		`See number of fetched/visible/selected notes`
-	)}
 	getTool(): ToolElements {
 		this.$fetchedNoteCount.textContent='0'
 		this.$visibleNoteCount.textContent='0'
@@ -139,11 +131,9 @@ export class CountTool extends Tool {
 }
 
 export class LegendTool extends Tool {
-	constructor() {super(
-		'legend',
-		`Legend`,
-		`What do icons in command panel mean`
-	)}
+	id='legend'
+	name=`Legend`
+	title=`What do icons in command panel mean`
 	getTool(): ToolElements {
 		return [
 			makeMapIcon('center'),` = map center, `,makeMapIcon('area'),` = map area, `,makeNotesIcon('selected'),` = selected notes`
@@ -152,11 +142,9 @@ export class LegendTool extends Tool {
 }
 
 export class SettingsTool extends Tool {
-	constructor() {super(
-		'settings',
-		`⚙️`,
-		`Settings`
-	)}
+	id='settings'
+	name=`⚙️`
+	title=`Settings`
 	getTool(callbacks: ToolCallbacks): ToolElements {
 		const $openAllButton=document.createElement('button')
 		$openAllButton.textContent=`+ open all tools`

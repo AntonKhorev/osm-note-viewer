@@ -5,11 +5,9 @@ import {makeElement, makeLink} from '../html'
 import {p,ul,li} from '../html-shortcuts'
 
 export class ParseTool extends Tool {
-	constructor() {super(
-		'parse',
-		`Parse links`,
-		`Extract interactive links from plaintext`
-	)}
+	id='parse'
+	name=`Parse links`
+	title=`Extract interactive links from plaintext`
 	getInfo() {return[p(
 		`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →. `,
 		`Currently detected active elements are: `,
