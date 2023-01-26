@@ -7,10 +7,12 @@ import {makeEscapeTag} from '../escape'
 class NoteInteractionError extends TypeError {}
 
 export class InteractTool extends Tool {
+	private auth?: Auth
 	private $asOutput=document.createElement('output')
 	private $withOutput=document.createElement('output')
 	private $postButtons: HTMLButtonElement[] =[]
-	private selectedNoteIds: ReadonlyArray<number> = [] // TODO also save open/closed status
+	private selectedOpenNoteIds: ReadonlyArray<number> = []
+	private selectedClosedNoteIds: ReadonlyArray<number> = []
 	constructor() {super(
 		'interact',
 		`Interact`,
@@ -18,7 +20,33 @@ export class InteractTool extends Tool {
 		true
 	)}
 	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>): boolean {
-		this.selectedNoteIds=selectedNotes.map(note=>note.id)
+		const e=makeEscapeTag(encodeURIComponent)
+		this.selectedOpenNoteIds=selectedNotes.filter(note=>note.status=='open').map(note=>note.id)
+		this.selectedClosedNoteIds=selectedNotes.filter(note=>note.status=='closed').map(note=>note.id)
+		if (selectedNotes.length==0) {
+			this.$withOutput.replaceChildren(
+				`with nothing`
+			)
+		} else if (selectedNotes.length==1) {
+			if (this.auth) {
+				const note=selectedNotes[0]
+				const href=this.auth.server.web.getUrl(e`note/${note.id}`)
+				const $a=makeLink(String(note.id),href)
+				$a.classList.add('listened')
+				$a.dataset.noteId=String(note.id)
+				this.$withOutput.replaceChildren(
+					`with `,$a
+				)
+			} else {
+				this.$withOutput.replaceChildren(
+					`with a note`
+				)
+			}
+		} else {
+			this.$withOutput.replaceChildren(
+				`with notes` // TODO
+			)
+		}
 		for (const $postButton of this.$postButtons) {
 			$postButton.classList.remove('error')
 			$postButton.title=''
@@ -26,6 +54,7 @@ export class InteractTool extends Tool {
 		return true
 	}
 	getTool(callbacks: ToolCallbacks, auth: Auth): ToolElements {
+		this.auth=auth
 		const e=makeEscapeTag(encodeURIComponent)
 		if (auth.username==null || auth.uid==null) {
 			this.$asOutput.replaceChildren(
@@ -41,6 +70,9 @@ export class InteractTool extends Tool {
 				`as `,$a
 			)
 		}
+		this.$withOutput.replaceChildren(
+			`with nothing`
+		)
 		const $commentText=document.createElement('textarea')
 		const $commentButton=this.makeRequiringSelectedNotesButton(()=>!!$commentText.value)
 		const $closeButton=this.makeRequiringSelectedNotesButton()
@@ -50,10 +82,10 @@ export class InteractTool extends Tool {
 		$closeButton.append(`Close `,makeNotesIcon('selected'))
 		$reopenButton.append(`Reopen `,makeNotesIcon('selected'))
 		$commentText.oninput=()=>{
-			$commentButton.disabled=this.selectedNoteIds.length==0 || !$commentText.value
+			$commentButton.disabled=this.selectedOpenNoteIds.length==0 || !$commentText.value
 		}
-		const act=($button:HTMLButtonElement,endpoint:string)=>wrapFetchForButton($button,async()=>{
-			for (const id of this.selectedNoteIds) {
+		const act=($button:HTMLButtonElement,endpoint:string,noteIds:ReadonlyArray<number>)=>wrapFetchForButton($button,async()=>{
+			for (const id of noteIds) {
 				const response=await auth.server.api.postUrlencoded(e`notes/${id}/${endpoint}`,{
 					Authorization: 'Bearer '+auth.token
 				},[
@@ -66,14 +98,14 @@ export class InteractTool extends Tool {
 			$commentText.value=''
 		},makeGetKnownErrorMessage(NoteInteractionError))
 		$commentButton.onclick=async()=>{
-			await act($commentButton,'comment')
+			await act($commentButton,'comment',this.selectedOpenNoteIds)
 			$commentButton.disabled=!$commentText.value
 		}
 		$closeButton.onclick=async()=>{
-			await act($commentButton,'close')
+			await act($commentButton,'close',this.selectedOpenNoteIds)
 		}
 		$reopenButton.onclick=async()=>{
-			await act($reopenButton,'reopen')
+			await act($reopenButton,'reopen',this.selectedClosedNoteIds)
 		}
 		return [
 			this.$asOutput,` `,this.$withOutput,` `,
