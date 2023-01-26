@@ -46,7 +46,7 @@ export class InteractTool extends Tool {
 			this.$commentButton.disabled=!this.$commentText.value
 		}
 		this.$closeButton.onclick=async()=>{
-			await act(this.$commentButton,'close',this.selectedOpenNoteIds)
+			await act(this.$closeButton,'close',this.selectedOpenNoteIds)
 		}
 		this.$reopenButton.onclick=async()=>{
 			await act(this.$reopenButton,'reopen',this.selectedClosedNoteIds)
