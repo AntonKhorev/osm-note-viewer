@@ -1,13 +1,13 @@
-import {Tool, ToolFitMode, ToolCallbacks} from './tools/base'
-import * as UtilTools from './tools/util'
-import {RefreshTool} from './tools/refresh'
-import {ParseTool} from './tools/parse'
-import {OverpassTurboTool, OverpassTool} from './tools/overpass'
-import * as EditorTools from './tools/editor'
-import * as ExportTools from './tools/export'
-import {StreetViewTool, YandexPanoramasTool, MapillaryTool} from './tools/streetview'
-import {InteractTool} from './tools/interact'
-import {ReportTool} from './tools/report'
+import {Tool, ToolFitMode, ToolCallbacks} from './base'
+import * as UtilTools from './util'
+import {RefreshTool} from './refresh'
+import {ParseTool} from './parse'
+import {OverpassTurboTool, OverpassTool} from './overpass'
+import * as EditorTools from './editor'
+import * as ExportTools from './export'
+import {StreetViewTool, YandexPanoramasTool, MapillaryTool} from './streetview'
+import {InteractTool} from './interact'
+import {ReportTool} from './report'
 
 export {
 	Tool, ToolFitMode, ToolCallbacks,

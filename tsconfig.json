@@ -3,6 +3,7 @@
 		"target": "es2020",
 		"strict": true,
 		"allowUmdGlobalAccess": true,
-		"types": ["geojson","leaflet"]
+		"types": ["geojson","leaflet"],
+		"moduleResolution": "node"
 	}
 }
