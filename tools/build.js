@@ -115,7 +115,7 @@ async function buildJs(srcDir,dstDir,serverListConfig) {
 	const plugins=[typescript()]
 	if (serverListConfig) {
 		plugins.unshift(virtual({
-			[`${srcDir}/server-list-config`]: `export default `+JSON.stringify(serverListConfig)
+			[`${srcDir}/server-list-config`]: `export default `+JSON.stringify(serverListConfig,undefined,4)
 		}))
 	}
 	const bundle=await rollup({
