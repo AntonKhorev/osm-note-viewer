@@ -25,7 +25,10 @@ export abstract class Tool {
 	public readonly title?: string
 	public readonly isFullWidth: boolean = false
 	private $buttonsRequiringSelectedNotes: [$button:HTMLButtonElement,activationCondition:()=>boolean][] = []
-	abstract getTool(callbacks: ToolCallbacks, auth: Auth, map: NoteMap, figureDialog: FigureDialog): ToolElements
+	constructor(
+		protected readonly auth: Auth
+	){}
+	abstract getTool(callbacks: ToolCallbacks, map: NoteMap, figureDialog: FigureDialog): ToolElements
 	getInfo(): ToolElements|undefined { return undefined }
 	onRefresherStateChange(isRunning: boolean, message: string|undefined): boolean { return false }
 	onRefresherPeriodChange(refreshPeriod: number): boolean { return false }

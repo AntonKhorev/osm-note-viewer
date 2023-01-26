@@ -73,7 +73,7 @@ export default class ToolPanel {
 			}
 		}
 		for (const makeTool of toolMakerSequence) {
-			const tool=makeTool()
+			const tool=makeTool(auth)
 			if (!auth.server.overpassTurbo && tool instanceof OverpassTurboTool) continue
 			if (!auth.server.overpass && tool instanceof OverpassTool) continue
 			if (auth.server.world!='earth' && tool instanceof StreetViewTool) continue
@@ -88,7 +88,7 @@ export default class ToolPanel {
 			$toolDetails.addEventListener('toggle',()=>{
 				storage.setBoolean(storageKey,$toolDetails.open)
 			})
-			$toolDetails.append($toolSummary,...tool.getTool(toolCallbacks,auth,map,figureDialog))
+			$toolDetails.append($toolSummary,...tool.getTool(toolCallbacks,map,figureDialog))
 			$toolDetails.addEventListener('animationend',toolAnimationEndListener)
 			const infoElements=tool.getInfo()
 			if (infoElements) {

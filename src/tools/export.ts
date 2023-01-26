@@ -3,10 +3,9 @@ import type {
 	FeatureCollection
 } from 'geojson'
 
-import {Tool, ToolElements, ToolCallbacks, makeNotesIcon} from './base'
+import {Tool, ToolElements, makeNotesIcon} from './base'
 import type {Note, NoteComment} from '../data'
 import type Server from '../server'
-import type Auth from '../auth'
 import {toReadableDate, toUrlDate} from '../query-date'
 import {makeLink, makeLabel} from '../html'
 import {em,dfn,code,p,ul,li} from '../html-shortcuts'
@@ -30,7 +29,7 @@ abstract class ExportTool extends Tool {
 			)
 		]
 	}
-	getTool(callbacks: ToolCallbacks, {server}: Auth): ToolElements {
+	getTool(): ToolElements {
 		const $optionSelects=Object.fromEntries(
 			Object.entries(this.describeOptions()).map(([key,valuesWithTexts])=>{
 				const $select=document.createElement('select')
@@ -47,7 +46,7 @@ abstract class ExportTool extends Tool {
 		const $exportNotesButton=this.makeRequiringSelectedNotesButton()
 		$exportNotesButton.append(`Export `,makeNotesIcon('selected'))
 		$exportNotesButton.onclick=()=>{
-			const data=this.generateData(server,getOptionValues())
+			const data=this.generateData(this.auth.server,getOptionValues())
 			const filename=this.generateFilename()
 			const file=new File([data],filename)
 			const $a=document.createElement('a')
@@ -58,7 +57,7 @@ abstract class ExportTool extends Tool {
 		}
 		$exportNotesButton.draggable=true
 		$exportNotesButton.ondragstart=(ev)=>{
-			const data=this.generateData(server,getOptionValues())
+			const data=this.generateData(this.auth.server,getOptionValues())
 			if (!ev.dataTransfer) return
 			ev.dataTransfer.setData($dataTypeSelect.value,data)
 		}

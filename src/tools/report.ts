@@ -1,6 +1,5 @@
-import {Tool, ToolElements, ToolCallbacks, makeNotesIcon} from './base'
+import {Tool, ToolElements, makeNotesIcon} from './base'
 import type {Note} from '../data'
-import type Auth from '../auth'
 import ConfirmedButtonListener from '../confirmed-button-listener'
 import {makeLink} from '../html'
 import {em,p,ul,li} from '../html-shortcuts'
@@ -34,10 +33,10 @@ export class ReportTool extends Tool {
 			`Additionally the browser may choose to block opening of new tabs if too many are requested.`
 		)
 	)]}
-	getTool(callbacks: ToolCallbacks, {server}: Auth): ToolElements {
+	getTool(): ToolElements {
 		const e=makeEscapeTag(encodeURIComponent)
-		const getReportUrl=(id:number)=>server.web.getUrl(e`reports/new?reportable_id=${id}&reportable_type=Note`)
-		const getNoteListItem=(id:number)=>`- `+server.web.getUrl(e`note/${id}`)+`\n`
+		const getReportUrl=(id:number)=>this.auth.server.web.getUrl(e`reports/new?reportable_id=${id}&reportable_type=Note`)
+		const getNoteListItem=(id:number)=>`- `+this.auth.server.web.getUrl(e`note/${id}`)+`\n`
 		const getNoteList=()=>this.selectedNoteIds.map(getNoteListItem).join('')
 		const copyNoteList=()=>navigator.clipboard.writeText(getNoteList())
 		const $reportOneButton=this.makeRequiringSelectedNotesButton()

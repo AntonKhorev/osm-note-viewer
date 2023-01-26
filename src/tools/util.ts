@@ -18,7 +18,7 @@ export class AutozoomTool extends Tool {
 		dfn(`To notes on screen in table`),` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `,
 		`This option is convenient to use when `,em(`Track between notes`),` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`
 	)]}
-	getTool(callbacks: ToolCallbacks, auth: unknown, map: NoteMap): ToolElements {
+	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
 		const $fitModeSelect=makeElement('select')()(
 			new Option('is disabled','none'),
 			new Option('to selected notes','selectedNotes'),

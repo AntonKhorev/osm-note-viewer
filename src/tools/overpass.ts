@@ -1,5 +1,4 @@
 import {Tool, ToolElements, ToolCallbacks, makeMapIcon} from './base'
-import Auth from '../auth'
 import {QueryError} from '../server'
 import type NoteMap from '../map'
 import {makeLink, wrapFetchForButton} from '../html'
@@ -32,7 +31,7 @@ export class OverpassTurboTool extends OverpassBaseTool {
 		`, web UI for Overpass API. `,
 		`Useful to inspect historic data at the time a particular note comment was made.`
 	)]}
-	getTool(callbacks: ToolCallbacks, {server}: Auth, map: NoteMap): ToolElements {
+	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
 		const $overpassButtons: HTMLButtonElement[] = []
 		const buttonClickListener=(withRelations: boolean, onlyAround: boolean)=>{
 			const e=makeEscapeTag(encodeURIComponent)
@@ -48,8 +47,8 @@ export class OverpassTurboTool extends OverpassBaseTool {
 			}
 			query+=`;\n`
 			query+=`out meta geom;`
-			if (!server.overpassTurbo) throw new ReferenceError(`no overpass turbo provider`)
-			open(server.overpassTurbo.getUrl(query,map.lat,map.lon,map.zoom),'overpass-turbo')
+			if (!this.auth.server.overpassTurbo) throw new ReferenceError(`no overpass turbo provider`)
+			open(this.auth.server.overpassTurbo.getUrl(query,map.lat,map.lon,map.zoom),'overpass-turbo')
 		}
 		{
 			const $button=document.createElement('button')
@@ -84,7 +83,7 @@ export class OverpassTool extends OverpassBaseTool {
 		`Query `,makeLink(`Overpass API`,'https://wiki.openstreetmap.org/wiki/Overpass_API'),` without going through Overpass turbo. `,
 		`Shows results on the map. Also gives link to the element page on the OSM website.`
 	)]}
-	getTool(callbacks: ToolCallbacks, {server}: Auth, map: NoteMap): ToolElements {
+	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
 		const $button=document.createElement('button')
 		$button.append(`Find closest node to `,makeMapIcon('center'))
 		const $output=document.createElement('code')
@@ -95,11 +94,11 @@ export class OverpassTool extends OverpassBaseTool {
 			let query=this.getOverpassQueryPreamble(map)
 			query+=`node(around:${radius},${map.lat},${map.lon});\n`
 			query+=`out skel;`
-			if (!server.overpass) throw new ReferenceError(`no overpass provider`)
-			const doc=await server.overpass.fetch(query)
+			if (!this.auth.server.overpass) throw new ReferenceError(`no overpass provider`)
+			const doc=await this.auth.server.overpass.fetch(query)
 			const closestNodeId=getClosestNodeId(doc,map.lat,map.lon)
 			if (!closestNodeId) throw `Could not find nodes nearby`
-			const url=server.web.getUrl(`node/`+encodeURIComponent(closestNodeId))
+			const url=this.auth.server.web.getUrl(`node/`+encodeURIComponent(closestNodeId))
 			const $a=makeLink(`link`,url)
 			$a.dataset.elementType='node'
 			$a.dataset.elementId=String(closestNodeId)

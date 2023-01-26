@@ -5,7 +5,7 @@ import {p} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 
 export abstract class StreetViewTool extends Tool {
-	getTool(callbacks: ToolCallbacks, auth: unknown, map: NoteMap): ToolElements {
+	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
 		const $viewButton=document.createElement('button')
 		$viewButton.append(`Open `,makeMapIcon('center'))
 		$viewButton.onclick=()=>{

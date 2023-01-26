@@ -8,19 +8,20 @@ import * as ExportTools from './export'
 import {StreetViewTool, YandexPanoramasTool, MapillaryTool} from './streetview'
 import {InteractTool} from './interact'
 import {ReportTool} from './report'
+import Auth from '../auth'
 
 export {
 	Tool, ToolFitMode, ToolCallbacks,
 	OverpassTurboTool, OverpassTool, StreetViewTool
 }
 
-export const toolMakerSequence: Array<()=>Tool> = [
-	()=>new InteractTool, ()=>new ReportTool,
-	()=>new UtilTools.AutozoomTool, ()=>new UtilTools.CommentsTool, ()=>new RefreshTool,
-	()=>new UtilTools.TimestampTool, ()=>new ParseTool,
-	()=>new OverpassTurboTool, ()=>new OverpassTool,
-	()=>new EditorTools.RcTool, ()=>new EditorTools.IdTool,
-	()=>new ExportTools.GpxTool, ()=>new ExportTools.GeoJsonTool,
-	()=>new YandexPanoramasTool, ()=>new MapillaryTool,
-	()=>new UtilTools.CountTool, ()=>new UtilTools.LegendTool, ()=>new UtilTools.SettingsTool
-]
+export const toolMakerSequence: Array<(auth:Auth)=>Tool> = [
+	InteractTool, ReportTool,
+	UtilTools.AutozoomTool, UtilTools.CommentsTool, RefreshTool,
+	UtilTools.TimestampTool, ParseTool,
+	OverpassTurboTool, OverpassTool,
+	EditorTools.RcTool, EditorTools.IdTool,
+	ExportTools.GpxTool, ExportTools.GeoJsonTool,
+	YandexPanoramasTool, MapillaryTool,
+	UtilTools.CountTool, UtilTools.LegendTool, UtilTools.SettingsTool
+].map(ToolClass=>(auth)=>new ToolClass(auth))

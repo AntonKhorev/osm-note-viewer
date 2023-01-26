@@ -1,7 +1,5 @@
 import {Tool, ToolElements, ToolCallbacks, makeNotesIcon, makeMapIcon} from './base'
-
 import type {Note} from '../data'
-import type Auth from '../auth'
 import type NoteMap from '../map'
 import {makeLink} from '../html'
 import {p,em} from '../html-shortcuts'
@@ -17,13 +15,13 @@ export class RcTool extends Tool {
 		makeLink(`remote control`,'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl'),
 		`.`
 	)]}
-	getTool(callbacks: ToolCallbacks, {server}: Auth, map: NoteMap): ToolElements {
+	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
 		const e=makeEscapeTag(encodeURIComponent)
 		const $loadNotesButton=this.makeRequiringSelectedNotesButton()
 		$loadNotesButton.append(`Load `,makeNotesIcon('selected'))
 		$loadNotesButton.onclick=async()=>{
 			for (const {id} of this.selectedNotes) {
-				const noteUrl=server.web.getUrl(e`note/${id}`)
+				const noteUrl=this.auth.server.web.getUrl(e`note/${id}`)
 				const rcUrl=e`http://127.0.0.1:8111/import?url=${noteUrl}`
 				const success=await openRcUrl($loadNotesButton,rcUrl)
 				if (!success) break
@@ -67,14 +65,14 @@ export class IdTool extends Tool {
 		`This is because the editor is opened at `,makeLink(`/id`,`https://www.openstreetmap.org/id`),` url instead of `,makeLink(`/edit`,`https://www.openstreetmap.org/edit`),`. `,
 		`It has to be done because otherwise iD won't listen to `,em(`#map`),` changes in the webpage location.`
 	)]}
-	getTool(callbacks: ToolCallbacks, {server}: Auth, map: NoteMap): ToolElements {
+	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
 		// limited to what hashchange() lets you do here https://github.com/openstreetmap/iD/blob/develop/modules/behavior/hash.js
 		// which is zooming/panning
 		const $zoomButton=document.createElement('button')
 		$zoomButton.append(`Open `,makeMapIcon('center'))
 		$zoomButton.onclick=()=>{
 			const e=makeEscapeTag(encodeURIComponent)
-			const url=server.web.getUrl(e`id#map=${map.zoom}/${map.lat}/${map.lon}`)
+			const url=this.auth.server.web.getUrl(e`id#map=${map.zoom}/${map.lat}/${map.lon}`)
 			open(url,'id')
 		}
 		return [$zoomButton]

@@ -1,5 +1,4 @@
-import {Tool, ToolElements, ToolCallbacks} from './base'
-import type Auth from '../auth'
+import {Tool, ToolElements} from './base'
 import CommentWriter from '../comment-writer'
 import {makeElement, makeLink} from '../html'
 import {p,ul,li} from '../html-shortcuts'
@@ -20,8 +19,8 @@ export class ParseTool extends Tool {
 	),p(
 		`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`
 	)]}
-	getTool(callbacks: ToolCallbacks, {server}: Auth): ToolElements {
-		const commentWriter=new CommentWriter(server)
+	getTool(): ToolElements {
+		const commentWriter=new CommentWriter(this.auth.server)
 		const $input=document.createElement('input')
 		$input.type='text'
 		$input.size=50

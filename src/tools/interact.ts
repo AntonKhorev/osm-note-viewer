@@ -1,6 +1,5 @@
 import {Tool, ToolElements, ToolCallbacks, makeNotesIcon} from './base'
 import type {Note} from '../data'
-import type Auth from '../auth'
 import {makeDiv, wrapFetchForButton, makeGetKnownErrorMessage, makeLink} from '../html'
 import {makeEscapeTag} from '../escape'
 
@@ -11,7 +10,6 @@ export class InteractTool extends Tool {
 	name=`Interact`
 	title=`Interact with notes on OSM server`
 	isFullWidth=true
-	private auth?: Auth
 	private $asOutput=document.createElement('output')
 	private $withOutput=document.createElement('output')
 	private $postButtons: HTMLButtonElement[] =[]
@@ -26,20 +24,14 @@ export class InteractTool extends Tool {
 				`with nothing`
 			)
 		} else if (selectedNotes.length==1) {
-			if (this.auth) {
-				const note=selectedNotes[0]
-				const href=this.auth.server.web.getUrl(e`note/${note.id}`)
-				const $a=makeLink(String(note.id),href)
-				$a.classList.add('listened')
-				$a.dataset.noteId=String(note.id)
-				this.$withOutput.replaceChildren(
-					`with `,$a
-				)
-			} else {
-				this.$withOutput.replaceChildren(
-					`with a note`
-				)
-			}
+			const note=selectedNotes[0]
+			const href=this.auth.server.web.getUrl(e`note/${note.id}`)
+			const $a=makeLink(String(note.id),href)
+			$a.classList.add('listened')
+			$a.dataset.noteId=String(note.id)
+			this.$withOutput.replaceChildren(
+				`with `,$a
+			)
 		} else {
 			this.$withOutput.replaceChildren(
 				`with notes` // TODO
@@ -51,19 +43,18 @@ export class InteractTool extends Tool {
 		}
 		return true
 	}
-	getTool(callbacks: ToolCallbacks, auth: Auth): ToolElements {
-		this.auth=auth
+	getTool(callbacks: ToolCallbacks): ToolElements {
 		const e=makeEscapeTag(encodeURIComponent)
-		if (auth.username==null || auth.uid==null) {
+		if (this.auth.username==null || this.auth.uid==null) {
 			this.$asOutput.replaceChildren(
 				`anonymously`
 			)
 		} else {
-			const href=auth.server.web.getUrl(e`user/${auth.username}`)
-			const $a=makeLink(auth.username,href)
+			const href=this.auth.server.web.getUrl(e`user/${this.auth.username}`)
+			const $a=makeLink(this.auth.username,href)
 			$a.classList.add('listened')
-			$a.dataset.userName=auth.username
-			$a.dataset.userId=String(auth.uid)
+			$a.dataset.userName=this.auth.username
+			$a.dataset.userId=String(this.auth.uid)
 			this.$asOutput.replaceChildren(
 				`as `,$a
 			)
@@ -84,8 +75,8 @@ export class InteractTool extends Tool {
 		}
 		const act=($button:HTMLButtonElement,endpoint:string,noteIds:ReadonlyArray<number>)=>wrapFetchForButton($button,async()=>{
 			for (const id of noteIds) {
-				const response=await auth.server.api.postUrlencoded(e`notes/${id}/${endpoint}`,{
-					Authorization: 'Bearer '+auth.token
+				const response=await this.auth.server.api.postUrlencoded(e`notes/${id}/${endpoint}`,{
+					Authorization: 'Bearer '+this.auth.token
 				},[
 					['text',$commentText.value],
 				])
