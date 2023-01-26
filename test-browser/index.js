@@ -4,7 +4,7 @@ import url from 'url'
 import puppeteer from 'puppeteer'
 import runOsmServer from '../tools/osm-server.js'
 import runClientServer from '../tools/client-server.js'
-import {buildWithTestServer} from '../tools/build.js'
+import build from '../tools/build.js'
 
 const useClientServer=true
 const keepBrowser=true
@@ -32,7 +32,11 @@ describe("browser tests",function(){
 			this.clientUrl=`${url.pathToFileURL(`${dstDir}/index.html`)}`
 		}
 		this.osmServer=await runOsmServer(this.clientUrl)
-		await buildWithTestServer('src',dstDir,'cache',downloads,this.osmServer.url)
+		await build([{
+			web: this.osmServer.url,
+			tiles: `${this.osmServer.url}{z}/{x}/{y}.png`,
+			note: `Test server bundled on ${new Date().toISOString()}`
+		}],'src',dstDir,'cache',downloads)
 		if (keepBrowser) this.browser=await puppeteer.launch(browserOptions)
 	})
 	after(async function(){

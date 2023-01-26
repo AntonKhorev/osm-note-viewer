@@ -6,7 +6,7 @@ import { rollup } from 'rollup'
 import typescript from '@rollup/plugin-typescript'
 import virtual from '@rollup/plugin-virtual'
 
-export default async function build(srcDir,dstDir,cacheDir,downloads,serverListConfig) {
+export default async function build(serverListConfig,srcDir,dstDir,cacheDir,downloads) {
 	await cleanupDirectory(dstDir)
 	if (cacheDir) {
 		await fs.mkdir(cacheDir,{recursive:true})
@@ -17,14 +17,6 @@ export default async function build(srcDir,dstDir,cacheDir,downloads,serverListC
 	await buildHtml(srcDir,dstDir,downloads)
 	await buildCss(srcDir,dstDir)
 	await buildJs(srcDir,dstDir,serverListConfig)
-}
-
-export async function buildWithTestServer(srcDir,dstDir,cacheDir,downloads,serverUrl) {
-	await build(srcDir,dstDir,cacheDir,downloads,[{
-		web: serverUrl,
-		tiles: `${serverUrl}{z}/{x}/{y}.png`,
-		note: `Test server bundled on ${new Date().toISOString()}`
-	}])
 }
 
 export async function buildTest(srcDir,testDir,dstDir) {
