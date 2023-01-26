@@ -97,7 +97,7 @@ export class InteractTool extends Tool {
 			$a.href=href
 			$a.classList.add('listened')
 			$a.dataset.noteId=String(id)
-			$a.append(makeNoteStatusIcon(status),` ${id}`)
+			$a.append(makeNoteStatusIcon(status),` ${id}`)
 			this.$withOutput.append($a)
 		}
 		const writeOneOrManyNotes=(ids:readonly number[],status:'open'|'closed')=>{
@@ -110,7 +110,7 @@ export class InteractTool extends Tool {
 			}
 			if (!first) this.$withOutput.append(`, `)
 			first=false
-			this.$withOutput.append(`${ids.length} × `,makeNoteStatusIcon(status,ids.length))
+			this.$withOutput.append(`${ids.length} × `,makeNoteStatusIcon(status,ids.length))
 		}
 		const nSelectedNotes=this.selectedOpenNoteIds.length+this.selectedClosedNoteIds.length
 		if (nSelectedNotes==0) {
