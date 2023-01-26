@@ -25,9 +25,6 @@ export class InteractTool extends Tool {
 		this.updateAsOutput()
 		this.updateWithOutput()
 		this.updateButtons()
-		this.$commentButton.append(`Comment `,makeNotesIcon('selected'))
-		this.$closeButton.append(`Close `,makeNotesIcon('selected'))
-		this.$reopenButton.append(`Reopen `,makeNotesIcon('selected'))
 		this.$commentText.oninput=()=>{
 			this.$commentButton.disabled=this.selectedOpenNoteIds.length==0 || !this.$commentText.value
 		}
@@ -137,5 +134,17 @@ export class InteractTool extends Tool {
 		this.$commentButton.disabled=this.selectedOpenNoteIds.length==0 || this.$commentText.value==''
 		this.$closeButton.disabled=this.selectedOpenNoteIds.length==0
 		this.$reopenButton.disabled=this.selectedClosedNoteIds.length==0
+		this.$commentButton.replaceChildren(`Comment `,...buttonNoteIcon(this.selectedOpenNoteIds,'open'))
+		this.$closeButton.replaceChildren(`Close `,...buttonNoteIcon(this.selectedOpenNoteIds,'open'))
+		this.$reopenButton.replaceChildren(`Reopen `,...buttonNoteIcon(this.selectedClosedNoteIds,'closed'))
+		function buttonNoteIcon(ids:readonly number[],status:'open'|'closed'): (string|HTMLElement)[] {
+			if (ids.length==0) {
+				return [makeNotesIcon('selected')]
+			} else if (ids.length==1) {
+				return [makeNoteStatusIcon(status),` ${ids[0]}`]
+			} else {
+				return [`${ids.length} × `,makeNoteStatusIcon(status,ids.length)]
+			}
+		}
 	}
 }
