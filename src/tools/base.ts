@@ -74,3 +74,22 @@ export function makeActionIcon(type: string, text: string): HTMLElement {
 	$span.append(makeElement('span')()(text))
 	return $span
 }
+
+export function makeNoteStatusIcon(status: 'open'|'closed'): HTMLElement {
+	const height=16
+	const width=8
+	const r=width/2
+	const $span=makeElement('span')(`icon-note-status`)()
+	const path=`<path d="${computeMarkerOutlinePath(height,width/2)}" fill="${status=='open'?'red':'green'}" />`
+	$span.innerHTML=`<svg viewBox="${-r} ${-r} ${width} ${height}">${path}</svg><span>${status} note</span>`
+	return $span
+	// copypaste from marker.ts
+	function computeMarkerOutlinePath(height: number, r: number): string {
+		const rp=height-r
+		const y=r**2/rp
+		const x=Math.sqrt(r**2-y**2)
+		const xf=x.toFixed(2)
+		const yf=y.toFixed(2)
+		return `M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z`
+	}
+}

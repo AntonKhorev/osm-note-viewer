@@ -203,6 +203,11 @@
 	width: 13px;
 	height: 13px;
 }
+.panel.command [class|=icon-note-status] > svg {
+	width: 8px;
+	height: 16px;
+	vertical-align: text-bottom;
+}
 .panel.command .icon-map-area {
 	--tools-map-area-part-visibility: visible;
 }

@@ -1,4 +1,4 @@
-import {Tool, ToolElements, ToolCallbacks, makeNotesIcon} from './base'
+import {Tool, ToolElements, ToolCallbacks, makeNotesIcon, makeNoteStatusIcon} from './base'
 import type {Note} from '../data'
 import {makeDiv, wrapFetchForButton, makeGetKnownErrorMessage, makeLink} from '../html'
 import {makeEscapeTag} from '../escape'
@@ -94,14 +94,22 @@ export class InteractTool extends Tool {
 		} else if (nSelectedNotes<=5) {
 			this.$withOutput.replaceChildren(`with `)
 			let first=true
-			for (const noteId of [...this.selectedOpenNoteIds,...this.selectedClosedNoteIds]) {
+			const loop=(noteId:number,noteStatus:'open'|'closed')=>{
 				if (!first) this.$withOutput.append(`, `)
 				first=false
 				const href=this.auth.server.web.getUrl(e`note/${noteId}`)
-				const $a=makeLink(String(noteId),href)
+				const $a=document.createElement('a')
+				$a.href=href
 				$a.classList.add('listened')
 				$a.dataset.noteId=String(noteId)
+				$a.append(makeNoteStatusIcon(noteStatus),` ${noteId}`)
 				this.$withOutput.append($a)
+			}
+			for (const noteId of this.selectedOpenNoteIds) {
+				loop(noteId,'open')
+			}
+			for (const noteId of this.selectedClosedNoteIds) {
+				loop(noteId,'closed')
 			}
 		} else {
 			this.$withOutput.replaceChildren(
