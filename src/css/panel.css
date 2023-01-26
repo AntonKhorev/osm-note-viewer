@@ -302,6 +302,14 @@
 .panel .major-input label.file-reader input.active {
 	border: dashed var(--file-reader-border-width) var(--file-reader-active-border-color);
 }
+.panel .gridded-input {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(20ch, 1fr));
+	gap: .2em;
+}
+.panel .gridded-input > button {
+	padding: var(--major-button-padding);
+}
 
 .more div {
 	margin: 1em;

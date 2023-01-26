@@ -90,7 +90,7 @@ export class InteractTool extends Tool {
 		return [
 			this.$asOutput,` `,this.$withOutput,` `,
 			makeDiv('major-input')($commentText),
-			...this.$postButtons.map($postButton=>makeDiv('major-input')($postButton))
+			makeDiv('gridded-input')(...this.$postButtons)
 		]
 	}
 	private updateAsOutput() {
