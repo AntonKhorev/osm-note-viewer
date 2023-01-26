@@ -11,9 +11,6 @@
 .panel + .panel {
 	border-top: none;
 }
-.panel div {
-	margin: .5rem 0;
-}
 .panel label.inline {
 	white-space: nowrap;
 }
@@ -22,6 +19,9 @@
 }
 .panel h3 {
 	margin: 1rem 0 .5rem 0;
+}
+.panel [class$="-input"] {
+	margin: .5rem 0;
 }
 
 .panel.fetch .advanced-hint,
@@ -37,14 +37,23 @@
 .more:not(.advanced-mode) .advanced-hint {
 	display: none;
 }
+.panel.fetch .advanced-hint p,
+.more .advanced-hint p {
+	margin: .5em 0;
+}
 .panel.fetch:not(.advanced-mode) .advanced-input {
 	display: none;
 }
 .panel.fetch.advanced-mode .non-advanced-input {
 	display: none;
 }
+.panel.fetch .notice:not(:empty) {
+	margin: .5em -.5em;
+	padding: .5em;
+}
 .panel.fetch .notice.error {
 	color: var(--error-color);
+	background: var(--error-background-color);
 }
 .panel.fetch input[type=number] {
 	width: 4em;

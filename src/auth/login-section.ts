@@ -50,7 +50,7 @@ function isUserData(data:any): data is UserData {
 }
 
 export default class AuthLoginSection {
-	private readonly $clientIdRequired=makeDiv()(
+	private readonly $clientIdRequired=makeDiv('notice')(
 		`Please register the app and enter the `,em(`client id`),` above to be able to login.`
 	)
 	private readonly $loginForms=makeDiv()()

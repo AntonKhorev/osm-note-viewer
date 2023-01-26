@@ -3,7 +3,7 @@ import {NoteQuery, makeNoteSearchQueryFromValues} from '../query'
 import {toUserQuery} from '../query-user'
 import {toDateQuery, toReadableDate} from '../query-date'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
-import {em,code} from '../html-shortcuts'
+import {p,em,code} from '../html-shortcuts'
 
 const rq=(param: string)=>makeElement('span')('advanced-hint')(` (`,code(param),` parameter)`)
 const rq2=(param1: string, param2: string)=>makeElement('span')('advanced-hint')(` (`,code(param1),` or `,code(param2),` parameter)`)
@@ -18,10 +18,10 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 	protected $sortSelect=document.createElement('select')
 	protected $orderSelect=document.createElement('select')
 	protected makeLeadAdvancedHint(): Array<string|HTMLElement> {
-		return [
+		return [p(
 			`Make a `,makeLink(`search for notes`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`),
 			` request at `,code(this.server.api.getUrl(`notes/search?`),em(`parameters`)),`; see `,em(`parameters`),` below.`
-		]
+		)]
 	}
 	protected listParameters(closedDescriptionItems: Array<string|HTMLElement>): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][] {
 		const makeTr=(cellType: 'th'|'td')=>(...sss: Array<Array<string|HTMLElement>>)=>makeElement('tr')()(...sss.map(ss=>makeElement(cellType)()(...ss)))
@@ -97,7 +97,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 			this.$toInput.type='text'
 			this.$toInput.size=20
 			this.$toInput.name='to'
-			$fieldset.append(makeDiv()(
+			$fieldset.append(makeDiv('regular-input')(
 				`Date range: `,
 				makeLabel()(`from`,rq('from'),` `,this.$fromInput),` `,
 				makeLabel()(`to`,rq('to'),` `,this.$toInput)
@@ -129,7 +129,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 		{
 			this.$autoLoadCheckbox.type='checkbox'
 			this.$autoLoadCheckbox.checked=true
-			$fieldset.append(makeDiv()(makeLabel()(
+			$fieldset.append(makeDiv('regular-input')(makeLabel()(
 				this.$autoLoadCheckbox,` Automatically load more notes when scrolled to the end of the table`
 			)))
 		}

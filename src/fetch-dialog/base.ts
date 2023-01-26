@@ -162,12 +162,12 @@ export abstract class NoteFetchDialog extends NavDialog {
 		const $showImagesCheckbox=document.createElement('input')
 		$showImagesCheckbox.type='checkbox'
 		this.$sharedCheckboxes.showImages.push($showImagesCheckbox)
-		$fieldset.append(makeDiv()(makeLabel()(
+		$fieldset.append(makeDiv('regular-input')(makeLabel()(
 			$showImagesCheckbox,` Load and show images from StreetComplete`
 		)))
 		this.$advancedModeCheckbox.type='checkbox'
 		this.$sharedCheckboxes.advancedMode.push(this.$advancedModeCheckbox)
-		$fieldset.append(makeDiv()(makeLabel()(
+		$fieldset.append(makeDiv('regular-input')(makeLabel()(
 			this.$advancedModeCheckbox,` Advanced mode`
 		)))
 		return $fieldset
@@ -313,7 +313,7 @@ export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetc
 				new Option(`open and recently closed`,'7'),
 				new Option(`only open`,'0'),
 			)
-			const $closedLine=makeDiv()(
+			const $closedLine=makeDiv('regular-input')(
 				`Fetch `,
 				makeElement('span')('non-advanced-input')(
 					this.$closedSelect
@@ -374,7 +374,7 @@ export abstract class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteF
 		{
 			this.$autoLoadCheckbox.type='checkbox'
 			this.$autoLoadCheckbox.checked=true
-			$fieldset.append(makeDiv()(makeLabel()(
+			$fieldset.append(makeDiv('regular-input')(makeLabel()(
 				this.$autoLoadCheckbox,` Automatically load more notes when scrolled to the end of the table`
 			)))
 		}

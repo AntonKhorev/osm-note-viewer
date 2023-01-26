@@ -183,9 +183,9 @@ export default class AboutDialog extends NavDialog {
 		const $updateFetchesButton=document.createElement('button')
 		$updateFetchesButton.textContent=`Update stored fetch list`
 		$subsection.append(makeDiv('major-input')($updateFetchesButton))
-		const $fetchesContainer=makeDiv()(
-			`Click Update button above to see stored fetches`
-		)
+		const $fetchesContainer=makeDiv()(p(
+			`Click Update button above to see stored fetches.`
+		))
 		$subsection.append($fetchesContainer)
 		$updateFetchesButton.addEventListener('click',async()=>{
 			$updateFetchesButton.disabled=true

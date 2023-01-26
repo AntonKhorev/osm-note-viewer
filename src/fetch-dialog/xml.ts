@@ -106,7 +106,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 				new Option(`last updated 500`,'custom'),
 				new Option(`last open 10000`,'custom-open'),
 			)
-			$fieldset.append(makeDiv()(
+			$fieldset.append(makeDiv('regular-input')(
 				makeLabel()(
 					`Get `,this.$neisStatusSelect,` notes`
 				),` for this country`
@@ -122,12 +122,12 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void {
 		$legend.textContent=`Or read custom XML file`
 		{
-			$fieldset.append(makeDiv('advanced-hint')(
+			$fieldset.append(makeDiv('advanced-hint')(p(
 				`Load an arbitrary XML file containing note ids or links. `,
 				`Elements containing the ids are selected by a `,makeLink(`css selector`,`https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors`),` provided below. `,
 				`Inside the elements ids are looked for in an `,em(`attribute`),` if specified below, or in text content. `,
 				`After that download each note `,makeLink(`by its id`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Read:_GET_/api/0.6/notes/#id`),`.`
-			))
+			)))
 		}{
 			this.$selectorInput.type='text'
 			this.$selectorInput.name='selector'

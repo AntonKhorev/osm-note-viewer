@@ -5,7 +5,7 @@ import NoteMap, {NoteMapFreezeMode} from '../map'
 import {NoteQuery, makeNoteBboxQueryFromValues} from '../query'
 import {NominatimBbox} from '../nominatim'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
-import {em,code} from '../html-shortcuts'
+import {p,em,code} from '../html-shortcuts'
 
 const rq=(param: string)=>makeElement('span')('advanced-hint')(` (`,code(param),` parameter)`)
 const spanRequest=(...ss: Array<string|HTMLElement>)=>makeElement('span')('advanced-hint')(...ss)
@@ -55,10 +55,10 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		}
 	}
 	protected makeLeadAdvancedHint(): Array<string|HTMLElement> {
-		return [
+		return [p(
 			`Get `,makeLink(`notes by bounding box`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`),
 			` request at `,code(this.server.api.getUrl(`notes?`),em(`parameters`)),`; see `,em(`parameters`),` below.`
-		]
+		)]
 	}
 	protected listParameters(closedDescriptionItems: Array<string|HTMLElement>): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][] {
 		return [
@@ -81,7 +81,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 				new Option(`Update bounding box input`,'bbox',true,true),
 				new Option(`Fetch notes`,'fetch'),
 			)
-			$fieldset.append(makeDiv()(
+			$fieldset.append(makeDiv('regular-input')(
 				makeLabel('inline')(this.$trackMapSelect,` on map view changes`),` `,
 				this.$trackMapZoomNotice
 			))
