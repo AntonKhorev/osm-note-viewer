@@ -88,33 +88,45 @@ export class InteractTool extends Tool {
 		}
 	}
 	private updateWithOutput() {
+		let first=true
+		const writeSingleNote=(id:number,status:'open'|'closed')=>{
+			if (!first) this.$withOutput.append(`, `)
+			first=false
+			const href=this.auth.server.web.getUrl(e`note/${id}`)
+			const $a=document.createElement('a')
+			$a.href=href
+			$a.classList.add('listened')
+			$a.dataset.noteId=String(id)
+			$a.append(makeNoteStatusIcon(status),` ${id}`)
+			this.$withOutput.append($a)
+		}
+		const writeOneOrManyNotes=(ids:readonly number[],status:'open'|'closed')=>{
+			if (ids.length==0) {
+				return
+			}
+			if (ids.length==1) {
+				writeSingleNote(ids[0],status)
+				return
+			}
+			if (!first) this.$withOutput.append(`, `)
+			first=false
+			this.$withOutput.append(`${ids.length} × `,makeNoteStatusIcon(status))
+		}
 		const nSelectedNotes=this.selectedOpenNoteIds.length+this.selectedClosedNoteIds.length
 		if (nSelectedNotes==0) {
 			this.$withOutput.replaceChildren(`with nothing`)
 		} else if (nSelectedNotes<=5) {
 			this.$withOutput.replaceChildren(`with `)
-			let first=true
-			const loop=(noteId:number,noteStatus:'open'|'closed')=>{
-				if (!first) this.$withOutput.append(`, `)
-				first=false
-				const href=this.auth.server.web.getUrl(e`note/${noteId}`)
-				const $a=document.createElement('a')
-				$a.href=href
-				$a.classList.add('listened')
-				$a.dataset.noteId=String(noteId)
-				$a.append(makeNoteStatusIcon(noteStatus),` ${noteId}`)
-				this.$withOutput.append($a)
-			}
 			for (const noteId of this.selectedOpenNoteIds) {
-				loop(noteId,'open')
+				writeSingleNote(noteId,'open')
 			}
 			for (const noteId of this.selectedClosedNoteIds) {
-				loop(noteId,'closed')
+				writeSingleNote(noteId,'closed')
 			}
 		} else {
-			this.$withOutput.replaceChildren(
-				`with notes` // TODO
-			)
+			this.$withOutput.replaceChildren(`with `)
+			writeOneOrManyNotes(this.selectedOpenNoteIds,'open')
+			writeOneOrManyNotes(this.selectedClosedNoteIds,'closed')
 		}
 	}
 	private updateButtons() {
