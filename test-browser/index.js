@@ -120,6 +120,56 @@ describe("browser tests",function(){
 		await this.assertText(page,"the-first-note-comment")
 		await this.assertText(page,"the-second-note-comment")
 	})
+	it("cleans up previous note status on note update",async function(){
+		const checkClass=(el,className)=>el.evaluate(
+			(el,className)=>el.classList.contains(className),
+			className
+		)
+		const assertHasClass=async(el,className)=>{
+			assert.equal(await checkClass(el,className),true,`element doesn't have expected class "${className}"`)
+		}
+		const assertHasNoClass=async(el,className)=>{
+			assert.equal(await checkClass(el,className),false,`element has unexpected class "${className}"`)
+		}
+		this.osmServer.setNotes([{
+			"id": 101,
+			"comments": [{
+				"date": "2022-04-01",
+				"text": "needs-fixing"
+			}]
+		}])
+		const page=await this.openPage()
+		const fetchButton=await this.waitForFetchButton()
+		await fetchButton.click()
+		{
+			const noteSection=await page.waitForSelector('.notes tbody')
+			await assertHasClass(noteSection,'open')
+			await assertHasNoClass(noteSection,'closed')
+		}
+		this.osmServer.setNotes([{
+			"id": 101,
+			"comments": [{
+				"date": "2022-04-01",
+				"text": "needs-fixing"
+			},{
+				"date": "2022-04-02",
+				"text": "done-fixing",
+				"action": "closed"
+			}],
+			"status": "closed"
+		}])
+		const updateLink=await page.$(`.notes tbody a`)
+		await updateLink.click()
+		await page.waitForSelector('.notes tbody tr + tr')
+		{
+			const noteSection=await page.waitForSelector('.notes tbody')
+			await assertHasNoClass(noteSection,'open')
+			await assertHasClass(noteSection,'closed')
+		}
+	})
+
+	// refresher
+
 	it("halts/resumes note refreshes when clicking play button",async function(){
 		const page=await this.openPage()
 		const tool=await this.waitForTool(`Refresh notes`)
@@ -201,6 +251,9 @@ describe("browser tests",function(){
 		await this.assertText(page,"the-first-note-comment")
 		await this.assertText(page,"the-second-note-comment")
 	})
+
+	// logins
+
 	it("has login button in when app is registered",async function(){
 		const page=await this.openPage()
 		const probeLoginButton=async()=>{

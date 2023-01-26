@@ -214,9 +214,11 @@ export default class NoteTable implements NoteTableUpdater {
 		for (const [uid,username] of Object.entries(users)) {
 			this.usersById.set(Number(uid),username)
 		}
-		// output table section
+		// clean up table section
 		$noteSection.innerHTML=''
 		delete $noteSection.dataset.updated
+		$noteSection.className=''
+		// output table section
 		const getUsername=(uid:number)=>users[uid]
 		const isVisible=this.filter.matchNote(note,getUsername)
 		this.makeMarker(note,isVisible)
