@@ -7,6 +7,7 @@ import * as EditorTools from './tools/editor'
 import * as ExportTools from './tools/export'
 import {StreetViewTool, YandexPanoramasTool, MapillaryTool} from './tools/streetview'
 import {InteractTool} from './tools/interact'
+import {ReportTool} from './tools/report'
 
 export {
 	Tool, ToolFitMode, ToolCallbacks,
@@ -14,7 +15,7 @@ export {
 }
 
 export const toolMakerSequence: Array<()=>Tool> = [
-	()=>new InteractTool,
+	()=>new InteractTool, ()=>new ReportTool,
 	()=>new UtilTools.AutozoomTool, ()=>new UtilTools.CommentsTool, ()=>new RefreshTool,
 	()=>new UtilTools.TimestampTool, ()=>new ParseTool,
 	()=>new OverpassTurboTool, ()=>new OverpassTool,
