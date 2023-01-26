@@ -14,68 +14,62 @@ export class InteractTool extends Tool {
 	isFullWidth=true
 	private $asOutput=document.createElement('output')
 	private $withOutput=document.createElement('output')
-	private $postButtons: HTMLButtonElement[] =[]
+	private $commentText=document.createElement('textarea')
+	private $commentButton=document.createElement('button')
+	private $closeButton=document.createElement('button')
+	private $reopenButton=document.createElement('button')
+	private $postButtons: HTMLButtonElement[] = [this.$commentButton,this.$closeButton,this.$reopenButton]
 	private selectedOpenNoteIds: ReadonlyArray<number> = []
 	private selectedClosedNoteIds: ReadonlyArray<number> = []
-	onLoginChange(): boolean {
-		this.updateAsOutput()
-		return true
-	}
-	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>): boolean {
-		this.selectedOpenNoteIds=selectedNotes.filter(note=>note.status=='open').map(note=>note.id)
-		this.selectedClosedNoteIds=selectedNotes.filter(note=>note.status=='closed').map(note=>note.id)
-		this.updateWithOutput()
-		for (const $postButton of this.$postButtons) {
-			$postButton.classList.remove('error')
-			$postButton.title=''
-		}
-		return true
-	}
 	getTool(callbacks: ToolCallbacks): ToolElements {
 		this.updateAsOutput()
 		this.updateWithOutput()
-		this.$withOutput.replaceChildren(
-			`with nothing`
-		)
-		const $commentText=document.createElement('textarea')
-		const $commentButton=this.makeRequiringSelectedNotesButton(()=>!!$commentText.value)
-		const $closeButton=this.makeRequiringSelectedNotesButton()
-		const $reopenButton=this.makeRequiringSelectedNotesButton()
-		this.$postButtons.push($commentButton,$closeButton,$reopenButton)
-		$commentButton.append(`Comment `,makeNotesIcon('selected'))
-		$closeButton.append(`Close `,makeNotesIcon('selected'))
-		$reopenButton.append(`Reopen `,makeNotesIcon('selected'))
-		$commentText.oninput=()=>{
-			$commentButton.disabled=this.selectedOpenNoteIds.length==0 || !$commentText.value
+		this.updateButtons()
+		this.$commentButton.append(`Comment `,makeNotesIcon('selected'))
+		this.$closeButton.append(`Close `,makeNotesIcon('selected'))
+		this.$reopenButton.append(`Reopen `,makeNotesIcon('selected'))
+		this.$commentText.oninput=()=>{
+			this.$commentButton.disabled=this.selectedOpenNoteIds.length==0 || !this.$commentText.value
 		}
 		const act=($button:HTMLButtonElement,endpoint:string,noteIds:ReadonlyArray<number>)=>wrapFetchForButton($button,async()=>{
 			for (const id of noteIds) {
 				const response=await this.auth.server.api.postUrlencoded(e`notes/${id}/${endpoint}`,{
 					Authorization: 'Bearer '+this.auth.token
 				},[
-					['text',$commentText.value],
+					['text',this.$commentText.value],
 				])
 				if (!response.ok) {
 					throw new NoteInteractionError(await response.text())
 				}
 			}
-			$commentText.value=''
+			this.$commentText.value=''
 		},makeGetKnownErrorMessage(NoteInteractionError))
-		$commentButton.onclick=async()=>{
-			await act($commentButton,'comment',this.selectedOpenNoteIds)
-			$commentButton.disabled=!$commentText.value
+		this.$commentButton.onclick=async()=>{
+			await act(this.$commentButton,'comment',this.selectedOpenNoteIds)
+			this.$commentButton.disabled=!this.$commentText.value
 		}
-		$closeButton.onclick=async()=>{
-			await act($commentButton,'close',this.selectedOpenNoteIds)
+		this.$closeButton.onclick=async()=>{
+			await act(this.$commentButton,'close',this.selectedOpenNoteIds)
 		}
-		$reopenButton.onclick=async()=>{
-			await act($reopenButton,'reopen',this.selectedClosedNoteIds)
+		this.$reopenButton.onclick=async()=>{
+			await act(this.$reopenButton,'reopen',this.selectedClosedNoteIds)
 		}
 		return [
 			this.$asOutput,` `,this.$withOutput,` `,
-			makeDiv('major-input')($commentText),
+			makeDiv('major-input')(this.$commentText),
 			makeDiv('gridded-input')(...this.$postButtons)
 		]
+	}
+	onLoginChange(): boolean {
+		this.updateAsOutput()
+		return true
+	}
+	onSelectedNotesChange(selectedNotes: ReadonlyArray<Note>) {
+		this.selectedOpenNoteIds=selectedNotes.filter(note=>note.status=='open').map(note=>note.id)
+		this.selectedClosedNoteIds=selectedNotes.filter(note=>note.status=='closed').map(note=>note.id)
+		this.updateWithOutput()
+		this.updateButtons()
+		return true
 	}
 	private updateAsOutput() {
 		if (this.auth.username==null || this.auth.uid==null) {
@@ -114,5 +108,14 @@ export class InteractTool extends Tool {
 				`with notes` // TODO
 			)
 		}
+	}
+	private updateButtons() {
+		for (const $postButton of this.$postButtons) {
+			$postButton.classList.remove('error')
+			$postButton.title=''
+		}
+		this.$commentButton.disabled=this.selectedOpenNoteIds.length==0 || this.$commentText.value==''
+		this.$closeButton.disabled=this.selectedOpenNoteIds.length==0
+		this.$reopenButton.disabled=this.selectedClosedNoteIds.length==0
 	}
 }
