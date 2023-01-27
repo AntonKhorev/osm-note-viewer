@@ -1,4 +1,4 @@
-import {Tool, ToolElements, ToolCallbacks, makeNotesIcon, makeNoteStatusIcon} from './base'
+import {Tool, ToolElements, ToolCallbacks, makeNotesIcon, makeNoteStatusIcon, makeActionIcon} from './base'
 import type {Note} from '../data'
 import {readNoteResponse, NoteDataError} from '../fetch-note'
 import {makeDiv, makeLink} from '../html'
@@ -30,7 +30,8 @@ export class InteractTool extends Tool {
 	private readonly selectedOpenNoteIds: number[] = []
 	private readonly selectedClosedNoteIds: number[] = []
 	private stashedSelectedNotes?: ReadonlyArray<Note>
-	private isInteracting=false
+	private interactingEndpoint?: string
+	private haltRequest=false
 	private interactionDescriptions: InteractionDescription[]=[{
 		endpoint: 'comment',
 		label: `Comment`,
@@ -59,10 +60,15 @@ export class InteractTool extends Tool {
 		}
 		for (const {$button,inputNoteIds,endpoint} of this.interactionDescriptions) {
 			$button.onclick=async()=>{
+				if (this.interactingEndpoint!=null) {
+					this.haltRequest=true
+					return
+				}
+				this.haltRequest=false
 				this.clearButtonErrors()
-				this.isInteracting=true
+				this.interactingEndpoint=endpoint
 				try {
-					while (inputNoteIds.length>0) {
+					while (inputNoteIds.length>0 && !this.haltRequest) {
 						this.updateButtons()
 						const id=inputNoteIds[0]
 						const response=await this.auth.server.api.postUrlencoded(e`notes/${id}/${endpoint}.json`,{
@@ -88,7 +94,8 @@ export class InteractTool extends Tool {
 						$button.title=`Unknown error ${ex}`
 					}
 				}
-				this.isInteracting=false
+				this.interactingEndpoint=undefined
+				this.haltRequest=false
 				if (this.stashedSelectedNotes) {
 					const unstashedSelectedNotes=this.stashedSelectedNotes
 					this.stashedSelectedNotes=undefined
@@ -108,7 +115,7 @@ export class InteractTool extends Tool {
 		return true
 	}
 	onSelectedNotesChange(selectedNotes: ReadonlyArray<Note>) {
-		if (this.isInteracting) {
+		if (this.interactingEndpoint!=null) {
 			this.stashedSelectedNotes=selectedNotes
 			return false
 		}
@@ -191,15 +198,19 @@ export class InteractTool extends Tool {
 		const buttonNoteIcon=(ids:readonly number[],status:'open'|'closed'): (string|HTMLElement)[]=>{
 			if (ids.length==0) {
 				return [makeNotesIcon('selected')]
-			} else if (ids.length==1 && !this.isInteracting) { // while interacting, don't output single note id b/c countdown looks better this way
+			} else if (ids.length==1 && this.interactingEndpoint==null) { // while interacting, don't output single note id b/c countdown looks better this way
 				return [makeNoteStatusIcon(status),` ${ids[0]}`]
 			} else {
 				return [`${ids.length} × `,makeNoteStatusIcon(status,ids.length)]
 			}
 		}
-		for (const {$button,label,inputNoteIds,inputNoteStatus} of this.interactionDescriptions) {
-			$button.disabled=this.isInteracting || inputNoteIds.length==0
-			$button.replaceChildren(`${label} `,...buttonNoteIcon(inputNoteIds,inputNoteStatus))
+		for (const {$button,endpoint,label,inputNoteIds,inputNoteStatus} of this.interactionDescriptions) {
+			$button.disabled=(this.interactingEndpoint!=null && this.interactingEndpoint!=endpoint) || inputNoteIds.length==0
+			$button.replaceChildren()
+			if (this.interactingEndpoint==endpoint) {
+				$button.append(makeActionIcon('pause',`Halt`),` `)
+			}
+			$button.append(`${label} `,...buttonNoteIcon(inputNoteIds,inputNoteStatus))
 		}
 		if (this.$commentText.value=='') this.$commentButton.disabled=true
 	}
