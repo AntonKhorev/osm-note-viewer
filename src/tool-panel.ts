@@ -1,7 +1,7 @@
 import NoteViewerStorage from './storage'
 import Auth from './auth'
 import GlobalEventsListener from './events'
-import type {Note} from './data'
+import type {Note, Users} from './data'
 import NoteMap from './map'
 import FigureDialog from './figure'
 import {
@@ -55,6 +55,7 @@ export default class ToolPanel {
 	onRefresherStateChange?: (isRunning:boolean)=>void
 	onRefresherPeriodChange?: (refreshPeriod:number)=>void
 	onRefresherRefreshAll?: ()=>void
+	onNoteReload?: (note:Note,users:Users)=>void
 	constructor(
 		storage: NoteViewerStorage, auth: Auth, globalEventsListener: GlobalEventsListener,
 		$container: HTMLElement,
@@ -73,7 +74,8 @@ export default class ToolPanel {
 			},
 			onToolOpenToggle: (fromTool: Tool, setToOpen: boolean)=>{
 				for (const [,$tool] of tools) $tool.open=setToOpen
-			}
+			},
+			onNoteReload: (fromTool,note,users)=>this.onNoteReload?.(note,users)
 		}
 		for (const makeTool of toolMakerSequence) {
 			const tool=makeTool(auth)

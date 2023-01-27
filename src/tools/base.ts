@@ -1,4 +1,4 @@
-import type {Note} from '../data'
+import type {Note, Users} from '../data'
 import type Auth from '../auth'
 import type NoteMap from '../map'
 import type FigureDialog from '../figure'
@@ -17,6 +17,7 @@ export interface ToolCallbacks {
 	onRefresherRefreshAll(fromTool: Tool): void
 	onTimestampChange(fromTool: Tool, timestamp: string): void
 	onToolOpenToggle(fromTool: Tool, setToOpen: boolean): void
+	onNoteReload(fromTool: Tool, note: Note, users: Users): void
 }
 
 export abstract class Tool {

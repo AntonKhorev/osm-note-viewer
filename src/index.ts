@@ -52,10 +52,11 @@ async function main() {
 	let map: NoteMap|undefined
 	let figureDialog: FigureDialog|undefined
 	let noteTable: NoteTable|undefined
+	let toolPanel: ToolPanel|undefined
 	if (globalHistory.hasServer()) {
 		auth=new Auth(storage,globalHistory.server)
 		;[map,figureDialog]=writeGraphicSide(globalEventsListener,globalHistory)
-		noteTable=writeBelowFetchPanel(
+		;[noteTable,toolPanel]=writeBelowFetchPanel(
 			$scrollingPart,$stickyPart,$moreContainer,
 			storage,auth,globalEventsListener,globalHistory,
 			map,figureDialog
@@ -72,6 +73,12 @@ async function main() {
 	if (noteTable) {
 		noteTable.onRefresherUpdate=async(note,users)=>{
 			await fetchPanel.fetcherRun?.updateNote(note,users)
+		}
+	}
+	if (toolPanel) {
+		toolPanel.onNoteReload=async(note,users)=>{
+			await fetchPanel.fetcherRun?.updateNote(note,users)
+			noteTable?.replaceAndUnselectNote(note,users)
 		}
 	}
 	if (globalHistory.hasServer()) {
@@ -132,7 +139,7 @@ function writeBelowFetchPanel(
 	$scrollingPart:HTMLElement, $stickyPart:HTMLElement, $moreContainer:HTMLElement,
 	storage:NoteViewerStorage, auth:Auth, globalEventsListener:GlobalEventsListener, globalHistory:GlobalHistoryWithServer,
 	map:NoteMap, figureDialog:FigureDialog
-): NoteTable {
+): [NoteTable,ToolPanel] {
 	const $filterContainer=makeDiv('panel','fetch')()
 	const $notesContainer=makeDiv('notes')()
 	$scrollingPart.append($filterContainer,$notesContainer,$moreContainer)
@@ -156,5 +163,5 @@ function writeBelowFetchPanel(
 	filterPanel.subscribe(noteFilter=>noteTable.updateFilter(noteFilter))
 	globalHistory.$resizeObservationTarget=$notesContainer
 
-	return noteTable
+	return [noteTable,toolPanel]
 }

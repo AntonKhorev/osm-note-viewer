@@ -203,7 +203,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.sendNoteCountsUpdate()
 		return nUnfilteredNotes
 	}
-	replaceNote(note: Note, users: Users): void {
+	replaceNote(note: Note, users: Users, unselectAndUpdateCheckboxDependents = false): void {
 		const $noteSection=this.getNoteSection(note.id)
 		if (!$noteSection) return
 		const $checkbox=$noteSection.querySelector('.note-checkbox input')
@@ -223,9 +223,16 @@ export default class NoteTable implements NoteTableUpdater {
 		const isVisible=this.filter.matchNote(note,getUsername)
 		this.makeMarker(note,isVisible)
 		this.writeNoteSection($noteSection,note,users,isVisible)
-		if (isVisible) this.setNoteSelection($noteSection,wasSelected)
+		if (unselectAndUpdateCheckboxDependents) {
+			this.updateCheckboxDependents()
+		} else {
+			if (isVisible) this.setNoteSelection($noteSection,wasSelected)
+		}
 		this.refresherConnector.registerNote(note)
 		this.sendNoteCountsUpdate() // TODO only do if visibility changed
+	}
+	replaceAndUnselectNote(note: Note, users: Users): void {
+		this.replaceNote(note,users,true)
 	}
 	getVisibleNoteIds(): number[] {
 		const ids: number[] = []

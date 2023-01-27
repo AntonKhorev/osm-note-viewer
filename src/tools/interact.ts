@@ -1,6 +1,7 @@
 import {Tool, ToolElements, ToolCallbacks, makeNotesIcon, makeNoteStatusIcon} from './base'
 import type {Note} from '../data'
-import {makeDiv, wrapFetchForButton, makeGetKnownErrorMessage, makeLink} from '../html'
+import {readNoteResponse, NoteDataError} from '../fetch-note'
+import {makeDiv, makeLink} from '../html'
 import {makeEscapeTag} from '../escape'
 
 const e=makeEscapeTag(encodeURIComponent)
@@ -28,6 +29,7 @@ export class InteractTool extends Tool {
 	private $reopenButton=document.createElement('button')
 	private readonly selectedOpenNoteIds: number[] = []
 	private readonly selectedClosedNoteIds: number[] = []
+	private stashedSelectedNotes?: ReadonlyArray<Note>
 	private isInteracting=false
 	private interactionDescriptions: InteractionDescription[]=[{
 		endpoint: 'comment',
@@ -63,7 +65,7 @@ export class InteractTool extends Tool {
 					while (inputNoteIds.length>0) {
 						this.updateButtons()
 						const id=inputNoteIds[0]
-						const response=await this.auth.server.api.postUrlencoded(e`notes/${id}/${endpoint}`,{
+						const response=await this.auth.server.api.postUrlencoded(e`notes/${id}/${endpoint}.json`,{
 							Authorization: 'Bearer '+this.auth.token
 						},[
 							['text',this.$commentText.value],
@@ -72,13 +74,26 @@ export class InteractTool extends Tool {
 							throw new InteractionError(await response.text())
 						}
 						inputNoteIds.shift()
+						const noteAndUsers=await readNoteResponse(id,response)
+						callbacks.onNoteReload(this,...noteAndUsers)
 					}
 					this.$commentText.value=''
 				} catch (ex) {
 					$button.classList.add('error')
-					$button.title=makeGetKnownErrorMessage(InteractionError)(ex)
+					if (ex instanceof InteractionError) {
+						$button.title=ex.message
+					} else if (ex instanceof NoteDataError) {
+						$button.title=`Error after successful interaction: ${ex.message}`
+					} else {
+						$button.title=`Unknown error ${ex}`
+					}
 				}
 				this.isInteracting=false
+				if (this.stashedSelectedNotes) {
+					const unstashedSelectedNotes=this.stashedSelectedNotes
+					this.stashedSelectedNotes=undefined
+					this.processSelectedNotes(unstashedSelectedNotes)
+				}
 				this.updateButtons()
 			}
 		}
@@ -93,7 +108,14 @@ export class InteractTool extends Tool {
 		return true
 	}
 	onSelectedNotesChange(selectedNotes: ReadonlyArray<Note>) {
-		// TODO ignore changes if there's ongoing interaction
+		if (this.isInteracting) {
+			this.stashedSelectedNotes=selectedNotes
+			return false
+		}
+		this.processSelectedNotes(selectedNotes)
+		return true
+	}
+	private processSelectedNotes(selectedNotes: ReadonlyArray<Note>) {
 		this.selectedOpenNoteIds.length=0
 		this.selectedClosedNoteIds.length=0
 		for (const selectedNote of selectedNotes) {
@@ -106,7 +128,6 @@ export class InteractTool extends Tool {
 		this.updateWithOutput()
 		this.updateButtons()
 		this.clearButtonErrors()
-		return true
 	}
 	private updateAsOutput() {
 		if (this.auth.username==null || this.auth.uid==null) {
