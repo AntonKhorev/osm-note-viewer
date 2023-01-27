@@ -134,7 +134,6 @@ export class InteractTool extends Tool {
 		}
 		this.updateWithOutput()
 		this.updateButtons()
-		this.clearButtonErrors()
 	}
 	private updateAsOutput() {
 		if (this.auth.username==null || this.auth.uid==null) {
