@@ -188,20 +188,20 @@ export class InteractTool extends Tool {
 		}
 	}
 	private updateButtons() {
-		for (const {$button,label,inputNoteIds,inputNoteStatus} of this.interactionDescriptions) {
-			$button.disabled=this.isInteracting || inputNoteIds.length==0
-			$button.replaceChildren(`${label} `,...buttonNoteIcon(inputNoteIds,inputNoteStatus))
-		}
-		if (this.$commentText.value=='') this.$commentButton.disabled=true
-		function buttonNoteIcon(ids:readonly number[],status:'open'|'closed'): (string|HTMLElement)[] {
+		const buttonNoteIcon=(ids:readonly number[],status:'open'|'closed'): (string|HTMLElement)[]=>{
 			if (ids.length==0) {
 				return [makeNotesIcon('selected')]
-			} else if (ids.length==1) {
+			} else if (ids.length==1 && !this.isInteracting) { // while interacting, don't output single note id b/c countdown looks better this way
 				return [makeNoteStatusIcon(status),` ${ids[0]}`]
 			} else {
 				return [`${ids.length} × `,makeNoteStatusIcon(status,ids.length)]
 			}
 		}
+		for (const {$button,label,inputNoteIds,inputNoteStatus} of this.interactionDescriptions) {
+			$button.disabled=this.isInteracting || inputNoteIds.length==0
+			$button.replaceChildren(`${label} `,...buttonNoteIcon(inputNoteIds,inputNoteStatus))
+		}
+		if (this.$commentText.value=='') this.$commentButton.disabled=true
 	}
 	private clearButtonErrors() {
 		for (const {$button} of this.interactionDescriptions) {
