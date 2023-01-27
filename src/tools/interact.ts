@@ -67,6 +67,7 @@ export class InteractTool extends Tool {
 				this.haltRequest=false
 				this.clearButtonErrors()
 				this.interactingEndpoint=endpoint
+				this.$commentText.disabled=true
 				try {
 					while (inputNoteIds.length>0 && !this.haltRequest) {
 						this.updateButtons()
@@ -94,6 +95,7 @@ export class InteractTool extends Tool {
 						$button.title=`Unknown error ${ex}`
 					}
 				}
+				this.$commentText.disabled=false
 				this.interactingEndpoint=undefined
 				this.haltRequest=false
 				if (this.stashedSelectedNotes) {
