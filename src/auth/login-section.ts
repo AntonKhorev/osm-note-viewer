@@ -1,13 +1,15 @@
 import type Server from '../server'
 import type AuthStorage from './storage'
+import type {Login} from './storage'
 import AuthLoginForms, {AuthError} from './login-forms'
 import RadioTable from '../radio-table'
 import {
-	makeElement, makeDiv, makeLink,
+	makeElement, makeDiv,
 	toggleHideElement, toggleUnhideElement,
 	wrapFetchForButton, makeGetKnownErrorMessage
 } from '../html'
 import {em} from '../html-shortcuts'
+import {isArrayOfStrings} from '../types'
 
 type AuthErrorData = {
 	error_description: string
@@ -36,7 +38,8 @@ function isAuthTokenData(data:any): data is AuthTokenData {
 type UserData = {
 	user: {
 		id: number,
-		display_name: string
+		display_name: string,
+		roles?: string[]
 	}
 }
 function isUserData(data:any): data is UserData {
@@ -45,8 +48,23 @@ function isUserData(data:any): data is UserData {
 		data.user &&
 		typeof data.user == 'object' && 
 		typeof data.user.id == 'number' &&
-		typeof data.user.display_name == 'string'
+		typeof data.user.display_name == 'string' &&
+		hasCorrectRoles(data.user.roles)
 	)
+	function hasCorrectRoles(roles:unknown): boolean {
+		if (roles===undefined) return true
+		return isArrayOfStrings(roles)
+	}
+}
+
+function makeLogin(scope: string, userData: Readonly<UserData>): Login {
+	const login: Login = {
+		scope,
+		uid: userData.user.id,
+		username: userData.user.display_name
+	}
+	if (userData.user.roles) login.roles=userData.user.roles
+	return login
 }
 
 export default class AuthLoginSection {
@@ -119,11 +137,7 @@ export default class AuthLoginSection {
 				throw new AuthError(`Unexpected response format when getting a token`)
 			}
 			const userData=await fetchUserData(tokenData.access_token)
-			authStorage.setLogin(tokenData.access_token,{
-				scope: tokenData.scope,
-				uid: userData.user.id,
-				username: userData.user.display_name
-			})
+			authStorage.setLogin(tokenData.access_token,makeLogin(tokenData.scope,userData))
 			authStorage.token=tokenData.access_token
 			updateInResponseToLogin()
 		})
@@ -138,6 +152,7 @@ export default class AuthLoginSection {
 				[['number'],[`user id`]],
 				[[],[`username`]],
 				[['capability'],[`profile`]],
+				[['capability'],[`moderator`]],
 			])
 			loginTable.addRow(($radio)=>{
 				$radio.checked=!authStorage.token
@@ -158,11 +173,7 @@ export default class AuthLoginSection {
 				const $logoutButton=makeElement('button')()(`Logout`)
 				$updateButton.onclick=()=>wrapFetchForButton($updateButton,async()=>{
 					const userData=await fetchUserData(token)
-					authStorage.setLogin(token,{
-						...login,
-						uid: userData.user.id,
-						username: userData.user.display_name
-					})
+					authStorage.setLogin(token,makeLogin(login.scope,userData))
 					updateInResponseToLogin()
 				},makeGetKnownErrorMessage(AuthError))
 				$logoutButton.onclick=()=>wrapFetchForButton($logoutButton,async()=>{
@@ -190,6 +201,7 @@ export default class AuthLoginSection {
 						[$uidLabel],
 						[$usernameLabel],
 						userHref,
+						login.roles?.includes('moderator'),
 						[$updateButton],
 						[$logoutButton],
 					]
