@@ -5,7 +5,15 @@ import {makeEscapeTag} from '../escape'
 
 const e=makeEscapeTag(encodeURIComponent)
 
-class NoteInteractionError extends TypeError {}
+class InteractionError extends TypeError {}
+
+type InteractionDescription = {
+	endpoint: string,
+	label: string,
+	$button: HTMLButtonElement,
+	inputNoteIds: number[],
+	inputNoteStatus: 'open'|'closed',
+}
 
 export class InteractTool extends Tool {
 	id='interact'
@@ -18,43 +26,66 @@ export class InteractTool extends Tool {
 	private $commentButton=document.createElement('button')
 	private $closeButton=document.createElement('button')
 	private $reopenButton=document.createElement('button')
-	private $postButtons: HTMLButtonElement[] = [this.$commentButton,this.$closeButton,this.$reopenButton]
-	private selectedOpenNoteIds: ReadonlyArray<number> = []
-	private selectedClosedNoteIds: ReadonlyArray<number> = []
+	private readonly selectedOpenNoteIds: number[] = []
+	private readonly selectedClosedNoteIds: number[] = []
+	private isInteracting=false
+	private interactionDescriptions: InteractionDescription[]=[{
+		endpoint: 'comment',
+		label: `Comment`,
+		$button: this.$commentButton,
+		inputNoteIds: this.selectedOpenNoteIds,
+		inputNoteStatus: 'open',
+	},{
+		endpoint: 'close',
+		label: `Close`,
+		$button: this.$closeButton,
+		inputNoteIds: this.selectedOpenNoteIds,
+		inputNoteStatus: 'open',
+	},{
+		endpoint: 'reopen',
+		label: `Reopen`,
+		$button: this.$reopenButton,
+		inputNoteIds: this.selectedClosedNoteIds,
+		inputNoteStatus: 'closed',
+	}]
 	getTool(callbacks: ToolCallbacks): ToolElements {
 		this.updateAsOutput()
 		this.updateWithOutput()
 		this.updateButtons()
 		this.$commentText.oninput=()=>{
-			this.$commentButton.disabled=this.selectedOpenNoteIds.length==0 || !this.$commentText.value
+			this.updateButtons()
 		}
-		const act=($button:HTMLButtonElement,endpoint:string,noteIds:ReadonlyArray<number>)=>wrapFetchForButton($button,async()=>{
-			for (const id of noteIds) {
-				const response=await this.auth.server.api.postUrlencoded(e`notes/${id}/${endpoint}`,{
-					Authorization: 'Bearer '+this.auth.token
-				},[
-					['text',this.$commentText.value],
-				])
-				if (!response.ok) {
-					throw new NoteInteractionError(await response.text())
+		for (const {$button,inputNoteIds,endpoint} of this.interactionDescriptions) {
+			$button.onclick=async()=>{
+				this.clearButtonErrors()
+				this.isInteracting=true
+				try {
+					while (inputNoteIds.length>0) {
+						this.updateButtons()
+						const id=inputNoteIds[0]
+						const response=await this.auth.server.api.postUrlencoded(e`notes/${id}/${endpoint}`,{
+							Authorization: 'Bearer '+this.auth.token
+						},[
+							['text',this.$commentText.value],
+						])
+						if (!response.ok) {
+							throw new InteractionError(await response.text())
+						}
+						inputNoteIds.shift()
+					}
+					this.$commentText.value=''
+				} catch (ex) {
+					$button.classList.add('error')
+					$button.title=makeGetKnownErrorMessage(InteractionError)(ex)
 				}
+				this.isInteracting=false
+				this.updateButtons()
 			}
-			this.$commentText.value=''
-		},makeGetKnownErrorMessage(NoteInteractionError))
-		this.$commentButton.onclick=async()=>{
-			await act(this.$commentButton,'comment',this.selectedOpenNoteIds)
-			this.$commentButton.disabled=!this.$commentText.value
-		}
-		this.$closeButton.onclick=async()=>{
-			await act(this.$closeButton,'close',this.selectedOpenNoteIds)
-		}
-		this.$reopenButton.onclick=async()=>{
-			await act(this.$reopenButton,'reopen',this.selectedClosedNoteIds)
 		}
 		return [
 			this.$asOutput,` `,this.$withOutput,` `,
 			makeDiv('major-input')(this.$commentText),
-			makeDiv('gridded-input')(...this.$postButtons)
+			makeDiv('gridded-input')(...this.interactionDescriptions.map(({$button})=>$button))
 		]
 	}
 	onLoginChange(): boolean {
@@ -62,10 +93,19 @@ export class InteractTool extends Tool {
 		return true
 	}
 	onSelectedNotesChange(selectedNotes: ReadonlyArray<Note>) {
-		this.selectedOpenNoteIds=selectedNotes.filter(note=>note.status=='open').map(note=>note.id)
-		this.selectedClosedNoteIds=selectedNotes.filter(note=>note.status=='closed').map(note=>note.id)
+		// TODO ignore changes if there's ongoing interaction
+		this.selectedOpenNoteIds.length=0
+		this.selectedClosedNoteIds.length=0
+		for (const selectedNote of selectedNotes) {
+			if (selectedNote.status=='open') {
+				this.selectedOpenNoteIds.push(selectedNote.id)
+			} else if (selectedNote.status=='closed') {
+				this.selectedClosedNoteIds.push(selectedNote.id)
+			}
+		}
 		this.updateWithOutput()
 		this.updateButtons()
+		this.clearButtonErrors()
 		return true
 	}
 	private updateAsOutput() {
@@ -127,16 +167,11 @@ export class InteractTool extends Tool {
 		}
 	}
 	private updateButtons() {
-		for (const $postButton of this.$postButtons) {
-			$postButton.classList.remove('error')
-			$postButton.title=''
+		for (const {$button,label,inputNoteIds,inputNoteStatus} of this.interactionDescriptions) {
+			$button.disabled=this.isInteracting || inputNoteIds.length==0
+			$button.replaceChildren(`${label} `,...buttonNoteIcon(inputNoteIds,inputNoteStatus))
 		}
-		this.$commentButton.disabled=this.selectedOpenNoteIds.length==0 || this.$commentText.value==''
-		this.$closeButton.disabled=this.selectedOpenNoteIds.length==0
-		this.$reopenButton.disabled=this.selectedClosedNoteIds.length==0
-		this.$commentButton.replaceChildren(`Comment `,...buttonNoteIcon(this.selectedOpenNoteIds,'open'))
-		this.$closeButton.replaceChildren(`Close `,...buttonNoteIcon(this.selectedOpenNoteIds,'open'))
-		this.$reopenButton.replaceChildren(`Reopen `,...buttonNoteIcon(this.selectedClosedNoteIds,'closed'))
+		if (this.$commentText.value=='') this.$commentButton.disabled=true
 		function buttonNoteIcon(ids:readonly number[],status:'open'|'closed'): (string|HTMLElement)[] {
 			if (ids.length==0) {
 				return [makeNotesIcon('selected')]
@@ -145,6 +180,12 @@ export class InteractTool extends Tool {
 			} else {
 				return [`${ids.length} × `,makeNoteStatusIcon(status,ids.length)]
 			}
+		}
+	}
+	private clearButtonErrors() {
+		for (const {$button} of this.interactionDescriptions) {
+			$button.classList.remove('error')
+			$button.title=''
 		}
 	}
 }
