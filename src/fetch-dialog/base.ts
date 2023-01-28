@@ -1,6 +1,6 @@
-import Server from '../server'
+import type Server from '../server'
 import {NavDialog} from '../navbar'
-import {NoteQuery} from '../query'
+import type {NoteQuery} from '../query'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
 import {em,sup,code} from '../html-shortcuts'
 

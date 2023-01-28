@@ -1,5 +1,5 @@
-import NoteViewerStorage from './storage'
-import NoteMap from './map'
+import type NoteViewerStorage from './storage'
+import type NoteMap from './map'
 import {makeElement, makeLink} from './html'
 
 export abstract class NavDialog {

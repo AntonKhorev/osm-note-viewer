@@ -1,12 +1,12 @@
-import {NoteFetchDialog, NoteFetchDialogSharedCheckboxes} from './fetch-dialog/base'
+import type {NoteFetchDialog, NoteFetchDialogSharedCheckboxes} from './fetch-dialog/base'
 import {NoteSearchFetchDialog} from './fetch-dialog/search'
 import {NoteBboxFetchDialog} from './fetch-dialog/bbox'
 import {NoteXmlFetchDialog} from './fetch-dialog/xml'
 import {NotePlaintextFetchDialog} from './fetch-dialog/plaintext'
-import Server from './server'
-import NoteMap from './map'
-import NoteTable from './table'
-import {NoteQuery} from './query'
+import type Server from './server'
+import type NoteMap from './map'
+import type NoteTable from './table'
+import type {NoteQuery} from './query'
 import {NoteFetcherRequest, NoteSearchFetcherRequest, NoteBboxFetcherRequest, NoteIdsFetcherRequest} from './fetch'
 
 export {NoteFetchDialog}

@@ -1,4 +1,4 @@
-import {NominatimProvider} from '../server'
+import type {NominatimProvider} from '../server'
 import {NominatimBbox, NominatimBboxFetcher} from '../nominatim'
 import {
 	makeElement, makeLink, makeDiv, makeLabel,

@@ -1,6 +1,7 @@
-import {Note, Users, getNoteUpdateDate} from './data'
+import type {Note, Users} from './data'
+import {getNoteUpdateDate} from './data'
 import NoteRefresher from './refresher'
-import ToolPanel from './tool-panel'
+import type ToolPanel from './tool-panel'
 
 export default class NoteTableAndRefresherConnector {
 	private noteRefresher: NoteRefresher

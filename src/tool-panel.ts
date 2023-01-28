@@ -1,13 +1,11 @@
-import NoteViewerStorage from './storage'
-import Auth from './auth'
-import GlobalEventsListener from './events'
+import type NoteViewerStorage from './storage'
+import type Auth from './auth'
+import type GlobalEventsListener from './events'
 import type {Note, Users} from './data'
-import NoteMap from './map'
-import FigureDialog from './figure'
-import {
-	Tool, ToolFitMode, ToolCallbacks, toolMakerSequence,
-	OverpassTurboTool, OverpassTool, StreetViewTool
-} from './tools'
+import type NoteMap from './map'
+import type FigureDialog from './figure'
+import type {Tool, ToolFitMode, ToolCallbacks} from './tools'
+import {toolMakerSequence, OverpassTurboTool, OverpassTool, StreetViewTool} from './tools'
 import {startOrResetFadeAnimation} from './html'
 
 class ToolBroadcaster {

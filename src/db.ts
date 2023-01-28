@@ -1,4 +1,4 @@
-import {Note, Users} from './data'
+import type {Note, Users} from './data'
 
 interface NoteEntry {
 	fetchTimestamp: number

@@ -1,6 +1,7 @@
-import {Note, NoteComment} from './data'
+import type {Note, NoteComment} from './data'
 import type {ApiUrlLister, WebUrlLister} from './server'
-import {ValidUserQuery, toUserQuery} from './query-user'
+import type {ValidUserQuery} from './query-user'
+import {toUserQuery} from './query-user'
 import {escapeRegex} from './escape'
 
 type Operator = '=' | '!=' | '~='

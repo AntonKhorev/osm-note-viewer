@@ -1,5 +1,6 @@
 import type {ApiProvider} from './server'
-import {Note, Users, isNoteFeature, transformFeatureToNotesAndUsers} from './data'
+import type {Note, Users} from './data'
+import {isNoteFeature, transformFeatureToNotesAndUsers} from './data'
 import {makeEscapeTag} from './escape'
 
 const e=makeEscapeTag(encodeURIComponent)

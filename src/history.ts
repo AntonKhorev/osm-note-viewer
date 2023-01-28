@@ -1,5 +1,5 @@
-import ServerList from './server-list'
-import Server from './server'
+import type ServerList from './server-list'
+import type Server from './server'
 import {escapeHash} from './escape'
 
 const scrollRestorerEnabled=true // almost works without this, just won't restore position correctly on forward

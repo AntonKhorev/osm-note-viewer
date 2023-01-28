@@ -1,7 +1,9 @@
-import {NoteIdsFetchDialog, NoteFetchDialogSharedCheckboxes, mixinWithFetchButton} from './base'
-import Server from '../server'
-import NoteTable from '../table'
-import {NoteQuery, makeNoteIdsQueryFromValue} from '../query'
+import type {NoteFetchDialogSharedCheckboxes} from './base'
+import {NoteIdsFetchDialog, mixinWithFetchButton} from './base'
+import type Server from '../server'
+import type NoteTable from '../table'
+import type {NoteQuery} from '../query'
+import {makeNoteIdsQueryFromValue} from '../query'
 import {makeDiv, makeLabel} from '../html'
 
 export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) {

@@ -1,6 +1,7 @@
 import type {Note, NoteComment, Users} from './data'
 import type {WebProvider} from './server'
-import CommentWriter, {makeDateOutput} from './comment-writer'
+import type CommentWriter from './comment-writer'
+import {makeDateOutput} from './comment-writer'
 import {toReadableDate} from './query-date'
 import {makeDiv, makeLink} from './html'
 

@@ -1,6 +1,7 @@
-import {Note, NoteComment} from './data'
+import type {Note, NoteComment} from './data'
 import type {ApiUrlLister, WebUrlLister} from './server'
-import {UserQuery, toUserQuery, makeUserQueryFromUserNameAndId} from './query-user'
+import type {UserQuery} from './query-user'
+import {toUserQuery, makeUserQueryFromUserNameAndId} from './query-user'
 import {toDateQuery, toUrlDate} from './query-date'
 import {escapeHash} from './escape' // TODO use escapeHash() instead of encodeURIComponent() for all hash parameters; won't have to use "." as a separator in ids parameter
 
