@@ -26,15 +26,29 @@ export default class AuthAppSection {
 		$manualCodeEntryCheckbox.id='auth-app-manual-code-entry'
 		$manualCodeEntryCheckbox.type='checkbox'
 		$manualCodeEntryCheckbox.checked=authStorage.isManualCodeEntry
-		const $registrationNotice=makeDiv()()
-		const $useBuiltinRegistrationButton=makeElement('button')()(`Use it`)
+		const $registrationNotice=makeDiv('notice')()
+		const $useBuiltinRegistrationButton=makeElement('button')()(`Use the built-in registration`)
 		const updateRegistrationNotice=()=>{
 			$registrationNotice.replaceChildren()
 			if (authStorage.installUri==server.oauthUrl) {
-				$registrationNotice.append(makeDiv('notice')(
-					app(),` installed `,makeLink(`here`,authStorage.installUri),` has a built-in registration on `,makeLink(`the current server`,server.web.getUrl('')),
-					` — `,$useBuiltinRegistrationButton
-				))
+				$registrationNotice.append(
+					`On `,makeLink(`the current server`,server.web.getUrl('')),`, `,
+					app(),` has a built-in registration for `,makeLink(`its install location`,authStorage.installUri)
+				)
+				if (authStorage.clientId=='') {
+					$registrationNotice.append(
+						` — `,$useBuiltinRegistrationButton
+					)
+				} else if (authStorage.clientId!=server.oauthId) {
+					$registrationNotice.append(
+						` but the current `,em(`client id`),` doesn't match it`,
+						` — `,$useBuiltinRegistrationButton
+					)
+				} else {
+					$registrationNotice.append(
+						` which matches the current `,em(`client id`),` ✓`
+					)
+				}
 			}
 		}
 		updateRegistrationNotice()
