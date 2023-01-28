@@ -170,7 +170,9 @@ export default class Server implements ApiUrlLister, WebUrlLister {
 		overpassTurboUrl: string|undefined,
 		public readonly noteUrl: string|undefined,
 		public readonly noteText: string|undefined,
-		public readonly world: string
+		public readonly world: string,
+		public readonly oauthId: string|undefined,
+		public readonly oauthUrl: string|undefined
 	) {
 		this.web=new WebProvider(webUrls)
 		this.api=new ApiProvider(apiUrl)

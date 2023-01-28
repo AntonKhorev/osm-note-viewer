@@ -51,6 +51,9 @@
 	margin: .5em -.5em;
 	padding: .5em;
 }
+.panel.fetch .notice {
+	background: var(--notice-background-color);
+}
 .panel.fetch .notice.error {
 	color: var(--error-color);
 	background: var(--error-background-color);

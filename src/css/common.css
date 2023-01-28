@@ -4,6 +4,7 @@
 	--click-color: #FC8;
 	--info-color: #28F;
 	--info-stroke-color: #00F;
+	--notice-background-color: #FFB;
 	--error-color: #F00;
 	--error-background-color: #FCC;
 	--refresh-color: #C80;
@@ -22,6 +23,7 @@
 		--click-color: #A84;
 		--info-color: #26B;
 		--info-stroke-color: #008;
+		--notice-background-color: #662;
 		--error-color: #C00;
 		--error-background-color: #622;
 		--semi-link-color: #CCF;

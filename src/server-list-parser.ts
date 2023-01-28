@@ -12,7 +12,9 @@ export type ServerParameters = [
 	overpassTurboUrl: string|undefined,
 	noteUrl: string|undefined,
 	noteText: string|undefined,
-	world: string
+	world: string,
+	oauthUrl: string|undefined,
+	oauthId: string|undefined,
 ]
 
 export function parseServerListSource(configSource: unknown): ServerParameters[] {
@@ -37,6 +39,8 @@ export function parseServerListItem(config: unknown): ServerParameters {
 	let noteUrl: string|undefined
 	let noteText: string|undefined
 	let world = 'earth'
+	let oauthId: string|undefined
+	let oauthUrl: string|undefined
 	
 	if (typeof config == 'string') {
 		webUrls=[requireUrlStringProperty('web',config)]
@@ -84,6 +88,19 @@ export function parseServerListItem(config: unknown): ServerParameters {
 		if ('note' in config) {
 			[noteUrl,noteText]=parseUrlTextPair('note',noteUrl,noteText,config.note)
 		}
+		if ('oauth' in config) {
+			if (!config.oauth || typeof config.oauth != 'object') {
+				throw new RangeError(`oauth property required to be object`)
+			}
+			if ('id' in config.oauth) {
+				oauthId=requireStringProperty('oauth.id',config.oauth.id)
+			} else {
+				throw new RangeError(`oauth property when defined required to contain id`)
+			}
+			if ('url' in config.oauth) {
+				oauthUrl=requireStringProperty('oauth.url',config.oauth.url)
+			}
+		}
 	} else if (config == null) {
 		apiUrl=`https://api.openstreetmap.org/`
 		webUrls=[
@@ -122,7 +139,9 @@ export function parseServerListItem(config: unknown): ServerParameters {
 		tileMaxZoom,tileOwner,
 		nominatimUrl,overpassUrl,overpassTurboUrl,
 		noteUrl,noteText,
-		world
+		world,
+		oauthId,
+		oauthUrl
 	]
 }
 

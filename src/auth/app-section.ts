@@ -3,6 +3,8 @@ import type AuthStorage from './storage'
 import {p,ol,ul,li,em,strong,mark} from '../html-shortcuts'
 import {makeElement, makeDiv, makeLink, makeLabel} from '../html'
 
+const app=()=>em(`osm-note-viewer`)
+
 export default class AuthAppSection {
 	onRegistrationUpdate?: ()=>void
 	constructor(
@@ -24,7 +26,16 @@ export default class AuthAppSection {
 		$manualCodeEntryCheckbox.id='auth-app-manual-code-entry'
 		$manualCodeEntryCheckbox.type='checkbox'
 		$manualCodeEntryCheckbox.checked=authStorage.isManualCodeEntry
-		const app=()=>em(`osm-note-viewer`)
+		const $registrationNotice=makeDiv()()
+		const updateRegistrationNotice=()=>{
+			$registrationNotice.replaceChildren()
+			if (authStorage.installUri==server.oauthUrl) {
+				$registrationNotice.append(makeDiv('notice')(
+					app(),` installed `,makeLink(`here`,authStorage.installUri),` has a built-in registration on `,makeLink(`the current server`,server.web.getUrl(''))
+				))
+			}
+		}
+		updateRegistrationNotice()
 		const value=(text:string)=>{
 			const $kbd=makeElement('kbd')('copy')(text)
 			$kbd.onclick=()=>navigator.clipboard.writeText(text)
@@ -127,10 +138,12 @@ export default class AuthAppSection {
 				makeLabel()(
 					$manualCodeEntryCheckbox,` `+manualCodeEntryLabel
 				)
-			)
+			),
+			$registrationNotice
 		)
 		$clientIdInput.oninput=()=>{
 			authStorage.clientId=$clientIdInput.value.trim()
+			updateRegistrationNotice()
 			this.onRegistrationUpdate?.()
 		}
 		$manualCodeEntryCheckbox.oninput=()=>{
