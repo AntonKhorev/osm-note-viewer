@@ -1,9 +1,9 @@
-import type NoteViewerStorage from './storage'
-import type Server from './server'
-import AuthStorage from './auth/storage'
-import AuthAppSection from './auth/app-section'
-import AuthLoginSection from './auth/login-section'
-import {makeElement, makeDiv, makeLink} from './html'
+import type NoteViewerStorage from '../storage'
+import type Server from '../server'
+import AuthStorage from './storage'
+import AuthAppSection from './app-section'
+import AuthLoginSection from './login-section'
+import {makeElement, makeDiv, makeLink} from '../html'
 
 interface AuthOpener {
 	receiveOsmNoteViewerAuthCode(code:unknown):unknown
