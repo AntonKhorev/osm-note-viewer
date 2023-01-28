@@ -59,6 +59,33 @@ export default class AuthAppSection {
 				)
 			}
 		}
+
+		const onRegistrationInput=(...$inputs: HTMLInputElement[])=>{
+			for (const $input of $inputs) {
+				if ($input==$clientIdInput) {
+					authStorage.clientId=$clientIdInput.value.trim()
+					updateRegistrationNotice()
+				} else if ($input==$manualCodeEntryCheckbox) {
+					authStorage.isManualCodeEntry=$manualCodeEntryCheckbox.checked
+				}
+			}
+			this.onRegistrationUpdate?.()
+		}
+		const useBuiltinRegistration=()=>{
+			if (!server.oauthId) return
+			$clientIdInput.value=server.oauthId
+			$manualCodeEntryCheckbox.checked=false
+			onRegistrationInput($clientIdInput,$manualCodeEntryCheckbox)
+		}
+		$clientIdInput.oninput=()=>onRegistrationInput($clientIdInput)
+		$manualCodeEntryCheckbox.oninput=()=>onRegistrationInput($manualCodeEntryCheckbox)
+		$useBuiltinRegistrationButton.onclick=useBuiltinRegistration
+		if (server.oauthId && !authStorage.clientId && authStorage.installUri==server.oauthUrl) {
+			useBuiltinRegistration()
+		} else {
+			updateRegistrationNotice()
+		}
+
 		const value=(text:string)=>{
 			const $kbd=makeElement('kbd')('copy')(text)
 			$kbd.onclick=()=>navigator.clipboard.writeText(text)
@@ -165,30 +192,5 @@ export default class AuthAppSection {
 			),
 			$registrationNotice
 		)
-		const onRegistrationInput=(...$inputs: HTMLInputElement[])=>{
-			for (const $input of $inputs) {
-				if ($input==$clientIdInput) {
-					authStorage.clientId=$clientIdInput.value.trim()
-					updateRegistrationNotice()
-				} else if ($input==$manualCodeEntryCheckbox) {
-					authStorage.isManualCodeEntry=$manualCodeEntryCheckbox.checked
-				}
-			}
-			this.onRegistrationUpdate?.()
-		}
-		const useBuiltinRegistration=()=>{
-			if (!server.oauthId) return
-			$clientIdInput.value=server.oauthId
-			$manualCodeEntryCheckbox.checked=false
-			onRegistrationInput($clientIdInput,$manualCodeEntryCheckbox)
-		}
-		$clientIdInput.oninput=()=>onRegistrationInput($clientIdInput)
-		$manualCodeEntryCheckbox.oninput=()=>onRegistrationInput($manualCodeEntryCheckbox)
-		$useBuiltinRegistrationButton.onclick=useBuiltinRegistration
-		if (server.oauthId && !authStorage.clientId && authStorage.installUri==server.oauthUrl) {
-			useBuiltinRegistration()
-		} else {
-			updateRegistrationNotice()
-		}
 	}
 }
