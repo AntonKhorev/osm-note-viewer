@@ -101,7 +101,7 @@ export default class NoteFetchPanel {
 		): void {
 			if (!(server && fetchDialogs && noteTable)) return
 			if (query.mode!='search' && query.mode!='bbox' && query.mode!='ids') return
-			fetchDialogs.resetFetch() // TODO run for all dialogs... for now only bboxDialog has meaningful action
+			fetchDialogs.resetFetch()
 			if (figureDialog) figureDialog.close()
 			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
 			if (map) {
