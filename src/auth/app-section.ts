@@ -29,10 +29,13 @@ export default class AuthAppSection {
 		const $registrationNotice=makeDiv('notice')()
 		const $useBuiltinRegistrationButton=makeElement('button')()(`Use the built-in registration`)
 		const updateRegistrationNotice=()=>{
+			const writeWithServer=()=>$registrationNotice.append(
+				`With `,makeLink(`the selected OSM server`,server.web.getUrl('')),`, `,
+			)
 			$registrationNotice.replaceChildren()
 			if (authStorage.installUri==server.oauthUrl) {
+				writeWithServer()
 				$registrationNotice.append(
-					`On `,makeLink(`the current server`,server.web.getUrl('')),`, `,
 					app(),` has a built-in registration for `,makeLink(`its install location`,authStorage.installUri)
 				)
 				if (authStorage.clientId=='') {
@@ -49,6 +52,11 @@ export default class AuthAppSection {
 						` which matches the current `,em(`client id`),` ✓`
 					)
 				}
+			} else if (server.oauthUrl) {
+				writeWithServer()
+				$registrationNotice.append(
+					app(),` has a built-in registration for `,makeLink(`a different install location`,server.oauthUrl)
+				)
 			}
 		}
 		updateRegistrationNotice()
