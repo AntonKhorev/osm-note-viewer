@@ -20,6 +20,7 @@ const dstDir='test-build/dist'
 // can test XPath in browser like this:
 // document.evaluate(`//button[not(@disabled) and contains(.,"Halt")]`,document).iterateNext()
 const buttonPath=(text)=>`//button[not(@disabled) and contains(.,"${text}")]`
+const containsClassCondition=(className)=>`contains(concat(' ', @class, ' '), ' ${className} ')` // https://stackoverflow.com/a/1604480
 
 describe("browser tests",function(){
 	if (visible) this.timeout(0)
@@ -55,7 +56,7 @@ describe("browser tests",function(){
 			return page
 		}
 		this.waitForFetchButton=()=>page.waitForXPath(`//button[not(@disabled) and contains(.,"Fetch notes")]`)
-		this.waitForTool=(summaryText)=>page.waitForXPath(`//details[@class="tool" and contains(./summary,"${summaryText}")]`)
+		this.waitForTool=(summaryText)=>page.waitForXPath(`//details[${containsClassCondition('tool')} and contains(./summary,"${summaryText}")]`)
 		this.getToAboutTab=async()=>{
 			await this.waitForFetchButton()
 			const aboutTab=await page.$('nav a[href="#section-About"]')
@@ -274,16 +275,20 @@ describe("browser tests",function(){
 	it("can log in",async function(){
 		this.osmServer.setLogin(true)
 		const page=await this.openPage()
+		const tool=await this.waitForTool(`Interact`)
+		await tool.click()
+		await this.assertNoText(tool,"logged-in-user-name")
 		await this.getToAboutTab()
 		const clientIdInput=await page.$('#auth-app-client-id')
 		await clientIdInput.type('id')
 		const aboutSection=await page.$('#section-About')
 		const [loginSection]=await aboutSection.$x(`//section[contains(h3,"Logins")]`)
 		const loginButton=await loginSection.waitForXPath(`//button[contains(.,"Login")]`,{visible:true,timeout:1000})
-		await this.assertNoText(page,"logged-in-user-name")
+		await this.assertNoText(loginSection,"logged-in-user-name")
 		loginButton.click()
 		await loginSection.waitForSelector('table')
-		await this.assertText(page,"logged-in-user-name")
+		await this.assertText(loginSection,"logged-in-user-name")
+		await this.assertText(tool,"logged-in-user-name")
 	})
 })
 

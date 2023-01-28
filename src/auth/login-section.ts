@@ -112,6 +112,76 @@ export default class AuthLoginSection {
 			return userData
 		}
 
+		const switchToToken=(token:string)=>{
+			authStorage.token=token
+			onLoginChange()
+		}
+		const updateInResponseToLogin=()=>{
+			const logins=authStorage.getLogins()
+			if (logins.size==0) {
+				this.$logins.textContent=`No active logins. Use the form above to login if you'd like to manipulate notes.`
+				return
+			}
+			const loginTable=new RadioTable('login',[
+				[['number'],[`user id`]],
+				[[],[`username`]],
+				[['capability'],[`profile`]],
+				[['capability'],[`moderator`]],
+			])
+			loginTable.addRow(($radio)=>{
+				$radio.checked=!authStorage.token
+				$radio.onclick=()=>{
+					switchToToken('')
+				}
+				const $usernameLabel=makeElement('label')()(em(`anonymous`))
+				$usernameLabel.htmlFor=$radio.id
+				return [
+					[],
+					[$usernameLabel]
+				]
+			})
+			for (const [token,login] of logins) {
+				const userHref=server.web.getUrl(`user/`+encodeURIComponent(login.username))
+				const $updateButton=makeElement('button')()(`Update user info`)
+				const $logoutButton=makeElement('button')()(`Logout`)
+				$updateButton.onclick=()=>wrapFetchForButton($updateButton,async()=>{
+					const userData=await fetchUserData(token)
+					authStorage.setLogin(token,makeLogin(login.scope,userData))
+					updateInResponseToLogin()
+				},makeGetKnownErrorMessage(AuthError))
+				$logoutButton.onclick=()=>wrapFetchForButton($logoutButton,async()=>{
+					await webPostUrlencodedWithPossibleAuthError(`oauth2/revoke`,{},[
+						['token',token],
+						// ['token_type_hint','access_token']
+						['client_id',authStorage.clientId]
+					],`while revoking a token`)
+					authStorage.deleteLogin(token)
+					if (authStorage.token==token) {
+						switchToToken('')
+					}
+					updateInResponseToLogin()
+				},makeGetKnownErrorMessage(AuthError))
+				loginTable.addRow(($radio)=>{
+					$radio.checked=authStorage.token==token
+					$radio.onclick=()=>{
+						switchToToken(token)
+					}
+					const $uidLabel=makeElement('label')()(String(login.uid))
+					const $usernameLabel=makeElement('label')()(login.username)
+					$uidLabel.htmlFor=$usernameLabel.htmlFor=$radio.id
+					return [
+						[$uidLabel],
+						[$usernameLabel],
+						userHref,
+						login.roles?.includes('moderator'),
+						[$updateButton],
+						[$logoutButton],
+					]
+				})
+			}
+			this.$logins.replaceChildren(loginTable.$table)
+		}
+
 		this.loginForms=new AuthLoginForms(this.$loginForms,authStorage.isManualCodeEntry,(codeChallenge:string)=>{
 			return server.web.getUrl('oauth2/authorize')+'?'+[
 				['client_id',authStorage.clientId],
@@ -138,77 +208,10 @@ export default class AuthLoginSection {
 			}
 			const userData=await fetchUserData(tokenData.access_token)
 			authStorage.setLogin(tokenData.access_token,makeLogin(tokenData.scope,userData))
-			authStorage.token=tokenData.access_token
+			switchToToken(tokenData.access_token)
 			updateInResponseToLogin()
 		})
 		this.updateVisibility()
-		const updateInResponseToLogin=()=>{
-			const logins=authStorage.getLogins()
-			if (logins.size==0) {
-				this.$logins.textContent=`No active logins. Use the form above to login if you'd like to manipulate notes.`
-				return
-			}
-			const loginTable=new RadioTable('login',[
-				[['number'],[`user id`]],
-				[[],[`username`]],
-				[['capability'],[`profile`]],
-				[['capability'],[`moderator`]],
-			])
-			loginTable.addRow(($radio)=>{
-				$radio.checked=!authStorage.token
-				$radio.onclick=()=>{
-					authStorage.token=''
-					onLoginChange()
-				}
-				const $usernameLabel=makeElement('label')()(em(`anonymous`))
-				$usernameLabel.htmlFor=$radio.id
-				return [
-					[],
-					[$usernameLabel]
-				]
-			})
-			for (const [token,login] of logins) {
-				const userHref=server.web.getUrl(`user/`+encodeURIComponent(login.username))
-				const $updateButton=makeElement('button')()(`Update user info`)
-				const $logoutButton=makeElement('button')()(`Logout`)
-				$updateButton.onclick=()=>wrapFetchForButton($updateButton,async()=>{
-					const userData=await fetchUserData(token)
-					authStorage.setLogin(token,makeLogin(login.scope,userData))
-					updateInResponseToLogin()
-				},makeGetKnownErrorMessage(AuthError))
-				$logoutButton.onclick=()=>wrapFetchForButton($logoutButton,async()=>{
-					await webPostUrlencodedWithPossibleAuthError(`oauth2/revoke`,{},[
-						['token',token],
-						// ['token_type_hint','access_token']
-						['client_id',authStorage.clientId]
-					],`while revoking a token`)
-					authStorage.deleteLogin(token)
-					if (authStorage.token==token) {
-						authStorage.token=''
-					}
-					updateInResponseToLogin()
-				},makeGetKnownErrorMessage(AuthError))
-				loginTable.addRow(($radio)=>{
-					$radio.checked=authStorage.token==token
-					$radio.onclick=()=>{
-						authStorage.token=token
-						onLoginChange()
-					}
-					const $uidLabel=makeElement('label')()(String(login.uid))
-					const $usernameLabel=makeElement('label')()(login.username)
-					$uidLabel.htmlFor=$usernameLabel.htmlFor=$radio.id
-					return [
-						[$uidLabel],
-						[$usernameLabel],
-						userHref,
-						login.roles?.includes('moderator'),
-						[$updateButton],
-						[$logoutButton],
-					]
-				})
-			}
-			this.$logins.replaceChildren(loginTable.$table)
-		}
 		updateInResponseToLogin()
 		$section.append(
 			makeElement('h3')()(`Logins`),
