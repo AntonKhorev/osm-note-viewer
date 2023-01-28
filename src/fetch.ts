@@ -1,6 +1,6 @@
 import type NoteViewerDB from './db'
 import type {FetchEntry} from './db'
-import type Server from './server' // TODO limit to just ApiFetcher - that requires abstracting out 'load more'
+import type {ApiProvider} from './server'
 import type {Note, Users} from './data'
 import {isNoteFeatureCollection, isNoteFeature, transformFeatureCollectionToNotesAndUsers, transformFeatureToNotesAndUsers} from './data'
 import type {NoteQuery, NoteSearchQuery, NoteBboxQuery, NoteIdsQuery, NoteFetchDetails} from './query'
@@ -69,7 +69,7 @@ export class NoteIdsFetcherRequest extends NoteFetcherRequest {
 
 export interface NoteFetcherEnvironment {
 	db: NoteViewerDB
-	server: Server,
+	api: ApiProvider,
 	hostHashValue: string|null,
 	noteTable: NoteTableUpdater
 	$moreContainer: HTMLElement
@@ -90,7 +90,7 @@ export abstract class NoteFetcherRun {
 	lastTriedPath: string | undefined // needed for ids fetch
 	private updateRequestHintInAdvancedMode: ()=>void = ()=>{}
 	constructor(
-		{db,server,hostHashValue,noteTable,$moreContainer,getLimit,getAutoLoad,blockDownloads,moreButtonIntersectionObservers}: NoteFetcherEnvironment,
+		{db,api,hostHashValue,noteTable,$moreContainer,getLimit,getAutoLoad,blockDownloads,moreButtonIntersectionObservers}: NoteFetcherEnvironment,
 		query: NoteQuery,
 		clearStore: boolean
 	) {
@@ -134,7 +134,7 @@ export abstract class NoteFetcherRun {
 					return
 				}
 				const apiPath=this.request.constructApiPath(...fetchDetails.pathAndParametersList[0])
-				const url=server.api.getUrl(apiPath)
+				const url=api.getUrl(apiPath)
 				const $a=makeLink(url,url)
 				$a.classList.add('request')
 				$requestOutput.replaceChildren(makeElement('code')()($a))
@@ -179,7 +179,7 @@ export abstract class NoteFetcherRun {
 					const [path,parameters]=pathAndParameters
 					lastTriedPath=path
 					const apiPath=this.request.constructApiPath(path,parameters)
-					const response=await server.api.fetch(apiPath)
+					const response=await api.fetch(apiPath)
 					if (!response.ok) {
 						if (response.status==410) { // likely hidden note in ids query
 							continue // TODO report it
