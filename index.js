@@ -11,6 +11,28 @@ class NoteViewerStorage {
     removeItem(k) {
         localStorage.removeItem(this.prefix + k);
     }
+    getString(k) {
+        return this.getItem(k) ?? '';
+    }
+    setString(k, v) {
+        if (v != '') {
+            this.setItem(k, v);
+        }
+        else {
+            this.removeItem(k);
+        }
+    }
+    getBoolean(k) {
+        return !!this.getItem(k);
+    }
+    setBoolean(k, v) {
+        if (v) {
+            this.setItem(k, '1');
+        }
+        else {
+            this.removeItem(k);
+        }
+    }
     getKeys() {
         const result = [];
         for (const k in localStorage) {
@@ -336,6 +358,51 @@ class ResponseQueryError extends QueryError {
         return `receiving the following message: ${this.text}`;
     }
 }
+class OsmProvider {
+    fetch(path, init) {
+        return fetch(this.getUrl(path), init);
+    }
+    postUrlencoded(path, headers, parameters) {
+        return this.fetch(path, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
+                ...headers
+            },
+            body: parameters.map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&')
+        });
+    }
+}
+class WebProvider extends OsmProvider {
+    constructor(urls) {
+        super();
+        this.urls = urls;
+    }
+    getUrl(path) {
+        return `${this.urls[0]}${path}`;
+    }
+}
+class ApiProvider extends OsmProvider {
+    constructor(url) {
+        super();
+        this.url = url;
+    }
+    getUrl(path) {
+        return `${this.url}api/0.6/${path}`;
+    }
+    getRootUrl(rootPath) {
+        return `${this.url}${rootPath}`;
+    }
+}
+class TileProvider {
+    constructor(urlTemplate, attributionUrl, attributionText, maxZoom, owner) {
+        this.urlTemplate = urlTemplate;
+        this.attributionUrl = attributionUrl;
+        this.attributionText = attributionText;
+        this.maxZoom = maxZoom;
+        this.owner = owner;
+    }
+}
 class NominatimProvider {
     constructor(url) {
         this.url = url;
@@ -405,36 +472,22 @@ class OverpassTurboProvider {
     }
 }
 class Server {
-    constructor(host, apiUrl, webUrls, tileUrlTemplate, tileAttributionUrl, tileAttributionText, tileMaxZoom, tileOwner, nominatimUrl, overpassUrl, overpassTurboUrl, noteUrl, noteText, world) {
+    constructor(host, apiUrl, webUrls, tileUrlTemplate, tileAttributionUrl, tileAttributionText, tileMaxZoom, tileOwner, nominatimUrl, overpassUrl, overpassTurboUrl, noteUrl, noteText, world, oauthId, oauthUrl) {
         this.host = host;
-        this.apiUrl = apiUrl;
-        this.webUrls = webUrls;
-        this.tileUrlTemplate = tileUrlTemplate;
-        this.tileAttributionUrl = tileAttributionUrl;
-        this.tileAttributionText = tileAttributionText;
-        this.tileMaxZoom = tileMaxZoom;
-        this.tileOwner = tileOwner;
         this.noteUrl = noteUrl;
         this.noteText = noteText;
         this.world = world;
+        this.oauthId = oauthId;
+        this.oauthUrl = oauthUrl;
+        this.web = new WebProvider(webUrls);
+        this.api = new ApiProvider(apiUrl);
+        this.tile = new TileProvider(tileUrlTemplate, tileAttributionUrl, tileAttributionText, tileMaxZoom, tileOwner);
         if (nominatimUrl != null)
             this.nominatim = new NominatimProvider(nominatimUrl);
         if (overpassUrl != null)
             this.overpass = new OverpassProvider(overpassUrl);
         if (overpassTurboUrl != null)
             this.overpassTurbo = new OverpassTurboProvider(overpassTurboUrl);
-    }
-    apiFetch(apiPath) {
-        return fetch(this.getApiUrl(apiPath));
-    }
-    getApiUrl(apiPath) {
-        return `${this.apiUrl}api/0.6/${apiPath}`;
-    }
-    getApiRootUrl(apiRootPath) {
-        return `${this.apiUrl}${apiRootPath}`;
-    }
-    getWebUrl(webPath) {
-        return `${this.webUrls[0]}${webPath}`;
     }
 }
 
@@ -460,6 +513,8 @@ function parseServerListItem(config) {
     let noteUrl;
     let noteText;
     let world = 'earth';
+    let oauthId;
+    let oauthUrl;
     if (typeof config == 'string') {
         webUrls = [requireUrlStringProperty('web', config)];
     }
@@ -510,6 +565,20 @@ function parseServerListItem(config) {
         if ('note' in config) {
             [noteUrl, noteText] = parseUrlTextPair('note', noteUrl, noteText, config.note);
         }
+        if ('oauth' in config) {
+            if (!config.oauth || typeof config.oauth != 'object') {
+                throw new RangeError(`oauth property required to be object`);
+            }
+            if ('id' in config.oauth) {
+                oauthId = requireStringProperty('oauth.id', config.oauth.id);
+            }
+            else {
+                throw new RangeError(`oauth property when defined required to contain id`);
+            }
+            if ('url' in config.oauth) {
+                oauthUrl = requireStringProperty('oauth.url', config.oauth.url);
+            }
+        }
     }
     else if (config == null) {
         apiUrl = `https://api.openstreetmap.org/`;
@@ -549,7 +618,9 @@ function parseServerListItem(config) {
         tileMaxZoom, tileOwner,
         nominatimUrl, overpassUrl, overpassTurboUrl,
         noteUrl, noteText,
-        world
+        world,
+        oauthId,
+        oauthUrl
     ];
 }
 function requireUrlStringProperty(name, value) {
@@ -856,7 +927,700 @@ class GlobalHistory {
     }
 }
 
-const e$5 = makeEscapeTag(escapeXml);
+function isArrayOfStrings(value) {
+    return isArray(value) && value.every(item => typeof item == 'string');
+}
+function isArray(value) {
+    return Array.isArray(value);
+}
+
+function makeLogin$1(data) {
+    if (!data || typeof data != 'object' ||
+        !('scope' in data) || typeof data.scope != 'string' ||
+        !('uid' in data) || typeof data.uid != 'number' ||
+        !('username' in data) || typeof data.username != 'string')
+        throw new TypeError(`Invalid login data`);
+    const login = {
+        scope: data.scope,
+        uid: data.uid,
+        username: data.username
+    };
+    if (('roles' in data) && isArrayOfStrings(data.roles)) {
+        login.roles = data.roles;
+    }
+    return login;
+}
+class AuthStorage {
+    constructor(storage, host, installUri) {
+        this.storage = storage;
+        this.host = host;
+        this.installUri = installUri;
+        this.manualCodeUri = `urn:ietf:wg:oauth:2.0:oob`;
+    }
+    get prefix() {
+        return `host[${this.host}].`;
+    }
+    get clientId() {
+        return this.storage.getString(`${this.prefix}clientId`);
+    }
+    set clientId(clientId) {
+        this.storage.setString(`${this.prefix}clientId`, clientId);
+    }
+    get isManualCodeEntry() {
+        return this.storage.getBoolean(`${this.prefix}isManualCodeEntry`);
+    }
+    set isManualCodeEntry(isManualCodeEntry) {
+        this.storage.setBoolean(`${this.prefix}isManualCodeEntry`, isManualCodeEntry);
+    }
+    get token() {
+        return this.storage.getString(`${this.prefix}token`);
+    }
+    set token(token) {
+        this.storage.setString(`${this.prefix}token`, token);
+    }
+    get redirectUri() {
+        return this.isManualCodeEntry ? this.manualCodeUri : this.installUri;
+    }
+    getLogins() {
+        const logins = new Map;
+        const loginsString = this.storage.getItem(`${this.prefix}logins`);
+        if (loginsString == null)
+            return logins;
+        let loginsArray;
+        try {
+            loginsArray = JSON.parse(loginsString);
+        }
+        catch { }
+        if (!isArray(loginsArray))
+            return logins;
+        for (const loginsArrayEntry of loginsArray) {
+            if (!isArray(loginsArrayEntry))
+                continue;
+            const [token, loginData] = loginsArrayEntry;
+            if (typeof token != 'string')
+                continue;
+            try {
+                const login = makeLogin$1(loginData);
+                logins.set(token, login);
+            }
+            catch { }
+        }
+        return logins;
+    }
+    setLogin(token, login) {
+        const logins = this.getLogins();
+        logins.set(token, login);
+        this.setLoginsStorageItem(logins);
+    }
+    deleteLogin(token) {
+        const logins = this.getLogins();
+        logins.delete(token);
+        this.setLoginsStorageItem(logins);
+    }
+    get login() {
+        return this.getLogins().get(this.token);
+    }
+    setLoginsStorageItem(logins) {
+        this.storage.setItem(`${this.prefix}logins`, JSON.stringify([...logins.entries()]));
+    }
+}
+
+function makeLink(text, href, title) {
+    const $link = document.createElement('a');
+    $link.href = href;
+    $link.textContent = text;
+    if (title != null)
+        $link.title = title;
+    return $link;
+}
+function makeElement(tag) {
+    return (...classes) => (...items) => {
+        const $element = document.createElement(tag);
+        if (classes.length > 0)
+            $element.classList.add(...classes);
+        $element.append(...items);
+        return $element;
+    };
+}
+const makeDiv = makeElement('div');
+const makeLabel = makeElement('label');
+function hideElement($e) {
+    $e.style.display = 'none';
+}
+function unhideElement($e) {
+    $e.style.removeProperty('display');
+}
+function toggleHideElement($e, toggle) {
+    if (toggle) {
+        hideElement($e);
+    }
+    else {
+        unhideElement($e);
+    }
+}
+function toggleUnhideElement($e, toggle) {
+    toggleHideElement($e, !toggle);
+}
+function startOrResetFadeAnimation($element, animationName, animationClass) {
+    if ($element.classList.contains(animationClass)) {
+        resetFadeAnimation($element, animationName);
+    }
+    else {
+        $element.classList.add(animationClass);
+    }
+}
+function resetFadeAnimation($element, animationName) {
+    const animation = getFadeAnimation($element, animationName);
+    if (!animation)
+        return;
+    animation.currentTime = 0;
+}
+function getFadeAnimation($element, animationName) {
+    if (typeof CSSAnimation == 'undefined')
+        return; // experimental technology, implemented in latest browser versions
+    for (const animation of $element.getAnimations()) {
+        if (!(animation instanceof CSSAnimation))
+            continue;
+        if (animation.animationName == animationName)
+            return animation;
+    }
+}
+async function wrapFetch($actionButton, action, getErrorMessage, $errorClassReceiver, writeErrorMessage) {
+    try {
+        $actionButton.disabled = true;
+        $errorClassReceiver.classList.remove('error');
+        writeErrorMessage('');
+        await action();
+    }
+    catch (ex) {
+        $errorClassReceiver.classList.add('error');
+        writeErrorMessage(getErrorMessage(ex));
+    }
+    finally {
+        $actionButton.disabled = false;
+    }
+}
+function wrapFetchForButton($actionButton, action, getErrorMessage) {
+    return wrapFetch($actionButton, action, getErrorMessage, $actionButton, message => $actionButton.title = message);
+}
+function makeGetKnownErrorMessage(KnownError // KnownError: typeof TypeError,
+) {
+    return (ex) => {
+        if (ex instanceof TypeError && ex instanceof KnownError) {
+            return ex.message;
+        }
+        else {
+            return `Unknown error ${ex}`;
+        }
+    };
+}
+
+const em = (...ss) => makeElement('em')()(...ss);
+const strong = (...ss) => makeElement('strong')()(...ss);
+const sup = (...ss) => makeElement('sup')()(...ss);
+const dfn = (...ss) => makeElement('dfn')()(...ss);
+const code = (...ss) => makeElement('code')()(...ss);
+const mark = (...ss) => makeElement('mark')()(...ss);
+const p = (...ss) => makeElement('p')()(...ss);
+const ul = (...ss) => makeElement('ul')()(...ss);
+const ol = (...ss) => makeElement('ol')()(...ss);
+const li = (...ss) => makeElement('li')()(...ss);
+
+const app = () => em(`osm-note-viewer`);
+class AuthAppSection {
+    constructor($section, authStorage, server) {
+        const isSecureWebInstall = (location.protocol == 'https:' ||
+            location.protocol == 'http:' && location.hostname == '127.0.0.1');
+        const $clientIdInput = document.createElement('input');
+        $clientIdInput.id = 'auth-app-client-id';
+        $clientIdInput.type = 'text';
+        $clientIdInput.value = authStorage.clientId;
+        const manualCodeEntryLabel = `Manual authorization code entry`;
+        const $manualCodeEntryCheckbox = document.createElement('input');
+        $manualCodeEntryCheckbox.id = 'auth-app-manual-code-entry';
+        $manualCodeEntryCheckbox.type = 'checkbox';
+        $manualCodeEntryCheckbox.checked = authStorage.isManualCodeEntry;
+        const $registrationNotice = makeDiv('notice')();
+        const $useBuiltinRegistrationButton = makeElement('button')()(`Use the built-in registration`);
+        const updateRegistrationNotice = () => {
+            $registrationNotice.replaceChildren();
+            if (!server.oauthId)
+                return;
+            const writeWithServer = () => $registrationNotice.append(`With `, makeLink(`the selected OSM server`, server.web.getUrl('')), `, `);
+            if (authStorage.installUri == server.oauthUrl) {
+                writeWithServer();
+                $registrationNotice.append(app(), ` has a built-in registration for `, makeLink(`its install location`, authStorage.installUri));
+                if (!authStorage.clientId) {
+                    $registrationNotice.append(` — `, $useBuiltinRegistrationButton);
+                }
+                else if (authStorage.clientId != server.oauthId) {
+                    $registrationNotice.append(` but the current `, em(`client id`), ` doesn't match it`, ` — `, $useBuiltinRegistrationButton);
+                }
+                else {
+                    $registrationNotice.append(` which matches the current `, em(`client id`), ` ✓`);
+                }
+            }
+            else if (server.oauthUrl) {
+                writeWithServer();
+                $registrationNotice.append(app(), ` has a built-in registration for `, makeLink(`a different install location`, server.oauthUrl));
+            }
+        };
+        const onRegistrationInput = (...$inputs) => {
+            for (const $input of $inputs) {
+                if ($input == $clientIdInput) {
+                    authStorage.clientId = $clientIdInput.value.trim();
+                    updateRegistrationNotice();
+                }
+                else if ($input == $manualCodeEntryCheckbox) {
+                    authStorage.isManualCodeEntry = $manualCodeEntryCheckbox.checked;
+                }
+            }
+            this.onRegistrationUpdate?.();
+        };
+        const useBuiltinRegistration = () => {
+            if (!server.oauthId)
+                return;
+            $clientIdInput.value = server.oauthId;
+            $manualCodeEntryCheckbox.checked = false;
+            onRegistrationInput($clientIdInput, $manualCodeEntryCheckbox);
+        };
+        $clientIdInput.oninput = () => onRegistrationInput($clientIdInput);
+        $manualCodeEntryCheckbox.oninput = () => onRegistrationInput($manualCodeEntryCheckbox);
+        $useBuiltinRegistrationButton.onclick = useBuiltinRegistration;
+        if (server.oauthId && !authStorage.clientId && authStorage.installUri == server.oauthUrl) {
+            useBuiltinRegistration();
+        }
+        else {
+            updateRegistrationNotice();
+        }
+        const value = (text) => {
+            const $kbd = makeElement('kbd')('copy')(text);
+            $kbd.onclick = () => navigator.clipboard.writeText(text);
+            return $kbd;
+        };
+        const registrationDetails = (isOpen, redirectUri, isManualCodeEntry, summary, lead) => {
+            const makeInputLink = ($input, ...content) => {
+                const $anchor = document.createElement('a');
+                $anchor.href = '#' + $input.id;
+                $anchor.classList.add('input-link');
+                $anchor.append(...content);
+                $anchor.onclick = ev => {
+                    ev.preventDefault();
+                    $input.focus();
+                };
+                return $anchor;
+            };
+            const $details = makeElement('details')()(makeElement('summary')()(summary), ...lead, ol(li(`Go to `, makeLink(`My Settings > OAuth 2 applications > Register new application`, server.web.getUrl(`oauth2/applications/new`)), ` on `, em(server.host), `.`), li(`For `, em(`Name`), ` enter anything that would help users to identify your copy of `, app(), `, for example, `, value(`osm-note-viewer @ ${authStorage.installUri}`), `. `, `Users will see this name on the authorization granting page and in their `, makeLink(`active authorizations list`, server.web.getUrl(`oauth2/authorized_applications`)), ` after they log in here.`), li(`For `, em(`Redirect URIs`), ` enter `, mark(value(redirectUri)), `.`), li(`Uncheck `, em(`Confidential application?`)), li(`In `, em(`Permissions`), ` check:`, ul(li(`Read user preferences`), li(`Modify notes`))), li(`Click `, em(`Register`), `.`), li(`Copy the `, em(`Client ID`), ` to `, makeInputLink($clientIdInput, `the input below`), `.`), li(`Don't copy the `, em(`Client Secret`), `. `, `You can write it down somewhere but it's going to be useless because `, app(), ` is not a confidential app and can't keep secrets.`), li(mark(isManualCodeEntry ? `Check` : `Uncheck`), ` `, makeInputLink($manualCodeEntryCheckbox, em(manualCodeEntryLabel), ` below`), `.`)), p(`After these steps you should be able to see `, app(), ` with its client id and permissions in `, makeLink(`your client applications`, server.web.getUrl(`oauth2/applications`)), `.`));
+            if (isOpen)
+                $details.open = true;
+            return $details;
+        };
+        $section.append(makeElement('h3')()(`Register app`), p(`Only required if you don't yet have a `, em(`client id`), `. `, `You have to get a `, em(`client id`), ` if you want to run your own copy of `, app(), ` and be able to manipulate notes from it. `, `There are two possible app registration methods described below. `, `Their necessary steps are the same except for the `, mark(`marked`), ` parts.`), registrationDetails(!authStorage.clientId && isSecureWebInstall, authStorage.installUri, false, `Instructions for setting up automatic logins`, [
+            p(`This method sets up the most expected login workflow: login happens after the `, em(`Authorize`), ` button is pressed.`), ` `,
+            p(`This method will only work when `, app(), ` served over `, em(`https`), ` or over `, em(`http`), ` on localhost. `, ...(isSecureWebInstall
+                ? [`This seems to be the case with your install.`]
+                : [
+                    strong(`This doesn't seem to be the case with your install.`), ` `,
+                    `If you register `, app(), ` with this method, logins will likely fail after pressing the `, em(`Authorize`), ` button. `,
+                    `Use the registration method with manual code entry described below or move `, app(), ` to a secure web server.`
+                ]))
+        ]), registrationDetails(!authStorage.clientId && !isSecureWebInstall, authStorage.manualCodeUri, true, `Instructions for setting up logins where users have to copy the authorization code manually`, [
+            p(`This sets up a less user-friendly login workflow: after pressing the `, em(`Authorize`), ` an `, em(`Authorization code`), ` appears that has to be copied into the `, em(`Authorization code`), ` input below the login button on this page.`), ` `,
+            p(`This setup method is required when `, app(), ` is not running on a secure web server. `, ...(!isSecureWebInstall
+                ? [`This seems to be the case with your install.`]
+                : [
+                    strong(`This doesn't seem to be the case with your install.`), ` `,
+                    `You may still use this method but the one described before gives a simpler login workflow.`
+                ]))
+        ]), makeDiv('major-input')(makeLabel()(`Client ID: `, $clientIdInput)), makeDiv('major-input')(makeLabel()($manualCodeEntryCheckbox, ` ` + manualCodeEntryLabel), ` (for non-https/non-secure install locations)`), $registrationNotice);
+    }
+}
+
+class AuthError extends TypeError {
+}
+class AuthLoginForms {
+    constructor($container, isManualCodeEntry, getRequestCodeUrl, exchangeCodeForToken) {
+        this.isManualCodeEntry = isManualCodeEntry;
+        this.$loginButton = makeElement('button')()(`Login`);
+        this.$cancelLoginButton = makeElement('button')()(`Cancel login`);
+        this.$manualCodeForm = document.createElement('form');
+        this.$manualCodeButton = document.createElement('button');
+        this.$manualCodeInput = document.createElement('input');
+        this.$error = makeDiv('notice')();
+        this.$manualCodeInput.type = 'text';
+        this.$manualCodeInput.required = true;
+        this.$manualCodeButton.textContent = `Login with the authorization code`;
+        this.stopWaitingForAuthorization();
+        this.$loginButton.onclick = async () => {
+            const codeVerifier = getCodeVerifier();
+            const codeChallenge = await getCodeChallenge(codeVerifier);
+            const width = 600;
+            const height = 600;
+            const loginWindow = open(getRequestCodeUrl(codeChallenge), '_blank', `width=${width},height=${height},left=${screen.width / 2 - width / 2},top=${screen.height / 2 - height / 2}`);
+            if (loginWindow == null)
+                return;
+            this.waitForAuthorization(loginWindow, code => exchangeCodeForToken(code, codeVerifier));
+        };
+        this.$cancelLoginButton.onclick = () => {
+            this.stopWaitingForAuthorization();
+        };
+        window.addEventListener('beforeunload', () => {
+            this.stopWaitingForAuthorization();
+        });
+        // TODO write that you may not get a confirmation page if you are already logged in - in this case logout first
+        //	^ to do this, need to check if anything user-visible appears in the popup at all with auto-code registrations
+        const app = () => em(`osm-note-viewer`);
+        this.$manualCodeForm.append(p(`If the manual code copying method was used to register `, app(), `, copy the code into the input below.`), makeDiv('major-input')(makeLabel()(`Authorization code: `, this.$manualCodeInput)), makeDiv('major-input')(this.$manualCodeButton));
+        $container.append(makeDiv('major-input')(this.$loginButton, this.$cancelLoginButton), this.$manualCodeForm, this.$error);
+    }
+    respondToAppRegistration(isManualCodeEntry) {
+        this.isManualCodeEntry = isManualCodeEntry;
+        this.stopWaitingForAuthorization();
+        this.clearError();
+    }
+    waitForAuthorization(loginWindow, submitCode) {
+        const wrapAction = (action) => wrapFetch(this.$manualCodeButton, action, makeGetKnownErrorMessage(AuthError), this.$error, message => this.$error.textContent = message);
+        if (this.isManualCodeEntry) {
+            this.$manualCodeForm.onsubmit = async (ev) => {
+                ev.preventDefault();
+                await wrapAction(async () => {
+                    await submitCode(this.$manualCodeInput.value.trim());
+                    this.stopWaitingForAuthorization(); // keep the login popup on error in case user copied the code incorrectly
+                });
+            };
+        }
+        else {
+            window.receiveOsmNoteViewerAuthCode = async (code) => {
+                await wrapAction(async () => {
+                    if (typeof code != 'string') {
+                        throw new AuthError(`Unexpected code parameter type received from popup window`);
+                    }
+                    await submitCode(code);
+                });
+                this.stopWaitingForAuthorization();
+            };
+            window.receiveOsmNoteViewerAuthDenial = async (errorDescription) => {
+                await wrapAction(async () => {
+                    throw new AuthError(typeof errorDescription == 'string'
+                        ? errorDescription
+                        : `Unknown authorization error`);
+                });
+                this.stopWaitingForAuthorization();
+            };
+        }
+        this.loginWindow = loginWindow;
+        hideElement(this.$loginButton);
+        unhideElement(this.$cancelLoginButton);
+        toggleUnhideElement(this.$manualCodeForm, this.isManualCodeEntry);
+        this.clearError();
+    }
+    stopWaitingForAuthorization() {
+        this.$manualCodeForm.onsubmit = (ev) => ev.preventDefault();
+        delete window.receiveOsmNoteViewerAuthCode;
+        delete window.receiveOsmNoteViewerAuthDenial;
+        this.loginWindow?.close();
+        this.loginWindow = undefined;
+        unhideElement(this.$loginButton);
+        hideElement(this.$cancelLoginButton);
+        hideElement(this.$manualCodeForm);
+        this.$manualCodeInput.value = '';
+    }
+    clearError() {
+        this.$error.replaceChildren();
+    }
+}
+function getCodeVerifier() {
+    const byteLength = 48; // verifier string length == byteLength * 8/6
+    return encodeBase64url(crypto.getRandomValues(new Uint8Array(byteLength)));
+}
+async function getCodeChallenge(codeVerifier) {
+    const codeVerifierArray = new TextEncoder().encode(codeVerifier);
+    const codeChallengeBuffer = await crypto.subtle.digest('SHA-256', codeVerifierArray);
+    return encodeBase64url(new Uint8Array(codeChallengeBuffer));
+}
+function encodeBase64url(bytes) {
+    const string = String.fromCharCode(...bytes);
+    return btoa(string).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+class RadioTable {
+    constructor(radioName, columns) {
+        this.radioName = radioName;
+        this.$table = makeElement('table')()();
+        this.cellClassesList = [];
+        this.nRows = 0;
+        const $row = this.$table.insertRow();
+        for (const [cellClasses, cellLabels] of [[[], []], ...columns]) {
+            $row.append(makeElement('th')(...cellClasses)(...cellLabels));
+            this.cellClassesList.push(cellClasses);
+        }
+    }
+    addRow(provideCellContent) {
+        const $radio = document.createElement('input');
+        $radio.type = 'radio';
+        $radio.name = this.radioName;
+        $radio.id = `${this.radioName}-${this.nRows}`;
+        const $row = this.$table.insertRow();
+        const contentList = [[$radio], ...provideCellContent($radio)];
+        for (const [i, cellContent] of contentList.entries()) {
+            const cellClasses = this.cellClassesList[i] ?? [];
+            let rawCellContent;
+            if (typeof cellContent == 'undefined') {
+                rawCellContent = [];
+            }
+            else if (typeof cellContent == 'boolean') {
+                rawCellContent = [cellContent ? '+' : ''];
+            }
+            else if (typeof cellContent == 'string') {
+                rawCellContent = [cellContent ? makeLink('+', cellContent) : ''];
+            }
+            else {
+                rawCellContent = cellContent;
+            }
+            $row.append(makeElement('td')(...cellClasses)(...rawCellContent));
+        }
+        this.nRows++;
+    }
+}
+
+function isAuthErrorData(data) {
+    return (data &&
+        typeof data == 'object' &&
+        typeof data.error_description == 'string');
+}
+function isAuthTokenData(data) {
+    return (data &&
+        typeof data == 'object' &&
+        typeof data.access_token == 'string' &&
+        typeof data.scope == 'string');
+}
+function isUserData(data) {
+    return (data &&
+        data.user &&
+        typeof data.user == 'object' &&
+        typeof data.user.id == 'number' &&
+        typeof data.user.display_name == 'string' &&
+        hasCorrectRoles(data.user.roles));
+    function hasCorrectRoles(roles) {
+        if (roles === undefined)
+            return true;
+        return isArrayOfStrings(roles);
+    }
+}
+function makeLogin(scope, userData) {
+    const login = {
+        scope,
+        uid: userData.user.id,
+        username: userData.user.display_name
+    };
+    if (userData.user.roles)
+        login.roles = userData.user.roles;
+    return login;
+}
+class AuthLoginSection {
+    constructor($section, authStorage, server, onLoginChange) {
+        this.authStorage = authStorage;
+        this.$clientIdRequired = makeDiv('notice')(`Please register the app and enter the `, em(`client id`), ` above to be able to login.`);
+        this.$loginForms = makeDiv()();
+        this.$logins = makeDiv()();
+        const webPostUrlencodedWithPossibleAuthError = async (webPath, headers, parameters, whenMessage) => {
+            const response = await server.web.postUrlencoded(webPath, headers, parameters);
+            if (response.ok)
+                return response;
+            let errorData;
+            try {
+                errorData = await response.json();
+            }
+            catch { }
+            if (isAuthErrorData(errorData)) {
+                throw new AuthError(`Error ${whenMessage}: ${errorData.error_description}`);
+            }
+            else {
+                throw new AuthError(`Error ${whenMessage} with unknown error format`);
+            }
+        };
+        const fetchUserData = async (token) => {
+            const userResponse = await server.api.fetch(`user/details.json`, {
+                headers: {
+                    Authorization: 'Bearer ' + token
+                }
+            });
+            if (!userResponse.ok) {
+                throw new AuthError(`Error while getting user details`);
+            }
+            let userData;
+            try {
+                userData = await userResponse.json();
+            }
+            catch { }
+            if (!isUserData(userData)) {
+                throw new AuthError(`Unexpected response format when getting user details`);
+            }
+            return userData;
+        };
+        this.loginForms = new AuthLoginForms(this.$loginForms, authStorage.isManualCodeEntry, (codeChallenge) => {
+            return server.web.getUrl('oauth2/authorize') + '?' + [
+                ['client_id', authStorage.clientId],
+                ['redirect_uri', authStorage.redirectUri],
+                ['scope', 'read_prefs write_notes'],
+                ['response_type', 'code'],
+                ['code_challenge', codeChallenge],
+                ['code_challenge_method', 'S256']
+            ].map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+        }, async (code, codeVerifier) => {
+            const tokenResponse = await webPostUrlencodedWithPossibleAuthError(`oauth2/token`, {}, [
+                ['client_id', authStorage.clientId],
+                ['redirect_uri', authStorage.redirectUri],
+                ['grant_type', 'authorization_code'],
+                ['code', code],
+                ['code_verifier', codeVerifier]
+            ], `while getting a token`);
+            let tokenData;
+            try {
+                tokenData = await tokenResponse.json();
+            }
+            catch { }
+            if (!isAuthTokenData(tokenData)) {
+                throw new AuthError(`Unexpected response format when getting a token`);
+            }
+            const userData = await fetchUserData(tokenData.access_token);
+            authStorage.setLogin(tokenData.access_token, makeLogin(tokenData.scope, userData));
+            authStorage.token = tokenData.access_token;
+            updateInResponseToLogin();
+        });
+        this.updateVisibility();
+        const updateInResponseToLogin = () => {
+            const logins = authStorage.getLogins();
+            if (logins.size == 0) {
+                this.$logins.textContent = `No active logins. Use the form above to login if you'd like to manipulate notes.`;
+                return;
+            }
+            const loginTable = new RadioTable('login', [
+                [['number'], [`user id`]],
+                [[], [`username`]],
+                [['capability'], [`profile`]],
+                [['capability'], [`moderator`]],
+            ]);
+            loginTable.addRow(($radio) => {
+                $radio.checked = !authStorage.token;
+                $radio.onclick = () => {
+                    authStorage.token = '';
+                    onLoginChange();
+                };
+                const $usernameLabel = makeElement('label')()(em(`anonymous`));
+                $usernameLabel.htmlFor = $radio.id;
+                return [
+                    [],
+                    [$usernameLabel]
+                ];
+            });
+            for (const [token, login] of logins) {
+                const userHref = server.web.getUrl(`user/` + encodeURIComponent(login.username));
+                const $updateButton = makeElement('button')()(`Update user info`);
+                const $logoutButton = makeElement('button')()(`Logout`);
+                $updateButton.onclick = () => wrapFetchForButton($updateButton, async () => {
+                    const userData = await fetchUserData(token);
+                    authStorage.setLogin(token, makeLogin(login.scope, userData));
+                    updateInResponseToLogin();
+                }, makeGetKnownErrorMessage(AuthError));
+                $logoutButton.onclick = () => wrapFetchForButton($logoutButton, async () => {
+                    await webPostUrlencodedWithPossibleAuthError(`oauth2/revoke`, {}, [
+                        ['token', token],
+                        // ['token_type_hint','access_token']
+                        ['client_id', authStorage.clientId]
+                    ], `while revoking a token`);
+                    authStorage.deleteLogin(token);
+                    if (authStorage.token == token) {
+                        authStorage.token = '';
+                    }
+                    updateInResponseToLogin();
+                }, makeGetKnownErrorMessage(AuthError));
+                loginTable.addRow(($radio) => {
+                    $radio.checked = authStorage.token == token;
+                    $radio.onclick = () => {
+                        authStorage.token = token;
+                        onLoginChange();
+                    };
+                    const $uidLabel = makeElement('label')()(String(login.uid));
+                    const $usernameLabel = makeElement('label')()(login.username);
+                    $uidLabel.htmlFor = $usernameLabel.htmlFor = $radio.id;
+                    return [
+                        [$uidLabel],
+                        [$usernameLabel],
+                        userHref,
+                        login.roles?.includes('moderator'),
+                        [$updateButton],
+                        [$logoutButton],
+                    ];
+                });
+            }
+            this.$logins.replaceChildren(loginTable.$table);
+        };
+        updateInResponseToLogin();
+        $section.append(makeElement('h3')()(`Logins`), this.$clientIdRequired, this.$loginForms, this.$logins);
+    }
+    respondToAppRegistration() {
+        this.loginForms.respondToAppRegistration(this.authStorage.isManualCodeEntry);
+        this.updateVisibility();
+    }
+    updateVisibility() {
+        const canLogin = !!this.authStorage.clientId;
+        toggleHideElement(this.$clientIdRequired, canLogin);
+        toggleUnhideElement(this.$loginForms, canLogin);
+        toggleUnhideElement(this.$logins, canLogin);
+    }
+}
+
+function isAuthOpener(o) {
+    return (o && typeof o == 'object' &&
+        typeof o.receiveOsmNoteViewerAuthCode == 'function' &&
+        typeof o.receiveOsmNoteViewerAuthDenial == 'function');
+}
+const installUri = `${location.protocol}//${location.host}${location.pathname}`;
+function checkAuthRedirect() {
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code');
+    const error = params.get('error');
+    const errorDescription = params.get('error_description');
+    if (code == null && error == null) {
+        return false;
+    }
+    if (!isAuthOpener(window.opener)) {
+        document.body.append(makeDiv('notice')(`You opened the location of note-viewer's authentication redirect for a popup window outside of a popup window. `, `If you want to continue using note-viewer, please open `, makeLink(`this link`, installUri), `.`));
+    }
+    else if (code != null) {
+        window.opener.receiveOsmNoteViewerAuthCode(code);
+    }
+    else if (error != null) {
+        window.opener.receiveOsmNoteViewerAuthDenial(errorDescription ?? error);
+    }
+    return true;
+}
+class Auth {
+    constructor(storage, server) {
+        this.server = server;
+        this.authStorage = new AuthStorage(storage, server.host, installUri);
+    }
+    writeAboutDialogSections($container) {
+        const $appSection = makeElement('section')()();
+        const $loginSection = makeElement('section')()();
+        const appSection = new AuthAppSection($appSection, this.authStorage, this.server);
+        const loginSection = new AuthLoginSection($loginSection, this.authStorage, this.server, () => this.onLoginChange?.());
+        appSection.onRegistrationUpdate = () => loginSection.respondToAppRegistration();
+        $container.append($appSection, $loginSection);
+    }
+    get token() {
+        return this.authStorage.token;
+    }
+    get username() {
+        return this.authStorage.login?.username;
+    }
+    get uid() {
+        return this.authStorage.login?.uid;
+    }
+}
+
+const e$6 = makeEscapeTag(escapeXml);
 class NoteMarker extends L.Marker {
     constructor(note) {
         const icon = getNoteMarkerIcon(note, false);
@@ -878,16 +1642,16 @@ function getNoteMarkerIcon(note, isSelected) {
     const rWithAura = widthWithAura / 2;
     const nInnerCircles = 4;
     let html = ``;
-    html += e$5 `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`;
-    html += e$5 `<title>${note.status} note #${note.id}</title>`,
-        html += e$5 `<path d="${computeMarkerOutlinePath(heightWithAura - .5, rWithAura - .5)}" class="aura" fill="none" />`;
-    html += e$5 `<path d="${computeMarkerOutlinePath(height, r)}" fill="${note.status == 'open' ? 'red' : 'green'}" />`;
+    html += e$6 `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`;
+    html += e$6 `<title>${note.status} note #${note.id}</title>`,
+        html += e$6 `<path d="${computeMarkerOutlinePath(heightWithAura - .5, rWithAura - .5)}" class="aura" fill="none" />`;
+    html += e$6 `<path d="${computeMarkerOutlinePath(height, r)}" fill="${note.status == 'open' ? 'red' : 'green'}" />`;
     const states = [...noteCommentsToStates(note.comments)];
     html += drawStateCircles(r, nInnerCircles, states.slice(-nInnerCircles, -1));
     if (isSelected) {
         html += drawCheckMark();
     }
-    html += e$5 `</svg>`;
+    html += e$6 `</svg>`;
     return L.divIcon({
         html,
         className: 'note-marker',
@@ -909,7 +1673,7 @@ function getNoteMarkerIcon(note, isSelected) {
             if (i >= statesToDraw.length)
                 continue;
             const cr = dcr * (i + 1);
-            html += e$5 `<circle r="${cr}" fill="${color()}" stroke="white" />`;
+            html += e$6 `<circle r="${cr}" fill="${color()}" stroke="white" />`;
             function color() {
                 if (i == 0 && states.length <= nInnerCircles)
                     return 'white';
@@ -923,8 +1687,8 @@ function getNoteMarkerIcon(note, isSelected) {
     function drawCheckMark() {
         const path = `M-${r / 4},0 L0,${r / 4} L${r / 2},-${r / 4}`;
         let html = ``;
-        html += e$5 `<path d="${path}" fill="none" stroke-width="6" stroke-linecap="round" stroke="blue" />`;
-        html += e$5 `<path d="${path}" fill="none" stroke-width="2" stroke-linecap="round" stroke="white" />`;
+        html += e$6 `<path d="${path}" fill="none" stroke-width="6" stroke-linecap="round" stroke="blue" />`;
+        html += e$6 `<path d="${path}" fill="none" stroke-width="2" stroke-linecap="round" stroke="white" />`;
         return html;
     }
 }
@@ -941,7 +1705,7 @@ function* noteCommentsToStates(comments) {
     }
 }
 
-const e$4 = makeEscapeTag(escapeXml);
+const e$5 = makeEscapeTag(escapeXml);
 class NoteLayer extends L.FeatureGroup {
     getLayerId(marker) {
         if (marker instanceof NoteMarker) {
@@ -953,15 +1717,15 @@ class NoteLayer extends L.FeatureGroup {
     }
 }
 class NoteMap {
-    constructor($container, tileSource) {
+    constructor($container, tile) {
         this.needToFitNotes = false;
         this.freezeMode = 'no';
         this.leafletMap = L.map($container, {
             worldCopyJump: true
         });
-        this.leafletMap.addLayer(L.tileLayer(tileSource.tileUrlTemplate, {
-            attribution: e$4 `© <a href="${tileSource.tileAttributionUrl}">${tileSource.tileAttributionText}</a>`,
-            maxZoom: tileSource.tileMaxZoom
+        this.leafletMap.addLayer(L.tileLayer(tile.urlTemplate, {
+            attribution: e$5 `© <a href="${tile.attributionUrl}">${tile.attributionText}</a>`,
+            maxZoom: tile.maxZoom
         })).fitWorld();
         this.elementLayer = L.featureGroup().addTo(this.leafletMap);
         this.unselectedNoteLayer = new NoteLayer().addTo(this.leafletMap);
@@ -1256,50 +2020,6 @@ function calculateOffsetsToFit(map, $popupContainer) {
     return [-dx, -dy];
 }
 
-function makeLink(text, href, title) {
-    const $link = document.createElement('a');
-    $link.href = href;
-    $link.textContent = text;
-    if (title != null)
-        $link.title = title;
-    return $link;
-}
-function makeElement(tag) {
-    return (...classes) => (...items) => {
-        const $element = document.createElement(tag);
-        if (classes.length > 0)
-            $element.classList.add(...classes);
-        $element.append(...items);
-        return $element;
-    };
-}
-const makeDiv = makeElement('div');
-const makeLabel = makeElement('label');
-function startOrResetFadeAnimation($element, animationName, animationClass) {
-    if ($element.classList.contains(animationClass)) {
-        resetFadeAnimation($element, animationName);
-    }
-    else {
-        $element.classList.add(animationClass);
-    }
-}
-function resetFadeAnimation($element, animationName) {
-    const animation = getFadeAnimation($element, animationName);
-    if (!animation)
-        return;
-    animation.currentTime = 0;
-}
-function getFadeAnimation($element, animationName) {
-    if (typeof CSSAnimation == 'undefined')
-        return; // experimental technology, implemented in latest browser versions
-    for (const animation of $element.getAnimations()) {
-        if (!(animation instanceof CSSAnimation))
-            continue;
-        if (animation.animationName == animationName)
-            return animation;
-    }
-}
-
 class FigureDialog {
     constructor($dialog) {
         this.$dialog = $dialog;
@@ -1447,12 +2167,7 @@ function makeFlipLayoutButton(storage, map) {
     $button.innerHTML = `<svg><title>Flip layout</title><use href="#flip" /></svg>`;
     $button.addEventListener('click', () => {
         document.body.classList.toggle('flipped');
-        if (document.body.classList.contains('flipped')) {
-            storage.setItem('flipped', '1');
-        }
-        else {
-            storage.removeItem('flipped');
-        }
+        storage.setBoolean('flipped', document.body.classList.contains('flipped'));
         map.invalidateSize();
     });
     return $button;
@@ -1533,41 +2248,77 @@ function makeCodeForm(initialValue, textareaLabel, buttonLabel, isSameInput, che
 }
 
 var serverListConfig = [
-    null,
     {
-        web: `https://master.apis.dev.openstreetmap.org/`,
-        note: [
-            `OSM sandbox/development server`,
-            `https://wiki.openstreetmap.org/wiki/Sandbox_for_editing#Experiment_with_the_API_(advanced)`
-        ]
-    }, {
-        web: [
-            `https://www.openhistoricalmap.org/`,
-            `https://openhistoricalmap.org/`
+        "web": [
+            "https://www.openstreetmap.org/",
+            "https://openstreetmap.org/",
+            "https://www.osm.org/",
+            "https://osm.org/"
         ],
-        nominatim: `https://nominatim.openhistoricalmap.org/`,
-        overpass: `https://overpass-api.openhistoricalmap.org/`,
-        overpassTurbo: `https://openhistoricalmap.github.io/overpass-turbo/`
-    }, {
-        web: `https://opengeofiction.net/`,
-        tiles: {
-            template: `https://tiles04.rent-a-planet.com/ogf-carto/{z}/{x}/{y}.png`,
-            attribution: `OpenGeofiction and contributors`
+        "api": "https://api.openstreetmap.org/",
+        "nominatim": "https://nominatim.openstreetmap.org/",
+        "overpass": "https://www.overpass-api.de/",
+        "overpassTurbo": "https://overpass-turbo.eu/",
+        "tiles": {
+            "template": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+            "attribution": "OpenStreetMap contributors"
         },
-        overpass: `https://overpass.ogf.rent-a-planet.com/`,
-        overpassTurbo: `https://turbo.ogf.rent-a-planet.com/`,
-        world: `opengeofiction`
-    }, {
-        web: `https://fosm.org/`,
-        tiles: {
-            template: `https://map.fosm.org/default/{z}/{x}/{y}.png`,
-            attribution: `https://fosm.org/`,
-            zoom: 18
+        "note": "main OSM server",
+        "oauth": {
+            "id": "hRPFdI68dfFi2ucLe8Nt8y6rBM4uwTwIzNioi1EuTms",
+            "url": "https://antonkhorev.github.io/osm-note-viewer/"
+        }
+    },
+    {
+        "web": "https://master.apis.dev.openstreetmap.org/",
+        "note": [
+            "OSM sandbox/development server",
+            "https://wiki.openstreetmap.org/wiki/Sandbox_for_editing#Experiment_with_the_API_(advanced)"
+        ],
+        "oauth": {
+            "id": "KiQpJiwp0njkF3Y172lIpX2bzru4C98nH8y6FZcBir8",
+            "url": "https://antonkhorev.github.io/osm-note-viewer/"
+        }
+    },
+    {
+        "web": [
+            "https://www.openhistoricalmap.org/",
+            "https://openhistoricalmap.org/"
+        ],
+        "nominatim": "https://nominatim.openhistoricalmap.org/",
+        "overpass": "https://overpass-api.openhistoricalmap.org/",
+        "overpassTurbo": "https://openhistoricalmap.github.io/overpass-turbo/",
+        "oauth": {
+            "id": "pEMqG7m8YHHEfqRfctwQecseI1TYm1toHAAoRPzCPMw",
+            "url": "https://antonkhorev.github.io/osm-note-viewer/"
+        }
+    },
+    {
+        "web": "https://opengeofiction.net/",
+        "tiles": {
+            "template": "https://tiles04.rent-a-planet.com/ogf-carto/{z}/{x}/{y}.png",
+            "attribution": "OpenGeofiction and contributors"
         },
-        note: `mostly useless here because notes are not implemented on this server`
-    }, {
-        web: `http://127.0.0.1:3000/`,
-        note: `default local rails dev server`
+        "overpass": "https://overpass.ogf.rent-a-planet.com/",
+        "overpassTurbo": "https://turbo.ogf.rent-a-planet.com/",
+        "world": "opengeofiction",
+        "oauth": {
+            "id": "q7AADWIuLnof-YIo5J6ht31jB73jFNPPp6LreINnwQs",
+            "url": "https://antonkhorev.github.io/osm-note-viewer/"
+        }
+    },
+    {
+        "web": "https://fosm.org/",
+        "tiles": {
+            "template": "https://map.fosm.org/default/{z}/{x}/{y}.png",
+            "attribution": "https://fosm.org/",
+            "zoom": 18
+        },
+        "note": "mostly useless here because notes are not implemented on this server"
+    },
+    {
+        "web": "http://127.0.0.1:3000/",
+        "note": "default local rails dev server"
     }
 ];
 
@@ -1594,21 +2345,20 @@ class ConfirmedButtonListener {
         };
     }
     reset() {
-        unhide(this.$initButton);
-        hide(this.$confirmButton);
-        hide(this.$cancelButton);
+        clearTimeout(this.confirmDelayId);
+        this.$confirmButton.disabled = true;
+        unhideElement(this.$initButton);
+        hideElement(this.$confirmButton);
+        hideElement(this.$cancelButton);
     }
     ask() {
-        hide(this.$initButton);
-        unhide(this.$confirmButton);
-        unhide(this.$cancelButton);
+        this.confirmDelayId = setTimeout(() => {
+            this.$confirmButton.disabled = false;
+        }, 1000);
+        hideElement(this.$initButton);
+        unhideElement(this.$confirmButton);
+        unhideElement(this.$cancelButton);
     }
-}
-function hide($e) {
-    $e.style.display = 'none';
-}
-function unhide($e) {
-    $e.style.removeProperty('display');
 }
 
 const syntaxDescription$1 = `<summary>Custom server configuration syntax</summary>
@@ -1681,36 +2431,46 @@ function property(t) {
     return `<strong><code>${t}</code></strong>`;
 }
 class AboutDialog extends NavDialog {
-    constructor(storage, db, server, serverList, serverHash) {
+    constructor(storage, db, server, serverList, serverHash, auth) {
         super();
         this.storage = storage;
         this.db = db;
         this.server = server;
         this.serverList = serverList;
         this.serverHash = serverHash;
+        this.auth = auth;
         this.shortTitle = `About`;
         this.title = `About`;
     }
     writeSectionContent() {
-        const writeSubheading = (s) => {
-            this.$section.append(makeElement('h3')()(s));
-        };
         {
-            const $block = makeDiv()(makeElement('strong')()(`note-viewer`));
+            const $section = makeElement('section')()(makeElement('strong')()(`note-viewer`));
             const build = document.body.dataset.build;
             if (build)
-                $block.append(` build ${build}`);
-            $block.append(` — `, makeLink(`source code`, `https://github.com/AntonKhorev/osm-note-viewer`));
-            this.$section.append($block);
+                $section.append(` build ${build}`);
+            $section.append(` — `, makeLink(`source code`, `https://github.com/AntonKhorev/osm-note-viewer`));
+            this.$section.append($section);
         }
-        writeSubheading(`Servers`);
+        this.writeServersSubsection();
+        this.auth?.writeAboutDialogSections(this.$section);
+        this.writeStorageSubsection();
+        this.writeExtraSubsection();
+    }
+    writeServersSubsection() {
+        const $subsection = startSubsection(`Servers`);
         if (!this.server)
-            this.$section.append(makeDiv('notice', 'error')(`Unknown server in URL hash parameter `, makeElement('code')()(this.serverHash), `. Please select one of the servers below.`));
+            $subsection.append(makeDiv('notice', 'error')(`Unknown server in URL hash parameter `, code(this.serverHash), `. Please select one of the servers below.`));
         {
-            const $form = document.createElement('form');
-            const $table = makeElement('table')('servers')();
+            const serverTable = new RadioTable('host', [
+                [[], [`host`]],
+                [['capability'], [`website`]],
+                [['capability'], [`own tiles`]],
+                [['capability'], [`Nominatim`]],
+                [['capability'], [`Overpass`]],
+                [['capability'], [`Overpass turbo`]],
+                [[], [`note`]],
+            ]);
             const baseLocation = location.pathname + location.search;
-            $table.insertRow().append(makeElement('th')()(), makeElement('th')()(`host`), makeElement('th')('capability')(`website`), makeElement('th')('capability')(`own tiles`), makeElement('th')('capability')(`Nominatim`), makeElement('th')('capability')(`Overpass`), makeElement('th')('capability')(`Overpass turbo`), makeElement('th')()(`note`));
             for (const [availableHost, availableServer] of this.serverList.servers) {
                 const hashValue = this.serverList.getHostHashValue(availableServer);
                 const availableServerLocation = baseLocation + (hashValue ? `#host=` + escapeHash(hashValue) : '');
@@ -1721,47 +2481,45 @@ class AboutDialog extends NavDialog {
                 else if (availableServer.noteUrl) {
                     note = makeLink(availableServer.noteText || `[note]`, availableServer.noteUrl);
                 }
-                const $radio = document.createElement('input');
-                const $label = document.createElement('label');
-                const $a = makeLink(availableHost, availableServerLocation);
-                $radio.type = 'radio';
-                $radio.name = 'host';
-                $label.htmlFor = $radio.id = 'host-' + availableHost;
-                $radio.checked = this.server == availableServer;
-                $radio.tabIndex = -1;
-                $label.append($a);
-                $radio.onclick = () => $a.click();
-                const makeStatusCell = (provider) => makeElement('td')('capability')(makeElement('td')('capability')(provider ? makeLink('+', provider.statusUrl) : ''));
-                $table.insertRow().append(makeElement('td')()($radio), makeElement('td')()($label), makeElement('td')('capability')(makeLink('+', availableServer.getWebUrl(''))), makeElement('td')('capability')(availableServer.tileOwner ? '+' : ''), makeStatusCell(availableServer.nominatim), makeStatusCell(availableServer.overpass), makeElement('td')('capability')(availableServer.overpassTurbo ? makeLink('+', availableServer.overpassTurbo.url) : ''), makeElement('td')()(note));
+                serverTable.addRow(($radio) => {
+                    $radio.checked = this.server == availableServer;
+                    $radio.tabIndex = -1;
+                    const $a = makeLink(availableHost, availableServerLocation);
+                    const $label = makeElement('label')()($a);
+                    $label.htmlFor = $radio.id;
+                    $radio.onclick = () => $a.click();
+                    return [
+                        [$label],
+                        availableServer.web.getUrl(''),
+                        availableServer.tile.owner,
+                        availableServer.nominatim?.statusUrl,
+                        availableServer.overpass?.statusUrl,
+                        availableServer.overpassTurbo?.url,
+                        [note]
+                    ];
+                });
             }
-            $form.append($table);
-            this.$section.append($form);
+            $subsection.append(serverTable.$table);
         }
-        {
-            this.$section.append(makeCodeForm(this.storage.getItem('servers') ?? '', `Custom servers`, `Apply changes`, input => input == this.storage.getItem('servers') ?? '', input => {
-                if (input.trim() == '')
-                    return;
-                const configSource = JSON.parse(input);
-                parseServerListSource(configSource);
-            }, input => {
-                if (input.trim() == '') {
-                    this.storage.removeItem('servers');
-                }
-                else {
-                    this.storage.setItem('servers', input);
-                }
-            }, () => {
-                location.reload();
-            }, syntaxDescription$1, syntaxExamples$1));
-        }
-        writeSubheading(`Storage`);
+        $subsection.append(makeCodeForm(this.storage.getString('servers'), `Custom servers`, `Apply changes`, input => input == this.storage.getString('servers'), input => {
+            if (input.trim() == '')
+                return;
+            const configSource = JSON.parse(input);
+            parseServerListSource(configSource);
+        }, input => {
+            this.storage.setString('servers', input.trim());
+        }, () => {
+            location.reload();
+        }, syntaxDescription$1, syntaxExamples$1));
+        this.$section.append($subsection);
+    }
+    writeStorageSubsection() {
+        const $subsection = startSubsection(`Storage`);
         const $updateFetchesButton = document.createElement('button');
-        {
-            $updateFetchesButton.textContent = `Update stored fetch list`;
-            this.$section.append(makeDiv('major-input')($updateFetchesButton));
-        }
-        const $fetchesContainer = makeDiv()(`Click Update button above to see stored fetches`);
-        this.$section.append($fetchesContainer);
+        $updateFetchesButton.textContent = `Update stored fetch list`;
+        $subsection.append(makeDiv('major-input')($updateFetchesButton));
+        const $fetchesContainer = makeDiv()(p(`Click Update button above to see stored fetches.`));
+        $subsection.append($fetchesContainer);
         $updateFetchesButton.addEventListener('click', async () => {
             $updateFetchesButton.disabled = true;
             let fetchEntries = [];
@@ -1797,7 +2555,7 @@ class AboutDialog extends NavDialog {
                 const fetchEntryServer = this.serverList.getServer(host);
                 if (username) {
                     if (fetchEntryServer) {
-                        const href = fetchEntryServer.getWebUrl(`user/` + encodeURIComponent(username));
+                        const href = fetchEntryServer.web.getUrl(`user/` + encodeURIComponent(username));
                         $userCell.append(`user `, makeLink(username, href));
                     }
                     else {
@@ -1809,7 +2567,7 @@ class AboutDialog extends NavDialog {
                     if (match) {
                         const [id] = match;
                         if (fetchEntryServer) {
-                            const href = fetchEntryServer.getWebUrl(`note/` + encodeURIComponent(id));
+                            const href = fetchEntryServer.web.getUrl(`note/` + encodeURIComponent(id));
                             $userCell.append(`note `, makeLink(id, href), `, ...`);
                         }
                         else {
@@ -1834,12 +2592,18 @@ class AboutDialog extends NavDialog {
             const $cancelButton = makeElement('button')()(`Cancel clear settings`);
             const $confirmButton = makeElement('button')()(`Confirm clear settings`);
             new ConfirmedButtonListener($clearButton, $cancelButton, $confirmButton, async () => this.storage.clear());
-            this.$section.append(makeDiv('major-input')($clearButton, $cancelButton, $confirmButton));
+            $subsection.append(makeDiv('major-input')($clearButton, $cancelButton, $confirmButton));
         }
-        writeSubheading(`Extra information`);
-        this.$section.append(makeDiv()(`Notes implementation code: `, makeLink(`notes api controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`), ` (db search query is build there), `, makeLink(`notes controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/notes_controller.rb`), ` (paginated user notes query is build there), `, makeLink(`note model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note.rb`), `, `, makeLink(`note comment model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note_comment.rb`), ` in `, makeLink(`Rails Port`, `https://wiki.openstreetmap.org/wiki/The_Rails_Port`), ` (not implemented in `, makeLink(`CGIMap`, `https://wiki.openstreetmap.org/wiki/Cgimap`), `)`));
-        this.$section.append(makeDiv()(`Other documentation: `, makeLink(`Overpass queries`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`)));
+        this.$section.append($subsection);
     }
+    writeExtraSubsection() {
+        const $subsection = startSubsection(`Extra information`);
+        $subsection.append(p(`Notes implementation code: `, makeLink(`notes api controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`), ` (db search query is build there), `, makeLink(`notes controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/notes_controller.rb`), ` (paginated user notes query is build there), `, makeLink(`note model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note.rb`), `, `, makeLink(`note comment model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note_comment.rb`), ` in `, makeLink(`openstreetmap-website`, `https://wiki.openstreetmap.org/wiki/Openstreetmap-website`), ` (not implemented in `, makeLink(`CGIMap`, `https://wiki.openstreetmap.org/wiki/Cgimap`), `)`), p(`OAuth 2.0: `, makeLink(`main RFC`, `https://www.rfc-editor.org/rfc/rfc6749`), `, `, makeLink(`token revocation RFC`, `https://www.rfc-editor.org/rfc/rfc7009`), ` (logouts), `, makeLink(`proof key RFC`, `https://www.rfc-editor.org/rfc/rfc7636`), `, `, makeLink(`Doorkeeper`, `https://github.com/doorkeeper-gem/doorkeeper`), ` (OAuth implementation used in `, em(`openstreetmap-website`), `), `, makeLink(`OSM wiki`, `https://wiki.openstreetmap.org/wiki/OAuth`)), p(`Other documentation: `, makeLink(`Overpass queries`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`), `, `, makeLink(`Puppeteer`, `https://pptr.dev/`), ` (in-browser testing)`));
+        this.$section.append($subsection);
+    }
+}
+function startSubsection(heading) {
+    return makeElement('section')()(makeElement('h3')()(heading));
 }
 
 function toUserQuery(urlLister, value) {
@@ -1873,7 +2637,7 @@ function toUserQuery(urlLister, value) {
     }
     if (s.includes('/')) {
         const hosts = new Set();
-        for (const urlString of [urlLister.apiUrl, ...urlLister.webUrls]) {
+        for (const urlString of [urlLister.api.url, ...urlLister.web.urls]) {
             try {
                 const url = new URL(urlString);
                 hosts.add(url.host);
@@ -2346,7 +3110,7 @@ function getNoteUpdateDate(note) {
     return note.comments[note.comments.length - 1]?.date ?? 0;
 }
 
-const e$3 = makeEscapeTag(encodeURIComponent);
+const e$4 = makeEscapeTag(encodeURIComponent);
 const maxSingleAutoLoadLimit = 200;
 const maxTotalAutoLoadLimit = 1000;
 const maxFullyFilteredFetches = 10;
@@ -2385,10 +3149,10 @@ class NoteBboxFetcherRequest extends NoteFetcherRequest {
     getRequestUrlPathAndParameters(query, limit) {
         if (query.mode != 'bbox')
             return;
-        return ['', this.getRequestUrlParametersWithoutLimit(query) + e$3 `&limit=${limit}`];
+        return ['', this.getRequestUrlParametersWithoutLimit(query) + e$4 `&limit=${limit}`];
     }
     getRequestUrlParametersWithoutLimit(query) {
-        return e$3 `bbox=${query.bbox}&closed=${query.closed}`;
+        return e$4 `bbox=${query.bbox}&closed=${query.closed}`;
     }
 }
 class NoteIdsFetcherRequest extends NoteFetcherRequest {
@@ -2452,7 +3216,7 @@ class NoteFetcherRun {
                         return;
                     }
                     const apiPath = this.request.constructApiPath(...fetchDetails.pathAndParametersList[0]);
-                    const url = server.getApiUrl(apiPath);
+                    const url = server.api.getUrl(apiPath);
                     const $a = makeLink(url, url);
                     $a.classList.add('request');
                     $requestOutput.replaceChildren(makeElement('code')()($a));
@@ -2490,7 +3254,7 @@ class NoteFetcherRun {
                         const [path, parameters] = pathAndParameters;
                         lastTriedPath = path;
                         const apiPath = this.request.constructApiPath(path, parameters);
-                        const response = await server.apiFetch(apiPath);
+                        const response = await server.api.fetch(apiPath);
                         if (!response.ok) {
                             if (response.status == 410) { // likely hidden note in ids query
                                 continue; // TODO report it
@@ -2668,7 +3432,7 @@ class NoteBboxFetcherRun extends NoteFeatureCollectionFetcherRun {
     }
     getCycleFetchDetails(limit) {
         const parametersWithoutLimit = this.request.getRequestUrlParametersWithoutLimit(this.query);
-        const pathAndParameters = ['', parametersWithoutLimit + e$3 `&limit=${limit}`];
+        const pathAndParameters = ['', parametersWithoutLimit + e$4 `&limit=${limit}`];
         return {
             pathAndParametersList: [pathAndParameters],
             limit
@@ -2775,15 +3539,6 @@ function rewriteFetchErrorMessage($container, query, responseKindText, fetchErro
     $message.append($error);
 }
 
-const em = (...ss) => makeElement('em')()(...ss);
-const sup = (...ss) => makeElement('sup')()(...ss);
-const dfn = (...ss) => makeElement('dfn')()(...ss);
-const code = (...ss) => makeElement('code')()(...ss);
-const p = (...ss) => makeElement('p')()(...ss);
-const ul = (...ss) => makeElement('ul')()(...ss);
-const ol = (...ss) => makeElement('ol')()(...ss);
-const li = (...ss) => makeElement('li')()(...ss);
-
 class NoteFetchDialog extends NavDialog {
     constructor($sharedCheckboxes, server, getRequestApiPaths, submitQuery) {
         super();
@@ -2852,7 +3607,7 @@ class NoteFetchDialog extends NavDialog {
             return;
         }
         const [[mainType, mainApiPath], ...otherRequestApiPaths] = requestApiPaths;
-        const mainUrl = this.server.getApiUrl(mainApiPath);
+        const mainUrl = this.server.api.getUrl(mainApiPath);
         const $a = makeLink(mainUrl, mainUrl);
         $a.classList.add('request');
         this.$requestOutput.replaceChildren(code($a), ` in ${mainType} format`);
@@ -2868,7 +3623,7 @@ class NoteFetchDialog extends NavDialog {
             else {
                 this.$requestOutput.append(`, `);
             }
-            const url = this.server.getApiUrl(apiPath);
+            const url = this.server.api.getUrl(apiPath);
             this.$requestOutput.append(code(makeLink(type, url)));
             appendLinkIfKnown(type);
         }
@@ -2916,10 +3671,10 @@ class NoteFetchDialog extends NavDialog {
         const $showImagesCheckbox = document.createElement('input');
         $showImagesCheckbox.type = 'checkbox';
         this.$sharedCheckboxes.showImages.push($showImagesCheckbox);
-        $fieldset.append(makeDiv()(makeLabel()($showImagesCheckbox, ` Load and show images from StreetComplete`)));
+        $fieldset.append(makeDiv('regular-input')(makeLabel()($showImagesCheckbox, ` Load and show images from StreetComplete`)));
         this.$advancedModeCheckbox.type = 'checkbox';
         this.$sharedCheckboxes.advancedMode.push(this.$advancedModeCheckbox);
-        $fieldset.append(makeDiv()(makeLabel()(this.$advancedModeCheckbox, ` Advanced mode`)));
+        $fieldset.append(makeDiv('regular-input')(makeLabel()(this.$advancedModeCheckbox, ` Advanced mode`)));
         return $fieldset;
     }
     makeRequestDiv() {
@@ -3045,7 +3800,7 @@ class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
             this.$closedInput.min = '-1';
             this.$closedInput.value = '-1';
             this.$closedSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
-            const $closedLine = makeDiv()(`Fetch `, makeElement('span')('non-advanced-input')(this.$closedSelect), ` matching notes `, makeLabel('advanced-input')(`closed no more than `, this.$closedInput, makeElement('span')('advanced-hint')(` (`, code('closed'), ` parameter)`), ` days ago`));
+            const $closedLine = makeDiv('regular-input')(`Fetch `, makeElement('span')('non-advanced-input')(this.$closedSelect), ` matching notes `, makeLabel('advanced-input')(`closed no more than `, this.$closedInput, makeElement('span')('advanced-hint')(` (`, code('closed'), ` parameter)`), ` days ago`));
             this.appendToClosedLine($closedLine);
             $fieldset.append($closedLine);
         }
@@ -3090,7 +3845,7 @@ class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
         {
             this.$autoLoadCheckbox.type = 'checkbox';
             this.$autoLoadCheckbox.checked = true;
-            $fieldset.append(makeDiv()(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
+            $fieldset.append(makeDiv('regular-input')(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
         }
     }
 }
@@ -3127,10 +3882,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         this.limitIsParameter = true;
     }
     makeLeadAdvancedHint() {
-        return [
-            `Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`),
-            ` request at `, code(this.server.getApiUrl(`notes/search?`), em(`parameters`)), `; see `, em(`parameters`), ` below.`
-        ];
+        return [p(`Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`), ` request at `, code(this.server.api.getUrl(`notes/search?`), em(`parameters`)), `; see `, em(`parameters`), ` below.`)];
     }
     listParameters(closedDescriptionItems) {
         return [
@@ -3203,7 +3955,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
             this.$toInput.type = 'text';
             this.$toInput.size = 20;
             this.$toInput.name = 'to';
-            $fieldset.append(makeDiv()(`Date range: `, makeLabel()(`from`, rq$1('from'), ` `, this.$fromInput), ` `, makeLabel()(`to`, rq$1('to'), ` `, this.$toInput)));
+            $fieldset.append(makeDiv('regular-input')(`Date range: `, makeLabel()(`from`, rq$1('from'), ` `, this.$fromInput), ` `, makeLabel()(`to`, rq$1('to'), ` `, this.$toInput)));
         }
     }
     appendToClosedLine($div) {
@@ -3215,7 +3967,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         {
             this.$autoLoadCheckbox.type = 'checkbox';
             this.$autoLoadCheckbox.checked = true;
-            $fieldset.append(makeDiv()(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
+            $fieldset.append(makeDiv('regular-input')(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
         }
     }
     populateInputsWithoutUpdatingRequestExceptForClosedInput(query) {
@@ -3351,28 +4103,12 @@ class NominatimSubForm {
     }
     addEventListeners() {
         this.$input.addEventListener('input', () => this.updateRequest());
-        this.$form.addEventListener('submit', async (ev) => {
+        this.$form.onsubmit = (ev) => wrapFetchForButton(this.$button, async () => {
             ev.preventDefault();
-            this.$button.disabled = true;
-            this.$button.classList.remove('error');
-            try {
-                const bounds = this.getMapBounds();
-                const bbox = await this.bboxFetcher.fetch(Date.now(), this.$input.value, bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth());
-                this.setBbox(bbox);
-            }
-            catch (ex) {
-                this.$button.classList.add('error');
-                if (ex instanceof TypeError) {
-                    this.$button.title = ex.message;
-                }
-                else {
-                    this.$button.title = `unknown error ${ex}`;
-                }
-            }
-            finally {
-                this.$button.disabled = false;
-            }
-        });
+            const bounds = this.getMapBounds();
+            const bbox = await this.bboxFetcher.fetch(Date.now(), this.$input.value, bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth());
+            this.setBbox(bbox);
+        }, makeGetKnownErrorMessage(TypeError));
     }
 }
 function makeDumbCache() {
@@ -3425,10 +4161,7 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         }
     }
     makeLeadAdvancedHint() {
-        return [
-            `Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`),
-            ` request at `, code(this.server.getApiUrl(`notes?`), em(`parameters`)), `; see `, em(`parameters`), ` below.`
-        ];
+        return [p(`Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code(this.server.api.getUrl(`notes?`), em(`parameters`)), `; see `, em(`parameters`), ` below.`)];
     }
     listParameters(closedDescriptionItems) {
         return [
@@ -3447,7 +4180,7 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
     writeScopeAndOrderFieldsetBeforeClosedLine($fieldset) {
         {
             this.$trackMapSelect.append(new Option(`Do nothing`, 'nothing'), new Option(`Update bounding box input`, 'bbox', true, true), new Option(`Fetch notes`, 'fetch'));
-            $fieldset.append(makeDiv()(makeLabel('inline')(this.$trackMapSelect, ` on map view changes`), ` `, this.$trackMapZoomNotice));
+            $fieldset.append(makeDiv('regular-input')(makeLabel('inline')(this.$trackMapSelect, ` on map view changes`), ` `, this.$trackMapZoomNotice));
         }
         {
             this.$bboxInput.type = 'text';
@@ -3644,7 +4377,7 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
             this.$neisStatusSelect.name = 'status';
             this.$neisStatusSelect.setAttribute('form', 'neis-form');
             this.$neisStatusSelect.append(...neisFeedStatuses.map(status => new Option(`${status} (up to a week old)`, status)), new Option(`last updated 500`, 'custom'), new Option(`last open 10000`, 'custom-open'));
-            $fieldset.append(makeDiv()(makeLabel()(`Get `, this.$neisStatusSelect, ` notes`), ` for this country`));
+            $fieldset.append(makeDiv('regular-input')(makeLabel()(`Get `, this.$neisStatusSelect, ` notes`), ` for this country`));
         }
         {
             this.$neisButton.textContent = 'Download feed file and populate XML fields below';
@@ -3655,7 +4388,7 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
     writeScopeAndOrderFieldset($fieldset, $legend) {
         $legend.textContent = `Or read custom XML file`;
         {
-            $fieldset.append(makeDiv('advanced-hint')(`Load an arbitrary XML file containing note ids or links. `, `Elements containing the ids are selected by a `, makeLink(`css selector`, `https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors`), ` provided below. `, `Inside the elements ids are looked for in an `, em(`attribute`), ` if specified below, or in text content. `, `After that download each note `, makeLink(`by its id`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Read:_GET_/api/0.6/notes/#id`), `.`));
+            $fieldset.append(makeDiv('advanced-hint')(p(`Load an arbitrary XML file containing note ids or links. `, `Elements containing the ids are selected by a `, makeLink(`css selector`, `https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors`), ` provided below. `, `Inside the elements ids are looked for in an `, em(`attribute`), ` if specified below, or in text content. `, `After that download each note `, makeLink(`by its id`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Read:_GET_/api/0.6/notes/#id`), `.`)));
         }
         {
             this.$selectorInput.type = 'text';
@@ -4146,7 +4879,7 @@ class NoteFetchDialogs {
 }
 
 class NoteFetchPanel {
-    constructor(storage, db, globalEventsListener, globalHistory, $container, $moreContainer, navbar, noteTable, map, figureDialog) {
+    constructor(storage, db, globalEventsListener, globalHistory, auth, $container, $moreContainer, navbar, noteTable, map, figureDialog) {
         const self = this;
         const server = globalHistory.server;
         const moreButtonIntersectionObservers = [];
@@ -4165,7 +4898,7 @@ class NoteFetchPanel {
                 navbar.addTab(dialog);
             }
         }
-        const aboutDialog = new AboutDialog(storage, db, server, globalHistory.serverList, globalHistory.serverHash);
+        const aboutDialog = new AboutDialog(storage, db, server, globalHistory.serverList, globalHistory.serverHash, auth);
         aboutDialog.write($container);
         navbar.addTab(aboutDialog, true);
         globalHistory.onQueryHashChange = (queryHash) => {
@@ -4602,7 +5335,7 @@ class LooseParserListener {
     }
 }
 
-const e$2 = makeEscapeTag(encodeURIComponent);
+const e$3 = makeEscapeTag(encodeURIComponent);
 const makeItem = makeElement('li')();
 const makeITEM = makeElement('li')('main');
 class LooseParserPopup {
@@ -4634,7 +5367,7 @@ class LooseParserPopup {
         if (type == null)
             return makeElement('a')()('?');
         const $a = makeElement('a')()(type);
-        $a.href = this.webUrlLister.getWebUrl(e$2 `${type}/${id}`);
+        $a.href = this.webUrlLister.web.getUrl(e$3 `${type}/${id}`);
         if (type == 'note') {
             $a.classList.add('other-note');
             $a.dataset.noteId = String(id);
@@ -4728,7 +5461,7 @@ function getCommentItems(webUrlLister, commentText) {
     }
 }
 function makeWebUrlRegex(webUrlLister) {
-    return '(?:' + webUrlLister.webUrls.map(webUrl => escapeRegex(stripProtocol(webUrl))).join('|') + ')';
+    return '(?:' + webUrlLister.web.urls.map(webUrl => escapeRegex(stripProtocol(webUrl))).join('|') + ')';
 }
 function stripProtocol(webUrl) {
     return webUrl.replace(new RegExp('^[^:]*://'), '');
@@ -4793,7 +5526,7 @@ function getMatchItem(webUrlLister, groups) {
     };
 }
 function rewriteOsmHref(webUrlLister, path, hash) {
-    let href = webUrlLister.getWebUrl(path ?? '');
+    let href = webUrlLister.web.getUrl(path ?? '');
     if (hash)
         href += hash;
     return href;
@@ -4936,6 +5669,102 @@ function imageErrorHandler() {
     this.removeAttribute('alt'); // render broken image icon
 }
 
+function writeNoteSectionRows(web, commentWriter, $noteSection, note, users, showImages) {
+    const $checkbox = document.createElement('input');
+    const $commentCells = [];
+    let $row = $noteSection.insertRow();
+    const nComments = note.comments.length;
+    {
+        const $cell = $row.insertCell();
+        $cell.classList.add('note-checkbox');
+        if (nComments > 1)
+            $cell.rowSpan = nComments;
+        $checkbox.type = 'checkbox';
+        $checkbox.title = `shift+click to check/uncheck a range`;
+        $cell.append($checkbox);
+    }
+    {
+        const $cell = $row.insertCell();
+        $cell.classList.add('note-link');
+        if (nComments > 1)
+            $cell.rowSpan = nComments;
+        const $a = document.createElement('a');
+        $a.href = web.getUrl(`note/` + encodeURIComponent(note.id));
+        $a.dataset.noteId = $a.textContent = `${note.id}`;
+        $a.dataset.self = 'yes';
+        $a.classList.add('listened');
+        $a.title = `click to reload the note if you know it was updated or want to check it`;
+        const $refreshWaitProgress = document.createElement('progress');
+        $refreshWaitProgress.value = 0;
+        $cell.append(makeDiv()($a, $refreshWaitProgress));
+    }
+    let iComment = 0;
+    for (const comment of note.comments) {
+        {
+            if (iComment > 0) {
+                $row = $noteSection.insertRow();
+            }
+        }
+        {
+            const $cell = $row.insertCell();
+            $cell.classList.add('note-date');
+            $cell.append(makeDateOutput(toReadableDate(comment.date)));
+        }
+        {
+            const $cell = $row.insertCell();
+            $cell.classList.add('note-user');
+            if (comment.uid != null) {
+                const username = users[comment.uid];
+                if (username != null) {
+                    const href = web.getUrl(`user/` + encodeURIComponent(username));
+                    const $a = makeLink(username, href);
+                    $a.classList.add('listened');
+                    $a.dataset.userName = username;
+                    $a.dataset.userId = String(comment.uid);
+                    $cell.append($a);
+                }
+                else {
+                    $cell.append(`#${comment.uid}`);
+                }
+            }
+        }
+        {
+            let svgs = `<svg class="icon-status-${getActionClass(comment.action)}">` +
+                `<title>${comment.action}</title><use href="#table-note" />` +
+                `</svg>`;
+            if (note.comments.length > 1) {
+                const nAdditionalComments = note.comments.length - 1;
+                const title = `${nAdditionalComments} additional comment${nAdditionalComments > 1 ? `s` : ``}`;
+                svgs += ` <svg class="icon-comments-count">` +
+                    `<title>${title}</title><use href="#table-comments" /><text x="8" y="8">${nAdditionalComments}</text>` +
+                    `</svg>`;
+            }
+            const $cell = $row.insertCell();
+            $cell.classList.add('note-action');
+            $cell.innerHTML = svgs;
+        }
+        {
+            const $cell = $row.insertCell();
+            $cell.classList.add('note-comment');
+            commentWriter.writeComment($cell, comment.text, showImages);
+            $commentCells.push($cell);
+        }
+        iComment++;
+    }
+    return [$checkbox, $commentCells];
+}
+function getActionClass(action) {
+    if (action == 'opened' || action == 'reopened') {
+        return 'open';
+    }
+    else if (action == 'closed' || action == 'hidden') {
+        return 'closed';
+    }
+    else {
+        return 'other';
+    }
+}
+
 class NoteSectionVisibilityObserver {
     constructor(handleVisibleNotes) {
         this.isMapFittingHalted = false;
@@ -4985,7 +5814,7 @@ class NoteSectionVisibilityObserver {
     }
 }
 
-const e$1 = makeEscapeTag(encodeURIComponent);
+const e$2 = makeEscapeTag(encodeURIComponent);
 /**
  * Errors expected with working connection to the API
  */
@@ -4994,24 +5823,16 @@ class NoteDataError extends TypeError {
 /**
  * Reload a single note updating its link
  */
-async function fetchTableNote(apiFetcher, $a, noteId) {
+async function fetchTableNote(api, $a, noteId) {
     $a.classList.add('loading');
     try {
-        const response = await apiFetcher.apiFetch(e$1 `notes/${noteId}.json`);
+        const response = await api.fetch(e$2 `notes/${noteId}.json`);
         if (!response.ok)
             throw new NoteDataError(`note reload failed`);
-        const data = await response.json();
-        if (!isNoteFeature(data))
-            throw new NoteDataError(`note reload received invalid data`);
-        const [newNotes, newUsers] = transformFeatureToNotesAndUsers(data);
-        if (newNotes.length != 1)
-            throw new NoteDataError(`note reload received unexpected number of notes`);
-        const [newNote] = newNotes;
-        if (newNote.id != noteId)
-            throw new NoteDataError(`note reload received unexpected note`);
+        const noteAndUsers = await readNoteResponse(noteId, response);
         $a.classList.remove('absent');
         $a.title = '';
-        return [newNote, newUsers];
+        return noteAndUsers;
     }
     catch (ex) {
         $a.classList.add('absent');
@@ -5026,6 +5847,18 @@ async function fetchTableNote(apiFetcher, $a, noteId) {
     finally {
         $a.classList.remove('loading');
     }
+}
+async function readNoteResponse(noteId, response) {
+    const data = await response.json();
+    if (!isNoteFeature(data))
+        throw new NoteDataError(`note reload received invalid data`);
+    const [newNotes, newUsers] = transformFeatureToNotesAndUsers(data);
+    if (newNotes.length != 1)
+        throw new NoteDataError(`note reload received unexpected number of notes`);
+    const [newNote] = newNotes;
+    if (newNote.id != noteId)
+        throw new NoteDataError(`note reload received unexpected note`);
+    return [newNote, newUsers];
 }
 
 const clamp = (min, value, max) => Math.max(min, Math.min(value, max));
@@ -5304,7 +6137,7 @@ class NoteTable {
             if (!($a instanceof HTMLAnchorElement)) {
                 throw new Error(`note link not found during single note fetch`);
             }
-            const [note, users] = await fetchTableNote(server, $a, Number(id));
+            const [note, users] = await fetchTableNote(server.api, $a, Number(id));
             await this.onRefresherUpdate?.(note, users);
             return [note, users];
         });
@@ -5450,7 +6283,7 @@ class NoteTable {
         this.sendNoteCountsUpdate();
         return nUnfilteredNotes;
     }
-    replaceNote(note, users) {
+    replaceNote(note, users, unselectAndUpdateCheckboxDependents = false) {
         const $noteSection = this.getNoteSection(note.id);
         if (!$noteSection)
             return;
@@ -5462,17 +6295,27 @@ class NoteTable {
         for (const [uid, username] of Object.entries(users)) {
             this.usersById.set(Number(uid), username);
         }
-        // output table section
+        // clean up table section
         $noteSection.innerHTML = '';
         delete $noteSection.dataset.updated;
+        $noteSection.className = '';
+        // output table section
         const getUsername = (uid) => users[uid];
         const isVisible = this.filter.matchNote(note, getUsername);
         this.makeMarker(note, isVisible);
         this.writeNoteSection($noteSection, note, users, isVisible);
-        if (isVisible)
-            this.setNoteSelection($noteSection, wasSelected);
+        if (unselectAndUpdateCheckboxDependents) {
+            this.updateCheckboxDependents();
+        }
+        else {
+            if (isVisible)
+                this.setNoteSelection($noteSection, wasSelected);
+        }
         this.refresherConnector.registerNote(note);
         this.sendNoteCountsUpdate(); // TODO only do if visibility changed
+    }
+    replaceAndUnselectNote(note, users) {
+        this.replaceNote(note, users, true);
     }
     getVisibleNoteIds() {
         const ids = [];
@@ -5552,84 +6395,10 @@ class NoteTable {
                 this.$selectAllCheckbox.indeterminate = true;
             }
         }
-        let $row = $noteSection.insertRow();
-        const nComments = note.comments.length;
-        {
-            const $cell = $row.insertCell();
-            $cell.classList.add('note-checkbox');
-            if (nComments > 1)
-                $cell.rowSpan = nComments;
-            const $checkbox = document.createElement('input');
-            $checkbox.type = 'checkbox';
-            $checkbox.title = `shift+click to check/uncheck a range`;
-            $checkbox.addEventListener('click', this.wrappedNoteCheckboxClickListener);
-            $cell.append($checkbox);
-        }
-        {
-            const $cell = $row.insertCell();
-            $cell.classList.add('note-link');
-            if (nComments > 1)
-                $cell.rowSpan = nComments;
-            const $a = document.createElement('a');
-            $a.href = this.server.getWebUrl(`note/` + encodeURIComponent(note.id));
-            $a.dataset.noteId = $a.textContent = `${note.id}`;
-            $a.dataset.self = 'yes';
-            $a.classList.add('listened');
-            $a.title = `click to reload the note if you know it was updated or want to check it`;
-            const $refreshWaitProgress = document.createElement('progress');
-            $refreshWaitProgress.value = 0;
-            $cell.append(makeDiv()($a, $refreshWaitProgress));
-        }
-        let iComment = 0;
-        for (const comment of note.comments) {
-            {
-                if (iComment > 0) {
-                    $row = $noteSection.insertRow();
-                }
-            }
-            {
-                const $cell = $row.insertCell();
-                $cell.classList.add('note-date');
-                $cell.append(makeDateOutput(toReadableDate(comment.date)));
-            }
-            {
-                const $cell = $row.insertCell();
-                $cell.classList.add('note-user');
-                if (comment.uid != null) {
-                    const username = users[comment.uid];
-                    if (username != null) {
-                        const href = this.server.getWebUrl(`user/` + encodeURIComponent(username));
-                        const $a = makeLink(username, href);
-                        $a.classList.add('listened');
-                        $a.dataset.userName = username;
-                        $a.dataset.userId = String(comment.uid);
-                        $cell.append($a);
-                    }
-                    else {
-                        $cell.append(`#${comment.uid}`);
-                    }
-                }
-            }
-            {
-                let svgs = `<svg class="icon-status-${getActionClass(comment.action)}">` +
-                    `<title>${comment.action}</title><use href="#table-note" />` +
-                    `</svg>`;
-                if (note.comments.length > 1) {
-                    svgs += ` <svg class="icon-comments-count">` +
-                        `<title>number of additional comments</title><use href="#table-comments" /><text x="8" y="8">${note.comments.length - 1}</text>` +
-                        `</svg>`;
-                }
-                const $cell = $row.insertCell();
-                $cell.classList.add('note-action');
-                $cell.innerHTML = svgs;
-            }
-            {
-                const $cell = $row.insertCell();
-                $cell.classList.add('note-comment');
-                this.commentWriter.writeComment($cell, comment.text, this.showImages);
-                this.looseParserListener.listen($cell);
-            }
-            iComment++;
+        const [$checkbox, $commentCells] = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, note, users, this.showImages);
+        $checkbox.addEventListener('click', this.wrappedNoteCheckboxClickListener);
+        for (const $commentCell of $commentCells) {
+            this.looseParserListener.listen($commentCell);
         }
     }
     sendNoteCountsUpdate() {
@@ -5842,17 +6611,6 @@ function getStatusClass(status) {
         return 'other';
     }
 }
-function getActionClass(action) {
-    if (action == 'opened' || action == 'reopened') {
-        return 'open';
-    }
-    else if (action == 'closed' || action == 'hidden') {
-        return 'closed';
-    }
-    else {
-        return 'other';
-    }
-}
 function isDefined(argument) {
     return argument !== undefined;
 }
@@ -5886,24 +6644,25 @@ function __classPrivateFieldSet(receiver, state, value, kind, f) {
 }
 
 class Tool {
-    constructor(id, name, title) {
-        this.id = id;
-        this.name = name;
-        this.title = title;
+    constructor(auth) {
+        this.auth = auth;
+        this.isFullWidth = false;
         this.$buttonsRequiringSelectedNotes = [];
     }
     getInfo() { return undefined; }
+    onLoginChange() { return false; }
     onRefresherStateChange(isRunning, message) { return false; }
     onRefresherPeriodChange(refreshPeriod) { return false; }
     onTimestampChange(timestamp) { return false; }
     onNoteCountsChange(nFetched, nVisible) { return false; }
     onSelectedNotesChange(selectedNotes, selectedNoteUsers) {
         let reactedToButtons = false;
-        if (this.$buttonsRequiringSelectedNotes.length > 0) {
-            for (const $button of this.$buttonsRequiringSelectedNotes) {
-                $button.disabled = selectedNotes.length <= 0;
+        for (const $button of this.$buttonsRequiringSelectedNotes) {
+            const newDisabled = selectedNotes.length <= 0;
+            if ($button.disabled != newDisabled) {
+                $button.disabled = newDisabled;
+                reactedToButtons = true;
             }
-            reactedToButtons = true;
         }
         const reactedToOthers = this.onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers);
         return reactedToButtons || reactedToOthers;
@@ -5932,16 +6691,37 @@ function makeActionIcon(type, text) {
     $span.append(makeElement('span')()(text));
     return $span;
 }
+function makeNoteStatusIcon(status, number = 1) {
+    const height = 16;
+    const width = 8;
+    const r = width / 2;
+    const $span = makeElement('span')(`icon-note-status`)();
+    const path = `<path d="${computeMarkerOutlinePath(height, width / 2)}" fill="${status == 'open' ? 'red' : 'green'}" />`;
+    $span.innerHTML = `<svg viewBox="${-r} ${-r} ${width} ${height}">${path}</svg><span>${status} note${number > 1 ? `s` : ``}</span>`;
+    return $span;
+    // copypaste from marker.ts
+    function computeMarkerOutlinePath(height, r) {
+        const rp = height - r;
+        const y = r ** 2 / rp;
+        const x = Math.sqrt(r ** 2 - y ** 2);
+        const xf = x.toFixed(2);
+        const yf = y.toFixed(2);
+        return `M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z`;
+    }
+}
 
 const label = (...ss) => makeElement('label')('inline')(...ss);
 class AutozoomTool extends Tool {
     constructor() {
-        super('autozoom', `Map autozoom`, `Select how the map is panned/zoomed to notes`);
+        super(...arguments);
+        this.id = 'autozoom';
+        this.name = `Map autozoom`;
+        this.title = `Select how the map is panned/zoomed to notes`;
     }
     getInfo() {
         return [p(`Pan and zoom the map to notes in the table. `, `Can be used as `, em(`zoom to data`), ` for notes layer if `, dfn(`to all visible notes`), ` is selected. `), p(dfn(`To notes on screen in table`), ` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `, `This option is convenient to use when `, em(`Track between notes`), ` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`)];
     }
-    getTool(callbacks, server, map) {
+    getTool(callbacks, map) {
         const $fitModeSelect = makeElement('select')()(new Option('is disabled', 'none'), new Option('to selected notes', 'selectedNotes'), new Option('to notes on screen in table', 'inViewNotes'), new Option('to all visible notes', 'allNotes'));
         $fitModeSelect.onchange = () => {
             if ($fitModeSelect.value == 'allNotes') {
@@ -5965,7 +6745,10 @@ class AutozoomTool extends Tool {
 }
 class CommentsTool extends Tool {
     constructor() {
-        super('comments', `Table comments`, `Change how comments are displayed in the notes table`);
+        super(...arguments);
+        this.id = 'comments';
+        this.name = `Table comments`;
+        this.title = `Change how comments are displayed in the notes table`;
     }
     getTool(callbacks) {
         const $onlyFirstCommentsCheckbox = document.createElement('input');
@@ -5982,9 +6765,110 @@ class CommentsTool extends Tool {
         ];
     }
 }
+class TimestampTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.id = 'timestamp';
+        this.name = `Timestamp for historic queries`;
+        this.title = `Set timestamp for queries run by Overpass`;
+        this.$timestampInput = document.createElement('input');
+    }
+    getInfo() {
+        return [p(`Allows to select a timestamp for use with `, em(`Overpass`), ` and `, em(`Overpass turbo`), ` commands. `, `You can either enter the timestamp in ISO format (or anything else that Overpass understands) manually here click on a date of/in a note comment. `, `If present, a `, makeLink(`date setting`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL#date`), ` is added to Overpass queries. `, `The idea is to allow for examining the OSM data at the moment some note was opened/commented/closed to evaluate if this action was correct.`), p(`Timestamps inside note comments are usually generated by apps like `, makeLink(`MAPS.ME`, `https://wiki.openstreetmap.org/wiki/MAPS.ME`), ` to indicate their OSM data version.`)];
+    }
+    getTool(callbacks) {
+        // this.$timestampInput.type='datetime-local' // no standard datetime input for now because they're being difficult with UTC and 24-hour format.
+        // this.$timestampInput.step='1'
+        this.$timestampInput.type = 'text';
+        this.$timestampInput.size = 20;
+        this.$timestampInput.oninput = () => {
+            callbacks.onTimestampChange(this, this.$timestampInput.value);
+        };
+        const $clearButton = document.createElement('button');
+        $clearButton.type = 'reset';
+        $clearButton.textContent = 'Clear';
+        const $form = makeElement('form')()(this.$timestampInput, ` `, $clearButton);
+        $form.onreset = () => {
+            callbacks.onTimestampChange(this, '');
+        };
+        return [$form];
+    }
+    onTimestampChange(timestamp) {
+        this.$timestampInput.value = timestamp;
+        return true;
+    }
+}
+class CountTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.id = 'counts';
+        this.name = `Note counts`;
+        this.title = `See number of fetched/visible/selected notes`;
+        this.$fetchedNoteCount = document.createElement('output');
+        this.$visibleNoteCount = document.createElement('output');
+        this.$selectedNoteCount = document.createElement('output');
+    }
+    getTool() {
+        this.$fetchedNoteCount.textContent = '0';
+        this.$visibleNoteCount.textContent = '0';
+        this.$selectedNoteCount.textContent = '0';
+        return [
+            this.$fetchedNoteCount, ` fetched, `,
+            this.$visibleNoteCount, ` visible, `,
+            this.$selectedNoteCount, ` selected`
+        ];
+    }
+    onNoteCountsChange(nFetched, nVisible) {
+        this.$fetchedNoteCount.textContent = String(nFetched);
+        this.$visibleNoteCount.textContent = String(nVisible);
+        return true;
+    }
+    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) {
+        this.$selectedNoteCount.textContent = String(selectedNotes.length);
+        return true;
+    }
+}
+class LegendTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.id = 'legend';
+        this.name = `Legend`;
+        this.title = `What do icons in command panel mean`;
+    }
+    getTool() {
+        return [
+            makeMapIcon('center'), ` = map center, `,
+            makeMapIcon('area'), ` = map area, `,
+            makeNotesIcon('selected'), ` = selected notes, `,
+            makeNoteStatusIcon('open'), ` = open (selected) note, `,
+            makeNoteStatusIcon('closed'), ` = closed (selected) note`
+        ];
+    }
+}
+class SettingsTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.id = 'settings';
+        this.name = `⚙️`;
+        this.title = `Settings`;
+    }
+    getTool(callbacks) {
+        const $openAllButton = document.createElement('button');
+        $openAllButton.textContent = `+ open all tools`;
+        $openAllButton.onclick = () => callbacks.onToolOpenToggle(this, true);
+        const $closeAllButton = document.createElement('button');
+        $closeAllButton.textContent = `− close all tools`;
+        $closeAllButton.onclick = () => callbacks.onToolOpenToggle(this, false);
+        return [$openAllButton, ` `, $closeAllButton];
+    }
+}
+
 class RefreshTool extends Tool {
     constructor() {
-        super('refresh', `Refresh notes`, `Control automatic and manual refreshing of notes`);
+        super(...arguments);
+        this.id = 'refresh';
+        this.name = `Refresh notes`;
+        this.title = `Control automatic and manual refreshing of notes`;
         this.isRunning = true;
         this.$runButton = makeElement('button')('only-with-icon')();
         this.$refreshPeriodInput = document.createElement('input');
@@ -6052,45 +6936,19 @@ class RefreshTool extends Tool {
             : makeActionIcon('play', `Resume`));
     }
 }
-class TimestampTool extends Tool {
-    constructor() {
-        super('timestamp', `Timestamp for historic queries`, `Set timestamp for queries run by Overpass`);
-        this.$timestampInput = document.createElement('input');
-    }
-    getInfo() {
-        return [p(`Allows to select a timestamp for use with `, em(`Overpass`), ` and `, em(`Overpass turbo`), ` commands. `, `You can either enter the timestamp in ISO format (or anything else that Overpass understands) manually here click on a date of/in a note comment. `, `If present, a `, makeLink(`date setting`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL#date`), ` is added to Overpass queries. `, `The idea is to allow for examining the OSM data at the moment some note was opened/commented/closed to evaluate if this action was correct.`), p(`Timestamps inside note comments are usually generated by apps like `, makeLink(`MAPS.ME`, `https://wiki.openstreetmap.org/wiki/MAPS.ME`), ` to indicate their OSM data version.`)];
-    }
-    getTool(callbacks) {
-        // this.$timestampInput.type='datetime-local' // no standard datetime input for now because they're being difficult with UTC and 24-hour format.
-        // this.$timestampInput.step='1'
-        this.$timestampInput.type = 'text';
-        this.$timestampInput.size = 20;
-        this.$timestampInput.oninput = () => {
-            callbacks.onTimestampChange(this, this.$timestampInput.value);
-        };
-        const $clearButton = document.createElement('button');
-        $clearButton.type = 'reset';
-        $clearButton.textContent = 'Clear';
-        const $form = makeElement('form')()(this.$timestampInput, ` `, $clearButton);
-        $form.onreset = () => {
-            callbacks.onTimestampChange(this, '');
-        };
-        return [$form];
-    }
-    onTimestampChange(timestamp) {
-        this.$timestampInput.value = timestamp;
-        return true;
-    }
-}
+
 class ParseTool extends Tool {
     constructor() {
-        super('parse', `Parse links`, `Extract interactive links from plaintext`);
+        super(...arguments);
+        this.id = 'parse';
+        this.name = `Parse links`;
+        this.title = `Extract interactive links from plaintext`;
     }
     getInfo() {
         return [p(`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →. `, `Currently detected active elements are: `), ul(li(`links to images made in `, makeLink(`StreetComplete`, `https://wiki.openstreetmap.org/wiki/StreetComplete`)), li(`links to OSM notes (clicking the output link is not yet implemented)`), li(`links to OSM changesets`), li(`links to OSM elements`), li(`ISO-formatted timestamps`)), p(`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`)];
     }
-    getTool(callbacks, server) {
-        const commentWriter = new CommentWriter(server);
+    getTool() {
+        const commentWriter = new CommentWriter(this.auth.server);
         const $input = document.createElement('input');
         $input.type = 'text';
         $input.size = 50;
@@ -6128,57 +6986,6 @@ class ParseTool extends Tool {
         }
     }
 }
-class CountTool extends Tool {
-    constructor() {
-        super('counts', `Note counts`, `See number of fetched/visible/selected notes`);
-        this.$fetchedNoteCount = document.createElement('output');
-        this.$visibleNoteCount = document.createElement('output');
-        this.$selectedNoteCount = document.createElement('output');
-    }
-    getTool() {
-        this.$fetchedNoteCount.textContent = '0';
-        this.$visibleNoteCount.textContent = '0';
-        this.$selectedNoteCount.textContent = '0';
-        return [
-            this.$fetchedNoteCount, ` fetched, `,
-            this.$visibleNoteCount, ` visible, `,
-            this.$selectedNoteCount, ` selected`
-        ];
-    }
-    onNoteCountsChange(nFetched, nVisible) {
-        this.$fetchedNoteCount.textContent = String(nFetched);
-        this.$visibleNoteCount.textContent = String(nVisible);
-        return true;
-    }
-    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) {
-        this.$selectedNoteCount.textContent = String(selectedNotes.length);
-        return true;
-    }
-}
-class LegendTool extends Tool {
-    constructor() {
-        super('legend', `Legend`, `What do icons in command panel mean`);
-    }
-    getTool() {
-        return [
-            makeMapIcon('center'), ` = map center, `, makeMapIcon('area'), ` = map area, `, makeNotesIcon('selected'), ` = selected notes`
-        ];
-    }
-}
-class SettingsTool extends Tool {
-    constructor() {
-        super('settings', `⚙️`, `Settings`);
-    }
-    getTool(callbacks) {
-        const $openAllButton = document.createElement('button');
-        $openAllButton.textContent = `+ open all tools`;
-        $openAllButton.onclick = () => callbacks.onToolOpenToggle(this, true);
-        const $closeAllButton = document.createElement('button');
-        $closeAllButton.textContent = `− close all tools`;
-        $closeAllButton.onclick = () => callbacks.onToolOpenToggle(this, false);
-        return [$openAllButton, ` `, $closeAllButton];
-    }
-}
 
 class OverpassBaseTool extends Tool {
     constructor() {
@@ -6201,12 +7008,15 @@ class OverpassBaseTool extends Tool {
 }
 class OverpassTurboTool extends OverpassBaseTool {
     constructor() {
-        super('overpass-turbo', `Overpass turbo`, `Open an Overpass turbo window with various queries`);
+        super(...arguments);
+        this.id = 'overpass-turbo';
+        this.name = `Overpass turbo`;
+        this.title = `Open an Overpass turbo window with various queries`;
     }
     getInfo() {
         return [p(`Some Overpass queries to run from `, makeLink(`Overpass turbo`, 'https://wiki.openstreetmap.org/wiki/Overpass_turbo'), `, web UI for Overpass API. `, `Useful to inspect historic data at the time a particular note comment was made.`)];
     }
-    getTool(callbacks, server, map) {
+    getTool(callbacks, map) {
         const $overpassButtons = [];
         const buttonClickListener = (withRelations, onlyAround) => {
             let query = this.getOverpassQueryPreamble(map);
@@ -6222,9 +7032,9 @@ class OverpassTurboTool extends OverpassBaseTool {
             }
             query += `;\n`;
             query += `out meta geom;`;
-            if (!server.overpassTurbo)
+            if (!this.auth.server.overpassTurbo)
                 throw new ReferenceError(`no overpass turbo provider`);
-            open(server.overpassTurbo.getUrl(query, map.lat, map.lon, map.zoom), 'overpass-turbo');
+            open(this.auth.server.overpassTurbo.getUrl(query, map.lat, map.lon, map.zoom), 'overpass-turbo');
         };
         {
             const $button = document.createElement('button');
@@ -6254,52 +7064,48 @@ class OverpassTurboTool extends OverpassBaseTool {
 }
 class OverpassTool extends OverpassBaseTool {
     constructor() {
-        super('overpass', `Overpass`, `Run an Overpass query`);
+        super(...arguments);
+        this.id = 'overpass';
+        this.name = `Overpass`;
+        this.title = `Run an Overpass query`;
     }
     getInfo() {
         return [p(`Query `, makeLink(`Overpass API`, 'https://wiki.openstreetmap.org/wiki/Overpass_API'), ` without going through Overpass turbo. `, `Shows results on the map. Also gives link to the element page on the OSM website.`)];
     }
-    getTool(callbacks, server, map) {
+    getTool(callbacks, map) {
         const $button = document.createElement('button');
         $button.append(`Find closest node to `, makeMapIcon('center'));
         const $output = document.createElement('code');
         $output.textContent = `none`;
-        $button.onclick = async () => {
-            $button.disabled = true;
+        $button.onclick = () => wrapFetchForButton($button, async () => {
             $output.textContent = `none`;
-            try {
-                const radius = 10;
-                let query = this.getOverpassQueryPreamble(map);
-                query += `node(around:${radius},${map.lat},${map.lon});\n`;
-                query += `out skel;`;
-                if (!server.overpass)
-                    throw new ReferenceError(`no overpass provider`);
-                const doc = await server.overpass.fetch(query);
-                const closestNodeId = getClosestNodeId(doc, map.lat, map.lon);
-                if (!closestNodeId) {
-                    $button.classList.add('error');
-                    $button.title = `Could not find nodes nearby`;
-                    return;
-                }
-                const url = server.getWebUrl(`node/` + encodeURIComponent(closestNodeId));
-                const $a = makeLink(`link`, url);
-                $a.dataset.elementType = 'node';
-                $a.dataset.elementId = String(closestNodeId);
-                $a.classList.add('listened', 'osm');
-                $output.replaceChildren($a);
-                $button.classList.remove('error');
-                $button.title = '';
+            const radius = 10;
+            let query = this.getOverpassQueryPreamble(map);
+            query += `node(around:${radius},${map.lat},${map.lon});\n`;
+            query += `out skel;`;
+            if (!this.auth.server.overpass)
+                throw new ReferenceError(`no overpass provider`);
+            const doc = await this.auth.server.overpass.fetch(query);
+            const closestNodeId = getClosestNodeId(doc, map.lat, map.lon);
+            if (!closestNodeId)
+                throw `Could not find nodes nearby`;
+            const url = this.auth.server.web.getUrl(`node/` + encodeURIComponent(closestNodeId));
+            const $a = makeLink(`link`, url);
+            $a.dataset.elementType = 'node';
+            $a.dataset.elementId = String(closestNodeId);
+            $a.classList.add('listened', 'osm');
+            $output.replaceChildren($a);
+        }, ex => {
+            if (typeof ex == 'string') {
+                return ex;
             }
-            catch (ex) {
-                $button.classList.add('error');
-                if (ex instanceof QueryError) {
-                    $button.title = `Overpass query failed ${ex.reason}`;
-                }
+            else if (ex instanceof QueryError) {
+                return `Overpass query failed ${ex.reason}`;
             }
-            finally {
-                $button.disabled = false;
+            else {
+                return `Unknown error ${ex}`;
             }
-        };
+        });
         return [$button, ` → `, $output];
     }
 }
@@ -6323,19 +7129,22 @@ function getClosestNodeId(doc, centerLat, centerLon) {
 
 class RcTool extends Tool {
     constructor() {
-        super('rc', `RC`, `Run remote control commands in external editors (usually JOSM)`);
+        super(...arguments);
+        this.id = 'rc';
+        this.name = `RC`;
+        this.title = `Run remote control commands in external editors (usually JOSM)`;
         this.selectedNotes = [];
     }
     getInfo() {
         return [p(`Load note/map data to an editor with `, makeLink(`remote control`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl'), `.`)];
     }
-    getTool(callbacks, server, map) {
+    getTool(callbacks, map) {
         const e = makeEscapeTag(encodeURIComponent);
         const $loadNotesButton = this.makeRequiringSelectedNotesButton();
         $loadNotesButton.append(`Load `, makeNotesIcon('selected'));
         $loadNotesButton.onclick = async () => {
             for (const { id } of this.selectedNotes) {
-                const noteUrl = server.getWebUrl(e `note/${id}`);
+                const noteUrl = this.auth.server.web.getUrl(e `note/${id}`);
                 const rcUrl = e `http://127.0.0.1:8111/import?url=${noteUrl}`;
                 const success = await openRcUrl($loadNotesButton, rcUrl);
                 if (!success)
@@ -6360,19 +7169,22 @@ class RcTool extends Tool {
 }
 class IdTool extends Tool {
     constructor() {
-        super('id', `iD`, `Open an iD editor window`);
+        super(...arguments);
+        this.id = 'id';
+        this.name = `iD`;
+        this.title = `Open an iD editor window`;
     }
     getInfo() {
         return [p(`Follow your notes by zooming from one place to another in one `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), ` window. `, `It could be faster to do first here in note-viewer than in iD directly because note-viewer won't try to download more data during panning. `, `After zooming in note-viewer, click the `, em(`Open`), ` button to open this location in iD. `, `When you go back to note-viewer, zoom to another place and click the `, em(`Open`), ` button for the second time, the already opened iD instance zooms to that place. `, `Your edits are not lost between such zooms.`), p(`Technical details: this is an attempt to make something like `, em(`remote control`), ` in iD editor. `, `Convincing iD to load notes has proven to be tricky. `, `Your best chance of seeing the selected notes is importing them as a `, em(`gpx`), ` file. `, `See `, makeLink(`this diary post`, `https://www.openstreetmap.org/user/Anton%20Khorev/diary/398991`), ` for further explanations.`), p(`Zooming/panning is easier to do, and that's what is currently implemented. `, `It's not without quirks however. You'll notice that the iD window opened from here doesn't have the OSM website header. `, `This is because the editor is opened at `, makeLink(`/id`, `https://www.openstreetmap.org/id`), ` url instead of `, makeLink(`/edit`, `https://www.openstreetmap.org/edit`), `. `, `It has to be done because otherwise iD won't listen to `, em(`#map`), ` changes in the webpage location.`)];
     }
-    getTool(callbacks, server, map) {
+    getTool(callbacks, map) {
         // limited to what hashchange() lets you do here https://github.com/openstreetmap/iD/blob/develop/modules/behavior/hash.js
         // which is zooming/panning
         const $zoomButton = document.createElement('button');
         $zoomButton.append(`Open `, makeMapIcon('center'));
         $zoomButton.onclick = () => {
             const e = makeEscapeTag(encodeURIComponent);
-            const url = server.getWebUrl(e `id#map=${map.zoom}/${map.lat}/${map.lon}`);
+            const url = this.auth.server.web.getUrl(e `id#map=${map.zoom}/${map.lat}/${map.lon}`);
             open(url, 'id');
         };
         return [$zoomButton];
@@ -6416,7 +7228,7 @@ class ExportTool extends Tool {
             p(`Instead of clicking the `, em(`Export`), ` button, you can drag it and drop into a place that accepts data sent by `, makeLink(`Drag and Drop API`, `https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`), `. `, `Not many places actually do, and those who do often can handle only plaintext. `, `That's why there's a type selector, with which plaintext format can be forced on transmitted data.`)
         ];
     }
-    getTool(callbacks, server) {
+    getTool() {
         const $optionSelects = Object.fromEntries(Object.entries(this.describeOptions()).map(([key, valuesWithTexts]) => {
             const $select = document.createElement('select');
             $select.append(...valuesWithTexts.map(([value, text]) => new Option(text, value)));
@@ -6427,7 +7239,7 @@ class ExportTool extends Tool {
         const $exportNotesButton = this.makeRequiringSelectedNotesButton();
         $exportNotesButton.append(`Export `, makeNotesIcon('selected'));
         $exportNotesButton.onclick = () => {
-            const data = this.generateData(server, getOptionValues());
+            const data = this.generateData(this.auth.server, getOptionValues());
             const filename = this.generateFilename();
             const file = new File([data], filename);
             const $a = document.createElement('a');
@@ -6438,7 +7250,7 @@ class ExportTool extends Tool {
         };
         $exportNotesButton.draggable = true;
         $exportNotesButton.ondragstart = (ev) => {
-            const data = this.generateData(server, getOptionValues());
+            const data = this.generateData(this.auth.server, getOptionValues());
             if (!ev.dataTransfer)
                 return;
             ev.dataTransfer.setData($dataTypeSelect.value, data);
@@ -6482,7 +7294,10 @@ class ExportTool extends Tool {
 }
 class GpxTool extends ExportTool {
     constructor() {
-        super('gpx', `GPX`, `Export selected notes to a .gpx file`);
+        super(...arguments);
+        this.id = 'gpx';
+        this.name = `GPX`;
+        this.title = `Export selected notes to a .gpx file`;
     }
     getInfoWithoutDragAndDrop() {
         return [p(`Export selected notes in `, makeLink(`GPX`, 'https://wiki.openstreetmap.org/wiki/GPX'), ` (GPS exchange) format. `, `During the export, each selected note is treated as a waypoint with its name set to note id, description set to comments and link pointing to note's page on the OSM website. `, `This allows OSM notes to be used in applications that can't show them directly. `, `Also it allows a particular selection of notes to be shown if an application can't filter them. `, `One example of such app is `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), `. `, `Unfortunately iD doesn't fully understand the gpx format and can't show links associated with waypoints. `, `You'll have to enable the notes layer in iD and compare its note marker with waypoint markers from the gpx file.`), p(`By default only the `, dfn(`first comment`), ` is added to waypoint descriptions. `, `This is because some apps such as iD and especially `, makeLink(`JOSM`, `https://wiki.openstreetmap.org/wiki/JOSM`), ` try to render the entire description in one line next to the waypoint marker, cluttering the map.`), p(`It's possible to pretend that note waypoints are connected by a `, makeLink(`route`, `https://www.topografix.com/GPX/1/1/#type_rteType`), ` by using the `, dfn(`connected by route`), ` option. `, `This may help to go from a note to the next one in an app by visually following the route line. `, `There's also the `, dfn(`connected by track`), ` option in case the app makes it easier to work with `, makeLink(`tracks`, `https://www.topografix.com/GPX/1/1/#type_trkType`), ` than with the routes.`)];
@@ -6537,7 +7352,7 @@ class GpxTool extends ExportTool {
                 gpx += this.getCommentStrings(note.comments, options.commentQuantity == 'all').map(escapeXml).join(`&#xA;\n`); // JOSM wants this kind of double newline, otherwise no space between comments is rendered
                 gpx += `</desc>\n`;
             }
-            const noteUrl = server.getWebUrl(`note/` + encodeURIComponent(note.id));
+            const noteUrl = server.web.getUrl(`note/` + encodeURIComponent(note.id));
             gpx += e `<link href="${noteUrl}">\n`;
             gpx += e `<text>note #${note.id} on osm</text>\n`;
             gpx += e `</link>\n`;
@@ -6560,7 +7375,10 @@ class GpxTool extends ExportTool {
 }
 class GeoJsonTool extends ExportTool {
     constructor() {
-        super('geojson', `GeoJSON`, `Export selected notes to a .geojson file`);
+        super(...arguments);
+        this.id = 'geojson';
+        this.name = `GeoJSON`;
+        this.title = `Export selected notes to a .geojson file`;
     }
     getInfoWithoutDragAndDrop() {
         return [p(`Export selected notes in `, makeLink(`GeoJSON`, 'https://wiki.openstreetmap.org/wiki/GeoJSON'), ` format. `, `The exact features and properties exported are made to be close to OSM API `, code(`.json`), ` output:`), ul(li(`the entire note collection is represented as a `, makeLink(`FeatureCollection`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.3')), li(`each note is represented as a `, makeLink(`Point`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.2'), ` `, makeLink(`Feature`, 'https://www.rfc-editor.org/rfc/rfc7946.html#section-3.2'))), p(`There are few differences to OSM API output, not including modifications using tool options described later:`), ul(li(`comments don't have `, code(`html`), ` property, their content is available only as plaintext`), li(`dates may be incorrect in case of hidden note comments (something that happens very rarely)`)), p(`Like GPX exports, this tool allows OSM notes to be used in applications that can't show them directly. `, `Also it allows a particular selection of notes to be shown if an application can't filter them. `, `One example of such app is `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), `. `, `Given that GeoJSON specification doesn't define what goes into feature properties, the support for rendering notes this way is lower than the one of GPX export. `, `Particularly neither iD nor JOSM seem to render any labels for note markers. `, `Also clicking the marker in JOSM is not going to open the note webpage. `, `On the other hand there's more clarity about how to to display properties outside of the editor map view. `, `All of the properties are displayed like `, makeLink(`OSM tags`, 'https://wiki.openstreetmap.org/wiki/Tags'), `, which opens some possibilities: `), ul(li(`properties are editable in JOSM with a possibility to save results to a file`), li(`it's possible to access the note URL in iD, something that was impossible with GPX format`)), p(`While accessing the URLs, note that they are OSM API URLs, not the website URLs you might expect. `, `This is how OSM API outputs them. `, `Since that might be inconvenient, there's an `, dfn(`OSM website URLs`), ` option. `, `With it you're able to select the note url in iD by triple-clicking its value.`), p(`Another consequence of displaying properties like tags is that they work best when they are strings. `, `OSM tags are strings, and that's what editors expect to display in their tag views. `, `When used for properties of notes, there's one non-string property: `, em(`comments`), `. `, `iD is unable to display it. `, `If you want to force comments to be represented by strings, like in GPX exports, there's an options for that. `, `There's also option to output each comment as a separate property, making it easier to see them all in the tags table.`), p(`It's possible to pretend that note points are connected by a `, makeLink(`LineString`, `https://www.rfc-editor.org/rfc/rfc7946.html#section-3.1.4`), ` by using the `, dfn(`connected by line`), ` option. `, `This may help to go from a note to the next one in an app by visually following the route line. `, `However, enabling the line makes it difficult to click on note points in iD.`)];
@@ -6621,26 +7439,29 @@ class GeoJsonTool extends ExportTool {
             if (username == null)
                 return result;
             result.user = username;
-            result.user_url = server[options.urls == 'web'
-                ? 'getWebUrl'
-                : 'getApiRootUrl'](e `user/${username}`);
+            if (options.urls == 'web') {
+                result.user_url = server.web.getUrl(e `user/${username}`);
+            }
+            else {
+                result.user_url = server.api.getRootUrl(e `user/${username}`);
+            }
             return result;
         };
         const generateNoteUrls = (note) => {
             if (options.urls == 'web')
                 return {
-                    url: server.getWebUrl(e `note/${note.id}`)
+                    url: server.web.getUrl(e `note/${note.id}`)
                 };
             const apiBasePath = e `notes/${note.id}`;
             const result = {
-                url: server.getApiUrl(apiBasePath + `.json`)
+                url: server.api.getUrl(apiBasePath + `.json`)
             };
             if (note.status == 'closed') {
-                result.reopen_url = server.getApiUrl(apiBasePath + `/reopen.json`);
+                result.reopen_url = server.api.getUrl(apiBasePath + `/reopen.json`);
             }
             else {
-                result.comment_url = server.getApiUrl(apiBasePath + `/comment.json`);
-                result.close_url = server.getApiUrl(apiBasePath + `/close.json`);
+                result.comment_url = server.api.getUrl(apiBasePath + `/comment.json`);
+                result.close_url = server.api.getUrl(apiBasePath + `/close.json`);
             }
             return result;
         };
@@ -6720,7 +7541,7 @@ class GeoJsonTool extends ExportTool {
 }
 
 class StreetViewTool extends Tool {
-    getTool(callbacks, server, map) {
+    getTool(callbacks, map) {
         const $viewButton = document.createElement('button');
         $viewButton.append(`Open `, makeMapIcon('center'));
         $viewButton.onclick = () => {
@@ -6731,7 +7552,10 @@ class StreetViewTool extends Tool {
 }
 class YandexPanoramasTool extends StreetViewTool {
     constructor() {
-        super('yandex-panoramas', `Y.Panoramas`, `Open a Yandex.Panoramas (Яндекс.Панорамы) window`);
+        super(...arguments);
+        this.id = 'yandex-panoramas';
+        this.name = `Y.Panoramas`;
+        this.title = `Open a Yandex.Panoramas (Яндекс.Панорамы) window`;
     }
     getInfo() {
         return [p(`Open a map location in `, makeLink(`Yandex.Panoramas`, 'https://wiki.openstreetmap.org/wiki/RU:%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F/%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81.%D0%9F%D0%B0%D0%BD%D0%BE%D1%80%D0%B0%D0%BC%D1%8B'), ` street view. `, `Could be useful to find out if an object mentioned in a note existed at a certain point of time. `, `Yandex.Panoramas have a year selector in the upper right corner. Use it to get a photo made close to the date of interest.`)];
@@ -6744,7 +7568,10 @@ class YandexPanoramasTool extends StreetViewTool {
 }
 class MapillaryTool extends StreetViewTool {
     constructor() {
-        super('mapillary', `Mapillary`, `Open a Mapillary window`);
+        super(...arguments);
+        this.id = 'mapillary';
+        this.name = `Mapillary`;
+        this.title = `Open a Mapillary window`;
     }
     getInfo() {
         return [p(`Open a map location in `, makeLink(`Mapillary`, 'https://wiki.openstreetmap.org/wiki/Mapillary'), `. `, `Not yet fully implemented. The idea is to jump straight to the best available photo, but in order to do that, Mapillary API has to be queried for available photos. That's impossible to do without an API key.`)];
@@ -6755,15 +7582,234 @@ class MapillaryTool extends StreetViewTool {
     }
 }
 
+const e$1 = makeEscapeTag(encodeURIComponent);
+class InteractionError extends TypeError {
+}
 class InteractTool extends Tool {
     constructor() {
-        super('interact', `Interact`, `Interact with notes on OSM server`);
+        super(...arguments);
+        this.id = 'interact';
+        this.name = `Interact`;
+        this.title = `Interact with notes on OSM server`;
+        this.isFullWidth = true;
+        this.$asOutput = document.createElement('output');
+        this.$withOutput = document.createElement('output');
+        this.$commentText = document.createElement('textarea');
+        this.$commentButton = document.createElement('button');
+        this.$closeButton = document.createElement('button');
+        this.$reopenButton = document.createElement('button');
+        this.selectedOpenNoteIds = [];
+        this.selectedClosedNoteIds = [];
+        this.haltRequest = false;
+        this.interactionDescriptions = [{
+                endpoint: 'comment',
+                label: `Comment`,
+                $button: this.$commentButton,
+                inputNoteIds: this.selectedOpenNoteIds,
+                inputNoteStatus: 'open',
+            }, {
+                endpoint: 'close',
+                label: `Close`,
+                $button: this.$closeButton,
+                inputNoteIds: this.selectedOpenNoteIds,
+                inputNoteStatus: 'open',
+            }, {
+                endpoint: 'reopen',
+                label: `Reopen`,
+                $button: this.$reopenButton,
+                inputNoteIds: this.selectedClosedNoteIds,
+                inputNoteStatus: 'closed',
+            }];
+    }
+    getTool(callbacks) {
+        this.updateAsOutput();
+        this.updateWithOutput();
+        this.updateButtons();
+        this.$commentText.oninput = () => {
+            this.updateButtons();
+        };
+        for (const { $button, inputNoteIds, endpoint } of this.interactionDescriptions) {
+            $button.onclick = async () => {
+                if (this.interactingEndpoint != null) {
+                    this.haltRequest = true;
+                    return;
+                }
+                this.haltRequest = false;
+                this.clearButtonErrors();
+                this.interactingEndpoint = endpoint;
+                this.$commentText.disabled = true;
+                try {
+                    while (inputNoteIds.length > 0 && !this.haltRequest) {
+                        this.updateButtons();
+                        const id = inputNoteIds[0];
+                        const response = await this.auth.server.api.postUrlencoded(e$1 `notes/${id}/${endpoint}.json`, {
+                            Authorization: 'Bearer ' + this.auth.token
+                        }, [
+                            ['text', this.$commentText.value],
+                        ]);
+                        if (!response.ok) {
+                            throw new InteractionError(await response.text());
+                        }
+                        inputNoteIds.shift();
+                        const noteAndUsers = await readNoteResponse(id, response);
+                        callbacks.onNoteReload(this, ...noteAndUsers);
+                    }
+                    this.$commentText.value = '';
+                }
+                catch (ex) {
+                    $button.classList.add('error');
+                    if (ex instanceof InteractionError) {
+                        $button.title = ex.message;
+                    }
+                    else if (ex instanceof NoteDataError) {
+                        $button.title = `Error after successful interaction: ${ex.message}`;
+                    }
+                    else {
+                        $button.title = `Unknown error ${ex}`;
+                    }
+                }
+                this.$commentText.disabled = false;
+                this.interactingEndpoint = undefined;
+                this.haltRequest = false;
+                if (this.stashedSelectedNotes) {
+                    const unstashedSelectedNotes = this.stashedSelectedNotes;
+                    this.stashedSelectedNotes = undefined;
+                    this.processSelectedNotes(unstashedSelectedNotes);
+                }
+                this.updateButtons();
+            };
+        }
+        return [
+            this.$asOutput, ` `, this.$withOutput, ` `,
+            makeDiv('major-input')(this.$commentText),
+            makeDiv('gridded-input')(...this.interactionDescriptions.map(({ $button }) => $button))
+        ];
+    }
+    onLoginChange() {
+        this.updateAsOutput();
+        return true;
+    }
+    onSelectedNotesChange(selectedNotes) {
+        if (this.interactingEndpoint != null) {
+            this.stashedSelectedNotes = selectedNotes;
+            return false;
+        }
+        this.processSelectedNotes(selectedNotes);
+        return true;
+    }
+    processSelectedNotes(selectedNotes) {
+        this.selectedOpenNoteIds.length = 0;
+        this.selectedClosedNoteIds.length = 0;
+        for (const selectedNote of selectedNotes) {
+            if (selectedNote.status == 'open') {
+                this.selectedOpenNoteIds.push(selectedNote.id);
+            }
+            else if (selectedNote.status == 'closed') {
+                this.selectedClosedNoteIds.push(selectedNote.id);
+            }
+        }
+        this.updateWithOutput();
+        this.updateButtons();
+    }
+    updateAsOutput() {
+        if (this.auth.username == null || this.auth.uid == null) {
+            this.$asOutput.replaceChildren(`anonymously`);
+        }
+        else {
+            const href = this.auth.server.web.getUrl(e$1 `user/${this.auth.username}`);
+            const $a = makeLink(this.auth.username, href);
+            $a.classList.add('listened');
+            $a.dataset.userName = this.auth.username;
+            $a.dataset.userId = String(this.auth.uid);
+            this.$asOutput.replaceChildren(`as `, $a);
+        }
+    }
+    updateWithOutput() {
+        let first = true;
+        const writeSingleNote = (id, status) => {
+            if (!first)
+                this.$withOutput.append(`, `);
+            first = false;
+            const href = this.auth.server.web.getUrl(e$1 `note/${id}`);
+            const $a = document.createElement('a');
+            $a.href = href;
+            $a.classList.add('listened');
+            $a.dataset.noteId = String(id);
+            $a.append(makeNoteStatusIcon(status), ` ${id}`);
+            this.$withOutput.append($a);
+        };
+        const writeOneOrManyNotes = (ids, status) => {
+            if (ids.length == 0) {
+                return;
+            }
+            if (ids.length == 1) {
+                writeSingleNote(ids[0], status);
+                return;
+            }
+            if (!first)
+                this.$withOutput.append(`, `);
+            first = false;
+            this.$withOutput.append(`${ids.length} × `, makeNoteStatusIcon(status, ids.length));
+        };
+        const nSelectedNotes = this.selectedOpenNoteIds.length + this.selectedClosedNoteIds.length;
+        if (nSelectedNotes == 0) {
+            this.$withOutput.replaceChildren(`with nothing`);
+        }
+        else if (nSelectedNotes <= 5) {
+            this.$withOutput.replaceChildren(`with `);
+            for (const noteId of this.selectedOpenNoteIds) {
+                writeSingleNote(noteId, 'open');
+            }
+            for (const noteId of this.selectedClosedNoteIds) {
+                writeSingleNote(noteId, 'closed');
+            }
+        }
+        else {
+            this.$withOutput.replaceChildren(`with `);
+            writeOneOrManyNotes(this.selectedOpenNoteIds, 'open');
+            writeOneOrManyNotes(this.selectedClosedNoteIds, 'closed');
+        }
+    }
+    updateButtons() {
+        const buttonNoteIcon = (ids, status) => {
+            if (ids.length == 0) {
+                return [makeNotesIcon('selected')];
+            }
+            else if (ids.length == 1 && this.interactingEndpoint == null) { // while interacting, don't output single note id b/c countdown looks better this way
+                return [makeNoteStatusIcon(status), ` ${ids[0]}`];
+            }
+            else {
+                return [`${ids.length} × `, makeNoteStatusIcon(status, ids.length)];
+            }
+        };
+        for (const { $button, endpoint, label, inputNoteIds, inputNoteStatus } of this.interactionDescriptions) {
+            $button.disabled = (this.interactingEndpoint != null && this.interactingEndpoint != endpoint) || inputNoteIds.length == 0;
+            $button.replaceChildren();
+            if (this.interactingEndpoint == endpoint) {
+                $button.append(makeActionIcon('pause', `Halt`), ` `);
+            }
+            $button.append(`${label} `, ...buttonNoteIcon(inputNoteIds, inputNoteStatus));
+        }
+        if (this.$commentText.value == '')
+            this.$commentButton.disabled = true;
+    }
+    clearButtonErrors() {
+        for (const { $button } of this.interactionDescriptions) {
+            $button.classList.remove('error');
+            $button.title = '';
+        }
+    }
+}
+
+class ReportTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.id = 'report';
+        this.name = `Report`;
+        this.title = `Report notes on OSM website`;
         this.selectedNoteIds = [];
         this.$tabCountOutput = document.createElement('output');
         this.$confirmTabCountOutput = document.createElement('output');
-    }
-    getInfo() {
-        return [p(`Currently allows `, makeLink(`reporting`, 'https://wiki.openstreetmap.org/wiki/Notes#Reporting_notes'), ` selected notes. `, `Since reporting on the OSM website works for individual notes but here you can select many, you may choose between opening one and several tabs.`), ul(li(`If you choose to open one tab, it's going to report the first selected note. `, `The full list of notes will be copied to clipboard for you to paste into the `, em(`details`), ` input.`), li(`If you choose to open several tabs, each tab will have a report for every individual note you selected. `, `Since it could be many tabs opened at once, there's a confirmation button appearing for more than five selected notes. `, `Additionally the browser may choose to block opening of new tabs if too many are requested.`))];
     }
     onSelectedNotesChangeWithoutHandlingButtons(selectedNotes) {
         this.selectedNoteIds = selectedNotes.map(note => note.id);
@@ -6772,10 +7818,13 @@ class InteractTool extends Tool {
         this.reportManyListener?.reset();
         return true;
     }
-    getTool(callbacks, server) {
+    getInfo() {
+        return [p(makeLink(`Report`, 'https://wiki.openstreetmap.org/wiki/Notes#Reporting_notes'), ` selected notes. `, `Since reporting on the OSM website works for individual notes but here you can select many, you may choose between opening one and several tabs.`), ul(li(`If you choose to open one tab, it's going to report the first selected note. `, `The full list of notes will be copied to clipboard for you to paste into the `, em(`details`), ` input.`), li(`If you choose to open several tabs, each tab will have a report for every individual note you selected. `, `Since it could be many tabs opened at once, there's a confirmation button appearing for more than five selected notes. `, `Additionally the browser may choose to block opening of new tabs if too many are requested.`))];
+    }
+    getTool() {
         const e = makeEscapeTag(encodeURIComponent);
-        const getReportUrl = (id) => server.getWebUrl(e `reports/new?reportable_id=${id}&reportable_type=Note`);
-        const getNoteListItem = (id) => `- ` + server.getWebUrl(e `note/${id}`) + `\n`;
+        const getReportUrl = (id) => this.auth.server.web.getUrl(e `reports/new?reportable_id=${id}&reportable_type=Note`);
+        const getNoteListItem = (id) => `- ` + this.auth.server.web.getUrl(e `note/${id}`) + `\n`;
         const getNoteList = () => this.selectedNoteIds.map(getNoteListItem).join('');
         const copyNoteList = () => navigator.clipboard.writeText(getNoteList());
         const $reportOneButton = this.makeRequiringSelectedNotesButton();
@@ -6805,21 +7854,24 @@ class InteractTool extends Tool {
 }
 
 const toolMakerSequence = [
-    () => new AutozoomTool, () => new CommentsTool, () => new RefreshTool,
-    () => new TimestampTool, () => new ParseTool,
-    () => new OverpassTurboTool, () => new OverpassTool,
-    () => new RcTool, () => new IdTool,
-    () => new GpxTool, () => new GeoJsonTool,
-    () => new YandexPanoramasTool, () => new MapillaryTool,
-    () => new InteractTool,
-    () => new CountTool, () => new LegendTool, () => new SettingsTool
-];
+    InteractTool, ReportTool,
+    AutozoomTool, CommentsTool, RefreshTool,
+    TimestampTool, ParseTool,
+    OverpassTurboTool, OverpassTool,
+    RcTool, IdTool,
+    GpxTool, GeoJsonTool,
+    YandexPanoramasTool, MapillaryTool,
+    CountTool, LegendTool, SettingsTool
+].map(ToolClass => (auth) => new ToolClass(auth));
 
 var _ToolPanel_fitMode, _ToolPanel_replaceUpdatedNotes;
 class ToolBroadcaster {
     constructor(tools) {
         this.tools = tools;
         this.sources = new Set();
+    }
+    broadcastLoginChange(fromTool) {
+        this.broadcast(fromTool, tool => tool.onLoginChange());
     }
     broadcastRefresherStateChange(fromTool, isRunning, message) {
         this.broadcast(fromTool, tool => tool.onRefresherStateChange(isRunning, message));
@@ -6855,7 +7907,7 @@ class ToolBroadcaster {
     }
 }
 class ToolPanel {
-    constructor(storage, server, globalEventsListener, $container, map, figureDialog) {
+    constructor(storage, auth, globalEventsListener, $container, map, figureDialog) {
         _ToolPanel_fitMode.set(this, void 0);
         _ToolPanel_replaceUpdatedNotes.set(this, false);
         const tools = [];
@@ -6872,33 +7924,30 @@ class ToolPanel {
             onToolOpenToggle: (fromTool, setToOpen) => {
                 for (const [, $tool] of tools)
                     $tool.open = setToOpen;
-            }
+            },
+            onNoteReload: (fromTool, note, users) => this.onNoteReload?.(note, users)
         };
         for (const makeTool of toolMakerSequence) {
-            const tool = makeTool();
-            if (!server.overpassTurbo && tool instanceof OverpassTurboTool)
+            const tool = makeTool(auth);
+            if (!auth.server.overpassTurbo && tool instanceof OverpassTurboTool)
                 continue;
-            if (!server.overpass && tool instanceof OverpassTool)
+            if (!auth.server.overpass && tool instanceof OverpassTool)
                 continue;
-            if (server.world != 'earth' && tool instanceof StreetViewTool)
+            if (auth.server.world != 'earth' && tool instanceof StreetViewTool)
                 continue;
             const storageKey = 'commands-' + tool.id;
             const $toolDetails = document.createElement('details');
             $toolDetails.classList.add('tool');
-            $toolDetails.open = !!storage.getItem(storageKey);
+            $toolDetails.classList.toggle('full-width', tool.isFullWidth);
+            $toolDetails.open = storage.getBoolean(storageKey);
             const $toolSummary = document.createElement('summary');
             $toolSummary.textContent = tool.name;
             if (tool.title)
                 $toolSummary.title = tool.title;
             $toolDetails.addEventListener('toggle', () => {
-                if ($toolDetails.open) {
-                    storage.setItem(storageKey, '1');
-                }
-                else {
-                    storage.removeItem(storageKey);
-                }
+                storage.setBoolean(storageKey, $toolDetails.open);
             });
-            $toolDetails.append($toolSummary, ...tool.getTool(toolCallbacks, server, map, figureDialog));
+            $toolDetails.append($toolSummary, ...tool.getTool(toolCallbacks, map, figureDialog));
             $toolDetails.addEventListener('animationend', toolAnimationEndListener);
             const infoElements = tool.getInfo();
             if (infoElements) {
@@ -6942,6 +7991,9 @@ class ToolPanel {
         globalEventsListener.timestampListener = (timestamp) => {
             this.toolBroadcaster.broadcastTimestampChange(null, timestamp);
         };
+    }
+    receiveLoginChange() {
+        this.toolBroadcaster.broadcastLoginChange(null);
     }
     receiveRefresherStateChange(isRunning, message) {
         this.toolBroadcaster.broadcastRefresherStateChange(null, isRunning, message);
@@ -7053,7 +8105,7 @@ function isOsmChangeset(c) {
 const e = makeEscapeTag(encodeURIComponent);
 async function downloadAndShowChangeset($a, server, map, changesetId) {
     downloadCommon($a, map, async () => {
-        const response = await server.apiFetch(e `changeset/${changesetId}.json`);
+        const response = await server.api.fetch(e `changeset/${changesetId}.json`);
         if (!response.ok) {
             if (response.status == 404) {
                 throw new TypeError(`changeset doesn't exist`);
@@ -7080,7 +8132,7 @@ async function downloadAndShowChangeset($a, server, map, changesetId) {
 async function downloadAndShowElement($a, server, map, elementType, elementId) {
     downloadCommon($a, map, async () => {
         const fullBit = (elementType == 'node' ? '' : '/full');
-        const response = await server.apiFetch(e `${elementType}/${elementId}` + `${fullBit}.json`);
+        const response = await server.api.fetch(e `${elementType}/${elementId}` + `${fullBit}.json`);
         if (!response.ok) {
             if (response.status == 404) {
                 throw new TypeError(`element doesn't exist`);
@@ -7208,7 +8260,7 @@ function makeChangesetPopupContents(server, changeset) {
     const p = (...s) => makeElement('p')()(...s);
     const h = (...s) => p(makeElement('strong')()(...s));
     const c = (...s) => p(makeElement('em')()(...s));
-    const changesetHref = server.getWebUrl(e `changeset/${changeset.id}`);
+    const changesetHref = server.web.getUrl(e `changeset/${changeset.id}`);
     contents.push(h(`Changeset: `, makeLink(String(changeset.id), changesetHref)));
     if (changeset.tags?.comment)
         contents.push(c(changeset.tags.comment));
@@ -7231,8 +8283,8 @@ function makeElementPopupContents(server, element) {
     const h = (...s) => p(makeElement('strong')()(...s));
     const elementPath = e `${element.type}/${element.id}`;
     const contents = [
-        h(capitalize(element.type) + `: `, makeLink(getElementName(element), server.getWebUrl(elementPath))),
-        h(`Version #${element.version} · `, makeLink(`View History`, server.getWebUrl(elementPath + '/history')), ` · `, makeLink(`Edit`, server.getWebUrl(e `edit?${element.type}=${element.id}`))),
+        h(capitalize(element.type) + `: `, makeLink(getElementName(element), server.web.getUrl(elementPath))),
+        h(`Version #${element.version} · `, makeLink(`View History`, server.web.getUrl(elementPath + '/history')), ` · `, makeLink(`Edit`, server.web.getUrl(e `edit?${element.type}=${element.id}`))),
         p(`Edited on `, getDate(element.timestamp), ` by `, getUser(server, element), ` · Changeset #`, getChangeset(server, element.changeset))
     ];
     const $tags = getTags(element.tags);
@@ -7271,7 +8323,7 @@ function getUser(server, data) {
 }
 function getChangeset(server, changesetId) {
     const cid = String(changesetId);
-    const $a = makeLink(cid, server.getWebUrl(e `changeset/${cid}`));
+    const $a = makeLink(cid, server.web.getUrl(e `changeset/${cid}`));
     $a.classList.add('listened');
     $a.dataset.changesetId = cid;
     return $a;
@@ -7331,16 +8383,19 @@ function makeUserLink(server, uid, username) {
     return makeUserIdLink(server, uid);
 }
 function makeUserNameLink(server, username) {
-    const fromName = (name) => server.getWebUrl(e `user/${name}`);
+    const fromName = (name) => server.web.getUrl(e `user/${name}`);
     return makeLink(username, fromName(username));
 }
 function makeUserIdLink(server, uid) {
-    const fromId = (id) => server.getApiUrl(e `user/${id}`);
+    const fromId = (id) => server.api.getUrl(e `user/${id}`);
     return makeLink('#' + uid, fromId(uid));
 }
 
 main();
 async function main() {
+    if (checkAuthRedirect()) {
+        return;
+    }
     const storage = new NoteViewerStorage('osm-note-viewer-');
     const db = await NoteViewerDB.open();
     const serverListConfigSources = [serverListConfig];
@@ -7358,32 +8413,41 @@ async function main() {
     const $moreContainer = makeDiv('more')();
     const $scrollingPart = makeDiv('scrolling')($navbarContainer, $fetchContainer);
     const $stickyPart = makeDiv('sticky')();
-    const flipped = !!storage.getItem('flipped');
+    const flipped = storage.getBoolean('flipped');
     if (flipped)
         document.body.classList.add('flipped');
     document.body.append(makeDiv('text-side')($scrollingPart, $stickyPart));
     const globalHistory = new GlobalHistory($scrollingPart, serverList);
+    let auth;
     let map;
     let figureDialog;
     let noteTable;
+    let toolPanel;
     if (globalHistory.hasServer()) {
+        auth = new Auth(storage, globalHistory.server);
         [map, figureDialog] = writeGraphicSide(globalEventsListener, globalHistory);
-        noteTable = writeBelowFetchPanel($scrollingPart, $stickyPart, $moreContainer, storage, globalEventsListener, globalHistory, map, figureDialog);
+        [noteTable, toolPanel] = writeBelowFetchPanel($scrollingPart, $stickyPart, $moreContainer, storage, auth, globalEventsListener, globalHistory, map, figureDialog);
     }
     else {
         document.body.classList.add('only-text-side');
     }
     const navbar = new Navbar(storage, $navbarContainer, map);
-    const fetchPanel = new NoteFetchPanel(storage, db, globalEventsListener, globalHistory, $fetchContainer, $moreContainer, navbar, noteTable, map, figureDialog);
+    const fetchPanel = new NoteFetchPanel(storage, db, globalEventsListener, globalHistory, auth, $fetchContainer, $moreContainer, navbar, noteTable, map, figureDialog);
     if (noteTable) {
         noteTable.onRefresherUpdate = async (note, users) => {
             await fetchPanel.fetcherRun?.updateNote(note, users);
         };
     }
+    if (toolPanel) {
+        toolPanel.onNoteReload = async (note, users) => {
+            await fetchPanel.fetcherRun?.updateNote(note, users);
+            noteTable?.replaceAndUnselectNote(note, users);
+        };
+    }
     if (globalHistory.hasServer()) {
         globalEventsListener.noteSelfListener = async ($a, noteId) => {
             try {
-                const [note, users] = await fetchTableNote(globalHistory.server, $a, Number(noteId));
+                const [note, users] = await fetchTableNote(globalHistory.server.api, $a, Number(noteId));
                 await fetchPanel.fetcherRun?.updateNote(note, users);
                 noteTable?.replaceNote(note, users);
             }
@@ -7399,7 +8463,7 @@ function writeGraphicSide(globalEventsListener, globalHistory) {
     $figureDialog.classList.add('figure');
     $graphicSide.append($mapContainer, $figureDialog);
     document.body.append($graphicSide);
-    const map = new NoteMap($mapContainer, globalHistory.server);
+    const map = new NoteMap($mapContainer, globalHistory.server.tile);
     map.onMoveEnd(() => {
         globalHistory.setMapHash(map.hash);
     });
@@ -7430,19 +8494,20 @@ function writeGraphicSide(globalEventsListener, globalHistory) {
     };
     return [map, figureDialog];
 }
-function writeBelowFetchPanel($scrollingPart, $stickyPart, $moreContainer, storage, globalEventsListener, globalHistory, map, figureDialog) {
+function writeBelowFetchPanel($scrollingPart, $stickyPart, $moreContainer, storage, auth, globalEventsListener, globalHistory, map, figureDialog) {
     const $filterContainer = makeDiv('panel', 'fetch')();
     const $notesContainer = makeDiv('notes')();
     $scrollingPart.append($filterContainer, $notesContainer, $moreContainer);
     const filterPanel = new NoteFilterPanel(globalHistory.server, $filterContainer);
     const $toolContainer = makeDiv('panel', 'command')();
     $stickyPart.append($toolContainer);
-    const toolPanel = new ToolPanel(storage, globalHistory.server, globalEventsListener, $toolContainer, map, figureDialog);
+    const toolPanel = new ToolPanel(storage, auth, globalEventsListener, $toolContainer, map, figureDialog);
+    auth.onLoginChange = () => toolPanel.receiveLoginChange();
     const noteTable = new NoteTable($notesContainer, toolPanel, map, filterPanel.noteFilter, figureDialog, globalHistory.server);
     globalEventsListener.noteListener = ($a, noteId) => {
         noteTable.pingNoteFromLink($a, noteId);
     };
     filterPanel.subscribe(noteFilter => noteTable.updateFilter(noteFilter));
     globalHistory.$resizeObservationTarget = $notesContainer;
-    return noteTable;
+    return [noteTable, toolPanel];
 }

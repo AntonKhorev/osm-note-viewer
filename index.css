@@ -5,6 +5,7 @@
 	--click-color: #FC8;
 	--info-color: #28F;
 	--info-stroke-color: #00F;
+	--notice-background-color: #FFB;
 	--error-color: #F00;
 	--error-background-color: #FCC;
 	--refresh-color: #C80;
@@ -23,8 +24,9 @@
 		--click-color: #A84;
 		--info-color: #26B;
 		--info-stroke-color: #008;
+		--notice-background-color: #662;
 		--error-color: #C00;
-		--error-background-color: #822;
+		--error-background-color: #622;
 		--semi-link-color: #CCF;
 		--inset-background-color: #333;
 		--file-reader-background-color: #2b2a33;
@@ -75,14 +77,15 @@ body.only-text-side .graphic-side {
 	flex-grow: 1;
 }
 
+a.input-link,
+a.listened,
 time.listened {
 	text-decoration: underline dotted 1px;
-	color: var(--semi-link-color);
 	cursor: pointer;
 }
-a.listened {
-	text-decoration-style: dotted;
-	text-decoration-thickness: 1px;
+a.input-link,
+time.listened {
+	color: var(--semi-link-color);
 }
 a.listened.loading {
 	cursor: progress;
@@ -92,6 +95,17 @@ a.listened.absent {
 }
 a.other-note.absent:active {
 	cursor: not-allowed;
+}
+
+kbd.copy {
+	text-decoration: underline dotted 1px;
+}
+kbd.copy::after {
+	content: ' (copy)';
+	opacity: 0;
+}
+kbd.copy:hover::after {
+	opacity: 0.5;
 }
 
 button.global {
@@ -229,9 +243,6 @@ nav ul li a:focus {
 .panel + .panel {
 	border-top: none;
 }
-.panel div {
-	margin: .5rem 0;
-}
 .panel label.inline {
 	white-space: nowrap;
 }
@@ -240,6 +251,9 @@ nav ul li a:focus {
 }
 .panel h3 {
 	margin: 1rem 0 .5rem 0;
+}
+.panel [class$="-input"] {
+	margin: .5rem 0;
 }
 
 .panel.fetch .advanced-hint,
@@ -255,14 +269,26 @@ nav ul li a:focus {
 .more:not(.advanced-mode) .advanced-hint {
 	display: none;
 }
+.panel.fetch .advanced-hint p,
+.more .advanced-hint p {
+	margin: .5em 0;
+}
 .panel.fetch:not(.advanced-mode) .advanced-input {
 	display: none;
 }
 .panel.fetch.advanced-mode .non-advanced-input {
 	display: none;
 }
+.panel.fetch .notice:not(:empty) {
+	margin: .5em -.5em;
+	padding: .5em;
+}
+.panel.fetch .notice {
+	background: var(--notice-background-color);
+}
 .panel.fetch .notice.error {
 	color: var(--error-color);
+	background: var(--error-background-color);
 }
 .panel.fetch input[type=number] {
 	width: 4em;
@@ -293,6 +319,9 @@ nav ul li a:focus {
 .panel.command details.tool {
 	margin: 0;
 	line-height: 1.4em;
+}
+.panel.command details.tool.full-width[open] {
+	width: 100%;
 }
 .panel.command details.tool {
 	outline: none;
@@ -388,6 +417,9 @@ nav ul li a:focus {
 .panel.command details.info summary {
 	display: none;
 }
+.panel.command details.tool .major-input {
+	margin: .2em 0;
+}
 .panel.command [class|=icon] > span {
 	display: none;
 }
@@ -405,6 +437,11 @@ nav ul li a:focus {
 .panel.command [class|=icon-action] > svg {
 	width: 13px;
 	height: 13px;
+}
+.panel.command [class|=icon-note-status] > svg {
+	width: 8px;
+	height: 16px;
+	vertical-align: text-bottom;
 }
 .panel.command .icon-map-area {
 	--tools-map-area-part-visibility: visible;
@@ -514,6 +551,14 @@ nav ul li a:focus {
 .panel .major-input label.file-reader input.active {
 	border: dashed var(--file-reader-border-width) var(--file-reader-active-border-color);
 }
+.panel .gridded-input {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(20ch, 1fr));
+	gap: .2em;
+}
+.panel .gridded-input > button {
+	padding: var(--major-button-padding);
+}
 
 .more div {
 	margin: 1em;
@@ -542,22 +587,25 @@ nav ul li a:focus {
 	white-space: pre-wrap;
 }
 
-.panel table.servers th {
+.panel table th {
 	vertical-align: bottom;
 }
-.panel table.servers th.capability {
+.panel table td.number {
+	text-align: right;
+}
+.panel table th.capability {
 	min-width: 1em;
 	writing-mode: vertical-rl;
 	vertical-align: top;
 	transform: rotate(180deg);
 }
-.panel table.servers td.capability {
+.panel table td.capability {
 	text-align: center;
 }
-.panel table.servers td.capability a {
+.panel table td.capability a {
 	text-decoration: none;
 }
-.panel table.servers input[type=radio] {
+.panel table input[type=radio] {
 	cursor: pointer;
 }
 
