@@ -12,7 +12,6 @@ export default class AuthAppSection {
 		authStorage: AuthStorage,
 		server: Server
 	) {
-		const clientId=authStorage.clientId
 		const isSecureWebInstall=(
 			location.protocol=='https:' ||
 			location.protocol=='http:' && location.hostname=='127.0.0.1'
@@ -20,7 +19,7 @@ export default class AuthAppSection {
 		const $clientIdInput=document.createElement('input')
 		$clientIdInput.id='auth-app-client-id'
 		$clientIdInput.type='text'
-		$clientIdInput.value=clientId
+		$clientIdInput.value=authStorage.clientId
 		const manualCodeEntryLabel=`Manual authorization code entry`
 		const $manualCodeEntryCheckbox=document.createElement('input')
 		$manualCodeEntryCheckbox.id='auth-app-manual-code-entry'
@@ -29,16 +28,17 @@ export default class AuthAppSection {
 		const $registrationNotice=makeDiv('notice')()
 		const $useBuiltinRegistrationButton=makeElement('button')()(`Use the built-in registration`)
 		const updateRegistrationNotice=()=>{
+			$registrationNotice.replaceChildren()
+			if (!server.oauthId) return
 			const writeWithServer=()=>$registrationNotice.append(
 				`With `,makeLink(`the selected OSM server`,server.web.getUrl('')),`, `,
 			)
-			$registrationNotice.replaceChildren()
 			if (authStorage.installUri==server.oauthUrl) {
 				writeWithServer()
 				$registrationNotice.append(
 					app(),` has a built-in registration for `,makeLink(`its install location`,authStorage.installUri)
 				)
-				if (authStorage.clientId=='') {
+				if (!authStorage.clientId) {
 					$registrationNotice.append(
 						` — `,$useBuiltinRegistrationButton
 					)
@@ -59,7 +59,6 @@ export default class AuthAppSection {
 				)
 			}
 		}
-		updateRegistrationNotice()
 		const value=(text:string)=>{
 			const $kbd=makeElement('kbd')('copy')(text)
 			$kbd.onclick=()=>navigator.clipboard.writeText(text)
@@ -125,7 +124,7 @@ export default class AuthAppSection {
 				`Their necessary steps are the same except for the `,mark(`marked`),` parts.`
 			),
 			registrationDetails(
-				!clientId && isSecureWebInstall,
+				!authStorage.clientId && isSecureWebInstall,
 				authStorage.installUri,false,
 				`Instructions for setting up automatic logins`,[
 					p(`This method sets up the most expected login workflow: login happens after the `,em(`Authorize`),` button is pressed.`),` `,
@@ -140,7 +139,7 @@ export default class AuthAppSection {
 				]
 			),
 			registrationDetails(
-				!clientId && !isSecureWebInstall,
+				!authStorage.clientId && !isSecureWebInstall,
 				authStorage.manualCodeUri,true,
 				`Instructions for setting up logins where users have to copy the authorization code manually`,[
 					p(`This sets up a less user-friendly login workflow: after pressing the `,em(`Authorize`),` an `,em(`Authorization code`),` appears that has to be copied into the `,em(`Authorization code`),` input below the login button on this page.`),` `,
@@ -177,13 +176,19 @@ export default class AuthAppSection {
 			}
 			this.onRegistrationUpdate?.()
 		}
-		$clientIdInput.oninput=()=>onRegistrationInput($clientIdInput)
-		$manualCodeEntryCheckbox.oninput=()=>onRegistrationInput($manualCodeEntryCheckbox)
-		$useBuiltinRegistrationButton.onclick=()=>{
+		const useBuiltinRegistration=()=>{
 			if (!server.oauthId) return
 			$clientIdInput.value=server.oauthId
 			$manualCodeEntryCheckbox.checked=false
 			onRegistrationInput($clientIdInput,$manualCodeEntryCheckbox)
+		}
+		$clientIdInput.oninput=()=>onRegistrationInput($clientIdInput)
+		$manualCodeEntryCheckbox.oninput=()=>onRegistrationInput($manualCodeEntryCheckbox)
+		$useBuiltinRegistrationButton.onclick=useBuiltinRegistration
+		if (server.oauthId && !authStorage.clientId && authStorage.installUri==server.oauthUrl) {
+			useBuiltinRegistration()
+		} else {
+			updateRegistrationNotice()
 		}
 	}
 }
