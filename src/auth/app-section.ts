@@ -27,11 +27,13 @@ export default class AuthAppSection {
 		$manualCodeEntryCheckbox.type='checkbox'
 		$manualCodeEntryCheckbox.checked=authStorage.isManualCodeEntry
 		const $registrationNotice=makeDiv()()
+		const $useBuiltinRegistrationButton=makeElement('button')()(`Use it`)
 		const updateRegistrationNotice=()=>{
 			$registrationNotice.replaceChildren()
 			if (authStorage.installUri==server.oauthUrl) {
 				$registrationNotice.append(makeDiv('notice')(
-					app(),` installed `,makeLink(`here`,authStorage.installUri),` has a built-in registration on `,makeLink(`the current server`,server.web.getUrl(''))
+					app(),` installed `,makeLink(`here`,authStorage.installUri),` has a built-in registration on `,makeLink(`the current server`,server.web.getUrl('')),
+					` — `,$useBuiltinRegistrationButton
 				))
 			}
 		}
@@ -141,14 +143,24 @@ export default class AuthAppSection {
 			),
 			$registrationNotice
 		)
-		$clientIdInput.oninput=()=>{
-			authStorage.clientId=$clientIdInput.value.trim()
-			updateRegistrationNotice()
+		const onRegistrationInput=(...$inputs: HTMLInputElement[])=>{
+			for (const $input of $inputs) {
+				if ($input==$clientIdInput) {
+					authStorage.clientId=$clientIdInput.value.trim()
+					updateRegistrationNotice()
+				} else if ($input==$manualCodeEntryCheckbox) {
+					authStorage.isManualCodeEntry=$manualCodeEntryCheckbox.checked
+				}
+			}
 			this.onRegistrationUpdate?.()
 		}
-		$manualCodeEntryCheckbox.oninput=()=>{
-			authStorage.isManualCodeEntry=$manualCodeEntryCheckbox.checked
-			this.onRegistrationUpdate?.()
+		$clientIdInput.oninput=()=>onRegistrationInput($clientIdInput)
+		$manualCodeEntryCheckbox.oninput=()=>onRegistrationInput($manualCodeEntryCheckbox)
+		$useBuiltinRegistrationButton.onclick=()=>{
+			if (!server.oauthId) return
+			$clientIdInput.value=server.oauthId
+			$manualCodeEntryCheckbox.checked=true
+			onRegistrationInput($clientIdInput,$manualCodeEntryCheckbox)
 		}
 	}
 }
