@@ -161,7 +161,8 @@ export default class AuthAppSection {
 			makeDiv('major-input')(
 				makeLabel()(
 					$manualCodeEntryCheckbox,` `+manualCodeEntryLabel
-				)
+				),
+				` (for non-https/non-secure install locations)`
 			),
 			$registrationNotice
 		)
@@ -181,7 +182,7 @@ export default class AuthAppSection {
 		$useBuiltinRegistrationButton.onclick=()=>{
 			if (!server.oauthId) return
 			$clientIdInput.value=server.oauthId
-			$manualCodeEntryCheckbox.checked=true
+			$manualCodeEntryCheckbox.checked=false
 			onRegistrationInput($clientIdInput,$manualCodeEntryCheckbox)
 		}
 	}
