@@ -107,6 +107,9 @@ export default class AuthLoginForms {
 		hideElement(this.$loginButton)
 		unhideElement(this.$cancelLoginButton)
 		toggleUnhideElement(this.$manualCodeForm,this.isManualCodeEntry)
+		if (this.isManualCodeEntry) {
+			this.$manualCodeInput.focus()
+		}
 		this.clearError()
 	}
 	private stopWaitingForAuthorization() {
