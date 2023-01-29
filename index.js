@@ -1128,7 +1128,7 @@ const li = (...ss) => makeElement('li')()(...ss);
 
 const app = () => em(`osm-note-viewer`);
 class AuthAppSection {
-    constructor($section, authStorage, server) {
+    constructor($section, authStorage, server, serverList) {
         const isSecureWebInstall = (location.protocol == 'https:' ||
             location.protocol == 'http:' && location.hostname == '127.0.0.1');
         const $clientIdInput = document.createElement('input');
@@ -1146,10 +1146,16 @@ class AuthAppSection {
             $registrationNotice.replaceChildren();
             if (!server.oauthId)
                 return;
-            const writeWithServer = () => $registrationNotice.append(`With `, makeLink(`the selected OSM server`, server.web.getUrl('')), `, `);
-            if (authStorage.installUri == server.oauthUrl) {
-                writeWithServer();
-                $registrationNotice.append(app(), ` has a built-in registration for `, makeLink(`its install location`, authStorage.installUri));
+            $registrationNotice.append(`With `, makeLink(`the selected OSM server`, server.web.getUrl('')), `, `);
+            const appendHostHash = (url) => {
+                const hashValue = serverList.getHostHashValue(server);
+                return url + (hashValue ? `#host=` + escapeHash(hashValue) : '');
+            };
+            if (authStorage.installUri == server.oauthUrl || !server.oauthUrl) {
+                $registrationNotice.append(app(), ` has a built-in registration`);
+                if (authStorage.installUri == server.oauthUrl) {
+                    $registrationNotice.append(` for `, makeLink(`its install location`, appendHostHash(server.oauthUrl)));
+                }
                 if (!authStorage.clientId) {
                     $registrationNotice.append(` — `, $useBuiltinRegistrationButton);
                 }
@@ -1160,9 +1166,8 @@ class AuthAppSection {
                     $registrationNotice.append(` which matches the current `, em(`client id`), ` ✓`);
                 }
             }
-            else if (server.oauthUrl) {
-                writeWithServer();
-                $registrationNotice.append(app(), ` has a built-in registration for `, makeLink(`a different install location`, server.oauthUrl));
+            else {
+                $registrationNotice.append(app(), ` has a built-in registration for `, makeLink(`a different install location`, appendHostHash(server.oauthUrl)));
             }
         };
         const onRegistrationInput = (...$inputs) => {
@@ -1187,7 +1192,8 @@ class AuthAppSection {
         $clientIdInput.oninput = () => onRegistrationInput($clientIdInput);
         $manualCodeEntryCheckbox.oninput = () => onRegistrationInput($manualCodeEntryCheckbox);
         $useBuiltinRegistrationButton.onclick = useBuiltinRegistration;
-        if (server.oauthId && !authStorage.clientId && authStorage.installUri == server.oauthUrl) {
+        if (server.oauthId && !authStorage.clientId &&
+            (authStorage.installUri == server.oauthUrl || !server.oauthUrl)) {
             useBuiltinRegistration();
         }
         else {
@@ -1232,7 +1238,7 @@ class AuthAppSection {
                     strong(`This doesn't seem to be the case with your install.`), ` `,
                     `You may still use this method but the one described before gives a simpler login workflow.`
                 ]))
-        ]), makeDiv('major-input')(makeLabel()(`Client ID: `, $clientIdInput)), makeDiv('major-input')(makeLabel()($manualCodeEntryCheckbox, ` ` + manualCodeEntryLabel), ` (for non-https/non-secure install locations)`), $registrationNotice);
+        ]), makeElement('details')()(makeElement('summary')()(`Additional instructions for building your own copy of `, app(), ` with a registration included`), ol(li(`Register an OAuth 2 app with one of the methods described above.`), li(`Open `, code(`servers.json`), ` in `, app(), `'s source code. `, `The format of this file is described here in `, em(`Custom server configuration syntax`), `.`), li(`If you're using a custom server specified on this page, copy its configuration to `, code(`servers.json`), `.`), li(`Find the `, code(`oauth`), ` property corresponding to the server you're using or add one if it doesn't exist.`), li(`Copy the `, em(`Client ID`), ` to the `, code(`id`), ` property inside `, code(`oauth`), `.`), li(`If you're not using manual authorization code entry, copy `, app(), `'s install location (`, value(authStorage.installUri), `) to the `, code(`url`), ` property inside `, code(`oauth`), `.`), li(`Rebuild `, app(), `.`))), makeDiv('major-input')(makeLabel()(`Client ID: `, $clientIdInput)), makeDiv('major-input')(makeLabel()($manualCodeEntryCheckbox, ` ` + manualCodeEntryLabel), ` (for non-https/non-secure install locations)`), $registrationNotice);
     }
 }
 
@@ -1312,6 +1318,9 @@ class AuthLoginForms {
         hideElement(this.$loginButton);
         unhideElement(this.$cancelLoginButton);
         toggleUnhideElement(this.$manualCodeForm, this.isManualCodeEntry);
+        if (this.isManualCodeEntry) {
+            this.$manualCodeInput.focus();
+        }
         this.clearError();
     }
     stopWaitingForAuthorization() {
@@ -1599,14 +1608,15 @@ function checkAuthRedirect() {
     return true;
 }
 class Auth {
-    constructor(storage, server) {
+    constructor(storage, server, serverList) {
         this.server = server;
+        this.serverList = serverList;
         this.authStorage = new AuthStorage(storage, server.host, installUri);
     }
     writeAboutDialogSections($container) {
         const $appSection = makeElement('section')()();
         const $loginSection = makeElement('section')()();
-        const appSection = new AuthAppSection($appSection, this.authStorage, this.server);
+        const appSection = new AuthAppSection($appSection, this.authStorage, this.server, this.serverList);
         const loginSection = new AuthLoginSection($loginSection, this.authStorage, this.server, () => this.onLoginChange?.());
         appSection.onRegistrationUpdate = () => loginSection.respondToAppRegistration();
         $container.append($appSection, $loginSection);
@@ -2324,6 +2334,145 @@ var serverListConfig = [
     }
 ];
 
+function term$1(t) {
+    return `<em>&lt;${t}&gt;</em>`;
+}
+function property(t) {
+    return `<strong><code>${t}</code></strong>`;
+}
+const syntaxDescription$1 = `<summary>Custom server configuration syntax</summary>
+<p>Uses <a href=https://en.wikipedia.org/wiki/JSON>JSON</a> format to describe one or more custom servers.
+These servers can be referred to in the <code>host</code> URL parameter and appear in the list above.
+The entire custom servers input can be one of:</p>
+<ul>
+<li>empty when no custom servers are specified
+<li>an <em>array</em> where each element is a ${term$1('server specification')}
+<li>a single ${term$1('server specification')}
+</ul>
+<p>A ${term$1('server specification')} is <em>null</em> for default OSM server configuration, a <em>URL string</em> for a quick configuration, or an <em>object</em> with optional properties described below.
+A <em>string</em> is equivalent to an <em>object</em> with only the ${property('web')} property set.
+Possible <em>object</em> properties are:</p>
+<dl>
+<dt>${property('web')}
+<dd><strong>required</strong>; a <em>URL string</em> or an <em>array</em> of <em>URL strings</em>; used to generate/detect links to users/notes/elements/changesets
+<dt>${property('api')}
+<dd>a <em>URL string</em>; used for OSM API requests; defaults to ${property('web')} property value if not specified
+<dt>${property('nominatim')}
+<dd>a <em>URL string</em> pointing to a <a href=https://wiki.openstreetmap.org/wiki/Nominatim>Nominatim</a> service
+<dt>${property('overpass')}
+<dd>a <em>URL string</em> pointing to an <a href=https://wiki.openstreetmap.org/wiki/Overpass_API>Overpass API</a> server
+<dt>${property('overpassTurbo')}
+<dd>a <em>URL string</em> pointing to an <a href=https://wiki.openstreetmap.org/wiki/Overpass_turbo>Overpass turbo</a> web page
+<dt>${property('tiles')}
+<dd>a ${term$1('tiles specification')}
+<dt>${property('world')}
+<dd>a <em>string</em>; if it's not <code>"earth"</code>, street view tools won't be shown
+<dt>${property('oauth')}
+<dd>an ${term$1('oauth specification')}
+<dt>${property('note')}
+<dd>a <em>URL string</em>, a <em>text string</em> or an <em>array</em> of both representing a note about the server visible on the server list
+</dl>
+<p>A ${term$1('tiles specification')} is a <em>string</em> or an <em>object</em> with optional properties described below.
+A <em>string</em> value is equivalent to an <em>object</em> with only the ${property('template')} property set.
+Possible <em>object</em> properties are:</p>
+<dl>
+<dt>${property('template')}
+<dd>a <em>string</em> with template parameters like "<code>https://tile.openstreetmap.org/{z}/{x}/{y}.png</code>" or "<code>https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png</code>" to generate tile URLs
+<dt>${property('attribution')}
+<dd>a <em>URL string</em>, a <em>text string</em> or an <em>array</em> of both containing an <a href=https://wiki.osmfoundation.org/wiki/Licence/Attribution_Guidelines#Interactive_maps>attribution</a> displayed in the corner of the map
+<dt>${property('zoom')}
+<dd>a number with max zoom level; defaults to the OSM max zoom value of 19
+</dl>
+<p>An ${term$1('oauth specification')} is an <em>object</em> describing the registration of <em>note-viewer</em> as an <a href=https://wiki.openstreetmap.org/wiki/OAuth#OAuth_2.0_2>OAuth 2 app</a> on this OSM server.
+It can have the following properties:</p>
+<dl>
+<dt>${property('id')}
+<dd>a <em>string</em> with the OAuth <em>client id</em>; this property is <strong>required</strong> when an ${term$1('oauth specification')} is present
+<dt>${property('url')}
+<dd>a <em>string</em> with the OAuth <em>redirect URI</em> matching the location where <em>note-viewer</em> is hosted;
+this property is optional, it is used to remind about the correct location that is going to receive OAuth redirects in case if <em>note-viewer</em> is copied to a different location
+</dl>
+`;
+const syntaxExamples$1 = [
+    [`Local server on port 3333`, [`"http://127.0.0.1:3333/"`]],
+    [`Dev server with custom tiles`, [
+            `{`,
+            `  "web": "https://api06.dev.openstreetmap.org/",`,
+            `  "tiles": "https://tile.openstreetmap.de/{z}/{x}/{y}.png",`,
+            `  "note": "dev server with German tiles"`,
+            `}`
+        ]],
+    [`Dev server with custom tiles and different max zoom`, [
+            `{`,
+            `  "web": "https://api06.dev.openstreetmap.org/",`,
+            `  "tiles": {`,
+            `    "template": "https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",`,
+            `    "zoom": 20`,
+            `  },`,
+            `  "note": "dev server with CyclOSM tiles"`,
+            `}`
+        ]],
+    [`Default configuration`, [JSON.stringify(serverListConfig, undefined, 2)]]
+];
+class ServerListSection {
+    constructor($section, storage, server, serverList, serverHash) {
+        $section.append(makeElement('h3')()(`Servers`));
+        if (!server)
+            $section.append(makeDiv('notice', 'error')(`Unknown server in URL hash parameter `, code(serverHash), `. Please select one of the servers below.`));
+        {
+            const serverTable = new RadioTable('host', [
+                [[], [`host`]],
+                [['capability'], [`website`]],
+                [['capability'], [`own tiles`]],
+                [['capability'], [`Nominatim`]],
+                [['capability'], [`Overpass`]],
+                [['capability'], [`Overpass turbo`]],
+                [[], [`note`]],
+            ]);
+            const baseLocation = location.pathname + location.search;
+            for (const [availableHost, availableServer] of serverList.servers) {
+                const hashValue = serverList.getHostHashValue(availableServer);
+                const availableServerLocation = baseLocation + (hashValue ? `#host=` + escapeHash(hashValue) : '');
+                let note = '';
+                if (availableServer.noteText && !availableServer.noteUrl) {
+                    note = availableServer.noteText;
+                }
+                else if (availableServer.noteUrl) {
+                    note = makeLink(availableServer.noteText || `[note]`, availableServer.noteUrl);
+                }
+                serverTable.addRow(($radio) => {
+                    $radio.checked = server == availableServer;
+                    $radio.tabIndex = -1;
+                    const $a = makeLink(availableHost, availableServerLocation);
+                    const $label = makeElement('label')()($a);
+                    $label.htmlFor = $radio.id;
+                    $radio.onclick = () => $a.click();
+                    return [
+                        [$label],
+                        availableServer.web.getUrl(''),
+                        availableServer.tile.owner,
+                        availableServer.nominatim?.statusUrl,
+                        availableServer.overpass?.statusUrl,
+                        availableServer.overpassTurbo?.url,
+                        [note]
+                    ];
+                });
+            }
+            $section.append(serverTable.$table);
+        }
+        $section.append(makeCodeForm(storage.getString('servers'), `Custom servers`, `Apply changes`, input => input == storage.getString('servers'), input => {
+            if (input.trim() == '')
+                return;
+            const configSource = JSON.parse(input);
+            parseServerListSource(configSource);
+        }, input => {
+            storage.setString('servers', input.trim());
+        }, () => {
+            location.reload();
+        }, syntaxDescription$1, syntaxExamples$1));
+    }
+}
+
 class ConfirmedButtonListener {
     constructor($initButton, $cancelButton, $confirmButton, runAction, isConfirmationRequired = () => true) {
         this.$initButton = $initButton;
@@ -2363,75 +2512,6 @@ class ConfirmedButtonListener {
     }
 }
 
-const syntaxDescription$1 = `<summary>Custom server configuration syntax</summary>
-<p>Uses <a href=https://en.wikipedia.org/wiki/JSON>JSON</a> format to describe one or more custom servers.
-These servers can be referred to in the <code>host</code> URL parameter and appear in the list above.
-The entire custom servers input can be one of:</p>
-<ul>
-<li>empty when no custom servers are specified
-<li>an <em>array</em> where each element is a ${term$1('server specification')}
-<li>a single ${term$1('server specification')}
-</ul>
-<p>A ${term$1('server specification')} is <em>null</em> for default OSM server configuration, a <em>URL string</em> for a quick configuration, or an <em>object</em> with optional properties described below.
-A <em>string</em> is equivalent to an <em>object</em> with only the ${property('web')} property set.
-Possible <em>object</em> properties are:</p>
-<dl>
-<dt>${property('web')}
-<dd><strong>required</strong>; a <em>URL string</em> or an <em>array</em> of <em>URL strings</em>; used to generate/detect links to users/notes/elements/changesets
-<dt>${property('api')}
-<dd>a <em>URL string</em>; used for OSM API requests; defaults to ${property('web')} property value if not specified
-<dt>${property('nominatim')}
-<dd>a <em>URL string</em> pointing to a <a href=https://wiki.openstreetmap.org/wiki/Nominatim>Nominatim</a> service
-<dt>${property('overpass')}
-<dd>a <em>URL string</em> pointing to an <a href=https://wiki.openstreetmap.org/wiki/Overpass_API>Overpass API</a> server
-<dt>${property('overpassTurbo')}
-<dd>a <em>URL string</em> pointing to an <a href=https://wiki.openstreetmap.org/wiki/Overpass_turbo>Overpass turbo</a> web page
-<dt>${property('tiles')}
-<dd>a ${term$1('tiles specification')}
-<dt>${property('world')}
-<dd>a <em>string</em>; if it's not <code>"earth"</code>, street view tools won't be shown
-<dt>${property('note')}
-<dd>a <em>URL string</em>, a <em>text string</em> or an <em>array</em> of both representing a note about the server visible on the server list
-</dl>
-<p>A ${term$1('tiles specification')} is a <em>string</em> or an an <em>object</em> with optional properties described below.
-A <em>string</em> value is equivalent to an <em>object</em> with only the ${property('template')} property set.
-Possible <em>object</em> properties are:</p>
-<dl>
-<dt>${property('template')}
-<dd>a <em>string</em> with template parameters like "<code>https://tile.openstreetmap.org/{z}/{x}/{y}.png</code>" or "<code>https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png</code>" to generate tile URLs
-<dt>${property('attribution')}
-<dd>a <em>URL string</em>, a <em>text string</em> or an <em>array</em> of both containing an <a href=https://wiki.osmfoundation.org/wiki/Licence/Attribution_Guidelines#Interactive_maps>attribution</a> displayed in the corner of the map
-<dt>${property('zoom')}
-<dd>a number with max zoom level; defaults to the OSM max zoom value of 19
-</dl>
-`;
-const syntaxExamples$1 = [
-    [`Local server on port 3333`, [`"http://127.0.0.1:3333/"`]],
-    [`Dev server with custom tiles`, [
-            `{`,
-            `  "web": "https://api06.dev.openstreetmap.org/",`,
-            `  "tiles": "https://tile.openstreetmap.de/{z}/{x}/{y}.png",`,
-            `  "note": "dev server with German tiles"`,
-            `}`
-        ]],
-    [`Dev server with custom tiles and different max zoom`, [
-            `{`,
-            `  "web": "https://api06.dev.openstreetmap.org/",`,
-            `  "tiles": {`,
-            `    "template": "https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",`,
-            `    "zoom": 20`,
-            `  },`,
-            `  "note": "dev server with CyclOSM tiles"`,
-            `}`
-        ]],
-    [`Default configuration`, [JSON.stringify(serverListConfig, undefined, 2)]]
-];
-function term$1(t) {
-    return `<em>&lt;${t}&gt;</em>`;
-}
-function property(t) {
-    return `<strong><code>${t}</code></strong>`;
-}
 class AboutDialog extends NavDialog {
     constructor(storage, db, server, serverList, serverHash, auth) {
         super();
@@ -2459,60 +2539,8 @@ class AboutDialog extends NavDialog {
         this.writeExtraSubsection();
     }
     writeServersSubsection() {
-        const $subsection = startSubsection(`Servers`);
-        if (!this.server)
-            $subsection.append(makeDiv('notice', 'error')(`Unknown server in URL hash parameter `, code(this.serverHash), `. Please select one of the servers below.`));
-        {
-            const serverTable = new RadioTable('host', [
-                [[], [`host`]],
-                [['capability'], [`website`]],
-                [['capability'], [`own tiles`]],
-                [['capability'], [`Nominatim`]],
-                [['capability'], [`Overpass`]],
-                [['capability'], [`Overpass turbo`]],
-                [[], [`note`]],
-            ]);
-            const baseLocation = location.pathname + location.search;
-            for (const [availableHost, availableServer] of this.serverList.servers) {
-                const hashValue = this.serverList.getHostHashValue(availableServer);
-                const availableServerLocation = baseLocation + (hashValue ? `#host=` + escapeHash(hashValue) : '');
-                let note = '';
-                if (availableServer.noteText && !availableServer.noteUrl) {
-                    note = availableServer.noteText;
-                }
-                else if (availableServer.noteUrl) {
-                    note = makeLink(availableServer.noteText || `[note]`, availableServer.noteUrl);
-                }
-                serverTable.addRow(($radio) => {
-                    $radio.checked = this.server == availableServer;
-                    $radio.tabIndex = -1;
-                    const $a = makeLink(availableHost, availableServerLocation);
-                    const $label = makeElement('label')()($a);
-                    $label.htmlFor = $radio.id;
-                    $radio.onclick = () => $a.click();
-                    return [
-                        [$label],
-                        availableServer.web.getUrl(''),
-                        availableServer.tile.owner,
-                        availableServer.nominatim?.statusUrl,
-                        availableServer.overpass?.statusUrl,
-                        availableServer.overpassTurbo?.url,
-                        [note]
-                    ];
-                });
-            }
-            $subsection.append(serverTable.$table);
-        }
-        $subsection.append(makeCodeForm(this.storage.getString('servers'), `Custom servers`, `Apply changes`, input => input == this.storage.getString('servers'), input => {
-            if (input.trim() == '')
-                return;
-            const configSource = JSON.parse(input);
-            parseServerListSource(configSource);
-        }, input => {
-            this.storage.setString('servers', input.trim());
-        }, () => {
-            location.reload();
-        }, syntaxDescription$1, syntaxExamples$1));
+        const $subsection = makeElement('section')()();
+        new ServerListSection($subsection, this.storage, this.server, this.serverList, this.serverHash);
         this.$section.append($subsection);
     }
     writeStorageSubsection() {
@@ -3170,7 +3198,7 @@ class NoteIdsFetcherRequest extends NoteFetcherRequest {
     }
 }
 class NoteFetcherRun {
-    constructor({ db, server, hostHashValue, noteTable, $moreContainer, getLimit, getAutoLoad, blockDownloads, moreButtonIntersectionObservers }, query, clearStore) {
+    constructor({ db, api, hostHashValue, noteTable, $moreContainer, getLimit, getAutoLoad, blockDownloads, moreButtonIntersectionObservers }, query, clearStore) {
         this.fetchEntry = null;
         this.notes = new Map();
         this.users = {};
@@ -3218,7 +3246,7 @@ class NoteFetcherRun {
                         return;
                     }
                     const apiPath = this.request.constructApiPath(...fetchDetails.pathAndParametersList[0]);
-                    const url = server.api.getUrl(apiPath);
+                    const url = api.getUrl(apiPath);
                     const $a = makeLink(url, url);
                     $a.classList.add('request');
                     $requestOutput.replaceChildren(makeElement('code')()($a));
@@ -3256,7 +3284,7 @@ class NoteFetcherRun {
                         const [path, parameters] = pathAndParameters;
                         lastTriedPath = path;
                         const apiPath = this.request.constructApiPath(path, parameters);
-                        const response = await server.api.fetch(apiPath);
+                        const response = await api.fetch(apiPath);
                         if (!response.ok) {
                             if (response.status == 410) { // likely hidden note in ids query
                                 continue; // TODO report it
@@ -4956,7 +4984,7 @@ class NoteFetchPanel {
                 return;
             if (query.mode != 'search' && query.mode != 'bbox' && query.mode != 'ids')
                 return;
-            fetchDialogs.resetFetch(); // TODO run for all dialogs... for now only bboxDialog has meaningful action
+            fetchDialogs.resetFetch();
             if (figureDialog)
                 figureDialog.close();
             while (moreButtonIntersectionObservers.length > 0)
@@ -4969,7 +4997,8 @@ class NoteFetchPanel {
             }
             noteTable.reset();
             const environment = {
-                db, server,
+                db,
+                api: server.api,
                 hostHashValue: globalHistory.serverList.getHostHashValue(server),
                 noteTable, $moreContainer,
                 getLimit: dialog.getLimit,
@@ -7609,18 +7638,21 @@ class InteractTool extends Tool {
                 $button: this.$commentButton,
                 inputNoteIds: this.selectedOpenNoteIds,
                 inputNoteStatus: 'open',
+                outputNoteStatus: 'open',
             }, {
                 endpoint: 'close',
                 label: `Close`,
                 $button: this.$closeButton,
                 inputNoteIds: this.selectedOpenNoteIds,
                 inputNoteStatus: 'open',
+                outputNoteStatus: 'closed',
             }, {
                 endpoint: 'reopen',
                 label: `Reopen`,
                 $button: this.$reopenButton,
                 inputNoteIds: this.selectedClosedNoteIds,
                 inputNoteStatus: 'closed',
+                outputNoteStatus: 'open',
             }];
     }
     getTool(callbacks) {
@@ -7755,7 +7787,7 @@ class InteractTool extends Tool {
         };
         const nSelectedNotes = this.selectedOpenNoteIds.length + this.selectedClosedNoteIds.length;
         if (nSelectedNotes == 0) {
-            this.$withOutput.replaceChildren(`with nothing`);
+            this.$withOutput.replaceChildren();
         }
         else if (nSelectedNotes <= 5) {
             this.$withOutput.replaceChildren(`with `);
@@ -7773,24 +7805,28 @@ class InteractTool extends Tool {
         }
     }
     updateButtons() {
-        const buttonNoteIcon = (ids, status) => {
+        const buttonNoteIcon = (ids, inputStatus, outputStatus) => {
+            const outputIcon = [];
+            if (outputStatus != inputStatus) {
+                outputIcon.push(` → `, makeNoteStatusIcon(outputStatus, ids.length));
+            }
             if (ids.length == 0) {
                 return [makeNotesIcon('selected')];
             }
             else if (ids.length == 1 && this.interactingEndpoint == null) { // while interacting, don't output single note id b/c countdown looks better this way
-                return [makeNoteStatusIcon(status), ` ${ids[0]}`];
+                return [makeNoteStatusIcon(inputStatus), ` ${ids[0]}`, ...outputIcon];
             }
             else {
-                return [`${ids.length} × `, makeNoteStatusIcon(status, ids.length)];
+                return [`${ids.length} × `, makeNoteStatusIcon(inputStatus, ids.length), ...outputIcon];
             }
         };
-        for (const { $button, endpoint, label, inputNoteIds, inputNoteStatus } of this.interactionDescriptions) {
+        for (const { $button, endpoint, label, inputNoteIds, inputNoteStatus, outputNoteStatus } of this.interactionDescriptions) {
             $button.disabled = (this.interactingEndpoint != null && this.interactingEndpoint != endpoint) || inputNoteIds.length == 0;
             $button.replaceChildren();
             if (this.interactingEndpoint == endpoint) {
                 $button.append(makeActionIcon('pause', `Halt`), ` `);
             }
-            $button.append(`${label} `, ...buttonNoteIcon(inputNoteIds, inputNoteStatus));
+            $button.append(`${label} `, ...buttonNoteIcon(inputNoteIds, inputNoteStatus, outputNoteStatus));
         }
         if (this.$commentText.value == '')
             this.$commentButton.disabled = true;
@@ -8426,7 +8462,7 @@ async function main() {
     let noteTable;
     let toolPanel;
     if (globalHistory.hasServer()) {
-        auth = new Auth(storage, globalHistory.server);
+        auth = new Auth(storage, globalHistory.server, serverList);
         [map, figureDialog] = writeGraphicSide(globalEventsListener, globalHistory);
         [noteTable, toolPanel] = writeBelowFetchPanel($scrollingPart, $stickyPart, $moreContainer, storage, auth, globalEventsListener, globalHistory, map, figureDialog);
     }
