@@ -1,5 +1,6 @@
 import type NoteViewerStorage from '../storage'
 import type Server from '../server'
+import type ServerList from '../server-list'
 import AuthStorage from './storage'
 import AuthAppSection from './app-section'
 import AuthLoginSection from './login-section'
@@ -45,7 +46,8 @@ export default class Auth {
 	readonly authStorage: AuthStorage
 	constructor(
 		storage: NoteViewerStorage,
-		public readonly server: Server
+		public readonly server: Server,
+		private readonly serverList: ServerList
 	) {
 		this.authStorage=new AuthStorage(storage,server.host,installUri)
 	}
@@ -54,7 +56,7 @@ export default class Auth {
 	):void {
 		const $appSection=makeElement('section')()()
 		const $loginSection=makeElement('section')()()
-		const appSection=new AuthAppSection($appSection,this.authStorage,this.server)
+		const appSection=new AuthAppSection($appSection,this.authStorage,this.server,this.serverList)
 		const loginSection=new AuthLoginSection($loginSection,this.authStorage,this.server,
 			()=>this.onLoginChange?.()
 		)

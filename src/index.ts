@@ -54,7 +54,7 @@ async function main() {
 	let noteTable: NoteTable|undefined
 	let toolPanel: ToolPanel|undefined
 	if (globalHistory.hasServer()) {
-		auth=new Auth(storage,globalHistory.server)
+		auth=new Auth(storage,globalHistory.server,serverList)
 		;[map,figureDialog]=writeGraphicSide(globalEventsListener,globalHistory)
 		;[noteTable,toolPanel]=writeBelowFetchPanel(
 			$scrollingPart,$stickyPart,$moreContainer,
