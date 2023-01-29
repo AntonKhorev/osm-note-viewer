@@ -184,7 +184,7 @@ export class InteractTool extends Tool {
 		}
 		const nSelectedNotes=this.selectedOpenNoteIds.length+this.selectedClosedNoteIds.length
 		if (nSelectedNotes==0) {
-			this.$withOutput.replaceChildren(`with nothing`)
+			this.$withOutput.replaceChildren()
 		} else if (nSelectedNotes<=5) {
 			this.$withOutput.replaceChildren(`with `)
 			for (const noteId of this.selectedOpenNoteIds) {
