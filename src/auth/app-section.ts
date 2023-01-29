@@ -1,7 +1,7 @@
 import type Server from '../server'
 import type ServerList from '../server-list'
 import type AuthStorage from './storage'
-import {p,ol,ul,li,em,strong,mark} from '../html-shortcuts'
+import {p,ol,ul,li,em,strong,mark,code} from '../html-shortcuts'
 import {makeElement, makeDiv, makeLink, makeLabel} from '../html'
 import {escapeHash} from '../escape'
 
@@ -193,6 +193,27 @@ export default class AuthAppSection {
 						]
 					))
 				]
+			),
+			makeElement('details')()(
+				makeElement('summary')()(`Additional instructions for building your own copy of `,app(),` with a registration included`),
+				ol(
+					li(
+						`Register an OAuth 2 app with one of the methods described above.`
+					),li(
+						`Open `,code(`servers.json`),` in `,app(),`'s source code. `,
+						`The format of this file is described here in `,em(`Custom server configuration syntax`),`.`
+					),li(
+						`If you're using a custom server specified on this page, copy its configuration to `,code(`servers.json`),`.`
+					),li(
+						`Find the `,code(`oauth`),` property corresponding to the server you're using or add one if it doesn't exist.`
+					),li(
+						`Copy the `,em(`Client ID`),` to the `,code(`id`),` property inside `,code(`oauth`),`.`
+					),li(
+						`If you're not using manual authorization code entry, copy `,app(),`'s install location (`,value(authStorage.installUri),`) to the `,code(`url`),` property inside `,code(`oauth`),`.`
+					),li(
+						`Rebuild `,app(),`.`
+					)
+				)
 			),
 			makeDiv('major-input')(
 				makeLabel()(
