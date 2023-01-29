@@ -43,10 +43,12 @@ Possible <em>object</em> properties are:</p>
 <dd>a ${term('tiles specification')}
 <dt>${property('world')}
 <dd>a <em>string</em>; if it's not <code>"earth"</code>, street view tools won't be shown
+<dt>${property('oauth')}
+<dd>an ${term('oauth specification')}
 <dt>${property('note')}
 <dd>a <em>URL string</em>, a <em>text string</em> or an <em>array</em> of both representing a note about the server visible on the server list
 </dl>
-<p>A ${term('tiles specification')} is a <em>string</em> or an an <em>object</em> with optional properties described below.
+<p>A ${term('tiles specification')} is a <em>string</em> or an <em>object</em> with optional properties described below.
 A <em>string</em> value is equivalent to an <em>object</em> with only the ${property('template')} property set.
 Possible <em>object</em> properties are:</p>
 <dl>
@@ -56,6 +58,15 @@ Possible <em>object</em> properties are:</p>
 <dd>a <em>URL string</em>, a <em>text string</em> or an <em>array</em> of both containing an <a href=https://wiki.osmfoundation.org/wiki/Licence/Attribution_Guidelines#Interactive_maps>attribution</a> displayed in the corner of the map
 <dt>${property('zoom')}
 <dd>a number with max zoom level; defaults to the OSM max zoom value of 19
+</dl>
+<p>An ${term('oauth specification')} is an <em>object</em> describing the registration of <em>note-viewer</em> as an <a href=https://wiki.openstreetmap.org/wiki/OAuth#OAuth_2.0_2>OAuth 2 app</a> on this OSM server.
+It can have the following properties:</p>
+<dl>
+<dt>${property('id')}
+<dd>a <em>string</em> with the OAuth <em>client id</em>; this property is <strong>required</strong> when an ${term('oauth specification')} is present
+<dt>${property('url')}
+<dd>a <em>string</em> with the OAuth <em>redirect URI</em> matching the location where <em>note-viewer</em> is hosted;
+this property is optional, it is used to remind about the correct location that is going to receive OAuth redirects in case if <em>note-viewer</em> is copied to a different location
 </dl>
 `
 
