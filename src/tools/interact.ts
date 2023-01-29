@@ -14,6 +14,7 @@ type InteractionDescription = {
 	$button: HTMLButtonElement,
 	inputNoteIds: number[],
 	inputNoteStatus: 'open'|'closed',
+	outputNoteStatus: 'open'|'closed',
 }
 
 export class InteractTool extends Tool {
@@ -38,18 +39,21 @@ export class InteractTool extends Tool {
 		$button: this.$commentButton,
 		inputNoteIds: this.selectedOpenNoteIds,
 		inputNoteStatus: 'open',
+		outputNoteStatus: 'open',
 	},{
 		endpoint: 'close',
 		label: `Close`,
 		$button: this.$closeButton,
 		inputNoteIds: this.selectedOpenNoteIds,
 		inputNoteStatus: 'open',
+		outputNoteStatus: 'closed',
 	},{
 		endpoint: 'reopen',
 		label: `Reopen`,
 		$button: this.$reopenButton,
 		inputNoteIds: this.selectedClosedNoteIds,
 		inputNoteStatus: 'closed',
+		outputNoteStatus: 'open',
 	}]
 	getTool(callbacks: ToolCallbacks): ToolElements {
 		this.updateAsOutput()
@@ -196,22 +200,26 @@ export class InteractTool extends Tool {
 		}
 	}
 	private updateButtons() {
-		const buttonNoteIcon=(ids:readonly number[],status:'open'|'closed'): (string|HTMLElement)[]=>{
+		const buttonNoteIcon=(ids:readonly number[],inputStatus:'open'|'closed',outputStatus:'open'|'closed'): (string|HTMLElement)[]=>{
+			const outputIcon=[]
+			if (outputStatus!=inputStatus) {
+				outputIcon.push(` → `,makeNoteStatusIcon(outputStatus,ids.length))
+			}
 			if (ids.length==0) {
 				return [makeNotesIcon('selected')]
 			} else if (ids.length==1 && this.interactingEndpoint==null) { // while interacting, don't output single note id b/c countdown looks better this way
-				return [makeNoteStatusIcon(status),` ${ids[0]}`]
+				return [makeNoteStatusIcon(inputStatus),` ${ids[0]}`,...outputIcon]
 			} else {
-				return [`${ids.length} × `,makeNoteStatusIcon(status,ids.length)]
+				return [`${ids.length} × `,makeNoteStatusIcon(inputStatus,ids.length),...outputIcon]
 			}
 		}
-		for (const {$button,endpoint,label,inputNoteIds,inputNoteStatus} of this.interactionDescriptions) {
+		for (const {$button,endpoint,label,inputNoteIds,inputNoteStatus,outputNoteStatus} of this.interactionDescriptions) {
 			$button.disabled=(this.interactingEndpoint!=null && this.interactingEndpoint!=endpoint) || inputNoteIds.length==0
 			$button.replaceChildren()
 			if (this.interactingEndpoint==endpoint) {
 				$button.append(makeActionIcon('pause',`Halt`),` `)
 			}
-			$button.append(`${label} `,...buttonNoteIcon(inputNoteIds,inputNoteStatus))
+			$button.append(`${label} `,...buttonNoteIcon(inputNoteIds,inputNoteStatus,outputNoteStatus))
 		}
 		if (this.$commentText.value=='') this.$commentButton.disabled=true
 	}
