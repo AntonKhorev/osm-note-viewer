@@ -30,14 +30,18 @@ export default class AuthAppSection {
 		const updateRegistrationNotice=()=>{
 			$registrationNotice.replaceChildren()
 			if (!server.oauthId) return
-			const writeWithServer=()=>$registrationNotice.append(
+			$registrationNotice.append(
 				`With `,makeLink(`the selected OSM server`,server.web.getUrl('')),`, `,
 			)
-			if (authStorage.installUri==server.oauthUrl) {
-				writeWithServer()
+			if (authStorage.installUri==server.oauthUrl || !server.oauthUrl) {
 				$registrationNotice.append(
-					app(),` has a built-in registration for `,makeLink(`its install location`,authStorage.installUri)
+					app(),` has a built-in registration`
 				)
+				if (authStorage.installUri==server.oauthUrl) {
+					$registrationNotice.append(
+						` for `,makeLink(`its install location`,authStorage.installUri)
+					)
+				}
 				if (!authStorage.clientId) {
 					$registrationNotice.append(
 						` — `,$useBuiltinRegistrationButton
@@ -52,8 +56,7 @@ export default class AuthAppSection {
 						` which matches the current `,em(`client id`),` ✓`
 					)
 				}
-			} else if (server.oauthUrl) {
-				writeWithServer()
+			} else {
 				$registrationNotice.append(
 					app(),` has a built-in registration for `,makeLink(`a different install location`,server.oauthUrl)
 				)
@@ -80,7 +83,10 @@ export default class AuthAppSection {
 		$clientIdInput.oninput=()=>onRegistrationInput($clientIdInput)
 		$manualCodeEntryCheckbox.oninput=()=>onRegistrationInput($manualCodeEntryCheckbox)
 		$useBuiltinRegistrationButton.onclick=useBuiltinRegistration
-		if (server.oauthId && !authStorage.clientId && authStorage.installUri==server.oauthUrl) {
+		if (
+			server.oauthId && !authStorage.clientId && 
+			(authStorage.installUri==server.oauthUrl || !server.oauthUrl)
+		) {
 			useBuiltinRegistration()
 		} else {
 			updateRegistrationNotice()
