@@ -39,7 +39,7 @@ Ids can be provided either directly as comma/space-separated list of numbers or 
 
 ### Custom API/tile/Nominatim/Overpass servers
 
-Use the *Servers* section in the *About* tab to configure and switch servers.
+Use the *Servers* section in the *About* tab to configure and switch servers. You can also configure servers by editing [`servers.json`](./servers.json) and building your copy of *note-viewer*. `servers.json` uses the same syntax as described in *About* > *Servers* > *Custom server configuration syntax*.
 
 ### Editors with remote control
 
@@ -62,7 +62,7 @@ You can also add a template for opening a map location:
 
 ## Installation
 
-If you don't want to run note-viewer from github, you can run if off any server that can serve static files, including a local filesystem (`file:///`). The files that are [served by github][github-host] are in the [`gh-pages` branch of the repository](https://github.com/AntonKhorev/osm-note-viewer/tree/gh-pages). You can download all of them [here](https://github.com/AntonKhorev/osm-note-viewer/archive/refs/heads/gh-pages.zip).
+If you don't want to run *note-viewer* from github, you can run if off any server that can serve static files, including a local filesystem (`file:///`). The files that are [served by github][github-host] are in the [`gh-pages` branch of the repository](https://github.com/AntonKhorev/osm-note-viewer/tree/gh-pages). You can download all of them [here](https://github.com/AntonKhorev/osm-note-viewer/archive/refs/heads/gh-pages.zip). If you want to be able to do anything requiring login, such as editing notes, you'll have to register your copy of *note-viewer* as an OAuth 2 application. See *About* > *Register app* for details.
 
 Note-viewer won't run entirely locally because the whole point of it is to access [OSM API](https://wiki.openstreetmap.org/wiki/API_v0.6). Some optional functions access [Nominatim](https://wiki.openstreetmap.org/wiki/Nominatim), [Overpass](https://wiki.openstreetmap.org/wiki/Overpass_API) and other services. To render the map, [Leaflet](https://leafletjs.com/) is served from its default CDN. The map requires access to [OSM tile server](https://wiki.openstreetmap.org/wiki/Tile_servers).
 
