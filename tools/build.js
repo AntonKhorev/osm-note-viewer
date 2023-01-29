@@ -1,6 +1,7 @@
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import * as https from 'https'
+import vm from 'vm'
 import { createHash } from 'crypto'
 import { rollup } from 'rollup'
 import typescript from '@rollup/plugin-typescript'
@@ -46,6 +47,27 @@ export async function buildTest(srcDir,testDir,dstDir) {
 		dir: dstDir
 	})
 	bundle.close()
+}
+
+export async function checkServerConfig(serverListConfig,srcDir) {
+	const inputName=`virtual-config-checker`
+	const inputCode=[
+		`import {parseServerListSource} from './${srcDir}/server-list-parser.ts'`,
+		`parseServerListSource(`+JSON.stringify(serverListConfig,undefined,4)+`)`,
+	].join('\n')
+	const bundle=await rollup({
+		input: inputName,
+		plugins: [
+			virtual({[inputName]:inputCode}),
+			typescript()
+		]
+	})
+	const {output}=await bundle.generate({
+		format: 'iife'
+	})
+	const [{code}]=output
+	const script=new vm.Script(code)
+	script.runInThisContext()
 }
 
 async function downloadFiles(dstDir,cacheDir,downloads) {
