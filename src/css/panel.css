@@ -47,8 +47,10 @@
 .panel.fetch.advanced-mode .non-advanced-input {
 	display: none;
 }
+.panel.fetch div.notice:not(:empty) {
+	margin: .5em -.5em; /* negative margins only for block-level notices */
+}
 .panel.fetch .notice:not(:empty) {
-	margin: .5em -.5em;
 	padding: .5em;
 }
 .panel.fetch .notice {
