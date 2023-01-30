@@ -59,6 +59,7 @@ export class InteractTool extends Tool {
 		this.updateAsOutput()
 		this.updateWithOutput()
 		this.updateButtons()
+		this.$commentText.placeholder=`Comment text`
 		this.$commentText.oninput=()=>{
 			this.updateButtons()
 		}
