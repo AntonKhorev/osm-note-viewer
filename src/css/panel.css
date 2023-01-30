@@ -113,18 +113,21 @@
 	display: inline;
 }
 .panel.command details.tool summary::before {
-	content: '+';
+	--size: 11px;
+	content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-5.5 -5.5 11 11' fill='none' stroke='gray'><rect width='10' height='10' x='-5' y='-5' opacity='.3' /><line x1='-3' x2='3' /><line y1='-3' y2='3' /></svg>");
 	display: inline-block;
-	width: 1em;
-	height: 1em;
-	line-height: 1em;
-	text-align: center;
+	width: var(--size);
+	height: var(--size);
+	line-height: var(--size);
+	margin-right: .5ch;
 }
 .panel.command details.tool summary:hover::before {
 	background: var(--hover-color);
+	outline: solid 1px var(--hover-color);
+	outline-offset: 1px;
 }
 .panel.command details.tool[open] summary::before {
-	content: '−';
+	content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-5.5 -5.5 11 11' fill='none' stroke='gray'><rect width='10' height='10' x='-5' y='-5' opacity='.3' /><line x1='-3' x2='3' /></svg>");
 }
 .panel.command details.tool[open] summary::after {
 	content: ':';
