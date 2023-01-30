@@ -277,7 +277,7 @@ function hidePopupTip($popupContainer: HTMLElement): void {
 	$popupContainer.style.marginBottom='0'
 	const $tip=$popupContainer.querySelector('.leaflet-popup-tip-container')
 	if ($tip instanceof HTMLElement) {
-		$tip.style.display='none'
+		$tip.hidden=true
 	}
 }
 
@@ -285,7 +285,7 @@ function restorePopupTip($popupContainer: HTMLElement): void {
 	$popupContainer.style.removeProperty('margin-bottom')
 	const $tip=$popupContainer.querySelector('.leaflet-popup-tip-container')
 	if ($tip instanceof HTMLElement) {
-		$tip.style.removeProperty('display')
+		$tip.hidden=false
 	}
 }
 

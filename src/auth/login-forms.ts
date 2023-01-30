@@ -1,6 +1,5 @@
 import {
 	makeElement, makeDiv, makeLabel,
-	hideElement, unhideElement, toggleUnhideElement,
 	wrapFetch, makeGetKnownErrorMessage
 } from '../html'
 import {p,em} from '../html-shortcuts'
@@ -104,9 +103,9 @@ export default class AuthLoginForms {
 			}
 		}
 		this.loginWindow=loginWindow
-		hideElement(this.$loginButton)
-		unhideElement(this.$cancelLoginButton)
-		toggleUnhideElement(this.$manualCodeForm,this.isManualCodeEntry)
+		this.$loginButton.hidden=true
+		this.$cancelLoginButton.hidden=false
+		this.$manualCodeForm.hidden=!this.isManualCodeEntry
 		if (this.isManualCodeEntry) {
 			this.$manualCodeInput.focus()
 		}
@@ -118,9 +117,9 @@ export default class AuthLoginForms {
 		delete (<any>window).receiveOsmNoteViewerAuthDenial
 		this.loginWindow?.close()
 		this.loginWindow=undefined
-		unhideElement(this.$loginButton)
-		hideElement(this.$cancelLoginButton)
-		hideElement(this.$manualCodeForm)
+		this.$loginButton.hidden=false
+		this.$cancelLoginButton.hidden=true
+		this.$manualCodeForm.hidden=true
 		this.$manualCodeInput.value=''
 	}
 	private clearError() {

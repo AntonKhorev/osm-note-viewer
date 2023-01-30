@@ -242,7 +242,7 @@
 }
 .panel .major-input input[type=text],
 .panel .major-input textarea,
-.panel .major-input button {
+.panel .major-input button:not([hidden]) {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;

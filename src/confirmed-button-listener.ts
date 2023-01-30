@@ -1,5 +1,3 @@
-import {hideElement, unhideElement} from "./html"
-
 export default class ConfirmedButtonListener {
 	private confirmDelayId?: number
 	constructor(
@@ -28,16 +26,16 @@ export default class ConfirmedButtonListener {
 	reset() {
 		clearTimeout(this.confirmDelayId)
 		this.$confirmButton.disabled=true
-		unhideElement(this.$initButton)
-		hideElement(this.$confirmButton)
-		hideElement(this.$cancelButton)
+		this.$initButton.hidden=false
+		this.$confirmButton.hidden=true
+		this.$cancelButton.hidden=true
 	}
 	private ask() {
 		this.confirmDelayId=setTimeout(()=>{
 			this.$confirmButton.disabled=false
 		},1000)
-		hideElement(this.$initButton)
-		unhideElement(this.$confirmButton)
-		unhideElement(this.$cancelButton)
+		this.$initButton.hidden=true
+		this.$confirmButton.hidden=false
+		this.$cancelButton.hidden=false
 	}
 }

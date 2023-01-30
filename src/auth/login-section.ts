@@ -5,7 +5,6 @@ import AuthLoginForms, {AuthError} from './login-forms'
 import RadioTable from '../radio-table'
 import {
 	makeElement, makeDiv,
-	toggleHideElement, toggleUnhideElement,
 	wrapFetchForButton, makeGetKnownErrorMessage
 } from '../html'
 import {em} from '../html-shortcuts'
@@ -226,8 +225,8 @@ export default class AuthLoginSection {
 	}
 	private updateVisibility(): void {
 		const canLogin=!!this.authStorage.clientId
-		toggleHideElement(this.$clientIdRequired,canLogin)
-		toggleUnhideElement(this.$loginForms,canLogin)
-		toggleUnhideElement(this.$logins,canLogin)
+		this.$clientIdRequired.hidden=canLogin
+		this.$loginForms.hidden=!canLogin
+		this.$logins.hidden=!canLogin
 	}
 }
