@@ -1044,23 +1044,6 @@ function makeElement(tag) {
 }
 const makeDiv = makeElement('div');
 const makeLabel = makeElement('label');
-function hideElement($e) {
-    $e.style.display = 'none';
-}
-function unhideElement($e) {
-    $e.style.removeProperty('display');
-}
-function toggleHideElement($e, toggle) {
-    if (toggle) {
-        hideElement($e);
-    }
-    else {
-        unhideElement($e);
-    }
-}
-function toggleUnhideElement($e, toggle) {
-    toggleHideElement($e, !toggle);
-}
 function startOrResetFadeAnimation($element, animationName, animationClass) {
     if ($element.classList.contains(animationClass)) {
         resetFadeAnimation($element, animationName);
@@ -1315,9 +1298,9 @@ class AuthLoginForms {
             };
         }
         this.loginWindow = loginWindow;
-        hideElement(this.$loginButton);
-        unhideElement(this.$cancelLoginButton);
-        toggleUnhideElement(this.$manualCodeForm, this.isManualCodeEntry);
+        this.$loginButton.hidden = true;
+        this.$cancelLoginButton.hidden = false;
+        this.$manualCodeForm.hidden = !this.isManualCodeEntry;
         if (this.isManualCodeEntry) {
             this.$manualCodeInput.focus();
         }
@@ -1329,9 +1312,9 @@ class AuthLoginForms {
         delete window.receiveOsmNoteViewerAuthDenial;
         this.loginWindow?.close();
         this.loginWindow = undefined;
-        unhideElement(this.$loginButton);
-        hideElement(this.$cancelLoginButton);
-        hideElement(this.$manualCodeForm);
+        this.$loginButton.hidden = false;
+        this.$cancelLoginButton.hidden = true;
+        this.$manualCodeForm.hidden = true;
         this.$manualCodeInput.value = '';
     }
     clearError() {
@@ -1576,9 +1559,9 @@ class AuthLoginSection {
     }
     updateVisibility() {
         const canLogin = !!this.authStorage.clientId;
-        toggleHideElement(this.$clientIdRequired, canLogin);
-        toggleUnhideElement(this.$loginForms, canLogin);
-        toggleUnhideElement(this.$logins, canLogin);
+        this.$clientIdRequired.hidden = canLogin;
+        this.$loginForms.hidden = !canLogin;
+        this.$logins.hidden = !canLogin;
     }
 }
 
@@ -1632,7 +1615,7 @@ class Auth {
     }
 }
 
-const e$6 = makeEscapeTag(escapeXml);
+const e$7 = makeEscapeTag(escapeXml);
 class NoteMarker extends L.Marker {
     constructor(note) {
         const icon = getNoteMarkerIcon(note, false);
@@ -1654,16 +1637,16 @@ function getNoteMarkerIcon(note, isSelected) {
     const rWithAura = widthWithAura / 2;
     const nInnerCircles = 4;
     let html = ``;
-    html += e$6 `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`;
-    html += e$6 `<title>${note.status} note #${note.id}</title>`,
-        html += e$6 `<path d="${computeMarkerOutlinePath(heightWithAura - .5, rWithAura - .5)}" class="aura" fill="none" />`;
-    html += e$6 `<path d="${computeMarkerOutlinePath(height, r)}" fill="${note.status == 'open' ? 'red' : 'green'}" />`;
+    html += e$7 `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`;
+    html += e$7 `<title>${note.status} note #${note.id}</title>`,
+        html += e$7 `<path d="${computeMarkerOutlinePath(heightWithAura - .5, rWithAura - .5)}" class="aura" fill="none" />`;
+    html += e$7 `<path d="${computeMarkerOutlinePath(height, r)}" fill="${note.status == 'open' ? 'red' : 'green'}" />`;
     const states = [...noteCommentsToStates(note.comments)];
     html += drawStateCircles(r, nInnerCircles, states.slice(-nInnerCircles, -1));
     if (isSelected) {
         html += drawCheckMark();
     }
-    html += e$6 `</svg>`;
+    html += e$7 `</svg>`;
     return L.divIcon({
         html,
         className: 'note-marker',
@@ -1685,7 +1668,7 @@ function getNoteMarkerIcon(note, isSelected) {
             if (i >= statesToDraw.length)
                 continue;
             const cr = dcr * (i + 1);
-            html += e$6 `<circle r="${cr}" fill="${color()}" stroke="white" />`;
+            html += e$7 `<circle r="${cr}" fill="${color()}" stroke="white" />`;
             function color() {
                 if (i == 0 && states.length <= nInnerCircles)
                     return 'white';
@@ -1699,8 +1682,8 @@ function getNoteMarkerIcon(note, isSelected) {
     function drawCheckMark() {
         const path = `M-${r / 4},0 L0,${r / 4} L${r / 2},-${r / 4}`;
         let html = ``;
-        html += e$6 `<path d="${path}" fill="none" stroke-width="6" stroke-linecap="round" stroke="blue" />`;
-        html += e$6 `<path d="${path}" fill="none" stroke-width="2" stroke-linecap="round" stroke="white" />`;
+        html += e$7 `<path d="${path}" fill="none" stroke-width="6" stroke-linecap="round" stroke="blue" />`;
+        html += e$7 `<path d="${path}" fill="none" stroke-width="2" stroke-linecap="round" stroke="white" />`;
         return html;
     }
 }
@@ -1717,7 +1700,7 @@ function* noteCommentsToStates(comments) {
     }
 }
 
-const e$5 = makeEscapeTag(escapeXml);
+const e$6 = makeEscapeTag(escapeXml);
 class NoteLayer extends L.FeatureGroup {
     getLayerId(marker) {
         if (marker instanceof NoteMarker) {
@@ -1736,7 +1719,7 @@ class NoteMap {
             worldCopyJump: true
         });
         this.leafletMap.addLayer(L.tileLayer(tile.urlTemplate, {
-            attribution: e$5 `© <a href="${tile.attributionUrl}">${tile.attributionText}</a>`,
+            attribution: e$6 `© <a href="${tile.attributionUrl}">${tile.attributionText}</a>`,
             maxZoom: tile.maxZoom
         })).fitWorld();
         this.elementLayer = L.featureGroup().addTo(this.leafletMap);
@@ -1992,14 +1975,14 @@ function hidePopupTip($popupContainer) {
     $popupContainer.style.marginBottom = '0';
     const $tip = $popupContainer.querySelector('.leaflet-popup-tip-container');
     if ($tip instanceof HTMLElement) {
-        $tip.style.display = 'none';
+        $tip.hidden = true;
     }
 }
 function restorePopupTip($popupContainer) {
     $popupContainer.style.removeProperty('margin-bottom');
     const $tip = $popupContainer.querySelector('.leaflet-popup-tip-container');
     if ($tip instanceof HTMLElement) {
-        $tip.style.removeProperty('display');
+        $tip.hidden = false;
     }
 }
 // logic borrowed from _adjustPan() in leaflet's Popup class
@@ -2117,6 +2100,7 @@ class FigureDialog {
     }
 }
 
+const e$5 = makeEscapeTag(escapeXml);
 class NavDialog {
     constructor() {
         this.$section = document.createElement('section');
@@ -2174,27 +2158,27 @@ class Navbar {
     }
 }
 function makeFlipLayoutButton(storage, map) {
-    const $button = document.createElement('button');
-    $button.classList.add('global', 'flip');
-    $button.innerHTML = `<svg><title>Flip layout</title><use href="#flip" /></svg>`;
-    $button.addEventListener('click', () => {
+    return makeButton('flip', `Flip layout`, () => {
         document.body.classList.toggle('flipped');
         storage.setBoolean('flipped', document.body.classList.contains('flipped'));
         map.invalidateSize();
     });
-    return $button;
 }
 function makeResetButton() {
-    const $button = document.createElement('button');
-    $button.classList.add('global', 'reset');
-    $button.innerHTML = `<svg><title>Reset query</title><use href="#reset" /></svg>`;
-    $button.addEventListener('click', () => {
+    return makeButton('reset', `Reset query`, () => {
         location.href = location.pathname + location.search;
         // TODO this would have worked better, if it also cleared the notes table:
         // const url=location.pathname+location.search
         // location.href=url+'#'
         // history.replaceState(null,'',url)
     });
+}
+function makeButton(id, title, listener) {
+    const $button = document.createElement('button');
+    $button.title = title;
+    $button.classList.add('global', id);
+    $button.innerHTML = e$5 `<svg><use href="#${id}" /></svg>`;
+    $button.onclick = listener;
     return $button;
 }
 
@@ -2498,17 +2482,17 @@ class ConfirmedButtonListener {
     reset() {
         clearTimeout(this.confirmDelayId);
         this.$confirmButton.disabled = true;
-        unhideElement(this.$initButton);
-        hideElement(this.$confirmButton);
-        hideElement(this.$cancelButton);
+        this.$initButton.hidden = false;
+        this.$confirmButton.hidden = true;
+        this.$cancelButton.hidden = true;
     }
     ask() {
         this.confirmDelayId = setTimeout(() => {
             this.$confirmButton.disabled = false;
         }, 1000);
-        hideElement(this.$initButton);
-        unhideElement(this.$confirmButton);
-        unhideElement(this.$cancelButton);
+        this.$initButton.hidden = true;
+        this.$confirmButton.hidden = false;
+        this.$cancelButton.hidden = false;
     }
 }
 
@@ -3985,7 +3969,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
             this.$toInput.type = 'text';
             this.$toInput.size = 20;
             this.$toInput.name = 'to';
-            $fieldset.append(makeDiv('regular-input')(`Date range: `, makeLabel()(`from`, rq$1('from'), ` `, this.$fromInput), ` `, makeLabel()(`to`, rq$1('to'), ` `, this.$toInput)));
+            $fieldset.append(makeDiv('regular-input')(makeLabel()(`From date`, rq$1('from'), ` `, this.$fromInput), ` `, makeLabel()(`to date`, rq$1('to'), ` `, this.$toInput)));
         }
     }
     appendToClosedLine($div) {
@@ -7659,6 +7643,7 @@ class InteractTool extends Tool {
         this.updateAsOutput();
         this.updateWithOutput();
         this.updateButtons();
+        this.$commentText.placeholder = `Comment text`;
         this.$commentText.oninput = () => {
             this.updateButtons();
         };
