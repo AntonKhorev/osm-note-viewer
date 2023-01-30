@@ -1,6 +1,9 @@
 import type NoteViewerStorage from './storage'
 import type NoteMap from './map'
 import {makeElement, makeLink} from './html'
+import {escapeXml, makeEscapeTag} from './escape'
+
+const e=makeEscapeTag(escapeXml)
 
 export abstract class NavDialog {
 	abstract shortTitle: string
@@ -61,27 +64,28 @@ export default class Navbar {
 }
 
 function makeFlipLayoutButton(storage: NoteViewerStorage, map: NoteMap): HTMLButtonElement {
-	const $button=document.createElement('button')
-	$button.classList.add('global','flip')
-	$button.innerHTML=`<svg><title>Flip layout</title><use href="#flip" /></svg>`
-	$button.addEventListener('click',()=>{
+	return makeButton('flip',`Flip layout`,()=>{
 		document.body.classList.toggle('flipped')
 		storage.setBoolean('flipped',document.body.classList.contains('flipped'))
 		map.invalidateSize()
 	})
-	return $button
 }
 
 function makeResetButton(): HTMLButtonElement {
-	const $button=document.createElement('button')
-	$button.classList.add('global','reset')
-	$button.innerHTML=`<svg><title>Reset query</title><use href="#reset" /></svg>`
-	$button.addEventListener('click',()=>{
+	return makeButton('reset',`Reset query`,()=>{
 		location.href=location.pathname+location.search
 		// TODO this would have worked better, if it also cleared the notes table:
 		// const url=location.pathname+location.search
 		// location.href=url+'#'
 		// history.replaceState(null,'',url)
 	})
+}
+
+function makeButton(id:string, title:string, listener:()=>void) {
+	const $button=document.createElement('button')
+	$button.setAttribute('aria-label',title)
+	$button.classList.add('global',id)
+	$button.innerHTML=e`<svg><title>${title}</title><use href="#${id}" /></svg>`
+	$button.onclick=listener
 	return $button
 }
