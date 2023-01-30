@@ -83,9 +83,9 @@ function makeResetButton(): HTMLButtonElement {
 
 function makeButton(id:string, title:string, listener:()=>void) {
 	const $button=document.createElement('button')
-	$button.setAttribute('aria-label',title)
+	$button.title=title
 	$button.classList.add('global',id)
-	$button.innerHTML=e`<svg><title>${title}</title><use href="#${id}" /></svg>`
+	$button.innerHTML=e`<svg><use href="#${id}" /></svg>`
 	$button.onclick=listener
 	return $button
 }
