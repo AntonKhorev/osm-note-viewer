@@ -24,21 +24,13 @@ body.flipped nav button.flip {
 	--flip-ver-part-visibility: hidden;
 	--flip-hor-part-visibility: visible;
 }
-nav ul {
+nav [role=tablist] {
 	display: flex;
 	margin: 0;
 	padding: 0;
 }
-nav ul li {
-	list-style: none;
-	margin: 0;
-	padding: 0;
+nav [role=tablist] [role=tab] {
 	line-height: 2rem;
-}
-nav ul li.push {
-	margin-left: auto;
-}
-nav ul li a {
 	position: relative;
 	display: block;
 	padding: 0 1rem;
@@ -47,22 +39,26 @@ nav ul li a {
 	border-top: solid 1px #CCC;
 	border-top-left-radius: 8px;
 	border-top-right-radius: 8px;
+	border-bottom: none;
 	margin-bottom: -1px;
 	margin-left: -1px;
 	color: var(--semi-link-color);
 	background: var(--inset-background-color);
 	text-decoration: none;
 }
-nav ul li:first-child a {
+nav [role=tablist] [role=tab]:first-child {
 	margin-left: 0;
 }
-nav ul li a.active {
+nav [role=tablist] [role=tab].push {
+	margin-left: auto;
+}
+nav [role=tablist] [role=tab][aria-selected=true] {
 	background: canvas;
 }
-nav ul li a:hover {
+nav [role=tablist] [role=tab]:hover {
 	background: var(--hover-color);
 }
-nav ul li a:focus {
+nav [role=tablist] [role=tab]:focus {
 	z-index: 1;
 }
 

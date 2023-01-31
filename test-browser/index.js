@@ -48,6 +48,7 @@ describe("browser tests",function(){
 		}
 	})
 	beforeEach(async function(){
+		this.timeout(0)
 		this.osmServer.clearData()
 		if (!keepBrowser) this.browser=await puppeteer.launch(browserOptions)
 		const page=await this.browser.newPage()
@@ -59,7 +60,7 @@ describe("browser tests",function(){
 		this.waitForTool=(summaryText)=>page.waitForXPath(`//details[${containsClassCondition('tool')} and contains(./summary,"${summaryText}")]`)
 		this.getToAboutTab=async()=>{
 			await this.waitForFetchButton()
-			const aboutTab=await page.$('nav a[href="#section-About"]')
+			const aboutTab=await page.$('#tab-About')
 			await aboutTab.click()
 		}
 		const hasText=async(target,text)=>(await target.$x(`//*[contains(text(),"${text}")]`)).length
@@ -255,7 +256,7 @@ describe("browser tests",function(){
 
 	// logins
 
-	it("has login button in when app is registered",async function(){
+	it("has login button when app is registered",async function(){
 		const page=await this.openPage()
 		const probeLoginButton=async()=>{
 			await page.waitForXPath(`//button[contains(.,"Login")]`,{visible:true,timeout:1000})
@@ -281,7 +282,7 @@ describe("browser tests",function(){
 		await this.getToAboutTab()
 		const clientIdInput=await page.$('#auth-app-client-id')
 		await clientIdInput.type('id')
-		const aboutSection=await page.$('#section-About')
+		const aboutSection=await page.$('#tab-panel-About')
 		const [loginSection]=await aboutSection.$x(`//section[contains(h3,"Logins")]`)
 		const loginButton=await loginSection.waitForXPath(`//button[contains(.,"Login")]`,{visible:true,timeout:1000})
 		await this.assertNoText(loginSection,"logged-in-user-name")

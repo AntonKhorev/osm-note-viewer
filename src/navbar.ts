@@ -1,6 +1,5 @@
 import type NoteViewerStorage from './storage'
 import type NoteMap from './map'
-import {makeElement, makeLink} from './html'
 import {escapeXml, makeEscapeTag} from './escape'
 
 const e=makeEscapeTag(escapeXml)
@@ -25,36 +24,50 @@ export abstract class NavDialog {
 	abstract writeSectionContent(): void
 }
 
+// https://www.w3.org/WAI/ARIA/apg/example-index/tabs/tabs-automatic.html
+// https://www.w3.org/WAI/ARIA/apg/example-index/tabs/tabs-manual.html
 export default class Navbar {
-	private readonly $tabList=document.createElement('ul')
-	private readonly tabs: Map<string,[$navlink:HTMLAnchorElement,dialog:NavDialog]> = new Map()
+	private readonly $tabList=document.createElement('div')
+	private readonly tabs: Map<string,[$tab:HTMLButtonElement,dialog:NavDialog]> = new Map()
 	constructor(storage: NoteViewerStorage, $container: HTMLElement, map: NoteMap|undefined) {
-		$container.append(this.$tabList)
+		this.$tabList.setAttribute('role','tablist')
+		this.$tabList.setAttribute('aria-label',`Note query modes`)
 		if (map) $container.append(makeFlipLayoutButton(storage,map))
+		$container.append(this.$tabList)
 		$container.append(makeResetButton())
 	}
 	addTab(dialog: NavDialog, push: boolean = false) {
-		const id='section-'+dialog.shortTitle
-		dialog.$section.id=id
-		const $a=makeLink(dialog.shortTitle,'#'+id)
-		this.$tabList.append(makeElement('li')(...(push?['push']:[]))($a))
-		this.tabs.set(dialog.shortTitle,[$a,dialog])
-		$a.addEventListener('click',ev=>{
+		const tabId='tab-'+dialog.shortTitle
+		const tabPanelId='tab-panel-'+dialog.shortTitle
+		const $tab=document.createElement('button')
+		$tab.id=tabId
+		$tab.innerText=dialog.shortTitle
+		$tab.setAttribute('role','tab')
+		$tab.setAttribute('aria-controls',tabPanelId)
+		$tab.setAttribute('aria-selected','false')
+		$tab.classList.toggle('push',push)
+		dialog.$section.id=tabPanelId
+		dialog.$section.tabIndex=0
+		dialog.$section.setAttribute('role','tabpanel')
+		dialog.$section.setAttribute('aria-labelledby',tabId)
+		this.$tabList.append($tab)
+		this.tabs.set(dialog.shortTitle,[$tab,dialog])
+		$tab.addEventListener('click',ev=>{
 			ev.preventDefault()
 			this.openTab(dialog.shortTitle)
 		})
 	}
 	openTab(targetShortTitle: string) {
-		for (const [shortTitle,[$a,dialog]] of this.tabs) {
+		for (const [shortTitle,[,dialog]] of this.tabs) {
 			const willBeActive=shortTitle==targetShortTitle
 			if (!willBeActive && dialog.isOpen()) {
 				dialog.onClose()
 			}
 		}
-		for (const [shortTitle,[$a,dialog]] of this.tabs) {
+		for (const [shortTitle,[$tab,dialog]] of this.tabs) {
 			const willBeActive=shortTitle==targetShortTitle
 			const willCallOnOpen=(willBeActive && !dialog.isOpen())
-			$a.classList.toggle('active',willBeActive)
+			$tab.setAttribute('aria-selected',String(willBeActive))
 			dialog.$section.classList.toggle('active',willBeActive)
 			if (willCallOnOpen) {
 				dialog.onOpen()
