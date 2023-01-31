@@ -275,7 +275,7 @@ export default class NoteTable implements NoteTableUpdater {
 		const $row=$header.insertRow()
 		const $checkboxCell=makeHeaderCell('')
 		this.$selectAllCheckbox.type='checkbox'
-		this.$selectAllCheckbox.title=`check/uncheck all`
+		this.$selectAllCheckbox.title=`select/unselect all notes`
 		this.$selectAllCheckbox.addEventListener('click',this.wrappedAllNotesCheckboxClickListener)
 		$checkboxCell.append(this.$selectAllCheckbox)
 		const $actionCell=makeHeaderCell('?')

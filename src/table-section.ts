@@ -20,7 +20,7 @@ export default function writeNoteSectionRows(
 		$cell.classList.add('note-checkbox')
 		if (nComments>1) $cell.rowSpan=nComments
 		$checkbox.type='checkbox'
-		$checkbox.title=`shift+click to check/uncheck a range`
+		$checkbox.title=`shift+click to select/unselect a range`
 		$cell.append($checkbox)
 	}{
 		const $cell=$row.insertCell()
@@ -31,7 +31,7 @@ export default function writeNoteSectionRows(
 		$a.dataset.noteId=$a.textContent=`${note.id}`
 		$a.dataset.self='yes'
 		$a.classList.add('listened')
-		$a.title=`click to reload the note if you know it was updated or want to check it`
+		$a.title=`reload the note`
 		const $refreshWaitProgress=document.createElement('progress')
 		$refreshWaitProgress.setAttribute('aria-hidden','true') // otherwise screen reader constantly announces changes of progress elements
 		$refreshWaitProgress.value=0
