@@ -33,6 +33,7 @@ export default function writeNoteSectionRows(
 		$a.classList.add('listened')
 		$a.title=`click to reload the note if you know it was updated or want to check it`
 		const $refreshWaitProgress=document.createElement('progress')
+		$refreshWaitProgress.setAttribute('aria-hidden','true') // otherwise screen reader constantly announces changes of progress elements
 		$refreshWaitProgress.value=0
 		$cell.append(makeDiv()($a,$refreshWaitProgress))
 	}
