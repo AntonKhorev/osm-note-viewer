@@ -34,7 +34,7 @@ export default function makeCodeForm(
 		$textarea.value=initialValue
 		$textarea.rows=5
 		$form.append(makeDiv('major-input')(makeLabel()(
-			`${textareaLabel}: `,$textarea
+			textareaLabel,` `,$textarea
 		)))
 	}{
 		$button.textContent=buttonLabel

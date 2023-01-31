@@ -34,7 +34,7 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 			this.$idsTextarea.required=true
 			this.$idsTextarea.rows=10
 			$fieldset.append(makeDiv('major-input')(makeLabel()(
-				`Note ids separated by anything: `,this.$idsTextarea
+				`Note ids separated by anything `,this.$idsTextarea
 			)))
 		}
 	}

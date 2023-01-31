@@ -46,8 +46,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 	protected makeFetchControlDiv(): HTMLDivElement {
 		this.$fileInput.type='file'
 		return makeDiv('major-input')(makeLabel('file-reader')(
-			makeElement('span')('over')(`Read XML file`),
-			makeElement('span')('colon')(`:`),` `,
+			makeElement('span')('over')(`Read XML file`),` `,
 			this.$fileInput
 		))
 	}
@@ -96,7 +95,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 			)
 			this.$neisCountryInput.setAttribute('list','neis-countries-list')
 			$fieldset.append(makeDiv('major-input')(makeLabel()(
-				`Country: `,this.$neisCountryInput,$datalist
+				`Country `,this.$neisCountryInput,$datalist
 			)))
 		}{
 			this.$neisStatusSelect.name='status'
@@ -133,13 +132,13 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 			this.$selectorInput.name='selector'
 			this.$selectorInput.required=true
 			$fieldset.append(makeDiv('major-input')(makeLabel()(
-				`CSS selector matching XML elements with note ids: `,this.$selectorInput
+				`CSS selector matching XML elements with note ids `,this.$selectorInput
 			)))
 		}{
 			this.$attributeInput.type='text'
 			this.$attributeInput.name='attribute'
 			$fieldset.append(makeDiv('major-input')(makeLabel()(
-				`Attribute of matched XML elements containing note id (leave blank if note id is in text content): `,this.$attributeInput
+				`Attribute of matched XML elements containing note id (leave blank if note id is in text content) `,this.$attributeInput
 			)))
 		}
 	}

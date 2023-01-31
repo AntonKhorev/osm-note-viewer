@@ -82,13 +82,13 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 			this.$userInput.type='text'
 			this.$userInput.name='user'
 			$fieldset.append(makeDiv('major-input')(makeLabel()(
-				`OSM username, URL or #id`,rq2('display_name','user'),`: `,this.$userInput
+				`OSM username, URL or #id`,rq2('display_name','user'),` `,this.$userInput
 			)))
 		}{
 			this.$textInput.type='text'
 			this.$textInput.name='text'
 			$fieldset.append(makeDiv('major-input')(makeLabel()(
-				`Comment text search query`,rq('q'),`: `,this.$textInput
+				`Comment text search query`,rq('q'),` `,this.$textInput
 			)))
 		}{
 			this.$fromInput.type='text'

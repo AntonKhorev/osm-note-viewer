@@ -49,7 +49,7 @@ export default class AuthLoginForms {
 		this.$manualCodeForm.append(
 			p(`If the manual code copying method was used to register `,app(),`, copy the code into the input below.`),
 			makeDiv('major-input')(
-				makeLabel()(`Authorization code: `,this.$manualCodeInput)
+				makeLabel()(`Authorization code `,this.$manualCodeInput)
 			),makeDiv('major-input')(
 				this.$manualCodeButton
 			)

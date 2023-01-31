@@ -37,7 +37,7 @@ export default class NominatimSubForm {
 		this.$button.textContent='Get'
 		this.$button.setAttribute('form','nominatim-form')
 		$fieldset.append(makeDiv('text-button-input')(makeLabel()(
-			`Or get bounding box by place name from Nominatim`,spanRequest(` (`,code('q'),` Nominatim parameter)`),`: `,
+			`Or get bounding box by place name from Nominatim`,spanRequest(` (`,code('q'),` Nominatim parameter)`),` `,
 			this.$input
 		),this.$button))
 		$fieldset.append(makeDiv('advanced-hint')(`Resulting Nominatim request: `,this.$requestOutput))

@@ -98,7 +98,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 				tip(`bottom`,`southern-most (min) latitude`),`, `,
 				tip(`right`,`eastern-most (max) longitude`),`, `,
 				tip(`top`,`northern-most (max) latitude`),
-				`)`,rq('bbox'),spanRequest(` (also `,code('west'),`, `,code('south'),`, `,code('east'),`, `,code('north'),` Nominatim parameters)`),`: `,
+				`)`,rq('bbox'),spanRequest(` (also `,code('west'),`, `,code('south'),`, `,code('east'),`, `,code('north'),` Nominatim parameters)`),` `,
 				this.$bboxInput
 			)))
 			function tip(text: string, title: string) {

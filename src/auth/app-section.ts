@@ -217,7 +217,7 @@ export default class AuthAppSection {
 			),
 			makeDiv('major-input')(
 				makeLabel()(
-					`Client ID: `,$clientIdInput
+					`Client ID `,$clientIdInput
 				)
 			),
 			makeDiv('major-input')(

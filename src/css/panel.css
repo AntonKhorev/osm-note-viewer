@@ -308,9 +308,6 @@
 .panel .major-input label.file-reader:focus-within .over {
 	z-index: -1;
 }
-.panel .major-input label.file-reader .colon {
-	display: none;
-}
 .panel .major-input label.file-reader input {
 	display: block;
 	padding: 3rem;
