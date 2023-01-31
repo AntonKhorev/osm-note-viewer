@@ -48,6 +48,7 @@ export default class Navbar {
 		$tab.classList.toggle('push',push)
 		dialog.$section.id=tabPanelId
 		dialog.$section.tabIndex=0
+		dialog.$section.hidden=true
 		dialog.$section.setAttribute('role','tabpanel')
 		dialog.$section.setAttribute('aria-labelledby',tabId)
 		this.$tabList.append($tab)
@@ -68,7 +69,7 @@ export default class Navbar {
 			const willBeActive=shortTitle==targetShortTitle
 			const willCallOnOpen=(willBeActive && !dialog.isOpen())
 			$tab.setAttribute('aria-selected',String(willBeActive))
-			dialog.$section.classList.toggle('active',willBeActive)
+			dialog.$section.hidden=!willBeActive
 			if (willCallOnOpen) {
 				dialog.onOpen()
 			}

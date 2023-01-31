@@ -61,7 +61,3 @@ nav [role=tablist] [role=tab]:hover {
 nav [role=tablist] [role=tab]:focus {
 	z-index: 1;
 }
-
-.nav-dialog:not(.active) {
-	display: none;
-}
