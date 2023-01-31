@@ -1221,7 +1221,7 @@ class AuthAppSection {
                     strong(`This doesn't seem to be the case with your install.`), ` `,
                     `You may still use this method but the one described before gives a simpler login workflow.`
                 ]))
-        ]), makeElement('details')()(makeElement('summary')()(`Additional instructions for building your own copy of `, app(), ` with a registration included`), ol(li(`Register an OAuth 2 app with one of the methods described above.`), li(`Open `, code(`servers.json`), ` in `, app(), `'s source code. `, `The format of this file is described here in `, em(`Custom server configuration syntax`), `.`), li(`If you're using a custom server specified on this page, copy its configuration to `, code(`servers.json`), `.`), li(`Find the `, code(`oauth`), ` property corresponding to the server you're using or add one if it doesn't exist.`), li(`Copy the `, em(`Client ID`), ` to the `, code(`id`), ` property inside `, code(`oauth`), `.`), li(`If you're not using manual authorization code entry, copy `, app(), `'s install location (`, value(authStorage.installUri), `) to the `, code(`url`), ` property inside `, code(`oauth`), `.`), li(`Rebuild `, app(), `.`))), makeDiv('major-input')(makeLabel()(`Client ID: `, $clientIdInput)), makeDiv('major-input')(makeLabel()($manualCodeEntryCheckbox, ` ` + manualCodeEntryLabel), ` (for non-https/non-secure install locations)`), $registrationNotice);
+        ]), makeElement('details')()(makeElement('summary')()(`Additional instructions for building your own copy of `, app(), ` with a registration included`), ol(li(`Register an OAuth 2 app with one of the methods described above.`), li(`Open `, code(`servers.json`), ` in `, app(), `'s source code. `, `The format of this file is described here in `, em(`Custom server configuration syntax`), `.`), li(`If you're using a custom server specified on this page, copy its configuration to `, code(`servers.json`), `.`), li(`Find the `, code(`oauth`), ` property corresponding to the server you're using or add one if it doesn't exist.`), li(`Copy the `, em(`Client ID`), ` to the `, code(`id`), ` property inside `, code(`oauth`), `.`), li(`If you're not using manual authorization code entry, copy `, app(), `'s install location (`, value(authStorage.installUri), `) to the `, code(`url`), ` property inside `, code(`oauth`), `.`), li(`Rebuild `, app(), `.`))), makeDiv('major-input')(makeLabel()(`Client ID `, $clientIdInput)), makeDiv('major-input')(makeLabel()($manualCodeEntryCheckbox, ` ` + manualCodeEntryLabel), ` (for non-https/non-secure install locations)`), $registrationNotice);
     }
 }
 
@@ -1259,7 +1259,7 @@ class AuthLoginForms {
         // TODO write that you may not get a confirmation page if you are already logged in - in this case logout first
         //	^ to do this, need to check if anything user-visible appears in the popup at all with auto-code registrations
         const app = () => em(`osm-note-viewer`);
-        this.$manualCodeForm.append(p(`If the manual code copying method was used to register `, app(), `, copy the code into the input below.`), makeDiv('major-input')(makeLabel()(`Authorization code: `, this.$manualCodeInput)), makeDiv('major-input')(this.$manualCodeButton));
+        this.$manualCodeForm.append(p(`If the manual code copying method was used to register `, app(), `, copy the code into the input below.`), makeDiv('major-input')(makeLabel()(`Authorization code `, this.$manualCodeInput)), makeDiv('major-input')(this.$manualCodeButton));
         $container.append(makeDiv('major-input')(this.$loginButton, this.$cancelLoginButton), this.$manualCodeForm, this.$error);
     }
     respondToAppRegistration(isManualCodeEntry) {
@@ -2119,38 +2119,84 @@ class NavDialog {
     onOpen() { }
     onClose() { }
 }
+// https://www.w3.org/WAI/ARIA/apg/example-index/tabs/tabs-automatic.html
+// https://www.w3.org/WAI/ARIA/apg/example-index/tabs/tabs-manual.html
 class Navbar {
     constructor(storage, $container, map) {
-        this.$tabList = document.createElement('ul');
+        this.$tabList = document.createElement('div');
         this.tabs = new Map();
-        $container.append(this.$tabList);
+        this.$tabList.setAttribute('role', 'tablist');
+        this.$tabList.setAttribute('aria-label', `Note query modes`);
         if (map)
             $container.append(makeFlipLayoutButton(storage, map));
+        $container.append(this.$tabList);
         $container.append(makeResetButton());
+        $container.onkeydown = ev => {
+            const $button = ev.target;
+            if (!($button instanceof HTMLButtonElement))
+                return;
+            const focusButton = (c, o) => {
+                const $buttons = [...$container.querySelectorAll('button')];
+                const i = $buttons.indexOf($button);
+                const l = $buttons.length;
+                if (l <= 0 || i < 0)
+                    return;
+                $buttons[(l + i * c + o) % l].focus();
+            };
+            if (ev.key == 'ArrowLeft') {
+                focusButton(1, -1);
+            }
+            else if (ev.key == 'ArrowRight') {
+                focusButton(1, +1);
+            }
+            else if (ev.key == 'Home') {
+                focusButton(0, 0);
+            }
+            else if (ev.key == 'End') {
+                focusButton(0, -1);
+            }
+            else {
+                return;
+            }
+            ev.stopPropagation();
+            ev.preventDefault();
+        };
     }
     addTab(dialog, push = false) {
-        const id = 'section-' + dialog.shortTitle;
-        dialog.$section.id = id;
-        const $a = makeLink(dialog.shortTitle, '#' + id);
-        this.$tabList.append(makeElement('li')(...(push ? ['push'] : []))($a));
-        this.tabs.set(dialog.shortTitle, [$a, dialog]);
-        $a.addEventListener('click', ev => {
-            ev.preventDefault();
-            this.openTab(dialog.shortTitle);
-        });
+        const tabId = 'tab-' + dialog.shortTitle;
+        const tabPanelId = 'tab-panel-' + dialog.shortTitle;
+        const $tab = document.createElement('button');
+        $tab.id = tabId;
+        $tab.tabIndex = -1;
+        $tab.innerText = dialog.shortTitle;
+        $tab.setAttribute('role', 'tab');
+        $tab.setAttribute('aria-controls', tabPanelId);
+        $tab.setAttribute('aria-selected', 'false');
+        $tab.classList.toggle('push', push);
+        dialog.$section.id = tabPanelId;
+        dialog.$section.tabIndex = 0;
+        dialog.$section.hidden = true;
+        dialog.$section.setAttribute('role', 'tabpanel');
+        dialog.$section.setAttribute('aria-labelledby', tabId);
+        this.$tabList.append($tab);
+        this.tabs.set(dialog, $tab);
+        $tab.onclick = () => {
+            this.openTab(dialog);
+        };
     }
-    openTab(targetShortTitle) {
-        for (const [shortTitle, [$a, dialog]] of this.tabs) {
-            const willBeActive = shortTitle == targetShortTitle;
+    openTab(targetDialog) {
+        for (const [dialog] of this.tabs) {
+            const willBeActive = dialog == targetDialog;
             if (!willBeActive && dialog.isOpen()) {
                 dialog.onClose();
             }
         }
-        for (const [shortTitle, [$a, dialog]] of this.tabs) {
-            const willBeActive = shortTitle == targetShortTitle;
+        for (const [dialog, $tab] of this.tabs) {
+            const willBeActive = dialog == targetDialog;
             const willCallOnOpen = (willBeActive && !dialog.isOpen());
-            $a.classList.toggle('active', willBeActive);
-            dialog.$section.classList.toggle('active', willBeActive);
+            $tab.setAttribute('aria-selected', String(willBeActive));
+            $tab.tabIndex = willBeActive ? 0 : -1;
+            dialog.$section.hidden = !willBeActive;
             if (willCallOnOpen) {
                 dialog.onOpen();
             }
@@ -2175,6 +2221,7 @@ function makeResetButton() {
 }
 function makeButton(id, title, listener) {
     const $button = document.createElement('button');
+    $button.tabIndex = -1;
     $button.title = title;
     $button.classList.add('global', id);
     $button.innerHTML = e$5 `<svg><use href="#${id}" /></svg>`;
@@ -2208,7 +2255,7 @@ function makeCodeForm(initialValue, textareaLabel, buttonLabel, isSameInput, che
     {
         $textarea.value = initialValue;
         $textarea.rows = 5;
-        $form.append(makeDiv('major-input')(makeLabel()(`${textareaLabel}: `, $textarea)));
+        $form.append(makeDiv('major-input')(makeLabel()(textareaLabel, ` `, $textarea)));
     }
     {
         $button.textContent = buttonLabel;
@@ -3955,12 +4002,12 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         {
             this.$userInput.type = 'text';
             this.$userInput.name = 'user';
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`OSM username, URL or #id`, rq2('display_name', 'user'), `: `, this.$userInput)));
+            $fieldset.append(makeDiv('major-input')(makeLabel()(`OSM username, URL or #id`, rq2('display_name', 'user'), ` `, this.$userInput)));
         }
         {
             this.$textInput.type = 'text';
             this.$textInput.name = 'text';
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`Comment text search query`, rq$1('q'), `: `, this.$textInput)));
+            $fieldset.append(makeDiv('major-input')(makeLabel()(`Comment text search query`, rq$1('q'), ` `, this.$textInput)));
         }
         {
             this.$fromInput.type = 'text';
@@ -4104,7 +4151,7 @@ class NominatimSubForm {
         this.$input.setAttribute('form', 'nominatim-form');
         this.$button.textContent = 'Get';
         this.$button.setAttribute('form', 'nominatim-form');
-        $fieldset.append(makeDiv('text-button-input')(makeLabel()(`Or get bounding box by place name from Nominatim`, spanRequest$1(` (`, code('q'), ` Nominatim parameter)`), `: `, this.$input), this.$button));
+        $fieldset.append(makeDiv('text-button-input')(makeLabel()(`Or get bounding box by place name from Nominatim`, spanRequest$1(` (`, code('q'), ` Nominatim parameter)`), ` `, this.$input), this.$button));
         $fieldset.append(makeDiv('advanced-hint')(`Resulting Nominatim request: `, this.$requestOutput));
     }
     updateRequest() {
@@ -4200,7 +4247,7 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
             this.$bboxInput.type = 'text';
             this.$bboxInput.name = 'bbox';
             this.$bboxInput.required = true; // otherwise could submit empty bbox without entering anything
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`Bounding box (`, tip(`left`, `western-most (min) longitude`), `, `, tip(`bottom`, `southern-most (min) latitude`), `, `, tip(`right`, `eastern-most (max) longitude`), `, `, tip(`top`, `northern-most (max) latitude`), `)`, rq('bbox'), spanRequest(` (also `, code('west'), `, `, code('south'), `, `, code('east'), `, `, code('north'), ` Nominatim parameters)`), `: `, this.$bboxInput)));
+            $fieldset.append(makeDiv('major-input')(makeLabel()(`Bounding box (`, tip(`left`, `western-most (min) longitude`), `, `, tip(`bottom`, `southern-most (min) latitude`), `, `, tip(`right`, `eastern-most (max) longitude`), `, `, tip(`top`, `northern-most (max) latitude`), `)`, rq('bbox'), spanRequest(` (also `, code('west'), `, `, code('south'), `, `, code('east'), `, `, code('north'), ` Nominatim parameters)`), ` `, this.$bboxInput)));
             function tip(text, title) {
                 const $span = document.createElement('span');
                 $span.textContent = text;
@@ -4367,7 +4414,7 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
     }
     makeFetchControlDiv() {
         this.$fileInput.type = 'file';
-        return makeDiv('major-input')(makeLabel('file-reader')(makeElement('span')('over')(`Read XML file`), makeElement('span')('colon')(`:`), ` `, this.$fileInput));
+        return makeDiv('major-input')(makeLabel('file-reader')(makeElement('span')('over')(`Read XML file`), ` `, this.$fileInput));
     }
     disableFetchControl(disabled) {
         this.$fileInput.disabled = disabled;
@@ -4385,7 +4432,7 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
             $datalist.id = 'neis-countries-list';
             $datalist.append(...neisCountries.map(c => new Option(c)));
             this.$neisCountryInput.setAttribute('list', 'neis-countries-list');
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`Country: `, this.$neisCountryInput, $datalist)));
+            $fieldset.append(makeDiv('major-input')(makeLabel()(`Country `, this.$neisCountryInput, $datalist)));
         }
         {
             this.$neisStatusSelect.name = 'status';
@@ -4408,12 +4455,12 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
             this.$selectorInput.type = 'text';
             this.$selectorInput.name = 'selector';
             this.$selectorInput.required = true;
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`CSS selector matching XML elements with note ids: `, this.$selectorInput)));
+            $fieldset.append(makeDiv('major-input')(makeLabel()(`CSS selector matching XML elements with note ids `, this.$selectorInput)));
         }
         {
             this.$attributeInput.type = 'text';
             this.$attributeInput.name = 'attribute';
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`Attribute of matched XML elements containing note id (leave blank if note id is in text content): `, this.$attributeInput)));
+            $fieldset.append(makeDiv('major-input')(makeLabel()(`Attribute of matched XML elements containing note id (leave blank if note id is in text content) `, this.$attributeInput)));
         }
     }
     populateInputsWithoutUpdatingRequest(query) {
@@ -4790,7 +4837,7 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
         {
             this.$idsTextarea.required = true;
             this.$idsTextarea.rows = 10;
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`Note ids separated by anything: `, this.$idsTextarea)));
+            $fieldset.append(makeDiv('major-input')(makeLabel()(`Note ids separated by anything `, this.$idsTextarea)));
         }
     }
     addEventListeners() {
@@ -4929,7 +4976,7 @@ class NoteFetchPanel {
             openQueryDialog(navbar, fetchDialogs, hashQuery, true);
         }
         else {
-            navbar.openTab('About');
+            navbar.openTab(aboutDialog);
         }
         modifyHistory(hashQuery, false);
         startFetcherFromQuery(hashQuery, false, globalHistory.hasMapHash() // when just opened a note-viewer page with map hash set - if query is set too, don't fit its result, keep the map hash
@@ -5012,13 +5059,13 @@ class NoteFetchPanel {
 function openQueryDialog(navbar, fetchDialogs, query, initial) {
     if (!query) {
         if (initial)
-            navbar.openTab(fetchDialogs.searchDialog.shortTitle);
+            navbar.openTab(fetchDialogs.searchDialog);
     }
     else {
         const dialog = fetchDialogs.getDialogFromQuery(query);
         if (!dialog)
             return;
-        navbar.openTab(dialog.shortTitle);
+        navbar.openTab(dialog);
     }
 }
 
@@ -5695,7 +5742,7 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, note, users, sho
         if (nComments > 1)
             $cell.rowSpan = nComments;
         $checkbox.type = 'checkbox';
-        $checkbox.title = `shift+click to check/uncheck a range`;
+        $checkbox.title = `shift+click to select/unselect a range`;
         $cell.append($checkbox);
     }
     {
@@ -5708,8 +5755,9 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, note, users, sho
         $a.dataset.noteId = $a.textContent = `${note.id}`;
         $a.dataset.self = 'yes';
         $a.classList.add('listened');
-        $a.title = `click to reload the note if you know it was updated or want to check it`;
+        $a.title = `reload the note`;
         const $refreshWaitProgress = document.createElement('progress');
+        $refreshWaitProgress.setAttribute('aria-hidden', 'true'); // otherwise screen reader constantly announces changes of progress elements
         $refreshWaitProgress.value = 0;
         $cell.append(makeDiv()($a, $refreshWaitProgress));
     }
@@ -6377,7 +6425,7 @@ class NoteTable {
         const $row = $header.insertRow();
         const $checkboxCell = makeHeaderCell('');
         this.$selectAllCheckbox.type = 'checkbox';
-        this.$selectAllCheckbox.title = `check/uncheck all`;
+        this.$selectAllCheckbox.title = `select/unselect all notes`;
         this.$selectAllCheckbox.addEventListener('click', this.wrappedAllNotesCheckboxClickListener);
         $checkboxCell.append(this.$selectAllCheckbox);
         const $actionCell = makeHeaderCell('?');
@@ -6868,11 +6916,9 @@ class SettingsTool extends Tool {
         this.title = `Settings`;
     }
     getTool(callbacks) {
-        const $openAllButton = document.createElement('button');
-        $openAllButton.textContent = `+ open all tools`;
+        const $openAllButton = makeElement('button')('open-all-tools')(`Open all tools`);
         $openAllButton.onclick = () => callbacks.onToolOpenToggle(this, true);
-        const $closeAllButton = document.createElement('button');
-        $closeAllButton.textContent = `− close all tools`;
+        const $closeAllButton = makeElement('button')('close-all-tools')(`Close all tools`);
         $closeAllButton.onclick = () => callbacks.onToolOpenToggle(this, false);
         return [$openAllButton, ` `, $closeAllButton];
     }

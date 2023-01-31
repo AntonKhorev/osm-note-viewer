@@ -183,21 +183,13 @@ body.flipped nav button.flip {
 	--flip-ver-part-visibility: hidden;
 	--flip-hor-part-visibility: visible;
 }
-nav ul {
+nav [role=tablist] {
 	display: flex;
 	margin: 0;
 	padding: 0;
 }
-nav ul li {
-	list-style: none;
-	margin: 0;
-	padding: 0;
+nav [role=tablist] [role=tab] {
 	line-height: 2rem;
-}
-nav ul li.push {
-	margin-left: auto;
-}
-nav ul li a {
 	position: relative;
 	display: block;
 	padding: 0 1rem;
@@ -206,27 +198,27 @@ nav ul li a {
 	border-top: solid 1px #CCC;
 	border-top-left-radius: 8px;
 	border-top-right-radius: 8px;
+	border-bottom: none;
 	margin-bottom: -1px;
 	margin-left: -1px;
 	color: var(--semi-link-color);
 	background: var(--inset-background-color);
 	text-decoration: none;
 }
-nav ul li:first-child a {
+nav [role=tablist] [role=tab]:first-child {
 	margin-left: 0;
 }
-nav ul li a.active {
+nav [role=tablist] [role=tab].push {
+	margin-left: auto;
+}
+nav [role=tablist] [role=tab][aria-selected=true] {
 	background: canvas;
 }
-nav ul li a:hover {
+nav [role=tablist] [role=tab]:hover {
 	background: var(--hover-color);
 }
-nav ul li a:focus {
+nav [role=tablist] [role=tab]:focus {
 	z-index: 1;
-}
-
-.nav-dialog:not(.active) {
-	display: none;
 }
 
 /*** css/panel.css ***/
@@ -344,7 +336,9 @@ nav ul li a:focus {
 .panel.command details.tool summary {
 	display: inline;
 }
-.panel.command details.tool summary::before {
+.panel.command details.tool summary::before,
+.panel.command details.tool button.open-all-tools::before,
+.panel.command details.tool button.close-all-tools::before {
 	--size: 11px;
 	content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-5.5 -5.5 11 11' fill='none' stroke='gray'><rect width='10' height='10' x='-5' y='-5' opacity='.3' /><line x1='-3' x2='3' /><line y1='-3' y2='3' /></svg>");
 	display: inline-block;
@@ -358,7 +352,8 @@ nav ul li a:focus {
 	outline: solid 1px var(--hover-color);
 	outline-offset: 1px;
 }
-.panel.command details.tool[open] summary::before {
+.panel.command details.tool[open] summary::before,
+.panel.command details.tool button.close-all-tools::before  {
 	content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-5.5 -5.5 11 11' fill='none' stroke='gray'><rect width='10' height='10' x='-5' y='-5' opacity='.3' /><line x1='-3' x2='3' /></svg>");
 }
 .panel.command details.tool[open] summary::after {
@@ -539,9 +534,6 @@ nav ul li a:focus {
 }
 .panel .major-input label.file-reader:focus-within .over {
 	z-index: -1;
-}
-.panel .major-input label.file-reader .colon {
-	display: none;
 }
 .panel .major-input label.file-reader input {
 	display: block;
