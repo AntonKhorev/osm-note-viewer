@@ -65,7 +65,7 @@ export default class NoteFetchPanel {
 		if (fetchDialogs) {
 			openQueryDialog(navbar,fetchDialogs,hashQuery,true)
 		} else {
-			navbar.openTab('About')
+			navbar.openTab(aboutDialog)
 		}
 		modifyHistory(hashQuery,false)
 		startFetcherFromQuery(
@@ -147,10 +147,10 @@ function openQueryDialog(
 	query: NoteQuery | undefined, initial: boolean
 ): void {
 	if (!query) {
-		if (initial) navbar.openTab(fetchDialogs.searchDialog.shortTitle)
+		if (initial) navbar.openTab(fetchDialogs.searchDialog)
 	} else {
 		const dialog=fetchDialogs.getDialogFromQuery(query)
 		if (!dialog) return
-		navbar.openTab(dialog.shortTitle)
+		navbar.openTab(dialog)
 	}
 }

@@ -28,7 +28,7 @@ export abstract class NavDialog {
 // https://www.w3.org/WAI/ARIA/apg/example-index/tabs/tabs-manual.html
 export default class Navbar {
 	private readonly $tabList=document.createElement('div')
-	private readonly tabs: Map<string,[$tab:HTMLButtonElement,dialog:NavDialog]> = new Map()
+	private readonly tabs: Map<NavDialog,HTMLButtonElement> = new Map()
 	constructor(storage: NoteViewerStorage, $container: HTMLElement, map: NoteMap|undefined) {
 		this.$tabList.setAttribute('role','tablist')
 		this.$tabList.setAttribute('aria-label',`Note query modes`)
@@ -77,20 +77,20 @@ export default class Navbar {
 		dialog.$section.setAttribute('role','tabpanel')
 		dialog.$section.setAttribute('aria-labelledby',tabId)
 		this.$tabList.append($tab)
-		this.tabs.set(dialog.shortTitle,[$tab,dialog])
+		this.tabs.set(dialog,$tab)
 		$tab.onclick=()=>{
-			this.openTab(dialog.shortTitle)
+			this.openTab(dialog)
 		}
 	}
-	openTab(targetShortTitle: string) {
-		for (const [shortTitle,[,dialog]] of this.tabs) {
-			const willBeActive=shortTitle==targetShortTitle
+	openTab(targetDialog: NavDialog) {
+		for (const [dialog] of this.tabs) {
+			const willBeActive=dialog==targetDialog
 			if (!willBeActive && dialog.isOpen()) {
 				dialog.onClose()
 			}
 		}
-		for (const [shortTitle,[$tab,dialog]] of this.tabs) {
-			const willBeActive=shortTitle==targetShortTitle
+		for (const [dialog,$tab] of this.tabs) {
+			const willBeActive=dialog==targetDialog
 			const willCallOnOpen=(willBeActive && !dialog.isOpen())
 			$tab.setAttribute('aria-selected',String(willBeActive))
 			$tab.tabIndex=willBeActive?0:-1
