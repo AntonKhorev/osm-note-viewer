@@ -150,11 +150,9 @@ export class SettingsTool extends Tool {
 	name=`⚙️`
 	title=`Settings`
 	getTool(callbacks: ToolCallbacks): ToolElements {
-		const $openAllButton=document.createElement('button')
-		$openAllButton.textContent=`+ open all tools`
+		const $openAllButton=makeElement('button')('open-all-tools')(`Open all tools`)
 		$openAllButton.onclick=()=>callbacks.onToolOpenToggle(this,true)
-		const $closeAllButton=document.createElement('button')
-		$closeAllButton.textContent=`− close all tools`
+		const $closeAllButton=makeElement('button')('close-all-tools')(`Close all tools`)
 		$closeAllButton.onclick=()=>callbacks.onToolOpenToggle(this,false)
 		return [$openAllButton,` `,$closeAllButton]
 	}

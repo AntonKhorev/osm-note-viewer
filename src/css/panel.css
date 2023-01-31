@@ -112,7 +112,9 @@
 .panel.command details.tool summary {
 	display: inline;
 }
-.panel.command details.tool summary::before {
+.panel.command details.tool summary::before,
+.panel.command details.tool button.open-all-tools::before,
+.panel.command details.tool button.close-all-tools::before {
 	--size: 11px;
 	content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-5.5 -5.5 11 11' fill='none' stroke='gray'><rect width='10' height='10' x='-5' y='-5' opacity='.3' /><line x1='-3' x2='3' /><line y1='-3' y2='3' /></svg>");
 	display: inline-block;
@@ -126,7 +128,8 @@
 	outline: solid 1px var(--hover-color);
 	outline-offset: 1px;
 }
-.panel.command details.tool[open] summary::before {
+.panel.command details.tool[open] summary::before,
+.panel.command details.tool button.close-all-tools::before  {
 	content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-5.5 -5.5 11 11' fill='none' stroke='gray'><rect width='10' height='10' x='-5' y='-5' opacity='.3' /><line x1='-3' x2='3' /></svg>");
 }
 .panel.command details.tool[open] summary::after {
