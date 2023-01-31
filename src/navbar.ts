@@ -35,12 +35,37 @@ export default class Navbar {
 		if (map) $container.append(makeFlipLayoutButton(storage,map))
 		$container.append(this.$tabList)
 		$container.append(makeResetButton())
+		$container.onkeydown=ev=>{
+			const $button=ev.target
+			if (!($button instanceof HTMLButtonElement)) return
+			const focusButton=(c:number,o:number)=>{
+				const $buttons=[...$container.querySelectorAll('button')]
+				const i=$buttons.indexOf($button)
+				const l=$buttons.length
+				if (l<=0 || i<0) return
+				$buttons[(l+i*c+o)%l].focus()
+			}
+			if (ev.key=='ArrowLeft') {
+				focusButton(1,-1)
+			} else if (ev.key=='ArrowRight') {
+				focusButton(1,+1)
+			} else if (ev.key=='Home') {
+				focusButton(0,0)
+			} else if (ev.key=='End') {
+				focusButton(0,-1)
+			} else {
+				return
+			}
+			ev.stopPropagation()
+			ev.preventDefault()
+		}
 	}
 	addTab(dialog: NavDialog, push: boolean = false) {
 		const tabId='tab-'+dialog.shortTitle
 		const tabPanelId='tab-panel-'+dialog.shortTitle
 		const $tab=document.createElement('button')
 		$tab.id=tabId
+		$tab.tabIndex=-1
 		$tab.innerText=dialog.shortTitle
 		$tab.setAttribute('role','tab')
 		$tab.setAttribute('aria-controls',tabPanelId)
@@ -53,10 +78,9 @@ export default class Navbar {
 		dialog.$section.setAttribute('aria-labelledby',tabId)
 		this.$tabList.append($tab)
 		this.tabs.set(dialog.shortTitle,[$tab,dialog])
-		$tab.addEventListener('click',ev=>{
-			ev.preventDefault()
+		$tab.onclick=()=>{
 			this.openTab(dialog.shortTitle)
-		})
+		}
 	}
 	openTab(targetShortTitle: string) {
 		for (const [shortTitle,[,dialog]] of this.tabs) {
@@ -69,6 +93,7 @@ export default class Navbar {
 			const willBeActive=shortTitle==targetShortTitle
 			const willCallOnOpen=(willBeActive && !dialog.isOpen())
 			$tab.setAttribute('aria-selected',String(willBeActive))
+			$tab.tabIndex=willBeActive?0:-1
 			dialog.$section.hidden=!willBeActive
 			if (willCallOnOpen) {
 				dialog.onOpen()
@@ -97,6 +122,7 @@ function makeResetButton(): HTMLButtonElement {
 
 function makeButton(id:string, title:string, listener:()=>void) {
 	const $button=document.createElement('button')
+	$button.tabIndex=-1
 	$button.title=title
 	$button.classList.add('global',id)
 	$button.innerHTML=e`<svg><use href="#${id}" /></svg>`
