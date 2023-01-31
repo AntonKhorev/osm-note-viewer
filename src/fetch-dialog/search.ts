@@ -25,7 +25,6 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 		)]
 	}
 	protected listParameters(closedDescriptionItems: Array<string|HTMLElement>): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][] {
-		const makeTr=(cellType: 'th'|'td')=>(...sss: Array<Array<string|HTMLElement>>)=>makeElement('tr')()(...sss.map(ss=>makeElement(cellType)()(...ss)))
 		return [
 			['q',this.$textInput,[
 				`Comment text search query. `,
