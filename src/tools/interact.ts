@@ -1,7 +1,9 @@
 import {Tool, ToolElements, ToolCallbacks, makeNotesIcon, makeNoteStatusIcon, makeActionIcon} from './base'
+import type Auth from '../auth'
 import type {Note} from '../data'
 import {readNoteResponse, NoteDataError} from '../fetch-note'
-import {makeDiv, makeLink} from '../html'
+import {makeDiv, makeElement, makeLink} from '../html'
+import {p} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 
 const e=makeEscapeTag(encodeURIComponent)
@@ -22,6 +24,7 @@ export class InteractTool extends Tool {
 	name=`Interact`
 	title=`Interact with notes on OSM server`
 	isFullWidth=true
+	private $yourNotes=document.createElement('span')
 	private $asOutput=document.createElement('output')
 	private $withOutput=document.createElement('output')
 	private $commentText=document.createElement('textarea')
@@ -55,10 +58,16 @@ export class InteractTool extends Tool {
 		inputNoteStatus: 'closed',
 		outputNoteStatus: 'open',
 	}]
-	getTool(callbacks: ToolCallbacks): ToolElements {
-		this.updateAsOutput()
+	constructor(auth: Auth) {
+		super(auth)
+		this.updateLoginDependents()
 		this.updateWithOutput()
 		this.updateButtons()
+	}
+	getInfo() {return[p(
+		`If you want to find the notes you interacted with, try searching for `,this.$yourNotes,`.`
+	)]}
+	getTool(callbacks: ToolCallbacks): ToolElements {
 		this.$commentText.placeholder=`Comment text`
 		this.$commentText.oninput=()=>{
 			this.updateButtons()
@@ -118,7 +127,7 @@ export class InteractTool extends Tool {
 		]
 	}
 	onLoginChange(): boolean {
-		this.updateAsOutput()
+		this.updateLoginDependents()
 		return true
 	}
 	onSelectedNotesChange(selectedNotes: ReadonlyArray<Note>) {
@@ -141,6 +150,34 @@ export class InteractTool extends Tool {
 		}
 		this.updateWithOutput()
 		this.updateButtons()
+	}
+	private updateLoginDependents() {
+		this.updateYourNotes()
+		this.updateAsOutput()
+	}
+	private updateYourNotes() {
+		const text=`your own latest updated notes`
+		if (this.auth.username==null) {
+			this.$yourNotes.replaceChildren(text)
+		} else {
+			const hostHashValue=getSearchParams().get('host')
+			const parameters=[]
+			if (hostHashValue) parameters.push(['host',hostHashValue])
+			parameters.push(
+				['mode','search'],
+				['display_name',this.auth.username],
+				['sort','updated_at']
+			)
+			const href='#'+parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
+			this.$yourNotes.replaceChildren(makeLink(text,href))
+		}
+		// copypaste from history.ts
+		function getSearchParams(): URLSearchParams {
+			const paramString = (location.hash[0]=='#')
+				? location.hash.slice(1)
+				: location.hash
+			return new URLSearchParams(paramString)
+		}
 	}
 	private updateAsOutput() {
 		if (this.auth.username==null || this.auth.uid==null) {
