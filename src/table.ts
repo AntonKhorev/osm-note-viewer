@@ -307,7 +307,7 @@ export default class NoteTable implements NoteTableUpdater {
 	): void {
 		if (!isVisible) $noteSection.classList.add('hidden')
 		$noteSection.id=`note-${note.id}`
-		$noteSection.classList.add(getStatusClass(note.status))
+		$noteSection.classList.add(`status-${note.status}`)
 		for (const [event,listener] of this.wrappedNoteSectionListeners) {
 			$noteSection.addEventListener(event,listener)
 		}
@@ -499,16 +499,6 @@ export default class NoteTable implements NoteTableUpdater {
 		const $noteSection=document.getElementById(`note-`+noteId) // TODO look in $table
 		if (!($noteSection instanceof HTMLTableSectionElement)) return
 		return $noteSection
-	}
-}
-
-function getStatusClass(status: Note['status']): string {
-	if (status=='open') {
-		return 'open'
-	} else if (status=='closed' || status=='hidden') {
-		return 'closed'
-	} else {
-		return 'other'
 	}
 }
 
