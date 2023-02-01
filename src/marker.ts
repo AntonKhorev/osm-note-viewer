@@ -29,9 +29,9 @@ function getNoteMarkerIcon(note: Note, isSelected: boolean): L.DivIcon {
 	html+=e`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`
 	html+=e`<title>${note.status} note #${note.id}</title>`,
 	html+=e`<path d="${computeMarkerOutlinePath(heightWithAura-.5,rWithAura-.5)}" class="aura" fill="none" />`
-	html+=e`<path d="${computeMarkerOutlinePath(height,r)}" fill="${note.status=='open'?'red':'green'}" />`
-	const states=[...noteCommentsToStates(note.comments)]
-	html+=drawStateCircles(r,nInnerCircles,states.slice(-nInnerCircles,-1))
+	html+=e`<path d="${computeMarkerOutlinePath(height,r)}" fill="${getStatusColor(note.status)}" />`
+	const statuses=[...noteCommentsToStatuses(note.comments)]
+	html+=drawStateCircles(r,nInnerCircles,statuses.slice(-nInnerCircles,-1))
 	if (isSelected) {
 		html+=drawCheckMark()
 	}
@@ -50,17 +50,16 @@ function getNoteMarkerIcon(note: Note, isSelected: boolean): L.DivIcon {
 		const yf=y.toFixed(2)
 		return `M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z`
 	}
-	function drawStateCircles(r: number, nInnerCircles: number, statesToDraw: boolean[]): string {
+	function drawStateCircles(r: number, nInnerCircles: number, statusesToDraw: Note['status'][]): string {
 		const dcr=(r-.5)/nInnerCircles
 		let html=``
 		for (let i=2;i>=0;i--) {
-			if (i>=statesToDraw.length) continue
+			if (i>=statusesToDraw.length) continue
 			const cr=dcr*(i+1)
 			html+=e`<circle r="${cr}" fill="${color()}" stroke="white" />`
 			function color(): string {
-				if (i==0 && states.length<=nInnerCircles) return 'white'
-				if (statesToDraw[i]) return 'red'
-				return 'green'
+				if (i==0 && statuses.length<=nInnerCircles) return 'white'
+				return getStatusColor(statusesToDraw[i])
 			}
 		}
 		return html
@@ -72,16 +71,27 @@ function getNoteMarkerIcon(note: Note, isSelected: boolean): L.DivIcon {
 		html+=e`<path d="${path}" fill="none" stroke-width="2" stroke-linecap="round" stroke="white" />`
 		return html
 	}
+	function getStatusColor(status: Note['status']): string {
+		if (status=='open') {
+			return 'red'
+		} else if (status=='closed') {
+			return 'green'
+		} else {
+			return 'black'
+		}
+	}
 }
 
-function *noteCommentsToStates(comments: NoteComment[]): Iterable<boolean> {
-	let currentState=true
+function *noteCommentsToStatuses(comments: NoteComment[]): Iterable<Note['status']> {
+	let currentStatus: Note['status'] = 'open'
 	for (const comment of comments) {
 		if (comment.action=='opened' || comment.action=='reopened') {
-			currentState=true
-		} else if (comment.action=='closed' || comment.action=='hidden') {
-			currentState=false
+			currentStatus='open'
+		} else if (comment.action=='closed') {
+			currentStatus='closed'
+		} else if (comment.action=='hidden') {
+			currentStatus='hidden'
 		}
-		yield currentState
+		yield currentStatus
 	}
 }
