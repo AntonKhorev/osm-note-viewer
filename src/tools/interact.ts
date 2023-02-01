@@ -2,7 +2,8 @@ import {Tool, ToolElements, ToolCallbacks, makeNotesIcon, makeNoteStatusIcon, ma
 import type Auth from '../auth'
 import type {Note} from '../data'
 import {readNoteResponse, NoteDataError} from '../fetch-note'
-import {makeDiv, makeElement, makeLink} from '../html'
+import {makeHrefWithCurrentHost} from '../hash'
+import {makeDiv, makeLink} from '../html'
 import {p} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 
@@ -160,23 +161,12 @@ export class InteractTool extends Tool {
 		if (this.auth.username==null) {
 			this.$yourNotes.replaceChildren(text)
 		} else {
-			const hostHashValue=getSearchParams().get('host')
-			const parameters=[]
-			if (hostHashValue) parameters.push(['host',hostHashValue])
-			parameters.push(
+			const href=makeHrefWithCurrentHost([
 				['mode','search'],
 				['display_name',this.auth.username],
 				['sort','updated_at']
-			)
-			const href='#'+parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
+			])
 			this.$yourNotes.replaceChildren(makeLink(text,href))
-		}
-		// copypaste from history.ts
-		function getSearchParams(): URLSearchParams {
-			const paramString = (location.hash[0]=='#')
-				? location.hash.slice(1)
-				: location.hash
-			return new URLSearchParams(paramString)
 		}
 	}
 	private updateAsOutput() {

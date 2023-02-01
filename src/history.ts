@@ -1,5 +1,6 @@
 import type ServerList from './server-list'
 import type Server from './server'
+import {getHashSearchParams} from './hash'
 import {escapeHash} from './escape'
 
 const scrollRestorerEnabled=true // almost works without this, just won't restore position correctly on forward
@@ -103,7 +104,7 @@ export default class GlobalHistory {
 		if (!this.server) return
 		let mapHashValue=''
 		if (!pushStateAndRemoveMapHash) {
-			const searchParams=this.getSearchParams()
+			const searchParams=getHashSearchParams()
 			mapHashValue=searchParams.get('map')??''
 		}
 		const hostHashValue=this.serverList.getHostHashValue(this.server)
@@ -118,12 +119,12 @@ export default class GlobalHistory {
 		}
 	}
 	hasMapHash(): boolean {
-		const searchParams=this.getSearchParams()
+		const searchParams=getHashSearchParams()
 		const mapHashValue=searchParams.get('map')
 		return !!mapHashValue
 	}
 	setMapHash(mapHash: string): void {
-		const searchParams=this.getSearchParams()
+		const searchParams=getHashSearchParams()
 		searchParams.delete('map')
 		const hostHash=searchParams.get('host')
 		searchParams.delete('host')
@@ -134,19 +135,13 @@ export default class GlobalHistory {
 		return !!this.server
 	}
 	private getAllHashes(): [queryHash: string, mapHashValue: string|null, hostHashValue: string|null] {
-		const searchParams=this.getSearchParams()
+		const searchParams=getHashSearchParams()
 		const mapHashValue=searchParams.get('map')
 		searchParams.delete('map')
 		const hostHashValue=searchParams.get('host')
 		searchParams.delete('host')
 		const queryHash=searchParams.toString()
 		return [queryHash,mapHashValue,hostHashValue]
-	}
-	private getSearchParams(): URLSearchParams {
-		const paramString = (location.hash[0]=='#')
-			? location.hash.slice(1)
-			: location.hash
-		return new URLSearchParams(paramString)
 	}
 	private getFullHash(queryHash: string, mapHashValue: string, hostHashValue: string|null): string {
 		let fullHash=''
