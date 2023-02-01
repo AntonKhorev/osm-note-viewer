@@ -4,7 +4,7 @@ import type {Note} from '../data'
 import {readNoteResponse, NoteDataError} from '../fetch-note'
 import {makeHrefWithCurrentHost} from '../hash'
 import {makeDiv, makeLink} from '../html'
-import {p} from '../html-shortcuts'
+import {p,ul,li} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 
 const e=makeEscapeTag(encodeURIComponent)
@@ -66,6 +66,16 @@ export class InteractTool extends Tool {
 		this.updateButtons()
 	}
 	getInfo() {return[p(
+		`Do the following operations with notes:`
+	),ul(
+		li(
+			makeLink(`comment`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)
+		),li(
+			makeLink(`close`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)
+		),li(
+			makeLink(`reopen`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`)
+		)
+	),p(
 		`If you want to find the notes you interacted with, try searching for `,this.$yourNotes,`.`
 	)]}
 	getTool(callbacks: ToolCallbacks): ToolElements {
