@@ -89,6 +89,7 @@ time.listened {
 a.listened.loading {
 	cursor: progress;
 }
+a.listened.error,
 a.listened.absent {
 	text-decoration-color: #A00;
 }

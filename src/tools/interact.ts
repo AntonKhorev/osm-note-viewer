@@ -32,6 +32,8 @@ type InteractionRun = {
 	requestedStatus: 'running' | 'paused'
 	inputNoteIds: number[]
 	outputNoteIds: number[]
+	currentNoteId?: number,
+	currentNoteError?: string
 }
 
 export class InteractTool extends Tool {
@@ -236,47 +238,11 @@ export class InteractTool extends Tool {
 		}
 	}
 	private updateWithOutput() {
-		let first=true
-		const writeSingleNote=(id:number,status:Note['status'])=>{
-			if (!first) this.$withOutput.append(`, `)
-			first=false
-			const href=this.auth.server.web.getUrl(e`note/${id}`)
-			const $a=document.createElement('a')
-			$a.href=href
-			$a.classList.add('listened')
-			$a.dataset.noteId=String(id)
-			$a.append(makeNoteStatusIcon(status),` ${id}`)
-			this.$withOutput.append($a)
-		}
-		const writeOneOrManyNotes=(ids:readonly number[],status:Note['status'])=>{
-			if (ids.length==0) {
-				return
-			}
-			if (ids.length==1) {
-				writeSingleNote(ids[0],status)
-				return
-			}
-			if (!first) this.$withOutput.append(`, `)
-			first=false
-			this.$withOutput.append(`${ids.length} × `,makeNoteStatusIcon(status,ids.length))
-		}
-		const nSelectedNotes=noteStatuses.reduce(
-			(n:number,status)=>n+(this.selectedNoteIds.get(status)?.length??0),
-		0)
-		if (nSelectedNotes==0) {
-			this.$withOutput.replaceChildren()
-		} else if (nSelectedNotes<=5) {
-			this.$withOutput.replaceChildren(`with `)
-			for (const [status,ids] of this.selectedNoteIds) {
-				for (const id of ids) {
-					writeSingleNote(id,status)
-				}
-			}
+		const multipleNoteIndicators=this.getMultipleNoteIndicators(this.selectedNoteIds)
+		if (multipleNoteIndicators.length>0) {
+			this.$withOutput.replaceChildren(`with `,...multipleNoteIndicators)
 		} else {
-			this.$withOutput.replaceChildren(`with `)
-			for (const [status,ids] of this.selectedNoteIds) {
-				writeOneOrManyNotes(ids,status)
-			}
+			this.$withOutput.replaceChildren()
 		}
 	}
 	private updateButtons() {
@@ -326,9 +292,45 @@ export class InteractTool extends Tool {
 		this.$runButton.disabled=!this.run || this.run.status!=this.run.requestedStatus
 	}
 	private updateRunOutput() {
-		if (!this.run) this.$runOutput.replaceChildren(
-			`select notes for interaction using checkboxes`
+		if (!this.run) {
+			this.$runOutput.replaceChildren(
+				`select notes for interaction using checkboxes`
+			)
+			return
+		}
+		this.$runOutput.replaceChildren(
+			this.run.interactionDescription.runningLabel,`:`
 		)
+		const inputNoteIndicators=this.getMultipleNoteIndicators([[
+			this.run.interactionDescription.inputNoteStatus,this.run.inputNoteIds
+		]])
+		if (inputNoteIndicators.length>0) {
+			this.$runOutput.append(
+				` queued `,...inputNoteIndicators
+			)
+		}
+		if (this.run.currentNoteId!=null) {
+			const $a=this.getNoteIndicator(this.run.interactionDescription.inputNoteStatus,this.run.currentNoteId)
+			if (this.run.currentNoteError) {
+				$a.classList.add('error')
+				$a.title=this.run.currentNoteError
+				this.$runOutput.append(
+					` → error on `,$a
+				)
+			} else {
+				this.$runOutput.append(
+					` → current `,$a
+				)
+			}
+		}
+		const outputNoteIndicators=this.getMultipleNoteIndicators([[
+			this.run.interactionDescription.outputNoteStatus,this.run.outputNoteIds
+		]])
+		if (outputNoteIndicators.length>0) {
+			this.$runOutput.append(
+				` → done `,...outputNoteIndicators
+			)
+		}
 	}
 	private makeRunScheduler(callbacks: ToolCallbacks): ()=>void {
 		let runTimeoutId: number|undefined
@@ -366,7 +368,8 @@ export class InteractTool extends Tool {
 					return false
 				}
 			}
-			if (this.run.inputNoteIds.length==0) {
+			const id=this.run.currentNoteId??this.run.inputNoteIds.shift()
+			if (id==null) {
 				this.run.status='finished'
 				finish()
 				this.$runOutput.replaceChildren(
@@ -374,12 +377,10 @@ export class InteractTool extends Tool {
 				)
 				return false
 			}
+			this.run.currentNoteId=id
+			this.run.currentNoteError=undefined
 			this.updateButtons()
 			this.updateRunOutput()
-			const id=this.run.inputNoteIds[0]
-			this.$runOutput.replaceChildren(
-				this.run.interactionDescription.runningLabel,` note ${id}`
-			)
 			try {
 				let response: Response
 				if (this.run.interactionDescription.verb=='DELETE') {
@@ -401,27 +402,21 @@ export class InteractTool extends Tool {
 				if (!response.ok) {
 					throw new InteractionError(await response.text())
 				}
-				this.run.inputNoteIds.shift()
 				const noteAndUsers=await readNoteResponse(id,response)
 				callbacks.onNoteReload(this,...noteAndUsers)
-				this.$runOutput.replaceChildren(
-					this.run.interactionDescription.runningLabel
-				)
+				this.run.currentNoteId=undefined
+				this.run.outputNoteIds.push(id)
 			} catch (ex) {
-				const $a=makeLink(`note ${id}`,'#') // TODO link to current note
-				$a.classList.add('error')
 				if (ex instanceof InteractionError) {
-					$a.title=ex.message
+					this.run.currentNoteError=ex.message
 				} else if (ex instanceof NoteDataError) {
-					$a.title=`Error after successful interaction: ${ex.message}`
+					this.run.currentNoteError=`Error after successful interaction: ${ex.message}`
 				} else {
-					$a.title=`Unknown error ${ex}`
+					this.run.currentNoteError=`Unknown error ${ex}`
 				}
 				this.run.status=this.run.requestedStatus='paused'
 				pause()
-				this.$runOutput.replaceChildren(
-					this.run.interactionDescription.runningLabel,` error on `,$a
-				)
+				this.updateRunOutput()
 			}
 			return true
 		}
@@ -438,5 +433,52 @@ export class InteractTool extends Tool {
 			runTimeoutId=setTimeout(wrappedRunNextNote)
 		}
 		return scheduleRunNextNote
+	}
+	private getMultipleNoteIndicators(statusAndIds: Iterable<[status:Note['status'],ids:readonly number[]]>): (string|HTMLElement)[] {
+		const output: (string|HTMLElement)[] = []
+		let first=true
+		const writeSingleNote=(id:number,status:Note['status'])=>{
+			if (!first) output.push(`, `)
+			first=false
+			output.push(this.getNoteIndicator(status,id))
+		}
+		const writeOneOrManyNotes=(ids:readonly number[],status:Note['status'])=>{
+			if (ids.length==0) {
+				return
+			}
+			if (ids.length==1) {
+				writeSingleNote(ids[0],status)
+				return
+			}
+			if (!first) output.push(`, `)
+			first=false
+			output.push(`${ids.length} × `,makeNoteStatusIcon(status,ids.length))
+		}
+		const statusAndIdsCopy=[...statusAndIds]
+		const nNotes=statusAndIdsCopy.reduce(
+			(n:number,[,ids])=>n+ids.length,0
+		)
+		if (nNotes==0) {
+		} else if (nNotes<=5) {
+			for (const [status,ids] of statusAndIdsCopy) {
+				for (const id of ids) {
+					writeSingleNote(id,status)
+				}
+			}
+		} else {
+			for (const [status,ids] of statusAndIdsCopy) {
+				writeOneOrManyNotes(ids,status)
+			}
+		}
+		return output
+	}
+	private getNoteIndicator(status: Note['status'], id: number): HTMLAnchorElement {
+		const href=this.auth.server.web.getUrl(e`note/${id}`)
+		const $a=document.createElement('a')
+		$a.href=href
+		$a.classList.add('listened')
+		$a.dataset.noteId=String(id)
+		$a.append(makeNoteStatusIcon(status),` ${id}`)
+		return $a
 	}
 }
