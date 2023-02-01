@@ -114,7 +114,8 @@ export class InteractTool extends Tool {
 		this.updateWithOutput()
 		this.$commentText.placeholder=`Comment text`
 		this.updateButtons()
-		this.updateRun()
+		this.updateRunButton()
+		this.updateRunOutput()
 	}
 	getInfo() {return[p(
 		`Do the following operations with notes:`
@@ -144,7 +145,8 @@ export class InteractTool extends Tool {
 				if (this.run?.status=='paused') {
 					this.run=undefined
 					this.updateButtons()
-					this.updateRun()
+					this.updateRunButton()
+					this.updateRunOutput()
 				} else {
 					const matchingNoteIds=this.selectedNoteIds.get(interactionDescription.inputNoteStatus)
 					if (!matchingNoteIds) return
@@ -158,25 +160,19 @@ export class InteractTool extends Tool {
 					}
 					if (runImmediately) scheduleRunNextNote()
 					this.updateButtons()
-					this.updateRun()
+					this.updateRunButton()
+					this.updateRunOutput()
 				}
-			}
-		}
-		this.$runButton.onpointerdown=()=>{ // click event sometimes fails to fire when running
-			if (!this.run) return
-			if (this.run.status=='running') {
-				this.run.requestedStatus='paused'
-				this.updateRun()
 			}
 		}
 		this.$runButton.onclick=()=>{
 			if (!this.run) return
 			if (this.run.status=='running') {
 				this.run.requestedStatus='paused'
-				this.updateRun()
+				this.updateRunButton()
 			} else if (this.run.status=='paused') {
 				this.run.requestedStatus='running'
-				this.updateRun()
+				this.updateRunButton()
 				scheduleRunNextNote()
 			}
 		}
@@ -321,13 +317,15 @@ export class InteractTool extends Tool {
 		}
 		if (this.$commentText.value=='') this.$commentButton.disabled=true
 	}
-	private updateRun() {
+	private updateRunButton() {
 		const canPause=this.run && this.run.status=='running'
 		this.$runButton.replaceChildren(canPause
 			? makeActionIcon('pause',`Halt`)
 			: makeActionIcon('play',`Resume`)
 		)
 		this.$runButton.disabled=!this.run || this.run.status!=this.run.requestedStatus
+	}
+	private updateRunOutput() {
 		if (!this.run) this.$runOutput.replaceChildren(
 			`select notes for interaction using checkboxes`
 		)
@@ -337,17 +335,19 @@ export class InteractTool extends Tool {
 		const runNextNote=async():Promise<boolean>=>{
 			const run=()=>{
 				this.$commentText.disabled=true
+				this.updateButtons()
+				this.updateRunButton()
 			}
 			const pause=()=>{
 				this.$commentText.disabled=false
 				this.updateButtons()
-				this.updateRun()
+				this.updateRunButton()
 			}
 			const finish=()=>{
 				this.$commentText.disabled=false
 				this.$commentText.value=''
 				this.updateButtons()
-				this.updateRun()
+				this.updateRunButton()
 			}
 			if (!this.run) return false
 			if (this.run.status=='finished') {
@@ -375,7 +375,7 @@ export class InteractTool extends Tool {
 				return false
 			}
 			this.updateButtons()
-			this.updateRun()
+			this.updateRunOutput()
 			const id=this.run.inputNoteIds[0]
 			this.$runOutput.replaceChildren(
 				this.run.interactionDescription.runningLabel,` note ${id}`

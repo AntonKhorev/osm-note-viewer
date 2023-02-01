@@ -231,6 +231,7 @@
 .panel.command button.only-with-icon {
 	box-sizing: content-box;
 	height: 13px;
+	width: 13px;
 	padding: 2px;
 	vertical-align: bottom;
 }
