@@ -1,3 +1,5 @@
+export const noteStatuses=['open','closed','hidden'] as const
+
 /**
  * notes as received from the server
  */
@@ -20,7 +22,7 @@ export interface NoteFeature {
 	}
 	properties: {
 		id: number
-		status: 'open' | 'closed' | 'hidden'
+		status: typeof noteStatuses[number]
 		comments: NoteFeatureComment[]
 	}
 }
@@ -47,7 +49,7 @@ export interface Note {
 	id: number
 	lat: number
 	lon: number
-	status: 'open' | 'closed' | 'hidden'
+	status: typeof noteStatuses[number]
 	comments: NoteComment[]
 }
 

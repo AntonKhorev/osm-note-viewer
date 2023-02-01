@@ -1,23 +1,37 @@
 import {Tool, ToolElements, ToolCallbacks, makeNotesIcon, makeNoteStatusIcon, makeActionIcon} from './base'
 import type Auth from '../auth'
 import type {Note} from '../data'
+import {noteStatuses} from '../data'
 import {readNoteResponse, NoteDataError} from '../fetch-note'
 import {makeHrefWithCurrentHost} from '../hash'
-import {makeDiv, makeLink} from '../html'
-import {p,ul,li} from '../html-shortcuts'
+import {makeElement, makeDiv, makeLink} from '../html'
+import {p,ul,li,code} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 
 const e=makeEscapeTag(encodeURIComponent)
 
 class InteractionError extends TypeError {}
 
-type InteractionDescription = {
-	endpoint: string,
-	label: string,
-	$button: HTMLButtonElement,
-	inputNoteIds: number[],
-	inputNoteStatus: 'open'|'closed',
-	outputNoteStatus: 'open'|'closed',
+type InteractionDescription = ({
+	verb: 'POST'
+	endpoint: string
+} | {
+	verb: 'DELETE'
+}) & {
+	label: string
+	runningLabel: string
+	$button: HTMLButtonElement
+	inputNoteStatus: Note['status']
+	outputNoteStatus: Note['status']
+	forModerator: boolean
+}
+
+type InteractionRun = {
+	interactionDescription: InteractionDescription
+	status: 'running' | 'paused' | 'finished'
+	requestedStatus: 'running' | 'paused'
+	inputNoteIds: number[]
+	outputNoteIds: number[]
 }
 
 export class InteractTool extends Tool {
@@ -33,38 +47,74 @@ export class InteractTool extends Tool {
 	private $commentButton=document.createElement('button')
 	private $closeButton=document.createElement('button')
 	private $reopenButton=document.createElement('button')
-	private readonly selectedOpenNoteIds: number[] = []
-	private readonly selectedClosedNoteIds: number[] = []
-	private stashedSelectedNotes?: ReadonlyArray<Note>
-	private interactingEndpoint?: string
-	private haltRequest=false
+	private $hideOpenButton=document.createElement('button')
+	private $hideClosedButton=document.createElement('button')
+	private $reactivateButton=document.createElement('button')
+	private $runButton=makeElement('button')('only-with-icon')()
+	private $runOutput=document.createElement('output')
+	private readonly selectedNoteIds: Map<Note['status'],number[]> = new Map(noteStatuses.map(status=>[status,[]]))
+	private run?: InteractionRun
 	private interactionDescriptions: InteractionDescription[]=[{
+		verb: 'POST',
 		endpoint: 'comment',
 		label: `Comment`,
+		runningLabel: `Commenting`,
 		$button: this.$commentButton,
-		inputNoteIds: this.selectedOpenNoteIds,
 		inputNoteStatus: 'open',
 		outputNoteStatus: 'open',
+		forModerator: false
 	},{
+		verb: 'POST',
 		endpoint: 'close',
 		label: `Close`,
+		runningLabel: `Closing`,
 		$button: this.$closeButton,
-		inputNoteIds: this.selectedOpenNoteIds,
 		inputNoteStatus: 'open',
 		outputNoteStatus: 'closed',
+		forModerator: false
 	},{
+		verb: 'POST',
 		endpoint: 'reopen',
 		label: `Reopen`,
+		runningLabel: `Reopening`,
 		$button: this.$reopenButton,
-		inputNoteIds: this.selectedClosedNoteIds,
 		inputNoteStatus: 'closed',
 		outputNoteStatus: 'open',
+		forModerator: false
+	},{
+		verb: 'DELETE',
+		label: `Hide`,
+		runningLabel: `Hiding`,
+		$button: this.$hideOpenButton,
+		inputNoteStatus: 'open',
+		outputNoteStatus: 'hidden',
+		forModerator: true
+	},{
+		verb: 'DELETE',
+		label: `Hide`,
+		runningLabel: `Hiding`,
+		$button: this.$hideClosedButton,
+		inputNoteStatus: 'closed',
+		outputNoteStatus: 'hidden',
+		forModerator: true
+	},{
+		verb: 'POST',
+		endpoint: 'reopen',
+		label: `Reactivate`,
+		runningLabel: `Reactivating`,
+		$button: this.$reactivateButton,
+		inputNoteStatus: 'hidden',
+		outputNoteStatus: 'open',
+		forModerator: true
 	}]
 	constructor(auth: Auth) {
 		super(auth)
-		this.updateLoginDependents()
+		this.updateYourNotes()
+		this.updateAsOutput()
 		this.updateWithOutput()
+		this.$commentText.placeholder=`Comment text`
 		this.updateButtons()
+		this.updateRun()
 	}
 	getInfo() {return[p(
 		`Do the following operations with notes:`
@@ -74,7 +124,10 @@ export class InteractTool extends Tool {
 		),li(
 			makeLink(`close`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)
 		),li(
-			makeLink(`reopen`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`)
+			makeLink(`reopen`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`),
+			` — for moderators this API call also makes hidden note visible again`
+		),li(
+			`for moderators there's also a delete method to hide a note: `,code(`DELETE /api/0.6/notes/#id`)
 		)
 	),p(
 		`If you want to find the notes you interacted with, try searching for `,this.$yourNotesApi,`. `,
@@ -82,92 +135,70 @@ export class InteractTool extends Tool {
 		`If you've hidden a note and want to see it, look for it at `,this.$yourNotesWeb,` on the OSM website.`
 	)]}
 	getTool(callbacks: ToolCallbacks): ToolElements {
-		this.$commentText.placeholder=`Comment text`
 		this.$commentText.oninput=()=>{
 			this.updateButtons()
 		}
-		for (const {$button,inputNoteIds,endpoint} of this.interactionDescriptions) {
-			$button.onclick=async()=>{
-				if (this.interactingEndpoint!=null) {
-					this.haltRequest=true
-					return
-				}
-				this.haltRequest=false
-				this.clearButtonErrors()
-				this.interactingEndpoint=endpoint
-				this.$commentText.disabled=true
-				try {
-					while (inputNoteIds.length>0 && !this.haltRequest) {
-						this.updateButtons()
-						const id=inputNoteIds[0]
-						const response=await this.auth.server.api.postUrlencoded(e`notes/${id}/${endpoint}.json`,{
-							Authorization: 'Bearer '+this.auth.token
-						},[
-							['text',this.$commentText.value],
-						])
-						if (!response.ok) {
-							throw new InteractionError(await response.text())
-						}
-						inputNoteIds.shift()
-						const noteAndUsers=await readNoteResponse(id,response)
-						callbacks.onNoteReload(this,...noteAndUsers)
+		const scheduleRunNextNote=this.makeRunScheduler(callbacks)
+		for (const interactionDescription of this.interactionDescriptions) {
+			interactionDescription.$button.onclick=async()=>{
+				if (this.run?.status=='paused') {
+					this.run=undefined
+					this.updateButtons()
+					this.updateRun()
+				} else {
+					const matchingNoteIds=this.selectedNoteIds.get(interactionDescription.inputNoteStatus)
+					if (!matchingNoteIds) return
+					const runImmediately=matchingNoteIds.length<=1
+					this.run={
+						interactionDescription,
+						status: 'paused',
+						requestedStatus: runImmediately?'running':'paused',
+						inputNoteIds: [...matchingNoteIds],
+						outputNoteIds: []
 					}
-					this.$commentText.value=''
-				} catch (ex) {
-					$button.classList.add('error')
-					if (ex instanceof InteractionError) {
-						$button.title=ex.message
-					} else if (ex instanceof NoteDataError) {
-						$button.title=`Error after successful interaction: ${ex.message}`
-					} else {
-						$button.title=`Unknown error ${ex}`
-					}
+					if (runImmediately) scheduleRunNextNote()
+					this.updateButtons()
+					this.updateRun()
 				}
-				this.$commentText.disabled=false
-				this.interactingEndpoint=undefined
-				this.haltRequest=false
-				if (this.stashedSelectedNotes) {
-					const unstashedSelectedNotes=this.stashedSelectedNotes
-					this.stashedSelectedNotes=undefined
-					this.processSelectedNotes(unstashedSelectedNotes)
-				}
-				this.updateButtons()
+			}
+		}
+		this.$runButton.onclick=async()=>{
+			if (!this.run) return
+			if (this.run.status=='running') {
+				this.run.requestedStatus='paused'
+				this.updateRun()
+				scheduleRunNextNote()
+			} else if (this.run.status=='paused') {
+				this.run.requestedStatus='running'
+				this.updateRun()
+				scheduleRunNextNote()
 			}
 		}
 		return [
 			this.$asOutput,` `,this.$withOutput,` `,
 			makeDiv('major-input')(this.$commentText),
-			makeDiv('gridded-input')(...this.interactionDescriptions.map(({$button})=>$button))
+			makeDiv('gridded-input')(...this.interactionDescriptions.map(({$button})=>$button)),
+			this.$runButton,` `,this.$runOutput
 		]
 	}
 	onLoginChange(): boolean {
-		this.updateLoginDependents()
+		this.updateYourNotes()
+		this.updateAsOutput()
+		this.updateButtons()
 		return true
 	}
 	onSelectedNotesChange(selectedNotes: ReadonlyArray<Note>) {
-		if (this.interactingEndpoint!=null) {
-			this.stashedSelectedNotes=selectedNotes
-			return false
+		for (const status of noteStatuses) {
+			const ids=this.selectedNoteIds.get(status)
+			if (ids) ids.length=0
 		}
-		this.processSelectedNotes(selectedNotes)
-		return true
-	}
-	private processSelectedNotes(selectedNotes: ReadonlyArray<Note>) {
-		this.selectedOpenNoteIds.length=0
-		this.selectedClosedNoteIds.length=0
 		for (const selectedNote of selectedNotes) {
-			if (selectedNote.status=='open') {
-				this.selectedOpenNoteIds.push(selectedNote.id)
-			} else if (selectedNote.status=='closed') {
-				this.selectedClosedNoteIds.push(selectedNote.id)
-			}
+			const ids=this.selectedNoteIds.get(selectedNote.status)
+			ids?.push(selectedNote.id)
 		}
 		this.updateWithOutput()
 		this.updateButtons()
-	}
-	private updateLoginDependents() {
-		this.updateYourNotes()
-		this.updateAsOutput()
+		return true
 	}
 	private updateYourNotes() {
 		const apiText=`your own latest updated notes`
@@ -204,7 +235,7 @@ export class InteractTool extends Tool {
 	}
 	private updateWithOutput() {
 		let first=true
-		const writeSingleNote=(id:number,status:'open'|'closed')=>{
+		const writeSingleNote=(id:number,status:Note['status'])=>{
 			if (!first) this.$withOutput.append(`, `)
 			first=false
 			const href=this.auth.server.web.getUrl(e`note/${id}`)
@@ -215,7 +246,7 @@ export class InteractTool extends Tool {
 			$a.append(makeNoteStatusIcon(status),` ${id}`)
 			this.$withOutput.append($a)
 		}
-		const writeOneOrManyNotes=(ids:readonly number[],status:'open'|'closed')=>{
+		const writeOneOrManyNotes=(ids:readonly number[],status:Note['status'])=>{
 			if (ids.length==0) {
 				return
 			}
@@ -227,51 +258,179 @@ export class InteractTool extends Tool {
 			first=false
 			this.$withOutput.append(`${ids.length} × `,makeNoteStatusIcon(status,ids.length))
 		}
-		const nSelectedNotes=this.selectedOpenNoteIds.length+this.selectedClosedNoteIds.length
+		const nSelectedNotes=noteStatuses.reduce(
+			(n:number,status)=>n+(this.selectedNoteIds.get(status)?.length??0),
+		0)
 		if (nSelectedNotes==0) {
 			this.$withOutput.replaceChildren()
 		} else if (nSelectedNotes<=5) {
 			this.$withOutput.replaceChildren(`with `)
-			for (const noteId of this.selectedOpenNoteIds) {
-				writeSingleNote(noteId,'open')
-			}
-			for (const noteId of this.selectedClosedNoteIds) {
-				writeSingleNote(noteId,'closed')
+			for (const [status,ids] of this.selectedNoteIds) {
+				for (const id of ids) {
+					writeSingleNote(id,status)
+				}
 			}
 		} else {
 			this.$withOutput.replaceChildren(`with `)
-			writeOneOrManyNotes(this.selectedOpenNoteIds,'open')
-			writeOneOrManyNotes(this.selectedClosedNoteIds,'closed')
+			for (const [status,ids] of this.selectedNoteIds) {
+				writeOneOrManyNotes(ids,status)
+			}
 		}
 	}
 	private updateButtons() {
-		const buttonNoteIcon=(ids:readonly number[],inputStatus:'open'|'closed',outputStatus:'open'|'closed'): (string|HTMLElement)[]=>{
+		const buttonNoteIcon=(ids:readonly number[],inputStatus:Note['status'],outputStatus:Note['status']): (string|HTMLElement)[]=>{
 			const outputIcon=[]
 			if (outputStatus!=inputStatus) {
 				outputIcon.push(` → `,makeNoteStatusIcon(outputStatus,ids.length))
 			}
 			if (ids.length==0) {
 				return [makeNotesIcon('selected')]
-			} else if (ids.length==1 && this.interactingEndpoint==null) { // while interacting, don't output single note id b/c countdown looks better this way
+			} else if (ids.length==1) {
 				return [makeNoteStatusIcon(inputStatus),` ${ids[0]}`,...outputIcon]
 			} else {
 				return [`${ids.length} × `,makeNoteStatusIcon(inputStatus,ids.length),...outputIcon]
 			}
 		}
-		for (const {$button,endpoint,label,inputNoteIds,inputNoteStatus,outputNoteStatus} of this.interactionDescriptions) {
-			$button.disabled=(this.interactingEndpoint!=null && this.interactingEndpoint!=endpoint) || inputNoteIds.length==0
-			$button.replaceChildren()
-			if (this.interactingEndpoint==endpoint) {
-				$button.append(makeActionIcon('pause',`Halt`),` `)
+		for (const interactionDescription of this.interactionDescriptions) {
+			const inputNoteIds=this.selectedNoteIds.get(interactionDescription.inputNoteStatus)??[]
+			const {$button}=interactionDescription
+			let cancelCondition=false
+			if (this.run && this.run.status!='finished') {
+				cancelCondition=this.run.status=='paused' && this.run.interactionDescription==interactionDescription
+				$button.disabled=(
+					this.run.status=='running' ||
+					this.run.status=='paused' && this.run.interactionDescription!=interactionDescription
+				)
+			} else {
+				$button.disabled=inputNoteIds.length==0
 			}
-			$button.append(`${label} `,...buttonNoteIcon(inputNoteIds,inputNoteStatus,outputNoteStatus))
+			if (cancelCondition) {
+				$button.replaceChildren(`Cancel`)
+			} else {
+				$button.replaceChildren(
+					`${interactionDescription.label} `,...buttonNoteIcon(inputNoteIds,interactionDescription.inputNoteStatus,interactionDescription.outputNoteStatus)
+				)
+			}
+			$button.hidden=interactionDescription.forModerator && !this.auth.isModerator
 		}
 		if (this.$commentText.value=='') this.$commentButton.disabled=true
 	}
-	private clearButtonErrors() {
-		for (const {$button} of this.interactionDescriptions) {
-			$button.classList.remove('error')
-			$button.title=''
+	private updateRun() {
+		const canPause=this.run && this.run.status=='running'
+		this.$runButton.replaceChildren(canPause
+			? makeActionIcon('pause',`Halt`)
+			: makeActionIcon('play',`Resume`)
+		)
+		this.$runButton.disabled=!this.run || this.run.status!=this.run.requestedStatus
+		if (!this.run) this.$runOutput.replaceChildren(
+			`select notes for interaction using checkboxes`
+		)
+	}
+	private makeRunScheduler(callbacks: ToolCallbacks): ()=>void {
+		let runTimeoutId: number|undefined
+		const runNextNote=async():Promise<boolean>=>{
+			const run=()=>{
+				this.$commentText.disabled=true
+			}
+			const pause=()=>{
+				this.$commentText.disabled=false
+				this.updateButtons()
+				this.updateRun()
+			}
+			const finish=()=>{
+				this.$commentText.disabled=false
+				this.$commentText.value=''
+				this.updateButtons()
+				this.updateRun()
+			}
+			if (!this.run) return false
+			if (this.run.status=='finished') {
+				return false
+			} else if (this.run.status=='paused') {
+				if (this.run.requestedStatus=='paused') {
+					return false
+				} else if (this.run.requestedStatus=='running') {
+					this.run.status='running'
+					run()
+				}
+			} else if (this.run.status=='running') {
+				if (this.run.requestedStatus=='paused') {
+					this.run.status='paused'
+					pause()
+					return false
+				}
+			}
+			if (this.run.inputNoteIds.length==0) {
+				this.run.status='finished'
+				finish()
+				this.$runOutput.replaceChildren(
+					this.run.interactionDescription.runningLabel,` finished`
+				)
+				return false
+			}
+			this.updateButtons()
+			this.updateRun()
+			const id=this.run.inputNoteIds[0]
+			this.$runOutput.replaceChildren(
+				this.run.interactionDescription.runningLabel,` note ${id}`
+			)
+			try {
+				let response: Response
+				if (this.run.interactionDescription.verb=='DELETE') {
+					const path=e`notes/${id}.json`
+					response=await this.auth.server.api.fetch(path,{
+						method: 'POST',
+						headers: {
+							Authorization: 'Bearer '+this.auth.token
+						}
+					})
+				} else { // POST
+					const path=e`notes/${id}/${this.run.interactionDescription.endpoint}.json`
+					response=await this.auth.server.api.postUrlencoded(path,{
+						Authorization: 'Bearer '+this.auth.token
+					},[
+						['text',this.$commentText.value],
+					])
+				}
+				if (!response.ok) {
+					throw new InteractionError(await response.text())
+				}
+				this.run.inputNoteIds.shift()
+				const noteAndUsers=await readNoteResponse(id,response)
+				callbacks.onNoteReload(this,...noteAndUsers)
+				this.$runOutput.replaceChildren(
+					this.run.interactionDescription.runningLabel
+				)
+			} catch (ex) {
+				const $a=makeLink(`note ${id}`,'#') // TODO link to current note
+				$a.classList.add('error')
+				if (ex instanceof InteractionError) {
+					$a.title=ex.message
+				} else if (ex instanceof NoteDataError) {
+					$a.title=`Error after successful interaction: ${ex.message}`
+				} else {
+					$a.title=`Unknown error ${ex}`
+				}
+				this.run.status='paused'
+				pause()
+				this.$runOutput.replaceChildren(
+					this.run.interactionDescription.runningLabel,` error on `,$a
+				)
+			}
+			return true
 		}
+		const wrappedRunNextNote=async()=>{
+			let reschedule=false
+			try {
+				reschedule=await runNextNote()
+			} catch {}
+			runTimeoutId=undefined
+			if (reschedule) scheduleRunNextNote()
+		}
+		const scheduleRunNextNote=()=>{
+			if (runTimeoutId) return
+			runTimeoutId=setTimeout(wrappedRunNextNote)
+		}
+		return scheduleRunNextNote
 	}
 }

@@ -72,4 +72,7 @@ export default class Auth {
 	get uid(): number|undefined {
 		return this.authStorage.login?.uid
 	}
+	get isModerator(): boolean {
+		return this.authStorage.login?.roles?.includes('moderator')??false
+	}
 }
