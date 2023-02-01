@@ -25,7 +25,8 @@ export class InteractTool extends Tool {
 	name=`Interact`
 	title=`Interact with notes on OSM server`
 	isFullWidth=true
-	private $yourNotes=document.createElement('span')
+	private $yourNotesApi=document.createElement('span')
+	private $yourNotesWeb=document.createElement('span')
 	private $asOutput=document.createElement('output')
 	private $withOutput=document.createElement('output')
 	private $commentText=document.createElement('textarea')
@@ -76,7 +77,9 @@ export class InteractTool extends Tool {
 			makeLink(`reopen`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`)
 		)
 	),p(
-		`If you want to find the notes you interacted with, try searching for `,this.$yourNotes,`.`
+		`If you want to find the notes you interacted with, try searching for `,this.$yourNotesApi,`. `,
+		`Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `,
+		`If you've hidden a note and want to see it, look for it at `,this.$yourNotesWeb,` on the OSM website.`
 	)]}
 	getTool(callbacks: ToolCallbacks): ToolElements {
 		this.$commentText.placeholder=`Comment text`
@@ -167,16 +170,20 @@ export class InteractTool extends Tool {
 		this.updateAsOutput()
 	}
 	private updateYourNotes() {
-		const text=`your own latest updated notes`
+		const apiText=`your own latest updated notes`
+		const webText=`your notes page`
 		if (this.auth.username==null) {
-			this.$yourNotes.replaceChildren(text)
+			this.$yourNotesApi.replaceChildren(apiText)
+			this.$yourNotesWeb.replaceChildren(webText)
 		} else {
-			const href=makeHrefWithCurrentHost([
+			const apiHref=makeHrefWithCurrentHost([
 				['mode','search'],
 				['display_name',this.auth.username],
 				['sort','updated_at']
 			])
-			this.$yourNotes.replaceChildren(makeLink(text,href))
+			const webHref=this.auth.server.web.getUrl(e`user/${this.auth.username}/notes`)
+			this.$yourNotesApi.replaceChildren(makeLink(apiText,apiHref))
+			this.$yourNotesWeb.replaceChildren(makeLink(webText,webHref))
 		}
 	}
 	private updateAsOutput() {
