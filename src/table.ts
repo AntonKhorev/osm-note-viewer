@@ -200,10 +200,10 @@ export default class NoteTable implements NoteTableUpdater {
 		} else {
 			this.map.fitNotesIfNeeded()
 		}
-		this.sendNoteCountsUpdate()
+		this.sendNoteCounts()
 		return nUnfilteredNotes
 	}
-	replaceNote(note: Note, users: Users, unselectAndUpdateCheckboxDependents = false): void {
+	replaceNote(note: Note, users: Users): void {
 		const $noteSection=this.getNoteSection(note.id)
 		if (!$noteSection) return
 		const $checkbox=$noteSection.querySelector('.note-checkbox input')
@@ -223,16 +223,14 @@ export default class NoteTable implements NoteTableUpdater {
 		const isVisible=this.filter.matchNote(note,getUsername)
 		this.makeMarker(note,isVisible)
 		this.writeNoteSection($noteSection,note,users,isVisible)
-		if (unselectAndUpdateCheckboxDependents) {
-			this.updateCheckboxDependents()
+		if (isVisible) {
+			this.setNoteSelection($noteSection,wasSelected)
+			this.sendSelectedNotes()
 		} else {
-			if (isVisible) this.setNoteSelection($noteSection,wasSelected)
+			this.updateCheckboxDependents()
+			this.sendNoteCounts()
 		}
 		this.refresherConnector.registerNote(note)
-		this.sendNoteCountsUpdate() // TODO only do if visibility changed
-	}
-	replaceAndUnselectNote(note: Note, users: Users): void {
-		this.replaceNote(note,users,true)
 	}
 	getVisibleNoteIds(): number[] {
 		const ids: number[] = []
@@ -326,7 +324,7 @@ export default class NoteTable implements NoteTableUpdater {
 			this.looseParserListener.listen($commentCell)
 		}
 	}
-	private sendNoteCountsUpdate(): void {
+	private sendNoteCounts(): void {
 		let nFetched=0
 		let nVisible=0
 		for (const $noteSection of this.$table.tBodies) {
@@ -404,7 +402,27 @@ export default class NoteTable implements NoteTableUpdater {
 		marker.getElement()?.classList.add('active-'+type)
 		$noteSection.classList.add('active-'+type)
 	}
+	private sendSelectedNotes(): void {
+		const [
+			checkedNotes,checkedNoteUsers
+		]=this.getCheckedData()
+		this.toolPanel.receiveSelectedNotes(checkedNotes,checkedNoteUsers)
+	}
 	private updateCheckboxDependents(): void {
+		const [
+			checkedNotes,checkedNoteUsers,hasUnchecked
+		]=this.getCheckedData()
+		const hasChecked=checkedNotes.length>0
+		this.$selectAllCheckbox.indeterminate=hasChecked && hasUnchecked
+		this.$selectAllCheckbox.checked=hasChecked && !hasUnchecked
+		this.toolPanel.receiveSelectedNotes(checkedNotes,checkedNoteUsers)
+		if (this.toolPanel.fitMode=='selectedNotes') this.map.fitSelectedNotes()
+	}
+	private getCheckedData(): [
+		checkedNotes: Note[],
+		checkedNoteUsers: Map<number,string>,
+		hasUnchecked: boolean
+	] {
 		const checkedNotes: Note[] = []
 		const checkedNoteUsers: Map<number,string> = new Map()
 		let hasUnchecked=false
@@ -426,11 +444,7 @@ export default class NoteTable implements NoteTableUpdater {
 				checkedNoteUsers.set(comment.uid,username)
 			}
 		}
-		let hasChecked=checkedNotes.length>0
-		this.$selectAllCheckbox.indeterminate=hasChecked && hasUnchecked
-		this.$selectAllCheckbox.checked=hasChecked && !hasUnchecked
-		this.toolPanel.receiveSelectedNotes(checkedNotes,checkedNoteUsers)
-		if (this.toolPanel.fitMode=='selectedNotes') this.map.fitSelectedNotes()
+		return [checkedNotes,checkedNoteUsers,hasUnchecked]
 	}
 	private setNoteSelection($noteSection: HTMLTableSectionElement, isSelected: boolean): void {
 		const getTargetLayer=()=>{

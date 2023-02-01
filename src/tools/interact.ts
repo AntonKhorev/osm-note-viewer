@@ -288,7 +288,7 @@ export class InteractTool extends Tool {
 			} else if (ids.length==1) {
 				return [makeNoteStatusIcon(inputStatus),` ${ids[0]}`,...outputIcon]
 			} else {
-				return [`${ids.length} × `,makeNoteStatusIcon(inputStatus,ids.length),...outputIcon]
+				return [`${ids.length} × `,makeNoteStatusIcon(inputStatus,ids.length),...outputIcon,`...`]
 			}
 		}
 		for (const interactionDescription of this.interactionDescriptions) {
@@ -411,7 +411,7 @@ export class InteractTool extends Tool {
 				} else {
 					$a.title=`Unknown error ${ex}`
 				}
-				this.run.status='paused'
+				this.run.status=this.run.requestedStatus='paused'
 				pause()
 				this.$runOutput.replaceChildren(
 					this.run.interactionDescription.runningLabel,` error on `,$a

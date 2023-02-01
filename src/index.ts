@@ -78,7 +78,7 @@ async function main() {
 	if (toolPanel) {
 		toolPanel.onNoteReload=async(note,users)=>{
 			await fetchPanel.fetcherRun?.updateNote(note,users)
-			noteTable?.replaceAndUnselectNote(note,users)
+			noteTable?.replaceNote(note,users)
 		}
 	}
 	if (globalHistory.hasServer()) {
