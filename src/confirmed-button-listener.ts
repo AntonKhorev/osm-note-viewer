@@ -11,16 +11,19 @@ export default class ConfirmedButtonListener {
 		$initButton.onclick=async()=>{
 			if (isConfirmationRequired()) {
 				this.ask()
+				this.$cancelButton.focus()
 			} else {
 				await runAction()
 			}
 		}
 		$cancelButton.onclick=()=>{
 			this.reset()
+			this.$initButton.focus()
 		}
 		$confirmButton.onclick=async()=>{
 			await runAction()
 			this.reset()
+			this.$initButton.focus()
 		}
 	}
 	reset() {
