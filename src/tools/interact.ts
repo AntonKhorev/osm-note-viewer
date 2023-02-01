@@ -140,7 +140,7 @@ export class InteractTool extends Tool {
 		}
 		const scheduleRunNextNote=this.makeRunScheduler(callbacks)
 		for (const interactionDescription of this.interactionDescriptions) {
-			interactionDescription.$button.onclick=async()=>{
+			interactionDescription.$button.onclick=()=>{
 				if (this.run?.status=='paused') {
 					this.run=undefined
 					this.updateButtons()
@@ -162,12 +162,18 @@ export class InteractTool extends Tool {
 				}
 			}
 		}
-		this.$runButton.onclick=async()=>{
+		this.$runButton.onpointerdown=()=>{ // click event sometimes fails to fire when running
 			if (!this.run) return
 			if (this.run.status=='running') {
 				this.run.requestedStatus='paused'
 				this.updateRun()
-				scheduleRunNextNote()
+			}
+		}
+		this.$runButton.onclick=()=>{
+			if (!this.run) return
+			if (this.run.status=='running') {
+				this.run.requestedStatus='paused'
+				this.updateRun()
 			} else if (this.run.status=='paused') {
 				this.run.requestedStatus='running'
 				this.updateRun()
