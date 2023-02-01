@@ -82,7 +82,7 @@ export function makeNoteStatusIcon(status: Note['status'], number = 1): HTMLElem
 	const r=width/2
 	const $span=makeElement('span')(`icon-note-status`)()
 	const path=`<path d="${computeMarkerOutlinePath(height,width/2-.5)}" stroke="gray" ${pathAttrs()} />`
-	$span.innerHTML=`<svg viewBox="${-r} ${-r} ${width} ${height}">${path}</svg><span>${status} note${number>1?`s`:``}</span>`
+	$span.innerHTML=`<svg viewBox="${-r} ${-r} ${width} ${height}">${path}</svg><span>${status} note${number!=1?`s`:``}</span>`
 	return $span
 	function pathAttrs() {
 		if (status=='open') {

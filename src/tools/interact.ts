@@ -284,7 +284,7 @@ export class InteractTool extends Tool {
 				outputIcon.push(` → `,makeNoteStatusIcon(outputStatus,ids.length))
 			}
 			if (ids.length==0) {
-				return [makeNotesIcon('selected')]
+				return [makeNoteStatusIcon(inputStatus,ids.length),...outputIcon]
 			} else if (ids.length==1) {
 				return [makeNoteStatusIcon(inputStatus),` ${ids[0]}`,...outputIcon]
 			} else {
