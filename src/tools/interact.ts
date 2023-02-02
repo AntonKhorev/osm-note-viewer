@@ -416,7 +416,12 @@ export class InteractTool extends Tool {
 					])
 				}
 				if (!response.ok) {
-					throw new InteractionError(await response.text())
+					const contentType=response.headers.get('content-type')
+					if (contentType?.includes('text/plain')) {
+						throw new InteractionError(await response.text())
+					} else {
+						throw new InteractionError(`${response.status} ${response.statusText}`)
+					}
 				}
 				const noteAndUsers=await readNoteResponse(id,response)
 				callbacks.onNoteReload(this,...noteAndUsers)
