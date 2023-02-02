@@ -191,7 +191,7 @@ export class InteractTool extends Tool {
 		this.updateButtons()
 		return true
 	}
-	onSelectedNotesChange(selectedNotes: ReadonlyArray<Note>) {
+	onSelectedNotesChange(selectedNotes: ReadonlyArray<Note>): boolean {
 		for (const status of noteStatuses) {
 			const ids=this.selectedNoteIds.get(status)
 			if (ids) ids.length=0
@@ -204,7 +204,7 @@ export class InteractTool extends Tool {
 		this.updateButtons()
 		return true
 	}
-	private updateYourNotes() {
+	private updateYourNotes(): void {
 		const apiText=`your own latest updated notes`
 		const webText=`your notes page`
 		if (this.auth.username==null) {
@@ -221,7 +221,7 @@ export class InteractTool extends Tool {
 			this.$yourNotesWeb.replaceChildren(makeLink(webText,webHref))
 		}
 	}
-	private updateAsOutput() {
+	private updateAsOutput(): void {
 		if (this.auth.username==null || this.auth.uid==null) {
 			this.$asOutput.replaceChildren(
 				`anonymously`
@@ -237,7 +237,7 @@ export class InteractTool extends Tool {
 			)
 		}
 	}
-	private updateWithOutput() {
+	private updateWithOutput(): void {
 		const multipleNoteIndicators=this.getMultipleNoteIndicators(this.selectedNoteIds,5)
 		if (multipleNoteIndicators.length>0) {
 			this.$withOutput.replaceChildren(`with `,...multipleNoteIndicators)
@@ -245,7 +245,7 @@ export class InteractTool extends Tool {
 			this.$withOutput.replaceChildren()
 		}
 	}
-	private updateButtons() {
+	private updateButtons(): void {
 		const buttonNoteIcon=(ids:readonly number[],inputStatus:Note['status'],outputStatus:Note['status']): (string|HTMLElement)[]=>{
 			const outputIcon=[]
 			if (outputStatus!=inputStatus) {
@@ -283,7 +283,7 @@ export class InteractTool extends Tool {
 		}
 		if (this.$commentText.value=='') this.$commentButton.disabled=true
 	}
-	private updateRunButton() {
+	private updateRunButton(): void {
 		const canPause=this.run && this.run.status=='running'
 		this.$runButton.replaceChildren(canPause
 			? makeActionIcon('pause',`Halt`)
@@ -291,7 +291,16 @@ export class InteractTool extends Tool {
 		)
 		this.$runButton.disabled=!this.run || this.run.status!=this.run.requestedStatus
 	}
-	private updateRunOutput() {
+	private updateRunOutput(): void {
+		let firstFragment=true
+		const outputFragment=(...content:(string|HTMLElement)[])=>{
+			if (firstFragment) {
+				firstFragment=false
+			} else {
+				this.$runOutput.append(` → `)
+			}
+			this.$runOutput.append(...content)
+		}
 		if (!this.run) {
 			this.$runOutput.replaceChildren(
 				`Select notes for interaction using checkboxes`
@@ -299,22 +308,18 @@ export class InteractTool extends Tool {
 			return
 		}
 		this.$runOutput.replaceChildren(
-			this.run.interactionDescription.runningLabel
+			this.run.interactionDescription.runningLabel,` `
 		)
 		const inputNoteIndicators=this.getMultipleNoteIndicators([[
 			this.run.interactionDescription.inputNoteStatus,this.run.inputNoteIds
 		]],0)
 		if (inputNoteIndicators.length>0) {
-			this.$runOutput.append(
-				`: queued `,...inputNoteIndicators
+			outputFragment(
+				`queued `,...inputNoteIndicators
 			)
 		} else if (this.run.currentNoteId!=null) {
-			this.$runOutput.append(
-				`: queue emptied`
-			)
-		} else {
-			this.$runOutput.append(
-				` finished`
+			outputFragment(
+				`queue emptied`
 			)
 		}
 		if (this.run.currentNoteId!=null) {
@@ -322,12 +327,12 @@ export class InteractTool extends Tool {
 			if (this.run.currentNoteError) {
 				$a.classList.add('error')
 				$a.title=this.run.currentNoteError
-				this.$runOutput.append(
-					` → error on `,$a
+				outputFragment(
+					`error on `,$a
 				)
 			} else {
-				this.$runOutput.append(
-					` → current `,$a
+				outputFragment(
+					`current `,$a
 				)
 			}
 		}
@@ -335,8 +340,8 @@ export class InteractTool extends Tool {
 			this.run.interactionDescription.outputNoteStatus,this.run.outputNoteIds
 		]],0)
 		if (outputNoteIndicators.length>0) {
-			this.$runOutput.append(
-				` → done `,...outputNoteIndicators
+			outputFragment(
+				`completed `,...outputNoteIndicators
 			)
 		}
 	}
