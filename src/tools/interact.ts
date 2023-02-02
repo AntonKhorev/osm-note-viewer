@@ -308,6 +308,10 @@ export class InteractTool extends Tool {
 			this.$runOutput.append(
 				`: queued `,...inputNoteIndicators
 			)
+		} else if (this.run.currentNoteId!=null) {
+			this.$runOutput.append(
+				`: queue emptied`
+			)
 		} else {
 			this.$runOutput.append(
 				` finished`
@@ -354,6 +358,7 @@ export class InteractTool extends Tool {
 				this.$commentText.value=''
 				this.updateButtons()
 				this.updateRunButton()
+				this.updateRunOutput()
 			}
 			if (!this.run) return false
 			if (this.run.status=='finished') {
