@@ -200,9 +200,13 @@ export class InteractTool extends Tool {
 			const ids=this.selectedNoteIds.get(selectedNote.status)
 			ids?.push(selectedNote.id)
 		}
-		this.updateWithOutput()
-		this.updateButtons()
-		return true
+		if (this.run?.status=='running') {
+			return false
+		} else {
+			this.updateWithOutput()
+			this.updateButtons()
+			return true
+		}
 	}
 	private updateYourNotes(): void {
 		const apiText=`your own latest updated notes`
@@ -348,19 +352,21 @@ export class InteractTool extends Tool {
 	private makeRunScheduler(callbacks: ToolCallbacks): ()=>void {
 		let runTimeoutId: number|undefined
 		const runNextNote=async():Promise<boolean>=>{
-			const run=()=>{
+			const transitionToRunning=()=>{
 				this.$commentText.disabled=true
 				this.updateButtons()
 				this.updateRunButton()
 			}
-			const pause=()=>{
+			const transitionToPaused=()=>{
 				this.$commentText.disabled=false
+				this.updateWithOutput() // may have received selected notes change
 				this.updateButtons()
 				this.updateRunButton()
 			}
-			const finish=()=>{
+			const transitionToFinished=()=>{
 				this.$commentText.disabled=false
 				this.$commentText.value=''
+				this.updateWithOutput() // may have received selected notes change
 				this.updateButtons()
 				this.updateRunButton()
 				this.updateRunOutput()
@@ -373,24 +379,23 @@ export class InteractTool extends Tool {
 					return false
 				} else if (this.run.requestedStatus=='running') {
 					this.run.status='running'
-					run()
+					transitionToRunning()
 				}
 			} else if (this.run.status=='running') {
 				if (this.run.requestedStatus=='paused') {
 					this.run.status='paused'
-					pause()
+					transitionToPaused()
 					return false
 				}
 			}
 			const id=this.run.currentNoteId??this.run.inputNoteIds.shift()
 			if (id==null) {
 				this.run.status='finished'
-				finish()
+				transitionToFinished()
 				return false
 			}
 			this.run.currentNoteId=id
 			this.run.currentNoteError=undefined
-			this.updateButtons()
 			this.updateRunOutput()
 			try {
 				let response: Response
@@ -426,7 +431,7 @@ export class InteractTool extends Tool {
 					this.run.currentNoteError=`Unknown error ${ex}`
 				}
 				this.run.status=this.run.requestedStatus='paused'
-				pause()
+				transitionToPaused()
 				this.updateRunOutput()
 			}
 			return true
