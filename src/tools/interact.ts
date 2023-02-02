@@ -294,19 +294,23 @@ export class InteractTool extends Tool {
 	private updateRunOutput() {
 		if (!this.run) {
 			this.$runOutput.replaceChildren(
-				`select notes for interaction using checkboxes`
+				`Select notes for interaction using checkboxes`
 			)
 			return
 		}
 		this.$runOutput.replaceChildren(
-			this.run.interactionDescription.runningLabel,`:`
+			this.run.interactionDescription.runningLabel
 		)
 		const inputNoteIndicators=this.getMultipleNoteIndicators([[
 			this.run.interactionDescription.inputNoteStatus,this.run.inputNoteIds
 		]],0)
 		if (inputNoteIndicators.length>0) {
 			this.$runOutput.append(
-				` queued `,...inputNoteIndicators
+				`: queued `,...inputNoteIndicators
+			)
+		} else {
+			this.$runOutput.append(
+				` finished`
 			)
 		}
 		if (this.run.currentNoteId!=null) {
@@ -372,9 +376,6 @@ export class InteractTool extends Tool {
 			if (id==null) {
 				this.run.status='finished'
 				finish()
-				this.$runOutput.replaceChildren(
-					this.run.interactionDescription.runningLabel,` finished`
-				)
 				return false
 			}
 			this.run.currentNoteId=id
