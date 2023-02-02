@@ -238,7 +238,7 @@ export class InteractTool extends Tool {
 		}
 	}
 	private updateWithOutput() {
-		const multipleNoteIndicators=this.getMultipleNoteIndicators(this.selectedNoteIds)
+		const multipleNoteIndicators=this.getMultipleNoteIndicators(this.selectedNoteIds,5)
 		if (multipleNoteIndicators.length>0) {
 			this.$withOutput.replaceChildren(`with `,...multipleNoteIndicators)
 		} else {
@@ -303,7 +303,7 @@ export class InteractTool extends Tool {
 		)
 		const inputNoteIndicators=this.getMultipleNoteIndicators([[
 			this.run.interactionDescription.inputNoteStatus,this.run.inputNoteIds
-		]])
+		]],0)
 		if (inputNoteIndicators.length>0) {
 			this.$runOutput.append(
 				` queued `,...inputNoteIndicators
@@ -325,7 +325,7 @@ export class InteractTool extends Tool {
 		}
 		const outputNoteIndicators=this.getMultipleNoteIndicators([[
 			this.run.interactionDescription.outputNoteStatus,this.run.outputNoteIds
-		]])
+		]],0)
 		if (outputNoteIndicators.length>0) {
 			this.$runOutput.append(
 				` → done `,...outputNoteIndicators
@@ -434,7 +434,10 @@ export class InteractTool extends Tool {
 		}
 		return scheduleRunNextNote
 	}
-	private getMultipleNoteIndicators(statusAndIds: Iterable<[status:Note['status'],ids:readonly number[]]>): (string|HTMLElement)[] {
+	private getMultipleNoteIndicators(
+		statusAndIds: Iterable<[status:Note['status'],ids:readonly number[]]>,
+		maxIndividualNotes: number
+	): (string|HTMLElement)[] {
 		const output: (string|HTMLElement)[] = []
 		let first=true
 		const writeSingleNote=(id:number,status:Note['status'])=>{
@@ -459,7 +462,7 @@ export class InteractTool extends Tool {
 			(n:number,[,ids])=>n+ids.length,0
 		)
 		if (nNotes==0) {
-		} else if (nNotes<=5) {
+		} else if (nNotes<=maxIndividualNotes) {
 			for (const [status,ids] of statusAndIdsCopy) {
 				for (const id of ids) {
 					writeSingleNote(id,status)
