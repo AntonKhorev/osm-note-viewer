@@ -770,6 +770,21 @@ class GlobalEventListener {
     }
 }
 
+function getHashSearchParams() {
+    const paramString = (location.hash[0] == '#')
+        ? location.hash.slice(1)
+        : location.hash;
+    return new URLSearchParams(paramString);
+}
+function makeHrefWithCurrentHost(parameters) {
+    const hostHashValue = getHashSearchParams().get('host');
+    const parametersWithCurrentHost = [];
+    if (hostHashValue)
+        parametersWithCurrentHost.push(['host', hostHashValue]);
+    parametersWithCurrentHost.push(...parameters);
+    return '#' + parametersWithCurrentHost.map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+}
+
 class GlobalHistory {
     constructor($scrollingPart, serverList) {
         this.$scrollingPart = $scrollingPart;
@@ -863,7 +878,7 @@ class GlobalHistory {
             return;
         let mapHashValue = '';
         if (!pushStateAndRemoveMapHash) {
-            const searchParams = this.getSearchParams();
+            const searchParams = getHashSearchParams();
             mapHashValue = searchParams.get('map') ?? '';
         }
         const hostHashValue = this.serverList.getHostHashValue(this.server);
@@ -879,12 +894,12 @@ class GlobalHistory {
         }
     }
     hasMapHash() {
-        const searchParams = this.getSearchParams();
+        const searchParams = getHashSearchParams();
         const mapHashValue = searchParams.get('map');
         return !!mapHashValue;
     }
     setMapHash(mapHash) {
-        const searchParams = this.getSearchParams();
+        const searchParams = getHashSearchParams();
         searchParams.delete('map');
         const hostHash = searchParams.get('host');
         searchParams.delete('host');
@@ -895,19 +910,13 @@ class GlobalHistory {
         return !!this.server;
     }
     getAllHashes() {
-        const searchParams = this.getSearchParams();
+        const searchParams = getHashSearchParams();
         const mapHashValue = searchParams.get('map');
         searchParams.delete('map');
         const hostHashValue = searchParams.get('host');
         searchParams.delete('host');
         const queryHash = searchParams.toString();
         return [queryHash, mapHashValue, hostHashValue];
-    }
-    getSearchParams() {
-        const paramString = (location.hash[0] == '#')
-            ? location.hash.slice(1)
-            : location.hash;
-        return new URLSearchParams(paramString);
     }
     getFullHash(queryHash, mapHashValue, hostHashValue) {
         let fullHash = '';
@@ -1613,6 +1622,9 @@ class Auth {
     get uid() {
         return this.authStorage.login?.uid;
     }
+    get isModerator() {
+        return this.authStorage.login?.roles?.includes('moderator') ?? false;
+    }
 }
 
 const e$7 = makeEscapeTag(escapeXml);
@@ -1640,9 +1652,9 @@ function getNoteMarkerIcon(note, isSelected) {
     html += e$7 `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`;
     html += e$7 `<title>${note.status} note #${note.id}</title>`,
         html += e$7 `<path d="${computeMarkerOutlinePath(heightWithAura - .5, rWithAura - .5)}" class="aura" fill="none" />`;
-    html += e$7 `<path d="${computeMarkerOutlinePath(height, r)}" fill="${note.status == 'open' ? 'red' : 'green'}" />`;
-    const states = [...noteCommentsToStates(note.comments)];
-    html += drawStateCircles(r, nInnerCircles, states.slice(-nInnerCircles, -1));
+    html += e$7 `<path d="${computeMarkerOutlinePath(height, r)}" fill="${getStatusColor(note.status)}" />`;
+    const statuses = [...noteCommentsToStatuses(note.comments)];
+    html += drawStateCircles(r, nInnerCircles, statuses.slice(-nInnerCircles, -1));
     if (isSelected) {
         html += drawCheckMark();
     }
@@ -1661,20 +1673,18 @@ function getNoteMarkerIcon(note, isSelected) {
         const yf = y.toFixed(2);
         return `M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z`;
     }
-    function drawStateCircles(r, nInnerCircles, statesToDraw) {
+    function drawStateCircles(r, nInnerCircles, statusesToDraw) {
         const dcr = (r - .5) / nInnerCircles;
         let html = ``;
         for (let i = 2; i >= 0; i--) {
-            if (i >= statesToDraw.length)
+            if (i >= statusesToDraw.length)
                 continue;
             const cr = dcr * (i + 1);
             html += e$7 `<circle r="${cr}" fill="${color()}" stroke="white" />`;
             function color() {
-                if (i == 0 && states.length <= nInnerCircles)
+                if (i == 0 && statuses.length <= nInnerCircles)
                     return 'white';
-                if (statesToDraw[i])
-                    return 'red';
-                return 'green';
+                return getStatusColor(statusesToDraw[i]);
             }
         }
         return html;
@@ -1686,17 +1696,31 @@ function getNoteMarkerIcon(note, isSelected) {
         html += e$7 `<path d="${path}" fill="none" stroke-width="2" stroke-linecap="round" stroke="white" />`;
         return html;
     }
+    function getStatusColor(status) {
+        if (status == 'open') {
+            return 'red';
+        }
+        else if (status == 'closed') {
+            return 'green';
+        }
+        else {
+            return 'black';
+        }
+    }
 }
-function* noteCommentsToStates(comments) {
-    let currentState = true;
+function* noteCommentsToStatuses(comments) {
+    let currentStatus = 'open';
     for (const comment of comments) {
         if (comment.action == 'opened' || comment.action == 'reopened') {
-            currentState = true;
+            currentStatus = 'open';
         }
-        else if (comment.action == 'closed' || comment.action == 'hidden') {
-            currentState = false;
+        else if (comment.action == 'closed') {
+            currentStatus = 'closed';
         }
-        yield currentState;
+        else if (comment.action == 'hidden') {
+            currentStatus = 'hidden';
+        }
+        yield currentStatus;
     }
 }
 
@@ -2513,6 +2537,7 @@ class ConfirmedButtonListener {
         $initButton.onclick = async () => {
             if (isConfirmationRequired()) {
                 this.ask();
+                this.$cancelButton.focus();
             }
             else {
                 await runAction();
@@ -2520,10 +2545,12 @@ class ConfirmedButtonListener {
         };
         $cancelButton.onclick = () => {
             this.reset();
+            this.$initButton.focus();
         };
         $confirmButton.onclick = async () => {
             await runAction();
             this.reset();
+            this.$initButton.focus();
         };
     }
     reset() {
@@ -3122,6 +3149,7 @@ function getNextFetchDetails(query, requestedLimit, lastNote, prevLastNote, last
     }
 }
 
+const noteStatuses = ['open', 'closed', 'hidden'];
 function isNoteFeatureCollection(data) {
     return data.type == "FeatureCollection";
 }
@@ -5886,10 +5914,10 @@ class NoteDataError extends TypeError {
 /**
  * Reload a single note updating its link
  */
-async function fetchTableNote(api, $a, noteId) {
+async function fetchTableNote(api, $a, noteId, requestInit) {
     $a.classList.add('loading');
     try {
-        const response = await api.fetch(e$2 `notes/${noteId}.json`);
+        const response = await api.fetch(e$2 `notes/${noteId}.json`, requestInit);
         if (!response.ok)
             throw new NoteDataError(`note reload failed`);
         const noteAndUsers = await readNoteResponse(noteId, response);
@@ -6343,15 +6371,15 @@ class NoteTable {
         else {
             this.map.fitNotesIfNeeded();
         }
-        this.sendNoteCountsUpdate();
+        this.sendNoteCounts();
         return nUnfilteredNotes;
     }
-    replaceNote(note, users, unselectAndUpdateCheckboxDependents = false) {
+    replaceNote(note, users) {
         const $noteSection = this.getNoteSection(note.id);
         if (!$noteSection)
             return;
         const $checkbox = $noteSection.querySelector('.note-checkbox input');
-        const wasSelected = $checkbox instanceof HTMLInputElement && $checkbox.checked;
+        const isSelected = $checkbox instanceof HTMLInputElement && $checkbox.checked;
         this.map.removeNoteMarker(note.id);
         // remember note and users
         this.notesById.set(note.id, note);
@@ -6366,19 +6394,15 @@ class NoteTable {
         const getUsername = (uid) => users[uid];
         const isVisible = this.filter.matchNote(note, getUsername);
         this.makeMarker(note, isVisible);
-        this.writeNoteSection($noteSection, note, users, isVisible);
-        if (unselectAndUpdateCheckboxDependents) {
-            this.updateCheckboxDependents();
+        this.writeNoteSection($noteSection, note, users, isVisible, isSelected);
+        if (isVisible) {
+            this.sendSelectedNotes();
         }
         else {
-            if (isVisible)
-                this.setNoteSelection($noteSection, wasSelected);
+            this.updateCheckboxDependents();
+            this.sendNoteCounts();
         }
         this.refresherConnector.registerNote(note);
-        this.sendNoteCountsUpdate(); // TODO only do if visibility changed
-    }
-    replaceAndUnselectNote(note, users) {
-        this.replaceNote(note, users, true);
     }
     getVisibleNoteIds() {
         const ids = [];
@@ -6444,27 +6468,29 @@ class NoteTable {
         marker.on('click', this.wrappedNoteMarkerClickListener);
         return marker;
     }
-    writeNoteSection($noteSection, note, users, isVisible) {
+    writeNoteSection($noteSection, note, users, isVisible, isSelected = false) {
         if (!isVisible)
             $noteSection.classList.add('hidden');
         $noteSection.id = `note-${note.id}`;
-        $noteSection.classList.add(getStatusClass(note.status));
+        $noteSection.classList.add(`status-${note.status}`);
         for (const [event, listener] of this.wrappedNoteSectionListeners) {
             $noteSection.addEventListener(event, listener);
         }
-        if (isVisible) {
+        if (isVisible && !isSelected) {
             if (this.$selectAllCheckbox.checked) {
                 this.$selectAllCheckbox.checked = false;
                 this.$selectAllCheckbox.indeterminate = true;
             }
         }
         const [$checkbox, $commentCells] = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, note, users, this.showImages);
+        if (isSelected)
+            $checkbox.checked = true;
         $checkbox.addEventListener('click', this.wrappedNoteCheckboxClickListener);
         for (const $commentCell of $commentCells) {
             this.looseParserListener.listen($commentCell);
         }
     }
-    sendNoteCountsUpdate() {
+    sendNoteCounts() {
         let nFetched = 0;
         let nVisible = 0;
         for (const $noteSection of this.$table.tBodies) {
@@ -6555,7 +6581,20 @@ class NoteTable {
         marker.getElement()?.classList.add('active-' + type);
         $noteSection.classList.add('active-' + type);
     }
+    sendSelectedNotes() {
+        const [checkedNotes, checkedNoteUsers] = this.getCheckedData();
+        this.toolPanel.receiveSelectedNotes(checkedNotes, checkedNoteUsers);
+    }
     updateCheckboxDependents() {
+        const [checkedNotes, checkedNoteUsers, hasUnchecked] = this.getCheckedData();
+        const hasChecked = checkedNotes.length > 0;
+        this.$selectAllCheckbox.indeterminate = hasChecked && hasUnchecked;
+        this.$selectAllCheckbox.checked = hasChecked && !hasUnchecked;
+        this.toolPanel.receiveSelectedNotes(checkedNotes, checkedNoteUsers);
+        if (this.toolPanel.fitMode == 'selectedNotes')
+            this.map.fitSelectedNotes();
+    }
+    getCheckedData() {
         const checkedNotes = [];
         const checkedNoteUsers = new Map();
         let hasUnchecked = false;
@@ -6581,12 +6620,7 @@ class NoteTable {
                 checkedNoteUsers.set(comment.uid, username);
             }
         }
-        let hasChecked = checkedNotes.length > 0;
-        this.$selectAllCheckbox.indeterminate = hasChecked && hasUnchecked;
-        this.$selectAllCheckbox.checked = hasChecked && !hasUnchecked;
-        this.toolPanel.receiveSelectedNotes(checkedNotes, checkedNoteUsers);
-        if (this.toolPanel.fitMode == 'selectedNotes')
-            this.map.fitSelectedNotes();
+        return [checkedNotes, checkedNoteUsers, hasUnchecked];
     }
     setNoteSelection($noteSection, isSelected) {
         const getTargetLayer = () => {
@@ -6661,17 +6695,6 @@ class NoteTable {
         if (!($noteSection instanceof HTMLTableSectionElement))
             return;
         return $noteSection;
-    }
-}
-function getStatusClass(status) {
-    if (status == 'open') {
-        return 'open';
-    }
-    else if (status == 'closed' || status == 'hidden') {
-        return 'closed';
-    }
-    else {
-        return 'other';
     }
 }
 function isDefined(argument) {
@@ -6759,9 +6782,20 @@ function makeNoteStatusIcon(status, number = 1) {
     const width = 8;
     const r = width / 2;
     const $span = makeElement('span')(`icon-note-status`)();
-    const path = `<path d="${computeMarkerOutlinePath(height, width / 2)}" fill="${status == 'open' ? 'red' : 'green'}" />`;
-    $span.innerHTML = `<svg viewBox="${-r} ${-r} ${width} ${height}">${path}</svg><span>${status} note${number > 1 ? `s` : ``}</span>`;
+    const path = `<path d="${computeMarkerOutlinePath(height, width / 2 - .5)}" stroke="gray" ${pathAttrs()} />`;
+    $span.innerHTML = `<svg viewBox="${-r} ${-r} ${width} ${height}">${path}</svg><span>${status} note${number != 1 ? `s` : ``}</span>`;
     return $span;
+    function pathAttrs() {
+        if (status == 'open') {
+            return `fill="red"`;
+        }
+        else if (status == 'closed') {
+            return `fill="green"`;
+        }
+        else {
+            return `fill="#444"`;
+        }
+    }
     // copypaste from marker.ts
     function computeMarkerOutlinePath(height, r) {
         const rp = height - r;
@@ -7647,134 +7681,185 @@ const e$1 = makeEscapeTag(encodeURIComponent);
 class InteractionError extends TypeError {
 }
 class InteractTool extends Tool {
-    constructor() {
-        super(...arguments);
+    constructor(auth) {
+        super(auth);
         this.id = 'interact';
         this.name = `Interact`;
         this.title = `Interact with notes on OSM server`;
         this.isFullWidth = true;
+        this.$yourNotesApi = document.createElement('span');
+        this.$yourNotesWeb = document.createElement('span');
         this.$asOutput = document.createElement('output');
         this.$withOutput = document.createElement('output');
         this.$commentText = document.createElement('textarea');
         this.$commentButton = document.createElement('button');
         this.$closeButton = document.createElement('button');
         this.$reopenButton = document.createElement('button');
-        this.selectedOpenNoteIds = [];
-        this.selectedClosedNoteIds = [];
-        this.haltRequest = false;
+        this.$hideOpenButton = document.createElement('button');
+        this.$hideClosedButton = document.createElement('button');
+        this.$reactivateButton = document.createElement('button');
+        this.$runButton = makeElement('button')('only-with-icon')();
+        this.$runOutput = document.createElement('output');
+        this.selectedNoteIds = new Map(noteStatuses.map(status => [status, []]));
         this.interactionDescriptions = [{
+                verb: 'POST',
                 endpoint: 'comment',
                 label: `Comment`,
+                runningLabel: `Commenting`,
                 $button: this.$commentButton,
-                inputNoteIds: this.selectedOpenNoteIds,
                 inputNoteStatus: 'open',
                 outputNoteStatus: 'open',
+                forModerator: false
             }, {
+                verb: 'POST',
                 endpoint: 'close',
                 label: `Close`,
+                runningLabel: `Closing`,
                 $button: this.$closeButton,
-                inputNoteIds: this.selectedOpenNoteIds,
                 inputNoteStatus: 'open',
                 outputNoteStatus: 'closed',
+                forModerator: false
             }, {
+                verb: 'POST',
                 endpoint: 'reopen',
                 label: `Reopen`,
+                runningLabel: `Reopening`,
                 $button: this.$reopenButton,
-                inputNoteIds: this.selectedClosedNoteIds,
                 inputNoteStatus: 'closed',
                 outputNoteStatus: 'open',
+                forModerator: false
+            }, {
+                verb: 'DELETE',
+                label: `Hide`,
+                runningLabel: `Hiding`,
+                $button: this.$hideOpenButton,
+                inputNoteStatus: 'open',
+                outputNoteStatus: 'hidden',
+                forModerator: true
+            }, {
+                verb: 'DELETE',
+                label: `Hide`,
+                runningLabel: `Hiding`,
+                $button: this.$hideClosedButton,
+                inputNoteStatus: 'closed',
+                outputNoteStatus: 'hidden',
+                forModerator: true
+            }, {
+                verb: 'POST',
+                endpoint: 'reopen',
+                label: `Reactivate`,
+                runningLabel: `Reactivating`,
+                $button: this.$reactivateButton,
+                inputNoteStatus: 'hidden',
+                outputNoteStatus: 'open',
+                forModerator: true
             }];
-    }
-    getTool(callbacks) {
+        this.updateYourNotes();
         this.updateAsOutput();
         this.updateWithOutput();
-        this.updateButtons();
         this.$commentText.placeholder = `Comment text`;
+        this.updateButtons();
+        this.updateRunButton();
+        this.updateRunOutput();
+    }
+    getInfo() {
+        return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, `If you've hidden a note and want to see it, look for it at `, this.$yourNotesWeb, ` on the OSM website.`)];
+    }
+    getTool(callbacks) {
         this.$commentText.oninput = () => {
             this.updateButtons();
         };
-        for (const { $button, inputNoteIds, endpoint } of this.interactionDescriptions) {
-            $button.onclick = async () => {
-                if (this.interactingEndpoint != null) {
-                    this.haltRequest = true;
-                    return;
+        const scheduleRunNextNote = this.makeRunScheduler(callbacks);
+        for (const interactionDescription of this.interactionDescriptions) {
+            interactionDescription.$button.onclick = () => {
+                if (this.run?.status == 'paused') {
+                    this.run = undefined;
+                    this.updateButtons();
+                    this.updateRunButton();
+                    this.updateRunOutput();
                 }
-                this.haltRequest = false;
-                this.clearButtonErrors();
-                this.interactingEndpoint = endpoint;
-                this.$commentText.disabled = true;
-                try {
-                    while (inputNoteIds.length > 0 && !this.haltRequest) {
-                        this.updateButtons();
-                        const id = inputNoteIds[0];
-                        const response = await this.auth.server.api.postUrlencoded(e$1 `notes/${id}/${endpoint}.json`, {
-                            Authorization: 'Bearer ' + this.auth.token
-                        }, [
-                            ['text', this.$commentText.value],
-                        ]);
-                        if (!response.ok) {
-                            throw new InteractionError(await response.text());
-                        }
-                        inputNoteIds.shift();
-                        const noteAndUsers = await readNoteResponse(id, response);
-                        callbacks.onNoteReload(this, ...noteAndUsers);
-                    }
-                    this.$commentText.value = '';
+                else {
+                    const matchingNoteIds = this.selectedNoteIds.get(interactionDescription.inputNoteStatus);
+                    if (!matchingNoteIds)
+                        return;
+                    const runImmediately = matchingNoteIds.length <= 1;
+                    this.run = {
+                        interactionDescription,
+                        status: 'paused',
+                        requestedStatus: runImmediately ? 'running' : 'paused',
+                        inputNoteIds: [...matchingNoteIds],
+                        outputNoteIds: []
+                    };
+                    if (runImmediately)
+                        scheduleRunNextNote();
+                    this.updateButtons();
+                    this.updateRunButton();
+                    this.updateRunOutput();
                 }
-                catch (ex) {
-                    $button.classList.add('error');
-                    if (ex instanceof InteractionError) {
-                        $button.title = ex.message;
-                    }
-                    else if (ex instanceof NoteDataError) {
-                        $button.title = `Error after successful interaction: ${ex.message}`;
-                    }
-                    else {
-                        $button.title = `Unknown error ${ex}`;
-                    }
-                }
-                this.$commentText.disabled = false;
-                this.interactingEndpoint = undefined;
-                this.haltRequest = false;
-                if (this.stashedSelectedNotes) {
-                    const unstashedSelectedNotes = this.stashedSelectedNotes;
-                    this.stashedSelectedNotes = undefined;
-                    this.processSelectedNotes(unstashedSelectedNotes);
-                }
-                this.updateButtons();
             };
         }
+        this.$runButton.onclick = () => {
+            if (!this.run)
+                return;
+            if (this.run.status == 'running') {
+                this.run.requestedStatus = 'paused';
+                this.updateRunButton();
+            }
+            else if (this.run.status == 'paused') {
+                this.run.requestedStatus = 'running';
+                this.updateRunButton();
+                scheduleRunNextNote();
+            }
+        };
         return [
             this.$asOutput, ` `, this.$withOutput, ` `,
             makeDiv('major-input')(this.$commentText),
-            makeDiv('gridded-input')(...this.interactionDescriptions.map(({ $button }) => $button))
+            makeDiv('gridded-input')(...this.interactionDescriptions.map(({ $button }) => $button)),
+            this.$runButton, ` `, this.$runOutput
         ];
     }
     onLoginChange() {
+        this.updateYourNotes();
         this.updateAsOutput();
+        this.updateButtons();
         return true;
     }
     onSelectedNotesChange(selectedNotes) {
-        if (this.interactingEndpoint != null) {
-            this.stashedSelectedNotes = selectedNotes;
+        for (const status of noteStatuses) {
+            const ids = this.selectedNoteIds.get(status);
+            if (ids)
+                ids.length = 0;
+        }
+        for (const selectedNote of selectedNotes) {
+            const ids = this.selectedNoteIds.get(selectedNote.status);
+            ids?.push(selectedNote.id);
+        }
+        if (this.run?.status == 'running') {
             return false;
         }
-        this.processSelectedNotes(selectedNotes);
-        return true;
-    }
-    processSelectedNotes(selectedNotes) {
-        this.selectedOpenNoteIds.length = 0;
-        this.selectedClosedNoteIds.length = 0;
-        for (const selectedNote of selectedNotes) {
-            if (selectedNote.status == 'open') {
-                this.selectedOpenNoteIds.push(selectedNote.id);
-            }
-            else if (selectedNote.status == 'closed') {
-                this.selectedClosedNoteIds.push(selectedNote.id);
-            }
+        else {
+            this.updateWithOutput();
+            this.updateButtons();
+            return true;
         }
-        this.updateWithOutput();
-        this.updateButtons();
+    }
+    updateYourNotes() {
+        const apiText = `your own latest updated notes`;
+        const webText = `your notes page`;
+        if (this.auth.username == null) {
+            this.$yourNotesApi.replaceChildren(apiText);
+            this.$yourNotesWeb.replaceChildren(webText);
+        }
+        else {
+            const apiHref = makeHrefWithCurrentHost([
+                ['mode', 'search'],
+                ['display_name', this.auth.username],
+                ['sort', 'updated_at']
+            ]);
+            const webHref = this.auth.server.web.getUrl(e$1 `user/${this.auth.username}/notes`);
+            this.$yourNotesApi.replaceChildren(makeLink(apiText, apiHref));
+            this.$yourNotesWeb.replaceChildren(makeLink(webText, webHref));
+        }
     }
     updateAsOutput() {
         if (this.auth.username == null || this.auth.uid == null) {
@@ -7790,18 +7875,229 @@ class InteractTool extends Tool {
         }
     }
     updateWithOutput() {
+        const multipleNoteIndicators = this.getMultipleNoteIndicators(this.selectedNoteIds, 5);
+        if (multipleNoteIndicators.length > 0) {
+            this.$withOutput.replaceChildren(`with `, ...multipleNoteIndicators);
+        }
+        else {
+            this.$withOutput.replaceChildren();
+        }
+    }
+    updateButtons() {
+        const buttonNoteIcon = (ids, inputStatus, outputStatus) => {
+            const outputIcon = [];
+            if (outputStatus != inputStatus) {
+                outputIcon.push(` → `, makeNoteStatusIcon(outputStatus, ids.length));
+            }
+            if (ids.length == 0) {
+                return [makeNoteStatusIcon(inputStatus, ids.length), ...outputIcon];
+            }
+            else if (ids.length == 1) {
+                return [makeNoteStatusIcon(inputStatus), ` ${ids[0]}`, ...outputIcon];
+            }
+            else {
+                return [`${ids.length} × `, makeNoteStatusIcon(inputStatus, ids.length), ...outputIcon, `...`];
+            }
+        };
+        for (const interactionDescription of this.interactionDescriptions) {
+            const inputNoteIds = this.selectedNoteIds.get(interactionDescription.inputNoteStatus) ?? [];
+            const { $button } = interactionDescription;
+            let cancelCondition = false;
+            if (this.run && this.run.status != 'finished') {
+                cancelCondition = this.run.status == 'paused' && this.run.interactionDescription == interactionDescription;
+                $button.disabled = (this.run.status == 'running' ||
+                    this.run.status == 'paused' && this.run.interactionDescription != interactionDescription);
+            }
+            else {
+                $button.disabled = inputNoteIds.length == 0;
+            }
+            if (cancelCondition) {
+                $button.replaceChildren(`Cancel`);
+            }
+            else {
+                $button.replaceChildren(`${interactionDescription.label} `, ...buttonNoteIcon(inputNoteIds, interactionDescription.inputNoteStatus, interactionDescription.outputNoteStatus));
+            }
+            $button.hidden = interactionDescription.forModerator && !this.auth.isModerator;
+        }
+        if (this.$commentText.value == '')
+            this.$commentButton.disabled = true;
+    }
+    updateRunButton() {
+        const canPause = this.run && this.run.status == 'running';
+        this.$runButton.replaceChildren(canPause
+            ? makeActionIcon('pause', `Halt`)
+            : makeActionIcon('play', `Resume`));
+        this.$runButton.disabled = !this.run || this.run.status != this.run.requestedStatus;
+    }
+    updateRunOutput() {
+        let firstFragment = true;
+        const outputFragment = (...content) => {
+            if (firstFragment) {
+                firstFragment = false;
+            }
+            else {
+                this.$runOutput.append(` → `);
+            }
+            this.$runOutput.append(...content);
+        };
+        if (!this.run) {
+            this.$runOutput.replaceChildren(`Select notes for interaction using checkboxes`);
+            return;
+        }
+        this.$runOutput.replaceChildren(this.run.interactionDescription.runningLabel, ` `);
+        const inputNoteIndicators = this.getMultipleNoteIndicators([[
+                this.run.interactionDescription.inputNoteStatus, this.run.inputNoteIds
+            ]], 0);
+        if (inputNoteIndicators.length > 0) {
+            outputFragment(`queued `, ...inputNoteIndicators);
+        }
+        else if (this.run.currentNoteId != null) {
+            outputFragment(`queue emptied`);
+        }
+        if (this.run.currentNoteId != null) {
+            const $a = this.getNoteIndicator(this.run.interactionDescription.inputNoteStatus, this.run.currentNoteId);
+            if (this.run.currentNoteError) {
+                $a.classList.add('error');
+                $a.title = this.run.currentNoteError;
+                outputFragment(`error on `, $a);
+            }
+            else {
+                outputFragment(`current `, $a);
+            }
+        }
+        const outputNoteIndicators = this.getMultipleNoteIndicators([[
+                this.run.interactionDescription.outputNoteStatus, this.run.outputNoteIds
+            ]], 0);
+        if (outputNoteIndicators.length > 0) {
+            outputFragment(`completed `, ...outputNoteIndicators);
+        }
+    }
+    makeRunScheduler(callbacks) {
+        let runTimeoutId;
+        const runNextNote = async () => {
+            const transitionToRunning = () => {
+                this.$commentText.disabled = true;
+                this.updateButtons();
+                this.updateRunButton();
+            };
+            const transitionToPaused = () => {
+                this.$commentText.disabled = false;
+                this.updateWithOutput(); // may have received selected notes change
+                this.updateButtons();
+                this.updateRunButton();
+            };
+            const transitionToFinished = () => {
+                this.$commentText.disabled = false;
+                this.$commentText.value = '';
+                this.updateWithOutput(); // may have received selected notes change
+                this.updateButtons();
+                this.updateRunButton();
+                this.updateRunOutput();
+            };
+            if (!this.run)
+                return false;
+            if (this.run.status == 'finished') {
+                return false;
+            }
+            else if (this.run.status == 'paused') {
+                if (this.run.requestedStatus == 'paused') {
+                    return false;
+                }
+                else if (this.run.requestedStatus == 'running') {
+                    this.run.status = 'running';
+                    transitionToRunning();
+                }
+            }
+            else if (this.run.status == 'running') {
+                if (this.run.requestedStatus == 'paused') {
+                    this.run.status = 'paused';
+                    transitionToPaused();
+                    return false;
+                }
+            }
+            const id = this.run.currentNoteId ?? this.run.inputNoteIds.shift();
+            if (id == null) {
+                this.run.status = 'finished';
+                transitionToFinished();
+                return false;
+            }
+            this.run.currentNoteId = id;
+            this.run.currentNoteError = undefined;
+            this.updateRunOutput();
+            try {
+                let response;
+                if (this.run.interactionDescription.verb == 'DELETE') {
+                    const path = e$1 `notes/${id}.json`;
+                    response = await this.auth.server.api.fetch(path, {
+                        method: 'DELETE',
+                        headers: {
+                            Authorization: 'Bearer ' + this.auth.token
+                        }
+                    });
+                }
+                else { // POST
+                    const path = e$1 `notes/${id}/${this.run.interactionDescription.endpoint}.json`;
+                    response = await this.auth.server.api.postUrlencoded(path, {
+                        Authorization: 'Bearer ' + this.auth.token
+                    }, [
+                        ['text', this.$commentText.value],
+                    ]);
+                }
+                if (!response.ok) {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType?.includes('text/plain')) {
+                        throw new InteractionError(await response.text());
+                    }
+                    else {
+                        throw new InteractionError(`${response.status} ${response.statusText}`);
+                    }
+                }
+                const noteAndUsers = await readNoteResponse(id, response);
+                callbacks.onNoteReload(this, ...noteAndUsers);
+                this.run.currentNoteId = undefined;
+                this.run.outputNoteIds.push(id);
+            }
+            catch (ex) {
+                if (ex instanceof InteractionError) {
+                    this.run.currentNoteError = ex.message;
+                }
+                else if (ex instanceof NoteDataError) {
+                    this.run.currentNoteError = `Error after successful interaction: ${ex.message}`;
+                }
+                else {
+                    this.run.currentNoteError = `Unknown error ${ex}`;
+                }
+                this.run.status = this.run.requestedStatus = 'paused';
+                transitionToPaused();
+                this.updateRunOutput();
+            }
+            return true;
+        };
+        const wrappedRunNextNote = async () => {
+            let reschedule = false;
+            try {
+                reschedule = await runNextNote();
+            }
+            catch { }
+            runTimeoutId = undefined;
+            if (reschedule)
+                scheduleRunNextNote();
+        };
+        const scheduleRunNextNote = () => {
+            if (runTimeoutId)
+                return;
+            runTimeoutId = setTimeout(wrappedRunNextNote);
+        };
+        return scheduleRunNextNote;
+    }
+    getMultipleNoteIndicators(statusAndIds, maxIndividualNotes) {
+        const output = [];
         let first = true;
         const writeSingleNote = (id, status) => {
             if (!first)
-                this.$withOutput.append(`, `);
+                output.push(`, `);
             first = false;
-            const href = this.auth.server.web.getUrl(e$1 `note/${id}`);
-            const $a = document.createElement('a');
-            $a.href = href;
-            $a.classList.add('listened');
-            $a.dataset.noteId = String(id);
-            $a.append(makeNoteStatusIcon(status), ` ${id}`);
-            this.$withOutput.append($a);
+            output.push(this.getNoteIndicator(status, id));
         };
         const writeOneOrManyNotes = (ids, status) => {
             if (ids.length == 0) {
@@ -7812,61 +8108,35 @@ class InteractTool extends Tool {
                 return;
             }
             if (!first)
-                this.$withOutput.append(`, `);
+                output.push(`, `);
             first = false;
-            this.$withOutput.append(`${ids.length} × `, makeNoteStatusIcon(status, ids.length));
+            output.push(`${ids.length} × `, makeNoteStatusIcon(status, ids.length));
         };
-        const nSelectedNotes = this.selectedOpenNoteIds.length + this.selectedClosedNoteIds.length;
-        if (nSelectedNotes == 0) {
-            this.$withOutput.replaceChildren();
-        }
-        else if (nSelectedNotes <= 5) {
-            this.$withOutput.replaceChildren(`with `);
-            for (const noteId of this.selectedOpenNoteIds) {
-                writeSingleNote(noteId, 'open');
-            }
-            for (const noteId of this.selectedClosedNoteIds) {
-                writeSingleNote(noteId, 'closed');
+        const statusAndIdsCopy = [...statusAndIds];
+        const nNotes = statusAndIdsCopy.reduce((n, [, ids]) => n + ids.length, 0);
+        if (nNotes == 0) ;
+        else if (nNotes <= maxIndividualNotes) {
+            for (const [status, ids] of statusAndIdsCopy) {
+                for (const id of ids) {
+                    writeSingleNote(id, status);
+                }
             }
         }
         else {
-            this.$withOutput.replaceChildren(`with `);
-            writeOneOrManyNotes(this.selectedOpenNoteIds, 'open');
-            writeOneOrManyNotes(this.selectedClosedNoteIds, 'closed');
+            for (const [status, ids] of statusAndIdsCopy) {
+                writeOneOrManyNotes(ids, status);
+            }
         }
+        return output;
     }
-    updateButtons() {
-        const buttonNoteIcon = (ids, inputStatus, outputStatus) => {
-            const outputIcon = [];
-            if (outputStatus != inputStatus) {
-                outputIcon.push(` → `, makeNoteStatusIcon(outputStatus, ids.length));
-            }
-            if (ids.length == 0) {
-                return [makeNotesIcon('selected')];
-            }
-            else if (ids.length == 1 && this.interactingEndpoint == null) { // while interacting, don't output single note id b/c countdown looks better this way
-                return [makeNoteStatusIcon(inputStatus), ` ${ids[0]}`, ...outputIcon];
-            }
-            else {
-                return [`${ids.length} × `, makeNoteStatusIcon(inputStatus, ids.length), ...outputIcon];
-            }
-        };
-        for (const { $button, endpoint, label, inputNoteIds, inputNoteStatus, outputNoteStatus } of this.interactionDescriptions) {
-            $button.disabled = (this.interactingEndpoint != null && this.interactingEndpoint != endpoint) || inputNoteIds.length == 0;
-            $button.replaceChildren();
-            if (this.interactingEndpoint == endpoint) {
-                $button.append(makeActionIcon('pause', `Halt`), ` `);
-            }
-            $button.append(`${label} `, ...buttonNoteIcon(inputNoteIds, inputNoteStatus, outputNoteStatus));
-        }
-        if (this.$commentText.value == '')
-            this.$commentButton.disabled = true;
-    }
-    clearButtonErrors() {
-        for (const { $button } of this.interactionDescriptions) {
-            $button.classList.remove('error');
-            $button.title = '';
-        }
+    getNoteIndicator(status, id) {
+        const href = this.auth.server.web.getUrl(e$1 `note/${id}`);
+        const $a = document.createElement('a');
+        $a.href = href;
+        $a.classList.add('listened');
+        $a.dataset.noteId = String(id);
+        $a.append(makeNoteStatusIcon(status), ` ${id}`);
+        return $a;
     }
 }
 
@@ -8510,13 +8780,21 @@ async function main() {
     if (toolPanel) {
         toolPanel.onNoteReload = async (note, users) => {
             await fetchPanel.fetcherRun?.updateNote(note, users);
-            noteTable?.replaceAndUnselectNote(note, users);
+            noteTable?.replaceNote(note, users);
         };
     }
     if (globalHistory.hasServer()) {
         globalEventsListener.noteSelfListener = async ($a, noteId) => {
             try {
-                const [note, users] = await fetchTableNote(globalHistory.server.api, $a, Number(noteId));
+                const token = auth?.token;
+                const requestInit = (token
+                    ? {
+                        headers: {
+                            Authorization: 'Bearer ' + token
+                        }
+                    }
+                    : {});
+                const [note, users] = await fetchTableNote(globalHistory.server.api, $a, Number(noteId), requestInit);
                 await fetchPanel.fetcherRun?.updateNote(note, users);
                 noteTable?.replaceNote(note, users);
             }

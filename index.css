@@ -90,6 +90,7 @@ time.listened {
 a.listened.loading {
 	cursor: progress;
 }
+a.listened.error,
 a.listened.absent {
 	text-decoration-color: #A00;
 }
@@ -455,6 +456,7 @@ nav [role=tablist] [role=tab]:focus {
 .panel.command button.only-with-icon {
 	box-sizing: content-box;
 	height: 13px;
+	width: 13px;
 	padding: 2px;
 	vertical-align: bottom;
 }
@@ -612,14 +614,19 @@ nav [role=tablist] [role=tab]:focus {
 	margin: 0 2px;
 }
 .notes tbody {
-	box-shadow: -2px 0px 0px 0px red, 2px 0px 0px 0px red;
 	position: relative;
+}
+.notes tbody.status-open {
+	box-shadow: -2px 0px 0px 0px red, 2px 0px 0px 0px red;
+}
+.notes tbody.status-closed {
+	box-shadow: -2px 0px 0px 0px green, 2px 0px 0px 0px green;
+}
+.notes tbody.status-hidden {
+	box-shadow: -2px 0px 0px 0px black, 2px 0px 0px 0px black;
 }
 .notes tbody.hidden {
 	display: none;
-}
-.notes tbody.closed {
-	box-shadow: -2px 0px 0px 0px green, 2px 0px 0px 0px green;
 }
 .notes tbody.active-hover::before {
 	content: '';
