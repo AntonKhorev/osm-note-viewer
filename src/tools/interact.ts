@@ -402,7 +402,7 @@ export class InteractTool extends Tool {
 				if (this.run.interactionDescription.verb=='DELETE') {
 					const path=e`notes/${id}.json`
 					response=await this.auth.server.api.fetch(path,{
-						method: 'POST',
+						method: 'DELETE',
 						headers: {
 							Authorization: 'Bearer '+this.auth.token
 						}
