@@ -207,7 +207,7 @@ export default class NoteTable implements NoteTableUpdater {
 		const $noteSection=this.getNoteSection(note.id)
 		if (!$noteSection) return
 		const $checkbox=$noteSection.querySelector('.note-checkbox input')
-		const wasSelected=$checkbox instanceof HTMLInputElement && $checkbox.checked
+		const isSelected=$checkbox instanceof HTMLInputElement && $checkbox.checked
 		this.map.removeNoteMarker(note.id)
 		// remember note and users
 		this.notesById.set(note.id,note)
@@ -222,9 +222,8 @@ export default class NoteTable implements NoteTableUpdater {
 		const getUsername=(uid:number)=>users[uid]
 		const isVisible=this.filter.matchNote(note,getUsername)
 		this.makeMarker(note,isVisible)
-		this.writeNoteSection($noteSection,note,users,isVisible)
+		this.writeNoteSection($noteSection,note,users,isVisible,isSelected)
 		if (isVisible) {
-			this.setNoteSelection($noteSection,wasSelected)
 			this.sendSelectedNotes()
 		} else {
 			this.updateCheckboxDependents()
@@ -301,7 +300,8 @@ export default class NoteTable implements NoteTableUpdater {
 	}
 	private writeNoteSection(
 		$noteSection: HTMLTableSectionElement,
-		note: Note, users: Users, isVisible: boolean
+		note: Note, users: Users,
+		isVisible: boolean, isSelected: boolean = false
 	): void {
 		if (!isVisible) $noteSection.classList.add('hidden')
 		$noteSection.id=`note-${note.id}`
@@ -309,7 +309,7 @@ export default class NoteTable implements NoteTableUpdater {
 		for (const [event,listener] of this.wrappedNoteSectionListeners) {
 			$noteSection.addEventListener(event,listener)
 		}
-		if (isVisible) {
+		if (isVisible && !isSelected) {
 			if (this.$selectAllCheckbox.checked) {
 				this.$selectAllCheckbox.checked=false
 				this.$selectAllCheckbox.indeterminate=true
@@ -319,6 +319,7 @@ export default class NoteTable implements NoteTableUpdater {
 			this.server.web,this.commentWriter,
 			$noteSection,note,users,this.showImages
 		)
+		if (isSelected) $checkbox.checked=true
 		$checkbox.addEventListener('click',this.wrappedNoteCheckboxClickListener)
 		for (const $commentCell of $commentCells) {
 			this.looseParserListener.listen($commentCell)

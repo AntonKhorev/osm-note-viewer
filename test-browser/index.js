@@ -160,13 +160,77 @@ describe("browser tests",function(){
 			}],
 			"status": "closed"
 		}])
-		const updateLink=await page.$(`.notes tbody a`)
+		const updateLink=await page.$(`.notes tbody .note-link a`)
 		await updateLink.click()
 		await page.waitForSelector('.notes tbody tr + tr')
 		{
 			const noteSection=await page.waitForSelector('.notes tbody')
 			await assertHasNoClass(noteSection,'status-open')
 			await assertHasClass(noteSection,'status-closed')
+		}
+	})
+	it("keeps select all checkbox checked on note update",async function(){
+		this.osmServer.setNotes([{
+			"id": 101,
+			"comments": [{
+				"date": "2022-04-01",
+				"text": "needs-fixing"
+			}]
+		}])
+		const page=await this.openPage()
+		const fetchButton=await this.waitForFetchButton()
+		await fetchButton.click()
+		await page.waitForSelector('.notes tbody')
+		{
+			assert.equal(
+				await page.$('.notes thead input:indeterminate'),
+				null
+			)
+			assert.equal(
+				await page.$('.notes thead input:checked'),
+				null
+			)
+			assert.equal(
+				await page.$('.notes tbody .note-checkbox input:checked'),
+				null
+			)
+			const noteCheckbox=await page.$('.notes tbody .note-checkbox input')
+			await noteCheckbox.click()
+			assert.notEqual(
+				await page.$('.notes thead input:checked'),
+				null
+			)
+			assert.notEqual(
+				await page.$('.notes tbody .note-checkbox input:checked'),
+				null
+			)
+		}
+		this.osmServer.setNotes([{
+			"id": 101,
+			"comments": [{
+				"date": "2022-04-01",
+				"text": "needs-fixing"
+			},{
+				"date": "2022-04-02",
+				"text": "still-needs-fixing"
+			}]
+		}])
+		const updateLink=await page.$(`.notes tbody .note-link a`)
+		await updateLink.click()
+		await page.waitForSelector('.notes tbody tr + tr')
+		{
+			assert.equal(
+				await page.$('.notes thead input:indeterminate'),
+				null
+			)
+			assert.notEqual(
+				await page.$('.notes thead input:checked'),
+				null
+			)
+			assert.notEqual(
+				await page.$('.notes tbody .note-checkbox input:checked'),
+				null
+			)
 		}
 	})
 
