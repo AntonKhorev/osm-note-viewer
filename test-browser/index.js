@@ -145,8 +145,8 @@ describe("browser tests",function(){
 		await fetchButton.click()
 		{
 			const noteSection=await page.waitForSelector('.notes tbody')
-			await assertHasClass(noteSection,'open')
-			await assertHasNoClass(noteSection,'closed')
+			await assertHasClass(noteSection,'status-open')
+			await assertHasNoClass(noteSection,'status-closed')
 		}
 		this.osmServer.setNotes([{
 			"id": 101,
@@ -165,8 +165,8 @@ describe("browser tests",function(){
 		await page.waitForSelector('.notes tbody tr + tr')
 		{
 			const noteSection=await page.waitForSelector('.notes tbody')
-			await assertHasNoClass(noteSection,'open')
-			await assertHasClass(noteSection,'closed')
+			await assertHasNoClass(noteSection,'status-open')
+			await assertHasClass(noteSection,'status-closed')
 		}
 	})
 
