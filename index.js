@@ -359,18 +359,48 @@ class ResponseQueryError extends QueryError {
     }
 }
 class OsmProvider {
-    fetch(path, init) {
-        return fetch(this.getUrl(path), init);
-    }
-    postUrlencoded(path, headers, parameters) {
-        return this.fetch(path, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
-                ...headers
-            },
-            body: parameters.map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&')
-        });
+    get fetch() {
+        let method;
+        const headers = {};
+        let body;
+        const fetcher = (path, init) => {
+            const hasHeaders = Object.keys(headers).length > 0;
+            if (method != null || hasHeaders || body != null) {
+                init = { ...init };
+                if (method != null) {
+                    init.method = method;
+                }
+                if (hasHeaders) {
+                    init.headers = new Headers([
+                        ...new Headers(headers),
+                        ...new Headers(init.headers)
+                    ]);
+                }
+                if (body != null && init.body == null) {
+                    init.body = body;
+                }
+            }
+            return fetch(this.getUrl(path), init);
+        };
+        fetcher.post = (path, init) => {
+            method = 'POST';
+            return fetcher(path, init);
+        };
+        fetcher.delete = (path, init) => {
+            method = 'DELETE';
+            return fetcher(path, init);
+        };
+        fetcher.withUrlencodedBody = (parameters) => {
+            headers['Content-Type'] = 'application/x-www-form-urlencoded; charset=utf-8';
+            body = parameters.map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+            return fetcher;
+        };
+        fetcher.withToken = (token) => {
+            if (token)
+                headers['Authorization'] = 'Bearer ' + token;
+            return fetcher;
+        };
+        return fetcher;
     }
 }
 class WebProvider extends OsmProvider {
@@ -1424,8 +1454,8 @@ class AuthLoginSection {
         this.$clientIdRequired = makeDiv('notice')(`Please register the app and enter the `, em(`client id`), ` above to be able to login.`);
         this.$loginForms = makeDiv()();
         this.$logins = makeDiv()();
-        const webPostUrlencodedWithPossibleAuthError = async (webPath, headers, parameters, whenMessage) => {
-            const response = await server.web.postUrlencoded(webPath, headers, parameters);
+        const webPostUrlencodedWithPossibleAuthError = async (webPath, parameters, whenMessage) => {
+            const response = await server.web.fetch.withUrlencodedBody(parameters).post(webPath);
             if (response.ok)
                 return response;
             let errorData;
@@ -1441,11 +1471,7 @@ class AuthLoginSection {
             }
         };
         const fetchUserData = async (token) => {
-            const userResponse = await server.api.fetch(`user/details.json`, {
-                headers: {
-                    Authorization: 'Bearer ' + token
-                }
-            });
+            const userResponse = await server.api.fetch.withToken(token)(`user/details.json`);
             if (!userResponse.ok) {
                 throw new AuthError(`Error while getting user details`);
             }
@@ -1497,7 +1523,7 @@ class AuthLoginSection {
                     updateInResponseToLogin();
                 }, makeGetKnownErrorMessage(AuthError));
                 $logoutButton.onclick = () => wrapFetchForButton($logoutButton, async () => {
-                    await webPostUrlencodedWithPossibleAuthError(`oauth2/revoke`, {}, [
+                    await webPostUrlencodedWithPossibleAuthError(`oauth2/revoke`, [
                         ['token', token],
                         // ['token_type_hint','access_token']
                         ['client_id', authStorage.clientId]
@@ -1538,7 +1564,7 @@ class AuthLoginSection {
                 ['code_challenge_method', 'S256']
             ].map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
         }, async (code, codeVerifier) => {
-            const tokenResponse = await webPostUrlencodedWithPossibleAuthError(`oauth2/token`, {}, [
+            const tokenResponse = await webPostUrlencodedWithPossibleAuthError(`oauth2/token`, [
                 ['client_id', authStorage.clientId],
                 ['redirect_uri', authStorage.redirectUri],
                 ['grant_type', 'authorization_code'],
@@ -1725,6 +1751,20 @@ function* noteCommentsToStatuses(comments) {
 }
 
 const e$6 = makeEscapeTag(escapeXml);
+class NoteMapBounds {
+    constructor(bounds, precision) {
+        this.w = bounds.getWest().toFixed(precision);
+        this.s = bounds.getSouth().toFixed(precision);
+        this.e = bounds.getEast().toFixed(precision);
+        this.n = bounds.getNorth().toFixed(precision);
+    }
+    get wsen() {
+        return [this.w, this.s, this.e, this.n];
+    }
+    get swne() {
+        return [this.s, this.w, this.n, this.e];
+    }
+}
 class NoteLayer extends L.FeatureGroup {
     getLayerId(marker) {
         if (marker instanceof NoteMarker) {
@@ -1954,11 +1994,14 @@ class NoteMap {
         return this.leafletMap.getCenter().lng;
     }
     get hash() {
-        const precision = Math.max(0, Math.ceil(Math.log2(this.zoom)));
+        const precision = this.precision;
         return `${this.zoom.toFixed(0)}/${this.lat.toFixed(precision)}/${this.lon.toFixed(precision)}`;
     }
     get bounds() {
         return this.leafletMap.getBounds();
+    }
+    get precisionBounds() {
+        return new NoteMapBounds(this.bounds, this.precision);
     }
     onMoveEnd(fn) {
         this.leafletMap.on('moveend', fn);
@@ -1977,6 +2020,9 @@ class NoteMap {
         if (this.freezeMode == 'full')
             return;
         this.leafletMap.flyTo(latlng, zoom, options);
+    }
+    get precision() {
+        return Math.max(0, Math.ceil(Math.log2(this.zoom)));
     }
 }
 class CrosshairLayer extends L.Layer {
@@ -4317,8 +4363,7 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         const trackMap = () => {
             updateTrackMapZoomNotice();
             if (this.$trackMapSelect.value == 'bbox' || this.$trackMapSelect.value == 'fetch') {
-                const bounds = this.map.bounds;
-                this.setBbox(bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth());
+                this.setBbox(...this.map.precisionBounds.wsen);
             }
             this.nominatimSubForm?.updateRequest();
         };
@@ -5759,8 +5804,10 @@ function imageErrorHandler() {
     this.removeAttribute('alt'); // render broken image icon
 }
 
-function writeNoteSectionRows(web, commentWriter, $noteSection, note, users, showImages) {
-    const $checkbox = document.createElement('input');
+/**
+ * @returns comment cells
+ */
+function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note, users, showImages) {
     const $commentCells = [];
     let $row = $noteSection.insertRow();
     const nComments = note.comments.length;
@@ -5769,8 +5816,6 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, note, users, sho
         $cell.classList.add('note-checkbox');
         if (nComments > 1)
             $cell.rowSpan = nComments;
-        $checkbox.type = 'checkbox';
-        $checkbox.title = `shift+click to select/unselect a range`;
         $cell.append($checkbox);
     }
     {
@@ -5842,7 +5887,7 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, note, users, sho
         }
         iComment++;
     }
-    return [$checkbox, $commentCells];
+    return $commentCells;
 }
 function getActionClass(action) {
     if (action == 'opened' || action == 'reopened') {
@@ -5914,10 +5959,10 @@ class NoteDataError extends TypeError {
 /**
  * Reload a single note updating its link
  */
-async function fetchTableNote(api, $a, noteId, requestInit) {
+async function fetchTableNote(api, $a, noteId, token) {
     $a.classList.add('loading');
     try {
-        const response = await api.fetch(e$2 `notes/${noteId}.json`, requestInit);
+        const response = await api.fetch.withToken(token)(e$2 `notes/${noteId}.json`);
         if (!response.ok)
             throw new NoteDataError(`note reload failed`);
         const noteAndUsers = await readNoteResponse(noteId, response);
@@ -6268,6 +6313,9 @@ class NoteTable {
                     $clickReadyNoteSection = undefined;
                 }]
         ];
+        this.wrappedNoteSectionKeydownListener = function (ev) {
+            that.noteSectionKeydownListener(this, ev);
+        };
         this.wrappedNoteCheckboxClickListener = function (ev) {
             that.noteCheckboxClickListener(this, ev);
         };
@@ -6362,7 +6410,11 @@ class NoteTable {
             $noteSection.dataset.noteId = String(note.id);
             this.noteSectionVisibilityObserver.observe($noteSection);
             this.makeMarker(note, isVisible);
-            this.writeNoteSection($noteSection, note, users, isVisible);
+            const $checkbox = document.createElement('input');
+            $checkbox.type = 'checkbox';
+            $checkbox.title = `shift+click to select/unselect a range`;
+            $checkbox.addEventListener('click', this.wrappedNoteCheckboxClickListener);
+            this.writeNoteSection($noteSection, $checkbox, note, users, isVisible);
             this.refresherConnector.registerNote(note);
         }
         if (this.toolPanel.fitMode == 'allNotes') {
@@ -6377,9 +6429,14 @@ class NoteTable {
     replaceNote(note, users) {
         const $noteSection = this.getNoteSection(note.id);
         if (!$noteSection)
-            return;
+            throw new Error(`note section not found during note replace`);
         const $checkbox = $noteSection.querySelector('.note-checkbox input');
-        const isSelected = $checkbox instanceof HTMLInputElement && $checkbox.checked;
+        if (!($checkbox instanceof HTMLInputElement))
+            throw new Error(`note checkbox not found during note replace`);
+        const $a = $noteSection.querySelector('td.note-link a');
+        if (!($a instanceof HTMLAnchorElement))
+            throw new Error(`note link not found during note replace`);
+        const isNoteLinkFocused = document.activeElement == $a;
         this.map.removeNoteMarker(note.id);
         // remember note and users
         this.notesById.set(note.id, note);
@@ -6394,7 +6451,12 @@ class NoteTable {
         const getUsername = (uid) => users[uid];
         const isVisible = this.filter.matchNote(note, getUsername);
         this.makeMarker(note, isVisible);
-        this.writeNoteSection($noteSection, note, users, isVisible, isSelected);
+        this.writeNoteSection($noteSection, $checkbox, note, users, isVisible);
+        const $a2 = $noteSection.querySelector('td.note-link a');
+        if (!($a2 instanceof HTMLAnchorElement))
+            throw new Error(`note link not found after note replace`);
+        if (isNoteLinkFocused)
+            $a2.focus();
         if (isVisible) {
             this.sendSelectedNotes();
         }
@@ -6448,6 +6510,7 @@ class NoteTable {
         const $header = this.$table.createTHead();
         const $row = $header.insertRow();
         const $checkboxCell = makeHeaderCell('');
+        $checkboxCell.classList.add('note-checkbox');
         this.$selectAllCheckbox.type = 'checkbox';
         this.$selectAllCheckbox.title = `select/unselect all notes`;
         this.$selectAllCheckbox.addEventListener('click', this.wrappedAllNotesCheckboxClickListener);
@@ -6456,6 +6519,7 @@ class NoteTable {
         $actionCell.title = `action performed along with adding the comment; number of comments`;
         $actionCell.classList.add('note-action');
         $row.append($checkboxCell, makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), $actionCell, makeHeaderCell('comment'));
+        $header.addEventListener('keydown', this.wrappedNoteSectionKeydownListener);
         function makeHeaderCell(text) {
             const $cell = document.createElement('th');
             $cell.textContent = text;
@@ -6468,7 +6532,7 @@ class NoteTable {
         marker.on('click', this.wrappedNoteMarkerClickListener);
         return marker;
     }
-    writeNoteSection($noteSection, note, users, isVisible, isSelected = false) {
+    writeNoteSection($noteSection, $checkbox, note, users, isVisible) {
         if (!isVisible)
             $noteSection.classList.add('hidden');
         $noteSection.id = `note-${note.id}`;
@@ -6476,16 +6540,14 @@ class NoteTable {
         for (const [event, listener] of this.wrappedNoteSectionListeners) {
             $noteSection.addEventListener(event, listener);
         }
-        if (isVisible && !isSelected) {
+        $noteSection.addEventListener('keydown', this.wrappedNoteSectionKeydownListener);
+        if (isVisible && !$checkbox.checked) {
             if (this.$selectAllCheckbox.checked) {
                 this.$selectAllCheckbox.checked = false;
                 this.$selectAllCheckbox.indeterminate = true;
             }
         }
-        const [$checkbox, $commentCells] = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, note, users, this.showImages);
-        if (isSelected)
-            $checkbox.checked = true;
-        $checkbox.addEventListener('click', this.wrappedNoteCheckboxClickListener);
+        const $commentCells = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, $checkbox, note, users, this.showImages);
         for (const $commentCell of $commentCells) {
             this.looseParserListener.listen($commentCell);
         }
@@ -6526,6 +6588,59 @@ class NoteTable {
             this.setNoteSelection($noteSection, $allCheckbox.checked);
         }
         this.updateCheckboxDependents();
+    }
+    noteSectionKeydownListener($noteSection, ev) {
+        const $checkbox = $noteSection.querySelector('.note-checkbox input');
+        const $a = $noteSection.querySelector('.note-link a');
+        const wasOnCheckbox = ev.target == $checkbox;
+        const wasOnLink = ev.target == $a;
+        if (!(wasOnCheckbox || wasOnLink))
+            return;
+        if (['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(ev.key)) {
+            let $siblingNoteSection;
+            if (ev.key == 'ArrowUp') {
+                $siblingNoteSection = $noteSection.previousElementSibling;
+            }
+            else if (ev.key == 'ArrowDown') {
+                $siblingNoteSection = $noteSection.nextElementSibling;
+            }
+            else if (ev.key == 'Home') {
+                $siblingNoteSection = $noteSection.parentElement?.firstElementChild;
+                if (wasOnLink)
+                    $siblingNoteSection = $siblingNoteSection?.nextElementSibling;
+            }
+            else if (ev.key == 'End') {
+                $siblingNoteSection = $noteSection.parentElement?.lastElementChild;
+            }
+            if (!($siblingNoteSection instanceof HTMLTableSectionElement))
+                return;
+            const focus = (selector) => {
+                const $e = $siblingNoteSection?.querySelector(selector);
+                if (!($e instanceof HTMLElement))
+                    return false;
+                $e.focus();
+                return true;
+            };
+            if (wasOnCheckbox) {
+                if (!focus('.note-checkbox input'))
+                    return;
+            }
+            if (wasOnLink) {
+                if (!focus('.note-link a'))
+                    return;
+            }
+        }
+        else if (ev.key == 'ArrowLeft' && wasOnLink && ($checkbox instanceof HTMLInputElement)) {
+            $checkbox.focus();
+        }
+        else if (ev.key == 'ArrowRight' && wasOnCheckbox && ($a instanceof HTMLAnchorElement)) {
+            $a.focus();
+        }
+        else {
+            return;
+        }
+        ev.stopPropagation();
+        ev.preventDefault();
     }
     focusOnNote($noteSection, isSectionClicked = false) {
         this.activateNote('click', $noteSection);
@@ -7092,11 +7207,10 @@ class OverpassBaseTool extends Tool {
         return true;
     }
     getOverpassQueryPreamble(map) {
-        const bounds = map.bounds;
         let query = '';
         if (this.timestamp)
             query += `[date:"${this.timestamp}"]\n`;
-        query += `[bbox:${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}]\n`;
+        query += `[bbox:${map.precisionBounds.swne}]\n`;
         query += `;\n`;
         return query;
     }
@@ -8026,22 +8140,16 @@ class InteractTool extends Tool {
             this.updateRunOutput();
             try {
                 let response;
+                const fetchBuilder = this.auth.server.api.fetch.withToken(this.auth.token);
                 if (this.run.interactionDescription.verb == 'DELETE') {
                     const path = e$1 `notes/${id}.json`;
-                    response = await this.auth.server.api.fetch(path, {
-                        method: 'DELETE',
-                        headers: {
-                            Authorization: 'Bearer ' + this.auth.token
-                        }
-                    });
+                    response = await fetchBuilder.delete(path);
                 }
                 else { // POST
                     const path = e$1 `notes/${id}/${this.run.interactionDescription.endpoint}.json`;
-                    response = await this.auth.server.api.postUrlencoded(path, {
-                        Authorization: 'Bearer ' + this.auth.token
-                    }, [
+                    response = await fetchBuilder.withUrlencodedBody([
                         ['text', this.$commentText.value],
-                    ]);
+                    ]).post(path);
                 }
                 if (!response.ok) {
                     const contentType = response.headers.get('content-type');
@@ -8786,15 +8894,7 @@ async function main() {
     if (globalHistory.hasServer()) {
         globalEventsListener.noteSelfListener = async ($a, noteId) => {
             try {
-                const token = auth?.token;
-                const requestInit = (token
-                    ? {
-                        headers: {
-                            Authorization: 'Bearer ' + token
-                        }
-                    }
-                    : {});
-                const [note, users] = await fetchTableNote(globalHistory.server.api, $a, Number(noteId), requestInit);
+                const [note, users] = await fetchTableNote(globalHistory.server.api, $a, Number(noteId), auth?.token);
                 await fetchPanel.fetcherRun?.updateNote(note, users);
                 noteTable?.replaceNote(note, users);
             }

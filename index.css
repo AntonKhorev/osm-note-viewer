@@ -117,6 +117,7 @@ button.global {
 	border: none;
 	padding: 0;
 	background: none;
+	overflow: hidden;
 }
 button.global > svg {
 	width: 100%;
@@ -174,9 +175,11 @@ nav button.flip:hover {
 	outline: auto;
 }
 nav button.reset {
+	border-radius: 50%;
 	right: .5rem;
 }
 nav button.flip {
+	border-radius: 3px;
 	left: .5rem;
 	--flip-ver-part-visibility: visible;
 }
@@ -486,26 +489,26 @@ nav [role=tablist] [role=tab]:focus {
 	padding: var(--major-button-padding);
 }
 .panel .text-button-input {
-	position: relative;
+	display: flex;
+	gap: .5em;
+	align-items: end;
 }
-.panel .text-button-input input[type=text] {
+.panel .text-button-input > label {
+	flex-grow: 1;
+}
+.panel .text-button-input > label input[type=text] {
 	display: block;
 	box-sizing: border-box;
-	width: calc(100% - 5rem);
+	width: 100%;
 }
 .panel .text-button-input button {
-	display: block;
-	box-sizing: border-box;
 	width: 4.5rem;
-	position: absolute;
-	bottom: 0;
-	right: 0;
 }
 .panel .checkbox-button-input {
 	display: flex;
 	gap: .5em;
 }
-.panel .checkbox-button-input button {
+.panel .checkbox-button-input > button {
 	flex-grow: 1;
 	padding: var(--major-button-padding);
 }
@@ -918,6 +921,7 @@ dialog.figure figure:not(.zoomed) img {
 	max-height: 100%;
 }
 dialog.figure button {
+	border-radius: 50%;
 	--position-offset: 2rem;
 	top: var(--position-offset);
 	left: var(--position-offset);
