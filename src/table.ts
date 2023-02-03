@@ -22,10 +22,9 @@ export interface NoteTableUpdater {
 
 export default class NoteTable implements NoteTableUpdater {
 	private wrappedNoteSectionListeners: Array<[event: string, listener: (this:HTMLTableSectionElement)=>void]>
+	private wrappedNoteSectionKeydownListener: (this: HTMLTableSectionElement, ev: KeyboardEvent) => void
 	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedAllNotesCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
-	private wrappedNoteCheckboxKeydownListener: (this: HTMLInputElement, ev: KeyboardEvent) => void
-	private wrappedAllNotesCheckboxKeydownListener: (this: HTMLInputElement, ev: KeyboardEvent) => void
 	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
 	private noteSectionVisibilityObserver: NoteSectionVisibilityObserver
 	private looseParserListener: LooseParserListener
@@ -104,17 +103,14 @@ export default class NoteTable implements NoteTableUpdater {
 				$clickReadyNoteSection=undefined
 			}]
 		]
+		this.wrappedNoteSectionKeydownListener=function(ev: KeyboardEvent){
+			that.noteSectionKeydownListener(this,ev)
+		}
 		this.wrappedNoteCheckboxClickListener=function(ev: MouseEvent){
 			that.noteCheckboxClickListener(this,ev)
 		}
 		this.wrappedAllNotesCheckboxClickListener=function(ev: MouseEvent){
 			that.allNotesCheckboxClickListener(this,ev)
-		}
-		this.wrappedNoteCheckboxKeydownListener=function(ev: KeyboardEvent){
-			that.noteCheckboxKeydownListener(this,ev)
-		}
-		this.wrappedAllNotesCheckboxKeydownListener=function(ev: KeyboardEvent){
-			that.allNotesCheckboxKeydownListener(this,ev)
 		}
 		this.wrappedNoteMarkerClickListener=function(){
 			that.noteMarkerClickListener(this)
@@ -204,7 +200,6 @@ export default class NoteTable implements NoteTableUpdater {
 			$checkbox.type='checkbox'
 			$checkbox.title=`shift+click to select/unselect a range`
 			$checkbox.addEventListener('click',this.wrappedNoteCheckboxClickListener)
-			$checkbox.addEventListener('keydown',this.wrappedNoteCheckboxKeydownListener)
 			this.writeNoteSection($noteSection,$checkbox,note,users,isVisible)
 			this.refresherConnector.registerNote(note)
 		}
@@ -294,7 +289,6 @@ export default class NoteTable implements NoteTableUpdater {
 		this.$selectAllCheckbox.type='checkbox'
 		this.$selectAllCheckbox.title=`select/unselect all notes`
 		this.$selectAllCheckbox.addEventListener('click',this.wrappedAllNotesCheckboxClickListener)
-		this.$selectAllCheckbox.addEventListener('keydown',this.wrappedAllNotesCheckboxKeydownListener)
 		$checkboxCell.append(this.$selectAllCheckbox)
 		const $actionCell=makeHeaderCell('?')
 		$actionCell.title=`action performed along with adding the comment; number of comments`
@@ -307,6 +301,7 @@ export default class NoteTable implements NoteTableUpdater {
 			$actionCell,
 			makeHeaderCell('comment')
 		)
+		$header.addEventListener('keydown',this.wrappedNoteSectionKeydownListener)
 		function makeHeaderCell(text: string): HTMLTableCellElement {
 			const $cell=document.createElement('th')
 			$cell.textContent=text
@@ -331,6 +326,7 @@ export default class NoteTable implements NoteTableUpdater {
 		for (const [event,listener] of this.wrappedNoteSectionListeners) {
 			$noteSection.addEventListener(event,listener)
 		}
+		$noteSection.addEventListener('keydown',this.wrappedNoteSectionKeydownListener)
 		if (isVisible && !$checkbox.checked) {
 			if (this.$selectAllCheckbox.checked) {
 				this.$selectAllCheckbox.checked=false
@@ -380,28 +376,36 @@ export default class NoteTable implements NoteTableUpdater {
 		}
 		this.updateCheckboxDependents()
 	}
-	private noteCheckboxKeydownListener($checkbox: HTMLInputElement, ev: KeyboardEvent): void {
-		const $clickedNoteSection=$checkbox.closest('tbody, thead')
-		if (!$clickedNoteSection) return
+	private noteSectionKeydownListener($noteSection: HTMLTableSectionElement, ev: KeyboardEvent): void {
+		const wasOnCheckbox=ev.target==$noteSection.querySelector('.note-checkbox input')
+		const wasOnLink=ev.target==$noteSection.querySelector('.note-link a')
+		if (!(wasOnCheckbox || wasOnLink)) return
 		let $siblingNoteSection: Element|null|undefined
 		if (ev.key=='ArrowUp') {
-			$siblingNoteSection=$clickedNoteSection.previousElementSibling
+			$siblingNoteSection=$noteSection.previousElementSibling
 		} else if (ev.key=='ArrowDown') {
-			$siblingNoteSection=$clickedNoteSection.nextElementSibling
+			$siblingNoteSection=$noteSection.nextElementSibling
 		} else if (ev.key=='Home') {
-			$siblingNoteSection=$clickedNoteSection.parentElement?.firstElementChild
+			$siblingNoteSection=$noteSection.parentElement?.firstElementChild
+			if (wasOnLink) $siblingNoteSection=$siblingNoteSection?.nextElementSibling
 		} else if (ev.key=='End') {
-			$siblingNoteSection=$clickedNoteSection.parentElement?.lastElementChild
+			$siblingNoteSection=$noteSection.parentElement?.lastElementChild
 		}
 		if (!($siblingNoteSection instanceof HTMLTableSectionElement)) return
-		const $siblingCheckbox=$siblingNoteSection.querySelector('.note-checkbox input')
-		if (!($siblingCheckbox instanceof HTMLInputElement)) return
-		$siblingCheckbox.focus()
+		const focus=(selector:string):boolean=>{
+			const $e=$siblingNoteSection?.querySelector(selector)
+			if (!($e instanceof HTMLElement)) return false
+			$e.focus()
+			return true
+		}
+		if (wasOnCheckbox) {
+			if (!focus('.note-checkbox input')) return
+		}
+		if (wasOnLink) {
+			if (!focus('.note-link a')) return
+		}
 		ev.stopPropagation()
 		ev.preventDefault()
-	}
-	private allNotesCheckboxKeydownListener($allCheckbox: HTMLInputElement, ev: KeyboardEvent) {
-		this.noteCheckboxKeydownListener($allCheckbox,ev)
 	}
 	private focusOnNote($noteSection: HTMLTableSectionElement, isSectionClicked: boolean = false): void {
 		this.activateNote('click',$noteSection)
