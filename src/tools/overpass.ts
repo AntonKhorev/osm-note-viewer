@@ -12,10 +12,9 @@ abstract class OverpassBaseTool extends Tool {
 		return true
 	}
 	protected getOverpassQueryPreamble(map: NoteMap): string {
-		const bounds=map.bounds
 		let query=''
 		if (this.timestamp) query+=`[date:"${this.timestamp}"]\n`
-		query+=`[bbox:${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}]\n`
+		query+=`[bbox:${map.precisionBounds.swne}]\n`
 		query+=`;\n`
 		return query
 	}

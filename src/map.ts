@@ -20,6 +20,9 @@ export class NoteMapBounds {
 	get wsen(): [w:string,s:string,e:string,n:string] {
 		return [this.w,this.s,this.e,this.n]
 	}
+	get swne(): [s:string,w:string,n:string,e:string] {
+		return [this.s,this.w,this.n,this.e]
+	}
 }
 
 class NoteLayer extends L.FeatureGroup {
