@@ -388,6 +388,10 @@ export default class NoteTable implements NoteTableUpdater {
 			$siblingNoteSection=$clickedNoteSection.previousElementSibling
 		} else if (ev.key=='ArrowDown') {
 			$siblingNoteSection=$clickedNoteSection.nextElementSibling
+		} else if (ev.key=='Home') {
+			$siblingNoteSection=$clickedNoteSection.parentElement?.firstElementChild
+		} else if (ev.key=='End') {
+			$siblingNoteSection=$clickedNoteSection.parentElement?.lastElementChild
 		}
 		if (!($siblingNoteSection instanceof HTMLTableSectionElement)) return
 		const $siblingCheckbox=$siblingNoteSection.querySelector('.note-checkbox input')
