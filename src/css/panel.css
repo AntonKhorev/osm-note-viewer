@@ -261,26 +261,26 @@
 	padding: var(--major-button-padding);
 }
 .panel .text-button-input {
-	position: relative;
+	display: flex;
+	gap: .5em;
+	align-items: end;
 }
-.panel .text-button-input input[type=text] {
+.panel .text-button-input > label {
+	flex-grow: 1;
+}
+.panel .text-button-input > label input[type=text] {
 	display: block;
 	box-sizing: border-box;
-	width: calc(100% - 5rem);
+	width: 100%;
 }
 .panel .text-button-input button {
-	display: block;
-	box-sizing: border-box;
 	width: 4.5rem;
-	position: absolute;
-	bottom: 0;
-	right: 0;
 }
 .panel .checkbox-button-input {
 	display: flex;
 	gap: .5em;
 }
-.panel .checkbox-button-input button {
+.panel .checkbox-button-input > button {
 	flex-grow: 1;
 	padding: var(--major-button-padding);
 }
