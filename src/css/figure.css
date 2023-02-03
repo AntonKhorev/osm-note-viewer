@@ -43,6 +43,7 @@ dialog.figure figure:not(.zoomed) img {
 	max-height: 100%;
 }
 dialog.figure button {
+	border-radius: 50%;
 	--position-offset: 2rem;
 	top: var(--position-offset);
 	left: var(--position-offset);

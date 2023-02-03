@@ -116,6 +116,7 @@ button.global {
 	border: none;
 	padding: 0;
 	background: none;
+	overflow: hidden;
 }
 button.global > svg {
 	width: 100%;

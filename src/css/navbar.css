@@ -14,9 +14,11 @@ nav button.flip:hover {
 	outline: auto;
 }
 nav button.reset {
+	border-radius: 50%;
 	right: .5rem;
 }
 nav button.flip {
+	border-radius: 3px;
 	left: .5rem;
 	--flip-ver-part-visibility: visible;
 }
