@@ -84,16 +84,7 @@ async function main() {
 	if (globalHistory.hasServer()) {
 		globalEventsListener.noteSelfListener=async($a,noteId)=>{
 			try {
-				const token=auth?.token
-				const requestInit=(token
-					? {
-						headers: {
-							Authorization: 'Bearer '+token
-						}
-					}
-					: {}
-				)
-				const [note,users]=await fetchTableNote(globalHistory.server.api,$a,Number(noteId),requestInit)
+				const [note,users]=await fetchTableNote(globalHistory.server.api,$a,Number(noteId),auth?.token)
 				await fetchPanel.fetcherRun?.updateNote(note,users)
 				noteTable?.replaceNote(note,users)
 			} catch {}

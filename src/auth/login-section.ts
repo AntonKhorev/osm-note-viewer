@@ -79,10 +79,8 @@ export default class AuthLoginSection {
 		server: Server,
 		onLoginChange: ()=>void
 	) {
-		const webPostUrlencodedWithPossibleAuthError=async(webPath:string,headers:{[k:string]:string},parameters:[k:string,v:string][],whenMessage:string)=>{
-			const response=await server.web.fetch
-				.withUrlecodedBody(parameters)
-				.post(webPath,{headers})
+		const webPostUrlencodedWithPossibleAuthError=async(webPath:string,parameters:[k:string,v:string][],whenMessage:string)=>{
+			const response=await server.web.fetch.withUrlencodedBody(parameters).post(webPath)
 			if (response.ok) return response
 			let errorData: unknown
 			try {
@@ -95,11 +93,7 @@ export default class AuthLoginSection {
 			}
 		}
 		const fetchUserData=async(token:string):Promise<UserData>=>{
-			const userResponse=await server.api.fetch(`user/details.json`,{
-				headers: {
-					Authorization: 'Bearer '+token
-				}
-			})
+			const userResponse=await server.api.fetch.withToken(token)(`user/details.json`)
 			if (!userResponse.ok) {
 				throw new AuthError(`Error while getting user details`)
 			}
@@ -151,7 +145,7 @@ export default class AuthLoginSection {
 					updateInResponseToLogin()
 				},makeGetKnownErrorMessage(AuthError))
 				$logoutButton.onclick=()=>wrapFetchForButton($logoutButton,async()=>{
-					await webPostUrlencodedWithPossibleAuthError(`oauth2/revoke`,{},[
+					await webPostUrlencodedWithPossibleAuthError(`oauth2/revoke`,[
 						['token',token],
 						// ['token_type_hint','access_token']
 						['client_id',authStorage.clientId]
@@ -193,7 +187,7 @@ export default class AuthLoginSection {
 				['code_challenge_method','S256']
 			].map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
 		},async(code:string,codeVerifier:string)=>{
-			const tokenResponse=await webPostUrlencodedWithPossibleAuthError(`oauth2/token`,{},[
+			const tokenResponse=await webPostUrlencodedWithPossibleAuthError(`oauth2/token`,[
 				['client_id',authStorage.clientId],
 				['redirect_uri',authStorage.redirectUri],
 				['grant_type','authorization_code'],

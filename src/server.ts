@@ -65,9 +65,17 @@ abstract class OsmProvider {
 			method='POST'
 			return fetcher(path,init)
 		}
-		fetcher.withUrlecodedBody=(parameters:[k:string,v:string][])=>{
+		fetcher.delete=(path:string,init?:RequestInit)=>{
+			method='DELETE'
+			return fetcher(path,init)
+		}
+		fetcher.withUrlencodedBody=(parameters:[k:string,v:string][])=>{
 			headers['Content-Type']='application/x-www-form-urlencoded; charset=utf-8'
 			body=parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
+			return fetcher
+		}
+		fetcher.withToken=(token:string|undefined)=>{
+			if (token) headers['Authorization']='Bearer '+token
 			return fetcher
 		}
 		return fetcher
