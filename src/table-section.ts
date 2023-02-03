@@ -5,22 +5,23 @@ import {makeDateOutput} from './comment-writer'
 import {toReadableDate} from './query-date'
 import {makeDiv, makeLink} from './html'
 
+/**
+ * @returns comment cells
+ */
 export default function writeNoteSectionRows(
 	web: WebProvider, commentWriter: CommentWriter,
 	$noteSection: HTMLTableSectionElement,
+	$checkbox: HTMLInputElement,
 	note: Note, users: Users,
 	showImages: boolean
-): [$checkbox:HTMLInputElement,$commentCells:HTMLTableCellElement[]] {
-	const $checkbox=document.createElement('input')
-	const $commentCells:HTMLTableCellElement[]=[]
+): HTMLTableCellElement[] {
+	const $commentCells: HTMLTableCellElement[]=[]
 	let $row=$noteSection.insertRow()
 	const nComments=note.comments.length
 	{
 		const $cell=$row.insertCell()
 		$cell.classList.add('note-checkbox')
 		if (nComments>1) $cell.rowSpan=nComments
-		$checkbox.type='checkbox'
-		$checkbox.title=`shift+click to select/unselect a range`
 		$cell.append($checkbox)
 	}{
 		const $cell=$row.insertCell()
@@ -85,7 +86,7 @@ export default function writeNoteSectionRows(
 		}
 		iComment++
 	}
-	return [$checkbox,$commentCells]
+	return $commentCells
 }
 
 function getActionClass(action: NoteComment['action']): string {
