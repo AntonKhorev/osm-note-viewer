@@ -6,6 +6,22 @@ const e=makeEscapeTag(escapeXml)
 
 export type NoteMapFreezeMode = 'no' | 'initial' | 'full'
 
+export class NoteMapBounds {
+	w:string
+	s:string
+	e:string
+	n:string
+	constructor(bounds:L.LatLngBounds,precision:number) {
+		this.w=bounds.getWest() .toFixed(precision)
+		this.s=bounds.getSouth().toFixed(precision)
+		this.e=bounds.getEast() .toFixed(precision)
+		this.n=bounds.getNorth().toFixed(precision)
+	}
+	get wsen(): [w:string,s:string,e:string,n:string] {
+		return [this.w,this.s,this.e,this.n]
+	}
+}
+
 class NoteLayer extends L.FeatureGroup {
 	getLayerId(marker: L.Layer): number {
 		if (marker instanceof NoteMarker) {
@@ -232,11 +248,14 @@ export default class NoteMap {
 		return this.leafletMap.getCenter().lng
 	}
 	get hash(): string {
-		const precision=Math.max(0,Math.ceil(Math.log2(this.zoom)))
+		const precision=this.precision
 		return `${this.zoom.toFixed(0)}/${this.lat.toFixed(precision)}/${this.lon.toFixed(precision)}`
 	}
 	get bounds(): L.LatLngBounds {
 		return this.leafletMap.getBounds()
+	}
+	get precisionBounds(): NoteMapBounds {
+		return new NoteMapBounds(this.bounds,this.precision)
 	}
 	onMoveEnd(fn: L.LeafletEventHandlerFn): void {
 		this.leafletMap.on('moveend',fn)
@@ -252,6 +271,9 @@ export default class NoteMap {
 	private flyToIfNotFrozen(latlng: L.LatLngExpression, zoom?: number|undefined, options?: L.ZoomPanOptions|undefined): void {
 		if (this.freezeMode=='full') return
 		this.leafletMap.flyTo(latlng,zoom,options)
+	}
+	private get precision(): number {
+		return Math.max(0,Math.ceil(Math.log2(this.zoom)))
 	}
 }
 
