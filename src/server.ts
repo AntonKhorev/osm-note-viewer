@@ -38,18 +38,39 @@ export class ResponseQueryError extends QueryError {
 
 abstract class OsmProvider {
 	abstract getUrl(path:string):string
-	fetch(path:string,init?:RequestInit) {
-		return fetch(this.getUrl(path),init)
-	}
-	postUrlencoded(path:string,headers:{[k:string]:string},parameters:[k:string,v:string][]) {
-		return this.fetch(path,{
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
-				...headers
-			},
-			body: parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
-		})
+	get fetch() {
+		let method: string|undefined
+		const headers: {[key:string]:string} ={}
+		let body: string|undefined
+		const fetcher=(path:string,init?:RequestInit)=>{
+			const hasHeaders=Object.keys(headers).length>0
+			if (method!=null || hasHeaders || body!=null) {
+				init={...init}
+				if (method!=null) {
+					init.method=method
+				}
+				if (hasHeaders) {
+					init.headers=new Headers([
+						...new Headers(headers),
+						...new Headers(init.headers)
+					])
+				}
+				if (body!=null && init.body==null) {
+					init.body=body
+				}
+			}
+			return fetch(this.getUrl(path),init)
+		}
+		fetcher.post=(path:string,init?:RequestInit)=>{
+			method='POST'
+			return fetcher(path,init)
+		}
+		fetcher.withUrlecodedBody=(parameters:[k:string,v:string][])=>{
+			headers['Content-Type']='application/x-www-form-urlencoded; charset=utf-8'
+			body=parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
+			return fetcher
+		}
+		return fetcher
 	}
 }
 

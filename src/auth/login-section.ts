@@ -80,7 +80,9 @@ export default class AuthLoginSection {
 		onLoginChange: ()=>void
 	) {
 		const webPostUrlencodedWithPossibleAuthError=async(webPath:string,headers:{[k:string]:string},parameters:[k:string,v:string][],whenMessage:string)=>{
-			const response=await server.web.postUrlencoded(webPath,headers,parameters)
+			const response=await server.web.fetch
+				.withUrlecodedBody(parameters)
+				.post(webPath,{headers})
 			if (response.ok) return response
 			let errorData: unknown
 			try {

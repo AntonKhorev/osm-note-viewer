@@ -409,11 +409,13 @@ export class InteractTool extends Tool {
 					})
 				} else { // POST
 					const path=e`notes/${id}/${this.run.interactionDescription.endpoint}.json`
-					response=await this.auth.server.api.postUrlencoded(path,{
-						Authorization: 'Bearer '+this.auth.token
-					},[
-						['text',this.$commentText.value],
-					])
+					response=await this.auth.server.api.fetch
+						.withUrlecodedBody([
+							['text',this.$commentText.value],
+						])
+						.post(path,{headers:{
+							Authorization: 'Bearer '+this.auth.token
+						}})
 				}
 				if (!response.ok) {
 					const contentType=response.headers.get('content-type')
