@@ -209,9 +209,12 @@ export default class NoteTable implements NoteTableUpdater {
 	}
 	replaceNote(note: Note, users: Users): void {
 		const $noteSection=this.getNoteSection(note.id)
-		if (!$noteSection) return
+		if (!$noteSection) throw new Error(`note section not found during note replace`)
 		const $checkbox=$noteSection.querySelector('.note-checkbox input')
-		if (!($checkbox instanceof HTMLInputElement)) return
+		if (!($checkbox instanceof HTMLInputElement)) throw new Error(`note checkbox not found during note replace`)
+		const $a=$noteSection.querySelector('td.note-link a')
+		if (!($a instanceof HTMLAnchorElement)) throw new Error(`note link not found during note replace`)
+		const isNoteLinkFocused=document.activeElement==$a
 		this.map.removeNoteMarker(note.id)
 		// remember note and users
 		this.notesById.set(note.id,note)
@@ -227,6 +230,9 @@ export default class NoteTable implements NoteTableUpdater {
 		const isVisible=this.filter.matchNote(note,getUsername)
 		this.makeMarker(note,isVisible)
 		this.writeNoteSection($noteSection,$checkbox,note,users,isVisible)
+		const $a2=$noteSection.querySelector('td.note-link a')
+		if (!($a2 instanceof HTMLAnchorElement)) throw new Error(`note link not found after note replace`)
+		if (isNoteLinkFocused) $a2.focus()
 		if (isVisible) {
 			this.sendSelectedNotes()
 		} else {

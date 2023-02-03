@@ -233,6 +233,44 @@ describe("browser tests",function(){
 			)
 		}
 	})
+	it("keeps note self-link focused on note update",async function(){
+		this.osmServer.setNotes([{
+			"id": 101,
+			"comments": [{
+				"date": "2022-04-01",
+				"text": "needs-fixing"
+			}]
+		}])
+		const page=await this.openPage()
+		const fetchButton=await this.waitForFetchButton()
+		await fetchButton.click()
+		await page.waitForSelector('.notes tbody')
+		{
+			assert.equal(
+				await page.$('.notes tbody .note-link a:focus'),
+				null
+			)
+		}
+		this.osmServer.setNotes([{
+			"id": 101,
+			"comments": [{
+				"date": "2022-04-01",
+				"text": "needs-fixing"
+			},{
+				"date": "2022-04-02",
+				"text": "still-needs-fixing"
+			}]
+		}])
+		const updateLink=await page.$(`.notes tbody .note-link a`)
+		await updateLink.click()
+		await page.waitForSelector('.notes tbody tr + tr')
+		{
+			assert.notEqual(
+				await page.$('.notes tbody .note-link a:focus'),
+				null
+			)
+		}
+	})
 
 	// refresher
 
