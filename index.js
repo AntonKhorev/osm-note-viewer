@@ -797,6 +797,19 @@ class GlobalEventListener {
                 }
             }
         }, true); // need to capture event before it bubbles to note table sections
+        document.body.addEventListener('keydown', ev => {
+            if (!(ev.target instanceof HTMLElement))
+                return;
+            if (ev.key != 'Enter')
+                return;
+            const $e = ev.target.closest('time.listened');
+            if ($e instanceof HTMLTimeElement) {
+                if (this.timestampListener && $e.dateTime) {
+                    ev.stopPropagation();
+                    this.timestampListener($e.dateTime);
+                }
+            }
+        });
     }
 }
 
@@ -5767,6 +5780,7 @@ function makeDateOutput(readableDate) {
 function makeActiveTimeElement(text, dateTime, title) {
     const $time = document.createElement('time');
     $time.classList.add('listened');
+    $time.tabIndex = 0;
     $time.textContent = text;
     $time.dateTime = dateTime;
     if (title)
@@ -5863,6 +5877,11 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
                     $cell.append(`#${comment.uid}`);
                 }
             }
+            else {
+                const $a = makeElement('a')()(`anonymous`);
+                $a.tabIndex = 0;
+                $cell.append($a);
+            }
         }
         {
             let svgs = `<svg class="icon-status-${getActionClass(comment.action)}">` +
@@ -5877,11 +5896,13 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
             }
             const $cell = $row.insertCell();
             $cell.classList.add('note-action');
+            $cell.tabIndex = 0;
             $cell.innerHTML = svgs;
         }
         {
             const $cell = $row.insertCell();
             $cell.classList.add('note-comment');
+            $cell.tabIndex = 0;
             commentWriter.writeComment($cell, comment.text, showImages);
             $commentCells.push($cell);
         }
@@ -5899,6 +5920,86 @@ function getActionClass(action) {
     else {
         return 'other';
     }
+}
+
+const selectors = [
+    '.note-checkbox input',
+    '.note-link a',
+    '.note-date time',
+    '.note-user a',
+    '.note-action',
+    '.note-comment'
+];
+function noteTableKeydownListener(ev) {
+    const isVerticalMovementKey = (ev.key == 'ArrowUp' ||
+        ev.key == 'ArrowDown' ||
+        ev.key == 'Home' && ev.ctrlKey ||
+        ev.key == 'End' && ev.ctrlKey);
+    const isHorizontalMovementKey = (ev.key == 'ArrowLeft' ||
+        ev.key == 'ArrowRight' ||
+        ev.key == 'Home' && !ev.ctrlKey ||
+        ev.key == 'End' && !ev.ctrlKey);
+    if (!isVerticalMovementKey && !isHorizontalMovementKey)
+        return;
+    if (!(ev.target instanceof HTMLElement))
+        return;
+    const $e = ev.target.closest(selectors.join(','));
+    if (!($e instanceof HTMLElement))
+        return;
+    const $section = $e.closest('thead, tbody');
+    if (!($section instanceof HTMLTableSectionElement))
+        return;
+    const $tr = $e.closest('tr');
+    if (!($tr instanceof HTMLTableRowElement))
+        return;
+    const focusInAllSections = (selector) => focusInList(ev.key, $e, this.querySelectorAll(':where(:scope:not(.only-first-comments), :scope tr:first-child) ' + selector));
+    const iHasCommentRows = 2;
+    for (let i = 0; i < selectors.length; i++) {
+        if (!$e.matches(selectors[i]))
+            continue;
+        if (isVerticalMovementKey) {
+            if (!focusInAllSections(selectors[i]))
+                return;
+        }
+        else if (isHorizontalMovementKey) {
+            const j = getIndexForKeyMovement(ev.key, i, selectors.length);
+            if (j < 0)
+                return;
+            const $e2 = (j < iHasCommentRows ? $section : $tr).querySelector(selectors[j]);
+            if (!focus($e2))
+                return;
+        }
+        ev.stopPropagation();
+        ev.preventDefault();
+    }
+}
+function focusInList(key, $e, $esi) {
+    const $es = [...$esi];
+    const i = $es.indexOf($e);
+    if (i < 0)
+        return false;
+    return focus($es[getIndexForKeyMovement(key, i, $es.length)]);
+}
+function getIndexForKeyMovement(key, i, length) {
+    if (key == 'ArrowUp' || key == 'ArrowLeft') {
+        return i - 1;
+    }
+    else if (key == 'ArrowDown' || key == 'ArrowRight') {
+        return i + 1;
+    }
+    else if (key == 'Home') {
+        return 0;
+    }
+    else if (key == 'End') {
+        return length - 1;
+    }
+    return -1;
+}
+function focus($e) {
+    if (!($e instanceof HTMLElement))
+        return false;
+    $e.focus();
+    return true;
 }
 
 class NoteSectionVisibilityObserver {
@@ -6313,9 +6414,6 @@ class NoteTable {
                     $clickReadyNoteSection = undefined;
                 }]
         ];
-        this.wrappedNoteSectionKeydownListener = function (ev) {
-            that.noteSectionKeydownListener(this, ev);
-        };
         this.wrappedNoteCheckboxClickListener = function (ev) {
             that.noteCheckboxClickListener(this, ev);
         };
@@ -6325,6 +6423,7 @@ class NoteTable {
         this.wrappedNoteMarkerClickListener = function () {
             that.noteMarkerClickListener(this);
         };
+        this.$table.addEventListener('keydown', noteTableKeydownListener);
         this.noteSectionVisibilityObserver = new NoteSectionVisibilityObserver((visibleNoteIds, isMapFittingHalted) => {
             map.showNoteTrack(visibleNoteIds);
             if (!isMapFittingHalted && toolPanel.fitMode == 'inViewNotes')
@@ -6519,7 +6618,6 @@ class NoteTable {
         $actionCell.title = `action performed along with adding the comment; number of comments`;
         $actionCell.classList.add('note-action');
         $row.append($checkboxCell, makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), $actionCell, makeHeaderCell('comment'));
-        $header.addEventListener('keydown', this.wrappedNoteSectionKeydownListener);
         function makeHeaderCell(text) {
             const $cell = document.createElement('th');
             $cell.textContent = text;
@@ -6540,7 +6638,6 @@ class NoteTable {
         for (const [event, listener] of this.wrappedNoteSectionListeners) {
             $noteSection.addEventListener(event, listener);
         }
-        $noteSection.addEventListener('keydown', this.wrappedNoteSectionKeydownListener);
         if (isVisible && !$checkbox.checked) {
             if (this.$selectAllCheckbox.checked) {
                 this.$selectAllCheckbox.checked = false;
@@ -6588,59 +6685,6 @@ class NoteTable {
             this.setNoteSelection($noteSection, $allCheckbox.checked);
         }
         this.updateCheckboxDependents();
-    }
-    noteSectionKeydownListener($noteSection, ev) {
-        const $checkbox = $noteSection.querySelector('.note-checkbox input');
-        const $a = $noteSection.querySelector('.note-link a');
-        const wasOnCheckbox = ev.target == $checkbox;
-        const wasOnLink = ev.target == $a;
-        if (!(wasOnCheckbox || wasOnLink))
-            return;
-        if (['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(ev.key)) {
-            let $siblingNoteSection;
-            if (ev.key == 'ArrowUp') {
-                $siblingNoteSection = $noteSection.previousElementSibling;
-            }
-            else if (ev.key == 'ArrowDown') {
-                $siblingNoteSection = $noteSection.nextElementSibling;
-            }
-            else if (ev.key == 'Home') {
-                $siblingNoteSection = $noteSection.parentElement?.firstElementChild;
-                if (wasOnLink)
-                    $siblingNoteSection = $siblingNoteSection?.nextElementSibling;
-            }
-            else if (ev.key == 'End') {
-                $siblingNoteSection = $noteSection.parentElement?.lastElementChild;
-            }
-            if (!($siblingNoteSection instanceof HTMLTableSectionElement))
-                return;
-            const focus = (selector) => {
-                const $e = $siblingNoteSection?.querySelector(selector);
-                if (!($e instanceof HTMLElement))
-                    return false;
-                $e.focus();
-                return true;
-            };
-            if (wasOnCheckbox) {
-                if (!focus('.note-checkbox input'))
-                    return;
-            }
-            if (wasOnLink) {
-                if (!focus('.note-link a'))
-                    return;
-            }
-        }
-        else if (ev.key == 'ArrowLeft' && wasOnLink && ($checkbox instanceof HTMLInputElement)) {
-            $checkbox.focus();
-        }
-        else if (ev.key == 'ArrowRight' && wasOnCheckbox && ($a instanceof HTMLAnchorElement)) {
-            $a.focus();
-        }
-        else {
-            return;
-        }
-        ev.stopPropagation();
-        ev.preventDefault();
     }
     focusOnNote($noteSection, isSectionClicked = false) {
         this.activateNote('click', $noteSection);

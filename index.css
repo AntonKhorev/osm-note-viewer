@@ -700,8 +700,7 @@ nav [role=tablist] [role=tab]:focus {
 body.flipped .notes td.note-user {
 	max-width: 10vw;
 }
-.notes td.note-user:empty::before {
-	content: "anonymous";
+.notes td.note-user a:not([href]) {
 	color: gray;
 }
 .notes td.note-action [class|=icon] {
