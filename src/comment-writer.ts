@@ -86,6 +86,7 @@ export function makeDateOutput(readableDate: string): HTMLElement {
 function makeActiveTimeElement(text: string, dateTime: string, title?: string): HTMLTimeElement {
 	const $time=document.createElement('time')
 	$time.classList.add('listened')
+	$time.tabIndex=0
 	$time.textContent=text
 	$time.dateTime=dateTime
 	if (title) $time.title=title
