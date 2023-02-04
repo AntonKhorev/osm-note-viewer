@@ -21,61 +21,30 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 		if (!(ev.target instanceof HTMLElement)) return false
 		return focusInList(ev.key,ev.target,this.querySelectorAll(selector))
 	}
-	const focusInOwnSection=(selector:string):boolean=>{
-		return focus($section.querySelector(selector))
+	const focusInOwnSection=(selector:string)=>focus($section.querySelector(selector))
+	const focusInOwnRow=(selector:string)=>focus($tr.querySelector(selector))
+	const selectors=[
+		'.note-checkbox input',
+		'.note-link a',
+		'.note-date time',
+		'.note-user a',
+		'.note-action',
+		'.note-comment'
+	]
+	const iHasCommentRows=2
+	for (let i=0;i<selectors.length;i++) {
+		if (!ev.target.matches(selectors[i])) continue
+		const focusInHorizontalNeighbor=(j:number)=>(j<iHasCommentRows?focusInOwnSection:focusInOwnRow)(selectors[j])
+		if (isVerticalMovementKey) {
+			if (!focusInAllSections(selectors[i])) return
+		} else if (ev.key=='ArrowLeft' && i>0) {
+			if (!focusInHorizontalNeighbor(i-1)) return
+		} else if (ev.key=='ArrowRight') {
+			if (!focusInHorizontalNeighbor(i+1)) return
+		}
+		ev.stopPropagation()
+		ev.preventDefault()
 	}
-	const focusInOwnRow=(selector:string):boolean=>{
-		return focus($tr.querySelector(selector))
-	}
-	if (ev.target.matches('.note-checkbox input')) {
-		if (isVerticalMovementKey) {
-			if (!focusInAllSections('.note-checkbox input')) return
-		} else if (ev.key=='ArrowRight') {
-			if (!focusInOwnSection('.note-link a')) return
-		}
-	} else if (ev.target.matches('.note-link a')) {
-		if (isVerticalMovementKey) {
-			if (!focusInAllSections('.note-link a')) return
-		} else if (ev.key=='ArrowLeft') {
-			if (!focusInOwnSection('.note-checkbox input')) return
-		} else if (ev.key=='ArrowRight') {
-			if (!focusInOwnSection('.note-date time')) return
-		}
-	} else if (ev.target.matches('.note-date time')) {
-		if (isVerticalMovementKey) {
-			if (!focusInAllSections('.note-date time')) return
-		} else if (ev.key=='ArrowLeft') {
-			if (!focusInOwnSection('.note-link a')) return
-		} else if (ev.key=='ArrowRight') {
-			if (!focusInOwnRow('.note-user a')) return
-		}
-	} else if (ev.target.matches('.note-user a')) {
-		if (isVerticalMovementKey) {
-			if (!focusInAllSections('.note-user a')) return
-		} else if (ev.key=='ArrowLeft') {
-			if (!focusInOwnRow('.note-date time')) return
-		} else if (ev.key=='ArrowRight') {
-			if (!focusInOwnRow('.note-action')) return
-		}
-	} else if (ev.target.matches('.note-action')) {
-		if (isVerticalMovementKey) {
-			if (!focusInAllSections('.note-action')) return
-		} else if (ev.key=='ArrowLeft') {
-			if (!focusInOwnRow('.note-user a')) return
-		} else if (ev.key=='ArrowRight') {
-			if (!focusInOwnRow('.note-comment')) return
-		}
-	} else if (ev.target.matches('.note-comment')) {
-		if (isVerticalMovementKey) {
-			if (!focusInAllSections('.note-comment')) return
-		} else if (ev.key=='ArrowLeft') {
-			if (!focusInOwnRow('.note-action')) return
-		}
-	} else {
-		return
-	}
-	ev.stopPropagation()
-	ev.preventDefault()
 }
 
 function focusInList(key: string, $e: HTMLElement, $esi: Iterable<Element>): boolean {
