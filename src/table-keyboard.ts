@@ -51,7 +51,10 @@ function focusInList(key: string, $e: HTMLElement, $esi: Iterable<Element>): boo
 	const $es=[...$esi]
 	const i=$es.indexOf($e)
 	if (i<0) return false
-	return focus($es[getIndexForKeyMovement(key,i,$es.length)])
+	return focus(
+		$es[getIndexForKeyMovement(key,i,$es.length)],
+		key=='Home' || key=='End'
+	)
 }
 
 function getIndexForKeyMovement(key: string, i: number, length: number): number {
@@ -67,8 +70,14 @@ function getIndexForKeyMovement(key: string, i: number, length: number): number 
 	return -1
 }
 
-function focus($e: Element|null|undefined): boolean {
+function focus($e: Element|null|undefined, far: boolean = false): boolean {
 	if (!($e instanceof HTMLElement)) return false
-	$e.focus()
+	if (far) {
+		$e.focus({preventScroll:true})
+		$e.scrollIntoView({block:'nearest',behavior:'smooth'}) // TODO delay map autozoom to notes on screen in table
+	} else {
+		$e.focus()
+		$e.scrollIntoView({block:'nearest'})
+	}
 	return true
 }
