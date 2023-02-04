@@ -40,6 +40,7 @@ export default class GlobalEventListener {
 		},true) // need to capture event before it bubbles to note table sections
 		document.body.addEventListener('keydown',ev=>{
 			if (!(ev.target instanceof HTMLElement)) return
+			if (ev.key!='Enter') return
 			const $e=ev.target.closest('time.listened')
 			if ($e instanceof HTMLTimeElement) {
 				if (this.timestampListener && $e.dateTime) {
