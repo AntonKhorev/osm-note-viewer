@@ -3,7 +3,7 @@ import type {WebProvider} from './server'
 import type CommentWriter from './comment-writer'
 import {makeDateOutput} from './comment-writer'
 import {toReadableDate} from './query-date'
-import {makeDiv, makeLink} from './html'
+import {makeDiv, makeElement, makeLink} from './html'
 
 /**
  * @returns comment cells
@@ -63,6 +63,10 @@ export default function writeNoteSectionRows(
 				} else {
 					$cell.append(`#${comment.uid}`)
 				}
+			} else {
+				const $a=makeElement('a')()(`anonymous`)
+				$a.tabIndex=0
+				$cell.append($a)
 			}
 		}{
 			let svgs=`<svg class="icon-status-${getActionClass(comment.action)}">`+
@@ -77,10 +81,12 @@ export default function writeNoteSectionRows(
 			}
 			const $cell=$row.insertCell()
 			$cell.classList.add('note-action')
+			$cell.tabIndex=0
 			$cell.innerHTML=svgs
 		}{
 			const $cell=$row.insertCell()
 			$cell.classList.add('note-comment')
+			$cell.tabIndex=0
 			commentWriter.writeComment($cell,comment.text,showImages)
 			$commentCells.push($cell)
 		}

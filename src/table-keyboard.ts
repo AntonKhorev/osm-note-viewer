@@ -13,66 +13,85 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 	)
 	if (!isVerticalMovementKey && !isHorizontalMovementKey) return
 	if (!(ev.target instanceof HTMLElement)) return
-	const $noteSection=ev.target.closest('thead, tbody')
-	if (!($noteSection instanceof HTMLTableSectionElement)) return
-	const $checkbox=$noteSection.querySelector('.note-checkbox input')
-	const $a=$noteSection.querySelector('.note-link a')
-	const $dates=[...$noteSection.querySelectorAll('.note-date time')]
-	const wasOnNthDate=$dates.indexOf(ev.target)
-	const getSiblingNoteSection=(includeHeading:boolean)=>{
-		let $siblingNoteSection: Element|null|undefined
-		if (ev.key=='ArrowUp') {
-			$siblingNoteSection=$noteSection.previousElementSibling
-		} else if (ev.key=='ArrowDown') {
-			$siblingNoteSection=$noteSection.nextElementSibling
-		} else if (ev.key=='Home') {
-			$siblingNoteSection=$noteSection.parentElement?.firstElementChild
-			if (!includeHeading) $siblingNoteSection=$siblingNoteSection?.nextElementSibling
-		} else if (ev.key=='End') {
-			$siblingNoteSection=$noteSection.parentElement?.lastElementChild
-		}
-		if (!($siblingNoteSection instanceof HTMLTableSectionElement)) return undefined
-		return $siblingNoteSection
+	const $section=ev.target.closest('thead, tbody')
+	if (!($section instanceof HTMLTableSectionElement)) return
+	const $tr=ev.target.closest('tr')
+	if (!($tr instanceof HTMLTableRowElement)) return
+	const focusInAllSections=(selector:string):boolean=>{
+		if (!(ev.target instanceof HTMLElement)) return false
+		return focusInList(ev.key,ev.target,this.querySelectorAll(selector))
 	}
-	const focusInSiblingNoteSection=(includeHeading:boolean,selector:string):boolean=>{
-		return focus(getSiblingNoteSection(includeHeading)?.querySelector(selector))
+	const focusInOwnSection=(selector:string):boolean=>{
+		return focus($section.querySelector(selector))
 	}
-	if (ev.target==$checkbox) {
+	const focusInOwnRow=(selector:string):boolean=>{
+		return focus($tr.querySelector(selector))
+	}
+	if (ev.target.matches('.note-checkbox input')) {
 		if (isVerticalMovementKey) {
-			if (!focusInSiblingNoteSection(true,'.note-checkbox input')) return
+			if (!focusInAllSections('.note-checkbox input')) return
 		} else if (ev.key=='ArrowRight') {
-			if (!focus($a)) return
+			if (!focusInOwnSection('.note-link a')) return
 		}
-	} else if (ev.target==$a) {
+	} else if (ev.target.matches('.note-link a')) {
 		if (isVerticalMovementKey) {
-			if (!focusInSiblingNoteSection(false,'.note-link a')) return
+			if (!focusInAllSections('.note-link a')) return
 		} else if (ev.key=='ArrowLeft') {
-			if (!focus($checkbox)) return
+			if (!focusInOwnSection('.note-checkbox input')) return
 		} else if (ev.key=='ArrowRight') {
-			if (!focus($dates[0])) return
+			if (!focusInOwnSection('.note-date time')) return
 		}
-	} else if (wasOnNthDate>=0) {
+	} else if (ev.target.matches('.note-date time')) {
 		if (isVerticalMovementKey) {
-			const $allDates=[...this.querySelectorAll('.note-date time')]
-			const i=$allDates.indexOf(ev.target)
-			if (i<0) return
-			if (ev.key=='ArrowUp') {
-				if (!focus($allDates[i-1])) return
-			} else if (ev.key=='ArrowDown') {
-				if (!focus($allDates[i+1])) return
-			} else if (ev.key=='Home') {
-				if (!focus($allDates[0])) return
-			} else if (ev.key=='End') {
-				if (!focus($allDates[$allDates.length-1])) return
-			}
+			if (!focusInAllSections('.note-date time')) return
 		} else if (ev.key=='ArrowLeft') {
-			if (!focus($a)) return
+			if (!focusInOwnSection('.note-link a')) return
+		} else if (ev.key=='ArrowRight') {
+			if (!focusInOwnRow('.note-user a')) return
+		}
+	} else if (ev.target.matches('.note-user a')) {
+		if (isVerticalMovementKey) {
+			if (!focusInAllSections('.note-user a')) return
+		} else if (ev.key=='ArrowLeft') {
+			if (!focusInOwnRow('.note-date time')) return
+		} else if (ev.key=='ArrowRight') {
+			if (!focusInOwnRow('.note-action')) return
+		}
+	} else if (ev.target.matches('.note-action')) {
+		if (isVerticalMovementKey) {
+			if (!focusInAllSections('.note-action')) return
+		} else if (ev.key=='ArrowLeft') {
+			if (!focusInOwnRow('.note-user a')) return
+		} else if (ev.key=='ArrowRight') {
+			if (!focusInOwnRow('.note-comment')) return
+		}
+	} else if (ev.target.matches('.note-comment')) {
+		if (isVerticalMovementKey) {
+			if (!focusInAllSections('.note-comment')) return
+		} else if (ev.key=='ArrowLeft') {
+			if (!focusInOwnRow('.note-action')) return
 		}
 	} else {
 		return
 	}
 	ev.stopPropagation()
 	ev.preventDefault()
+}
+
+function focusInList(key: string, $e: HTMLElement, $esi: Iterable<Element>): boolean {
+	const $es=[...$esi]
+	const i=$es.indexOf($e)
+	if (i<0) return false
+	if (key=='ArrowUp' || key=='ArrowLeft') {
+		return focus($es[i-1])
+	} else if (key=='ArrowDown' || key=='ArrowRight') {
+		return focus($es[i+1])
+	} else if (key=='Home') {
+		return focus($es[0])
+	} else if (key=='End') {
+		return focus($es[$es.length-1])
+	}
+	return false
 }
 
 function focus($e: Element|null|undefined): boolean {
