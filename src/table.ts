@@ -6,7 +6,7 @@ import LooseParserPopup from './loose-popup'
 import parseLoose from './loose'
 import type FigureDialog from './figure'
 import writeNoteSectionRows from './table-section'
-import noteSectionKeydownListener from './table-keyboard'
+import noteTableKeydownListener from './table-keyboard'
 import CommentWriter, {handleShowImagesUpdate} from './comment-writer'
 import type ToolPanel from './tool-panel'
 import type NoteFilter from './filter'
@@ -112,6 +112,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.wrappedNoteMarkerClickListener=function(){
 			that.noteMarkerClickListener(this)
 		}
+		this.$table.addEventListener('keydown',noteTableKeydownListener)
 		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver((visibleNoteIds,isMapFittingHalted)=>{
 			map.showNoteTrack(visibleNoteIds)
 			if (!isMapFittingHalted && toolPanel.fitMode=='inViewNotes') map.fitNoteTrack()
@@ -298,7 +299,6 @@ export default class NoteTable implements NoteTableUpdater {
 			$actionCell,
 			makeHeaderCell('comment')
 		)
-		$header.addEventListener('keydown',noteSectionKeydownListener)
 		function makeHeaderCell(text: string): HTMLTableCellElement {
 			const $cell=document.createElement('th')
 			$cell.textContent=text
@@ -323,7 +323,6 @@ export default class NoteTable implements NoteTableUpdater {
 		for (const [event,listener] of this.wrappedNoteSectionListeners) {
 			$noteSection.addEventListener(event,listener)
 		}
-		$noteSection.addEventListener('keydown',noteSectionKeydownListener)
 		if (isVisible && !$checkbox.checked) {
 			if (this.$selectAllCheckbox.checked) {
 				this.$selectAllCheckbox.checked=false

@@ -1,5 +1,7 @@
-export default function noteSectionKeydownListener(this: HTMLTableSectionElement, ev: KeyboardEvent): void {
-	const $noteSection=this
+export default function noteTableKeydownListener(this: HTMLTableElement, ev: KeyboardEvent): void {
+	if (!(ev.target instanceof HTMLElement)) return
+	const $noteSection=ev.target.closest('thead, tbody')
+	if (!($noteSection instanceof HTMLTableSectionElement)) return
 	const $checkbox=$noteSection.querySelector('.note-checkbox input')
 	const $a=$noteSection.querySelector('.note-link a')
 	const wasOnCheckbox=ev.target==$checkbox
