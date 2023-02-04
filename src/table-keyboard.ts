@@ -27,19 +27,16 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 		'.note-action',
 		'.note-comment'
 	]
-	const rowSelector=selectors.join(',')
-	const focusInOwnSection=()=>focusInList(ev.key,$e,$section.querySelectorAll(rowSelector))
-	const focusInOwnRow=()=>focusInList(ev.key,$e,$tr.querySelectorAll(rowSelector))
 	const iHasCommentRows=2
 	for (let i=0;i<selectors.length;i++) {
 		if (!$e.matches(selectors[i])) continue
-		const focusInHorizontalNeighbor=(j:number)=>(j<iHasCommentRows?focusInOwnSection:focusInOwnRow)()
 		if (isVerticalMovementKey) {
 			if (!focusInAllSections(selectors[i])) return
-		} else if (ev.key=='ArrowLeft' || ev.key=='Home') {
-			if (!focusInHorizontalNeighbor(i-1)) return
-		} else if (ev.key=='ArrowRight' || ev.key=='End') {
-			if (!focusInHorizontalNeighbor(i+1)) return
+		} else if (isHorizontalMovementKey) {
+			const j=getIndexForKeyMovement(ev.key,i,selectors.length)
+			if (j<0) return
+			const $e2=(j<iHasCommentRows?$section:$tr).querySelector(selectors[j])
+			if (!focus($e2)) return
 		}
 		ev.stopPropagation()
 		ev.preventDefault()
@@ -50,16 +47,20 @@ function focusInList(key: string, $e: HTMLElement, $esi: Iterable<Element>): boo
 	const $es=[...$esi]
 	const i=$es.indexOf($e)
 	if (i<0) return false
+	return focus($es[getIndexForKeyMovement(key,i,$es.length)])
+}
+
+function getIndexForKeyMovement(key: string, i: number, length: number): number {
 	if (key=='ArrowUp' || key=='ArrowLeft') {
-		return focus($es[i-1])
+		return i-1
 	} else if (key=='ArrowDown' || key=='ArrowRight') {
-		return focus($es[i+1])
+		return i+1
 	} else if (key=='Home') {
-		return focus($es[0])
+		return 0
 	} else if (key=='End') {
-		return focus($es[$es.length-1])
+		return length-1
 	}
-	return false
+	return -1
 }
 
 function focus($e: Element|null|undefined): boolean {
