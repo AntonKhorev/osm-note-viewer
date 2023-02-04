@@ -1,3 +1,12 @@
+const selectors=[
+	'.note-checkbox input',
+	'.note-link a',
+	'.note-date time',
+	'.note-user a',
+	'.note-action',
+	'.note-comment'
+]
+
 export default function noteTableKeydownListener(this: HTMLTableElement, ev: KeyboardEvent): void {
 	const isVerticalMovementKey=(
 		ev.key=='ArrowUp' ||
@@ -12,7 +21,8 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 		ev.key=='End' && !ev.ctrlKey
 	)
 	if (!isVerticalMovementKey && !isHorizontalMovementKey) return
-	const $e=ev.target
+	if (!(ev.target instanceof HTMLElement)) return
+	const $e=ev.target.closest(selectors.join(','))
 	if (!($e instanceof HTMLElement)) return
 	const $section=$e.closest('thead, tbody')
 	if (!($section instanceof HTMLTableSectionElement)) return
@@ -21,14 +31,6 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 	const focusInAllSections=(selector:string)=>focusInList(ev.key,$e,this.querySelectorAll(
 		':where(:scope:not(.only-first-comments), :scope tr:first-child) '+selector
 	))
-	const selectors=[
-		'.note-checkbox input',
-		'.note-link a',
-		'.note-date time',
-		'.note-user a',
-		'.note-action',
-		'.note-comment'
-	]
 	const iHasCommentRows=2
 	for (let i=0;i<selectors.length;i++) {
 		if (!$e.matches(selectors[i])) continue
