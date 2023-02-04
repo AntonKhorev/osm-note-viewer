@@ -12,7 +12,9 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 		ev.key=='ArrowUp' ||
 		ev.key=='ArrowDown' ||
 		ev.key=='Home' && ev.ctrlKey ||
-		ev.key=='End' && ev.ctrlKey
+		ev.key=='End' && ev.ctrlKey ||
+		ev.key=='PageUp' ||
+		ev.key=='PageDown'
 	)
 	const isHorizontalMovementKey=(
 		ev.key=='ArrowLeft' ||
@@ -51,10 +53,40 @@ function focusInList(key: string, $e: HTMLElement, $esi: Iterable<Element>): boo
 	const $es=[...$esi]
 	const i=$es.indexOf($e)
 	if (i<0) return false
-	return focus(
-		$es[getIndexForKeyMovement(key,i,$es.length)],
-		key=='Home' || key=='End'
-	)
+	if (key=='PageUp' || key=='PageDown') {
+		const $scrollingPart=$e.closest('.scrolling')
+		if (!($scrollingPart instanceof HTMLElement)) return false
+		const scrollRect=$scrollingPart.getBoundingClientRect()
+		if (key=='PageUp') {
+			for (let j=i;j>=0;j--) {
+				const e2rect=$es[j].getBoundingClientRect()
+				if (e2rect.top>scrollRect.top-scrollRect.height) continue
+				if (j<i) {
+					return focus($es[j],true)
+				} else if (i>0) {
+					return focus($es[i-1],true)
+				} else {
+					return false
+				}
+			}
+		} else {
+			for (let j=i;j<$es.length;j++) {
+				const e2rect=$es[j].getBoundingClientRect()
+				if (e2rect.bottom<scrollRect.bottom+scrollRect.height)  continue
+				if (j>i) {
+					return focus($es[j],true)
+				} else if (i<$es.length-1) {
+					return focus($es[i+1],true)
+				} else {
+					return false
+				}
+			}
+		}
+		return false
+	} else {
+		const j=getIndexForKeyMovement(key,i,$es.length)
+		return focus($es[j],key=='Home'||key=='End')
+	}
 }
 
 function getIndexForKeyMovement(key: string, i: number, length: number): number {
