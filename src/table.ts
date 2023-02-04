@@ -6,6 +6,7 @@ import LooseParserPopup from './loose-popup'
 import parseLoose from './loose'
 import type FigureDialog from './figure'
 import writeNoteSectionRows from './table-section'
+import noteSectionKeydownListener from './table-keyboard'
 import CommentWriter, {handleShowImagesUpdate} from './comment-writer'
 import type ToolPanel from './tool-panel'
 import type NoteFilter from './filter'
@@ -22,7 +23,6 @@ export interface NoteTableUpdater {
 
 export default class NoteTable implements NoteTableUpdater {
 	private wrappedNoteSectionListeners: Array<[event: string, listener: (this:HTMLTableSectionElement)=>void]>
-	private wrappedNoteSectionKeydownListener: (this: HTMLTableSectionElement, ev: KeyboardEvent) => void
 	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedAllNotesCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
@@ -103,9 +103,6 @@ export default class NoteTable implements NoteTableUpdater {
 				$clickReadyNoteSection=undefined
 			}]
 		]
-		this.wrappedNoteSectionKeydownListener=function(ev: KeyboardEvent){
-			that.noteSectionKeydownListener(this,ev)
-		}
 		this.wrappedNoteCheckboxClickListener=function(ev: MouseEvent){
 			that.noteCheckboxClickListener(this,ev)
 		}
@@ -301,7 +298,7 @@ export default class NoteTable implements NoteTableUpdater {
 			$actionCell,
 			makeHeaderCell('comment')
 		)
-		$header.addEventListener('keydown',this.wrappedNoteSectionKeydownListener)
+		$header.addEventListener('keydown',noteSectionKeydownListener)
 		function makeHeaderCell(text: string): HTMLTableCellElement {
 			const $cell=document.createElement('th')
 			$cell.textContent=text
@@ -326,7 +323,7 @@ export default class NoteTable implements NoteTableUpdater {
 		for (const [event,listener] of this.wrappedNoteSectionListeners) {
 			$noteSection.addEventListener(event,listener)
 		}
-		$noteSection.addEventListener('keydown',this.wrappedNoteSectionKeydownListener)
+		$noteSection.addEventListener('keydown',noteSectionKeydownListener)
 		if (isVisible && !$checkbox.checked) {
 			if (this.$selectAllCheckbox.checked) {
 				this.$selectAllCheckbox.checked=false
@@ -375,47 +372,6 @@ export default class NoteTable implements NoteTableUpdater {
 			this.setNoteSelection($noteSection,$allCheckbox.checked)
 		}
 		this.updateCheckboxDependents()
-	}
-	private noteSectionKeydownListener($noteSection: HTMLTableSectionElement, ev: KeyboardEvent): void {
-		const $checkbox=$noteSection.querySelector('.note-checkbox input')
-		const $a=$noteSection.querySelector('.note-link a')
-		const wasOnCheckbox=ev.target==$checkbox
-		const wasOnLink=ev.target==$a
-		if (!(wasOnCheckbox || wasOnLink)) return
-		if (['ArrowUp','ArrowDown','Home','End'].includes(ev.key)) {
-			let $siblingNoteSection: Element|null|undefined
-			if (ev.key=='ArrowUp') {
-				$siblingNoteSection=$noteSection.previousElementSibling
-			} else if (ev.key=='ArrowDown') {
-				$siblingNoteSection=$noteSection.nextElementSibling
-			} else if (ev.key=='Home') {
-				$siblingNoteSection=$noteSection.parentElement?.firstElementChild
-				if (wasOnLink) $siblingNoteSection=$siblingNoteSection?.nextElementSibling
-			} else if (ev.key=='End') {
-				$siblingNoteSection=$noteSection.parentElement?.lastElementChild
-			}
-			if (!($siblingNoteSection instanceof HTMLTableSectionElement)) return
-			const focus=(selector:string):boolean=>{
-				const $e=$siblingNoteSection?.querySelector(selector)
-				if (!($e instanceof HTMLElement)) return false
-				$e.focus()
-				return true
-			}
-			if (wasOnCheckbox) {
-				if (!focus('.note-checkbox input')) return
-			}
-			if (wasOnLink) {
-				if (!focus('.note-link a')) return
-			}
-		} else if (ev.key=='ArrowLeft' && wasOnLink && ($checkbox instanceof HTMLInputElement)) {
-			$checkbox.focus()
-		} else if (ev.key=='ArrowRight' && wasOnCheckbox && ($a instanceof HTMLAnchorElement)) {
-			$a.focus()
-		} else {
-			return
-		}
-		ev.stopPropagation()
-		ev.preventDefault()
 	}
 	private focusOnNote($noteSection: HTMLTableSectionElement, isSectionClicked: boolean = false): void {
 		this.activateNote('click',$noteSection)
