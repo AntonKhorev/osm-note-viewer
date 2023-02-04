@@ -57,32 +57,36 @@ function focusInList(key: string, $e: HTMLElement, $esi: Iterable<Element>): boo
 		const $scrollingPart=$e.closest('.scrolling')
 		if (!($scrollingPart instanceof HTMLElement)) return false
 		const scrollRect=$scrollingPart.getBoundingClientRect()
-		if (key=='PageUp') {
-			for (let j=i;j>=0;j--) {
-				const e2rect=$es[j].getBoundingClientRect()
-				if (e2rect.top>scrollRect.top-scrollRect.height) continue
-				if (j<i) {
+		const scrollToNextPage=(
+			d:number,
+			indexBound:number,
+			checkRect:(rect:DOMRect)=>boolean
+		):boolean=>{
+			const checkIndexBound=(k:number)=>k*d<indexBound*d
+			for (let j=i;checkIndexBound(j);j+=d) {
+				if (checkRect($es[j].getBoundingClientRect())) continue
+				if (j*d>i*d) {
 					return focus($es[j],true)
-				} else if (i>0) {
-					return focus($es[i-1],true)
 				} else {
-					return false
+					return focus($es[j+d],true)
 				}
 			}
-		} else {
-			for (let j=i;j<$es.length;j++) {
-				const e2rect=$es[j].getBoundingClientRect()
-				if (e2rect.bottom<scrollRect.bottom+scrollRect.height)  continue
-				if (j>i) {
-					return focus($es[j],true)
-				} else if (i<$es.length-1) {
-					return focus($es[i+1],true)
-				} else {
-					return false
-				}
+			if (checkIndexBound(i)) {
+				return focus($es[indexBound],true)
 			}
+			return false
 		}
-		return false
+		if (key=='PageUp') {
+			return scrollToNextPage(
+				-1,0,
+				rect=>rect.top>scrollRect.top-scrollRect.height
+			)
+		} else {
+			return scrollToNextPage(
+				+1,$es.length-1,
+				rect=>rect.bottom<scrollRect.bottom+scrollRect.height
+			)
+		}
 	} else {
 		const j=getIndexForKeyMovement(key,i,$es.length)
 		return focus($es[j],key=='Home'||key=='End')
