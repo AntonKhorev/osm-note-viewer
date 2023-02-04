@@ -12,15 +12,13 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 		ev.key=='End' && !ev.ctrlKey
 	)
 	if (!isVerticalMovementKey && !isHorizontalMovementKey) return
-	if (!(ev.target instanceof HTMLElement)) return
-	const $section=ev.target.closest('thead, tbody')
+	const $e=ev.target
+	if (!($e instanceof HTMLElement)) return
+	const $section=$e.closest('thead, tbody')
 	if (!($section instanceof HTMLTableSectionElement)) return
-	const $tr=ev.target.closest('tr')
+	const $tr=$e.closest('tr')
 	if (!($tr instanceof HTMLTableRowElement)) return
-	const focusInAllSections=(selector:string):boolean=>{
-		if (!(ev.target instanceof HTMLElement)) return false
-		return focusInList(ev.key,ev.target,this.querySelectorAll(selector))
-	}
+	const focusInAllSections=(selector:string)=>focusInList(ev.key,$e,this.querySelectorAll(selector))
 	const focusInOwnSection=(selector:string)=>focus($section.querySelector(selector))
 	const focusInOwnRow=(selector:string)=>focus($tr.querySelector(selector))
 	const selectors=[
@@ -33,7 +31,7 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 	]
 	const iHasCommentRows=2
 	for (let i=0;i<selectors.length;i++) {
-		if (!ev.target.matches(selectors[i])) continue
+		if (!$e.matches(selectors[i])) continue
 		const focusInHorizontalNeighbor=(j:number)=>(j<iHasCommentRows?focusInOwnSection:focusInOwnRow)(selectors[j])
 		if (isVerticalMovementKey) {
 			if (!focusInAllSections(selectors[i])) return
