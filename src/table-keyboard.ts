@@ -19,8 +19,6 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 	const $tr=$e.closest('tr')
 	if (!($tr instanceof HTMLTableRowElement)) return
 	const focusInAllSections=(selector:string)=>focusInList(ev.key,$e,this.querySelectorAll(selector))
-	const focusInOwnSection=(selector:string)=>focus($section.querySelector(selector))
-	const focusInOwnRow=(selector:string)=>focus($tr.querySelector(selector))
 	const selectors=[
 		'.note-checkbox input',
 		'.note-link a',
@@ -29,15 +27,18 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 		'.note-action',
 		'.note-comment'
 	]
+	const rowSelector=selectors.join(',')
+	const focusInOwnSection=()=>focusInList(ev.key,$e,$section.querySelectorAll(rowSelector))
+	const focusInOwnRow=()=>focusInList(ev.key,$e,$tr.querySelectorAll(rowSelector))
 	const iHasCommentRows=2
 	for (let i=0;i<selectors.length;i++) {
 		if (!$e.matches(selectors[i])) continue
-		const focusInHorizontalNeighbor=(j:number)=>(j<iHasCommentRows?focusInOwnSection:focusInOwnRow)(selectors[j])
+		const focusInHorizontalNeighbor=(j:number)=>(j<iHasCommentRows?focusInOwnSection:focusInOwnRow)()
 		if (isVerticalMovementKey) {
 			if (!focusInAllSections(selectors[i])) return
-		} else if (ev.key=='ArrowLeft' && i>0) {
+		} else if (ev.key=='ArrowLeft' || ev.key=='Home') {
 			if (!focusInHorizontalNeighbor(i-1)) return
-		} else if (ev.key=='ArrowRight') {
+		} else if (ev.key=='ArrowRight' || ev.key=='End') {
 			if (!focusInHorizontalNeighbor(i+1)) return
 		}
 		ev.stopPropagation()
