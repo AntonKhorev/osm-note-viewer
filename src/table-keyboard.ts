@@ -18,7 +18,9 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 	if (!($section instanceof HTMLTableSectionElement)) return
 	const $tr=$e.closest('tr')
 	if (!($tr instanceof HTMLTableRowElement)) return
-	const focusInAllSections=(selector:string)=>focusInList(ev.key,$e,this.querySelectorAll(selector))
+	const focusInAllSections=(selector:string)=>focusInList(ev.key,$e,this.querySelectorAll(
+		':where(:scope:not(.only-first-comments), :scope.only-first-comments tr:first-child) '+selector
+	))
 	const selectors=[
 		'.note-checkbox input',
 		'.note-link a',
