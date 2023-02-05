@@ -64,47 +64,51 @@ function moveVerticallyAmongProvidedElements(key: string, $e: HTMLElement, $eLis
 	const $es=[...$eList]
 	const i=$es.indexOf($e)
 	if (i<0) return false
+	let j:number
 	if (key=='PageUp' || key=='PageDown') {
 		const $scrollingPart=$e.closest('.scrolling')
 		if (!($scrollingPart instanceof HTMLElement)) return false
 		const scrollRect=$scrollingPart.getBoundingClientRect()
-		const scrollToNextPage=(
-			d:number,
-			indexBound:number,
-			checkRect:(rect:DOMRect)=>boolean
-		):boolean=>{
-			const checkIndexBound=(k:number)=>k*d<indexBound*d
-			for (let j=i;checkIndexBound(j);j+=d) {
-				if (checkRect($es[j].getBoundingClientRect())) continue
-				if (j*d>i*d) {
-					return focus($es[j],true)
-				} else {
-					return focus($es[j+d],true)
-				}
-			}
-			if (checkIndexBound(i)) {
-				return focus($es[indexBound],true)
-			}
-			return false
-		}
 		if (key=='PageUp') {
-			return scrollToNextPage(
-				-1,0,
+			j=getNextPageIndex($es,i,-1,0,
 				rect=>rect.top>scrollRect.top-scrollRect.height
 			)
 		} else {
-			return scrollToNextPage(
-				+1,$es.length-1,
+			j=getNextPageIndex($es,i,+1,$es.length-1,
 				rect=>rect.bottom<scrollRect.bottom+scrollRect.height
 			)
+			
 		}
 	} else {
-		const j=getIndexForKeyMovement(key,i,$es.length)
-		if (isSelection) {
-			checkRange($es,i,j)
-		}
-		return focus($es[j],key=='Home'||key=='End')
+		j=getIndexForKeyMovement(key,i,$es.length)
 	}
+	if (i==j) return false
+	if (isSelection) {
+		checkRange($es,i,j)
+	}
+	return focus($es[j],key=='Home'||key=='End'||key=='PageUp'||key=='PageDown')
+}
+
+function getNextPageIndex(
+	$es: Element[],
+	fromIndex: number,
+	d: number,
+	indexBound: number,
+	checkRect: (rect:DOMRect)=>boolean
+): number {
+	const checkIndexBound=(k:number)=>k*d<indexBound*d
+	for (let j=fromIndex;checkIndexBound(j);j+=d) {
+		if (checkRect($es[j].getBoundingClientRect())) continue
+		if (j*d>fromIndex*d) {
+			return j
+		} else {
+			return j+d
+		}
+	}
+	if (checkIndexBound(fromIndex)) {
+		return indexBound
+	}
+	return fromIndex
 }
 
 function getIndexForKeyMovement(key: string, i: number, length: number): number {
