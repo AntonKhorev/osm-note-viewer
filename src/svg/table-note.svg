@@ -1,7 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 -16 32 32">
 <g stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
 <g class="default">
-<circle r="15" cx="0" cy="0" fill="none" stroke="#306d98" stroke-width="2" />
+<circle r="15" cx="0" cy="0" fill="#fff" stroke="#306d98" stroke-width="2" />
+<line x1="-7" x2="7" y1="0" y2="0" stroke="#306d98" />
+<line x1="0" x2="0" y1="-7" y2="7" stroke="#306d98" />
+</g>
+<g class="commented">
+<path d="M7.5,13 A15,15 0 1 1 13,7.5 L15,15 Z" fill="#fff" stroke="#306d98" stroke-width="2" />
 <line x1="-7" x2="7" y1="0" y2="0" stroke="#306d98" />
 <line x1="0" x2="0" y1="-7" y2="7" stroke="#306d98" />
 </g>

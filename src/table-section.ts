@@ -104,6 +104,8 @@ function getActionClass(action: NoteComment['action']): string {
 		return 'closed'
 	} else if (action=='hidden') {
 		return 'hidden'
+	} else if (action=='commented') {
+		return 'commented'
 	} else {
 		return 'other'
 	}
