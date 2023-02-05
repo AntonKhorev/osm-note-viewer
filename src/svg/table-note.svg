@@ -14,5 +14,8 @@
 <circle r="15" cx="0" cy="0" fill="#9bc54e" stroke="#7ca23b" stroke-width="2" />
 <polyline points="-8,2 -1,8 8,-6" stroke="#fff" fill="none" />
 </g>
+<g class="hidden">
+<path d="M0,-15 A15,15 0 1 0 0,+15 A15,15 0 1 0 0,-15 Z M0,-9 A9,9 0 1 1 0,+9 A9,9 0 1 1 0,-9 Z" stroke="#444" fill="#888" stroke-width="2" />
+</g>
 </g>
 </svg>

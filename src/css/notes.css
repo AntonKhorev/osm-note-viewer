@@ -112,6 +112,10 @@ body.flipped .notes td.note-user {
 	--table-note-default-part-visibility: hidden;
 	--table-note-closed-part-visibility: visible;
 }
+.notes td.note-action .icon-container > svg[class|=icon-status-hidden] {
+	--table-note-default-part-visibility: hidden;
+	--table-note-hidden-part-visibility: visible;
+}
 .notes td.note-action .icon-container > svg[class|=icon-comments-count] text {
 	font-family: sans-serif;
 	font-size: 10px;

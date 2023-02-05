@@ -100,8 +100,10 @@ export default function writeNoteSectionRows(
 function getActionClass(action: NoteComment['action']): string {
 	if (action=='opened' || action=='reopened') {
 		return 'open'
-	} else if (action=='closed' || action=='hidden') {
+	} else if (action=='closed') {
 		return 'closed'
+	} else if (action=='hidden') {
+		return 'hidden'
 	} else {
 		return 'other'
 	}
