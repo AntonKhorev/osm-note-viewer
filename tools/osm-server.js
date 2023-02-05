@@ -1,17 +1,25 @@
 import * as fs from 'fs/promises'
 import * as http from 'http'
+import * as querystring from 'querystring'
 
 let notesById=new Map()
 let login={}
 
 export default async function runOsmServer(authRedirectUrl,port=0) {
 	const tileData=await fs.readFile(new URL('./tile.png',import.meta.url))
+	let lastRequest
 	const server=http.createServer(async(request,response)=>{
 		// console.log('> osm server request',request.method,request.url)
+		const body=await readRequestBody(request)
+		lastRequest={
+			method: request.method,
+			url: request.url,
+			body
+		}
 		if (request.method=='OPTIONS') {
 			response.writeHead(204,{
 				'access-control-allow-origin': '*',
-				'access-control-allow-methods': 'POST, GET, OPTIONS',
+				'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS',
 				'access-control-allow-headers': 'authorization'
 			})
 			return response.end()
@@ -30,7 +38,12 @@ export default async function runOsmServer(authRedirectUrl,port=0) {
 			respondToSearch(response,query)
 		} else if (match=pathname.match(new RegExp('/api/0\\.6/notes/(\\d+)\\.json'))) {
 			const [,id]=match
-			respondToNote(response,Number(id))
+			if (request.method=='DELETE') {
+				const params=querystring.parse(body)
+				respondToNoteDelete(response,Number(id),params.text)
+			} else {
+				respondToNote(response,Number(id))
+			}
 		} else if (pathname=='/oauth2/authorize') {
 			if (!login.authCode) {
 				response.writeHead(200) // empty page displayed to the user telling
@@ -70,6 +83,9 @@ export default async function runOsmServer(authRedirectUrl,port=0) {
 		nodeServer: server,
 		get url() {
 			return `http://127.0.0.1:${server.address().port}/`
+		},
+		get lastRequest() {
+			return lastRequest
 		},
 		clearData() {
 			notesById=new Map()
@@ -131,6 +147,21 @@ export default async function runOsmServer(authRedirectUrl,port=0) {
 	}
 }
 
+function readRequestBody(request) {
+	return new Promise((resolve,reject)=>{
+		let body=''
+		request.on('data',data=>{
+			body+=data
+			if (body.length>1e6) {
+				request.connection.destroy()
+				reject(`request body too long`)
+			}
+		}).on('end',()=>{
+			resolve(body)
+		})
+	})
+}
+
 function respondToSearch(response,query) {
 	const notes=[...notesById.values()]
 	const data={
@@ -146,6 +177,21 @@ function respondToNote(response,id) {
 		response.writeHead(404)
 		return response.end()
 	}
+	serveJson(response,getNoteJson(note))
+}
+
+function respondToNoteDelete(response,id,text) {
+	const now='2023-02'
+	const note=notesById.get(id)
+	if (!note) {
+		response.writeHead(404)
+		return response.end()
+	}
+	note.comments.push({
+		date: new Date(now),
+		action: 'hidden',
+		text: text??''
+	})
 	serveJson(response,getNoteJson(note))
 }
 

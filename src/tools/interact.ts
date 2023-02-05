@@ -399,15 +399,15 @@ export class InteractTool extends Tool {
 			this.updateRunOutput()
 			try {
 				let response: Response
-				const fetchBuilder=this.auth.server.api.fetch.withToken(this.auth.token)
+				const fetchBuilder=this.auth.server.api.fetch.withToken(this.auth.token).withUrlencodedBody([
+					['text',this.$commentText.value]
+				])
 				if (this.run.interactionDescription.verb=='DELETE') {
 					const path=e`notes/${id}.json`
 					response=await fetchBuilder.delete(path)
 				} else { // POST
 					const path=e`notes/${id}/${this.run.interactionDescription.endpoint}.json`
-					response=await fetchBuilder.withUrlencodedBody([
-						['text',this.$commentText.value],
-					]).post(path)
+					response=await fetchBuilder.post(path)
 				}
 				if (!response.ok) {
 					const contentType=response.headers.get('content-type')

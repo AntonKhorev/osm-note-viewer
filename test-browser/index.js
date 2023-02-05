@@ -375,7 +375,7 @@ describe("browser tests",function(){
 		const page=await this.openPage('?code=wrong')
 		await this.assertText(page,"outside of a popup")
 	})
-	it("can log in",async function(){
+	it("logs in",async function(){
 		this.osmServer.setLogin(true)
 		const page=await this.openPage()
 		const tool=await this.waitForTool(`Interact`)
@@ -392,6 +392,51 @@ describe("browser tests",function(){
 		await loginSection.waitForSelector('table')
 		await this.assertText(loginSection,"logged-in-user-name")
 		await this.assertText(tool,"logged-in-user-name")
+	})
+
+	// note interaction
+
+	it("hides note with comment",async function(){
+		this.osmServer.setLogin(true)
+		this.osmServer.setNotes([{
+			"id": 101,
+			"comments": [{
+				"date": "2022-04-01",
+				"text": "the-first-note-comment"
+			}]
+		}])
+		const page=await this.openPage()
+		// fetch note
+		const fetchButton=await this.waitForFetchButton()
+		await fetchButton.click()
+		await page.waitForSelector('.notes tbody')
+		// login
+		await this.getToAboutTab()
+		const clientIdInput=await page.$('#auth-app-client-id')
+		await clientIdInput.type('id') // TODO have default value
+		const aboutSection=await page.$('#tab-panel-About')
+		const [loginSection]=await aboutSection.$x(`//section[contains(h3,"Logins")]`)
+		const loginButton=await loginSection.waitForXPath(`//button[contains(.,"Login")]`,{visible:true,timeout:1000})
+		loginButton.click()
+		await loginSection.waitForSelector('table')
+		// interact with note
+		const noteCheckbox=await page.$(`.notes tbody .note-checkbox input`)
+		await noteCheckbox.click()
+		const tool=await this.waitForTool(`Interact`)
+		await tool.click()
+		const commentTextarea=await tool.$('textarea')
+		await commentTextarea.type('h1d3-m3')
+		const [hideButton]=await tool.$x(buttonPath('Hide'))
+		await hideButton.click()
+		await page.waitForSelector('.notes tbody tr + tr')
+		assert.deepEqual(
+			this.osmServer.lastRequest,
+			{
+				method: `DELETE`,
+				url: `/api/0.6/notes/101.json`,
+				body: `text=h1d3-m3`
+			}
+		)
 	})
 })
 
