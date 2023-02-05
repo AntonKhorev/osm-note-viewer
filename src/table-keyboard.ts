@@ -38,14 +38,12 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 	if (!($section instanceof HTMLTableSectionElement)) return
 	const $tr=$e.closest('tr')
 	if (!($tr instanceof HTMLTableRowElement)) return
-	const focusInAllSections=(selector:string)=>focusInList(ev.key,$e,this.querySelectorAll(
-		':where(:scope:not(.only-first-comments), :scope tr:first-child) '+selector
-	))
 	const iHasCommentRows=2
 	for (let i=0;i<selectors.length;i++) {
 		if (!$e.matches(selectors[i])) continue
 		if (isVerticalMovementKey) {
-			if (!focusInAllSections(selectors[i])) return
+			const scopedSelector=':where(:scope:not(.only-first-comments), :scope tr:first-child) '+selectors[i]
+			if (!moveVerticallyAmongProvidedElements(ev,$e,this.querySelectorAll(scopedSelector),i==0)) return
 		} else if (isHorizontalMovementKey) {
 			const j=getIndexForKeyMovement(ev.key,i,selectors.length)
 			if (j<0) return
@@ -57,11 +55,11 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 	}
 }
 
-function focusInList(key: string, $e: HTMLElement, $esi: Iterable<Element>): boolean {
+function moveVerticallyAmongProvidedElements(ev: KeyboardEvent, $e: HTMLElement, $esi: Iterable<Element>, isSelectionCheckbox: boolean): boolean {
 	const $es=[...$esi]
 	const i=$es.indexOf($e)
 	if (i<0) return false
-	if (key=='PageUp' || key=='PageDown') {
+	if (ev.key=='PageUp' || ev.key=='PageDown') {
 		const $scrollingPart=$e.closest('.scrolling')
 		if (!($scrollingPart instanceof HTMLElement)) return false
 		const scrollRect=$scrollingPart.getBoundingClientRect()
@@ -84,7 +82,7 @@ function focusInList(key: string, $e: HTMLElement, $esi: Iterable<Element>): boo
 			}
 			return false
 		}
-		if (key=='PageUp') {
+		if (ev.key=='PageUp') {
 			return scrollToNextPage(
 				-1,0,
 				rect=>rect.top>scrollRect.top-scrollRect.height
@@ -96,8 +94,12 @@ function focusInList(key: string, $e: HTMLElement, $esi: Iterable<Element>): boo
 			)
 		}
 	} else {
-		const j=getIndexForKeyMovement(key,i,$es.length)
-		return focus($es[j],key=='Home'||key=='End')
+		const j=getIndexForKeyMovement(ev.key,i,$es.length)
+		if (isSelectionCheckbox && ev.shiftKey) {
+			return checkRange($es,i,j)
+		} else {
+			return focus($es[j],ev.key=='Home'||ev.key=='End')
+		}
 	}
 }
 
@@ -124,4 +126,18 @@ function focus($e: Element|null|undefined, far: boolean = false): boolean {
 		$e.scrollIntoView({block:'nearest'})
 	}
 	return true
+}
+
+function checkRange($es: Element[], fromIndex: number, toIndex: number) {
+	const d=toIndex>fromIndex?1:-1
+	for (let i=fromIndex;i*d<toIndex*d;i+=d) {
+		const $checkbox=$es[i]
+		if (!($checkbox instanceof HTMLInputElement)) continue
+		$checkbox.checked=true
+	}
+	const $lastCheckbox=$es[toIndex]
+	if (!($lastCheckbox instanceof HTMLInputElement)) return false
+	if ($lastCheckbox.checked) $lastCheckbox.checked=false
+	$lastCheckbox.click()
+	return focus($lastCheckbox)
 }
