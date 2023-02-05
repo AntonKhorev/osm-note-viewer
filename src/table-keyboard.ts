@@ -8,6 +8,14 @@ const selectors=[
 ]
 
 export default function noteTableKeydownListener(this: HTMLTableElement, ev: KeyboardEvent): void {
+	if (ev.ctrlKey && ev.key.toLowerCase()=='a') {
+		const $allCheckbox=this.querySelector('thead .note-checkbox input')
+		if (!($allCheckbox instanceof HTMLInputElement)) return
+		$allCheckbox.click()
+		ev.stopPropagation()
+		ev.preventDefault()
+		return
+	}
 	const isVerticalMovementKey=(
 		ev.key=='ArrowUp' ||
 		ev.key=='ArrowDown' ||
