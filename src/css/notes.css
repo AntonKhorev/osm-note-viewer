@@ -2,6 +2,9 @@
 	border-collapse: collapse;
 	margin: 0 2px;
 }
+.notes caption {
+	margin: .5em 0;
+}
 .notes tbody {
 	position: relative;
 }

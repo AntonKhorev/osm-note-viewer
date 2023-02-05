@@ -14,7 +14,7 @@ import NoteSectionVisibilityObserver from './observer'
 import NoteTableAndRefresherConnector from './refresher-connector'
 import type Server from './server'
 import fetchTableNote from './fetch-note'
-import {resetFadeAnimation} from './html'
+import {makeElement, resetFadeAnimation} from './html'
 
 export interface NoteTableUpdater {
 	addNotes(notes: Iterable<Note>, users: Users): number
@@ -43,6 +43,7 @@ export default class NoteTable implements NoteTableUpdater {
 		figureDialog: FigureDialog,
 		private server: Server
 	) {
+		this.$table.setAttribute('role','grid')
 		this.refresherConnector=new NoteTableAndRefresherConnector(
 			toolPanel,
 			(id,progress)=>{
@@ -136,7 +137,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.usersById.clear()
 		this.$lastClickedNoteSection=undefined
 		this.noteSectionVisibilityObserver.disconnect()
-		this.$table.innerHTML=''
+		this.$table.replaceChildren()
 		this.toolPanel.receiveNoteCounts(0,0)
 		this.updateCheckboxDependents()
 	}
@@ -184,7 +185,12 @@ export default class NoteTable implements NoteTableUpdater {
 			this.usersById.set(Number(uid),username)
 		}
 		// output table
-		if (this.$table.childElementCount==0) this.writeTableHeader()
+		if (this.$table.childElementCount==0) {
+			this.$table.append(
+				makeElement('caption')()(`Fetched notes`)
+			)
+			this.writeTableHeader()
+		}
 		let nUnfilteredNotes=0
 		const getUsername=(uid:number)=>users[uid]
 		for (const note of noteSequence) {
@@ -196,7 +202,7 @@ export default class NoteTable implements NoteTableUpdater {
 			this.makeMarker(note,isVisible)
 			const $checkbox=document.createElement('input')
 			$checkbox.type='checkbox'
-			$checkbox.title=`shift+click to select/unselect a range`
+			// $checkbox.title=`shift+click to select/unselect a range`
 			$checkbox.addEventListener('click',this.wrappedNoteCheckboxClickListener)
 			this.writeNoteSection($noteSection,$checkbox,note,users,isVisible)
 			this.refresherConnector.registerNote(note)
@@ -285,7 +291,7 @@ export default class NoteTable implements NoteTableUpdater {
 		const $checkboxCell=makeHeaderCell('')
 		$checkboxCell.classList.add('note-checkbox')
 		this.$selectAllCheckbox.type='checkbox'
-		this.$selectAllCheckbox.title=`select/unselect all notes`
+		this.$selectAllCheckbox.title=`select all notes`
 		this.$selectAllCheckbox.addEventListener('click',this.wrappedAllNotesCheckboxClickListener)
 		$checkboxCell.append(this.$selectAllCheckbox)
 		const $actionCell=makeHeaderCell('?')
@@ -329,6 +335,7 @@ export default class NoteTable implements NoteTableUpdater {
 				this.$selectAllCheckbox.indeterminate=true
 			}
 		}
+		$checkbox.setAttribute('aria-label',`${note.status} note at latitude ${note.lat}, longitude ${note.lon}`)
 		const $commentCells=writeNoteSectionRows(
 			this.server.web,this.commentWriter,
 			$noteSection,$checkbox,
