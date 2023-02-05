@@ -36,7 +36,10 @@ describe("browser tests",function(){
 		await build([{
 			web: this.osmServer.url,
 			tiles: `${this.osmServer.url}{z}/{x}/{y}.png`,
-			note: `Test server bundled on ${new Date().toISOString()}`
+			note: `Test server bundled on ${new Date().toISOString()}`,
+			oauth: {
+				id: `client-id-on-test-server`
+			}
 		}],'src',dstDir,'cache',downloads)
 		if (keepBrowser) this.browser=await puppeteer.launch(browserOptions)
 	})
@@ -360,16 +363,28 @@ describe("browser tests",function(){
 
 	it("has login button when app is registered",async function(){
 		const page=await this.openPage()
-		const probeLoginButton=async()=>{
-			await page.waitForXPath(`//button[contains(.,"Login")]`,{visible:true,timeout:1000})
+		{
+			await this.getToAboutTab()
+			const aboutSection=await page.$('#tab-panel-About')
+			await aboutSection.waitForXPath(buttonPath(`Login`),{visible:true})
+			const [loginButton]=await aboutSection.$x(buttonPath(`Login`))
+			const clientIdInput=await aboutSection.$('#auth-app-client-id')
+			await clientIdInput.focus()
+			await page.keyboard.down('Control')
+			await page.keyboard.press('A')
+			await page.keyboard.up('Control')
+			await page.keyboard.press('Backspace')
+			await aboutSection.waitForXPath(`//div[${containsClassCondition('notice')} and contains(.,"Please register")]`,{visible:true})
+			assert.equal(await loginButton.boundingBox(),null)
+			await clientIdInput.type('fake')
+			await aboutSection.waitForXPath(buttonPath(`Login`),{visible:true})
 		}
-		await this.getToAboutTab()
-		const clientIdInput=await page.$('#auth-app-client-id')
-		await clientIdInput.type('fake')
-		await probeLoginButton()
 		await page.reload()
-		await this.getToAboutTab()
-		await probeLoginButton()
+		{
+			await this.getToAboutTab()
+			const aboutSection=await page.$('#tab-panel-About')
+			await aboutSection.waitForXPath(buttonPath(`Login`),{visible:true})
+		}
 	})
 	it("has error message when directly opening page with oauth redirect parameters",async function(){
 		const page=await this.openPage('?code=wrong')
@@ -382,11 +397,9 @@ describe("browser tests",function(){
 		await tool.click()
 		await this.assertNoText(tool,"logged-in-user-name")
 		await this.getToAboutTab()
-		const clientIdInput=await page.$('#auth-app-client-id')
-		await clientIdInput.type('id')
 		const aboutSection=await page.$('#tab-panel-About')
 		const [loginSection]=await aboutSection.$x(`//section[contains(h3,"Logins")]`)
-		const loginButton=await loginSection.waitForXPath(`//button[contains(.,"Login")]`,{visible:true,timeout:1000})
+		const loginButton=await loginSection.waitForXPath(`//button[contains(.,"Login")]`)
 		await this.assertNoText(loginSection,"logged-in-user-name")
 		loginButton.click()
 		await loginSection.waitForSelector('table')
@@ -412,8 +425,6 @@ describe("browser tests",function(){
 		await page.waitForSelector('.notes tbody')
 		// login
 		await this.getToAboutTab()
-		const clientIdInput=await page.$('#auth-app-client-id')
-		await clientIdInput.type('id') // TODO have default value
 		const aboutSection=await page.$('#tab-panel-About')
 		const [loginSection]=await aboutSection.$x(`//section[contains(h3,"Logins")]`)
 		const loginButton=await loginSection.waitForXPath(`//button[contains(.,"Login")]`,{visible:true,timeout:1000})
