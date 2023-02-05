@@ -1,13 +1,13 @@
 import {Tool, ToolFitMode, ToolCallbacks} from './base'
 import * as UtilTools from './util'
+import {InteractTool} from './interact'
+import {ReportTool} from './report'
 import {RefreshTool} from './refresh'
 import {ParseTool} from './parse'
 import {OverpassTurboTool, OverpassTool} from './overpass'
 import * as EditorTools from './editor'
 import * as ExportTools from './export'
 import {StreetViewTool, YandexPanoramasTool, MapillaryTool} from './streetview'
-import {InteractTool} from './interact'
-import {ReportTool} from './report'
 import Auth from '../auth'
 
 export {
@@ -16,8 +16,8 @@ export {
 }
 
 export const toolMakerSequence: Array<(auth:Auth)=>Tool> = [
-	InteractTool, ReportTool,
-	UtilTools.AutozoomTool, UtilTools.CommentsTool, RefreshTool,
+	InteractTool, ReportTool, RefreshTool,
+	UtilTools.AutozoomTool, UtilTools.CommentsTool,
 	UtilTools.TimestampTool, ParseTool,
 	OverpassTurboTool, OverpassTool,
 	EditorTools.RcTool, EditorTools.IdTool,

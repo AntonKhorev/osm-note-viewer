@@ -276,7 +276,7 @@ describe("browser tests",function(){
 
 	it("halts/resumes note refreshes when clicking play button",async function(){
 		const page=await this.openPage()
-		const tool=await this.waitForTool(`Refresh notes`)
+		const tool=await this.waitForTool(`Refresh`)
 		await tool.click()
 		const button=await tool.$('button')
 		await this.assertAlternativeText(button,0,'Halt','Resume')
@@ -287,7 +287,7 @@ describe("browser tests",function(){
 	})
 	it("halts/resumes note refreshes when entering/exiting offline mode",async function(){
 		const page=await this.openPage()
-		const tool=await this.waitForTool(`Refresh notes`)
+		const tool=await this.waitForTool(`Refresh`)
 		await tool.click()
 		const button=await tool.$('button')
 		await this.assertAlternativeText(button,0,'Halt','Resume')
@@ -298,7 +298,7 @@ describe("browser tests",function(){
 	})
 	it("halts/resumes note refreshes when clicking play button and, after that, entering/exiting offline mode",async function(){
 		const page=await this.openPage()
-		const tool=await this.waitForTool(`Refresh notes`)
+		const tool=await this.waitForTool(`Refresh`)
 		await tool.click()
 		const button=await tool.$('button')
 		await this.assertAlternativeText(button,0,'Halt','Resume')
@@ -322,7 +322,7 @@ describe("browser tests",function(){
 		}])
 		const page=await this.openPage()
 		const fetchButton=await this.waitForFetchButton()
-		const tool=await this.waitForTool(`Refresh notes`)
+		const tool=await this.waitForTool(`Refresh`)
 		await tool.click()
 		const [haltButton]=await tool.$x(buttonPath('Halt'))
 		const [refreshButton]=await tool.$x(buttonPath('Refresh'))

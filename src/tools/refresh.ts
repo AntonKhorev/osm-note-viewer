@@ -3,7 +3,7 @@ import {makeElement, makeLabel} from '../html'
 
 export class RefreshTool extends Tool {
 	id='refresh'
-	name=`Refresh notes`
+	name=`Refresh`
 	title=`Control automatic and manual refreshing of notes`
 	private isRunning=true
 	private $runButton=makeElement('button')('only-with-icon')()
