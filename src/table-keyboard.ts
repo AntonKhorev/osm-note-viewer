@@ -100,10 +100,9 @@ function moveVerticallyAmongProvidedElements(ev: KeyboardEvent, $e: HTMLElement,
 	} else {
 		const j=getIndexForKeyMovement(ev.key,i,$es.length)
 		if (isSelectionCheckbox && ev.shiftKey) {
-			return checkRange($es,i,j)
-		} else {
-			return focus($es[j],ev.key=='Home'||ev.key=='End')
+			checkRange($es,i,j)
 		}
+		return focus($es[j],ev.key=='Home'||ev.key=='End')
 	}
 }
 
@@ -132,7 +131,7 @@ function focus($e: Element|null|undefined, far: boolean = false): boolean {
 	return true
 }
 
-function checkRange($es: Element[], fromIndex: number, toIndex: number) {
+function checkRange($es: Element[], fromIndex: number, toIndex: number): void {
 	const d=toIndex>fromIndex?1:-1
 	for (let i=fromIndex;i*d<toIndex*d;i+=d) {
 		const $checkbox=$es[i]
@@ -140,8 +139,7 @@ function checkRange($es: Element[], fromIndex: number, toIndex: number) {
 		$checkbox.checked=true
 	}
 	const $lastCheckbox=$es[toIndex]
-	if (!($lastCheckbox instanceof HTMLInputElement)) return false
+	if (!($lastCheckbox instanceof HTMLInputElement)) return
 	if ($lastCheckbox.checked) $lastCheckbox.checked=false
 	$lastCheckbox.click()
-	return focus($lastCheckbox)
 }
