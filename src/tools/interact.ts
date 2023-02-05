@@ -128,7 +128,11 @@ export class InteractTool extends Tool {
 			makeLink(`close`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)
 		),li(
 			makeLink(`reopen`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`),
-			` — for moderators this API call also makes hidden note visible again`
+			` — for moderators this API call also makes hidden note visible again ("reactivates" it). `,
+			`This means that a hidden note can only be restored to an open state, even if it had been closed before being hidden. `,
+			`If you want the note to be closed again, you have to close it yourself after reactivating. `,
+			`Also, unlike the OSM website, you can reactivate a note and add a comment in one action. `,
+			`The OSM website currently doesn't provide a comment input for note reactivation.`
 		),li(
 			`for moderators there's also a delete method to hide a note: `,code(`DELETE /api/0.6/notes/#id`)
 		)
