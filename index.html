@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" crossorigin="" />
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
 </head>
-<body data-build="2023-02-04T15:02:46.823Z">
+<body data-build="2023-02-05T11:36:28.348Z">
 <svg class="symbols">
 <style>
 #flip .hor { visibility: var(--flip-hor-part-visibility,hidden); }
@@ -16,6 +16,7 @@
 #table-note .default { visibility: var(--table-note-default-part-visibility,visible); }
 #table-note .open { visibility: var(--table-note-open-part-visibility,hidden); }
 #table-note .closed { visibility: var(--table-note-closed-part-visibility,hidden); }
+#table-note .hidden { visibility: var(--table-note-hidden-part-visibility,hidden); }
 #tools-info .hover { visibility: var(--tools-info-hover-part-visibility,hidden); }
 #tools-info .close-hover { visibility: var(--tools-info-close-hover-part-visibility,hidden); }
 #tools-info .tip { visibility: var(--tools-info-tip-part-visibility,hidden); }
@@ -103,6 +104,9 @@
 <g class="closed">
 <circle r="15" cx="0" cy="0" fill="#9bc54e" stroke="#7ca23b" stroke-width="2" />
 <polyline points="-8,2 -1,8 8,-6" stroke="#fff" fill="none" />
+</g>
+<g class="hidden">
+<path d="M0,-15 A15,15 0 1 0 0,+15 A15,15 0 1 0 0,-15 Z M0,-9 A9,9 0 1 1 0,+9 A9,9 0 1 1 0,-9 Z" stroke="#444" fill="#888" stroke-width="2" />
 </g>
 </g>
 </symbol>

@@ -5894,10 +5894,12 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
                     `<title>${title}</title><use href="#table-comments" /><text x="8" y="8">${nAdditionalComments}</text>` +
                     `</svg>`;
             }
+            const $iconWrapper = makeElement('span')('icon-container')();
+            $iconWrapper.tabIndex = 0;
+            $iconWrapper.innerHTML = svgs;
             const $cell = $row.insertCell();
             $cell.classList.add('note-action');
-            $cell.tabIndex = 0;
-            $cell.innerHTML = svgs;
+            $cell.append($iconWrapper);
         }
         {
             const $cell = $row.insertCell();
@@ -5914,8 +5916,11 @@ function getActionClass(action) {
     if (action == 'opened' || action == 'reopened') {
         return 'open';
     }
-    else if (action == 'closed' || action == 'hidden') {
+    else if (action == 'closed') {
         return 'closed';
+    }
+    else if (action == 'hidden') {
+        return 'hidden';
     }
     else {
         return 'other';
@@ -5927,14 +5932,16 @@ const selectors = [
     '.note-link a',
     '.note-date time',
     '.note-user a',
-    '.note-action',
+    '.note-action .icon-container',
     '.note-comment'
 ];
 function noteTableKeydownListener(ev) {
     const isVerticalMovementKey = (ev.key == 'ArrowUp' ||
         ev.key == 'ArrowDown' ||
         ev.key == 'Home' && ev.ctrlKey ||
-        ev.key == 'End' && ev.ctrlKey);
+        ev.key == 'End' && ev.ctrlKey ||
+        ev.key == 'PageUp' ||
+        ev.key == 'PageDown');
     const isHorizontalMovementKey = (ev.key == 'ArrowLeft' ||
         ev.key == 'ArrowRight' ||
         ev.key == 'Home' && !ev.ctrlKey ||
@@ -5978,7 +5985,39 @@ function focusInList(key, $e, $esi) {
     const i = $es.indexOf($e);
     if (i < 0)
         return false;
-    return focus($es[getIndexForKeyMovement(key, i, $es.length)]);
+    if (key == 'PageUp' || key == 'PageDown') {
+        const $scrollingPart = $e.closest('.scrolling');
+        if (!($scrollingPart instanceof HTMLElement))
+            return false;
+        const scrollRect = $scrollingPart.getBoundingClientRect();
+        const scrollToNextPage = (d, indexBound, checkRect) => {
+            const checkIndexBound = (k) => k * d < indexBound * d;
+            for (let j = i; checkIndexBound(j); j += d) {
+                if (checkRect($es[j].getBoundingClientRect()))
+                    continue;
+                if (j * d > i * d) {
+                    return focus($es[j], true);
+                }
+                else {
+                    return focus($es[j + d], true);
+                }
+            }
+            if (checkIndexBound(i)) {
+                return focus($es[indexBound], true);
+            }
+            return false;
+        };
+        if (key == 'PageUp') {
+            return scrollToNextPage(-1, 0, rect => rect.top > scrollRect.top - scrollRect.height);
+        }
+        else {
+            return scrollToNextPage(+1, $es.length - 1, rect => rect.bottom < scrollRect.bottom + scrollRect.height);
+        }
+    }
+    else {
+        const j = getIndexForKeyMovement(key, i, $es.length);
+        return focus($es[j], key == 'Home' || key == 'End');
+    }
 }
 function getIndexForKeyMovement(key, i, length) {
     if (key == 'ArrowUp' || key == 'ArrowLeft') {
@@ -5995,10 +6034,17 @@ function getIndexForKeyMovement(key, i, length) {
     }
     return -1;
 }
-function focus($e) {
+function focus($e, far = false) {
     if (!($e instanceof HTMLElement))
         return false;
-    $e.focus();
+    if (far) {
+        $e.focus({ preventScroll: true });
+        $e.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); // TODO delay map autozoom to notes on screen in table
+    }
+    else {
+        $e.focus();
+        $e.scrollIntoView({ block: 'nearest' });
+    }
     return true;
 }
 
@@ -7117,11 +7163,520 @@ class SettingsTool extends Tool {
     }
 }
 
+const e$1 = makeEscapeTag(encodeURIComponent);
+class InteractionError extends TypeError {
+}
+class InteractTool extends Tool {
+    constructor(auth) {
+        super(auth);
+        this.id = 'interact';
+        this.name = `Interact`;
+        this.title = `Interact with notes on OSM server`;
+        this.isFullWidth = true;
+        this.$yourNotesApi = document.createElement('span');
+        this.$yourNotesWeb = document.createElement('span');
+        this.$asOutput = document.createElement('output');
+        this.$withOutput = document.createElement('output');
+        this.$commentText = document.createElement('textarea');
+        this.$commentButton = document.createElement('button');
+        this.$closeButton = document.createElement('button');
+        this.$reopenButton = document.createElement('button');
+        this.$hideOpenButton = document.createElement('button');
+        this.$hideClosedButton = document.createElement('button');
+        this.$reactivateButton = document.createElement('button');
+        this.$runButton = makeElement('button')('only-with-icon')();
+        this.$runOutput = document.createElement('output');
+        this.selectedNoteIds = new Map(noteStatuses.map(status => [status, []]));
+        this.interactionDescriptions = [{
+                verb: 'POST',
+                endpoint: 'comment',
+                label: `Comment`,
+                runningLabel: `Commenting`,
+                $button: this.$commentButton,
+                inputNoteStatus: 'open',
+                outputNoteStatus: 'open',
+                forModerator: false
+            }, {
+                verb: 'POST',
+                endpoint: 'close',
+                label: `Close`,
+                runningLabel: `Closing`,
+                $button: this.$closeButton,
+                inputNoteStatus: 'open',
+                outputNoteStatus: 'closed',
+                forModerator: false
+            }, {
+                verb: 'POST',
+                endpoint: 'reopen',
+                label: `Reopen`,
+                runningLabel: `Reopening`,
+                $button: this.$reopenButton,
+                inputNoteStatus: 'closed',
+                outputNoteStatus: 'open',
+                forModerator: false
+            }, {
+                verb: 'DELETE',
+                label: `Hide`,
+                runningLabel: `Hiding`,
+                $button: this.$hideOpenButton,
+                inputNoteStatus: 'open',
+                outputNoteStatus: 'hidden',
+                forModerator: true
+            }, {
+                verb: 'DELETE',
+                label: `Hide`,
+                runningLabel: `Hiding`,
+                $button: this.$hideClosedButton,
+                inputNoteStatus: 'closed',
+                outputNoteStatus: 'hidden',
+                forModerator: true
+            }, {
+                verb: 'POST',
+                endpoint: 'reopen',
+                label: `Reactivate`,
+                runningLabel: `Reactivating`,
+                $button: this.$reactivateButton,
+                inputNoteStatus: 'hidden',
+                outputNoteStatus: 'open',
+                forModerator: true
+            }];
+        this.updateYourNotes();
+        this.updateAsOutput();
+        this.updateWithOutput();
+        this.$commentText.placeholder = `Comment text`;
+        this.updateButtons();
+        this.updateRunButton();
+        this.updateRunOutput();
+    }
+    getInfo() {
+        return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, `If you've hidden a note and want to see it, look for it at `, this.$yourNotesWeb, ` on the OSM website.`)];
+    }
+    getTool(callbacks) {
+        this.$commentText.oninput = () => {
+            this.updateButtons();
+        };
+        const scheduleRunNextNote = this.makeRunScheduler(callbacks);
+        for (const interactionDescription of this.interactionDescriptions) {
+            interactionDescription.$button.onclick = () => {
+                if (this.run?.status == 'paused') {
+                    this.run = undefined;
+                    this.updateButtons();
+                    this.updateRunButton();
+                    this.updateRunOutput();
+                }
+                else {
+                    const matchingNoteIds = this.selectedNoteIds.get(interactionDescription.inputNoteStatus);
+                    if (!matchingNoteIds)
+                        return;
+                    const runImmediately = matchingNoteIds.length <= 1;
+                    this.run = {
+                        interactionDescription,
+                        status: 'paused',
+                        requestedStatus: runImmediately ? 'running' : 'paused',
+                        inputNoteIds: [...matchingNoteIds],
+                        outputNoteIds: []
+                    };
+                    if (runImmediately)
+                        scheduleRunNextNote();
+                    this.updateButtons();
+                    this.updateRunButton();
+                    this.updateRunOutput();
+                }
+            };
+        }
+        this.$runButton.onclick = () => {
+            if (!this.run)
+                return;
+            if (this.run.status == 'running') {
+                this.run.requestedStatus = 'paused';
+                this.updateRunButton();
+            }
+            else if (this.run.status == 'paused') {
+                this.run.requestedStatus = 'running';
+                this.updateRunButton();
+                scheduleRunNextNote();
+            }
+        };
+        return [
+            this.$asOutput, ` `, this.$withOutput, ` `,
+            makeDiv('major-input')(this.$commentText),
+            makeDiv('gridded-input')(...this.interactionDescriptions.map(({ $button }) => $button)),
+            this.$runButton, ` `, this.$runOutput
+        ];
+    }
+    onLoginChange() {
+        this.updateYourNotes();
+        this.updateAsOutput();
+        this.updateButtons();
+        return true;
+    }
+    onSelectedNotesChange(selectedNotes) {
+        for (const status of noteStatuses) {
+            const ids = this.selectedNoteIds.get(status);
+            if (ids)
+                ids.length = 0;
+        }
+        for (const selectedNote of selectedNotes) {
+            const ids = this.selectedNoteIds.get(selectedNote.status);
+            ids?.push(selectedNote.id);
+        }
+        if (this.run?.status == 'running') {
+            return false;
+        }
+        else {
+            this.updateWithOutput();
+            this.updateButtons();
+            return true;
+        }
+    }
+    updateYourNotes() {
+        const apiText = `your own latest updated notes`;
+        const webText = `your notes page`;
+        if (this.auth.username == null) {
+            this.$yourNotesApi.replaceChildren(apiText);
+            this.$yourNotesWeb.replaceChildren(webText);
+        }
+        else {
+            const apiHref = makeHrefWithCurrentHost([
+                ['mode', 'search'],
+                ['display_name', this.auth.username],
+                ['sort', 'updated_at']
+            ]);
+            const webHref = this.auth.server.web.getUrl(e$1 `user/${this.auth.username}/notes`);
+            this.$yourNotesApi.replaceChildren(makeLink(apiText, apiHref));
+            this.$yourNotesWeb.replaceChildren(makeLink(webText, webHref));
+        }
+    }
+    updateAsOutput() {
+        if (this.auth.username == null || this.auth.uid == null) {
+            this.$asOutput.replaceChildren(`anonymously`);
+        }
+        else {
+            const href = this.auth.server.web.getUrl(e$1 `user/${this.auth.username}`);
+            const $a = makeLink(this.auth.username, href);
+            $a.classList.add('listened');
+            $a.dataset.userName = this.auth.username;
+            $a.dataset.userId = String(this.auth.uid);
+            this.$asOutput.replaceChildren(`as `, $a);
+        }
+    }
+    updateWithOutput() {
+        const multipleNoteIndicators = this.getMultipleNoteIndicators(this.selectedNoteIds, 5);
+        if (multipleNoteIndicators.length > 0) {
+            this.$withOutput.replaceChildren(`with `, ...multipleNoteIndicators);
+        }
+        else {
+            this.$withOutput.replaceChildren();
+        }
+    }
+    updateButtons() {
+        const buttonNoteIcon = (ids, inputStatus, outputStatus) => {
+            const outputIcon = [];
+            if (outputStatus != inputStatus) {
+                outputIcon.push(` → `, makeNoteStatusIcon(outputStatus, ids.length));
+            }
+            if (ids.length == 0) {
+                return [makeNoteStatusIcon(inputStatus, ids.length), ...outputIcon];
+            }
+            else if (ids.length == 1) {
+                return [makeNoteStatusIcon(inputStatus), ` ${ids[0]}`, ...outputIcon];
+            }
+            else {
+                return [`${ids.length} × `, makeNoteStatusIcon(inputStatus, ids.length), ...outputIcon, `...`];
+            }
+        };
+        for (const interactionDescription of this.interactionDescriptions) {
+            const inputNoteIds = this.selectedNoteIds.get(interactionDescription.inputNoteStatus) ?? [];
+            const { $button } = interactionDescription;
+            let cancelCondition = false;
+            if (this.run && this.run.status != 'finished') {
+                cancelCondition = this.run.status == 'paused' && this.run.interactionDescription == interactionDescription;
+                $button.disabled = (this.run.status == 'running' ||
+                    this.run.status == 'paused' && this.run.interactionDescription != interactionDescription);
+            }
+            else {
+                $button.disabled = inputNoteIds.length == 0;
+            }
+            if (cancelCondition) {
+                $button.replaceChildren(`Cancel`);
+            }
+            else {
+                $button.replaceChildren(`${interactionDescription.label} `, ...buttonNoteIcon(inputNoteIds, interactionDescription.inputNoteStatus, interactionDescription.outputNoteStatus));
+            }
+            $button.hidden = interactionDescription.forModerator && !this.auth.isModerator;
+        }
+        if (this.$commentText.value == '')
+            this.$commentButton.disabled = true;
+    }
+    updateRunButton() {
+        const canPause = this.run && this.run.status == 'running';
+        this.$runButton.replaceChildren(canPause
+            ? makeActionIcon('pause', `Halt`)
+            : makeActionIcon('play', `Resume`));
+        this.$runButton.disabled = !this.run || this.run.status != this.run.requestedStatus;
+    }
+    updateRunOutput() {
+        let firstFragment = true;
+        const outputFragment = (...content) => {
+            if (firstFragment) {
+                firstFragment = false;
+            }
+            else {
+                this.$runOutput.append(` → `);
+            }
+            this.$runOutput.append(...content);
+        };
+        if (!this.run) {
+            this.$runOutput.replaceChildren(`Select notes for interaction using checkboxes`);
+            return;
+        }
+        this.$runOutput.replaceChildren(this.run.interactionDescription.runningLabel, ` `);
+        const inputNoteIndicators = this.getMultipleNoteIndicators([[
+                this.run.interactionDescription.inputNoteStatus, this.run.inputNoteIds
+            ]], 0);
+        if (inputNoteIndicators.length > 0) {
+            outputFragment(`queued `, ...inputNoteIndicators);
+        }
+        else if (this.run.currentNoteId != null) {
+            outputFragment(`queue emptied`);
+        }
+        if (this.run.currentNoteId != null) {
+            const $a = this.getNoteIndicator(this.run.interactionDescription.inputNoteStatus, this.run.currentNoteId);
+            if (this.run.currentNoteError) {
+                $a.classList.add('error');
+                $a.title = this.run.currentNoteError;
+                outputFragment(`error on `, $a);
+            }
+            else {
+                outputFragment(`current `, $a);
+            }
+        }
+        const outputNoteIndicators = this.getMultipleNoteIndicators([[
+                this.run.interactionDescription.outputNoteStatus, this.run.outputNoteIds
+            ]], 0);
+        if (outputNoteIndicators.length > 0) {
+            outputFragment(`completed `, ...outputNoteIndicators);
+        }
+    }
+    makeRunScheduler(callbacks) {
+        let runTimeoutId;
+        const runNextNote = async () => {
+            const transitionToRunning = () => {
+                this.$commentText.disabled = true;
+                this.updateButtons();
+                this.updateRunButton();
+            };
+            const transitionToPaused = () => {
+                this.$commentText.disabled = false;
+                this.updateWithOutput(); // may have received selected notes change
+                this.updateButtons();
+                this.updateRunButton();
+            };
+            const transitionToFinished = () => {
+                this.$commentText.disabled = false;
+                this.$commentText.value = '';
+                this.updateWithOutput(); // may have received selected notes change
+                this.updateButtons();
+                this.updateRunButton();
+                this.updateRunOutput();
+            };
+            if (!this.run)
+                return false;
+            if (this.run.status == 'finished') {
+                return false;
+            }
+            else if (this.run.status == 'paused') {
+                if (this.run.requestedStatus == 'paused') {
+                    return false;
+                }
+                else if (this.run.requestedStatus == 'running') {
+                    this.run.status = 'running';
+                    transitionToRunning();
+                }
+            }
+            else if (this.run.status == 'running') {
+                if (this.run.requestedStatus == 'paused') {
+                    this.run.status = 'paused';
+                    transitionToPaused();
+                    return false;
+                }
+            }
+            const id = this.run.currentNoteId ?? this.run.inputNoteIds.shift();
+            if (id == null) {
+                this.run.status = 'finished';
+                transitionToFinished();
+                return false;
+            }
+            this.run.currentNoteId = id;
+            this.run.currentNoteError = undefined;
+            this.updateRunOutput();
+            try {
+                let response;
+                const fetchBuilder = this.auth.server.api.fetch.withToken(this.auth.token).withUrlencodedBody([
+                    ['text', this.$commentText.value]
+                ]);
+                if (this.run.interactionDescription.verb == 'DELETE') {
+                    const path = e$1 `notes/${id}.json`;
+                    response = await fetchBuilder.delete(path);
+                }
+                else { // POST
+                    const path = e$1 `notes/${id}/${this.run.interactionDescription.endpoint}.json`;
+                    response = await fetchBuilder.post(path);
+                }
+                if (!response.ok) {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType?.includes('text/plain')) {
+                        throw new InteractionError(await response.text());
+                    }
+                    else {
+                        throw new InteractionError(`${response.status} ${response.statusText}`);
+                    }
+                }
+                const noteAndUsers = await readNoteResponse(id, response);
+                callbacks.onNoteReload(this, ...noteAndUsers);
+                this.run.currentNoteId = undefined;
+                this.run.outputNoteIds.push(id);
+            }
+            catch (ex) {
+                if (ex instanceof InteractionError) {
+                    this.run.currentNoteError = ex.message;
+                }
+                else if (ex instanceof NoteDataError) {
+                    this.run.currentNoteError = `Error after successful interaction: ${ex.message}`;
+                }
+                else {
+                    this.run.currentNoteError = `Unknown error ${ex}`;
+                }
+                this.run.status = this.run.requestedStatus = 'paused';
+                transitionToPaused();
+                this.updateRunOutput();
+            }
+            return true;
+        };
+        const wrappedRunNextNote = async () => {
+            let reschedule = false;
+            try {
+                reschedule = await runNextNote();
+            }
+            catch { }
+            runTimeoutId = undefined;
+            if (reschedule)
+                scheduleRunNextNote();
+        };
+        const scheduleRunNextNote = () => {
+            if (runTimeoutId)
+                return;
+            runTimeoutId = setTimeout(wrappedRunNextNote);
+        };
+        return scheduleRunNextNote;
+    }
+    getMultipleNoteIndicators(statusAndIds, maxIndividualNotes) {
+        const output = [];
+        let first = true;
+        const writeSingleNote = (id, status) => {
+            if (!first)
+                output.push(`, `);
+            first = false;
+            output.push(this.getNoteIndicator(status, id));
+        };
+        const writeOneOrManyNotes = (ids, status) => {
+            if (ids.length == 0) {
+                return;
+            }
+            if (ids.length == 1) {
+                writeSingleNote(ids[0], status);
+                return;
+            }
+            if (!first)
+                output.push(`, `);
+            first = false;
+            output.push(`${ids.length} × `, makeNoteStatusIcon(status, ids.length));
+        };
+        const statusAndIdsCopy = [...statusAndIds];
+        const nNotes = statusAndIdsCopy.reduce((n, [, ids]) => n + ids.length, 0);
+        if (nNotes == 0) ;
+        else if (nNotes <= maxIndividualNotes) {
+            for (const [status, ids] of statusAndIdsCopy) {
+                for (const id of ids) {
+                    writeSingleNote(id, status);
+                }
+            }
+        }
+        else {
+            for (const [status, ids] of statusAndIdsCopy) {
+                writeOneOrManyNotes(ids, status);
+            }
+        }
+        return output;
+    }
+    getNoteIndicator(status, id) {
+        const href = this.auth.server.web.getUrl(e$1 `note/${id}`);
+        const $a = document.createElement('a');
+        $a.href = href;
+        $a.classList.add('listened');
+        $a.dataset.noteId = String(id);
+        $a.append(makeNoteStatusIcon(status), ` ${id}`);
+        return $a;
+    }
+}
+
+class ReportTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.id = 'report';
+        this.name = `Report`;
+        this.title = `Report notes on OSM website`;
+        this.selectedNoteIds = [];
+        this.$tabCountOutput = document.createElement('output');
+        this.$confirmTabCountOutput = document.createElement('output');
+    }
+    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes) {
+        this.selectedNoteIds = selectedNotes.map(note => note.id);
+        const count = selectedNotes.length;
+        this.$tabCountOutput.textContent = this.$confirmTabCountOutput.textContent = `${count} tab${count == 1 ? '' : 's'}`;
+        this.reportManyListener?.reset();
+        return true;
+    }
+    getInfo() {
+        return [p(makeLink(`Report`, 'https://wiki.openstreetmap.org/wiki/Notes#Reporting_notes'), ` selected notes. `, `Since reporting on the OSM website works for individual notes but here you can select many, you may choose between opening one and several tabs.`), ul(li(`If you choose to open one tab, it's going to report the first selected note. `, `The full list of notes will be copied to clipboard for you to paste into the `, em(`details`), ` input.`), li(`If you choose to open several tabs, each tab will have a report for every individual note you selected. `, `Since it could be many tabs opened at once, there's a confirmation button appearing for more than five selected notes. `, `Additionally the browser may choose to block opening of new tabs if too many are requested.`))];
+    }
+    getTool() {
+        const e = makeEscapeTag(encodeURIComponent);
+        const getReportUrl = (id) => this.auth.server.web.getUrl(e `reports/new?reportable_id=${id}&reportable_type=Note`);
+        const getNoteListItem = (id) => `- ` + this.auth.server.web.getUrl(e `note/${id}`) + `\n`;
+        const getNoteList = () => this.selectedNoteIds.map(getNoteListItem).join('');
+        const copyNoteList = () => navigator.clipboard.writeText(getNoteList());
+        const $reportOneButton = this.makeRequiringSelectedNotesButton();
+        const $reportManyButton = this.makeRequiringSelectedNotesButton();
+        const $cancelReportManyButton = this.makeRequiringSelectedNotesButton();
+        const $confirmReportManyButton = this.makeRequiringSelectedNotesButton();
+        $reportOneButton.append(`Report `, makeNotesIcon('selected'), ` in one tab`);
+        $reportManyButton.append(`Report `, makeNotesIcon('selected'), ` in `, this.$tabCountOutput);
+        $cancelReportManyButton.append(`Cancel reporting `, makeNotesIcon('selected'), ` in `, this.$confirmTabCountOutput);
+        $confirmReportManyButton.append(`Confirm`);
+        $reportOneButton.onclick = async () => {
+            await copyNoteList();
+            const id = this.selectedNoteIds[0];
+            open(getReportUrl(id));
+        };
+        this.reportManyListener = new ConfirmedButtonListener($reportManyButton, $cancelReportManyButton, $confirmReportManyButton, async () => {
+            await copyNoteList();
+            for (const id of this.selectedNoteIds) {
+                open(getReportUrl(id));
+            }
+        }, () => this.selectedNoteIds.length > 5);
+        return [
+            $reportOneButton, ` `,
+            $reportManyButton, ` `, $cancelReportManyButton, ` `, $confirmReportManyButton
+        ];
+    }
+}
+
 class RefreshTool extends Tool {
     constructor() {
         super(...arguments);
         this.id = 'refresh';
-        this.name = `Refresh notes`;
+        this.name = `Refresh`;
         this.title = `Control automatic and manual refreshing of notes`;
         this.isRunning = true;
         this.$runButton = makeElement('button')('only-with-icon')();
@@ -7835,518 +8390,9 @@ class MapillaryTool extends StreetViewTool {
     }
 }
 
-const e$1 = makeEscapeTag(encodeURIComponent);
-class InteractionError extends TypeError {
-}
-class InteractTool extends Tool {
-    constructor(auth) {
-        super(auth);
-        this.id = 'interact';
-        this.name = `Interact`;
-        this.title = `Interact with notes on OSM server`;
-        this.isFullWidth = true;
-        this.$yourNotesApi = document.createElement('span');
-        this.$yourNotesWeb = document.createElement('span');
-        this.$asOutput = document.createElement('output');
-        this.$withOutput = document.createElement('output');
-        this.$commentText = document.createElement('textarea');
-        this.$commentButton = document.createElement('button');
-        this.$closeButton = document.createElement('button');
-        this.$reopenButton = document.createElement('button');
-        this.$hideOpenButton = document.createElement('button');
-        this.$hideClosedButton = document.createElement('button');
-        this.$reactivateButton = document.createElement('button');
-        this.$runButton = makeElement('button')('only-with-icon')();
-        this.$runOutput = document.createElement('output');
-        this.selectedNoteIds = new Map(noteStatuses.map(status => [status, []]));
-        this.interactionDescriptions = [{
-                verb: 'POST',
-                endpoint: 'comment',
-                label: `Comment`,
-                runningLabel: `Commenting`,
-                $button: this.$commentButton,
-                inputNoteStatus: 'open',
-                outputNoteStatus: 'open',
-                forModerator: false
-            }, {
-                verb: 'POST',
-                endpoint: 'close',
-                label: `Close`,
-                runningLabel: `Closing`,
-                $button: this.$closeButton,
-                inputNoteStatus: 'open',
-                outputNoteStatus: 'closed',
-                forModerator: false
-            }, {
-                verb: 'POST',
-                endpoint: 'reopen',
-                label: `Reopen`,
-                runningLabel: `Reopening`,
-                $button: this.$reopenButton,
-                inputNoteStatus: 'closed',
-                outputNoteStatus: 'open',
-                forModerator: false
-            }, {
-                verb: 'DELETE',
-                label: `Hide`,
-                runningLabel: `Hiding`,
-                $button: this.$hideOpenButton,
-                inputNoteStatus: 'open',
-                outputNoteStatus: 'hidden',
-                forModerator: true
-            }, {
-                verb: 'DELETE',
-                label: `Hide`,
-                runningLabel: `Hiding`,
-                $button: this.$hideClosedButton,
-                inputNoteStatus: 'closed',
-                outputNoteStatus: 'hidden',
-                forModerator: true
-            }, {
-                verb: 'POST',
-                endpoint: 'reopen',
-                label: `Reactivate`,
-                runningLabel: `Reactivating`,
-                $button: this.$reactivateButton,
-                inputNoteStatus: 'hidden',
-                outputNoteStatus: 'open',
-                forModerator: true
-            }];
-        this.updateYourNotes();
-        this.updateAsOutput();
-        this.updateWithOutput();
-        this.$commentText.placeholder = `Comment text`;
-        this.updateButtons();
-        this.updateRunButton();
-        this.updateRunOutput();
-    }
-    getInfo() {
-        return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, `If you've hidden a note and want to see it, look for it at `, this.$yourNotesWeb, ` on the OSM website.`)];
-    }
-    getTool(callbacks) {
-        this.$commentText.oninput = () => {
-            this.updateButtons();
-        };
-        const scheduleRunNextNote = this.makeRunScheduler(callbacks);
-        for (const interactionDescription of this.interactionDescriptions) {
-            interactionDescription.$button.onclick = () => {
-                if (this.run?.status == 'paused') {
-                    this.run = undefined;
-                    this.updateButtons();
-                    this.updateRunButton();
-                    this.updateRunOutput();
-                }
-                else {
-                    const matchingNoteIds = this.selectedNoteIds.get(interactionDescription.inputNoteStatus);
-                    if (!matchingNoteIds)
-                        return;
-                    const runImmediately = matchingNoteIds.length <= 1;
-                    this.run = {
-                        interactionDescription,
-                        status: 'paused',
-                        requestedStatus: runImmediately ? 'running' : 'paused',
-                        inputNoteIds: [...matchingNoteIds],
-                        outputNoteIds: []
-                    };
-                    if (runImmediately)
-                        scheduleRunNextNote();
-                    this.updateButtons();
-                    this.updateRunButton();
-                    this.updateRunOutput();
-                }
-            };
-        }
-        this.$runButton.onclick = () => {
-            if (!this.run)
-                return;
-            if (this.run.status == 'running') {
-                this.run.requestedStatus = 'paused';
-                this.updateRunButton();
-            }
-            else if (this.run.status == 'paused') {
-                this.run.requestedStatus = 'running';
-                this.updateRunButton();
-                scheduleRunNextNote();
-            }
-        };
-        return [
-            this.$asOutput, ` `, this.$withOutput, ` `,
-            makeDiv('major-input')(this.$commentText),
-            makeDiv('gridded-input')(...this.interactionDescriptions.map(({ $button }) => $button)),
-            this.$runButton, ` `, this.$runOutput
-        ];
-    }
-    onLoginChange() {
-        this.updateYourNotes();
-        this.updateAsOutput();
-        this.updateButtons();
-        return true;
-    }
-    onSelectedNotesChange(selectedNotes) {
-        for (const status of noteStatuses) {
-            const ids = this.selectedNoteIds.get(status);
-            if (ids)
-                ids.length = 0;
-        }
-        for (const selectedNote of selectedNotes) {
-            const ids = this.selectedNoteIds.get(selectedNote.status);
-            ids?.push(selectedNote.id);
-        }
-        if (this.run?.status == 'running') {
-            return false;
-        }
-        else {
-            this.updateWithOutput();
-            this.updateButtons();
-            return true;
-        }
-    }
-    updateYourNotes() {
-        const apiText = `your own latest updated notes`;
-        const webText = `your notes page`;
-        if (this.auth.username == null) {
-            this.$yourNotesApi.replaceChildren(apiText);
-            this.$yourNotesWeb.replaceChildren(webText);
-        }
-        else {
-            const apiHref = makeHrefWithCurrentHost([
-                ['mode', 'search'],
-                ['display_name', this.auth.username],
-                ['sort', 'updated_at']
-            ]);
-            const webHref = this.auth.server.web.getUrl(e$1 `user/${this.auth.username}/notes`);
-            this.$yourNotesApi.replaceChildren(makeLink(apiText, apiHref));
-            this.$yourNotesWeb.replaceChildren(makeLink(webText, webHref));
-        }
-    }
-    updateAsOutput() {
-        if (this.auth.username == null || this.auth.uid == null) {
-            this.$asOutput.replaceChildren(`anonymously`);
-        }
-        else {
-            const href = this.auth.server.web.getUrl(e$1 `user/${this.auth.username}`);
-            const $a = makeLink(this.auth.username, href);
-            $a.classList.add('listened');
-            $a.dataset.userName = this.auth.username;
-            $a.dataset.userId = String(this.auth.uid);
-            this.$asOutput.replaceChildren(`as `, $a);
-        }
-    }
-    updateWithOutput() {
-        const multipleNoteIndicators = this.getMultipleNoteIndicators(this.selectedNoteIds, 5);
-        if (multipleNoteIndicators.length > 0) {
-            this.$withOutput.replaceChildren(`with `, ...multipleNoteIndicators);
-        }
-        else {
-            this.$withOutput.replaceChildren();
-        }
-    }
-    updateButtons() {
-        const buttonNoteIcon = (ids, inputStatus, outputStatus) => {
-            const outputIcon = [];
-            if (outputStatus != inputStatus) {
-                outputIcon.push(` → `, makeNoteStatusIcon(outputStatus, ids.length));
-            }
-            if (ids.length == 0) {
-                return [makeNoteStatusIcon(inputStatus, ids.length), ...outputIcon];
-            }
-            else if (ids.length == 1) {
-                return [makeNoteStatusIcon(inputStatus), ` ${ids[0]}`, ...outputIcon];
-            }
-            else {
-                return [`${ids.length} × `, makeNoteStatusIcon(inputStatus, ids.length), ...outputIcon, `...`];
-            }
-        };
-        for (const interactionDescription of this.interactionDescriptions) {
-            const inputNoteIds = this.selectedNoteIds.get(interactionDescription.inputNoteStatus) ?? [];
-            const { $button } = interactionDescription;
-            let cancelCondition = false;
-            if (this.run && this.run.status != 'finished') {
-                cancelCondition = this.run.status == 'paused' && this.run.interactionDescription == interactionDescription;
-                $button.disabled = (this.run.status == 'running' ||
-                    this.run.status == 'paused' && this.run.interactionDescription != interactionDescription);
-            }
-            else {
-                $button.disabled = inputNoteIds.length == 0;
-            }
-            if (cancelCondition) {
-                $button.replaceChildren(`Cancel`);
-            }
-            else {
-                $button.replaceChildren(`${interactionDescription.label} `, ...buttonNoteIcon(inputNoteIds, interactionDescription.inputNoteStatus, interactionDescription.outputNoteStatus));
-            }
-            $button.hidden = interactionDescription.forModerator && !this.auth.isModerator;
-        }
-        if (this.$commentText.value == '')
-            this.$commentButton.disabled = true;
-    }
-    updateRunButton() {
-        const canPause = this.run && this.run.status == 'running';
-        this.$runButton.replaceChildren(canPause
-            ? makeActionIcon('pause', `Halt`)
-            : makeActionIcon('play', `Resume`));
-        this.$runButton.disabled = !this.run || this.run.status != this.run.requestedStatus;
-    }
-    updateRunOutput() {
-        let firstFragment = true;
-        const outputFragment = (...content) => {
-            if (firstFragment) {
-                firstFragment = false;
-            }
-            else {
-                this.$runOutput.append(` → `);
-            }
-            this.$runOutput.append(...content);
-        };
-        if (!this.run) {
-            this.$runOutput.replaceChildren(`Select notes for interaction using checkboxes`);
-            return;
-        }
-        this.$runOutput.replaceChildren(this.run.interactionDescription.runningLabel, ` `);
-        const inputNoteIndicators = this.getMultipleNoteIndicators([[
-                this.run.interactionDescription.inputNoteStatus, this.run.inputNoteIds
-            ]], 0);
-        if (inputNoteIndicators.length > 0) {
-            outputFragment(`queued `, ...inputNoteIndicators);
-        }
-        else if (this.run.currentNoteId != null) {
-            outputFragment(`queue emptied`);
-        }
-        if (this.run.currentNoteId != null) {
-            const $a = this.getNoteIndicator(this.run.interactionDescription.inputNoteStatus, this.run.currentNoteId);
-            if (this.run.currentNoteError) {
-                $a.classList.add('error');
-                $a.title = this.run.currentNoteError;
-                outputFragment(`error on `, $a);
-            }
-            else {
-                outputFragment(`current `, $a);
-            }
-        }
-        const outputNoteIndicators = this.getMultipleNoteIndicators([[
-                this.run.interactionDescription.outputNoteStatus, this.run.outputNoteIds
-            ]], 0);
-        if (outputNoteIndicators.length > 0) {
-            outputFragment(`completed `, ...outputNoteIndicators);
-        }
-    }
-    makeRunScheduler(callbacks) {
-        let runTimeoutId;
-        const runNextNote = async () => {
-            const transitionToRunning = () => {
-                this.$commentText.disabled = true;
-                this.updateButtons();
-                this.updateRunButton();
-            };
-            const transitionToPaused = () => {
-                this.$commentText.disabled = false;
-                this.updateWithOutput(); // may have received selected notes change
-                this.updateButtons();
-                this.updateRunButton();
-            };
-            const transitionToFinished = () => {
-                this.$commentText.disabled = false;
-                this.$commentText.value = '';
-                this.updateWithOutput(); // may have received selected notes change
-                this.updateButtons();
-                this.updateRunButton();
-                this.updateRunOutput();
-            };
-            if (!this.run)
-                return false;
-            if (this.run.status == 'finished') {
-                return false;
-            }
-            else if (this.run.status == 'paused') {
-                if (this.run.requestedStatus == 'paused') {
-                    return false;
-                }
-                else if (this.run.requestedStatus == 'running') {
-                    this.run.status = 'running';
-                    transitionToRunning();
-                }
-            }
-            else if (this.run.status == 'running') {
-                if (this.run.requestedStatus == 'paused') {
-                    this.run.status = 'paused';
-                    transitionToPaused();
-                    return false;
-                }
-            }
-            const id = this.run.currentNoteId ?? this.run.inputNoteIds.shift();
-            if (id == null) {
-                this.run.status = 'finished';
-                transitionToFinished();
-                return false;
-            }
-            this.run.currentNoteId = id;
-            this.run.currentNoteError = undefined;
-            this.updateRunOutput();
-            try {
-                let response;
-                const fetchBuilder = this.auth.server.api.fetch.withToken(this.auth.token);
-                if (this.run.interactionDescription.verb == 'DELETE') {
-                    const path = e$1 `notes/${id}.json`;
-                    response = await fetchBuilder.delete(path);
-                }
-                else { // POST
-                    const path = e$1 `notes/${id}/${this.run.interactionDescription.endpoint}.json`;
-                    response = await fetchBuilder.withUrlencodedBody([
-                        ['text', this.$commentText.value],
-                    ]).post(path);
-                }
-                if (!response.ok) {
-                    const contentType = response.headers.get('content-type');
-                    if (contentType?.includes('text/plain')) {
-                        throw new InteractionError(await response.text());
-                    }
-                    else {
-                        throw new InteractionError(`${response.status} ${response.statusText}`);
-                    }
-                }
-                const noteAndUsers = await readNoteResponse(id, response);
-                callbacks.onNoteReload(this, ...noteAndUsers);
-                this.run.currentNoteId = undefined;
-                this.run.outputNoteIds.push(id);
-            }
-            catch (ex) {
-                if (ex instanceof InteractionError) {
-                    this.run.currentNoteError = ex.message;
-                }
-                else if (ex instanceof NoteDataError) {
-                    this.run.currentNoteError = `Error after successful interaction: ${ex.message}`;
-                }
-                else {
-                    this.run.currentNoteError = `Unknown error ${ex}`;
-                }
-                this.run.status = this.run.requestedStatus = 'paused';
-                transitionToPaused();
-                this.updateRunOutput();
-            }
-            return true;
-        };
-        const wrappedRunNextNote = async () => {
-            let reschedule = false;
-            try {
-                reschedule = await runNextNote();
-            }
-            catch { }
-            runTimeoutId = undefined;
-            if (reschedule)
-                scheduleRunNextNote();
-        };
-        const scheduleRunNextNote = () => {
-            if (runTimeoutId)
-                return;
-            runTimeoutId = setTimeout(wrappedRunNextNote);
-        };
-        return scheduleRunNextNote;
-    }
-    getMultipleNoteIndicators(statusAndIds, maxIndividualNotes) {
-        const output = [];
-        let first = true;
-        const writeSingleNote = (id, status) => {
-            if (!first)
-                output.push(`, `);
-            first = false;
-            output.push(this.getNoteIndicator(status, id));
-        };
-        const writeOneOrManyNotes = (ids, status) => {
-            if (ids.length == 0) {
-                return;
-            }
-            if (ids.length == 1) {
-                writeSingleNote(ids[0], status);
-                return;
-            }
-            if (!first)
-                output.push(`, `);
-            first = false;
-            output.push(`${ids.length} × `, makeNoteStatusIcon(status, ids.length));
-        };
-        const statusAndIdsCopy = [...statusAndIds];
-        const nNotes = statusAndIdsCopy.reduce((n, [, ids]) => n + ids.length, 0);
-        if (nNotes == 0) ;
-        else if (nNotes <= maxIndividualNotes) {
-            for (const [status, ids] of statusAndIdsCopy) {
-                for (const id of ids) {
-                    writeSingleNote(id, status);
-                }
-            }
-        }
-        else {
-            for (const [status, ids] of statusAndIdsCopy) {
-                writeOneOrManyNotes(ids, status);
-            }
-        }
-        return output;
-    }
-    getNoteIndicator(status, id) {
-        const href = this.auth.server.web.getUrl(e$1 `note/${id}`);
-        const $a = document.createElement('a');
-        $a.href = href;
-        $a.classList.add('listened');
-        $a.dataset.noteId = String(id);
-        $a.append(makeNoteStatusIcon(status), ` ${id}`);
-        return $a;
-    }
-}
-
-class ReportTool extends Tool {
-    constructor() {
-        super(...arguments);
-        this.id = 'report';
-        this.name = `Report`;
-        this.title = `Report notes on OSM website`;
-        this.selectedNoteIds = [];
-        this.$tabCountOutput = document.createElement('output');
-        this.$confirmTabCountOutput = document.createElement('output');
-    }
-    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes) {
-        this.selectedNoteIds = selectedNotes.map(note => note.id);
-        const count = selectedNotes.length;
-        this.$tabCountOutput.textContent = this.$confirmTabCountOutput.textContent = `${count} tab${count == 1 ? '' : 's'}`;
-        this.reportManyListener?.reset();
-        return true;
-    }
-    getInfo() {
-        return [p(makeLink(`Report`, 'https://wiki.openstreetmap.org/wiki/Notes#Reporting_notes'), ` selected notes. `, `Since reporting on the OSM website works for individual notes but here you can select many, you may choose between opening one and several tabs.`), ul(li(`If you choose to open one tab, it's going to report the first selected note. `, `The full list of notes will be copied to clipboard for you to paste into the `, em(`details`), ` input.`), li(`If you choose to open several tabs, each tab will have a report for every individual note you selected. `, `Since it could be many tabs opened at once, there's a confirmation button appearing for more than five selected notes. `, `Additionally the browser may choose to block opening of new tabs if too many are requested.`))];
-    }
-    getTool() {
-        const e = makeEscapeTag(encodeURIComponent);
-        const getReportUrl = (id) => this.auth.server.web.getUrl(e `reports/new?reportable_id=${id}&reportable_type=Note`);
-        const getNoteListItem = (id) => `- ` + this.auth.server.web.getUrl(e `note/${id}`) + `\n`;
-        const getNoteList = () => this.selectedNoteIds.map(getNoteListItem).join('');
-        const copyNoteList = () => navigator.clipboard.writeText(getNoteList());
-        const $reportOneButton = this.makeRequiringSelectedNotesButton();
-        const $reportManyButton = this.makeRequiringSelectedNotesButton();
-        const $cancelReportManyButton = this.makeRequiringSelectedNotesButton();
-        const $confirmReportManyButton = this.makeRequiringSelectedNotesButton();
-        $reportOneButton.append(`Report `, makeNotesIcon('selected'), ` in one tab`);
-        $reportManyButton.append(`Report `, makeNotesIcon('selected'), ` in `, this.$tabCountOutput);
-        $cancelReportManyButton.append(`Cancel reporting `, makeNotesIcon('selected'), ` in `, this.$confirmTabCountOutput);
-        $confirmReportManyButton.append(`Confirm`);
-        $reportOneButton.onclick = async () => {
-            await copyNoteList();
-            const id = this.selectedNoteIds[0];
-            open(getReportUrl(id));
-        };
-        this.reportManyListener = new ConfirmedButtonListener($reportManyButton, $cancelReportManyButton, $confirmReportManyButton, async () => {
-            await copyNoteList();
-            for (const id of this.selectedNoteIds) {
-                open(getReportUrl(id));
-            }
-        }, () => this.selectedNoteIds.length > 5);
-        return [
-            $reportOneButton, ` `,
-            $reportManyButton, ` `, $cancelReportManyButton, ` `, $confirmReportManyButton
-        ];
-    }
-}
-
 const toolMakerSequence = [
-    InteractTool, ReportTool,
-    AutozoomTool, CommentsTool, RefreshTool,
+    InteractTool, ReportTool, RefreshTool,
+    AutozoomTool, CommentsTool,
     TimestampTool, ParseTool,
     OverpassTurboTool, OverpassTool,
     RcTool, IdTool,
