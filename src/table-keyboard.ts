@@ -42,7 +42,11 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 	for (let i=0;i<selectors.length;i++) {
 		if (!$e.matches(selectors[i])) continue
 		if (isVerticalMovementKey) {
-			const scopedSelector=':where(:scope:not(.only-first-comments), :scope tr:first-child) '+selectors[i]
+			const tbodySelectorPart=ev.shiftKey?' tbody':'' // prevent shift+movement from reaching 'select all' checkbox
+			const scopedSelector=`:where(`+
+				`:scope:not(.only-first-comments)${tbodySelectorPart}, `+
+				`:scope${tbodySelectorPart} tr:first-child`+
+			`) ${selectors[i]}`
 			if (!moveVerticallyAmongProvidedElements(ev,$e,this.querySelectorAll(scopedSelector),i==0)) return
 		} else if (isHorizontalMovementKey) {
 			const j=getIndexForKeyMovement(ev.key,i,selectors.length)
