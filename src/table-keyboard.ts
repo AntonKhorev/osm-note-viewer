@@ -47,7 +47,8 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 				`:scope:not(.only-first-comments)${tbodySelectorPart}, `+
 				`:scope${tbodySelectorPart} tr:first-child`+
 			`) ${selectors[i]}`
-			if (!moveVerticallyAmongProvidedElements(ev,$e,this.querySelectorAll(scopedSelector),i==0)) return
+			const $eList=this.querySelectorAll(scopedSelector)
+			if (!moveVerticallyAmongProvidedElements(ev.key,$e,$eList,ev.shiftKey&&i==0)) return
 		} else if (isHorizontalMovementKey) {
 			const j=getIndexForKeyMovement(ev.key,i,selectors.length)
 			if (j<0) return
@@ -59,11 +60,11 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 	}
 }
 
-function moveVerticallyAmongProvidedElements(ev: KeyboardEvent, $e: HTMLElement, $esi: Iterable<Element>, isSelectionCheckbox: boolean): boolean {
-	const $es=[...$esi]
+function moveVerticallyAmongProvidedElements(key: string, $e: HTMLElement, $eList: Iterable<Element>, isSelection: boolean): boolean {
+	const $es=[...$eList]
 	const i=$es.indexOf($e)
 	if (i<0) return false
-	if (ev.key=='PageUp' || ev.key=='PageDown') {
+	if (key=='PageUp' || key=='PageDown') {
 		const $scrollingPart=$e.closest('.scrolling')
 		if (!($scrollingPart instanceof HTMLElement)) return false
 		const scrollRect=$scrollingPart.getBoundingClientRect()
@@ -86,7 +87,7 @@ function moveVerticallyAmongProvidedElements(ev: KeyboardEvent, $e: HTMLElement,
 			}
 			return false
 		}
-		if (ev.key=='PageUp') {
+		if (key=='PageUp') {
 			return scrollToNextPage(
 				-1,0,
 				rect=>rect.top>scrollRect.top-scrollRect.height
@@ -98,11 +99,11 @@ function moveVerticallyAmongProvidedElements(ev: KeyboardEvent, $e: HTMLElement,
 			)
 		}
 	} else {
-		const j=getIndexForKeyMovement(ev.key,i,$es.length)
-		if (isSelectionCheckbox && ev.shiftKey) {
+		const j=getIndexForKeyMovement(key,i,$es.length)
+		if (isSelection) {
 			checkRange($es,i,j)
 		}
-		return focus($es[j],ev.key=='Home'||ev.key=='End')
+		return focus($es[j],key=='Home'||key=='End')
 	}
 }
 
