@@ -137,14 +137,10 @@ function focus($e: Element|null|undefined, far: boolean = false): boolean {
 }
 
 function checkRange($es: Element[], fromIndex: number, toIndex: number): void {
-	const d=toIndex>fromIndex?1:-1
-	for (let i=fromIndex;i*d<toIndex*d;i+=d) {
-		const $checkbox=$es[i]
-		if (!($checkbox instanceof HTMLInputElement)) continue
-		$checkbox.checked=true
-	}
-	const $lastCheckbox=$es[toIndex]
-	if (!($lastCheckbox instanceof HTMLInputElement)) return
-	if ($lastCheckbox.checked) $lastCheckbox.checked=false
-	$lastCheckbox.click()
+	$es[fromIndex].dispatchEvent(
+		new MouseEvent('click')
+	)
+	$es[toIndex].dispatchEvent(
+		new MouseEvent('click',{shiftKey:true})
+	)
 }
