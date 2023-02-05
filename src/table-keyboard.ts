@@ -3,7 +3,7 @@ const selectors=[
 	'.note-link a',
 	'.note-date time',
 	'.note-user a',
-	'.note-action',
+	'.note-action .icon-container',
 	'.note-comment'
 ]
 

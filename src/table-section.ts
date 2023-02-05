@@ -79,10 +79,12 @@ export default function writeNoteSectionRows(
 					`<title>${title}</title><use href="#table-comments" /><text x="8" y="8">${nAdditionalComments}</text>`+
 				`</svg>`
 			}
+			const $iconWrapper=makeElement('span')('icon-container')()
+			$iconWrapper.tabIndex=0
+			$iconWrapper.innerHTML=svgs
 			const $cell=$row.insertCell()
 			$cell.classList.add('note-action')
-			$cell.tabIndex=0
-			$cell.innerHTML=svgs
+			$cell.append($iconWrapper)
 		}{
 			const $cell=$row.insertCell()
 			$cell.classList.add('note-comment')
