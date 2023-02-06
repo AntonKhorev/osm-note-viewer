@@ -383,3 +383,7 @@
 .panel table input[type=radio] {
 	cursor: pointer;
 }
+
+.panel details.with-code-form details.syntax {
+	float: right;
+}

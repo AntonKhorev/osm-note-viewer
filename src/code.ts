@@ -8,13 +8,31 @@ export default function makeCodeForm(
 	applyInput: (input:string)=>void,
 	runCallback: ()=>void,
 	syntaxDescription: string, syntaxExamples: [string,string[]][]
-): HTMLFormElement {
+): HTMLDetailsElement {
+	const $formDetails=document.createElement('details')
 	const $form=document.createElement('form')
+	const $output=document.createElement('output')
 	const $textarea=document.createElement('textarea')
 	const $button=document.createElement('button')
+	$textarea.value=initialValue
+	const isEmpty=()=>!$textarea.value
+	const updateOutput=()=>{
+		$output.replaceChildren()
+		if (isEmpty()) {
+			$output.append(` (currently empty)`)
+		}
+	}
 	{
-		const $details=document.createElement('details')
-		$details.innerHTML=syntaxDescription
+		$formDetails.classList.add('with-code-form')
+		$formDetails.open=!isEmpty()
+		updateOutput()
+		const $formSummary=document.createElement('summary')
+		$formSummary.append(textareaLabel,$output)
+		$formDetails.append($formSummary,$form)
+	}{
+		const $syntaxDetails=document.createElement('details')
+		$syntaxDetails.classList.add('syntax')
+		$syntaxDetails.innerHTML=syntaxDescription
 		const $examplesTitle=document.createElement('p')
 		$examplesTitle.innerHTML='<strong>Examples</strong>:'
 		const $examplesList=document.createElement('dl')
@@ -28,10 +46,9 @@ export default function makeCodeForm(
 			$dd.append($code)
 			$examplesList.append($dt,$dd)
 		}
-		$details.append($examplesTitle,$examplesList)
-		$form.append($details)
+		$syntaxDetails.append($examplesTitle,$examplesList)
+		$form.append($syntaxDetails)
 	}{
-		$textarea.value=initialValue
 		$textarea.rows=5
 		$form.append(makeDiv('major-input')(makeLabel()(
 			textareaLabel,` `,$textarea
@@ -42,7 +59,8 @@ export default function makeCodeForm(
 		$button.disabled=true
 		$form.append(makeDiv('major-input')($button))
 	}
-	$textarea.addEventListener('input',()=>{
+	$textarea.oninput=()=>{
+		updateOutput()
 		$button.disabled=isSameInput($textarea.value)
 		try {
 			checkInput($textarea.value)
@@ -52,8 +70,8 @@ export default function makeCodeForm(
 			if (ex instanceof RangeError || ex instanceof SyntaxError) message=ex.message
 			$textarea.setCustomValidity(message)
 		}
-	})
-	$form.addEventListener('submit',(ev)=>{
+	}
+	$form.onsubmit=(ev)=>{
 		ev.preventDefault()
 		try {
 			applyInput($textarea.value)
@@ -62,6 +80,6 @@ export default function makeCodeForm(
 		}
 		runCallback()
 		$button.disabled=true
-	})
-	return $form
+	}
+	return $formDetails
 }
