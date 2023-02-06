@@ -481,6 +481,7 @@ nav [role=tablist] [role=tab]:focus {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
+	margin: .2em 0;
 }
 .panel .major-input textarea {
 	resize: vertical;
@@ -611,10 +612,29 @@ nav [role=tablist] [role=tab]:focus {
 	cursor: pointer;
 }
 
+.panel details.with-code-form details.syntax {
+	float: right;
+}
+
 /*** css/notes.css ***/
 .notes table {
 	border-collapse: collapse;
 	margin: 0 2px;
+}
+.notes caption {
+	margin: .5em;
+	text-align: left;
+}
+.notes thead th {
+	text-align: left;
+}
+.notes thead th button.expander {
+	box-sizing: border-box;
+	width: 16px;
+	height: 16px;
+	vertical-align: text-top;
+	padding: 0;
+	line-height: 1em;
 }
 .notes tbody {
 	position: relative;
@@ -693,44 +713,47 @@ nav [role=tablist] [role=tab]:focus {
 }
 .notes td.note-user {
 	white-space: nowrap;
-	max-width: 20vw;
 	text-overflow: ellipsis;
 	overflow: hidden;
 }
-body.flipped .notes td.note-user {
-	max-width: 10vw;
-}
 .notes td.note-user a:not([href]) {
-	color: gray;
+	opacity: .7;
 }
-.notes td.note-action .icon-container {
+.notes td.note-user .uid {
+	opacity: .7;
+	font-size: .7em;
+	font-family: sans-serif;
+}
+.notes td.note-action [class|=icon] {
 	position: relative;
 	display: inline-block;
-	margin: 0;
-	padding: 0;
 	width: 16px;
 	height: 16px;
 	vertical-align: text-top;
 }
-.notes td.note-action .icon-container > svg {
+.notes td.note-action [class|=icon] > svg {
 	position: absolute;
 	inset: 0;
 	width: 100%;
 	height: 100%;
 }
-.notes td.note-action .icon-container > svg[class|=icon-status-open] {
+.notes td.note-action [class|=icon-status-open] > svg {
 	--table-note-default-part-visibility: hidden;
 	--table-note-open-part-visibility: visible;
 }
-.notes td.note-action .icon-container > svg[class|=icon-status-closed] {
+.notes td.note-action [class|=icon-status-closed] > svg {
 	--table-note-default-part-visibility: hidden;
 	--table-note-closed-part-visibility: visible;
 }
-.notes td.note-action .icon-container > svg[class|=icon-status-hidden] {
+.notes td.note-action [class|=icon-status-commented] > svg {
+	--table-note-default-part-visibility: hidden;
+	--table-note-commented-part-visibility: visible;
+}
+.notes td.note-action [class|=icon-status-hidden] > svg {
 	--table-note-default-part-visibility: hidden;
 	--table-note-hidden-part-visibility: visible;
 }
-.notes td.note-action .icon-container > svg[class|=icon-comments-count] text {
+.notes td.note-action [class|=icon-comments-count] > svg text {
 	font-family: sans-serif;
 	font-size: 10px;
 	text-anchor: middle;
@@ -765,6 +788,18 @@ body.flipped .notes td.note-user {
 }
 .notes table.with-images td.note-comment a.image.float {
 	display: block;
+}
+.notes table.only-date td.note-date time > span {
+	display: none;
+}
+.notes table.only-short-username td.note-user {
+	max-width: 20vw;
+}
+body.flipped table.only-short-username td.note-user {
+	max-width: 10vw;
+}
+.notes table.only-short-username td.note-user .uid {
+	display: none;
 }
 .notes table.only-first-comments tr:not(:first-child) {
 	display: none;

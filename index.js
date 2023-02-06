@@ -2313,12 +2313,31 @@ function makeButton(id, title, listener) {
 }
 
 function makeCodeForm(initialValue, textareaLabel, buttonLabel, isSameInput, checkInput, applyInput, runCallback, syntaxDescription, syntaxExamples) {
+    const $formDetails = document.createElement('details');
     const $form = document.createElement('form');
+    const $output = document.createElement('output');
     const $textarea = document.createElement('textarea');
     const $button = document.createElement('button');
+    $textarea.value = initialValue;
+    const isEmpty = () => !$textarea.value;
+    const updateOutput = () => {
+        $output.replaceChildren();
+        if (isEmpty()) {
+            $output.append(` (currently empty)`);
+        }
+    };
     {
-        const $details = document.createElement('details');
-        $details.innerHTML = syntaxDescription;
+        $formDetails.classList.add('with-code-form');
+        $formDetails.open = !isEmpty();
+        updateOutput();
+        const $formSummary = document.createElement('summary');
+        $formSummary.append(textareaLabel, $output);
+        $formDetails.append($formSummary, $form);
+    }
+    {
+        const $syntaxDetails = document.createElement('details');
+        $syntaxDetails.classList.add('syntax');
+        $syntaxDetails.innerHTML = syntaxDescription;
         const $examplesTitle = document.createElement('p');
         $examplesTitle.innerHTML = '<strong>Examples</strong>:';
         const $examplesList = document.createElement('dl');
@@ -2332,11 +2351,10 @@ function makeCodeForm(initialValue, textareaLabel, buttonLabel, isSameInput, che
             $dd.append($code);
             $examplesList.append($dt, $dd);
         }
-        $details.append($examplesTitle, $examplesList);
-        $form.append($details);
+        $syntaxDetails.append($examplesTitle, $examplesList);
+        $form.append($syntaxDetails);
     }
     {
-        $textarea.value = initialValue;
         $textarea.rows = 5;
         $form.append(makeDiv('major-input')(makeLabel()(textareaLabel, ` `, $textarea)));
     }
@@ -2346,7 +2364,8 @@ function makeCodeForm(initialValue, textareaLabel, buttonLabel, isSameInput, che
         $button.disabled = true;
         $form.append(makeDiv('major-input')($button));
     }
-    $textarea.addEventListener('input', () => {
+    $textarea.oninput = () => {
+        updateOutput();
         $button.disabled = isSameInput($textarea.value);
         try {
             checkInput($textarea.value);
@@ -2358,8 +2377,8 @@ function makeCodeForm(initialValue, textareaLabel, buttonLabel, isSameInput, che
                 message = ex.message;
             $textarea.setCustomValidity(message);
         }
-    });
-    $form.addEventListener('submit', (ev) => {
+    };
+    $form.onsubmit = (ev) => {
         ev.preventDefault();
         try {
             applyInput($textarea.value);
@@ -2369,8 +2388,8 @@ function makeCodeForm(initialValue, textareaLabel, buttonLabel, isSameInput, che
         }
         runCallback();
         $button.disabled = true;
-    });
-    return $form;
+    };
+    return $formDetails;
 }
 
 var serverListConfig = [
@@ -5737,7 +5756,7 @@ class CommentWriter {
                 inlineElements.push($a);
             }
             else if (item.type == 'date') {
-                const $time = makeActiveTimeElement(item.text, item.text);
+                const $time = makeActiveTimeElement(item.text, '', item.text);
                 inlineElements.push($time);
             }
             else {
@@ -5767,9 +5786,9 @@ function handleShowImagesUpdate($table, showImages) {
     }
 }
 function makeDateOutput(readableDate) {
-    const [readableDateWithoutTime] = readableDate.split(' ', 1);
+    const [readableDateWithoutTime, readableDateTime] = readableDate.split(' ', 2);
     if (readableDate && readableDateWithoutTime) {
-        return makeActiveTimeElement(readableDateWithoutTime, `${readableDate.replace(' ', 'T')}Z`, `${readableDate} UTC`);
+        return makeActiveTimeElement(readableDateWithoutTime, ` ${readableDateTime}`, `${readableDate.replace(' ', 'T')}Z`, `${readableDate} UTC`);
     }
     else {
         const $unknownDateTime = document.createElement('span');
@@ -5777,14 +5796,14 @@ function makeDateOutput(readableDate) {
         return $unknownDateTime;
     }
 }
-function makeActiveTimeElement(text, dateTime, title) {
-    const $time = document.createElement('time');
-    $time.classList.add('listened');
+function makeActiveTimeElement(unwrappedPart, wrappedPart, dateTime, title) {
+    const $time = makeElement('time')('listened')(unwrappedPart);
     $time.tabIndex = 0;
-    $time.textContent = text;
     $time.dateTime = dateTime;
     if (title)
         $time.title = title;
+    if (wrappedPart)
+        $time.append(makeElement('span')()(wrappedPart));
     return $time;
 }
 function imageCommentHoverListener(ev) {
@@ -5871,7 +5890,7 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
                     $a.classList.add('listened');
                     $a.dataset.userName = username;
                     $a.dataset.userId = String(comment.uid);
-                    $cell.append($a);
+                    $cell.append($a, makeElement('span')('uid')(` #${comment.uid}`));
                 }
                 else {
                     $cell.append(`#${comment.uid}`);
@@ -5884,22 +5903,32 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
             }
         }
         {
-            let svgs = `<svg class="icon-status-${getActionClass(comment.action)}">` +
-                `<title>${comment.action}</title><use href="#table-note" />` +
-                `</svg>`;
-            if (note.comments.length > 1) {
-                const nAdditionalComments = note.comments.length - 1;
-                const title = `${nAdditionalComments} additional comment${nAdditionalComments > 1 ? `s` : ``}`;
-                svgs += ` <svg class="icon-comments-count">` +
-                    `<title>${title}</title><use href="#table-comments" /><text x="8" y="8">${nAdditionalComments}</text>` +
-                    `</svg>`;
-            }
-            const $iconWrapper = makeElement('span')('icon-container')();
-            $iconWrapper.tabIndex = 0;
-            $iconWrapper.innerHTML = svgs;
             const $cell = $row.insertCell();
             $cell.classList.add('note-action');
-            $cell.append($iconWrapper);
+            {
+                const $icon = makeElement('span')('icon-status-' + getActionClass(comment.action))();
+                $icon.tabIndex = 0;
+                $icon.title = comment.action;
+                $icon.innerHTML = `<svg>` +
+                    `<use href="#table-note" />` +
+                    `</svg>`;
+                $cell.append($icon);
+            }
+            if (iComment == 0) {
+                const $icon = makeElement('span')('icon-comments-count')();
+                $icon.tabIndex = 0;
+                if (note.comments.length > 1) {
+                    const nAdditionalComments = note.comments.length - 1;
+                    $icon.title = `${nAdditionalComments} additional comment${nAdditionalComments > 1 ? `s` : ``}`;
+                    $icon.innerHTML = `<svg>` +
+                        `<use href="#table-comments" /><text x="8" y="8">${nAdditionalComments}</text>` +
+                        `</svg>`;
+                }
+                else {
+                    $icon.title = `no additional comments`;
+                }
+                $cell.append($icon);
+            }
         }
         {
             const $cell = $row.insertCell();
@@ -5922,20 +5951,39 @@ function getActionClass(action) {
     else if (action == 'hidden') {
         return 'hidden';
     }
+    else if (action == 'commented') {
+        return 'commented';
+    }
     else {
         return 'other';
     }
 }
 
 const selectors = [
-    '.note-checkbox input',
-    '.note-link a',
-    '.note-date time',
-    '.note-user a',
-    '.note-action .icon-container',
-    '.note-comment'
+    ['.note-checkbox input'],
+    ['.note-link a'],
+    ['.note-date time'],
+    ['.note-user a'],
+    ['.note-action [class|=icon]', '.note-action [class|=icon-status]', '.note-action .icon-comments-count'],
+    ['.note-comment']
 ];
+const anySelector = selectors.map(([generalSelector]) => generalSelector).join(',');
 function noteTableKeydownListener(ev) {
+    const makeScopedSelector = (selector) => {
+        const [generalSelector, notOnlyFirstCommentSelector, onlyFirstCommentSelector] = selector;
+        const tbodySelectorPart = ev.shiftKey ? ' tbody' : ''; // prevent shift+movement from reaching 'select all' checkbox
+        return (`table:not(.only-first-comments)${tbodySelectorPart} ${notOnlyFirstCommentSelector ?? generalSelector}, ` +
+            `table.only-first-comments${tbodySelectorPart} tr:first-child ${onlyFirstCommentSelector ?? generalSelector}`);
+    };
+    if (ev.ctrlKey && ev.key.toLowerCase() == 'a') {
+        const $allCheckbox = this.querySelector('thead .note-checkbox input');
+        if (!($allCheckbox instanceof HTMLInputElement))
+            return;
+        $allCheckbox.click();
+        ev.stopPropagation();
+        ev.preventDefault();
+        return;
+    }
     const isVerticalMovementKey = (ev.key == 'ArrowUp' ||
         ev.key == 'ArrowDown' ||
         ev.key == 'Home' && ev.ctrlKey ||
@@ -5950,7 +5998,7 @@ function noteTableKeydownListener(ev) {
         return;
     if (!(ev.target instanceof HTMLElement))
         return;
-    const $e = ev.target.closest(selectors.join(','));
+    const $e = ev.target.closest(anySelector);
     if (!($e instanceof HTMLElement))
         return;
     const $section = $e.closest('thead, tbody');
@@ -5959,20 +6007,21 @@ function noteTableKeydownListener(ev) {
     const $tr = $e.closest('tr');
     if (!($tr instanceof HTMLTableRowElement))
         return;
-    const focusInAllSections = (selector) => focusInList(ev.key, $e, this.querySelectorAll(':where(:scope:not(.only-first-comments), :scope tr:first-child) ' + selector));
     const iHasCommentRows = 2;
     for (let i = 0; i < selectors.length; i++) {
-        if (!$e.matches(selectors[i]))
+        const [generalSelector] = selectors[i];
+        if (!$e.matches(generalSelector))
             continue;
         if (isVerticalMovementKey) {
-            if (!focusInAllSections(selectors[i]))
+            const $eList = this.querySelectorAll(makeScopedSelector(selectors[i]));
+            if (!moveVerticallyAmongProvidedElements(ev.key, $e, $eList, ev.shiftKey && i == 0))
                 return;
         }
         else if (isHorizontalMovementKey) {
             const j = getIndexForKeyMovement(ev.key, i, selectors.length);
             if (j < 0)
                 return;
-            const $e2 = (j < iHasCommentRows ? $section : $tr).querySelector(selectors[j]);
+            const $e2 = (j < iHasCommentRows ? $section : $tr).querySelector(makeScopedSelector(selectors[j]));
             if (!focus($e2))
                 return;
         }
@@ -5980,44 +6029,50 @@ function noteTableKeydownListener(ev) {
         ev.preventDefault();
     }
 }
-function focusInList(key, $e, $esi) {
-    const $es = [...$esi];
+function moveVerticallyAmongProvidedElements(key, $e, $eList, isSelection) {
+    const $es = [...$eList];
     const i = $es.indexOf($e);
     if (i < 0)
         return false;
+    let j;
     if (key == 'PageUp' || key == 'PageDown') {
         const $scrollingPart = $e.closest('.scrolling');
         if (!($scrollingPart instanceof HTMLElement))
             return false;
         const scrollRect = $scrollingPart.getBoundingClientRect();
-        const scrollToNextPage = (d, indexBound, checkRect) => {
-            const checkIndexBound = (k) => k * d < indexBound * d;
-            for (let j = i; checkIndexBound(j); j += d) {
-                if (checkRect($es[j].getBoundingClientRect()))
-                    continue;
-                if (j * d > i * d) {
-                    return focus($es[j], true);
-                }
-                else {
-                    return focus($es[j + d], true);
-                }
-            }
-            if (checkIndexBound(i)) {
-                return focus($es[indexBound], true);
-            }
-            return false;
-        };
         if (key == 'PageUp') {
-            return scrollToNextPage(-1, 0, rect => rect.top > scrollRect.top - scrollRect.height);
+            j = getNextPageIndex($es, i, -1, 0, rect => rect.top > scrollRect.top - scrollRect.height);
         }
         else {
-            return scrollToNextPage(+1, $es.length - 1, rect => rect.bottom < scrollRect.bottom + scrollRect.height);
+            j = getNextPageIndex($es, i, +1, $es.length - 1, rect => rect.bottom < scrollRect.bottom + scrollRect.height);
         }
     }
     else {
-        const j = getIndexForKeyMovement(key, i, $es.length);
-        return focus($es[j], key == 'Home' || key == 'End');
+        j = getIndexForKeyMovement(key, i, $es.length);
     }
+    if (i == j)
+        return false;
+    if (isSelection) {
+        checkRange($es, i, j);
+    }
+    return focus($es[j], key == 'Home' || key == 'End' || key == 'PageUp' || key == 'PageDown');
+}
+function getNextPageIndex($es, fromIndex, d, indexBound, checkRect) {
+    const checkIndexBound = (k) => k * d < indexBound * d;
+    for (let j = fromIndex; checkIndexBound(j); j += d) {
+        if (checkRect($es[j].getBoundingClientRect()))
+            continue;
+        if (j * d > fromIndex * d) {
+            return j;
+        }
+        else {
+            return j + d;
+        }
+    }
+    if (checkIndexBound(fromIndex)) {
+        return indexBound;
+    }
+    return fromIndex;
 }
 function getIndexForKeyMovement(key, i, length) {
     if (key == 'ArrowUp' || key == 'ArrowLeft') {
@@ -6046,6 +6101,10 @@ function focus($e, far = false) {
         $e.scrollIntoView({ block: 'nearest' });
     }
     return true;
+}
+function checkRange($es, fromIndex, toIndex) {
+    $es[fromIndex].dispatchEvent(new MouseEvent('click'));
+    $es[toIndex].dispatchEvent(new MouseEvent('click', { shiftKey: true }));
 }
 
 class NoteSectionVisibilityObserver {
@@ -6398,11 +6457,12 @@ class NoteTable {
         this.map = map;
         this.filter = filter;
         this.server = server;
-        this.$table = document.createElement('table');
+        this.$table = makeElement('table')('only-date', 'only-short-username')();
         this.$selectAllCheckbox = document.createElement('input');
         this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
         this.usersById = new Map();
         this.showImages = false;
+        this.$table.setAttribute('role', 'grid');
         this.refresherConnector = new NoteTableAndRefresherConnector(toolPanel, (id, progress) => {
             const $refreshWaitProgress = this.getNoteSection(id)?.querySelector('td.note-link progress');
             if (!($refreshWaitProgress instanceof HTMLProgressElement))
@@ -6424,10 +6484,6 @@ class NoteTable {
             await this.onRefresherUpdate?.(note, users);
             return [note, users];
         });
-        toolPanel.onCommentsViewChange = (onlyFirst, oneLine) => {
-            this.$table.classList.toggle('only-first-comments', onlyFirst);
-            this.$table.classList.toggle('one-line-comments', oneLine);
-        };
         const that = this;
         let $clickReadyNoteSection;
         this.wrappedNoteSectionListeners = [
@@ -6493,7 +6549,7 @@ class NoteTable {
         this.usersById.clear();
         this.$lastClickedNoteSection = undefined;
         this.noteSectionVisibilityObserver.disconnect();
-        this.$table.innerHTML = '';
+        this.$table.replaceChildren();
         this.toolPanel.receiveNoteCounts(0, 0);
         this.updateCheckboxDependents();
     }
@@ -6543,8 +6599,10 @@ class NoteTable {
             this.usersById.set(Number(uid), username);
         }
         // output table
-        if (this.$table.childElementCount == 0)
+        if (this.$table.childElementCount == 0) {
+            this.$table.append(makeElement('caption')()(`Fetched notes`));
             this.writeTableHeader();
+        }
         let nUnfilteredNotes = 0;
         const getUsername = (uid) => users[uid];
         for (const note of noteSequence) {
@@ -6557,7 +6615,7 @@ class NoteTable {
             this.makeMarker(note, isVisible);
             const $checkbox = document.createElement('input');
             $checkbox.type = 'checkbox';
-            $checkbox.title = `shift+click to select/unselect a range`;
+            // $checkbox.title=`shift+click to select/unselect a range`
             $checkbox.addEventListener('click', this.wrappedNoteCheckboxClickListener);
             this.writeNoteSection($noteSection, $checkbox, note, users, isVisible);
             this.refresherConnector.registerNote(note);
@@ -6654,21 +6712,17 @@ class NoteTable {
     writeTableHeader() {
         const $header = this.$table.createTHead();
         const $row = $header.insertRow();
-        const $checkboxCell = makeHeaderCell('');
-        $checkboxCell.classList.add('note-checkbox');
         this.$selectAllCheckbox.type = 'checkbox';
-        this.$selectAllCheckbox.title = `select/unselect all notes`;
+        this.$selectAllCheckbox.title = `select all notes`;
         this.$selectAllCheckbox.addEventListener('click', this.wrappedAllNotesCheckboxClickListener);
-        $checkboxCell.append(this.$selectAllCheckbox);
-        const $actionCell = makeHeaderCell('?');
-        $actionCell.title = `action performed along with adding the comment; number of comments`;
-        $actionCell.classList.add('note-action');
-        $row.append($checkboxCell, makeHeaderCell('id'), makeHeaderCell('date'), makeHeaderCell('user'), $actionCell, makeHeaderCell('comment'));
-        function makeHeaderCell(text) {
-            const $cell = document.createElement('th');
-            $cell.textContent = text;
-            return $cell;
-        }
+        const makeExpander = (className) => {
+            const $button = makeElement('button')('expander')(this.$table.classList.contains(className) ? '+' : '−');
+            $button.onclick = () => {
+                $button.textContent = this.$table.classList.toggle(className) ? '+' : '−';
+            };
+            return $button;
+        };
+        $row.append(makeElement('th')('note-checkbox')(this.$selectAllCheckbox), makeElement('th')()(`id`), makeElement('th')()(`date `, makeExpander('only-date')), makeElement('th')()(`user `, makeExpander('only-short-username')), makeElement('th')()(makeExpander('only-first-comments')), makeElement('th')()(`comment `, makeExpander('one-line-comments')));
     }
     makeMarker(note, isVisible) {
         const marker = new NoteMarker(note);
@@ -6690,6 +6744,7 @@ class NoteTable {
                 this.$selectAllCheckbox.indeterminate = true;
             }
         }
+        $checkbox.setAttribute('aria-label', `${note.status} note at latitude ${note.lat}, longitude ${note.lon}`);
         const $commentCells = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, $checkbox, note, users, this.showImages);
         for (const $commentCell of $commentCells) {
             this.looseParserListener.listen($commentCell);
@@ -7012,7 +7067,6 @@ function makeNoteStatusIcon(status, number = 1) {
     }
 }
 
-const label = (...ss) => makeElement('label')('inline')(...ss);
 class AutozoomTool extends Tool {
     constructor() {
         super(...arguments);
@@ -7043,28 +7097,6 @@ class AutozoomTool extends Tool {
             }
         };
         return [$fitModeSelect];
-    }
-}
-class CommentsTool extends Tool {
-    constructor() {
-        super(...arguments);
-        this.id = 'comments';
-        this.name = `Table comments`;
-        this.title = `Change how comments are displayed in the notes table`;
-    }
-    getTool(callbacks) {
-        const $onlyFirstCommentsCheckbox = document.createElement('input');
-        $onlyFirstCommentsCheckbox.type = 'checkbox';
-        const $oneLineCommentsCheckbox = document.createElement('input');
-        $oneLineCommentsCheckbox.type = 'checkbox';
-        $onlyFirstCommentsCheckbox.onchange = $oneLineCommentsCheckbox.onchange = () => {
-            callbacks.onCommentsViewChange(this, $onlyFirstCommentsCheckbox.checked, $oneLineCommentsCheckbox.checked);
-        };
-        return [
-            `show `,
-            label($onlyFirstCommentsCheckbox, ` only 1st`), `; `,
-            label($oneLineCommentsCheckbox, ` on 1 line`),
-        ];
     }
 }
 class TimestampTool extends Tool {
@@ -7249,7 +7281,7 @@ class InteractTool extends Tool {
         this.updateRunOutput();
     }
     getInfo() {
-        return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, `If you've hidden a note and want to see it, look for it at `, this.$yourNotesWeb, ` on the OSM website.`)];
+        return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again ("reactivates" it). `, `This means that a hidden note can only be restored to an open state, even if it had been closed before being hidden. `, `If you want the note to be closed again, you have to close it yourself after reactivating. `, `Also, unlike the OSM website, you can reactivate a note and add a comment in one action. `, `The OSM website currently doesn't provide a comment input for note reactivation.`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, `If you've hidden a note and want to see it, look for it at `, this.$yourNotesWeb, ` on the OSM website.`)];
     }
     getTool(callbacks) {
         this.$commentText.oninput = () => {
@@ -8392,8 +8424,7 @@ class MapillaryTool extends StreetViewTool {
 
 const toolMakerSequence = [
     InteractTool, ReportTool, RefreshTool,
-    AutozoomTool, CommentsTool,
-    TimestampTool, ParseTool,
+    AutozoomTool, TimestampTool, ParseTool,
     OverpassTurboTool, OverpassTool,
     RcTool, IdTool,
     GpxTool, GeoJsonTool,
@@ -8450,7 +8481,6 @@ class ToolPanel {
         const tools = [];
         const toolCallbacks = {
             onFitModeChange: (fromTool, fitMode) => __classPrivateFieldSet(this, _ToolPanel_fitMode, fitMode, "f"),
-            onCommentsViewChange: (fromTool, onlyFirst, oneLine) => this.onCommentsViewChange?.(onlyFirst, oneLine),
             onRefresherStateChange: (fromTool, isRunning, message) => this.onRefresherStateChange?.(isRunning),
             onRefresherRefreshChange: (fromTool, replaceUpdatedNotes) => __classPrivateFieldSet(this, _ToolPanel_replaceUpdatedNotes, replaceUpdatedNotes, "f"),
             onRefresherPeriodChange: (fromTool, refreshPeriod) => this.onRefresherPeriodChange?.(refreshPeriod),

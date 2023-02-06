@@ -8,12 +8,13 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" crossorigin="" />
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
 </head>
-<body data-build="2023-02-05T11:36:28.348Z">
+<body data-build="2023-02-06T14:44:14.786Z">
 <svg class="symbols">
 <style>
 #flip .hor { visibility: var(--flip-hor-part-visibility,hidden); }
 #flip .ver { visibility: var(--flip-ver-part-visibility,hidden); }
 #table-note .default { visibility: var(--table-note-default-part-visibility,visible); }
+#table-note .commented { visibility: var(--table-note-commented-part-visibility,hidden); }
 #table-note .open { visibility: var(--table-note-open-part-visibility,hidden); }
 #table-note .closed { visibility: var(--table-note-closed-part-visibility,hidden); }
 #table-note .hidden { visibility: var(--table-note-hidden-part-visibility,hidden); }
@@ -92,7 +93,12 @@
 <symbol id="table-note" viewBox="-16 -16 32 32">
 <g stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
 <g class="default">
-<circle r="15" cx="0" cy="0" fill="none" stroke="#306d98" stroke-width="2" />
+<circle r="15" cx="0" cy="0" fill="#fff" stroke="#306d98" stroke-width="2" />
+<line x1="-7" x2="7" y1="0" y2="0" stroke="#306d98" />
+<line x1="0" x2="0" y1="-7" y2="7" stroke="#306d98" />
+</g>
+<g class="commented">
+<path d="M7.5,13 A15,15 0 1 1 13,7.5 L15,15 Z" fill="#fff" stroke="#306d98" stroke-width="2" />
 <line x1="-7" x2="7" y1="0" y2="0" stroke="#306d98" />
 <line x1="0" x2="0" y1="-7" y2="7" stroke="#306d98" />
 </g>
