@@ -2,7 +2,7 @@ import {makeDiv, makeLabel} from './html'
 
 export default function makeCodeForm(
 	initialValue: string,
-	textareaLabel: string, buttonLabel: string,
+	summary: string, textareaLabel: string, buttonLabel: string,
 	isSameInput: (input:string)=>boolean,
 	checkInput: (input:string)=>void,
 	applyInput: (input:string)=>void,
@@ -19,7 +19,7 @@ export default function makeCodeForm(
 	const updateOutput=()=>{
 		$output.replaceChildren()
 		if (isEmpty()) {
-			$output.append(` (currently empty)`)
+			$output.append(` (currently not set)`)
 		}
 	}
 	{
@@ -27,7 +27,7 @@ export default function makeCodeForm(
 		$formDetails.open=!isEmpty()
 		updateOutput()
 		const $formSummary=document.createElement('summary')
-		$formSummary.append(textareaLabel,$output)
+		$formSummary.append(summary,$output)
 		$formDetails.append($formSummary,$form)
 	}{
 		const $syntaxDetails=document.createElement('details')
