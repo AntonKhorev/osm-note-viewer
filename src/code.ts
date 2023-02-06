@@ -20,12 +20,15 @@ export default function makeCodeForm(
 	const isEmpty=()=>!$textarea.value
 	const canUndoClear=()=>stashedValue!=null && isEmpty()
 	let stashedValue: string
-	const reactToInput=()=>{
+	const reactToChanges=()=>{
+		const isSame=isSameInput($textarea.value)
 		$output.replaceChildren()
-		if (isEmpty()) {
+		if (!isSame) {
+			$output.append(` (with unapplied changes)`)
+		} else if (isEmpty()) {
 			$output.append(` (currently not set)`)
 		}
-		$applyButton.disabled=isSameInput($textarea.value)
+		$applyButton.disabled=isSame
 		$clearButton.disabled=isEmpty()
 		$undoClearButton.hidden=!($clearButton.hidden=canUndoClear())
 		try {
@@ -37,7 +40,7 @@ export default function makeCodeForm(
 			$textarea.setCustomValidity(message)
 		}
 	}
-	reactToInput()
+	reactToChanges()
 	{
 		$formDetails.classList.add('with-code-form')
 		$formDetails.open=!isEmpty()
@@ -77,15 +80,15 @@ export default function makeCodeForm(
 			$applyButton,$clearButton,$undoClearButton
 		))
 	}
-	$textarea.oninput=reactToInput
+	$textarea.oninput=reactToChanges
 	$clearButton.onclick=()=>{
 		stashedValue=$textarea.value
 		$textarea.value=''
-		reactToInput()
+		reactToChanges()
 	}
 	$undoClearButton.onclick=()=>{
 		$textarea.value=stashedValue
-		reactToInput()
+		reactToChanges()
 	}
 	$form.onsubmit=(ev)=>{
 		ev.preventDefault()
@@ -95,7 +98,7 @@ export default function makeCodeForm(
 			return
 		}
 		runCallback()
-		$applyButton.disabled=true
+		reactToChanges()
 	}
 	return $formDetails
 }
