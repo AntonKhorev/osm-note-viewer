@@ -59,7 +59,7 @@ export default function writeNoteSectionRows(
 					$a.classList.add('listened')
 					$a.dataset.userName=username
 					$a.dataset.userId=String(comment.uid)
-					$cell.append($a)
+					$cell.append($a,makeElement('span')('uid')(` #${comment.uid}`))
 				} else {
 					$cell.append(`#${comment.uid}`)
 				}

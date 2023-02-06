@@ -94,15 +94,16 @@
 }
 .notes td.note-user {
 	white-space: nowrap;
-	max-width: 20vw;
 	text-overflow: ellipsis;
 	overflow: hidden;
 }
-body.flipped .notes td.note-user {
-	max-width: 10vw;
-}
 .notes td.note-user a:not([href]) {
-	color: gray;
+	opacity: .7;
+}
+.notes td.note-user .uid {
+	opacity: .7;
+	font-size: .7em;
+	font-family: sans-serif;
 }
 .notes td.note-action [class|=icon] {
 	position: relative;
@@ -170,6 +171,15 @@ body.flipped .notes td.note-user {
 	display: block;
 }
 .notes table.only-date td.note-date time > span {
+	display: none;
+}
+.notes table.only-short-username td.note-user {
+	max-width: 20vw;
+}
+body.flipped table.only-short-username td.note-user {
+	max-width: 10vw;
+}
+.notes table.only-short-username td.note-user .uid {
 	display: none;
 }
 .notes table.only-first-comments tr:not(:first-child) {
