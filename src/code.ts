@@ -13,19 +13,34 @@ export default function makeCodeForm(
 	const $form=document.createElement('form')
 	const $output=document.createElement('output')
 	const $textarea=document.createElement('textarea')
-	const $button=document.createElement('button')
+	const $applyButton=document.createElement('button')
+	const $clearButton=document.createElement('button')
+	const $undoClearButton=document.createElement('button')
 	$textarea.value=initialValue
 	const isEmpty=()=>!$textarea.value
-	const updateOutput=()=>{
+	const canUndoClear=()=>stashedValue!=null && isEmpty()
+	let stashedValue: string
+	const reactToInput=()=>{
 		$output.replaceChildren()
 		if (isEmpty()) {
 			$output.append(` (currently not set)`)
 		}
+		$applyButton.disabled=isSameInput($textarea.value)
+		$clearButton.disabled=isEmpty()
+		$undoClearButton.hidden=!($clearButton.hidden=canUndoClear())
+		try {
+			checkInput($textarea.value)
+			$textarea.setCustomValidity('')
+		} catch (ex) {
+			let message=`Syntax error`
+			if (ex instanceof RangeError || ex instanceof SyntaxError) message=ex.message
+			$textarea.setCustomValidity(message)
+		}
 	}
+	reactToInput()
 	{
 		$formDetails.classList.add('with-code-form')
 		$formDetails.open=!isEmpty()
-		updateOutput()
 		const $formSummary=document.createElement('summary')
 		$formSummary.append(summary,$output)
 		$formDetails.append($formSummary,$form)
@@ -54,22 +69,23 @@ export default function makeCodeForm(
 			textareaLabel,` `,$textarea
 		)))
 	}{
-		$button.textContent=buttonLabel
-		$button.type='submit'
-		$button.disabled=true
-		$form.append(makeDiv('major-input')($button))
+		$applyButton.textContent=buttonLabel
+		$clearButton.textContent=`Clear`
+		$undoClearButton.textContent=`Undo clear`
+		$undoClearButton.type=$clearButton.type='button'
+		$form.append(makeDiv('gridded-input')(
+			$applyButton,$clearButton,$undoClearButton
+		))
 	}
-	$textarea.oninput=()=>{
-		updateOutput()
-		$button.disabled=isSameInput($textarea.value)
-		try {
-			checkInput($textarea.value)
-			$textarea.setCustomValidity('')
-		} catch (ex) {
-			let message=`Syntax error`
-			if (ex instanceof RangeError || ex instanceof SyntaxError) message=ex.message
-			$textarea.setCustomValidity(message)
-		}
+	$textarea.oninput=reactToInput
+	$clearButton.onclick=()=>{
+		stashedValue=$textarea.value
+		$textarea.value=''
+		reactToInput()
+	}
+	$undoClearButton.onclick=()=>{
+		$textarea.value=stashedValue
+		reactToInput()
 	}
 	$form.onsubmit=(ev)=>{
 		ev.preventDefault()
@@ -79,7 +95,7 @@ export default function makeCodeForm(
 			return
 		}
 		runCallback()
-		$button.disabled=true
+		$applyButton.disabled=true
 	}
 	return $formDetails
 }
