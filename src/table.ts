@@ -28,7 +28,7 @@ export default class NoteTable implements NoteTableUpdater {
 	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
 	private noteSectionVisibilityObserver: NoteSectionVisibilityObserver
 	private looseParserListener: LooseParserListener
-	private $table = document.createElement('table')
+	private $table = makeElement('table')('only-date')()
 	private $selectAllCheckbox = document.createElement('input')
 	private $lastClickedNoteSection: HTMLTableSectionElement | undefined
 	private notesById = new Map<number,Note>() // in the future these might be windowed to limit the amount of stuff on one page
@@ -288,10 +288,11 @@ export default class NoteTable implements NoteTableUpdater {
 		this.$selectAllCheckbox.title=`select all notes`
 		this.$selectAllCheckbox.addEventListener('click',this.wrappedAllNotesCheckboxClickListener)
 		const makeExpander=(className:string)=>{
-			const $button=makeElement('button')('expander')('−')
+			const $button=makeElement('button')('expander')(
+				this.$table.classList.contains(className)?'+':'−'
+			)
 			$button.onclick=()=>{
-				const hasClass=this.$table.classList.toggle(className)
-				$button.textContent=hasClass?'+':'−'
+				$button.textContent=this.$table.classList.toggle(className)?'+':'−'
 			}
 			return $button
 		}
@@ -299,24 +300,11 @@ export default class NoteTable implements NoteTableUpdater {
 			makeElement('th')('note-checkbox')(
 				this.$selectAllCheckbox
 			),
-			makeElement('th')()(
-				`id`
-			),
-			makeElement('th')()(
-				// makeExpander(),` `,
-				`date`
-			),
-			makeElement('th')()(
-				// makeExpander(),` `,
-				`user`
-			),
-			makeElement('th')()(
-				makeExpander('only-first-comments')
-			),
-			makeElement('th')()(
-				makeExpander('one-line-comments'),` `,
-				`comment`
-			)
+			makeElement('th')()(`id`),
+			makeElement('th')()(`date `,makeExpander('only-date')),
+			makeElement('th')()(`user`),
+			makeElement('th')()(makeExpander('only-first-comments')),
+			makeElement('th')()(`comment `,makeExpander('one-line-comments'))
 		)
 	}
 	private makeMarker(note: Note, isVisible: boolean): NoteMarker {

@@ -169,6 +169,9 @@ body.flipped .notes td.note-user {
 .notes table.with-images td.note-comment a.image.float {
 	display: block;
 }
+.notes table.only-date td.note-date time > span {
+	display: none;
+}
 .notes table.only-first-comments tr:not(:first-child) {
 	display: none;
 }

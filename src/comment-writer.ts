@@ -1,6 +1,6 @@
 import type {WebUrlLister} from './server'
 import getCommentItems from './comment'
-import {makeLink} from './html'
+import {makeElement, makeLink} from './html'
 
 export default class CommentWriter {
 	constructor(private webUrlLister: WebUrlLister) {}
@@ -45,7 +45,7 @@ export default class CommentWriter {
 				$a.classList.add('listened','osm')
 				inlineElements.push($a)
 			} else if (item.type=='date') {
-				const $time=makeActiveTimeElement(item.text,item.text)
+				const $time=makeActiveTimeElement(item.text,'',item.text)
 				inlineElements.push($time)
 			} else {
 				inlineElements.push(item.text)
@@ -73,9 +73,9 @@ export function handleShowImagesUpdate($table: HTMLTableElement, showImages: boo
 }
 
 export function makeDateOutput(readableDate: string): HTMLElement {
-	const [readableDateWithoutTime]=readableDate.split(' ',1)
+	const [readableDateWithoutTime,readableDateTime]=readableDate.split(' ',2)
 	if (readableDate && readableDateWithoutTime) {
-		return makeActiveTimeElement(readableDateWithoutTime,`${readableDate.replace(' ','T')}Z`,`${readableDate} UTC`)
+		return makeActiveTimeElement(readableDateWithoutTime,` ${readableDateTime}`,`${readableDate.replace(' ','T')}Z`,`${readableDate} UTC`)
 	} else {
 		const $unknownDateTime=document.createElement('span')
 		$unknownDateTime.textContent=`?`
@@ -83,13 +83,12 @@ export function makeDateOutput(readableDate: string): HTMLElement {
 	}
 }
 
-function makeActiveTimeElement(text: string, dateTime: string, title?: string): HTMLTimeElement {
-	const $time=document.createElement('time')
-	$time.classList.add('listened')
+function makeActiveTimeElement(unwrappedPart: string, wrappedPart: string, dateTime: string, title?: string): HTMLTimeElement {
+	const $time=makeElement('time')('listened')(unwrappedPart)
 	$time.tabIndex=0
-	$time.textContent=text
 	$time.dateTime=dateTime
 	if (title) $time.title=title
+	if (wrappedPart) $time.append(makeElement('span')()(wrappedPart))
 	return $time
 }
 
