@@ -33,14 +33,7 @@ describe("browser tests",function(){
 			this.clientUrl=`${url.pathToFileURL(`${dstDir}/index.html`)}`
 		}
 		this.osmServer=await runOsmServer(this.clientUrl)
-		await build([{
-			web: this.osmServer.url,
-			tiles: `${this.osmServer.url}{z}/{x}/{y}.png`,
-			note: `Test server bundled on ${new Date().toISOString()}`,
-			oauth: {
-				id: `client-id-on-test-server`
-			}
-		}],'src',dstDir,'cache',downloads)
+		await build(this.osmServer.config,'src',dstDir,'cache',downloads)
 		if (keepBrowser) this.browser=await puppeteer.launch(browserOptions)
 	})
 	after(async function(){

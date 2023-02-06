@@ -3,7 +3,7 @@ import url from 'url'
 import puppeteer from 'puppeteer'
 import runOsmServer from './tools/osm-server.js'
 import runClientServer from './tools/client-server.js'
-import {buildWithTestServer} from './tools/build.js'
+import build from './tools/build.js'
 
 const dstDir='test-build/dist'
 let clientServer,clientUrl
@@ -23,7 +23,7 @@ osmServer.setNotes(demoNotes)
 osmServer.setLogin(true)
 
 console.log(`bundling test build`)
-await buildWithTestServer('src',dstDir,'cache',downloads,osmServer.url)
+await build(osmServer.config,'src',dstDir,'cache',downloads)
 
 console.log(`running puppeteer`)
 {

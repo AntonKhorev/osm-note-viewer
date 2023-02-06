@@ -81,6 +81,16 @@ export default async function runOsmServer(authRedirectUrl,port=0) {
 	})
 	return {
 		nodeServer: server,
+		get config() {
+			return [{
+				web: this.url,
+				tiles: `${this.url}{z}/{x}/{y}.png`,
+				note: `Test server bundled on ${new Date().toISOString()}`,
+				oauth: {
+					id: `client-id-on-test-server`
+				}
+			}]
+		},
 		get url() {
 			return `http://127.0.0.1:${server.address().port}/`
 		},
