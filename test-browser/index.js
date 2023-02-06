@@ -274,6 +274,29 @@ describe("browser tests",function(){
 			)
 		}
 	})
+	it("has a gap between cancel/confirm clear settings buttons",async function(){
+		const assertNotTouching=(box1,box2)=>{
+			const {border:{3:{y:bottom1}}}=box1
+			const {border:{0:{y:top2}}}=box2
+			assert(top2-bottom1>1,`expected gap greater than 1, got ${top2-bottom1}`)
+		}
+		this.osmServer.setLogin(true)
+		const page=await this.openPage()
+		const tool=await this.waitForTool(`Interact`)
+		await tool.click()
+		await this.assertNoText(tool,"logged-in-user-name")
+		await this.getToAboutTab()
+		const aboutSection=await page.$('#tab-panel-About')
+		const [storageSection]=await aboutSection.$x(`//section[contains(h3,"Storage")]`)
+		const clearButton=await storageSection.waitForXPath(`//button[contains(.,"Clear")]`,{visible:true})
+		await clearButton.click()
+		const cancelButton=await storageSection.waitForXPath(`//button[contains(.,"Cancel")]`,{visible:true})
+		const confirmButton=await storageSection.waitForXPath(`//button[contains(.,"Confirm")]`,{visible:true})
+		assertNotTouching(
+			await cancelButton.boxModel(),
+			await confirmButton.boxModel()
+		)
+	})
 
 	// refresher
 
