@@ -287,13 +287,14 @@ export default class NoteTable implements NoteTableUpdater {
 		this.$selectAllCheckbox.type='checkbox'
 		this.$selectAllCheckbox.title=`select all notes`
 		this.$selectAllCheckbox.addEventListener('click',this.wrappedAllNotesCheckboxClickListener)
-		const makeExpander=(className:string)=>{
-			const $button=makeElement('button')('expander')(
-				this.$table.classList.contains(className)?'+':'−'
-			)
-			$button.onclick=()=>{
-				$button.textContent=this.$table.classList.toggle(className)?'+':'−'
+		const makeExpander=(className:string,expandTitle:string,collapseTitle:string)=>{
+			const $button=makeElement('button')('expander')()
+			const update=(isCollapsed:boolean)=>{
+				$button.textContent=isCollapsed?'+':'−'
+				$button.title=isCollapsed?expandTitle:collapseTitle
 			}
+			update(this.$table.classList.contains(className))
+			$button.onclick=()=>update(this.$table.classList.toggle(className))
 			return $button
 		}
 		$row.append(
@@ -301,10 +302,18 @@ export default class NoteTable implements NoteTableUpdater {
 				this.$selectAllCheckbox
 			),
 			makeElement('th')()(`id`),
-			makeElement('th')()(`date `,makeExpander('only-date')),
-			makeElement('th')()(`user `,makeExpander('only-short-username')),
-			makeElement('th')()(makeExpander('only-first-comments')),
-			makeElement('th')()(`comment `,makeExpander('one-line-comments'))
+			makeElement('th')()(`date `,makeExpander(
+				'only-date',`show time of day`,`hide time of day`
+			)),
+			makeElement('th')()(`user `,makeExpander(
+				'only-short-username',`show full usernames with ids`,`clip long usernames`
+			)),
+			makeElement('th')()(makeExpander(
+				'only-first-comments',`show all comments/actions`,`show only first comment/action`
+			)),
+			makeElement('th')()(`comment `,makeExpander(
+				'one-line-comments',`allow line breaks in comments`,`keep comments on one line`
+			))
 		)
 	}
 	private makeMarker(note: Note, isVisible: boolean): NoteMarker {
