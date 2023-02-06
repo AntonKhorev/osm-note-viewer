@@ -1,13 +1,32 @@
-const selectors=[
-	'.note-checkbox input',
-	'.note-link a',
-	'.note-date time',
-	'.note-user a',
-	'.note-action .icon-container',
-	'.note-comment'
+type SelectorSpec = [
+	generalSelector: string,
+	notOnlyFirstCommentSelector?: string,
+	onlyFirstCommentSelector?: string
 ]
 
+const selectors: SelectorSpec[] = [
+	['.note-checkbox input'],
+	['.note-link a'],
+	['.note-date time'],
+	['.note-user a'],
+	['.note-action [class|=icon]','.note-action [class|=icon-status]','.note-action .icon-comments-count'],
+	['.note-comment']
+]
+const anySelector=selectors.map(([generalSelector])=>generalSelector).join(',')
+
 export default function noteTableKeydownListener(this: HTMLTableElement, ev: KeyboardEvent): void {
+	const makeScopedSelector=(selector:SelectorSpec)=>{
+		const [
+			generalSelector,
+			notOnlyFirstCommentSelector,
+			onlyFirstCommentSelector
+		]=selector
+		const tbodySelectorPart=ev.shiftKey?' tbody':'' // prevent shift+movement from reaching 'select all' checkbox
+		return (
+			`table:not(.only-first-comments)${tbodySelectorPart} ${notOnlyFirstCommentSelector??generalSelector}, `+
+			`table.only-first-comments${tbodySelectorPart} tr:first-child ${onlyFirstCommentSelector??generalSelector}`
+		)
+	}
 	if (ev.ctrlKey && ev.key.toLowerCase()=='a') {
 		const $allCheckbox=this.querySelector('thead .note-checkbox input')
 		if (!($allCheckbox instanceof HTMLInputElement)) return
@@ -32,7 +51,7 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 	)
 	if (!isVerticalMovementKey && !isHorizontalMovementKey) return
 	if (!(ev.target instanceof HTMLElement)) return
-	const $e=ev.target.closest(selectors.join(','))
+	const $e=ev.target.closest(anySelector)
 	if (!($e instanceof HTMLElement)) return
 	const $section=$e.closest('thead, tbody')
 	if (!($section instanceof HTMLTableSectionElement)) return
@@ -40,19 +59,15 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 	if (!($tr instanceof HTMLTableRowElement)) return
 	const iHasCommentRows=2
 	for (let i=0;i<selectors.length;i++) {
-		if (!$e.matches(selectors[i])) continue
+		const [generalSelector]=selectors[i]
+		if (!$e.matches(generalSelector)) continue
 		if (isVerticalMovementKey) {
-			const tbodySelectorPart=ev.shiftKey?' tbody':'' // prevent shift+movement from reaching 'select all' checkbox
-			const scopedSelector=`:where(`+
-				`:scope:not(.only-first-comments)${tbodySelectorPart}, `+
-				`:scope${tbodySelectorPart} tr:first-child`+
-			`) ${selectors[i]}`
-			const $eList=this.querySelectorAll(scopedSelector)
+			const $eList=this.querySelectorAll(makeScopedSelector(selectors[i]))
 			if (!moveVerticallyAmongProvidedElements(ev.key,$e,$eList,ev.shiftKey&&i==0)) return
 		} else if (isHorizontalMovementKey) {
 			const j=getIndexForKeyMovement(ev.key,i,selectors.length)
 			if (j<0) return
-			const $e2=(j<iHasCommentRows?$section:$tr).querySelector(selectors[j])
+			const $e2=(j<iHasCommentRows?$section:$tr).querySelector(makeScopedSelector(selectors[j]))
 			if (!focus($e2)) return
 		}
 		ev.stopPropagation()

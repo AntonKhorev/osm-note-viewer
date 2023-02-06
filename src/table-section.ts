@@ -69,22 +69,31 @@ export default function writeNoteSectionRows(
 				$cell.append($a)
 			}
 		}{
-			let svgs=`<svg class="icon-status-${getActionClass(comment.action)}">`+
-				`<title>${comment.action}</title><use href="#table-note" />`+
-			`</svg>`
-			if (note.comments.length>1) {
-				const nAdditionalComments=note.comments.length-1
-				const title=`${nAdditionalComments} additional comment${nAdditionalComments>1?`s`:``}`
-				svgs+=` <svg class="icon-comments-count">`+
-					`<title>${title}</title><use href="#table-comments" /><text x="8" y="8">${nAdditionalComments}</text>`+
-				`</svg>`
-			}
-			const $iconWrapper=makeElement('span')('icon-container')()
-			$iconWrapper.tabIndex=0
-			$iconWrapper.innerHTML=svgs
 			const $cell=$row.insertCell()
 			$cell.classList.add('note-action')
-			$cell.append($iconWrapper)
+			{
+				const $icon=makeElement('span')('icon-status-'+getActionClass(comment.action))()
+				$icon.tabIndex=0
+				$icon.title=comment.action
+				$icon.innerHTML=`<svg>`+
+					`<use href="#table-note" />`+
+				`</svg>`
+				$cell.append($icon)
+			}
+			if (iComment==0) {
+				const $icon=makeElement('span')('icon-comments-count')()
+				$icon.tabIndex=0
+				if (note.comments.length>1) {
+					const nAdditionalComments=note.comments.length-1
+					$icon.title=`${nAdditionalComments} additional comment${nAdditionalComments>1?`s`:``}`
+					$icon.innerHTML=`<svg>`+
+						`<use href="#table-comments" /><text x="8" y="8">${nAdditionalComments}</text>`+
+					`</svg>`
+				} else {
+					$icon.title=`no additional comments`
+				}
+				$cell.append($icon)
+			}
 		}{
 			const $cell=$row.insertCell()
 			$cell.classList.add('note-comment')
