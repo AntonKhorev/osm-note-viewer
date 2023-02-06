@@ -287,14 +287,20 @@ export default class NoteTable implements NoteTableUpdater {
 		this.$selectAllCheckbox.type='checkbox'
 		this.$selectAllCheckbox.title=`select all notes`
 		this.$selectAllCheckbox.addEventListener('click',this.wrappedAllNotesCheckboxClickListener)
-		const makeExpander=(className:string,expandTitle:string,collapseTitle:string)=>{
+		const makeExpander=(
+			tableClass:string,
+			expandButtonClass:string,collapseButtonClass:string,
+			expandTitle:string,collapseTitle:string
+		)=>{
 			const $button=makeElement('button')('expander')()
+			$button.innerHTML=`<svg><use href="#table-expander" /></svg>`
 			const update=(isCollapsed:boolean)=>{
-				$button.textContent=isCollapsed?'+':'−'
+				$button.classList.toggle(expandButtonClass,isCollapsed)
+				$button.classList.toggle(collapseButtonClass,!isCollapsed)
 				$button.title=isCollapsed?expandTitle:collapseTitle
 			}
-			update(this.$table.classList.contains(className))
-			$button.onclick=()=>update(this.$table.classList.toggle(className))
+			update(this.$table.classList.contains(tableClass))
+			$button.onclick=()=>update(this.$table.classList.toggle(tableClass))
 			return $button
 		}
 		$row.append(
@@ -303,16 +309,24 @@ export default class NoteTable implements NoteTableUpdater {
 			),
 			makeElement('th')()(`id`),
 			makeElement('th')()(`date `,makeExpander(
-				'only-date',`show time of day`,`hide time of day`
+				'only-date',
+				'hor-out','hor-in',
+				`show time of day`,`hide time of day`
 			)),
 			makeElement('th')()(`user `,makeExpander(
-				'only-short-username',`show full usernames with ids`,`clip long usernames`
+				'only-short-username',
+				'hor-out','hor-in',
+				`show full usernames with ids`,`clip long usernames`
 			)),
 			makeElement('th')()(makeExpander(
-				'only-first-comments',`show all comments/actions`,`show only first comment/action`
+				'only-first-comments',
+				'ver-out','ver-in',
+				`show all comments/actions`,`show only first comment/action`
 			)),
 			makeElement('th')()(`comment `,makeExpander(
-				'one-line-comments',`allow line breaks in comments`,`keep comments on one line`
+				'one-line-comments',
+				'ver-out','hor-out',
+				`allow line breaks in comments`,`keep comments on one line`
 			))
 		)
 	}

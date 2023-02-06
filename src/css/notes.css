@@ -10,12 +10,29 @@
 	text-align: left;
 }
 .notes thead th button.expander {
+	position: relative;
 	box-sizing: border-box;
-	width: 16px;
-	height: 16px;
+	width: 17px;
+	height: 17px;
 	vertical-align: text-top;
-	padding: 0;
-	line-height: 1em;
+}
+.notes thead th button.expander > svg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+.notes thead th button.expander.hor-out > svg {
+	--table-expander-hor-out-part-visibility: visible;
+}
+.notes thead th button.expander.hor-in > svg {
+	--table-expander-hor-in-part-visibility: visible;
+}
+.notes thead th button.expander.ver-out > svg {
+	--table-expander-ver-out-part-visibility: visible;
+}
+.notes thead th button.expander.ver-in > svg {
+	--table-expander-ver-in-part-visibility: visible;
 }
 .notes tbody {
 	position: relative;
