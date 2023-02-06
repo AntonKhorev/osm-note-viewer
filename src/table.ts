@@ -69,10 +69,6 @@ export default class NoteTable implements NoteTableUpdater {
 				return [note,users]
 			}
 		)
-		toolPanel.onCommentsViewChange=(onlyFirst:boolean,oneLine:boolean)=>{
-			this.$table.classList.toggle('only-first-comments',onlyFirst)
-			this.$table.classList.toggle('one-line-comments',oneLine)
-		}
 		const that=this
 		let $clickReadyNoteSection: HTMLTableSectionElement | undefined
 		this.wrappedNoteSectionListeners=[
@@ -288,28 +284,40 @@ export default class NoteTable implements NoteTableUpdater {
 	private writeTableHeader(): void {
 		const $header=this.$table.createTHead()
 		const $row=$header.insertRow()
-		const $checkboxCell=makeHeaderCell('')
-		$checkboxCell.classList.add('note-checkbox')
 		this.$selectAllCheckbox.type='checkbox'
 		this.$selectAllCheckbox.title=`select all notes`
 		this.$selectAllCheckbox.addEventListener('click',this.wrappedAllNotesCheckboxClickListener)
-		$checkboxCell.append(this.$selectAllCheckbox)
-		const $actionCell=makeHeaderCell('?')
-		$actionCell.title=`action performed along with adding the comment; number of comments`
-		$actionCell.classList.add('note-action')
-		$row.append(
-			$checkboxCell,
-			makeHeaderCell('id'),
-			makeHeaderCell('date'),
-			makeHeaderCell('user'),
-			$actionCell,
-			makeHeaderCell('comment')
-		)
-		function makeHeaderCell(text: string): HTMLTableCellElement {
-			const $cell=document.createElement('th')
-			$cell.textContent=text
-			return $cell
+		const makeExpander=(className:string)=>{
+			const $button=makeElement('button')('expander')('−')
+			$button.onclick=()=>{
+				const hasClass=this.$table.classList.toggle(className)
+				$button.textContent=hasClass?'+':'−'
+			}
+			return $button
 		}
+		$row.append(
+			makeElement('th')('note-checkbox')(
+				this.$selectAllCheckbox
+			),
+			makeElement('th')()(
+				`id`
+			),
+			makeElement('th')()(
+				// makeExpander(),` `,
+				`date`
+			),
+			makeElement('th')()(
+				// makeExpander(),` `,
+				`user`
+			),
+			makeElement('th')()(
+				makeExpander('only-first-comments')
+			),
+			makeElement('th')()(
+				makeExpander('one-line-comments'),` `,
+				`comment`
+			)
+		)
 	}
 	private makeMarker(note: Note, isVisible: boolean): NoteMarker {
 		const marker=new NoteMarker(note)

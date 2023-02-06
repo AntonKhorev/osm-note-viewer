@@ -10,7 +10,6 @@ export type ToolFitMode = 'allNotes' | 'selectedNotes' | 'inViewNotes' | undefin
 
 export interface ToolCallbacks {
 	onFitModeChange(fromTool: Tool, fitMode: ToolFitMode): void
-	onCommentsViewChange(fromTool: Tool, onlyFirst: boolean, oneLine: boolean): void
 	onRefresherStateChange(fromTool: Tool, isRunning: boolean, message: string|undefined): void
 	onRefresherRefreshChange(fromTool: Tool, replaceUpdatedNotes: boolean): void
 	onRefresherPeriodChange(fromTool: Tool, refreshPeriod: number): void

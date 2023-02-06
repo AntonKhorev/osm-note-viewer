@@ -4,9 +4,6 @@ import type NoteMap from '../map'
 import {makeElement, makeLink} from '../html'
 import {em,dfn,p} from '../html-shortcuts'
 
-type InfoElements = Array<string|HTMLElement>
-const label=(...ss: InfoElements)=>makeElement('label')('inline')(...ss)
-
 export class AutozoomTool extends Tool {
 	id='autozoom'
 	name=`Map autozoom`
@@ -40,29 +37,6 @@ export class AutozoomTool extends Tool {
 			}
 		}
 		return [$fitModeSelect]
-	}
-}
-
-export class CommentsTool extends Tool {
-	id='comments'
-	name=`Table comments`
-	title=`Change how comments are displayed in the notes table`
-	getTool(callbacks: ToolCallbacks): ToolElements {
-		const $onlyFirstCommentsCheckbox=document.createElement('input')
-		$onlyFirstCommentsCheckbox.type='checkbox'
-		const $oneLineCommentsCheckbox=document.createElement('input')
-		$oneLineCommentsCheckbox.type='checkbox'
-		$onlyFirstCommentsCheckbox.onchange=$oneLineCommentsCheckbox.onchange=()=>{
-			callbacks.onCommentsViewChange(this,
-				$onlyFirstCommentsCheckbox.checked,
-				$oneLineCommentsCheckbox.checked
-			)
-		}
-		return [
-			`show `,
-			label($onlyFirstCommentsCheckbox,` only 1st`),`; `,
-			label($oneLineCommentsCheckbox,` on 1 line`),
-		]
 	}
 }
 

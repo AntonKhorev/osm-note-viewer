@@ -49,7 +49,6 @@ export default class ToolPanel {
 	private toolBroadcaster: ToolBroadcaster
 	#fitMode: ToolFitMode
 	#replaceUpdatedNotes: boolean = false
-	onCommentsViewChange?: (onlyFirst:boolean,oneLine:boolean)=>void
 	onRefresherStateChange?: (isRunning:boolean)=>void
 	onRefresherPeriodChange?: (refreshPeriod:number)=>void
 	onRefresherRefreshAll?: ()=>void
@@ -62,7 +61,6 @@ export default class ToolPanel {
 		const tools: [tool:Tool,$tool:HTMLDetailsElement][] = []
 		const toolCallbacks: ToolCallbacks = {
 			onFitModeChange: (fromTool,fitMode)=>this.#fitMode=fitMode,
-			onCommentsViewChange: (fromTool,onlyFirst,oneLine)=>this.onCommentsViewChange?.(onlyFirst,oneLine),
 			onRefresherStateChange: (fromTool,isRunning,message)=>this.onRefresherStateChange?.(isRunning),
 			onRefresherRefreshChange: (fromTool,replaceUpdatedNotes)=>this.#replaceUpdatedNotes=replaceUpdatedNotes,
 			onRefresherPeriodChange: (fromTool,refreshPeriod)=>this.onRefresherPeriodChange?.(refreshPeriod),

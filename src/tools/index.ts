@@ -17,8 +17,7 @@ export {
 
 export const toolMakerSequence: Array<(auth:Auth)=>Tool> = [
 	InteractTool, ReportTool, RefreshTool,
-	UtilTools.AutozoomTool, UtilTools.CommentsTool,
-	UtilTools.TimestampTool, ParseTool,
+	UtilTools.AutozoomTool, UtilTools.TimestampTool, ParseTool,
 	OverpassTurboTool, OverpassTool,
 	EditorTools.RcTool, EditorTools.IdTool,
 	ExportTools.GpxTool, ExportTools.GeoJsonTool,
