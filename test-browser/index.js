@@ -290,6 +290,32 @@ describe("browser tests",function(){
 			await confirmButton.boxModel()
 		)
 	})
+	it("produces no errors with keyboard navigation",async function(){
+		this.osmServer.setNotes([{
+			"id": 101,
+			"comments": [{
+				"date": "2022-04-01",
+				"text": "the-first-note-comment"
+			}]
+		}])
+		const page=await this.openPage()
+		const fetchButton=await this.waitForFetchButton()
+		await fetchButton.click()
+		await page.waitForSelector('.notes tbody')
+		const commentCell=await page.$('.notes tbody .note-comment')
+		await commentCell.focus()
+		let lastError
+		page.on('pageerror',(error)=>{
+			lastError=error
+		})
+		await page.keyboard.press('ArrowRight')
+		await page.keyboard.press('ArrowLeft')
+		assert.notEqual(
+			await page.$('.notes tbody .note-action:focus-within'),
+			null
+		)
+		assert.equal(lastError,undefined)
+	})
 
 	// refresher
 

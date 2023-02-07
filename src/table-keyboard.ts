@@ -66,7 +66,7 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 			if (!moveVerticallyAmongProvidedElements(ev.key,$e,$eList,ev.shiftKey&&i==0)) return
 		} else if (isHorizontalMovementKey) {
 			const j=getIndexForKeyMovement(ev.key,i,selectors.length)
-			if (j<0) return
+			if (j<0 || j>=selectors.length) return
 			const $e2=(j<iHasCommentRows?$section:$tr).querySelector(makeScopedSelector(selectors[j]))
 			if (!focus($e2)) return
 		}
