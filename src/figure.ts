@@ -11,6 +11,10 @@ export default class FigureDialog {
 		$root.addEventListener('osmNoteViewer:newQuery',()=>{
 			this.close()
 		})
+		$root.addEventListener('osmNoteViewer:toggleImage',ev=>{
+			if (!(ev.target instanceof HTMLAnchorElement)) return
+			this.toggle(ev.target.href)
+		})
 	}
 	close(): void {
 		if (this.fallbackMode) {

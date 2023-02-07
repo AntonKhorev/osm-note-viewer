@@ -5,7 +5,6 @@ export default class GlobalEventListener {
 	elementListener?: ($a: HTMLAnchorElement, elementType: string, elementId: string) => void
 	changesetListener?: ($a: HTMLAnchorElement, changesetId: string) => void
 	mapListener?: ($a: HTMLAnchorElement, zoom: string, lat: string, lon: string) => void
-	imageListener?: ($a: HTMLAnchorElement) => void
 	timestampListener?: (timestamp: string) => void
 	constructor() {
 		document.body.addEventListener('click',ev=>{
@@ -24,8 +23,8 @@ export default class GlobalEventListener {
 					this.changesetListener($e,$e.dataset.changesetId)
 				} else if (this.mapListener && $e.dataset.zoom && $e.dataset.lat && $e.dataset.lon) {
 					this.mapListener($e,$e.dataset.zoom,$e.dataset.lat,$e.dataset.lon)
-				} else if (this.imageListener && $e.classList.contains('image')) {
-					this.imageListener($e)
+				} else if ($e.classList.contains('image')) {
+					$e.dispatchEvent(new Event('osmNoteViewer:toggleImage',{bubbles:true}))
 				} else {
 					return // don't stop event propagation
 				}

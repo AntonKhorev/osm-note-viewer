@@ -103,9 +103,7 @@ export default class NoteFetchPanel {
 		): void {
 			if (!(server && fetchDialogs && noteTable)) return
 			if (query.mode!='search' && query.mode!='bbox' && query.mode!='ids') return
-			$container.dispatchEvent(new Event('osmNoteViewer:newQuery',{
-				bubbles: true
-			}))
+			$container.dispatchEvent(new Event('osmNoteViewer:newQuery',{bubbles:true}))
 			fetchDialogs.resetFetch()
 			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
 			if (map) {

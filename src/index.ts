@@ -128,9 +128,6 @@ function writeGraphicSide(
 		figureDialog.close()
 		map.panAndZoomTo([Number(lat),Number(lon)],Number(zoom))
 	}
-	globalEventsListener.imageListener=($a)=>{
-		figureDialog.toggle($a.href)
-	}
 
 	return [map,figureDialog]
 }
