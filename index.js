@@ -2312,26 +2312,47 @@ function makeButton(id, title, listener) {
     return $button;
 }
 
-function makeCodeForm(initialValue, textareaLabel, buttonLabel, isSameInput, checkInput, applyInput, runCallback, syntaxDescription, syntaxExamples) {
+function makeCodeForm(initialValue, summary, textareaLabel, buttonLabel, isSameInput, checkInput, applyInput, runCallback, syntaxDescription, syntaxExamples) {
     const $formDetails = document.createElement('details');
     const $form = document.createElement('form');
     const $output = document.createElement('output');
     const $textarea = document.createElement('textarea');
-    const $button = document.createElement('button');
+    const $applyButton = document.createElement('button');
+    const $clearButton = document.createElement('button');
+    const $undoClearButton = document.createElement('button');
     $textarea.value = initialValue;
     const isEmpty = () => !$textarea.value;
-    const updateOutput = () => {
+    const canUndoClear = () => stashedValue != null && isEmpty();
+    let stashedValue;
+    const reactToChanges = () => {
+        const isSame = isSameInput($textarea.value);
         $output.replaceChildren();
-        if (isEmpty()) {
-            $output.append(` (currently empty)`);
+        if (!isSame) {
+            $output.append(` (with unapplied changes)`);
+        }
+        else if (isEmpty()) {
+            $output.append(` (currently not set)`);
+        }
+        $applyButton.disabled = isSame;
+        $clearButton.disabled = isEmpty();
+        $undoClearButton.hidden = !($clearButton.hidden = canUndoClear());
+        try {
+            checkInput($textarea.value);
+            $textarea.setCustomValidity('');
+        }
+        catch (ex) {
+            let message = `Syntax error`;
+            if (ex instanceof RangeError || ex instanceof SyntaxError)
+                message = ex.message;
+            $textarea.setCustomValidity(message);
         }
     };
+    reactToChanges();
     {
         $formDetails.classList.add('with-code-form');
         $formDetails.open = !isEmpty();
-        updateOutput();
         const $formSummary = document.createElement('summary');
-        $formSummary.append(textareaLabel, $output);
+        $formSummary.append(summary, $output);
         $formDetails.append($formSummary, $form);
     }
     {
@@ -2359,24 +2380,21 @@ function makeCodeForm(initialValue, textareaLabel, buttonLabel, isSameInput, che
         $form.append(makeDiv('major-input')(makeLabel()(textareaLabel, ` `, $textarea)));
     }
     {
-        $button.textContent = buttonLabel;
-        $button.type = 'submit';
-        $button.disabled = true;
-        $form.append(makeDiv('major-input')($button));
+        $applyButton.textContent = buttonLabel;
+        $clearButton.textContent = `Clear`;
+        $undoClearButton.textContent = `Undo clear`;
+        $undoClearButton.type = $clearButton.type = 'button';
+        $form.append(makeDiv('gridded-input')($applyButton, $clearButton, $undoClearButton));
     }
-    $textarea.oninput = () => {
-        updateOutput();
-        $button.disabled = isSameInput($textarea.value);
-        try {
-            checkInput($textarea.value);
-            $textarea.setCustomValidity('');
-        }
-        catch (ex) {
-            let message = `Syntax error`;
-            if (ex instanceof RangeError || ex instanceof SyntaxError)
-                message = ex.message;
-            $textarea.setCustomValidity(message);
-        }
+    $textarea.oninput = reactToChanges;
+    $clearButton.onclick = () => {
+        stashedValue = $textarea.value;
+        $textarea.value = '';
+        reactToChanges();
+    };
+    $undoClearButton.onclick = () => {
+        $textarea.value = stashedValue;
+        reactToChanges();
     };
     $form.onsubmit = (ev) => {
         ev.preventDefault();
@@ -2387,7 +2405,7 @@ function makeCodeForm(initialValue, textareaLabel, buttonLabel, isSameInput, che
             return;
         }
         runCallback();
-        $button.disabled = true;
+        reactToChanges();
     };
     return $formDetails;
 }
@@ -2593,7 +2611,7 @@ class ServerListSection {
             }
             $section.append(serverTable.$table);
         }
-        $section.append(makeCodeForm(storage.getString('servers'), `Custom servers`, `Apply changes`, input => input == storage.getString('servers'), input => {
+        $section.append(makeCodeForm(storage.getString('servers'), `Custom servers configuration`, `Configuration`, `Apply changes`, input => input == storage.getString('servers'), input => {
             if (input.trim() == '')
                 return;
             const configSource = JSON.parse(input);
@@ -5427,7 +5445,7 @@ function term(t) {
 class NoteFilterPanel {
     constructor(urlLister, $container) {
         this.noteFilter = new NoteFilter(urlLister, ``);
-        const $form = makeCodeForm('', `Filter`, `Apply filter`, input => this.noteFilter.isSameQuery(input), input => new NoteFilter(urlLister, input), input => {
+        const $form = makeCodeForm('', `Note filter`, `Filter`, `Apply filter`, input => this.noteFilter.isSameQuery(input), input => new NoteFilter(urlLister, input), input => {
             this.noteFilter = new NoteFilter(urlLister, input);
         }, () => {
             if (this.callback)
@@ -6019,7 +6037,7 @@ function noteTableKeydownListener(ev) {
         }
         else if (isHorizontalMovementKey) {
             const j = getIndexForKeyMovement(ev.key, i, selectors.length);
-            if (j < 0)
+            if (j < 0 || j >= selectors.length)
                 return;
             const $e2 = (j < iHasCommentRows ? $section : $tr).querySelector(makeScopedSelector(selectors[j]));
             if (!focus($e2))
@@ -6111,6 +6129,7 @@ class NoteSectionVisibilityObserver {
     constructor(handleVisibleNotes) {
         this.isMapFittingHalted = false;
         this.noteIdVisibility = new Map();
+        this.stickyHeight = 0;
         const noteSectionVisibilityHandler = () => {
             const visibleNoteIds = [];
             for (const [noteId, visibility] of this.noteIdVisibility) {
@@ -6119,7 +6138,7 @@ class NoteSectionVisibilityObserver {
             }
             handleVisibleNotes(visibleNoteIds, this.isMapFittingHalted);
         };
-        this.intersectionObserver = new IntersectionObserver((entries) => {
+        this.intersectionObserverCallback = (entries) => {
             for (const entry of entries) {
                 const $noteSection = entry.target;
                 if (!($noteSection instanceof HTMLElement))
@@ -6133,9 +6152,14 @@ class NoteSectionVisibilityObserver {
             }
             clearTimeout(this.visibilityTimeoutId);
             this.visibilityTimeoutId = setTimeout(noteSectionVisibilityHandler);
-        });
+        };
     }
     observe($noteSection) {
+        if (!this.intersectionObserver) {
+            this.intersectionObserver = new IntersectionObserver(this.intersectionObserverCallback, {
+                rootMargin: `-${this.stickyHeight}px 0px 0px 0px`
+            });
+        }
         if (!$noteSection.dataset.noteId)
             return;
         const noteId = Number($noteSection.dataset.noteId);
@@ -6143,7 +6167,10 @@ class NoteSectionVisibilityObserver {
         this.intersectionObserver.observe($noteSection);
     }
     disconnect() {
-        this.intersectionObserver.disconnect();
+        if (this.intersectionObserver) {
+            this.intersectionObserver.disconnect();
+            this.intersectionObserver = undefined;
+        }
         this.noteIdVisibility.clear();
     }
     haltMapFitting() {
@@ -6601,7 +6628,9 @@ class NoteTable {
         // output table
         if (this.$table.childElementCount == 0) {
             this.$table.append(makeElement('caption')()(`Fetched notes`));
-            this.writeTableHeader();
+            const $header = this.writeTableHeader();
+            this.noteSectionVisibilityObserver.stickyHeight = $header.offsetHeight;
+            document.documentElement.style.setProperty('--table-header-height', $header.offsetHeight + 'px');
         }
         let nUnfilteredNotes = 0;
         const getUsername = (uid) => users[uid];
@@ -6715,14 +6744,20 @@ class NoteTable {
         this.$selectAllCheckbox.type = 'checkbox';
         this.$selectAllCheckbox.title = `select all notes`;
         this.$selectAllCheckbox.addEventListener('click', this.wrappedAllNotesCheckboxClickListener);
-        const makeExpander = (className) => {
-            const $button = makeElement('button')('expander')(this.$table.classList.contains(className) ? '+' : '−');
-            $button.onclick = () => {
-                $button.textContent = this.$table.classList.toggle(className) ? '+' : '−';
+        const makeExpander = (tableClass, expandButtonClass, collapseButtonClass, expandTitle, collapseTitle) => {
+            const $button = makeElement('button')('expander')();
+            $button.innerHTML = `<svg><use href="#table-expander" /></svg>`;
+            const update = (isCollapsed) => {
+                $button.classList.toggle(expandButtonClass, isCollapsed);
+                $button.classList.toggle(collapseButtonClass, !isCollapsed);
+                $button.title = isCollapsed ? expandTitle : collapseTitle;
             };
+            update(this.$table.classList.contains(tableClass));
+            $button.onclick = () => update(this.$table.classList.toggle(tableClass));
             return $button;
         };
-        $row.append(makeElement('th')('note-checkbox')(this.$selectAllCheckbox), makeElement('th')()(`id`), makeElement('th')()(`date `, makeExpander('only-date')), makeElement('th')()(`user `, makeExpander('only-short-username')), makeElement('th')()(makeExpander('only-first-comments')), makeElement('th')()(`comment `, makeExpander('one-line-comments')));
+        $row.append(makeElement('th')('note-checkbox')(this.$selectAllCheckbox), makeElement('th')()(`id`), makeElement('th')()(`date `, makeExpander('only-date', 'hor-out', 'hor-in', `show time of day`, `hide time of day`)), makeElement('th')()(`user `, makeExpander('only-short-username', 'hor-out', 'hor-in', `show full usernames with ids`, `clip long usernames`)), makeElement('th')()(makeExpander('only-first-comments', 'ver-out', 'ver-in', `show all comments/actions`, `show only first comment/action`)), makeElement('th')()(`comment `, makeExpander('one-line-comments', 'ver-out', 'hor-out', `allow line breaks in comments`, `keep comments on one line`)));
+        return $header;
     }
     makeMarker(note, isVisible) {
         const marker = new NoteMarker(note);
