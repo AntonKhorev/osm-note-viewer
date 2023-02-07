@@ -46,7 +46,14 @@ describe("browser tests",function(){
 	beforeEach(async function(){
 		this.timeout(0)
 		this.osmServer.clearData()
-		if (!keepBrowser) this.browser=await puppeteer.launch(browserOptions)
+		if (keepBrowser) {
+			if (this.currentTest.title=="hides note with comment") { // restart browser hack
+				await this.browser.close()
+				this.browser=await puppeteer.launch(browserOptions)
+			}
+		} else {
+			this.browser=await puppeteer.launch(browserOptions)
+		}
 		const page=await this.browser.newPage()
 		this.openPage=async(path='')=>{
 			await page.goto(this.clientUrl+path)
