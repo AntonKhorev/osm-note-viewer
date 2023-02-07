@@ -1,6 +1,3 @@
-:root {
-	/* --table-header-height: 24px; */
-}
 .notes table {
 	border-collapse: collapse;
 	margin: 0 2px;
@@ -15,6 +12,7 @@
 	z-index: 1;
 	background: canvas;
 	text-align: left;
+	white-space: nowrap;
 }
 .notes tbody,
 .notes tbody * {
