@@ -14,7 +14,7 @@ import NoteSectionVisibilityObserver from './observer'
 import NoteTableAndRefresherConnector from './refresher-connector'
 import type Server from './server'
 import fetchTableNote from './fetch-note'
-import {makeElement, resetFadeAnimation} from './html'
+import {makeElement, makeDiv, resetFadeAnimation} from './html'
 
 export interface NoteTableUpdater {
 	addNotes(notes: Iterable<Note>, users: Users): number

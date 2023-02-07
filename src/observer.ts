@@ -23,6 +23,8 @@ export default class NoteSectionVisibilityObserver {
 			}
 			clearTimeout(this.visibilityTimeoutId)
 			this.visibilityTimeoutId=setTimeout(noteSectionVisibilityHandler)
+		},{
+			rootMargin: `-24px 0px 0px 0px`
 		})
 	}
 	observe($noteSection: HTMLTableSectionElement): void {
