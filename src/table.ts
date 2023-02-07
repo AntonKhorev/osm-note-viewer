@@ -185,7 +185,9 @@ export default class NoteTable implements NoteTableUpdater {
 			this.$table.append(
 				makeElement('caption')()(`Fetched notes`)
 			)
-			this.writeTableHeader()
+			const $header=this.writeTableHeader()
+			this.noteSectionVisibilityObserver.stickyHeight=$header.offsetHeight
+			document.documentElement.style.setProperty('--table-header-height',$header.offsetHeight+'px')
 		}
 		let nUnfilteredNotes=0
 		const getUsername=(uid:number)=>users[uid]
@@ -281,7 +283,7 @@ export default class NoteTable implements NoteTableUpdater {
 			this.focusOnNote($noteSection)
 		}
 	}
-	private writeTableHeader(): void {
+	private writeTableHeader(): HTMLTableSectionElement {
 		const $header=this.$table.createTHead()
 		const $row=$header.insertRow()
 		this.$selectAllCheckbox.type='checkbox'
@@ -329,6 +331,7 @@ export default class NoteTable implements NoteTableUpdater {
 				`allow line breaks in comments`,`keep comments on one line`
 			))
 		)
+		return $header
 	}
 	private makeMarker(note: Note, isVisible: boolean): NoteMarker {
 		const marker=new NoteMarker(note)
