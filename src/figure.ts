@@ -3,8 +3,14 @@ import {startOrResetFadeAnimation} from './html'
 export default class FigureDialog {
 	private url: string|undefined
 	private fallbackMode: boolean
-	constructor(private $dialog: HTMLDialogElement) {
+	constructor(
+		$root: HTMLElement,
+		private $dialog: HTMLDialogElement
+	) {
 		this.fallbackMode=((window as any).HTMLDialogElement == null)
+		$root.addEventListener('osmNoteViewer:newQuery',()=>{
+			this.close()
+		})
 	}
 	close(): void {
 		if (this.fallbackMode) {

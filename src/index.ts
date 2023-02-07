@@ -68,7 +68,7 @@ async function main() {
 	const fetchPanel=new NoteFetchPanel(
 		storage,db,globalEventsListener,globalHistory,auth,
 		$fetchContainer,$moreContainer,
-		navbar,noteTable,map,figureDialog
+		navbar,noteTable,map
 	)
 	if (noteTable) {
 		noteTable.onRefresherUpdate=async(note,users)=>{
@@ -114,7 +114,7 @@ function writeGraphicSide(
 		}
 	}
 	globalHistory.triggerInitialMapHashChange()
-	const figureDialog=new FigureDialog($figureDialog)
+	const figureDialog=new FigureDialog(document.body,$figureDialog)
 	globalEventsListener.elementListener=($a,elementType,elementId)=>{
 		if (elementType!='node' && elementType!='way' && elementType!='relation') return false
 		figureDialog.close()

@@ -6,7 +6,6 @@ import type Auth from './auth'
 import type NoteMap from './map'
 import type Navbar from './navbar'
 import AboutDialog from './about-dialog'
-import type FigureDialog from './figure'
 import type NoteTable from './table'
 import type {NoteQuery, NoteSearchQuery} from './query' 
 import {makeNoteQueryFromHash, makeNoteQueryString} from './query'
@@ -23,7 +22,7 @@ export default class NoteFetchPanel {
 		storage: NoteViewerStorage, db: NoteViewerDB,
 		globalEventsListener: GlobalEventsListener, globalHistory: GlobalHistory, auth: Auth|undefined,
 		$container: HTMLElement, $moreContainer: HTMLElement,
-		navbar: Navbar, noteTable: NoteTable|undefined, map: NoteMap|undefined, figureDialog: FigureDialog|undefined
+		navbar: Navbar, noteTable: NoteTable|undefined, map: NoteMap|undefined
 	) {
 		const self=this
 		const server=globalHistory.server
@@ -104,8 +103,10 @@ export default class NoteFetchPanel {
 		): void {
 			if (!(server && fetchDialogs && noteTable)) return
 			if (query.mode!='search' && query.mode!='bbox' && query.mode!='ids') return
+			$container.dispatchEvent(new Event('osmNoteViewer:newQuery',{
+				bubbles: true
+			}))
 			fetchDialogs.resetFetch()
-			if (figureDialog) figureDialog.close()
 			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
 			if (map) {
 				map.clearNotes()
