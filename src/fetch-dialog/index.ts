@@ -17,6 +17,7 @@ export default class NoteFetchDialogs {
 	xmlDialog: NoteFetchDialog
 	plaintextDialog: NoteFetchDialog
 	constructor(
+		$root: HTMLElement,
 		server: Server,
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		noteTable: NoteTable, map: NoteMap,
@@ -81,6 +82,12 @@ export default class NoteFetchDialogs {
 			$container.classList.toggle('advanced-mode',state)
 			$moreContainer.classList.toggle('advanced-mode',state)
 		})
+
+		$root.addEventListener('osmNoteViewer:newQuery',()=>{
+			for (const dialog of this.allDialogs) {
+				dialog.resetFetch()
+			}
+		})
 	}
 	get allDialogs() {
 		return [this.searchDialog,this.bboxDialog,this.xmlDialog,this.plaintextDialog]
@@ -88,11 +95,6 @@ export default class NoteFetchDialogs {
 	populateInputs(query: NoteQuery | undefined): void {
 		for (const dialog of this.allDialogs) {
 			dialog.populateInputs(query)
-		}
-	}
-	resetFetch(): void {
-		for (const dialog of this.allDialogs) {
-			dialog.resetFetch()
 		}
 	}
 	getDialogFromQuery(query: NoteQuery): NoteFetchDialog|undefined {

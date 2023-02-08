@@ -19,6 +19,7 @@ export default class NoteFetchPanel {
 	fetcherRun?: NoteFetcherRun
 	private fetcherInvoker?: NoteFetchDialog
 	constructor(
+		$root: HTMLElement,
 		storage: NoteViewerStorage, db: NoteViewerDB,
 		globalEventsListener: GlobalEventsListener, globalHistory: GlobalHistory, auth: Auth|undefined,
 		$container: HTMLElement, $moreContainer: HTMLElement,
@@ -32,7 +33,7 @@ export default class NoteFetchPanel {
 		let fetchDialogs: NoteFetchDialogs|undefined
 		if (server && noteTable && map) {
 			fetchDialogs=new NoteFetchDialogs(
-				server,$container,$moreContainer,noteTable,map,hashQuery,
+				$root,server,$container,$moreContainer,noteTable,map,hashQuery,
 				(dialog:NoteFetchDialog,query:NoteQuery)=>{
 					modifyHistory(query,true)
 					startFetcher(query,true,false,dialog)
@@ -104,7 +105,6 @@ export default class NoteFetchPanel {
 			if (!(server && fetchDialogs && noteTable)) return
 			if (query.mode!='search' && query.mode!='bbox' && query.mode!='ids') return
 			$container.dispatchEvent(new Event('osmNoteViewer:newQuery',{bubbles:true}))
-			fetchDialogs.resetFetch()
 			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
 			if (map) {
 				map.clearNotes()

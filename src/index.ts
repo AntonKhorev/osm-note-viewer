@@ -66,6 +66,7 @@ async function main() {
 	}
 	const navbar=new Navbar(storage,$navbarContainer,map)
 	const fetchPanel=new NoteFetchPanel(
+		document.body,
 		storage,db,globalEventsListener,globalHistory,auth,
 		$fetchContainer,$moreContainer,
 		navbar,noteTable,map
