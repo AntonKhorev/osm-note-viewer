@@ -108,8 +108,8 @@ function writeGraphicSide(
 
 	const map=new NoteMap(
 		document.body,$mapContainer,globalHistory.server.tile,
-		($a,map,changesetId)=>downloadAndShowChangeset(globalHistory.server,$a,map,changesetId),
-		($a,map,elementType,elementId)=>downloadAndShowElement(globalHistory.server,$a,map,elementType,elementId)
+		(changesetId)=>downloadAndShowChangeset(globalHistory.server,changesetId),
+		(elementType,elementId)=>downloadAndShowElement(globalHistory.server,elementType,elementId)
 	)
 	map.onMoveEnd(()=>{
 		globalHistory.setMapHash(map.hash)

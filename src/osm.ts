@@ -1,5 +1,4 @@
 import type Server from './server'
-import type NoteMap from './map'
 import {makeLink, makeElement} from './html'
 import {makeEscapeTag} from './escape'
 
@@ -125,25 +124,25 @@ const e=makeEscapeTag(encodeURIComponent)
 
 export async function downloadAndShowChangeset(
 	server: Server,
-	$a: HTMLAnchorElement, map: NoteMap,
 	changesetId: string
-): Promise<void> {
-	downloadCommon($a,map,async()=>{
-		const response=await server.api.fetch(e`changeset/${changesetId}.json`)
-		if (!response.ok) {
-			if (response.status==404) {
-				throw new TypeError(`changeset doesn't exist`)
-			} else {
-				throw new TypeError(`OSM API error: unsuccessful response`)
-			}
+): Promise<[
+	geometry: L.Layer,
+	popupContents: HTMLElement[]
+]> {
+	const response=await server.api.fetch(e`changeset/${changesetId}.json`)
+	if (!response.ok) {
+		if (response.status==404) {
+			throw new TypeError(`changeset doesn't exist`)
+		} else {
+			throw new TypeError(`OSM API error: unsuccessful response`)
 		}
-		const data=await response.json()
-		const changeset=getChangesetFromOsmApiResponse(data)
-		map.addOsmElement(
-			makeChangesetGeometry(changeset),
-			makeChangesetPopupContents(server,changeset)
-		)
-	})
+	}
+	const data=await response.json()
+	const changeset=getChangesetFromOsmApiResponse(data)
+	return [
+		makeChangesetGeometry(changeset),
+		makeChangesetPopupContents(server,changeset)
+	]
 	function makeChangesetGeometry(changeset: OsmChangeset): L.Layer {
 		if (
 			changeset.minlat==null || changeset.minlon==null ||
@@ -160,44 +159,44 @@ export async function downloadAndShowChangeset(
 
 export async function downloadAndShowElement(
 	server: Server,
-	$a: HTMLAnchorElement, map: NoteMap,
 	elementType: OsmElement['type'], elementId: string
-): Promise<void> {
-	downloadCommon($a,map,async()=>{
-		const fullBit=(elementType=='node' ? '' : '/full')
-		const response=await server.api.fetch(e`${elementType}/${elementId}`+`${fullBit}.json`)
-		if (!response.ok) {
-			if (response.status==404) {
-				throw new TypeError(`element doesn't exist`)
-			} else if (response.status==410) {
-				throw new TypeError(`element was deleted`)
-			} else {
-				throw new TypeError(`OSM API error: unsuccessful response`)
-			}
-		}
-		const data=await response.json()
-		const elements=getElementsFromOsmApiResponse(data)
-		const element=elements[elementType][elementId]
-		if (!element) throw new TypeError(`OSM API error: requested element not found in response data`)
-		if (isOsmNodeElement(element)) {
-			map.addOsmElement(
-				makeNodeGeometry(element),
-				makeElementPopupContents(server,element)
-			)
-		} else if (isOsmWayElement(element)) {
-			map.addOsmElement(
-				makeWayGeometry(element,elements),
-				makeElementPopupContents(server,element)
-			)
-		} else if (isOsmRelationElement(element)) {
-			map.addOsmElement(
-				makeRelationGeometry(element,elements),
-				makeElementPopupContents(server,element)
-			)
+): Promise<[
+	geometry: L.Layer,
+	popupContents: HTMLElement[]
+]> {
+	const fullBit=(elementType=='node' ? '' : '/full')
+	const response=await server.api.fetch(e`${elementType}/${elementId}`+`${fullBit}.json`)
+	if (!response.ok) {
+		if (response.status==404) {
+			throw new TypeError(`element doesn't exist`)
+		} else if (response.status==410) {
+			throw new TypeError(`element was deleted`)
 		} else {
-			throw new TypeError(`OSM API error: requested element has unknown type`) // shouldn't happen
+			throw new TypeError(`OSM API error: unsuccessful response`)
 		}
-	})
+	}
+	const data=await response.json()
+	const elements=getElementsFromOsmApiResponse(data)
+	const element=elements[elementType][elementId]
+	if (!element) throw new TypeError(`OSM API error: requested element not found in response data`)
+	if (isOsmNodeElement(element)) {
+		return [
+			makeNodeGeometry(element),
+			makeElementPopupContents(server,element)
+		]
+	} else if (isOsmWayElement(element)) {
+		return [
+			makeWayGeometry(element,elements),
+			makeElementPopupContents(server,element)
+		]
+	} else if (isOsmRelationElement(element)) {
+		return [
+			makeRelationGeometry(element,elements),
+			makeElementPopupContents(server,element)
+		]
+	} else {
+		throw new TypeError(`OSM API error: requested element has unknown type`) // shouldn't happen
+	}
 	function makeNodeGeometry(node: OsmNodeElement): L.Layer {
 		return L.circleMarker([node.lat,node.lon])
 	}
@@ -225,26 +224,6 @@ export async function downloadAndShowElement(
 			// TODO indicate that there might be relations, their data may be incomplete
 		}
 		return geometry
-	}
-}
-
-async function downloadCommon($a: HTMLAnchorElement, map: NoteMap, downloadSpecific: ()=>Promise<void>): Promise<void> {
-	$a.classList.add('loading')
-	try {
-		// TODO cancel already running response
-		await downloadSpecific()
-		$a.classList.remove('absent')
-		$a.title=''
-	} catch (ex) {
-		map.elementLayer.clearLayers()
-		$a.classList.add('absent')
-		if (ex instanceof TypeError) {
-			$a.title=ex.message
-		} else {
-			$a.title=`unknown error ${ex}`
-		}
-	} finally {
-		$a.classList.remove('loading')
 	}
 }
 

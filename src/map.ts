@@ -48,12 +48,14 @@ export default class NoteMap {
 	private queuedPopup: [layerId: number, writer: ()=>HTMLElement] | undefined
 	constructor(
 		$root: HTMLElement, $container: HTMLElement, tile: TileProvider,
-		downloadAndShowChangeset: (
-			$a: HTMLAnchorElement, map: NoteMap, changesetId: string
-		) => Promise<void>,
-		downloadAndShowElement: (
-			$a: HTMLAnchorElement, map: NoteMap, elementType: 'node'|'way'|'relation', elementId: string
-		) => Promise<void>
+		downloadAndShowChangeset: (changesetId: string) => Promise<[
+			geometry: L.Layer,
+			popupContents: HTMLElement[]
+		]>,
+		downloadAndShowElement: (elementType: 'node'|'way'|'relation', elementId: string) => Promise<[
+			geometry: L.Layer,
+			popupContents: HTMLElement[]
+		]>
 	) {
 		this.leafletMap=L.map($container,{
 			worldCopyJump: true
@@ -96,12 +98,41 @@ export default class NoteMap {
 			if (!($e instanceof HTMLElement)) return
 			this.panAndZoomTo([Number($e.dataset.lat),Number($e.dataset.lon)],Number($e.dataset.zoom))
 		})
+		const handleOsmDownloadAndLink=async(
+			$a: HTMLAnchorElement,
+			download:()=>Promise<[
+				geometry: L.Layer,
+				popupContents: HTMLElement[]
+			]>
+		)=>{
+			$a.classList.add('loading')
+			try {
+				// TODO cancel already running response
+				const [geometry,popupContents]=await download()
+				$a.classList.remove('absent')
+				$a.title=''
+				this.addOsmElement(geometry,popupContents)
+			} catch (ex) {
+				this.elementLayer.clearLayers()
+				$a.classList.add('absent')
+				if (ex instanceof TypeError) {
+					$a.title=ex.message
+				} else {
+					$a.title=`unknown error ${ex}`
+				}
+			} finally {
+				$a.classList.remove('loading')
+			}
+		}
 		$root.addEventListener('osmNoteViewer:clickChangesetLink',ev=>{
 			const $a=ev.target
 			if (!($a instanceof HTMLAnchorElement)) return
 			const changesetId=$a.dataset.changesetId
 			if (!changesetId) return
-			downloadAndShowChangeset($a,this,changesetId)
+			handleOsmDownloadAndLink(
+				$a,
+				()=>downloadAndShowChangeset(changesetId)
+			)
 		})
 		$root.addEventListener('osmNoteViewer:clickElementLink',ev=>{
 			const $a=ev.target
@@ -110,7 +141,10 @@ export default class NoteMap {
 			if (elementType!='node' && elementType!='way' && elementType!='relation') return false
 			const elementId=$a.dataset.elementId
 			if (!elementId) return
-			downloadAndShowElement($a,this,elementType,elementId)
+			handleOsmDownloadAndLink(
+				$a,
+				()=>downloadAndShowElement(elementType,elementId)
+			)
 		})
 	}
 	getNoteMarker(noteId: number): NoteMarker | undefined {
@@ -199,7 +233,7 @@ export default class NoteMap {
 		const bounds=this.trackLayer.getBounds() // invalid if track is empty; track is empty when no notes are in table view
 		if (bounds.isValid()) this.fitBoundsIfNotFrozen(bounds)
 	}
-	addOsmElement(geometry: L.Layer, popupContents: HTMLElement[]): void {
+	private addOsmElement(geometry: L.Layer, popupContents: HTMLElement[]): void {
 		const popupWriter=()=>{
 			const $removeButton=document.createElement('button')
 			$removeButton.textContent=`Remove from map view`
