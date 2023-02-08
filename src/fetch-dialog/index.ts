@@ -83,7 +83,7 @@ export default class NoteFetchDialogs {
 			$moreContainer.classList.toggle('advanced-mode',state)
 		})
 
-		$root.addEventListener('osmNoteViewer:newQuery',()=>{
+		$root.addEventListener('osmNoteViewer:newFetch',()=>{
 			for (const dialog of this.allDialogs) {
 				dialog.resetFetch()
 			}
