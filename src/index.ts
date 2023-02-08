@@ -83,13 +83,15 @@ async function main() {
 		}
 	}
 	if (globalHistory.hasServer()) {
-		globalEventsListener.noteSelfListener=async($a,noteId)=>{
+		document.body.addEventListener('osmNoteViewer:clickUpdateNoteLink',async(ev)=>{
+			const $a=ev.target
+			if (!($a instanceof HTMLAnchorElement)) return
 			try {
-				const [note,users]=await fetchTableNote(globalHistory.server.api,$a,Number(noteId),auth?.token)
+				const [note,users]=await fetchTableNote(globalHistory.server.api,$a,Number($a.dataset.noteId),auth?.token)
 				await fetchPanel.fetcherRun?.updateNote(note,users)
 				noteTable?.replaceNote(note,users)
 			} catch {}
-		}
+		})
 	}
 	globalHistory.restoreScrollPosition()
 }

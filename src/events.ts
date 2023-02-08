@@ -1,5 +1,4 @@
 export default class GlobalEventListener {
-	noteSelfListener?: ($a: HTMLAnchorElement, noteId: string) => void
 	elementListener?: ($a: HTMLAnchorElement, elementType: string, elementId: string) => void
 	changesetListener?: ($a: HTMLAnchorElement, changesetId: string) => void
 	timestampListener?: (timestamp: string) => void
@@ -8,8 +7,8 @@ export default class GlobalEventListener {
 			if (!(ev.target instanceof HTMLElement)) return
 			const $e=ev.target.closest('a.listened, time.listened')
 			if ($e instanceof HTMLAnchorElement) {
-				if (this.noteSelfListener && $e.dataset.noteId && $e.dataset.self) {
-					this.noteSelfListener($e,$e.dataset.noteId)
+				if ($e.dataset.noteId && $e.dataset.self) {
+					$e.dispatchEvent(new Event('osmNoteViewer:clickUpdateNoteLink',{bubbles:true}))
 				} else if ($e.dataset.noteId) {
 					$e.dispatchEvent(new Event('osmNoteViewer:clickNoteLink',{bubbles:true}))
 				} else if ($e.dataset.userId) {
