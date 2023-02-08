@@ -1,5 +1,6 @@
 import type {TileProvider} from './server'
 import NoteMarker from './marker'
+import {makeDiv} from './html'
 import {escapeXml, makeEscapeTag} from './escape'
 
 const e=makeEscapeTag(escapeXml)
@@ -198,7 +199,17 @@ export default class NoteMap {
 		const bounds=this.trackLayer.getBounds() // invalid if track is empty; track is empty when no notes are in table view
 		if (bounds.isValid()) this.fitBoundsIfNotFrozen(bounds)
 	}
-	addOsmElement(geometry: L.Layer, popupWriter: ()=>HTMLElement): void {
+	addOsmElement(geometry: L.Layer, makePopupContents: ()=>HTMLElement[]): void {
+		const popupWriter=()=>{
+			const $removeButton=document.createElement('button')
+			$removeButton.textContent=`Remove from map view`
+			$removeButton.onclick=()=>{
+				this.elementLayer.clearLayers()
+			}
+			return makeDiv('osm-element-popup-contents')(
+				...makePopupContents(),$removeButton
+			)
+		}
 		// TODO zoom on second click, like with notes
 		this.elementLayer.clearLayers()
 		this.elementLayer.addLayer(geometry)

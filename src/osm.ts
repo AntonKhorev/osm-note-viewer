@@ -139,8 +139,7 @@ export async function downloadAndShowChangeset(
 		}
 		const data=await response.json()
 		const changeset=getChangesetFromOsmApiResponse(data)
-		addGeometryToMap(
-			map,
+		map.addOsmElement(
 			makeChangesetGeometry(changeset),
 			()=>makeChangesetPopupContents(server,changeset)
 		)
@@ -181,20 +180,17 @@ export async function downloadAndShowElement(
 		const element=elements[elementType][elementId]
 		if (!element) throw new TypeError(`OSM API error: requested element not found in response data`)
 		if (isOsmNodeElement(element)) {
-			addGeometryToMap(
-				map,
+			map.addOsmElement(
 				makeNodeGeometry(element),
 				()=>makeElementPopupContents(server,element)
 			)
 		} else if (isOsmWayElement(element)) {
-			addGeometryToMap(
-				map,
+			map.addOsmElement(
 				makeWayGeometry(element,elements),
 				()=>makeElementPopupContents(server,element)
 			)
 		} else if (isOsmRelationElement(element)) {
-			addGeometryToMap(
-				map,
+			map.addOsmElement(
 				makeRelationGeometry(element,elements),
 				()=>makeElementPopupContents(server,element)
 			)
@@ -330,20 +326,6 @@ function makeElementPopupContents(server: Server, element: OsmElement): HTMLElem
 	const $tags=getTags(element.tags)
 	if ($tags) contents.push($tags)
 	return contents
-}
-
-function addGeometryToMap(map: NoteMap, geometry: L.Layer, makePopupContents: ()=>HTMLElement[]) {
-	const popupWriter=()=>{
-		const $removeButton=document.createElement('button')
-		$removeButton.textContent=`Remove from map view`
-		$removeButton.onclick=()=>{
-			map.elementLayer.clearLayers()
-		}
-		return makeDiv('osm-element-popup-contents')(
-			...makePopupContents(),$removeButton
-		)
-	}
-	map.addOsmElement(geometry,popupWriter)
 }
 
 function capitalize(s: string): string {
