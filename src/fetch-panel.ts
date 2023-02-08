@@ -73,24 +73,25 @@ export default class NoteFetchPanel {
 			globalHistory.hasMapHash() // when just opened a note-viewer page with map hash set - if query is set too, don't fit its result, keep the map hash
 		)
 
-		globalEventsListener.userListener=(_, uid: number, username?:string)=>{
+		$root.addEventListener('osmNoteViewer:clickUserLink',ev=>{
+			if (!(ev.target instanceof HTMLElement)) return
 			const query: NoteSearchQuery = {
 				mode: 'search',
 				closed: -1,
 				sort: 'created_at',
 				order: 'newest',
 			}
-			if (username!=null) {
-				query.display_name=username
+			if (ev.target.dataset.userName) {
+				query.display_name=ev.target.dataset.userName
 			} else {
-				query.user=uid
+				query.user=Number(ev.target.dataset.userId)
 			}
 			if (fetchDialogs) {
 				openQueryDialog(navbar,fetchDialogs,query,false)
 				fetchDialogs.populateInputs(query)
 				fetchDialogs.searchDialog.$section.scrollIntoView()
 			}
-		}
+		})
 		
 		function startFetcherFromQuery(query: NoteQuery|undefined, clearStore: boolean, suppressFitNotes: boolean): void {
 			if (!fetchDialogs) return

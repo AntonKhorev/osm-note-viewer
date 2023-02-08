@@ -1,6 +1,4 @@
 export default class GlobalEventListener {
-	userListener?: ($a: HTMLAnchorElement, uid: number, username?: string) => void
-	noteListener?: ($a: HTMLAnchorElement, noteId: string) => void
 	noteSelfListener?: ($a: HTMLAnchorElement, noteId: string) => void
 	elementListener?: ($a: HTMLAnchorElement, elementType: string, elementId: string) => void
 	changesetListener?: ($a: HTMLAnchorElement, changesetId: string) => void
@@ -12,16 +10,16 @@ export default class GlobalEventListener {
 			if ($e instanceof HTMLAnchorElement) {
 				if (this.noteSelfListener && $e.dataset.noteId && $e.dataset.self) {
 					this.noteSelfListener($e,$e.dataset.noteId)
-				} else if (this.noteListener && $e.dataset.noteId) {
-					this.noteListener($e,$e.dataset.noteId)
-				} else if (this.userListener && $e.dataset.userId) {
-					this.userListener($e,Number($e.dataset.userId),$e.dataset.userName)
+				} else if ($e.dataset.noteId) {
+					$e.dispatchEvent(new Event('osmNoteViewer:clickNoteLink',{bubbles:true}))
+				} else if ($e.dataset.userId) {
+					$e.dispatchEvent(new Event('osmNoteViewer:clickUserLink',{bubbles:true}))
 				} else if (this.elementListener && $e.dataset.elementType && $e.dataset.elementId) {
 					this.elementListener($e,$e.dataset.elementType,$e.dataset.elementId)
 				} else if (this.changesetListener && $e.dataset.changesetId) {
 					this.changesetListener($e,$e.dataset.changesetId)
 				} else if ($e.dataset.zoom && $e.dataset.lat && $e.dataset.lon) {
-					$e.dispatchEvent(new Event('osmNoteViewer:showMapLocation',{bubbles:true}))
+					$e.dispatchEvent(new Event('osmNoteViewer:clickMapLink',{bubbles:true}))
 				} else if ($e.classList.contains('image')) {
 					$e.dispatchEvent(new Event('osmNoteViewer:toggleImage',{bubbles:true}))
 				} else {

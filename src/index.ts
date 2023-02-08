@@ -147,13 +147,11 @@ function writeBelowFetchPanel(
 	)
 	auth.onLoginChange=()=>toolPanel.receiveLoginChange()
 	const noteTable=new NoteTable(
+		document.body,
 		$notesContainer,toolPanel,map,filterPanel.noteFilter,
 		figureDialog,
 		globalHistory.server
 	)
-	globalEventsListener.noteListener=($a,noteId)=>{
-		noteTable.pingNoteFromLink($a,noteId)
-	}
 	filterPanel.subscribe(noteFilter=>noteTable.updateFilter(noteFilter))
 	globalHistory.$resizeObservationTarget=$notesContainer
 

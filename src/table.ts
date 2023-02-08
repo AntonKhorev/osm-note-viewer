@@ -38,6 +38,7 @@ export default class NoteTable implements NoteTableUpdater {
 	private showImages: boolean = false
 	onRefresherUpdate?: (note:Note,users:Users)=>Promise<void>
 	constructor(
+		$root: HTMLElement,
 		$container: HTMLElement,
 		private toolPanel: ToolPanel, private map: NoteMap, private filter: NoteFilter,
 		figureDialog: FigureDialog,
@@ -125,6 +126,11 @@ export default class NoteTable implements NoteTableUpdater {
 			const parseResult=parseLoose(text)
 			if (!parseResult) return
 			looseParserPopup.open(x,y,...parseResult)
+		})
+		$root.addEventListener('osmNoteViewer:clickNoteLink',ev=>{
+			const $a=ev.target
+			if (!($a instanceof HTMLAnchorElement) || !$a.dataset.noteId) return
+			this.pingNoteFromLink($a,$a.dataset.noteId)
 		})
 	}
 	reset(): void {

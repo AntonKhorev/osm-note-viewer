@@ -82,7 +82,7 @@ export default class NoteMap {
 				geometry.bindPopup(popup)
 			}
 		})
-		$root.addEventListener('osmNoteViewer:showMapLocation',ev=>{
+		$root.addEventListener('osmNoteViewer:clickMapLink',ev=>{
 			const $e=ev.target
 			if (!($e instanceof HTMLElement)) return
 			this.panAndZoomTo([Number($e.dataset.lat),Number($e.dataset.lon)],Number($e.dataset.zoom))

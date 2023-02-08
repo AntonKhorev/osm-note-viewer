@@ -9,7 +9,7 @@ export default class FigureDialog {
 	) {
 		this.fallbackMode=((window as any).HTMLDialogElement == null)
 		$root.addEventListener('osmNoteViewer:newFetch',()=>this.close())
-		$root.addEventListener('osmNoteViewer:showMapLocation',()=>this.close())
+		$root.addEventListener('osmNoteViewer:clickMapLink',()=>this.close())
 		$root.addEventListener('osmNoteViewer:toggleImage',ev=>{
 			if (!(ev.target instanceof HTMLAnchorElement)) return
 			this.toggle(ev.target.href)
