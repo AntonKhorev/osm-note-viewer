@@ -103,7 +103,7 @@ function writeGraphicSide(
 	$graphicSide.append($mapContainer,$figureDialog)
 	document.body.append($graphicSide)
 
-	const map=new NoteMap($mapContainer,globalHistory.server.tile)
+	const map=new NoteMap(document.body,$mapContainer,globalHistory.server.tile)
 	map.onMoveEnd(()=>{
 		globalHistory.setMapHash(map.hash)
 	})
@@ -123,10 +123,6 @@ function writeGraphicSide(
 	globalEventsListener.changesetListener=($a,changesetId)=>{
 		figureDialog.close()
 		downloadAndShowChangeset($a,globalHistory.server,map,changesetId)
-	}
-	globalEventsListener.mapListener=($a,zoom,lat,lon)=>{
-		figureDialog.close()
-		map.panAndZoomTo([Number(lat),Number(lon)],Number(zoom))
 	}
 
 	return [map,figureDialog]

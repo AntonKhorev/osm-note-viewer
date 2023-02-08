@@ -45,7 +45,7 @@ export default class NoteMap {
 	needToFitNotes: boolean = false
 	freezeMode: NoteMapFreezeMode = 'no'
 	private queuedPopup: [layerId: number, writer: ()=>HTMLElement] | undefined
-	constructor($container: HTMLElement, tile: TileProvider) {
+	constructor($root: HTMLElement, $container: HTMLElement, tile: TileProvider) {
 		this.leafletMap=L.map($container,{
 			worldCopyJump: true
 		})
@@ -81,6 +81,11 @@ export default class NoteMap {
 					.openOn(this.leafletMap)
 				geometry.bindPopup(popup)
 			}
+		})
+		$root.addEventListener('osmNoteViewer:showMapLocation',ev=>{
+			const $e=ev.target
+			if (!($e instanceof HTMLElement)) return
+			this.panAndZoomTo([Number($e.dataset.lat),Number($e.dataset.lon)],Number($e.dataset.zoom))
 		})
 	}
 	getNoteMarker(noteId: number): NoteMarker | undefined {
