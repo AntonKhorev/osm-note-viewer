@@ -45,7 +45,15 @@ export default class NoteMap {
 	needToFitNotes: boolean = false
 	freezeMode: NoteMapFreezeMode = 'no'
 	private queuedPopup: [layerId: number, writer: ()=>HTMLElement] | undefined
-	constructor($root: HTMLElement, $container: HTMLElement, tile: TileProvider) {
+	constructor(
+		$root: HTMLElement, $container: HTMLElement, tile: TileProvider,
+		downloadAndShowChangeset: (
+			$a: HTMLAnchorElement, map: NoteMap, changesetId: string
+		) => Promise<void>,
+		downloadAndShowElement: (
+			$a: HTMLAnchorElement, map: NoteMap, elementType: 'node'|'way'|'relation', elementId: string
+		) => Promise<void>
+	) {
 		this.leafletMap=L.map($container,{
 			worldCopyJump: true
 		})
@@ -86,6 +94,22 @@ export default class NoteMap {
 			const $e=ev.target
 			if (!($e instanceof HTMLElement)) return
 			this.panAndZoomTo([Number($e.dataset.lat),Number($e.dataset.lon)],Number($e.dataset.zoom))
+		})
+		$root.addEventListener('osmNoteViewer:clickChangesetLink',ev=>{
+			const $a=ev.target
+			if (!($a instanceof HTMLAnchorElement)) return
+			const changesetId=$a.dataset.changesetId
+			if (!changesetId) return
+			downloadAndShowChangeset($a,this,changesetId)
+		})
+		$root.addEventListener('osmNoteViewer:clickElementLink',ev=>{
+			const $a=ev.target
+			if (!($a instanceof HTMLAnchorElement)) return
+			const elementType=$a.dataset.elementType
+			if (elementType!='node' && elementType!='way' && elementType!='relation') return false
+			const elementId=$a.dataset.elementId
+			if (!elementId) return
+			downloadAndShowElement($a,this,elementType,elementId)
 		})
 	}
 	getNoteMarker(noteId: number): NoteMarker | undefined {

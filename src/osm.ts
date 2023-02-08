@@ -124,7 +124,8 @@ function isOsmChangeset(c: any): c is OsmChangeset {
 const e=makeEscapeTag(encodeURIComponent)
 
 export async function downloadAndShowChangeset(
-	$a: HTMLAnchorElement, server: Server, map: NoteMap,
+	server: Server,
+	$a: HTMLAnchorElement, map: NoteMap,
 	changesetId: string
 ): Promise<void> {
 	downloadCommon($a,map,async()=>{
@@ -159,7 +160,8 @@ export async function downloadAndShowChangeset(
 }
 
 export async function downloadAndShowElement(
-	$a: HTMLAnchorElement, server: Server, map: NoteMap,
+	server: Server,
+	$a: HTMLAnchorElement, map: NoteMap,
 	elementType: OsmElement['type'], elementId: string
 ): Promise<void> {
 	downloadCommon($a,map,async()=>{

@@ -106,7 +106,11 @@ function writeGraphicSide(
 	$graphicSide.append($mapContainer,$figureDialog)
 	document.body.append($graphicSide)
 
-	const map=new NoteMap(document.body,$mapContainer,globalHistory.server.tile)
+	const map=new NoteMap(
+		document.body,$mapContainer,globalHistory.server.tile,
+		($a,map,changesetId)=>downloadAndShowChangeset(globalHistory.server,$a,map,changesetId),
+		($a,map,elementType,elementId)=>downloadAndShowElement(globalHistory.server,$a,map,elementType,elementId)
+	)
 	map.onMoveEnd(()=>{
 		globalHistory.setMapHash(map.hash)
 	})
@@ -118,15 +122,6 @@ function writeGraphicSide(
 	}
 	globalHistory.triggerInitialMapHashChange()
 	const figureDialog=new FigureDialog(document.body,$figureDialog)
-	globalEventsListener.elementListener=($a,elementType,elementId)=>{
-		if (elementType!='node' && elementType!='way' && elementType!='relation') return false
-		figureDialog.close()
-		downloadAndShowElement($a,globalHistory.server,map,elementType,elementId)
-	}
-	globalEventsListener.changesetListener=($a,changesetId)=>{
-		figureDialog.close()
-		downloadAndShowChangeset($a,globalHistory.server,map,changesetId)
-	}
 
 	return [map,figureDialog]
 }

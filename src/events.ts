@@ -1,6 +1,4 @@
 export default class GlobalEventListener {
-	elementListener?: ($a: HTMLAnchorElement, elementType: string, elementId: string) => void
-	changesetListener?: ($a: HTMLAnchorElement, changesetId: string) => void
 	timestampListener?: (timestamp: string) => void
 	constructor() {
 		document.body.addEventListener('click',ev=>{
@@ -13,10 +11,10 @@ export default class GlobalEventListener {
 					$e.dispatchEvent(new Event('osmNoteViewer:clickNoteLink',{bubbles:true}))
 				} else if ($e.dataset.userId) {
 					$e.dispatchEvent(new Event('osmNoteViewer:clickUserLink',{bubbles:true}))
-				} else if (this.elementListener && $e.dataset.elementType && $e.dataset.elementId) {
-					this.elementListener($e,$e.dataset.elementType,$e.dataset.elementId)
-				} else if (this.changesetListener && $e.dataset.changesetId) {
-					this.changesetListener($e,$e.dataset.changesetId)
+				} else if ($e.dataset.elementType && $e.dataset.elementId) {
+					$e.dispatchEvent(new Event('osmNoteViewer:clickElementLink',{bubbles:true}))
+				} else if ($e.dataset.changesetId) {
+					$e.dispatchEvent(new Event('osmNoteViewer:clickChangesetLink',{bubbles:true}))
 				} else if ($e.dataset.zoom && $e.dataset.lat && $e.dataset.lon) {
 					$e.dispatchEvent(new Event('osmNoteViewer:clickMapLink',{bubbles:true}))
 				} else if ($e.classList.contains('image')) {
