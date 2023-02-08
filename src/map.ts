@@ -199,7 +199,7 @@ export default class NoteMap {
 		const bounds=this.trackLayer.getBounds() // invalid if track is empty; track is empty when no notes are in table view
 		if (bounds.isValid()) this.fitBoundsIfNotFrozen(bounds)
 	}
-	addOsmElement(geometry: L.Layer, makePopupContents: ()=>HTMLElement[]): void {
+	addOsmElement(geometry: L.Layer, popupContents: HTMLElement[]): void {
 		const popupWriter=()=>{
 			const $removeButton=document.createElement('button')
 			$removeButton.textContent=`Remove from map view`
@@ -207,7 +207,7 @@ export default class NoteMap {
 				this.elementLayer.clearLayers()
 			}
 			return makeDiv('osm-element-popup-contents')(
-				...makePopupContents(),$removeButton
+				...popupContents,$removeButton
 			)
 		}
 		// TODO zoom on second click, like with notes

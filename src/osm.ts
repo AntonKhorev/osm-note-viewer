@@ -1,6 +1,6 @@
 import type Server from './server'
 import type NoteMap from './map'
-import {makeLink, makeDiv, makeElement} from './html'
+import {makeLink, makeElement} from './html'
 import {makeEscapeTag} from './escape'
 
 interface OsmBase {
@@ -141,7 +141,7 @@ export async function downloadAndShowChangeset(
 		const changeset=getChangesetFromOsmApiResponse(data)
 		map.addOsmElement(
 			makeChangesetGeometry(changeset),
-			()=>makeChangesetPopupContents(server,changeset)
+			makeChangesetPopupContents(server,changeset)
 		)
 	})
 	function makeChangesetGeometry(changeset: OsmChangeset): L.Layer {
@@ -182,17 +182,17 @@ export async function downloadAndShowElement(
 		if (isOsmNodeElement(element)) {
 			map.addOsmElement(
 				makeNodeGeometry(element),
-				()=>makeElementPopupContents(server,element)
+				makeElementPopupContents(server,element)
 			)
 		} else if (isOsmWayElement(element)) {
 			map.addOsmElement(
 				makeWayGeometry(element,elements),
-				()=>makeElementPopupContents(server,element)
+				makeElementPopupContents(server,element)
 			)
 		} else if (isOsmRelationElement(element)) {
 			map.addOsmElement(
 				makeRelationGeometry(element,elements),
-				()=>makeElementPopupContents(server,element)
+				makeElementPopupContents(server,element)
 			)
 		} else {
 			throw new TypeError(`OSM API error: requested element has unknown type`) // shouldn't happen
