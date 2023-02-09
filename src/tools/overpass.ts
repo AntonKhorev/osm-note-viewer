@@ -7,9 +7,11 @@ import {makeEscapeTag} from '../escape'
 
 abstract class OverpassBaseTool extends Tool {
 	protected timestamp: string = ''
-	onTimestampChange(timestamp: string): boolean {
-		this.timestamp=timestamp
-		return true
+	protected installTimestampListener($root: HTMLElement, $tool: HTMLElement) {
+		$root.addEventListener('osmNoteViewer:changeTimestamp',ev=>{
+			this.timestamp=ev.detail
+			this.ping($tool)
+		})
 	}
 	protected getOverpassQueryPreamble(map: NoteMap): string {
 		let query=''
@@ -24,16 +26,17 @@ export class OverpassTurboTool extends OverpassBaseTool {
 	id='overpass-turbo'
 	name=`Overpass turbo`
 	title=`Open an Overpass turbo window with various queries`
-	isActiveWithCurrentServerConfiguration(): boolean {
+	protected isActiveWithCurrentServerConfiguration(): boolean {
 		return !!this.auth.server.overpassTurbo
 	}
-	getInfo() {return[p(
+	protected getInfo() {return[p(
 		`Some Overpass queries to run from `,
 		makeLink(`Overpass turbo`,'https://wiki.openstreetmap.org/wiki/Overpass_turbo'),
 		`, web UI for Overpass API. `,
 		`Useful to inspect historic data at the time a particular note comment was made.`
 	)]}
-	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+	protected getTool($root: HTMLElement, $tool: HTMLElement, callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+		this.installTimestampListener($root,$tool)
 		const $overpassButtons: HTMLButtonElement[] = []
 		const buttonClickListener=(withRelations: boolean, onlyAround: boolean)=>{
 			const e=makeEscapeTag(encodeURIComponent)
@@ -81,14 +84,15 @@ export class OverpassTool extends OverpassBaseTool {
 	id='overpass'
 	name=`Overpass`
 	title=`Run an Overpass query`
-	isActiveWithCurrentServerConfiguration(): boolean {
+	protected isActiveWithCurrentServerConfiguration(): boolean {
 		return !!this.auth.server.overpass
 	}
-	getInfo() {return[p(
+	protected getInfo() {return[p(
 		`Query `,makeLink(`Overpass API`,'https://wiki.openstreetmap.org/wiki/Overpass_API'),` without going through Overpass turbo. `,
 		`Shows results on the map. Also gives link to the element page on the OSM website.`
 	)]}
-	getTool(callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+	protected getTool($root: HTMLElement, $tool: HTMLElement, callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+		this.installTimestampListener($root,$tool)
 		const $button=document.createElement('button')
 		$button.append(`Find closest node to `,makeMapIcon('center'))
 		const $output=document.createElement('code')

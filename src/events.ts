@@ -1,5 +1,4 @@
 export default class GlobalEventListener {
-	timestampListener?: (timestamp: string) => void
 	constructor() {
 		document.body.addEventListener('click',ev=>{
 			if (!(ev.target instanceof HTMLElement)) return
@@ -25,9 +24,13 @@ export default class GlobalEventListener {
 				ev.preventDefault()
 				ev.stopPropagation()
 			} else if ($e instanceof HTMLTimeElement) {
-				if (this.timestampListener && $e.dateTime) {
+				if ($e.dateTime) {
+					$e.dispatchEvent(new CustomEvent<string>('osmNoteViewer:changeTimestamp',{
+						bubbles:true,
+						detail: $e.dateTime
+					}))
+					ev.preventDefault()
 					ev.stopPropagation()
-					this.timestampListener($e.dateTime)
 				}
 			}
 		},true) // need to capture event before it bubbles to note table sections
@@ -36,10 +39,9 @@ export default class GlobalEventListener {
 			if (ev.key!='Enter') return
 			const $e=ev.target.closest('time.listened')
 			if ($e instanceof HTMLTimeElement) {
-				if (this.timestampListener && $e.dateTime) {
-					ev.stopPropagation()
-					this.timestampListener($e.dateTime)
-				}
+				$e.click()
+				ev.preventDefault()
+				ev.stopPropagation()
 			}
 		})
 	}

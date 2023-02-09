@@ -139,8 +139,9 @@ function writeBelowFetchPanel(
 	$stickyPart.append($toolContainer)
 
 	const toolPanel=new ToolPanel(
-		storage,auth,globalEventsListener,
-		$toolContainer,map,figureDialog
+		document.body,$toolContainer,
+		storage,auth,
+		map,figureDialog
 	)
 	auth.onLoginChange=()=>toolPanel.receiveLoginChange()
 	const noteTable=new NoteTable(

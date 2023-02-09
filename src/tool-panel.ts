@@ -1,6 +1,5 @@
 import type NoteViewerStorage from './storage'
 import type Auth from './auth'
-import type GlobalEventsListener from './events'
 import type {Note, Users} from './data'
 import type NoteMap from './map'
 import type FigureDialog from './figure'
@@ -18,9 +17,6 @@ class ToolBroadcaster {
 	}
 	broadcastRefresherPeriodChange(fromTool: Tool|null, refreshPeriod: number): void {
 		this.broadcast(fromTool,tool=>tool.onRefresherPeriodChange(refreshPeriod))
-	}
-	broadcastTimestampChange(fromTool: Tool|null, timestamp: string): void {
-		this.broadcast(fromTool,tool=>tool.onTimestampChange(timestamp))
 	}
 	broadcastNoteCountsChange(fromTool: Tool|null, nFetched: number, nVisible: number): void {
 		this.broadcast(fromTool,tool=>tool.onNoteCountsChange(nFetched,nVisible))
@@ -52,8 +48,8 @@ export default class ToolPanel {
 	onRefresherRefreshAll?: ()=>void
 	onNoteReload?: (note:Note,users:Users)=>void
 	constructor(
-		storage: NoteViewerStorage, auth: Auth, globalEventsListener: GlobalEventsListener,
-		$container: HTMLElement,
+		$root: HTMLElement, $container: HTMLElement,
+		storage: NoteViewerStorage, auth: Auth,
 		map: NoteMap, figureDialog: FigureDialog
 	) {
 		const tools: Tool[] = []
@@ -63,9 +59,6 @@ export default class ToolPanel {
 			onRefresherRefreshChange: (fromTool,replaceUpdatedNotes)=>this.#replaceUpdatedNotes=replaceUpdatedNotes,
 			onRefresherPeriodChange: (fromTool,refreshPeriod)=>this.onRefresherPeriodChange?.(refreshPeriod),
 			onRefresherRefreshAll: (fromTool)=>this.onRefresherRefreshAll?.(),
-			onTimestampChange: (fromTool,timestamp)=>{
-				this.toolBroadcaster.broadcastTimestampChange(fromTool,timestamp)
-			},
 			onToolOpenToggle: (fromTool: Tool, setToOpen: boolean)=>{
 				for (const $toolDetails of  $container.querySelectorAll('details.tool')) {
 					if (!($toolDetails instanceof HTMLDetailsElement)) continue
@@ -76,13 +69,10 @@ export default class ToolPanel {
 		}
 		for (const makeTool of toolMakerSequence) {
 			const tool=makeTool(auth)
-			tool.write(storage,$container,toolCallbacks,map,figureDialog)
+			tool.write($root,$container,storage,toolCallbacks,map,figureDialog)
 			tools.push(tool)
 		}
 		this.toolBroadcaster=new ToolBroadcaster(tools)
-		globalEventsListener.timestampListener=(timestamp: string)=>{
-			this.toolBroadcaster.broadcastTimestampChange(null,timestamp)
-		}
 	}
 	receiveLoginChange() {
 		this.toolBroadcaster.broadcastLoginChange(null)

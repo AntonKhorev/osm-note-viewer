@@ -19,7 +19,7 @@ abstract class ExportTool extends Tool {
 		this.selectedNoteUsers=selectedNoteUsers
 		return true
 	}
-	getInfo(): ToolElements {
+	protected getInfo(): ToolElements {
 		return [
 			...this.getInfoWithoutDragAndDrop(),
 			p(
@@ -29,7 +29,7 @@ abstract class ExportTool extends Tool {
 			)
 		]
 	}
-	getTool(): ToolElements {
+	protected getTool(): ToolElements {
 		const $optionSelects=Object.fromEntries(
 			Object.entries(this.describeOptions()).map(([key,valuesWithTexts])=>{
 				const $select=document.createElement('select')

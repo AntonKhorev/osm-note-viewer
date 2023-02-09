@@ -15,7 +15,6 @@ export interface ToolCallbacks {
 	onRefresherRefreshChange(fromTool: Tool, replaceUpdatedNotes: boolean): void
 	onRefresherPeriodChange(fromTool: Tool, refreshPeriod: number): void
 	onRefresherRefreshAll(fromTool: Tool): void
-	onTimestampChange(fromTool: Tool, timestamp: string): void
 	onToolOpenToggle(fromTool: Tool, setToOpen: boolean): void
 	onNoteReload(fromTool: Tool, note: Note, users: Users): void
 }
@@ -26,42 +25,40 @@ export abstract class Tool {
 	public readonly title?: string
 	public readonly isFullWidth: boolean = false
 	private $buttonsRequiringSelectedNotes: HTMLButtonElement[] = []
-	protected $toolDetails?: HTMLDetailsElement
 	constructor(
 		protected readonly auth: Auth
 	){}
 	write(
+		$root: HTMLElement, $container: HTMLElement,
 		storage: NoteViewerStorage,
-		$container: HTMLElement,
 		callbacks: ToolCallbacks, map: NoteMap, figureDialog: FigureDialog
 	) {
 		if (!this.isActiveWithCurrentServerConfiguration()) return
 		const storageKey='commands-'+this.id
-		const $toolDetails=document.createElement('details')
-		$toolDetails.classList.add('tool')
-		$toolDetails.classList.toggle('full-width',this.isFullWidth)
-		$toolDetails.open=storage.getBoolean(storageKey)
-		this.$toolDetails=$toolDetails
+		const $tool=document.createElement('details')
+		$tool.classList.add('tool')
+		$tool.classList.toggle('full-width',this.isFullWidth)
+		$tool.open=storage.getBoolean(storageKey)
 		const $toolSummary=document.createElement('summary')
 		$toolSummary.textContent=this.name
 		if (this.title) $toolSummary.title=this.title
-		$toolDetails.addEventListener('toggle',()=>{
-			storage.setBoolean(storageKey,$toolDetails.open)
+		$tool.addEventListener('toggle',()=>{
+			storage.setBoolean(storageKey,$tool.open)
 		})
-		$toolDetails.append($toolSummary,...this.getTool(callbacks,map,figureDialog))
-		$toolDetails.addEventListener('animationend',toolAnimationEndListener)
+		$tool.append($toolSummary,...this.getTool($root,$tool,callbacks,map,figureDialog))
+		$tool.addEventListener('animationend',toolAnimationEndListener)
 		const infoElements=this.getInfo()
 		if (infoElements) {
-			const $infoDetails=document.createElement('details')
-			$infoDetails.classList.add('info')
+			const $info=document.createElement('details')
+			$info.classList.add('info')
 			const $infoSummary=document.createElement('summary')
 			$infoSummary.textContent=`${this.name} info`
-			$infoDetails.append($infoSummary,...infoElements)
+			$info.append($infoSummary,...infoElements)
 			const $infoButton=document.createElement('button')
 			$infoButton.classList.add('info')
 			$infoButton.innerHTML=`<svg><title>Tool info</title><use href="#tools-info" /></svg>`
 			const updateInfoButton=()=>{
-				if ($infoDetails.open) {
+				if ($info.open) {
 					$infoButton.classList.add('open')
 				} else {
 					$infoButton.classList.remove('open')
@@ -69,28 +66,30 @@ export abstract class Tool {
 			}
 			updateInfoButton()
 			$infoButton.addEventListener('click',()=>{
-				$infoDetails.open=!$infoDetails.open
+				$info.open=!$info.open
 			})
-			$infoDetails.addEventListener('toggle',()=>{
+			$info.addEventListener('toggle',()=>{
 				updateInfoButton()
 			})
-			$toolDetails.addEventListener('toggle',()=>{
-				if ($toolDetails.open) return
-				$infoDetails.open=false
+			$tool.addEventListener('toggle',()=>{
+				if ($tool.open) return
+				$info.open=false
 			})
-			$toolDetails.append(` `,$infoButton)
-			$container.append($toolDetails,$infoDetails)
+			$tool.append(` `,$infoButton)
+			$container.append($tool,$info)
 		} else {
-			$container.append($toolDetails)
+			$container.append($tool)
 		}
 	}
 	protected isActiveWithCurrentServerConfiguration(): boolean { return true }
-	protected abstract getTool(callbacks: ToolCallbacks, map: NoteMap, figureDialog: FigureDialog): ToolElements
+	protected abstract getTool(
+		$root: HTMLElement, $tool: HTMLElement,
+		callbacks: ToolCallbacks, map: NoteMap, figureDialog: FigureDialog
+	): ToolElements
 	protected getInfo(): ToolElements|undefined { return undefined }
 	onLoginChange(): boolean { return false }
 	onRefresherStateChange(isRunning: boolean, message: string|undefined): boolean { return false }
 	onRefresherPeriodChange(refreshPeriod: number): boolean { return false }
-	onTimestampChange(timestamp: string): boolean { return false }
 	onNoteCountsChange(nFetched: number, nVisible: number): boolean { return false }
 	onSelectedNotesChange(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean {
 		let reactedToButtons=false
@@ -111,9 +110,8 @@ export abstract class Tool {
 		this.$buttonsRequiringSelectedNotes.push($button)
 		return $button
 	}
-	protected ping() {
-		if (!this.$toolDetails) return
-		startOrResetFadeAnimation(this.$toolDetails,'tool-ping-fade','ping')
+	protected ping($tool: HTMLElement) {
+		startOrResetFadeAnimation($tool,'tool-ping-fade','ping')
 	}
 }
 

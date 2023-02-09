@@ -20,7 +20,7 @@ export class ReportTool extends Tool {
 		this.reportManyListener?.reset()
 		return true
 	}
-	getInfo() {return[p(
+	protected getInfo() {return[p(
 		makeLink(`Report`,'https://wiki.openstreetmap.org/wiki/Notes#Reporting_notes'),` selected notes. `,
 		`Since reporting on the OSM website works for individual notes but here you can select many, you may choose between opening one and several tabs.`
 	),ul(
@@ -33,7 +33,7 @@ export class ReportTool extends Tool {
 			`Additionally the browser may choose to block opening of new tabs if too many are requested.`
 		)
 	)]}
-	getTool(): ToolElements {
+	protected getTool(): ToolElements {
 		const e=makeEscapeTag(encodeURIComponent)
 		const getReportUrl=(id:number)=>this.auth.server.web.getUrl(e`reports/new?reportable_id=${id}&reportable_type=Note`)
 		const getNoteListItem=(id:number)=>`- `+this.auth.server.web.getUrl(e`note/${id}`)+`\n`

@@ -8,7 +8,7 @@ export class RefreshTool extends Tool {
 	private isRunning=true
 	private $runButton=makeElement('button')('only-with-icon')()
 	private $refreshPeriodInput=document.createElement('input')
-	getTool(callbacks: ToolCallbacks): ToolElements {
+	protected getTool($root: HTMLElement, $tool: HTMLElement, callbacks: ToolCallbacks): ToolElements {
 		this.updateState(true)
 		const $refreshSelect=makeElement('select')()(
 			new Option('report'),

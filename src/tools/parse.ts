@@ -7,7 +7,7 @@ export class ParseTool extends Tool {
 	id='parse'
 	name=`Parse links`
 	title=`Extract interactive links from plaintext`
-	getInfo() {return[p(
+	protected getInfo() {return[p(
 		`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →. `,
 		`Currently detected active elements are: `,
 	),ul(
@@ -19,7 +19,7 @@ export class ParseTool extends Tool {
 	),p(
 		`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`
 	)]}
-	getTool(): ToolElements {
+	protected getTool(): ToolElements {
 		const commentWriter=new CommentWriter(this.auth.server)
 		const $input=document.createElement('input')
 		$input.type='text'

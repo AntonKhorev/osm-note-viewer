@@ -119,7 +119,7 @@ export class InteractTool extends Tool {
 		this.updateRunButton()
 		this.updateRunOutput()
 	}
-	getInfo() {return[p(
+	protected getInfo() {return[p(
 		`Do the following operations with notes:`
 	),ul(
 		li(
@@ -141,7 +141,7 @@ export class InteractTool extends Tool {
 		`Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `,
 		`If you've hidden a note and want to see it, look for it at `,this.$yourNotesWeb,` on the OSM website.`
 	)]}
-	getTool(callbacks: ToolCallbacks): ToolElements {
+	protected getTool($root: HTMLElement, $tool: HTMLElement, callbacks: ToolCallbacks): ToolElements {
 		this.$commentText.oninput=()=>{
 			this.updateButtons()
 		}
