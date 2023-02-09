@@ -6,11 +6,10 @@ import type NoteMap from './map'
 import type FigureDialog from './figure'
 import type {Tool, ToolFitMode, ToolCallbacks} from './tools'
 import {toolMakerSequence} from './tools'
-import {startOrResetFadeAnimation} from './html'
 
 class ToolBroadcaster {
 	private sources: Set<Tool> = new Set()
-	constructor(private readonly tools: [tool:Tool,$tool:HTMLElement][]) {}
+	constructor(private readonly tools: Tool[]) {}
 	broadcastLoginChange(fromTool: Tool|null): void {
 		this.broadcast(fromTool,tool=>tool.onLoginChange())
 	}
@@ -34,10 +33,9 @@ class ToolBroadcaster {
 			if (this.sources.has(fromTool)) return
 			this.sources.add(fromTool)
 		}
-		for (const [tool,$tool] of this.tools) {
+		for (const tool of this.tools) {
 			if (this.sources.has(tool)) continue
-			const reacted=sendMessageToTool(tool)
-			if (reacted) startOrResetFadeAnimation($tool,'tool-ping-fade','ping')
+			sendMessageToTool(tool)
 		}
 		if (fromTool) {
 			this.sources.delete(fromTool)
@@ -58,7 +56,7 @@ export default class ToolPanel {
 		$container: HTMLElement,
 		map: NoteMap, figureDialog: FigureDialog
 	) {
-		const tools: [tool:Tool,$tool:HTMLDetailsElement][] = []
+		const tools: Tool[] = []
 		const toolCallbacks: ToolCallbacks = {
 			onFitModeChange: (fromTool,fitMode)=>this.#fitMode=fitMode,
 			onRefresherStateChange: (fromTool,isRunning,message)=>this.onRefresherStateChange?.(isRunning),
@@ -69,60 +67,17 @@ export default class ToolPanel {
 				this.toolBroadcaster.broadcastTimestampChange(fromTool,timestamp)
 			},
 			onToolOpenToggle: (fromTool: Tool, setToOpen: boolean)=>{
-				for (const [,$tool] of tools) $tool.open=setToOpen
+				for (const $toolDetails of  $container.querySelectorAll('details.tool')) {
+					if (!($toolDetails instanceof HTMLDetailsElement)) continue
+					$toolDetails.open=setToOpen
+				}
 			},
 			onNoteReload: (fromTool,note,users)=>this.onNoteReload?.(note,users)
 		}
 		for (const makeTool of toolMakerSequence) {
 			const tool=makeTool(auth)
-			if (!tool.isActiveWithCurrentServerConfiguration()) continue
-			const storageKey='commands-'+tool.id
-			const $toolDetails=document.createElement('details')
-			$toolDetails.classList.add('tool')
-			$toolDetails.classList.toggle('full-width',tool.isFullWidth)
-			$toolDetails.open=storage.getBoolean(storageKey)
-			const $toolSummary=document.createElement('summary')
-			$toolSummary.textContent=tool.name
-			if (tool.title) $toolSummary.title=tool.title
-			$toolDetails.addEventListener('toggle',()=>{
-				storage.setBoolean(storageKey,$toolDetails.open)
-			})
-			$toolDetails.append($toolSummary,...tool.getTool(toolCallbacks,map,figureDialog))
-			$toolDetails.addEventListener('animationend',toolAnimationEndListener)
-			const infoElements=tool.getInfo()
-			if (infoElements) {
-				const $infoDetails=document.createElement('details')
-				$infoDetails.classList.add('info')
-				const $infoSummary=document.createElement('summary')
-				$infoSummary.textContent=`${tool.name} info`
-				$infoDetails.append($infoSummary,...infoElements)
-				const $infoButton=document.createElement('button')
-				$infoButton.classList.add('info')
-				$infoButton.innerHTML=`<svg><title>Tool info</title><use href="#tools-info" /></svg>`
-				const updateInfoButton=()=>{
-					if ($infoDetails.open) {
-						$infoButton.classList.add('open')
-					} else {
-						$infoButton.classList.remove('open')
-					}
-				}
-				updateInfoButton()
-				$infoButton.addEventListener('click',()=>{
-					$infoDetails.open=!$infoDetails.open
-				})
-				$infoDetails.addEventListener('toggle',()=>{
-					updateInfoButton()
-				})
-				$toolDetails.addEventListener('toggle',()=>{
-					if ($toolDetails.open) return
-					$infoDetails.open=false
-				})
-				$toolDetails.append(` `,$infoButton)
-				$container.append($toolDetails,$infoDetails)
-			} else {
-				$container.append($toolDetails)
-			}
-			tools.push([tool,$toolDetails])
+			tool.write(storage,$container,toolCallbacks,map,figureDialog)
+			tools.push(tool)
 		}
 		this.toolBroadcaster=new ToolBroadcaster(tools)
 		globalEventsListener.timestampListener=(timestamp: string)=>{
@@ -150,8 +105,4 @@ export default class ToolPanel {
 	get replaceUpdatedNotes(): boolean {
 		return this.#replaceUpdatedNotes
 	}
-}
-
-function toolAnimationEndListener(this: HTMLElement) {
-	this.classList.remove('ping')
 }
