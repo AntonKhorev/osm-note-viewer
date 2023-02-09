@@ -146,6 +146,19 @@ export default class NoteMap {
 				()=>downloadAndShowElement(elementType,elementId)
 			)
 		})
+		$root.addEventListener('osmNoteViewer:focusOnNote',ev=>{
+			const noteId=ev.detail
+			const marker=this.getNoteMarker(noteId)
+			if (!marker) return
+			const z1=this.zoom
+			const z2=this.maxZoom
+			if (this.isCloseEnoughToCenter(marker.getLatLng()) && z1<z2) {
+				const nextZoom=Math.min(z2,z1+Math.ceil((z2-z1)/2))
+				this.panAndZoomTo(marker.getLatLng(),nextZoom)
+			} else {
+				this.panTo(marker.getLatLng())
+			}
+		})
 	}
 	getNoteMarker(noteId: number): NoteMarker | undefined {
 		for (const layer of [this.unselectedNoteLayer,this.selectedNoteLayer,this.filteredNoteLayer]) {
@@ -307,7 +320,7 @@ export default class NoteMap {
 	panAndZoomTo(latlng: L.LatLngExpression, zoom: number): void {
 		this.flyToIfNotFrozen(latlng,zoom,{duration:.5}) // default duration is too long despite docs saying it's 0.25
 	}
-	isCloseEnoughToCenter(latlng: L.LatLngExpression): boolean {
+	private isCloseEnoughToCenter(latlng: L.LatLngExpression): boolean {
 		const inputPt=this.leafletMap.latLngToContainerPoint(latlng)
 		const centerPt=this.leafletMap.latLngToContainerPoint(this.leafletMap.getCenter()) // instead could have gotten container width/2, height/2
 		return (inputPt.x-centerPt.x)**2+(inputPt.y-centerPt.y)**2 < 100

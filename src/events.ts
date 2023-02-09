@@ -26,7 +26,7 @@ export default class GlobalEventListener {
 			} else if ($e instanceof HTMLTimeElement) {
 				if ($e.dateTime) {
 					$e.dispatchEvent(new CustomEvent<string>('osmNoteViewer:changeTimestamp',{
-						bubbles:true,
+						bubbles: true,
 						detail: $e.dateTime
 					}))
 					ev.preventDefault()

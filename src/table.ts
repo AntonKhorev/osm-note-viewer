@@ -41,7 +41,6 @@ export default class NoteTable implements NoteTableUpdater {
 		$root: HTMLElement,
 		$container: HTMLElement,
 		private toolPanel: ToolPanel, private map: NoteMap, private filter: NoteFilter,
-		figureDialog: FigureDialog,
 		private server: Server
 	) {
 		this.$table.setAttribute('role','grid')
@@ -95,7 +94,6 @@ export default class NoteTable implements NoteTableUpdater {
 			// }],
 			['click',function(){ // need 'click' and not 'mouseup' event because elements inside may listen to click and choose to cancel it
 				if ($clickReadyNoteSection==this) {
-					figureDialog.close()
 					that.focusOnNote(this,true)
 				}
 				$clickReadyNoteSection=undefined
@@ -412,16 +410,10 @@ export default class NoteTable implements NoteTableUpdater {
 		this.noteSectionVisibilityObserver.haltMapFitting() // otherwise scrollIntoView() may ruin note pan/zoom - it may cause observer to fire after exiting this function
 		if (!isSectionClicked) $noteSection.scrollIntoView({block:'nearest'})
 		const noteId=Number($noteSection.dataset.noteId)
-		const marker=this.map.getNoteMarker(noteId)
-		if (!marker) return
-		const z1=this.map.zoom
-		const z2=this.map.maxZoom
-		if (this.map.isCloseEnoughToCenter(marker.getLatLng()) && z1<z2) {
-			const nextZoom=Math.min(z2,z1+Math.ceil((z2-z1)/2))
-			this.map.panAndZoomTo(marker.getLatLng(),nextZoom)
-		} else {
-			this.map.panTo(marker.getLatLng())
-		}
+		$noteSection.dispatchEvent(new CustomEvent<number>('osmNoteViewer:focusOnNote',{ // TODO correct target, it could be a marker
+			bubbles: true,
+			detail: noteId
+		}))
 	}
 	private deactivateNote(type: 'hover'|'click', $noteSection: HTMLTableSectionElement): void {
 		$noteSection.classList.remove('active-'+type)

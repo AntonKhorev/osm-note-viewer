@@ -50,16 +50,15 @@ async function main() {
 	
 	let auth: Auth|undefined
 	let map: NoteMap|undefined
-	let figureDialog: FigureDialog|undefined
 	let noteTable: NoteTable|undefined
 	let toolPanel: ToolPanel|undefined
 	if (globalHistory.hasServer()) {
 		auth=new Auth(storage,globalHistory.server,serverList)
-		;[map,figureDialog]=writeGraphicSide(globalEventsListener,globalHistory)
+		map=writeGraphicSide(globalHistory)
 		;[noteTable,toolPanel]=writeBelowFetchPanel(
 			$scrollingPart,$stickyPart,$moreContainer,
-			storage,auth,globalEventsListener,globalHistory,
-			map,figureDialog
+			storage,auth,globalHistory,
+			map
 		)
 	} else {
 		document.body.classList.add('only-text-side')
@@ -97,8 +96,8 @@ async function main() {
 }
 
 function writeGraphicSide(
-	globalEventsListener:GlobalEventsListener, globalHistory:GlobalHistoryWithServer
-): [NoteMap,FigureDialog] {
+	globalHistory:GlobalHistoryWithServer
+): NoteMap {
 	const $graphicSide=makeDiv('graphic-side')()
 	const $mapContainer=makeDiv('map')()
 	const $figureDialog=document.createElement('dialog')
@@ -121,15 +120,15 @@ function writeGraphicSide(
 		}
 	}
 	globalHistory.triggerInitialMapHashChange()
-	const figureDialog=new FigureDialog(document.body,$figureDialog)
+	new FigureDialog(document.body,$figureDialog)
 
-	return [map,figureDialog]
+	return map
 }
 
 function writeBelowFetchPanel(
 	$scrollingPart:HTMLElement, $stickyPart:HTMLElement, $moreContainer:HTMLElement,
-	storage:NoteViewerStorage, auth:Auth, globalEventsListener:GlobalEventsListener, globalHistory:GlobalHistoryWithServer,
-	map:NoteMap, figureDialog:FigureDialog
+	storage:NoteViewerStorage, auth:Auth, globalHistory:GlobalHistoryWithServer,
+	map:NoteMap
 ): [NoteTable,ToolPanel] {
 	const $filterContainer=makeDiv('panel','fetch')()
 	const $notesContainer=makeDiv('notes')()
@@ -147,7 +146,6 @@ function writeBelowFetchPanel(
 	const noteTable=new NoteTable(
 		document.body,
 		$notesContainer,toolPanel,map,filterPanel.noteFilter,
-		figureDialog,
 		globalHistory.server
 	)
 	filterPanel.subscribe(noteFilter=>noteTable.updateFilter(noteFilter))

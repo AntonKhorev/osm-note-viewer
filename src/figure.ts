@@ -12,7 +12,8 @@ export default class FigureDialog {
 			'osmNoteViewer:newFetch',
 			'osmNoteViewer:clickMapLink',
 			'osmNoteViewer:clickElementLink',
-			'osmNoteViewer:clickChangesetLink'
+			'osmNoteViewer:clickChangesetLink',
+			'osmNoteViewer:focusOnNote'
 		]) {
 			$root.addEventListener(eventType,()=>this.close())
 		}
