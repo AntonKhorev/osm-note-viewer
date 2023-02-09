@@ -24,6 +24,9 @@ export class OverpassTurboTool extends OverpassBaseTool {
 	id='overpass-turbo'
 	name=`Overpass turbo`
 	title=`Open an Overpass turbo window with various queries`
+	isActiveWithCurrentServerConfiguration(): boolean {
+		return !!this.auth.server.overpassTurbo
+	}
 	getInfo() {return[p(
 		`Some Overpass queries to run from `,
 		makeLink(`Overpass turbo`,'https://wiki.openstreetmap.org/wiki/Overpass_turbo'),
@@ -78,6 +81,9 @@ export class OverpassTool extends OverpassBaseTool {
 	id='overpass'
 	name=`Overpass`
 	title=`Run an Overpass query`
+	isActiveWithCurrentServerConfiguration(): boolean {
+		return !!this.auth.server.overpass
+	}
 	getInfo() {return[p(
 		`Query `,makeLink(`Overpass API`,'https://wiki.openstreetmap.org/wiki/Overpass_API'),` without going through Overpass turbo. `,
 		`Shows results on the map. Also gives link to the element page on the OSM website.`

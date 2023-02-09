@@ -7,13 +7,10 @@ import {ParseTool} from './parse'
 import {OverpassTurboTool, OverpassTool} from './overpass'
 import * as EditorTools from './editor'
 import * as ExportTools from './export'
-import {StreetViewTool, YandexPanoramasTool, MapillaryTool} from './streetview'
+import {YandexPanoramasTool, MapillaryTool} from './streetview'
 import Auth from '../auth'
 
-export {
-	Tool, ToolFitMode, ToolCallbacks,
-	OverpassTurboTool, OverpassTool, StreetViewTool
-}
+export {Tool, ToolFitMode, ToolCallbacks}
 
 export const toolMakerSequence: Array<(auth:Auth)=>Tool> = [
 	InteractTool, ReportTool, RefreshTool,

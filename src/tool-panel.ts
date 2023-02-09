@@ -5,7 +5,7 @@ import type {Note, Users} from './data'
 import type NoteMap from './map'
 import type FigureDialog from './figure'
 import type {Tool, ToolFitMode, ToolCallbacks} from './tools'
-import {toolMakerSequence, OverpassTurboTool, OverpassTool, StreetViewTool} from './tools'
+import {toolMakerSequence} from './tools'
 import {startOrResetFadeAnimation} from './html'
 
 class ToolBroadcaster {
@@ -75,9 +75,7 @@ export default class ToolPanel {
 		}
 		for (const makeTool of toolMakerSequence) {
 			const tool=makeTool(auth)
-			if (!auth.server.overpassTurbo && tool instanceof OverpassTurboTool) continue
-			if (!auth.server.overpass && tool instanceof OverpassTool) continue
-			if (auth.server.world!='earth' && tool instanceof StreetViewTool) continue
+			if (!tool.isActiveWithCurrentServerConfiguration()) continue
 			const storageKey='commands-'+tool.id
 			const $toolDetails=document.createElement('details')
 			$toolDetails.classList.add('tool')

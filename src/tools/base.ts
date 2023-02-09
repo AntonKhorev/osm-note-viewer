@@ -28,6 +28,7 @@ export abstract class Tool {
 	constructor(
 		protected readonly auth: Auth
 	){}
+	isActiveWithCurrentServerConfiguration(): boolean { return true }
 	abstract getTool(callbacks: ToolCallbacks, map: NoteMap, figureDialog: FigureDialog): ToolElements
 	getInfo(): ToolElements|undefined { return undefined }
 	onLoginChange(): boolean { return false }
