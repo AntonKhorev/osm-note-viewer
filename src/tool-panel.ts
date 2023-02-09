@@ -2,7 +2,6 @@ import type NoteViewerStorage from './storage'
 import type Auth from './auth'
 import type {Note, Users} from './data'
 import type NoteMap from './map'
-import type FigureDialog from './figure'
 import type {Tool, ToolFitMode, ToolCallbacks} from './tools'
 import {toolMakerSequence} from './tools'
 
@@ -50,7 +49,7 @@ export default class ToolPanel {
 	constructor(
 		$root: HTMLElement, $container: HTMLElement,
 		storage: NoteViewerStorage, auth: Auth,
-		map: NoteMap, figureDialog: FigureDialog
+		map: NoteMap
 	) {
 		const tools: Tool[] = []
 		const toolCallbacks: ToolCallbacks = {
@@ -69,7 +68,7 @@ export default class ToolPanel {
 		}
 		for (const makeTool of toolMakerSequence) {
 			const tool=makeTool(auth)
-			tool.write($root,$container,storage,toolCallbacks,map,figureDialog)
+			tool.write($root,$container,storage,toolCallbacks,map)
 			tools.push(tool)
 		}
 		this.toolBroadcaster=new ToolBroadcaster(tools)
