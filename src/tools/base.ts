@@ -86,7 +86,6 @@ export abstract class Tool {
 	onLoginChange(): boolean { return false }
 	onRefresherStateChange(isRunning: boolean, message: string|undefined): boolean { return false }
 	onRefresherPeriodChange(refreshPeriod: number): boolean { return false }
-	onNoteCountsChange(nFetched: number, nVisible: number): boolean { return false }
 	onSelectedNotesChange(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean {
 		let reactedToButtons=false
 		for (const $button of this.$buttonsRequiringSelectedNotes) {

@@ -17,9 +17,6 @@ class ToolBroadcaster {
 	broadcastRefresherPeriodChange(fromTool: Tool|null, refreshPeriod: number): void {
 		this.broadcast(fromTool,tool=>tool.onRefresherPeriodChange(refreshPeriod))
 	}
-	broadcastNoteCountsChange(fromTool: Tool|null, nFetched: number, nVisible: number): void {
-		this.broadcast(fromTool,tool=>tool.onNoteCountsChange(nFetched,nVisible))
-	}
 	broadcastSelectedNotesChange(fromTool: Tool|null, selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): void {
 		this.broadcast(fromTool,tool=>tool.onSelectedNotesChange(selectedNotes,selectedNoteUsers))
 	}
@@ -79,9 +76,6 @@ export default class ToolPanel {
 	}
 	receiveRefresherPeriodChange(refreshPeriod: number) {
 		this.toolBroadcaster.broadcastRefresherPeriodChange(null,refreshPeriod)
-	}
-	receiveNoteCounts(nFetched: number, nVisible: number) { // TODO receive one object with all/visible/selected notes
-		this.toolBroadcaster.broadcastNoteCountsChange(null,nFetched,nVisible)
 	}
 	receiveSelectedNotes(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): void {
 		this.toolBroadcaster.broadcastSelectedNotesChange(null,selectedNotes,selectedNoteUsers)

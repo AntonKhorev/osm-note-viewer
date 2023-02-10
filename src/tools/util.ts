@@ -70,27 +70,22 @@ export class CountTool extends Tool {
 	id='counts'
 	name=`Note counts`
 	title=`See number of fetched/visible/selected notes`
-	private $fetchedNoteCount=document.createElement('output')
-	private $visibleNoteCount=document.createElement('output')
-	private $selectedNoteCount=document.createElement('output')
-	protected getTool(): ToolElements {
-		this.$fetchedNoteCount.textContent='0'
-		this.$visibleNoteCount.textContent='0'
-		this.$selectedNoteCount.textContent='0'
+	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
+		const $fetchedNoteCount=makeElement('output')()('0')
+		const $visibleNoteCount=makeElement('output')()('0')
+		const $selectedNoteCount=makeElement('output')()('0')
+		$root.addEventListener('osmNoteViewer:changeNoteCounts',ev=>{
+			const [nFetched,nVisible,nSelected]=ev.detail
+			$fetchedNoteCount.textContent=String(nFetched)
+			$visibleNoteCount.textContent=String(nVisible)
+			$selectedNoteCount.textContent=String(nSelected)
+			this.ping($tool)
+		})
 		return [
-			this.$fetchedNoteCount,` fetched, `,
-			this.$visibleNoteCount,` visible, `,
-			this.$selectedNoteCount,` selected`
+			$fetchedNoteCount,` fetched, `,
+			$visibleNoteCount,` visible, `,
+			$selectedNoteCount,` selected`
 		]
-	}
-	onNoteCountsChange(nFetched: number, nVisible: number): boolean {
-		this.$fetchedNoteCount.textContent=String(nFetched)
-		this.$visibleNoteCount.textContent=String(nVisible)
-		return true
-	}
-	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean {
-		this.$selectedNoteCount.textContent=String(selectedNotes.length)
-		return true
 	}
 }
 

@@ -154,12 +154,13 @@ export default class NoteTable implements NoteTableUpdater {
 		this.$lastClickedNoteSection=undefined
 		this.noteSectionVisibilityObserver.disconnect()
 		this.$table.replaceChildren()
-		this.toolPanel.receiveNoteCounts(0,0)
+		bubbleCustomEvent(this.$table,'osmNoteViewer:changeNoteCounts',[0,0,0])
 		this.updateCheckboxDependents()
 	}
 	updateFilter(filter: NoteFilter): void {
 		let nFetched=0
 		let nVisible=0
+		let nSelected=0
 		this.filter=filter
 		const getUsername=(uid:number)=>this.usersById.get(uid)
 		for (const $noteSection of this.$table.tBodies) {
@@ -170,8 +171,8 @@ export default class NoteTable implements NoteTableUpdater {
 			if (this.filter.matchNote(note,getUsername)) {
 				nVisible++
 				let targetLayer=this.map.unselectedNoteLayer
-				const $checkbox=$noteSection.querySelector('.note-checkbox input')
-				if ($checkbox instanceof HTMLInputElement && $checkbox.checked) {
+				if (isSelectedNoteSection($noteSection)) {
+					nSelected++
 					targetLayer=this.map.selectedNoteLayer
 				}
 				this.map.moveNoteMarkerToLayer(noteId,targetLayer)
@@ -184,7 +185,7 @@ export default class NoteTable implements NoteTableUpdater {
 				this.setNoteSelection($noteSection,false)
 			}
 		}
-		this.toolPanel.receiveNoteCounts(nFetched,nVisible)
+		bubbleCustomEvent(this.$table,'osmNoteViewer:changeNoteCounts',[nFetched,nVisible,nSelected])
 		this.updateCheckboxDependents()
 	}
 	/**
@@ -390,12 +391,14 @@ export default class NoteTable implements NoteTableUpdater {
 	private sendNoteCounts(): void {
 		let nFetched=0
 		let nVisible=0
+		let nSelected=0
 		for (const $noteSection of this.$table.tBodies) {
 			if (!$noteSection.dataset.noteId) continue
 			nFetched++
 			if (!$noteSection.classList.contains('hidden')) nVisible++
+			if (isSelectedNoteSection($noteSection)) nSelected++
 		}
-		this.toolPanel.receiveNoteCounts(nFetched,nVisible)
+		bubbleCustomEvent(this.$table,'osmNoteViewer:changeNoteCounts',[nFetched,nVisible,nSelected])
 	}
 	private noteMarkerClickListener(marker: NoteMarker): void {
 		const $noteSection=this.getNoteSection(marker.noteId)
@@ -568,6 +571,11 @@ export default class NoteTable implements NoteTableUpdater {
 		if (!($noteSection instanceof HTMLTableSectionElement)) return
 		return $noteSection
 	}
+}
+
+function isSelectedNoteSection($noteSection: HTMLTableSectionElement): boolean {
+	const $checkbox=$noteSection.querySelector('.note-checkbox input')
+	return $checkbox instanceof HTMLInputElement && $checkbox.checked
 }
 
 function isDefined<T>(argument: T | undefined): argument is T {
