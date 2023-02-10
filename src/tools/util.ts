@@ -1,7 +1,7 @@
 import {Tool, ToolElements, ToolCallbacks, makeNotesIcon,  makeMapIcon, makeNoteStatusIcon} from './base'
 import type {Note} from '../data'
 import type NoteMap from '../map'
-import {makeElement, makeLink} from '../html'
+import {bubbleCustomEvent, makeElement, makeLink} from '../html'
 import {em,dfn,p} from '../html-shortcuts'
 
 export class AutozoomTool extends Tool {
@@ -59,10 +59,7 @@ export class TimestampTool extends Tool {
 		$timestampInput.type='text'
 		$timestampInput.size=20
 		$timestampInput.oninput=()=>{
-			$tool.dispatchEvent(new CustomEvent<string>('osmNoteViewer:changeTimestamp',{
-				bubbles: true,
-				detail: $timestampInput.value
-			}))
+			bubbleCustomEvent($tool,'osmNoteViewer:changeTimestamp',$timestampInput.value)
 		}
 		$root.addEventListener('osmNoteViewer:changeTimestamp',ev=>{
 			if (ev.target==$tool) return
@@ -74,10 +71,7 @@ export class TimestampTool extends Tool {
 		$clearButton.textContent='Clear'
 		const $form=makeElement('form')()($timestampInput,` `,$clearButton)
 		$form.onreset=()=>{
-			$tool.dispatchEvent(new CustomEvent<string>('osmNoteViewer:changeTimestamp',{
-				bubbles: true,
-				detail: $timestampInput.value
-			}))
+			bubbleCustomEvent($tool,'osmNoteViewer:changeTimestamp','')
 		}
 		return [$form]
 	}

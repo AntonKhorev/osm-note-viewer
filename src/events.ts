@@ -1,3 +1,5 @@
+import {bubbleCustomEvent} from "./html"
+
 export default class GlobalEventListener {
 	constructor() {
 		document.body.addEventListener('click',ev=>{
@@ -25,10 +27,7 @@ export default class GlobalEventListener {
 				ev.stopPropagation()
 			} else if ($e instanceof HTMLTimeElement) {
 				if ($e.dateTime) {
-					$e.dispatchEvent(new CustomEvent<string>('osmNoteViewer:changeTimestamp',{
-						bubbles: true,
-						detail: $e.dateTime
-					}))
+					bubbleCustomEvent($e,'osmNoteViewer:changeTimestamp',$e.dateTime)
 					ev.preventDefault()
 					ev.stopPropagation()
 				}

@@ -14,7 +14,7 @@ import NoteSectionVisibilityObserver from './observer'
 import NoteTableAndRefresherConnector from './refresher-connector'
 import type Server from './server'
 import fetchTableNote from './fetch-note'
-import {makeElement, makeDiv, resetFadeAnimation} from './html'
+import {makeElement, makeDiv, resetFadeAnimation, bubbleCustomEvent} from './html'
 
 export interface NoteTableUpdater {
 	addNotes(notes: Iterable<Note>, users: Users): number
@@ -410,10 +410,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.noteSectionVisibilityObserver.haltMapFitting() // otherwise scrollIntoView() may ruin note pan/zoom - it may cause observer to fire after exiting this function
 		if (!isSectionClicked) $noteSection.scrollIntoView({block:'nearest'})
 		const noteId=Number($noteSection.dataset.noteId)
-		$noteSection.dispatchEvent(new CustomEvent<number>('osmNoteViewer:focusOnNote',{ // TODO correct target, it could be a marker
-			bubbles: true,
-			detail: noteId
-		}))
+		bubbleCustomEvent($noteSection,'osmNoteViewer:focusOnNote',noteId) // TODO correct target, it could be a marker
 	}
 	private deactivateNote(type: 'hover'|'click', $noteSection: HTMLTableSectionElement): void {
 		$noteSection.classList.remove('active-'+type)
