@@ -33,7 +33,7 @@ async function main() {
 		}
 	} catch {}
 	const serverList=new ServerList(...serverListConfigSources)
-	const globalEventsListener=new GlobalEventsListener()
+	new GlobalEventsListener()
 
 	const $navbarContainer=document.createElement('nav')
 	const $fetchContainer=makeDiv('panel','fetch')()
@@ -66,7 +66,7 @@ async function main() {
 	const navbar=new Navbar(storage,$navbarContainer,map)
 	const fetchPanel=new NoteFetchPanel(
 		document.body,
-		storage,db,globalEventsListener,globalHistory,auth,
+		storage,db,globalHistory,auth,
 		$fetchContainer,$moreContainer,
 		navbar,noteTable,map
 	)

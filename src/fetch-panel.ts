@@ -22,7 +22,7 @@ export default class NoteFetchPanel {
 	constructor(
 		$root: HTMLElement,
 		storage: NoteViewerStorage, db: NoteViewerDB,
-		globalEventsListener: GlobalEventsListener, globalHistory: GlobalHistory, auth: Auth|undefined,
+		globalHistory: GlobalHistory, auth: Auth|undefined,
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		navbar: Navbar, noteTable: NoteTable|undefined, map: NoteMap|undefined
 	) {

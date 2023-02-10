@@ -156,21 +156,15 @@ export default class NoteTable implements NoteTableUpdater {
 		this.updateCheckboxDependentsAndSendNoteChangeEvents()
 	}
 	updateFilter(filter: NoteFilter): void {
-		let nFetched=0
-		let nVisible=0
-		let nSelected=0
 		this.filter=filter
 		const getUsername=(uid:number)=>this.usersById.get(uid)
 		for (const $noteSection of this.$table.tBodies) {
 			const noteId=Number($noteSection.dataset.noteId)
 			const note=this.notesById.get(noteId)
 			if (note==null) continue
-			nFetched++
 			if (this.filter.matchNote(note,getUsername)) {
-				nVisible++
 				let targetLayer=this.map.unselectedNoteLayer
 				if (isSelectedNoteSection($noteSection)) {
-					nSelected++
 					targetLayer=this.map.selectedNoteLayer
 				}
 				this.map.moveNoteMarkerToLayer(noteId,targetLayer)
