@@ -174,12 +174,12 @@ export default class NoteTable implements NoteTableUpdater {
 					targetLayer=this.map.selectedNoteLayer
 				}
 				this.map.moveNoteMarkerToLayer(noteId,targetLayer)
-				$noteSection.classList.remove('hidden')
+				$noteSection.hidden=false
 			} else {
 				this.deactivateNote('click',$noteSection)
 				this.deactivateNote('hover',$noteSection)
 				this.map.moveNoteMarkerToLayer(noteId,this.map.filteredNoteLayer)
-				$noteSection.classList.add('hidden')
+				$noteSection.hidden=true
 				this.setNoteSelection($noteSection,false)
 			}
 		}
@@ -287,7 +287,7 @@ export default class NoteTable implements NoteTableUpdater {
 		if (!$noteSection) {
 			$a.classList.add('absent')
 			$a.title=`The note is not downloaded`
-		} else if ($noteSection.classList.contains('hidden')) {
+		} else if ($noteSection.hidden) {
 			$a.classList.add('absent')
 			$a.title=`The note is filtered out`
 		} else {
@@ -358,7 +358,7 @@ export default class NoteTable implements NoteTableUpdater {
 		note: Note, users: Users,
 		isVisible: boolean
 	): void {
-		if (!isVisible) $noteSection.classList.add('hidden')
+		if (!isVisible) $noteSection.hidden=true
 		$noteSection.id=`note-${note.id}`
 		$noteSection.classList.add(`status-${note.status}`)
 		for (const [event,listener] of this.wrappedNoteSectionListeners) {
@@ -387,7 +387,7 @@ export default class NoteTable implements NoteTableUpdater {
 		for (const $noteSection of this.$table.tBodies) {
 			if (!$noteSection.dataset.noteId) continue
 			nFetched++
-			if (!$noteSection.classList.contains('hidden')) nVisible++
+			if (!$noteSection.hidden) nVisible++
 			if (isSelectedNoteSection($noteSection)) nSelected++
 		}
 		bubbleCustomEvent(this.$table,'osmNoteViewer:changeNoteCounts',[nFetched,nVisible,nSelected])
@@ -473,7 +473,7 @@ export default class NoteTable implements NoteTableUpdater {
 		const selectedNoteUsers: Map<number,string> = new Map()
 		for (const $noteSection of this.$table.tBodies) {
 			nFetched++
-			if ($noteSection.classList.contains('hidden')) continue
+			if ($noteSection.hidden) continue
 			nVisible++
 			if (!isSelectedNoteSection($noteSection)) continue
 			const noteId=Number($noteSection.dataset.noteId)
@@ -491,7 +491,7 @@ export default class NoteTable implements NoteTableUpdater {
 	}
 	private setNoteSelection($noteSection: HTMLTableSectionElement, isSelected: boolean): void {
 		const getTargetLayer=()=>{
-			if ($noteSection.classList.contains('hidden')) {
+			if ($noteSection.hidden) {
 				return this.map.filteredNoteLayer
 			} else if (isSelected) {
 				return this.map.selectedNoteLayer
@@ -511,7 +511,7 @@ export default class NoteTable implements NoteTableUpdater {
 		marker.getElement()?.classList.add(...activeClasses)
 	}
 	private listVisibleNoteSections(): NodeListOf<HTMLTableSectionElement> {
-		return this.$table.querySelectorAll('tbody:not(.hidden)')
+		return this.$table.querySelectorAll('tbody:not([hidden])')
 	}
 	private *listVisibleNoteSectionsWithIds(): Generator<[HTMLTableSectionElement,number]> {
 		for (const $noteSection of this.listVisibleNoteSections()) {

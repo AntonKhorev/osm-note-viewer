@@ -55,9 +55,6 @@
 .notes tbody.status-hidden {
 	box-shadow: -2px 0px 0px 0px black, 2px 0px 0px 0px black;
 }
-.notes tbody.hidden {
-	display: none;
-}
 .notes tbody.active-hover::before {
 	content: '';
 	display: block;
