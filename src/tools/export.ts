@@ -12,13 +12,8 @@ import {em,dfn,code,p,ul,li} from '../html-shortcuts'
 import {escapeXml, makeEscapeTag} from '../escape'
 
 abstract class ExportTool extends Tool {
-	protected selectedNotes: ReadonlyArray<Note> = []
-	protected selectedNoteUsers: ReadonlyMap<number,string> = new Map()
-	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean {
-		this.selectedNotes=selectedNotes
-		this.selectedNoteUsers=selectedNoteUsers
-		return true
-	}
+	protected inputNotes: ReadonlyArray<Note> = []
+	protected inputNoteUsers: ReadonlyMap<number,string> = new Map()
 	protected getInfo(): ToolElements {
 		return [
 			...this.getInfoWithoutDragAndDrop(),
@@ -29,7 +24,7 @@ abstract class ExportTool extends Tool {
 			)
 		]
 	}
-	protected getTool(): ToolElements {
+	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
 		const $optionSelects=Object.fromEntries(
 			Object.entries(this.describeOptions()).map(([key,valuesWithTexts])=>{
 				const $select=document.createElement('select')
@@ -61,6 +56,12 @@ abstract class ExportTool extends Tool {
 			if (!ev.dataTransfer) return
 			ev.dataTransfer.setData($dataTypeSelect.value,data)
 		}
+		$root.addEventListener('osmNoteViewer:changeInputNotes',ev=>{
+			const [inputNotes,inputNoteUsers]=ev.detail
+			this.inputNotes=inputNotes
+			this.inputNoteUsers=inputNoteUsers
+			this.ping($tool)
+		})
 		return [
 			$exportNotesButton,` `,
 			...this.writeOptions($optionSelects),`, `,
@@ -83,7 +84,7 @@ abstract class ExportTool extends Tool {
 		for (const comment of comments) {
 			let t=''
 			if (comment.uid) {
-				const username=this.selectedNoteUsers.get(comment.uid)
+				const username=this.inputNoteUsers.get(comment.uid)
 				if (username!=null) {
 					t+=`${username}`
 				} else {
@@ -151,7 +152,7 @@ export class GpxTool extends ExportTool {
 		const e=makeEscapeTag(escapeXml)
 		const getPoints=(pointTag: string, getDetails: (note: Note) => string = ()=>''): string => {
 			let gpx=''
-			for (const note of this.selectedNotes) {
+			for (const note of this.inputNotes) {
 				const firstComment=note.comments[0]
 				gpx+=e`<${pointTag} lat="${note.lat}" lon="${note.lon}">\n`
 				if (firstComment) gpx+=e`<time>${toUrlDate(firstComment.date)}</time>\n`
@@ -287,7 +288,7 @@ export class GeoJsonTool extends ExportTool {
 			const result: {[key:string]:string|number} = {}
 			if (comment.uid==null) return result
 			result.uid=comment.uid
-			const username=this.selectedNoteUsers.get(comment.uid)
+			const username=this.inputNoteUsers.get(comment.uid)
 			if (username==null) return result
 			result.user=username
 			if (options.urls=='web') {
@@ -354,7 +355,7 @@ export class GeoJsonTool extends ExportTool {
 				}
 			}
 		}
-		const features: Feature[] = this.selectedNotes.map(note=>({
+		const features: Feature[] = this.inputNotes.map(note=>({
 			type: 'Feature',
 			geometry: {
 				type: 'Point',
@@ -368,12 +369,12 @@ export class GeoJsonTool extends ExportTool {
 				...generateNoteComments(note.comments),
 			}
 		}))
-		if (options.connect=='line' && this.selectedNotes.length>1) {
+		if (options.connect=='line' && this.inputNotes.length>1) {
 			features.push({
 				type: 'Feature',
 				geometry: {
 					type: 'LineString',
-					coordinates: this.selectedNotes.map(note=>[note.lon,note.lat]),
+					coordinates: this.inputNotes.map(note=>[note.lon,note.lat]),
 				},
 				properties: null
 			})

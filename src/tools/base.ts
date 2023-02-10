@@ -77,7 +77,7 @@ export abstract class Tool {
 			$container.append($tool)
 		}
 		$root.addEventListener('osmNoteViewer:changeInputNotes',ev=>{
-			const [inputNotes,inputNoteUsers]=ev.detail
+			const [inputNotes]=ev.detail
 			let reactedToButtons=false
 			for (const $button of this.$buttonsRequiringSelectedNotes) {
 				const newDisabled=inputNotes.length<=0
@@ -86,8 +86,7 @@ export abstract class Tool {
 					reactedToButtons=true
 				}
 			}
-			const reactedToOthers=this.onSelectedNotesChangeWithoutHandlingButtons(inputNotes,inputNoteUsers)
-			if (reactedToButtons||reactedToOthers) this.ping($tool)
+			if (reactedToButtons) this.ping($tool)
 		})
 	}
 	protected isActiveWithCurrentServerConfiguration(): boolean { return true }
@@ -99,7 +98,6 @@ export abstract class Tool {
 	onLoginChange(): boolean { return false }
 	onRefresherStateChange(isRunning: boolean, message: string|undefined): boolean { return false }
 	onRefresherPeriodChange(refreshPeriod: number): boolean { return false }
-	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean { return false }
 	protected makeRequiringSelectedNotesButton(): HTMLButtonElement {
 		const $button=document.createElement('button')
 		$button.disabled=true

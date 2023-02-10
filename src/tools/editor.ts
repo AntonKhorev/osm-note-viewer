@@ -9,18 +9,18 @@ export class RcTool extends Tool {
 	id='rc'
 	name=`RC`
 	title=`Run remote control commands in external editors (usually JOSM)`
-	private selectedNotes: ReadonlyArray<Note> = []
 	protected getInfo() {return[p(
 		`Load note/map data to an editor with `,
 		makeLink(`remote control`,'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl'),
 		`.`
 	)]}
 	protected getTool($root: HTMLElement, $tool: HTMLElement, callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+		let inputNotes: ReadonlyArray<Note> = []
 		const e=makeEscapeTag(encodeURIComponent)
 		const $loadNotesButton=this.makeRequiringSelectedNotesButton()
 		$loadNotesButton.append(`Load `,makeNotesIcon('selected'))
 		$loadNotesButton.onclick=async()=>{
-			for (const {id} of this.selectedNotes) {
+			for (const {id} of inputNotes) {
 				const noteUrl=this.auth.server.web.getUrl(e`note/${id}`)
 				const rcUrl=e`http://127.0.0.1:8111/import?url=${noteUrl}`
 				const success=await openRcUrl($loadNotesButton,rcUrl)
@@ -36,11 +36,11 @@ export class RcTool extends Tool {
 				`&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`
 			openRcUrl($loadMapButton,rcUrl)
 		}
+		$root.addEventListener('osmNoteViewer:changeInputNotes',ev=>{
+			[inputNotes]=ev.detail
+			this.ping($tool)
+		})
 		return [$loadNotesButton,` `,$loadMapButton]
-	}
-	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean {
-		this.selectedNotes=selectedNotes
-		return true
 	}
 }
 
