@@ -40,7 +40,7 @@ export default class NoteTable implements NoteTableUpdater {
 	constructor(
 		$root: HTMLElement,
 		$container: HTMLElement,
-		private toolPanel: ToolPanel, private map: NoteMap, private filter: NoteFilter,
+		toolPanel: ToolPanel, private map: NoteMap, private filter: NoteFilter,
 		private server: Server
 	) {
 		this.$table.setAttribute('role','grid')
