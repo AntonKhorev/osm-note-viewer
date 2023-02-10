@@ -17,9 +17,6 @@ class ToolBroadcaster {
 	broadcastRefresherPeriodChange(fromTool: Tool|null, refreshPeriod: number): void {
 		this.broadcast(fromTool,tool=>tool.onRefresherPeriodChange(refreshPeriod))
 	}
-	broadcastSelectedNotesChange(fromTool: Tool|null, selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): void {
-		this.broadcast(fromTool,tool=>tool.onSelectedNotesChange(selectedNotes,selectedNoteUsers))
-	}
 	private broadcast(fromTool: Tool|null, sendMessageToTool: (tool:Tool)=>boolean) {
 		if (fromTool) {
 			if (this.sources.has(fromTool)) return
@@ -76,9 +73,6 @@ export default class ToolPanel {
 	}
 	receiveRefresherPeriodChange(refreshPeriod: number) {
 		this.toolBroadcaster.broadcastRefresherPeriodChange(null,refreshPeriod)
-	}
-	receiveSelectedNotes(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): void {
-		this.toolBroadcaster.broadcastSelectedNotesChange(null,selectedNotes,selectedNoteUsers)
 	}
 	get replaceUpdatedNotes(): boolean {
 		return this.#replaceUpdatedNotes

@@ -452,7 +452,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.$selectAllCheckbox.indeterminate=hasSelected && hasUnselected
 		this.$selectAllCheckbox.checked=hasSelected && !hasUnselected
 		bubbleCustomEvent(this.$table,'osmNoteViewer:changeNoteCounts',[nFetched,nVisible,selectedNotes.length])
-		this.toolPanel.receiveSelectedNotes(selectedNotes,selectedNoteUsers)
+		bubbleCustomEvent(this.$table,'osmNoteViewer:changeInputNotes',[selectedNotes,selectedNoteUsers])
 		if (this.mapFitMode=='selectedNotes') this.map.fitSelectedNotes()
 	}
 	private getCheckedData(): [

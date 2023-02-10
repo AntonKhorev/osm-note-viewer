@@ -54,7 +54,7 @@ export class InteractTool extends Tool {
 	private $reactivateButton=document.createElement('button')
 	private $runButton=makeElement('button')('only-with-icon')()
 	private $runOutput=document.createElement('output')
-	private readonly selectedNoteIds: Map<Note['status'],number[]> = new Map(noteStatuses.map(status=>[status,[]]))
+	private readonly stagedNoteIds: Map<Note['status'],number[]> = new Map(noteStatuses.map(status=>[status,[]]))
 	private run?: InteractionRun
 	private interactionDescriptions: InteractionDescription[]=[{
 		verb: 'POST',
@@ -154,7 +154,7 @@ export class InteractTool extends Tool {
 					this.updateRunButton()
 					this.updateRunOutput()
 				} else {
-					const matchingNoteIds=this.selectedNoteIds.get(interactionDescription.inputNoteStatus)
+					const matchingNoteIds=this.stagedNoteIds.get(interactionDescription.inputNoteStatus)
 					if (!matchingNoteIds) return
 					const runImmediately=matchingNoteIds.length<=1
 					this.run={
@@ -182,6 +182,21 @@ export class InteractTool extends Tool {
 				scheduleRunNextNote()
 			}
 		}
+		$root.addEventListener('osmNoteViewer:changeInputNotes',ev=>{
+			const [inputNotes]=ev.detail
+			for (const status of noteStatuses) {
+				const ids=this.stagedNoteIds.get(status)
+				if (ids) ids.length=0
+			}
+			for (const inputNote of inputNotes) {
+				const ids=this.stagedNoteIds.get(inputNote.status)
+				ids?.push(inputNote.id)
+			}
+			if (this.run?.status=='running') return
+			this.updateWithOutput()
+			this.updateButtons()
+			this.ping($tool)
+		})
 		return [
 			this.$asOutput,` `,this.$withOutput,` `,
 			makeDiv('major-input')(this.$commentText),
@@ -194,23 +209,6 @@ export class InteractTool extends Tool {
 		this.updateAsOutput()
 		this.updateButtons()
 		return true
-	}
-	onSelectedNotesChange(selectedNotes: ReadonlyArray<Note>): boolean {
-		for (const status of noteStatuses) {
-			const ids=this.selectedNoteIds.get(status)
-			if (ids) ids.length=0
-		}
-		for (const selectedNote of selectedNotes) {
-			const ids=this.selectedNoteIds.get(selectedNote.status)
-			ids?.push(selectedNote.id)
-		}
-		if (this.run?.status=='running') {
-			return false
-		} else {
-			this.updateWithOutput()
-			this.updateButtons()
-			return true
-		}
 	}
 	private updateYourNotes(): void {
 		const apiText=`your own latest updated notes`
@@ -246,7 +244,7 @@ export class InteractTool extends Tool {
 		}
 	}
 	private updateWithOutput(): void {
-		const multipleNoteIndicators=this.getMultipleNoteIndicators(this.selectedNoteIds,5)
+		const multipleNoteIndicators=this.getMultipleNoteIndicators(this.stagedNoteIds,5)
 		if (multipleNoteIndicators.length>0) {
 			this.$withOutput.replaceChildren(`with `,...multipleNoteIndicators)
 		} else {
@@ -268,7 +266,7 @@ export class InteractTool extends Tool {
 			}
 		}
 		for (const interactionDescription of this.interactionDescriptions) {
-			const inputNoteIds=this.selectedNoteIds.get(interactionDescription.inputNoteStatus)??[]
+			const inputNoteIds=this.stagedNoteIds.get(interactionDescription.inputNoteStatus)??[]
 			const {$button}=interactionDescription
 			let cancelCondition=false
 			if (this.run && this.run.status!='finished') {
@@ -363,14 +361,14 @@ export class InteractTool extends Tool {
 			}
 			const transitionToPaused=()=>{
 				this.$commentText.disabled=false
-				this.updateWithOutput() // may have received selected notes change
+				this.updateWithOutput() // may have received input notes change
 				this.updateButtons()
 				this.updateRunButton()
 			}
 			const transitionToFinished=()=>{
 				this.$commentText.disabled=false
 				this.$commentText.value=''
-				this.updateWithOutput() // may have received selected notes change
+				this.updateWithOutput() // may have received input notes change
 				this.updateButtons()
 				this.updateRunButton()
 				this.updateRunOutput()

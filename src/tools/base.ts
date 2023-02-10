@@ -76,6 +76,19 @@ export abstract class Tool {
 		} else {
 			$container.append($tool)
 		}
+		$root.addEventListener('osmNoteViewer:changeInputNotes',ev=>{
+			const [inputNotes,inputNoteUsers]=ev.detail
+			let reactedToButtons=false
+			for (const $button of this.$buttonsRequiringSelectedNotes) {
+				const newDisabled=inputNotes.length<=0
+				if ($button.disabled!=newDisabled) {
+					$button.disabled=newDisabled
+					reactedToButtons=true
+				}
+			}
+			const reactedToOthers=this.onSelectedNotesChangeWithoutHandlingButtons(inputNotes,inputNoteUsers)
+			if (reactedToButtons||reactedToOthers) this.ping($tool)
+		})
 	}
 	protected isActiveWithCurrentServerConfiguration(): boolean { return true }
 	protected abstract getTool(
@@ -86,18 +99,6 @@ export abstract class Tool {
 	onLoginChange(): boolean { return false }
 	onRefresherStateChange(isRunning: boolean, message: string|undefined): boolean { return false }
 	onRefresherPeriodChange(refreshPeriod: number): boolean { return false }
-	onSelectedNotesChange(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean {
-		let reactedToButtons=false
-		for (const $button of this.$buttonsRequiringSelectedNotes) {
-			const newDisabled=selectedNotes.length<=0
-			if ($button.disabled!=newDisabled) {
-				$button.disabled=newDisabled
-				reactedToButtons=true
-			}
-		}
-		const reactedToOthers=this.onSelectedNotesChangeWithoutHandlingButtons(selectedNotes,selectedNoteUsers)
-		return reactedToButtons||reactedToOthers
-	}
 	protected onSelectedNotesChangeWithoutHandlingButtons(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): boolean { return false }
 	protected makeRequiringSelectedNotesButton(): HTMLButtonElement {
 		const $button=document.createElement('button')
