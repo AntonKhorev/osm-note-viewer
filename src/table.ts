@@ -4,7 +4,6 @@ import NoteMarker from './marker'
 import LooseParserListener from './loose-listen'
 import LooseParserPopup from './loose-popup'
 import parseLoose from './loose'
-import type FigureDialog from './figure'
 import writeNoteSectionRows from './table-section'
 import noteTableKeydownListener from './table-keyboard'
 import CommentWriter, {handleShowImagesUpdate} from './comment-writer'
@@ -154,8 +153,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.$lastClickedNoteSection=undefined
 		this.noteSectionVisibilityObserver.disconnect()
 		this.$table.replaceChildren()
-		bubbleCustomEvent(this.$table,'osmNoteViewer:changeNoteCounts',[0,0,0])
-		this.updateCheckboxDependents()
+		this.updateCheckboxDependentsAndSendNoteChangeEvents()
 	}
 	updateFilter(filter: NoteFilter): void {
 		let nFetched=0
@@ -185,8 +183,7 @@ export default class NoteTable implements NoteTableUpdater {
 				this.setNoteSelection($noteSection,false)
 			}
 		}
-		bubbleCustomEvent(this.$table,'osmNoteViewer:changeNoteCounts',[nFetched,nVisible,nSelected])
-		this.updateCheckboxDependents()
+		this.updateCheckboxDependentsAndSendNoteChangeEvents()
 	}
 	/**
 	 * @returns number of added notes that passed through the filter
@@ -260,12 +257,7 @@ export default class NoteTable implements NoteTableUpdater {
 		const $a2=$noteSection.querySelector('td.note-link a')
 		if (!($a2 instanceof HTMLAnchorElement)) throw new Error(`note link not found after note replace`)
 		if (isNoteLinkFocused) $a2.focus()
-		if (isVisible) {
-			this.sendSelectedNotes()
-		} else {
-			this.updateCheckboxDependents()
-			this.sendNoteCounts()
-		}
+		this.updateCheckboxDependentsAndSendNoteChangeEvents()
 		this.refresherConnector.registerNote(note)
 	}
 	getVisibleNoteIds(): number[] {
@@ -416,13 +408,13 @@ export default class NoteTable implements NoteTableUpdater {
 			}
 			this.$lastClickedNoteSection=$clickedNoteSection
 		}
-		this.updateCheckboxDependents()
+		this.updateCheckboxDependentsAndSendNoteChangeEvents()
 	}
 	private allNotesCheckboxClickListener($allCheckbox: HTMLInputElement, ev: MouseEvent) {
 		for (const $noteSection of this.listVisibleNoteSections()) {
 			this.setNoteSelection($noteSection,$allCheckbox.checked)
 		}
-		this.updateCheckboxDependents()
+		this.updateCheckboxDependentsAndSendNoteChangeEvents()
 	}
 	private focusOnNote($noteSection: HTMLTableSectionElement, isSectionClicked: boolean = false): void {
 		this.activateNote('click',$noteSection)
@@ -459,49 +451,43 @@ export default class NoteTable implements NoteTableUpdater {
 		marker.getElement()?.classList.add('active-'+type)
 		$noteSection.classList.add('active-'+type)
 	}
-	private sendSelectedNotes(): void {
-		const [
-			checkedNotes,checkedNoteUsers
-		]=this.getCheckedData()
-		this.toolPanel.receiveSelectedNotes(checkedNotes,checkedNoteUsers)
-	}
-	private updateCheckboxDependents(): void {
-		const [
-			checkedNotes,checkedNoteUsers,hasUnchecked
-		]=this.getCheckedData()
-		const hasChecked=checkedNotes.length>0
-		this.$selectAllCheckbox.indeterminate=hasChecked && hasUnchecked
-		this.$selectAllCheckbox.checked=hasChecked && !hasUnchecked
-		this.toolPanel.receiveSelectedNotes(checkedNotes,checkedNoteUsers)
+	private updateCheckboxDependentsAndSendNoteChangeEvents(): void {
+		const [nFetched,nVisible,selectedNotes,selectedNoteUsers]=this.getCheckedData()
+		const hasSelected=selectedNotes.length>0
+		const hasUnselected=nVisible>selectedNotes.length
+		this.$selectAllCheckbox.indeterminate=hasSelected && hasUnselected
+		this.$selectAllCheckbox.checked=hasSelected && !hasUnselected
+		bubbleCustomEvent(this.$table,'osmNoteViewer:changeNoteCounts',[nFetched,nVisible,selectedNotes.length])
+		this.toolPanel.receiveSelectedNotes(selectedNotes,selectedNoteUsers)
 		if (this.mapFitMode=='selectedNotes') this.map.fitSelectedNotes()
 	}
 	private getCheckedData(): [
-		checkedNotes: Note[],
-		checkedNoteUsers: Map<number,string>,
-		hasUnchecked: boolean
+		nFetched: number,
+		nVisible: number,
+		selectedNotes: Note[],
+		selectedNoteUsers: Map<number,string>
 	] {
-		const checkedNotes: Note[] = []
-		const checkedNoteUsers: Map<number,string> = new Map()
-		let hasUnchecked=false
-		for (const $noteSection of this.listVisibleNoteSections()) {
-			const $checkbox=$noteSection.querySelector('.note-checkbox input')
-			if (!($checkbox instanceof HTMLInputElement)) continue
-			if (!$checkbox.checked) {
-				hasUnchecked=true
-				continue
-			}
+		let nFetched=0
+		let nVisible=0
+		const selectedNotes: Note[] = []
+		const selectedNoteUsers: Map<number,string> = new Map()
+		for (const $noteSection of this.$table.tBodies) {
+			nFetched++
+			if ($noteSection.classList.contains('hidden')) continue
+			nVisible++
+			if (!isSelectedNoteSection($noteSection)) continue
 			const noteId=Number($noteSection.dataset.noteId)
 			const note=this.notesById.get(noteId)
 			if (!note) continue
-			checkedNotes.push(note)
+			selectedNotes.push(note)
 			for (const comment of note.comments) {
 				if (comment.uid==null) continue
 				const username=this.usersById.get(comment.uid)
 				if (username==null) continue
-				checkedNoteUsers.set(comment.uid,username)
+				selectedNoteUsers.set(comment.uid,username)
 			}
 		}
-		return [checkedNotes,checkedNoteUsers,hasUnchecked]
+		return [nFetched,nVisible,selectedNotes,selectedNoteUsers]
 	}
 	private setNoteSelection($noteSection: HTMLTableSectionElement, isSelected: boolean): void {
 		const getTargetLayer=()=>{
