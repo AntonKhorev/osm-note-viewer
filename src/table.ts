@@ -95,6 +95,15 @@ export default class NoteTable implements NoteTableUpdater {
 			['click',function(){ // need 'click' and not 'mouseup' event because elements inside may listen to click and choose to cancel it
 				if ($clickReadyNoteSection==this) {
 					that.focusOnNote(this,true)
+					if (!that.$selectAllCheckbox.checked && !that.$selectAllCheckbox.indeterminate) {
+						const noteId=Number(this.dataset.noteId)
+						const note=that.notesById.get(noteId)
+						if (note) {
+							const noteUsers=new Map<number,string>()
+							that.addNoteUsersToMap(noteUsers,note)
+							bubbleCustomEvent(that.$table,'osmNoteViewer:changeInputNotes',[[note],noteUsers])
+						}
+					}
 				}
 				$clickReadyNoteSection=undefined
 			}]
@@ -464,7 +473,7 @@ export default class NoteTable implements NoteTableUpdater {
 		let nFetched=0
 		let nVisible=0
 		const selectedNotes: Note[] = []
-		const selectedNoteUsers: Map<number,string> = new Map()
+		const selectedNoteUsers=new Map<number,string>()
 		for (const $noteSection of this.$table.tBodies) {
 			nFetched++
 			if ($noteSection.hidden) continue
@@ -474,12 +483,7 @@ export default class NoteTable implements NoteTableUpdater {
 			const note=this.notesById.get(noteId)
 			if (!note) continue
 			selectedNotes.push(note)
-			for (const comment of note.comments) {
-				if (comment.uid==null) continue
-				const username=this.usersById.get(comment.uid)
-				if (username==null) continue
-				selectedNoteUsers.set(comment.uid,username)
-			}
+			this.addNoteUsersToMap(selectedNoteUsers,note)
 		}
 		return [nFetched,nVisible,selectedNotes,selectedNoteUsers]
 	}
@@ -550,6 +554,14 @@ export default class NoteTable implements NoteTableUpdater {
 		const $noteSection=document.getElementById(`note-`+noteId) // TODO look in $table
 		if (!($noteSection instanceof HTMLTableSectionElement)) return
 		return $noteSection
+	}
+	private addNoteUsersToMap(selectedNoteUsers: Map<number,string>, note: Note): void {
+		for (const comment of note.comments) {
+			if (comment.uid==null) continue
+			const username=this.usersById.get(comment.uid)
+			if (username==null) continue
+			selectedNoteUsers.set(comment.uid,username)
+		}
 	}
 }
 
