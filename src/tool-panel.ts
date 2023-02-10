@@ -2,7 +2,7 @@ import type NoteViewerStorage from './storage'
 import type Auth from './auth'
 import type {Note, Users} from './data'
 import type NoteMap from './map'
-import type {Tool, ToolFitMode, ToolCallbacks} from './tools'
+import type {Tool, ToolCallbacks} from './tools'
 import {toolMakerSequence} from './tools'
 
 class ToolBroadcaster {
@@ -40,7 +40,6 @@ class ToolBroadcaster {
 
 export default class ToolPanel {
 	private toolBroadcaster: ToolBroadcaster
-	#fitMode: ToolFitMode
 	#replaceUpdatedNotes: boolean = false
 	onRefresherStateChange?: (isRunning:boolean)=>void
 	onRefresherPeriodChange?: (refreshPeriod:number)=>void
@@ -53,7 +52,6 @@ export default class ToolPanel {
 	) {
 		const tools: Tool[] = []
 		const toolCallbacks: ToolCallbacks = {
-			onFitModeChange: (fromTool,fitMode)=>this.#fitMode=fitMode,
 			onRefresherStateChange: (fromTool,isRunning,message)=>this.onRefresherStateChange?.(isRunning),
 			onRefresherRefreshChange: (fromTool,replaceUpdatedNotes)=>this.#replaceUpdatedNotes=replaceUpdatedNotes,
 			onRefresherPeriodChange: (fromTool,refreshPeriod)=>this.onRefresherPeriodChange?.(refreshPeriod),
@@ -87,9 +85,6 @@ export default class ToolPanel {
 	}
 	receiveSelectedNotes(selectedNotes: ReadonlyArray<Note>, selectedNoteUsers: ReadonlyMap<number,string>): void {
 		this.toolBroadcaster.broadcastSelectedNotesChange(null,selectedNotes,selectedNoteUsers)
-	}
-	get fitMode(): ToolFitMode {
-		return this.#fitMode
 	}
 	get replaceUpdatedNotes(): boolean {
 		return this.#replaceUpdatedNotes

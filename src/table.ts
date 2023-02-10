@@ -14,7 +14,7 @@ import NoteSectionVisibilityObserver from './observer'
 import NoteTableAndRefresherConnector from './refresher-connector'
 import type Server from './server'
 import fetchTableNote from './fetch-note'
-import {makeElement, makeDiv, resetFadeAnimation, bubbleCustomEvent} from './html'
+import {makeElement, resetFadeAnimation, bubbleCustomEvent} from './html'
 
 export interface NoteTableUpdater {
 	addNotes(notes: Iterable<Note>, users: Users): number
@@ -36,6 +36,7 @@ export default class NoteTable implements NoteTableUpdater {
 	private usersById = new Map<number,string>()
 	private commentWriter: CommentWriter
 	private showImages: boolean = false
+	private mapFitMode: 'allNotes' | 'selectedNotes' | 'inViewNotes' | undefined
 	onRefresherUpdate?: (note:Note,users:Users)=>Promise<void>
 	constructor(
 		$root: HTMLElement,
@@ -111,7 +112,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.$table.addEventListener('keydown',noteTableKeydownListener)
 		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver((visibleNoteIds,isMapFittingHalted)=>{
 			map.showNoteTrack(visibleNoteIds)
-			if (!isMapFittingHalted && toolPanel.fitMode=='inViewNotes') map.fitNoteTrack()
+			if (!isMapFittingHalted && this.mapFitMode=='inViewNotes') map.fitNoteTrack()
 			this.refresherConnector.observeNotesByRefresher(
 				visibleNoteIds.map(id=>this.notesById.get(id)).filter(isDefined)
 			)
@@ -129,6 +130,21 @@ export default class NoteTable implements NoteTableUpdater {
 			const $a=ev.target
 			if (!($a instanceof HTMLAnchorElement) || !$a.dataset.noteId) return
 			this.pingNoteFromLink($a,$a.dataset.noteId)
+		})
+		$root.addEventListener('osmNoteViewer:changeMapFitMode',ev=>{
+			const mapFitMode=ev.detail
+			if (mapFitMode=='allNotes') {
+				this.mapFitMode=mapFitMode
+				map.fitNotes()
+			} else if (mapFitMode=='selectedNotes') {
+				this.mapFitMode=mapFitMode
+				map.fitSelectedNotes()
+			} else if (mapFitMode=='inViewNotes') {
+				this.mapFitMode=mapFitMode
+				map.fitNoteTrack()
+			} else {
+				this.mapFitMode=undefined
+			}
 		})
 	}
 	reset(): void {
@@ -209,7 +225,7 @@ export default class NoteTable implements NoteTableUpdater {
 			this.writeNoteSection($noteSection,$checkbox,note,users,isVisible)
 			this.refresherConnector.registerNote(note)
 		}
-		if (this.toolPanel.fitMode=='allNotes') {
+		if (this.mapFitMode=='allNotes') {
 			this.map.fitNotes()
 		} else {
 			this.map.fitNotesIfNeeded()
@@ -454,7 +470,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.$selectAllCheckbox.indeterminate=hasChecked && hasUnchecked
 		this.$selectAllCheckbox.checked=hasChecked && !hasUnchecked
 		this.toolPanel.receiveSelectedNotes(checkedNotes,checkedNoteUsers)
-		if (this.toolPanel.fitMode=='selectedNotes') this.map.fitSelectedNotes()
+		if (this.mapFitMode=='selectedNotes') this.map.fitSelectedNotes()
 	}
 	private getCheckedData(): [
 		checkedNotes: Note[],

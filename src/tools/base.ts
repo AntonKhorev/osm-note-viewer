@@ -6,10 +6,7 @@ import {makeElement, startOrResetFadeAnimation} from '../html'
 
 export type ToolElements = Array<string|HTMLElement>
 
-export type ToolFitMode = 'allNotes' | 'selectedNotes' | 'inViewNotes' | undefined
-
 export interface ToolCallbacks {
-	onFitModeChange(fromTool: Tool, fitMode: ToolFitMode): void
 	onRefresherStateChange(fromTool: Tool, isRunning: boolean, message: string|undefined): void
 	onRefresherRefreshChange(fromTool: Tool, replaceUpdatedNotes: boolean): void
 	onRefresherPeriodChange(fromTool: Tool, refreshPeriod: number): void

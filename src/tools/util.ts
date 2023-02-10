@@ -23,18 +23,7 @@ export class AutozoomTool extends Tool {
 			new Option('to all visible notes','allNotes')
 		)
 		$fitModeSelect.onchange=()=>{
-			if ($fitModeSelect.value=='allNotes') {
-				callbacks.onFitModeChange(this,$fitModeSelect.value)
-				map.fitNotes()
-			} else if ($fitModeSelect.value=='selectedNotes') {
-				callbacks.onFitModeChange(this,$fitModeSelect.value)
-				map.fitSelectedNotes()
-			} else if ($fitModeSelect.value=='inViewNotes') {
-				callbacks.onFitModeChange(this,$fitModeSelect.value)
-				map.fitNoteTrack()
-			} else {
-				callbacks.onFitModeChange(this,undefined)
-			}
+			bubbleCustomEvent($tool,'osmNoteViewer:changeMapFitMode',$fitModeSelect.value)
 		}
 		return [$fitModeSelect]
 	}
