@@ -1,4 +1,4 @@
-import {bubbleCustomEvent} from "./html"
+import {bubbleEvent, bubbleCustomEvent} from "./html"
 
 export default class GlobalEventListener {
 	constructor() {
@@ -7,19 +7,19 @@ export default class GlobalEventListener {
 			const $e=ev.target.closest('a.listened, time.listened')
 			if ($e instanceof HTMLAnchorElement) {
 				if ($e.dataset.noteId && $e.dataset.self) {
-					$e.dispatchEvent(new Event('osmNoteViewer:clickUpdateNoteLink',{bubbles:true}))
+					bubbleEvent($e,'osmNoteViewer:clickUpdateNoteLink')
 				} else if ($e.dataset.noteId) {
-					$e.dispatchEvent(new Event('osmNoteViewer:clickNoteLink',{bubbles:true}))
+					bubbleEvent($e,'osmNoteViewer:clickNoteLink')
 				} else if ($e.dataset.userId) {
-					$e.dispatchEvent(new Event('osmNoteViewer:clickUserLink',{bubbles:true}))
+					bubbleEvent($e,'osmNoteViewer:clickUserLink')
 				} else if ($e.dataset.elementType && $e.dataset.elementId) {
-					$e.dispatchEvent(new Event('osmNoteViewer:clickElementLink',{bubbles:true}))
+					bubbleEvent($e,'osmNoteViewer:clickElementLink')
 				} else if ($e.dataset.changesetId) {
-					$e.dispatchEvent(new Event('osmNoteViewer:clickChangesetLink',{bubbles:true}))
+					bubbleEvent($e,'osmNoteViewer:clickChangesetLink')
 				} else if ($e.dataset.zoom && $e.dataset.lat && $e.dataset.lon) {
-					$e.dispatchEvent(new Event('osmNoteViewer:clickMapLink',{bubbles:true}))
+					bubbleEvent($e,'osmNoteViewer:clickMapLink')
 				} else if ($e.classList.contains('image')) {
-					$e.dispatchEvent(new Event('osmNoteViewer:toggleImage',{bubbles:true}))
+					bubbleEvent($e,'osmNoteViewer:toggleImage')
 				} else {
 					return // don't stop event propagation
 				}

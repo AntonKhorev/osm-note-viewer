@@ -83,6 +83,10 @@ export function makeGetKnownErrorMessage(
 	}
 }
 
+export function bubbleEvent($target: HTMLElement, type: string) {
+	return $target.dispatchEvent(new Event(type,{bubbles:true}))
+}
+
 export function bubbleCustomEvent<T extends keyof HTMLElementEventMap>(
 	$target: HTMLElement,
 	type: T,

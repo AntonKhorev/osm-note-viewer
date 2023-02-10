@@ -13,6 +13,7 @@ import type {NoteFetcherEnvironment, NoteFetcherRun} from './fetch'
 import {NoteSearchFetcherRun, NoteBboxFetcherRun, NoteIdsFetcherRun} from './fetch'
 import type {NoteFetchDialog} from './fetch-dialog'
 import NoteFetchDialogs from './fetch-dialog'
+import {bubbleEvent} from './html'
 
 export default class NoteFetchPanel {
 	// TODO have invoking dialog object; react only on dl params change in it; display that fieldset differently
@@ -105,7 +106,7 @@ export default class NoteFetchPanel {
 		): void {
 			if (!(server && fetchDialogs && noteTable)) return
 			if (query.mode!='search' && query.mode!='bbox' && query.mode!='ids') return
-			$container.dispatchEvent(new Event('osmNoteViewer:newFetch',{bubbles:true}))
+			bubbleEvent($container,'osmNoteViewer:newFetch')
 			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
 			if (map) {
 				map.clearNotes()
