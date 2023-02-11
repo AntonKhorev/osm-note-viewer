@@ -1,6 +1,4 @@
-import {Tool, ToolElements, ToolCallbacks, makeNotesIcon,  makeMapIcon, makeNoteStatusIcon} from './base'
-import type {Note} from '../data'
-import type NoteMap from '../map'
+import {Tool, ToolElements, makeNotesIcon,  makeMapIcon, makeNoteStatusIcon} from './base'
 import {bubbleCustomEvent, makeElement, makeLink} from '../html'
 import {em,dfn,p} from '../html-shortcuts'
 
@@ -15,7 +13,7 @@ export class AutozoomTool extends Tool {
 		dfn(`To notes on screen in table`),` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `,
 		`This option is convenient to use when `,em(`Track between notes`),` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`
 	)]}
-	protected getTool($root: HTMLElement, $tool: HTMLElement, callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
 		const $fitModeSelect=makeElement('select')()(
 			new Option('is disabled','none'),
 			new Option('to selected notes','selectedNotes'),
