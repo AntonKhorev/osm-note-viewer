@@ -18,6 +18,7 @@ export class RefreshTool extends Tool {
 		this.$refreshPeriodInput.min='1'
 		this.$refreshPeriodInput.size=5
 		this.$refreshPeriodInput.step='any'
+		this.$refreshPeriodInput.value='5' // TODO this is a hack: this value should correspond to the one in NoteTableAndRefresherConnector
 		const $refreshAllButton=makeElement('button')('only-with-icon')(makeActionIcon('refresh',`Refresh now`))
 		$refreshAllButton.title=`Refresh all notes currently on the screen in the table above`
 		this.$runButton.onclick=()=>{
@@ -35,7 +36,7 @@ export class RefreshTool extends Tool {
 			if (!str) return
 			const minutes=Number(str)
 			if (!Number.isFinite(minutes) || minutes<=0) return
-			callbacks.onRefresherPeriodChange(this,minutes*60*1000)
+			bubbleCustomEvent($tool,'osmNoteViewer:changeRefresherPeriod',minutes*60*1000)
 		}
 		$refreshAllButton.onclick=()=>{
 			callbacks.onRefresherRefreshAll(this)
@@ -52,14 +53,6 @@ export class RefreshTool extends Tool {
 			makeLabel('inline')(`every `,this.$refreshPeriodInput),` min. or `,
 			$refreshAllButton
 		]
-	}
-	onRefresherPeriodChange(refreshPeriod: number): boolean {
-		let minutes=(refreshPeriod/(60*1000)).toFixed(2)
-		if (minutes.includes('.')) {
-			minutes=minutes.replace(/\.?0+$/,'')
-		}
-		this.$refreshPeriodInput.value=minutes
-		return true
 	}
 	private updateState(isRunning: boolean, message?: string) {
 		this.isRunning=isRunning

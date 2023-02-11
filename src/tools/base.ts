@@ -8,7 +8,6 @@ export type ToolElements = Array<string|HTMLElement>
 
 export interface ToolCallbacks {
 	onRefresherRefreshChange(fromTool: Tool, replaceUpdatedNotes: boolean): void
-	onRefresherPeriodChange(fromTool: Tool, refreshPeriod: number): void
 	onRefresherRefreshAll(fromTool: Tool): void
 	onNoteReload(fromTool: Tool, note: Note, users: Users): void
 }
@@ -98,7 +97,6 @@ export abstract class Tool {
 		callbacks: ToolCallbacks, map: NoteMap
 	): ToolElements
 	protected getInfo(): ToolElements|undefined { return undefined }
-	onRefresherPeriodChange(refreshPeriod: number): boolean { return false }
 	protected makeRequiringSelectedNotesButton(): HTMLButtonElement {
 		const $button=document.createElement('button')
 		$button.disabled=true

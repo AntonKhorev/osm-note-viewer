@@ -9,6 +9,7 @@ declare global {
 		'osmNoteViewer:changeInputNotes': CustomEvent<readonly [inputNotes: ReadonlyArray<Note>, inputNoteUsers: ReadonlyMap<number,string>]>
 		'osmNoteViewer:toggleTools': CustomEvent<boolean>
 		'osmNoteViewer:changeRefresherState': CustomEvent<readonly [isRunning: boolean, message: string|undefined]>
+		'osmNoteViewer:changeRefresherPeriod': CustomEvent<number>
 	}
 }
 export {}

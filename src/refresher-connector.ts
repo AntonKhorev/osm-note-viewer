@@ -17,7 +17,7 @@ export default class NoteTableAndRefresherConnector {
 		fetchSingleNote: (id:number)=>Promise<[note:Note,users:Users]>
 	) {
 		const isOnlineAndVisible=navigator.onLine && document.visibilityState=='visible'
-		const refreshPeriod=5*60*1000
+		const refreshPeriod=5*60*1000 // TODO this is a hack: this value should correspond to the one in refresh tool
 		this.noteRefresher=new NoteRefresher(
 			isOnlineAndVisible,refreshPeriod,makeTimeoutCaller(10*1000,100),
 			setNoteProgress,
@@ -42,8 +42,6 @@ export default class NoteTableAndRefresherConnector {
 		)
 		let stoppedBecauseOfflineOrHidden=!isOnlineAndVisible
 		toolPanel.onRefresherRefreshAll=()=>this.noteRefresher.refreshAll(toolPanel.replaceUpdatedNotes)
-		toolPanel.onRefresherPeriodChange=(refreshPeriod)=>this.noteRefresher.setPeriod(refreshPeriod)
-		toolPanel.receiveRefresherPeriodChange(refreshPeriod)
 		const getHaltMessage=()=>(!navigator.onLine
 			? `Refreshes halted in offline mode`
 			: `Refreshes halted while the browser window is hidden`
@@ -72,6 +70,10 @@ export default class NoteTableAndRefresherConnector {
 			const [isRunning]=ev.detail
 			this.noteRefresher.setRunState(isRunning)
 			stoppedBecauseOfflineOrHidden=false
+		})
+		$root.addEventListener('osmNoteViewer:changeRefresherPeriod',ev=>{
+			const refreshPeriod=ev.detail
+			this.noteRefresher.setPeriod(refreshPeriod)
 		})
 	}
 	reset(): void {
