@@ -8,9 +8,6 @@ import {toolMakerSequence} from './tools'
 class ToolBroadcaster {
 	private sources: Set<Tool> = new Set()
 	constructor(private readonly tools: Tool[]) {}
-	broadcastLoginChange(fromTool: Tool|null): void {
-		this.broadcast(fromTool,tool=>tool.onLoginChange())
-	}
 	broadcastRefresherStateChange(fromTool: Tool|null, isRunning: boolean, message: string|undefined): void {
 		this.broadcast(fromTool,tool=>tool.onRefresherStateChange(isRunning,message))
 	}
@@ -64,9 +61,6 @@ export default class ToolPanel {
 			tools.push(tool)
 		}
 		this.toolBroadcaster=new ToolBroadcaster(tools)
-	}
-	receiveLoginChange() {
-		this.toolBroadcaster.broadcastLoginChange(null)
 	}
 	receiveRefresherStateChange(isRunning: boolean, message: string|undefined) {
 		this.toolBroadcaster.broadcastRefresherStateChange(null,isRunning,message)

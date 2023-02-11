@@ -139,10 +139,8 @@ function writeBelowFetchPanel(
 
 	const toolPanel=new ToolPanel(
 		document.body,$toolContainer,
-		storage,auth,
-		map
+		storage,auth,map
 	)
-	auth.onLoginChange=()=>toolPanel.receiveLoginChange()
 	const noteTable=new NoteTable(
 		document.body,
 		$notesContainer,toolPanel,map,filterPanel.noteFilter,

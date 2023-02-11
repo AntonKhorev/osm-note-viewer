@@ -182,6 +182,12 @@ export class InteractTool extends Tool {
 				scheduleRunNextNote()
 			}
 		}
+		$root.addEventListener('osmNoteViewer:changeLogin',()=>{
+			this.updateYourNotes()
+			this.updateAsOutput()
+			this.updateButtons()
+			this.ping($tool)
+		})
 		$root.addEventListener('osmNoteViewer:changeInputNotes',ev=>{
 			const [inputNotes]=ev.detail
 			for (const status of noteStatuses) {
@@ -203,12 +209,6 @@ export class InteractTool extends Tool {
 			makeDiv('gridded-input')(...this.interactionDescriptions.map(({$button})=>$button)),
 			this.$runButton,` `,this.$runOutput
 		]
-	}
-	onLoginChange(): boolean {
-		this.updateYourNotes()
-		this.updateAsOutput()
-		this.updateButtons()
-		return true
 	}
 	private updateYourNotes(): void {
 		const apiText=`your own latest updated notes`

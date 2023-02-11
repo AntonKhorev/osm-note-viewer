@@ -95,7 +95,6 @@ export abstract class Tool {
 		callbacks: ToolCallbacks, map: NoteMap
 	): ToolElements
 	protected getInfo(): ToolElements|undefined { return undefined }
-	onLoginChange(): boolean { return false }
 	onRefresherStateChange(isRunning: boolean, message: string|undefined): boolean { return false }
 	onRefresherPeriodChange(refreshPeriod: number): boolean { return false }
 	protected makeRequiringSelectedNotesButton(): HTMLButtonElement {
