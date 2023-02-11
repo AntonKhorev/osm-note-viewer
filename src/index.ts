@@ -13,7 +13,7 @@ import NoteTable from './table'
 import ToolPanel from './tool-panel'
 import fetchTableNote from './fetch-note'
 import {downloadAndShowChangeset, downloadAndShowElement} from './osm'
-import {makeDiv} from './html'
+import {bubbleCustomEvent, makeDiv} from './html'
 import serverListConfig from './server-list-config'
 
 main()
@@ -85,8 +85,10 @@ async function main() {
 		document.body.addEventListener('osmNoteViewer:clickUpdateNoteLink',async(ev)=>{
 			const $a=ev.target
 			if (!($a instanceof HTMLAnchorElement)) return
+			const id=Number($a.dataset.noteId)
+			bubbleCustomEvent($a,'osmNoteViewer:beforeNoteFetch',id)
 			try {
-				const [note,users]=await fetchTableNote(globalHistory.server.api,$a,Number($a.dataset.noteId),auth?.token)
+				const [note,users]=await fetchTableNote(globalHistory.server.api,$a,id,auth?.token)
 				await fetchPanel.fetcherRun?.updateNote(note,users)
 				noteTable?.replaceNote(note,users)
 			} catch {}

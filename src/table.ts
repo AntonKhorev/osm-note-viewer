@@ -61,6 +61,7 @@ export default class NoteTable implements NoteTableUpdater {
 				this.replaceNote(note,users)
 			},
 			async(id)=>{
+				bubbleCustomEvent(this.$table,'osmNoteViewer:beforeNoteFetch',id)
 				const $a=this.getNoteSection(id)?.querySelector('td.note-link a')
 				if (!($a instanceof HTMLAnchorElement)) {
 					throw new Error(`note link not found during single note fetch`)
@@ -145,6 +146,11 @@ export default class NoteTable implements NoteTableUpdater {
 			} else {
 				this.mapFitMode=undefined
 			}
+		})
+		$root.addEventListener('osmNoteViewer:beforeNoteFetch',({detail:id})=>{
+			const $a=this.getNoteSection(id)?.querySelector('td.note-link a')
+			if (!($a instanceof HTMLAnchorElement)) return
+			$a.classList.add('loading')
 		})
 	}
 	reset(): void {

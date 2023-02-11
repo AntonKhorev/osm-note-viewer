@@ -4,7 +4,7 @@ import type {Note} from '../data'
 import {noteStatuses} from '../data'
 import {readNoteResponse, NoteDataError} from '../fetch-note'
 import {makeHrefWithCurrentHost} from '../hash'
-import {makeElement, makeDiv, makeLink} from '../html'
+import {makeElement, makeDiv, makeLink, bubbleCustomEvent} from '../html'
 import {p,ul,li,code} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 
@@ -145,7 +145,7 @@ export class InteractTool extends Tool {
 		this.$commentText.oninput=()=>{
 			this.updateButtons()
 		}
-		const scheduleRunNextNote=this.makeRunScheduler(callbacks)
+		const scheduleRunNextNote=this.makeRunScheduler($tool,callbacks)
 		for (const interactionDescription of this.interactionDescriptions) {
 			interactionDescription.$button.onclick=()=>{
 				if (this.run?.status=='paused') {
@@ -351,7 +351,7 @@ export class InteractTool extends Tool {
 			)
 		}
 	}
-	private makeRunScheduler(callbacks: ToolCallbacks): ()=>void {
+	private makeRunScheduler($tool: HTMLElement, callbacks: ToolCallbacks): ()=>void {
 		let runTimeoutId: number|undefined
 		const runNextNote=async():Promise<boolean>=>{
 			const transitionToRunning=()=>{
@@ -399,6 +399,7 @@ export class InteractTool extends Tool {
 			this.run.currentNoteId=id
 			this.run.currentNoteError=undefined
 			this.updateRunOutput()
+			bubbleCustomEvent($tool,'osmNoteViewer:beforeNoteFetch',id)
 			try {
 				let response: Response
 				const fetchBuilder=this.auth.server.api.fetch.withToken(this.auth.token).withUrlencodedBody([
