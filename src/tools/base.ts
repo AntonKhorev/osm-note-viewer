@@ -11,7 +11,6 @@ export interface ToolCallbacks {
 	onRefresherRefreshChange(fromTool: Tool, replaceUpdatedNotes: boolean): void
 	onRefresherPeriodChange(fromTool: Tool, refreshPeriod: number): void
 	onRefresherRefreshAll(fromTool: Tool): void
-	onToolOpenToggle(fromTool: Tool, setToOpen: boolean): void
 	onNoteReload(fromTool: Tool, note: Note, users: Users): void
 }
 
@@ -76,6 +75,11 @@ export abstract class Tool {
 		} else {
 			$container.append($tool)
 		}
+		$root.addEventListener('osmNoteViewer:toggleTools',ev=>{
+			if (ev.target==$tool) return
+			$tool.open=ev.detail
+			this.ping($tool)
+		})
 		$root.addEventListener('osmNoteViewer:changeInputNotes',ev=>{
 			const [inputNotes]=ev.detail
 			let reactedToButtons=false

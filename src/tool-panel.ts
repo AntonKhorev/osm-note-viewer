@@ -47,12 +47,6 @@ export default class ToolPanel {
 			onRefresherRefreshChange: (fromTool,replaceUpdatedNotes)=>this.#replaceUpdatedNotes=replaceUpdatedNotes,
 			onRefresherPeriodChange: (fromTool,refreshPeriod)=>this.onRefresherPeriodChange?.(refreshPeriod),
 			onRefresherRefreshAll: (fromTool)=>this.onRefresherRefreshAll?.(),
-			onToolOpenToggle: (fromTool: Tool, setToOpen: boolean)=>{
-				for (const $toolDetails of  $container.querySelectorAll('details.tool')) {
-					if (!($toolDetails instanceof HTMLDetailsElement)) continue
-					$toolDetails.open=setToOpen
-				}
-			},
 			onNoteReload: (fromTool,note,users)=>this.onNoteReload?.(note,users)
 		}
 		for (const makeTool of toolMakerSequence) {

@@ -108,11 +108,11 @@ export class SettingsTool extends Tool {
 	id='settings'
 	name=`⚙️`
 	title=`Settings`
-	protected getTool($root: HTMLElement, $tool: HTMLElement, callbacks: ToolCallbacks): ToolElements {
+	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
 		const $openAllButton=makeElement('button')('open-all-tools')(`Open all tools`)
-		$openAllButton.onclick=()=>callbacks.onToolOpenToggle(this,true)
+		$openAllButton.onclick=()=>bubbleCustomEvent($tool,'osmNoteViewer:toggleTools',true)
 		const $closeAllButton=makeElement('button')('close-all-tools')(`Close all tools`)
-		$closeAllButton.onclick=()=>callbacks.onToolOpenToggle(this,false)
+		$closeAllButton.onclick=()=>bubbleCustomEvent($tool,'osmNoteViewer:toggleTools',false)
 		return [$openAllButton,` `,$closeAllButton]
 	}
 }

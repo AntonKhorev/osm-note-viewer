@@ -7,6 +7,7 @@ declare global {
 		'osmNoteViewer:changeMapFitMode': CustomEvent<string>
 		'osmNoteViewer:changeNoteCounts': CustomEvent<readonly [nFetched: number, nVisible: number, nSelected: number]>
 		'osmNoteViewer:changeInputNotes': CustomEvent<readonly [inputNotes: ReadonlyArray<Note>, inputNoteUsers: ReadonlyMap<number,string>]>
+		'osmNoteViewer:toggleTools': CustomEvent<boolean>
 	}
 }
 export {}
