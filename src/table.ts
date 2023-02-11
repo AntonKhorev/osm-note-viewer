@@ -95,15 +95,6 @@ export default class NoteTable implements NoteTableUpdater {
 			['click',function(){ // need 'click' and not 'mouseup' event because elements inside may listen to click and choose to cancel it
 				if ($clickReadyNoteSection==this) {
 					that.focusOnNote(this,true)
-					if (!that.$selectAllCheckbox.checked && !that.$selectAllCheckbox.indeterminate) {
-						const noteId=Number(this.dataset.noteId)
-						const note=that.notesById.get(noteId)
-						if (note) {
-							const noteUsers=new Map<number,string>()
-							that.addNoteUsersToMap(noteUsers,note)
-							bubbleCustomEvent(that.$table,'osmNoteViewer:changeInputNotes',[[note],noteUsers])
-						}
-					}
 				}
 				$clickReadyNoteSection=undefined
 			}]
@@ -425,6 +416,15 @@ export default class NoteTable implements NoteTableUpdater {
 		if (!isSectionClicked) $noteSection.scrollIntoView({block:'nearest'})
 		const noteId=Number($noteSection.dataset.noteId)
 		bubbleCustomEvent($noteSection,'osmNoteViewer:focusOnNote',noteId) // TODO correct target, it could be a marker
+		if (!this.$selectAllCheckbox.checked && !this.$selectAllCheckbox.indeterminate) {
+			const noteId=Number($noteSection.dataset.noteId)
+			const note=this.notesById.get(noteId)
+			if (note) {
+				const noteUsers=new Map<number,string>()
+				this.addNoteUsersToMap(noteUsers,note)
+				bubbleCustomEvent(this.$table,'osmNoteViewer:changeInputNotes',[[note],noteUsers])
+			}
+		}
 	}
 	private deactivateNote(type: 'hover'|'click', $noteSection: HTMLTableSectionElement): void {
 		$noteSection.classList.remove('active-'+type)
