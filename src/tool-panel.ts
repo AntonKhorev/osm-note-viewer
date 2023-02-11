@@ -8,9 +8,6 @@ import {toolMakerSequence} from './tools'
 class ToolBroadcaster {
 	private sources: Set<Tool> = new Set()
 	constructor(private readonly tools: Tool[]) {}
-	broadcastRefresherStateChange(fromTool: Tool|null, isRunning: boolean, message: string|undefined): void {
-		this.broadcast(fromTool,tool=>tool.onRefresherStateChange(isRunning,message))
-	}
 	broadcastRefresherPeriodChange(fromTool: Tool|null, refreshPeriod: number): void {
 		this.broadcast(fromTool,tool=>tool.onRefresherPeriodChange(refreshPeriod))
 	}
@@ -32,7 +29,6 @@ class ToolBroadcaster {
 export default class ToolPanel {
 	private toolBroadcaster: ToolBroadcaster
 	#replaceUpdatedNotes: boolean = false
-	onRefresherStateChange?: (isRunning:boolean)=>void
 	onRefresherPeriodChange?: (refreshPeriod:number)=>void
 	onRefresherRefreshAll?: ()=>void
 	onNoteReload?: (note:Note,users:Users)=>void
@@ -43,7 +39,6 @@ export default class ToolPanel {
 	) {
 		const tools: Tool[] = []
 		const toolCallbacks: ToolCallbacks = {
-			onRefresherStateChange: (fromTool,isRunning,message)=>this.onRefresherStateChange?.(isRunning),
 			onRefresherRefreshChange: (fromTool,replaceUpdatedNotes)=>this.#replaceUpdatedNotes=replaceUpdatedNotes,
 			onRefresherPeriodChange: (fromTool,refreshPeriod)=>this.onRefresherPeriodChange?.(refreshPeriod),
 			onRefresherRefreshAll: (fromTool)=>this.onRefresherRefreshAll?.(),
@@ -55,9 +50,6 @@ export default class ToolPanel {
 			tools.push(tool)
 		}
 		this.toolBroadcaster=new ToolBroadcaster(tools)
-	}
-	receiveRefresherStateChange(isRunning: boolean, message: string|undefined) {
-		this.toolBroadcaster.broadcastRefresherStateChange(null,isRunning,message)
 	}
 	receiveRefresherPeriodChange(refreshPeriod: number) {
 		this.toolBroadcaster.broadcastRefresherPeriodChange(null,refreshPeriod)

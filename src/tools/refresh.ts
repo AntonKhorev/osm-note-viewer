@@ -1,5 +1,5 @@
 import {Tool, ToolElements, ToolCallbacks, makeActionIcon} from './base'
-import {makeElement, makeLabel} from '../html'
+import {bubbleCustomEvent, makeElement, makeLabel} from '../html'
 
 export class RefreshTool extends Tool {
 	id='refresh'
@@ -23,7 +23,7 @@ export class RefreshTool extends Tool {
 		this.$runButton.onclick=()=>{
 			const newIsRunning=!this.isRunning
 			this.updateState(newIsRunning)
-			callbacks.onRefresherStateChange(this,newIsRunning,undefined)
+			bubbleCustomEvent($tool,'osmNoteViewer:changeRefresherState',[newIsRunning,undefined])
 		}
 		$refreshSelect.onchange=()=>{
 			callbacks.onRefresherRefreshChange(this,
@@ -40,16 +40,18 @@ export class RefreshTool extends Tool {
 		$refreshAllButton.onclick=()=>{
 			callbacks.onRefresherRefreshAll(this)
 		}
+		$root.addEventListener('osmNoteViewer:changeRefresherState',ev=>{
+			if (ev.target==$tool) return
+			const [isRunning,message]=ev.detail
+			this.updateState(isRunning,message)
+			this.ping($tool)
+		})
 		return [
 			this.$runButton,` `,
 			makeLabel('inline')($refreshSelect,` updated notes`),` `,
 			makeLabel('inline')(`every `,this.$refreshPeriodInput),` min. or `,
 			$refreshAllButton
 		]
-	}
-	onRefresherStateChange(isRunning: boolean, message: string|undefined): boolean {
-		this.updateState(isRunning,message)
-		return true
 	}
 	onRefresherPeriodChange(refreshPeriod: number): boolean {
 		let minutes=(refreshPeriod/(60*1000)).toFixed(2)

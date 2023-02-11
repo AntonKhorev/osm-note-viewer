@@ -45,6 +45,7 @@ export default class NoteTable implements NoteTableUpdater {
 	) {
 		this.$table.setAttribute('role','grid')
 		this.refresherConnector=new NoteTableAndRefresherConnector(
+			$root,this.$table,
 			toolPanel,
 			(id,progress)=>{
 				const $refreshWaitProgress=this.getNoteSection(id)?.querySelector('td.note-link progress')

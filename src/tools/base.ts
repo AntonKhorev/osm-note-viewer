@@ -7,7 +7,6 @@ import {makeElement, startOrResetFadeAnimation} from '../html'
 export type ToolElements = Array<string|HTMLElement>
 
 export interface ToolCallbacks {
-	onRefresherStateChange(fromTool: Tool, isRunning: boolean, message: string|undefined): void
 	onRefresherRefreshChange(fromTool: Tool, replaceUpdatedNotes: boolean): void
 	onRefresherPeriodChange(fromTool: Tool, refreshPeriod: number): void
 	onRefresherRefreshAll(fromTool: Tool): void
@@ -99,7 +98,6 @@ export abstract class Tool {
 		callbacks: ToolCallbacks, map: NoteMap
 	): ToolElements
 	protected getInfo(): ToolElements|undefined { return undefined }
-	onRefresherStateChange(isRunning: boolean, message: string|undefined): boolean { return false }
 	onRefresherPeriodChange(refreshPeriod: number): boolean { return false }
 	protected makeRequiringSelectedNotesButton(): HTMLButtonElement {
 		const $button=document.createElement('button')

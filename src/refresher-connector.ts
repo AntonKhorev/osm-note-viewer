@@ -2,12 +2,14 @@ import type {Note, Users} from './data'
 import {getNoteUpdateDate} from './data'
 import NoteRefresher from './refresher'
 import type ToolPanel from './tool-panel'
+import {bubbleCustomEvent} from './html'
 
 export default class NoteTableAndRefresherConnector {
 	private noteRefresher: NoteRefresher
 	private noteRefreshTimestampsById = new Map<number,number>()
 	private notesWithPendingUpdate = new Set<number>()
 	constructor(
+		$root: HTMLElement, $table: HTMLTableElement,
 		toolPanel: ToolPanel,
 		setNoteProgress: (id:number,progress:number)=>void,
 		setNoteUpdatedState: (id:number)=>void,
@@ -34,15 +36,11 @@ export default class NoteTableAndRefresherConnector {
 				return refreshTimestamp
 			},
 			(message:string)=>{
-				toolPanel.receiveRefresherStateChange(false,message)
+				bubbleCustomEvent($table,'osmNoteViewer:changeRefresherState',[false,message])
 			},
 			fetchSingleNote
 		)
 		let stoppedBecauseOfflineOrHidden=!isOnlineAndVisible
-		toolPanel.onRefresherStateChange=(isRunning)=>{
-			this.noteRefresher.setRunState(isRunning)
-			stoppedBecauseOfflineOrHidden=false
-		}
 		toolPanel.onRefresherRefreshAll=()=>this.noteRefresher.refreshAll(toolPanel.replaceUpdatedNotes)
 		toolPanel.onRefresherPeriodChange=(refreshPeriod)=>this.noteRefresher.setPeriod(refreshPeriod)
 		toolPanel.receiveRefresherPeriodChange(refreshPeriod)
@@ -51,24 +49,30 @@ export default class NoteTableAndRefresherConnector {
 			: `Refreshes halted while the browser window is hidden`
 		)+`. Click to attempt to resume.`
 		if (!isOnlineAndVisible) {
-			toolPanel.receiveRefresherStateChange(false,getHaltMessage())
+			bubbleCustomEvent($table,'osmNoteViewer:changeRefresherState',[false,getHaltMessage()])
 		}
 		const handleTemporaryHaltConditions=()=>{
 			if (navigator.onLine && document.visibilityState=='visible') {
 				if (!stoppedBecauseOfflineOrHidden) return
 				stoppedBecauseOfflineOrHidden=false
 				this.noteRefresher.setRunState(true)
-				toolPanel.receiveRefresherStateChange(true,undefined)
+				bubbleCustomEvent($table,'osmNoteViewer:changeRefresherState',[true,undefined])
 			} else {
 				if (!this.noteRefresher.isRunning) return
 				this.noteRefresher.setRunState(false)
-				toolPanel.receiveRefresherStateChange(false,getHaltMessage())
+				bubbleCustomEvent($table,'osmNoteViewer:changeRefresherState',[false,getHaltMessage()])
 				stoppedBecauseOfflineOrHidden=true
 			}
 		}
 		window.addEventListener('offline',handleTemporaryHaltConditions)
 		window.addEventListener('online',handleTemporaryHaltConditions)
 		document.addEventListener('visibilitychange',handleTemporaryHaltConditions)
+		$root.addEventListener('osmNoteViewer:changeRefresherState',ev=>{
+			if (ev.target==$table) return
+			const [isRunning]=ev.detail
+			this.noteRefresher.setRunState(isRunning)
+			stoppedBecauseOfflineOrHidden=false
+		})
 	}
 	reset(): void {
 		this.noteRefresher.reset()
