@@ -1,4 +1,5 @@
 import type {Note, Users} from './data'
+import {getNoteUpdateDate} from './data'
 import type NoteMap from './map'
 import NoteMarker from './marker'
 import LooseParserListener from './loose-listen'
@@ -52,9 +53,7 @@ export default class NoteTable implements NoteTableUpdater {
 				$refreshWaitProgress.value=progress
 			},
 			(id)=>{
-				const $noteSection=this.getNoteSection(id)
-				if (!$noteSection) return
-				$noteSection.dataset.updated='updated'
+				// TODO remove: done in fetchNote event listener
 			},
 			(note,users)=>{
 				this.replaceNote(note,users) // TODO replace with pushNoteUpdate in stashed version
@@ -162,10 +161,21 @@ export default class NoteTable implements NoteTableUpdater {
 			$a.title=message
 		})
 		$root.addEventListener('osmNoteViewer:noteFetch',({detail:[note,users]})=>{
-			const $a=this.getNoteLink(note.id)
-			if (!($a instanceof HTMLAnchorElement)) return
+			const $noteSection=this.getNoteSection(note.id)
+			if (!$noteSection) return
+			const $a=this.getNoteLink($noteSection)
+			if (!$a) return
 			$a.classList.remove('loading','absent')
 			$a.title=''
+			let oldUpdateDate=0
+			const $time=$noteSection.querySelector('tr:last-of-type td.note-date time')
+			if ($time instanceof HTMLTimeElement) {
+				const oldUpdateDateInMs=Date.parse($time.dateTime)
+				if (oldUpdateDateInMs) oldUpdateDate=oldUpdateDateInMs/1000
+			}
+			if (oldUpdateDate<getNoteUpdateDate(note)) {
+				$noteSection.dataset.updated='updated'
+			}
 		})
 		$root.addEventListener('osmNoteViewer:pushNoteUpdate',({detail:[note,users]})=>{
 			this.replaceNote(note,users)
@@ -575,10 +585,17 @@ export default class NoteTable implements NoteTableUpdater {
 			}
 		}
 	}
-	private getNoteLink(noteId:number|string) {
-		return this.getNoteSection(noteId)?.querySelector('td.note-link a')
+	private getNoteLink(noteIdOrSection:number|string|HTMLTableSectionElement): HTMLAnchorElement|undefined {
+		let $noteSection: HTMLTableSectionElement|undefined
+		if (noteIdOrSection instanceof HTMLTableSectionElement) {
+			$noteSection=noteIdOrSection
+		} else {
+			$noteSection=this.getNoteSection(noteIdOrSection)
+		}
+		const $a=$noteSection?.querySelector('td.note-link a')
+		if ($a instanceof HTMLAnchorElement) return $a
 	}
-	private getNoteSection(noteId:number|string):HTMLTableSectionElement|undefined {
+	private getNoteSection(noteId:number|string): HTMLTableSectionElement|undefined {
 		const $noteSection=document.getElementById(`note-`+noteId) // TODO look in $table
 		if (!($noteSection instanceof HTMLTableSectionElement)) return
 		return $noteSection
