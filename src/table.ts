@@ -18,7 +18,6 @@ import {makeElement, resetFadeAnimation, bubbleCustomEvent} from './html'
 
 export interface NoteTableUpdater {
 	addNotes(notes: Iterable<Note>, users: Users): number
-	replaceNote(note: Note, users: Users): void
 }
 
 export default class NoteTable implements NoteTableUpdater {
@@ -260,7 +259,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.sendNoteCounts()
 		return nUnfilteredNotes
 	}
-	replaceNote(note: Note, users: Users): void {
+	private replaceNote(note: Note, users: Users): void {
 		const $noteSection=this.getNoteSection(note.id)
 		if (!$noteSection) throw new Error(`note section not found during note replace`)
 		const $checkbox=$noteSection.querySelector('.note-checkbox input')
