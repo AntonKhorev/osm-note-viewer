@@ -71,6 +71,9 @@ export default class NoteTable implements NoteTableUpdater {
 				return [note,users]
 			}
 		)
+		$root.addEventListener('osmNoteViewer:renderNote',({detail:note})=>{ // TODO move inside the tool in stashed version
+			this.refresherConnector.registerNote(note)
+		})
 		const that=this
 		let $clickReadyNoteSection: HTMLTableSectionElement | undefined
 		this.wrappedNoteSectionListeners=[
@@ -249,7 +252,7 @@ export default class NoteTable implements NoteTableUpdater {
 			// $checkbox.title=`shift+click to select/unselect a range`
 			$checkbox.addEventListener('click',this.wrappedNoteCheckboxClickListener)
 			this.writeNoteSection($noteSection,$checkbox,note,users,isVisible)
-			this.refresherConnector.registerNote(note)
+			bubbleCustomEvent(this.$table,'osmNoteViewer:renderNote',note)
 		}
 		if (this.mapFitMode=='allNotes') {
 			this.map.fitNotes()
@@ -286,7 +289,7 @@ export default class NoteTable implements NoteTableUpdater {
 		if (!($a2 instanceof HTMLAnchorElement)) throw new Error(`note link not found after note replace`)
 		if (isNoteLinkFocused) $a2.focus()
 		this.updateCheckboxDependentsAndSendNoteChangeEvents()
-		this.refresherConnector.registerNote(note)
+		bubbleCustomEvent(this.$table,'osmNoteViewer:renderNote',note)
 	}
 	getVisibleNoteIds(): number[] {
 		const ids: number[] = []
