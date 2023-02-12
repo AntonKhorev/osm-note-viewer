@@ -1,4 +1,4 @@
-import {Tool, ToolElements, ToolCallbacks, makeNotesIcon, makeMapIcon} from './base'
+import {Tool, ToolElements, makeNotesIcon, makeMapIcon} from './base'
 import type {Note} from '../data'
 import type NoteMap from '../map'
 import {makeLink} from '../html'
@@ -14,7 +14,7 @@ export class RcTool extends Tool {
 		makeLink(`remote control`,'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl'),
 		`.`
 	)]}
-	protected getTool($root: HTMLElement, $tool: HTMLElement, callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+	protected getTool($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements {
 		let inputNotes: ReadonlyArray<Note> = []
 		const e=makeEscapeTag(encodeURIComponent)
 		const $loadNotesButton=this.makeRequiringSelectedNotesButton()
@@ -65,7 +65,7 @@ export class IdTool extends Tool {
 		`This is because the editor is opened at `,makeLink(`/id`,`https://www.openstreetmap.org/id`),` url instead of `,makeLink(`/edit`,`https://www.openstreetmap.org/edit`),`. `,
 		`It has to be done because otherwise iD won't listen to `,em(`#map`),` changes in the webpage location.`
 	)]}
-	protected getTool($root: HTMLElement, $tool: HTMLElement, callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+	protected getTool($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements {
 		// limited to what hashchange() lets you do here https://github.com/openstreetmap/iD/blob/develop/modules/behavior/hash.js
 		// which is zooming/panning
 		const $zoomButton=document.createElement('button')

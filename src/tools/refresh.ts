@@ -1,4 +1,4 @@
-import {Tool, ToolElements, ToolCallbacks, makeActionIcon} from './base'
+import {Tool, ToolElements, makeActionIcon} from './base'
 import type {Note, Users} from '../data'
 import {getNoteUpdateDate} from '../data'
 import fetchTableNote, {getFetchTableNoteErrorMessage} from '../fetch-note'
@@ -9,7 +9,7 @@ export class RefreshTool extends Tool {
 	id='refresh'
 	name=`Refresh`
 	title=`Control automatic and manual refreshing of notes`
-	protected getTool($root: HTMLElement, $tool: HTMLElement, callbacks: ToolCallbacks): ToolElements {
+	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
 		const $runButton=makeElement('button')('only-with-icon')()
 		const $refreshPeriodInput=document.createElement('input')
 		const isOnlineAndVisibleAtLaunch=navigator.onLine && document.visibilityState=='visible'

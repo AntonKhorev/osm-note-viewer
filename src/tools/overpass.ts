@@ -1,4 +1,4 @@
-import {Tool, ToolElements, ToolCallbacks, makeMapIcon} from './base'
+import {Tool, ToolElements, makeMapIcon} from './base'
 import {QueryError} from '../server'
 import type NoteMap from '../map'
 import {makeLink, wrapFetchForButton} from '../html'
@@ -35,7 +35,7 @@ export class OverpassTurboTool extends OverpassBaseTool {
 		`, web UI for Overpass API. `,
 		`Useful to inspect historic data at the time a particular note comment was made.`
 	)]}
-	protected getTool($root: HTMLElement, $tool: HTMLElement, callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+	protected getTool($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements {
 		this.installTimestampListener($root,$tool)
 		const $overpassButtons: HTMLButtonElement[] = []
 		const buttonClickListener=(withRelations: boolean, onlyAround: boolean)=>{
@@ -91,7 +91,7 @@ export class OverpassTool extends OverpassBaseTool {
 		`Query `,makeLink(`Overpass API`,'https://wiki.openstreetmap.org/wiki/Overpass_API'),` without going through Overpass turbo. `,
 		`Shows results on the map. Also gives link to the element page on the OSM website.`
 	)]}
-	protected getTool($root: HTMLElement, $tool: HTMLElement, callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+	protected getTool($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements {
 		this.installTimestampListener($root,$tool)
 		const $button=document.createElement('button')
 		$button.append(`Find closest node to `,makeMapIcon('center'))

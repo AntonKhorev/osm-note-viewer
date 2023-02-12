@@ -1,12 +1,10 @@
-import type {Note, Users} from '../data'
+import type {Note} from '../data'
 import type NoteViewerStorage from '../storage'
 import type Auth from '../auth'
 import type NoteMap from '../map'
 import {makeElement, startOrResetFadeAnimation} from '../html'
 
 export type ToolElements = Array<string|HTMLElement>
-
-export interface ToolCallbacks {} // TODO remove
 
 export abstract class Tool {
 	public abstract readonly id: string
@@ -19,8 +17,7 @@ export abstract class Tool {
 	){}
 	write(
 		$root: HTMLElement, $container: HTMLElement,
-		storage: NoteViewerStorage,
-		callbacks: ToolCallbacks, map: NoteMap
+		storage: NoteViewerStorage, map: NoteMap
 	) {
 		if (!this.isActiveWithCurrentServerConfiguration()) return
 		const storageKey='commands-'+this.id
@@ -34,7 +31,7 @@ export abstract class Tool {
 		$tool.addEventListener('toggle',()=>{
 			storage.setBoolean(storageKey,$tool.open)
 		})
-		$tool.append($toolSummary,...this.getTool($root,$tool,callbacks,map))
+		$tool.append($toolSummary,...this.getTool($root,$tool,map))
 		$tool.addEventListener('animationend',toolAnimationEndListener)
 		const infoElements=this.getInfo()
 		if (infoElements) {
@@ -90,7 +87,7 @@ export abstract class Tool {
 	protected isActiveWithCurrentServerConfiguration(): boolean { return true }
 	protected abstract getTool(
 		$root: HTMLElement, $tool: HTMLElement,
-		callbacks: ToolCallbacks, map: NoteMap
+		map: NoteMap
 	): ToolElements
 	protected getInfo(): ToolElements|undefined { return undefined }
 	protected makeRequiringSelectedNotesButton(): HTMLButtonElement {

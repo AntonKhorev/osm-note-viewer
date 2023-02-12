@@ -1,4 +1,4 @@
-import {Tool, ToolCallbacks} from './base'
+import {Tool} from './base'
 import * as UtilTools from './util'
 import {InteractTool} from './interact'
 import {ReportTool} from './report'
@@ -10,7 +10,7 @@ import * as ExportTools from './export'
 import {YandexPanoramasTool, MapillaryTool} from './streetview'
 import Auth from '../auth'
 
-export {Tool, ToolCallbacks}
+export {Tool}
 
 export const toolMakerSequence: Array<(auth:Auth)=>Tool> = [
 	InteractTool, ReportTool, RefreshTool,

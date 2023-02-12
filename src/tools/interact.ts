@@ -1,4 +1,4 @@
-import {Tool, ToolElements, ToolCallbacks, makeNoteStatusIcon, makeActionIcon} from './base'
+import {Tool, ToolElements, makeNoteStatusIcon, makeActionIcon} from './base'
 import type Auth from '../auth'
 import type {Note} from '../data'
 import {noteStatuses} from '../data'

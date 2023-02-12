@@ -1,4 +1,4 @@
-import {Tool, ToolElements, ToolCallbacks, makeMapIcon} from './base'
+import {Tool, ToolElements, makeMapIcon} from './base'
 import type NoteMap from '../map'
 import {makeLink} from '../html'
 import {p} from '../html-shortcuts'
@@ -8,7 +8,7 @@ abstract class StreetViewTool extends Tool {
 	isActiveWithCurrentServerConfiguration(): boolean {
 		return this.auth.server.world=='earth'
 	}
-	protected getTool($root: HTMLElement, $tool: HTMLElement, callbacks: ToolCallbacks, map: NoteMap): ToolElements {
+	protected getTool($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements {
 		const $viewButton=document.createElement('button')
 		$viewButton.append(`Open `,makeMapIcon('center'))
 		$viewButton.onclick=()=>{
