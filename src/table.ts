@@ -11,9 +11,7 @@ import CommentWriter, {handleShowImagesUpdate} from './comment-writer'
 import type ToolPanel from './tool-panel'
 import type NoteFilter from './filter'
 import NoteSectionVisibilityObserver from './observer'
-import NoteTableAndRefresherConnector from './refresher-connector'
 import type Server from './server'
-import fetchTableNote, {getFetchTableNoteErrorMessage} from './fetch-note'
 import {makeElement, resetFadeAnimation, bubbleCustomEvent} from './html'
 
 export interface NoteTableUpdater {
@@ -31,7 +29,6 @@ export default class NoteTable implements NoteTableUpdater {
 	private $selectAllCheckbox = document.createElement('input')
 	private $lastClickedNoteSection: HTMLTableSectionElement | undefined
 	private notesById = new Map<number,Note>() // in the future these might be windowed to limit the amount of stuff on one page
-	private refresherConnector: NoteTableAndRefresherConnector
 	private usersById = new Map<number,string>()
 	private commentWriter: CommentWriter
 	private showImages: boolean = false
@@ -43,37 +40,6 @@ export default class NoteTable implements NoteTableUpdater {
 		private server: Server
 	) {
 		this.$table.setAttribute('role','grid')
-		this.refresherConnector=new NoteTableAndRefresherConnector(
-			$root,this.$table,
-			toolPanel,
-			(id,progress)=>{
-				const $refreshWaitProgress=this.getNoteSection(id)?.querySelector('td.note-link progress')
-				if (!($refreshWaitProgress instanceof HTMLProgressElement)) return
-				$refreshWaitProgress.value=progress
-			},
-			(id)=>{
-				// TODO remove: done in fetchNote event listener
-			},
-			(note,users)=>{
-				this.replaceNote(note,users) // TODO replace with pushNoteUpdate in stashed version
-			},
-			async(id)=>{
-				bubbleCustomEvent(this.$table,'osmNoteViewer:beforeNoteFetch',id) // TODO move inside the tool in stashed version
-				let note: Note
-				let users: Users
-				try {
-					[note,users]=await fetchTableNote(server.api,id)
-				} catch (ex) {
-					bubbleCustomEvent(this.$table,'osmNoteViewer:failedNoteFetch',[id,getFetchTableNoteErrorMessage(ex)]) // TODO move inside the tool in stashed version
-					throw ex
-				}
-				bubbleCustomEvent(this.$table,'osmNoteViewer:noteFetch',[note,users]) // TODO move inside the tool in stashed version
-				return [note,users]
-			}
-		)
-		$root.addEventListener('osmNoteViewer:renderNote',({detail:note})=>{ // TODO move inside the tool in stashed version
-			this.refresherConnector.registerNote(note)
-		})
 		const that=this
 		let $clickReadyNoteSection: HTMLTableSectionElement | undefined
 		this.wrappedNoteSectionListeners=[
@@ -117,7 +83,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver((visibleNoteIds,isMapFittingHalted)=>{
 			map.showNoteTrack(visibleNoteIds)
 			if (!isMapFittingHalted && this.mapFitMode=='inViewNotes') map.fitNoteTrack()
-			this.refresherConnector.observeNotesByRefresher(
+			bubbleCustomEvent(this.$table,'osmNoteViewer:observeNotesByRefresher',
 				visibleNoteIds.map(id=>this.notesById.get(id)).filter(isDefined)
 			)
 		})
@@ -182,9 +148,14 @@ export default class NoteTable implements NoteTableUpdater {
 		$root.addEventListener('osmNoteViewer:pushNoteUpdate',({detail:[note,users]})=>{
 			this.replaceNote(note,users)
 		})
+		$root.addEventListener('osmNoteViewer:refreshNoteProgress',ev=>{
+			const [id,progress]=ev.detail
+			const $refreshWaitProgress=this.getNoteSection(id)?.querySelector('td.note-link progress')
+			if (!($refreshWaitProgress instanceof HTMLProgressElement)) return
+			$refreshWaitProgress.value=progress
+		})
 	}
 	reset(): void {
-		this.refresherConnector.reset()
 		this.notesById.clear()
 		this.usersById.clear()
 		this.$lastClickedNoteSection=undefined

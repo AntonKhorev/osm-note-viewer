@@ -6,10 +6,7 @@ import {makeElement, startOrResetFadeAnimation} from '../html'
 
 export type ToolElements = Array<string|HTMLElement>
 
-export interface ToolCallbacks {
-	onRefresherRefreshChange(fromTool: Tool, replaceUpdatedNotes: boolean): void
-	onRefresherRefreshAll(fromTool: Tool): void
-}
+export interface ToolCallbacks {} // TODO remove
 
 export abstract class Tool {
 	public abstract readonly id: string

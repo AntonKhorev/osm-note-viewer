@@ -1,6 +1,6 @@
-import type {Note, Users} from './data'
-import {getNoteUpdateDate} from './data'
-import {NoteDataError} from './fetch-note'
+import type {Note, Users} from '../data'
+import {getNoteUpdateDate} from '../data'
+import {NoteDataError} from '../fetch-note'
 
 const clamp=(min:number,value:number,max:number)=>Math.max(min,Math.min(value,max))
 
@@ -17,7 +17,7 @@ type ScheduleEntry = {
 	hasPendingUpdate:boolean
 }
 
-export default class NoteRefresher {
+export default class RefreshToolScheduler {
 	private schedule=new Map<number,ScheduleEntry>()
 	constructor(
 		public isRunning: boolean,

@@ -13,9 +13,8 @@ declare global {
 		'osmNoteViewer:noteFetch': CustomEvent<readonly [note: Note, users: Users]>
 		'osmNoteViewer:pushNoteUpdate': CustomEvent<readonly [note: Note, users: Users]>
 		'osmNoteViewer:renderNote': CustomEvent<Note>
-		// removed in stashed version:
-		'osmNoteViewer:changeRefresherState': CustomEvent<readonly [isRunning: boolean, message: string|undefined]>
-		'osmNoteViewer:changeRefresherPeriod': CustomEvent<number>
+		'osmNoteViewer:refreshNoteProgress': CustomEvent<readonly [id: number, progress: number]>
+		'osmNoteViewer:observeNotesByRefresher': CustomEvent<readonly Note[]> // TODO don't limit to refresher - rename to viewport-something
 	}
 }
 export {}
