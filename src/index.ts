@@ -65,20 +65,14 @@ async function main() {
 		document.body.classList.add('only-text-side')
 	}
 	const navbar=new Navbar(storage,$navbarContainer,map)
-	const fetchPanel=new NoteFetchPanel(
+	new NoteFetchPanel(
 		document.body,
 		storage,db,globalHistory,auth,
 		$fetchContainer,$moreContainer,
 		navbar,noteTable,map
 	)
-	if (noteTable) {
-		noteTable.onRefresherUpdate=async(note,users)=>{
-			await fetchPanel.fetcherRun?.updateNote(note,users)
-		}
-	}
 	if (toolPanel) {
 		toolPanel.onNoteReload=async(note,users)=>{
-			await fetchPanel.fetcherRun?.updateNote(note,users)
 			noteTable?.replaceNote(note,users)
 		}
 	}
@@ -97,7 +91,6 @@ async function main() {
 				return
 			}
 			bubbleCustomEvent($a,'osmNoteViewer:noteFetch',[note,users])
-			await fetchPanel.fetcherRun?.updateNote(note,users)
 			noteTable?.replaceNote(note,users)
 		})
 	}

@@ -36,7 +36,6 @@ export default class NoteTable implements NoteTableUpdater {
 	private commentWriter: CommentWriter
 	private showImages: boolean = false
 	private mapFitMode: 'allNotes' | 'selectedNotes' | 'inViewNotes' | undefined
-	onRefresherUpdate?: (note:Note,users:Users)=>Promise<void>
 	constructor(
 		$root: HTMLElement,
 		$container: HTMLElement,
@@ -71,7 +70,6 @@ export default class NoteTable implements NoteTableUpdater {
 					throw ex
 				}
 				bubbleCustomEvent(this.$table,'osmNoteViewer:noteFetch',[note,users]) // TODO move inside the tool in stashed version
-				await this.onRefresherUpdate?.(note,users)
 				return [note,users]
 			}
 		)

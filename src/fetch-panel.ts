@@ -93,6 +93,9 @@ export default class NoteFetchPanel {
 				fetchDialogs.searchDialog.$section.scrollIntoView()
 			}
 		})
+		$root.addEventListener('osmNoteViewer:noteFetch',({detail:[note,users]})=>{
+			this.fetcherRun?.updateNote(note,users)
+		})
 		
 		function startFetcherFromQuery(query: NoteQuery|undefined, clearStore: boolean, suppressFitNotes: boolean): void {
 			if (!fetchDialogs) return
