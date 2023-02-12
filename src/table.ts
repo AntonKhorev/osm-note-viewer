@@ -12,7 +12,7 @@ import type NoteFilter from './filter'
 import NoteSectionVisibilityObserver from './observer'
 import NoteTableAndRefresherConnector from './refresher-connector'
 import type Server from './server'
-import fetchTableNote from './fetch-note'
+import fetchTableNote, {getFetchTableNoteErrorMessage} from './fetch-note'
 import {makeElement, resetFadeAnimation, bubbleCustomEvent} from './html'
 
 export interface NoteTableUpdater {
@@ -61,12 +61,16 @@ export default class NoteTable implements NoteTableUpdater {
 				this.replaceNote(note,users)
 			},
 			async(id)=>{
-				bubbleCustomEvent(this.$table,'osmNoteViewer:beforeNoteFetch',id)
-				const $a=this.getNoteSection(id)?.querySelector('td.note-link a')
-				if (!($a instanceof HTMLAnchorElement)) {
-					throw new Error(`note link not found during single note fetch`)
+				bubbleCustomEvent(this.$table,'osmNoteViewer:beforeNoteFetch',id) // TODO move inside the tool in stashed version
+				let note: Note
+				let users: Users
+				try {
+					[note,users]=await fetchTableNote(server.api,id)
+				} catch (ex) {
+					bubbleCustomEvent(this.$table,'osmNoteViewer:failedNoteFetch',[id,getFetchTableNoteErrorMessage(ex)]) // TODO move inside the tool in stashed version
+					throw ex
 				}
-				const [note,users]=await fetchTableNote(server.api,$a,Number(id))
+				bubbleCustomEvent(this.$table,'osmNoteViewer:noteFetch',[note,users]) // TODO move inside the tool in stashed version
 				await this.onRefresherUpdate?.(note,users)
 				return [note,users]
 			}
@@ -148,9 +152,22 @@ export default class NoteTable implements NoteTableUpdater {
 			}
 		})
 		$root.addEventListener('osmNoteViewer:beforeNoteFetch',({detail:id})=>{
-			const $a=this.getNoteSection(id)?.querySelector('td.note-link a')
+			const $a=this.getNoteLink(id)
 			if (!($a instanceof HTMLAnchorElement)) return
 			$a.classList.add('loading')
+		})
+		$root.addEventListener('osmNoteViewer:failedNoteFetch',({detail:[id,message]})=>{
+			const $a=this.getNoteLink(id)
+			if (!($a instanceof HTMLAnchorElement)) return
+			$a.classList.remove('loading')
+			$a.classList.add('absent')
+			$a.title=message
+		})
+		$root.addEventListener('osmNoteViewer:noteFetch',({detail:[note,users]})=>{
+			const $a=this.getNoteLink(note.id)
+			if (!($a instanceof HTMLAnchorElement)) return
+			$a.classList.remove('loading','absent')
+			$a.title=''
 		})
 	}
 	reset(): void {
@@ -556,6 +573,9 @@ export default class NoteTable implements NoteTableUpdater {
 				return
 			}
 		}
+	}
+	private getNoteLink(noteId:number|string) {
+		return this.getNoteSection(noteId)?.querySelector('td.note-link a')
 	}
 	private getNoteSection(noteId:number|string):HTMLTableSectionElement|undefined {
 		const $noteSection=document.getElementById(`note-`+noteId) // TODO look in $table

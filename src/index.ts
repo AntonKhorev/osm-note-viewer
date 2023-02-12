@@ -1,3 +1,4 @@
+import type {Note, Users} from './data'
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
 import ServerList from './server-list'
@@ -11,7 +12,7 @@ import NoteFetchPanel from './fetch-panel'
 import NoteFilterPanel from './filter-panel'
 import NoteTable from './table'
 import ToolPanel from './tool-panel'
-import fetchTableNote from './fetch-note'
+import fetchTableNote, {getFetchTableNoteErrorMessage} from './fetch-note'
 import {downloadAndShowChangeset, downloadAndShowElement} from './osm'
 import {bubbleCustomEvent, makeDiv} from './html'
 import serverListConfig from './server-list-config'
@@ -87,11 +88,17 @@ async function main() {
 			if (!($a instanceof HTMLAnchorElement)) return
 			const id=Number($a.dataset.noteId)
 			bubbleCustomEvent($a,'osmNoteViewer:beforeNoteFetch',id)
+			let note: Note
+			let users: Users
 			try {
-				const [note,users]=await fetchTableNote(globalHistory.server.api,$a,id,auth?.token)
-				await fetchPanel.fetcherRun?.updateNote(note,users)
-				noteTable?.replaceNote(note,users)
-			} catch {}
+				[note,users]=await fetchTableNote(globalHistory.server.api,id,auth?.token)
+			} catch (ex) {
+				bubbleCustomEvent($a,'osmNoteViewer:failedNoteFetch',[id,getFetchTableNoteErrorMessage(ex)])
+				return
+			}
+			bubbleCustomEvent($a,'osmNoteViewer:noteFetch',[note,users])
+			await fetchPanel.fetcherRun?.updateNote(note,users)
+			noteTable?.replaceNote(note,users)
 		})
 	}
 	globalHistory.restoreScrollPosition()

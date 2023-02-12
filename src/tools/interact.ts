@@ -421,6 +421,7 @@ export class InteractTool extends Tool {
 					}
 				}
 				const noteAndUsers=await readNoteResponse(id,response)
+				bubbleCustomEvent($tool,'osmNoteViewer:noteFetch',noteAndUsers)
 				callbacks.onNoteReload(this,...noteAndUsers)
 				this.run.currentNoteId=undefined
 				this.run.outputNoteIds.push(id)
@@ -432,6 +433,7 @@ export class InteractTool extends Tool {
 				} else {
 					this.run.currentNoteError=`Unknown error ${ex}`
 				}
+				bubbleCustomEvent($tool,'osmNoteViewer:failedNoteFetch',[id,this.run.currentNoteError])
 				this.run.status=this.run.requestedStatus='paused'
 				transitionToPaused()
 				this.updateRunOutput()

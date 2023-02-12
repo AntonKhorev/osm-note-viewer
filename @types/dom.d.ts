@@ -1,4 +1,4 @@
-import type {Note} from '../src/data'
+import type {Note, Users} from '../src/data'
 
 declare global {
 	interface HTMLElementEventMap {
@@ -9,6 +9,8 @@ declare global {
 		'osmNoteViewer:changeInputNotes': CustomEvent<readonly [inputNotes: ReadonlyArray<Note>, inputNoteUsers: ReadonlyMap<number,string>]>
 		'osmNoteViewer:toggleTools': CustomEvent<boolean>
 		'osmNoteViewer:beforeNoteFetch': CustomEvent<number>
+		'osmNoteViewer:failedNoteFetch': CustomEvent<readonly [id: number, message: string]>
+		'osmNoteViewer:noteFetch': CustomEvent<readonly [note: Note, users: Users]>
 		// removed in stashed version:
 		'osmNoteViewer:changeRefresherState': CustomEvent<readonly [isRunning: boolean, message: string|undefined]>
 		'osmNoteViewer:changeRefresherPeriod': CustomEvent<number>

@@ -10,33 +10,26 @@ const e=makeEscapeTag(encodeURIComponent)
  */
 export class NoteDataError extends TypeError {}
 
+export function getFetchTableNoteErrorMessage(ex: unknown) {
+	if (ex instanceof TypeError) {
+		return ex.message
+	} else {
+		return `unknown error ${ex}`
+	}
+}
+
 /**
  * Reload a single note updating its link
  */
 export default async function fetchTableNote(
 	api: ApiProvider,
-	$a: HTMLAnchorElement,
 	noteId: number,
 	token?: string
 ): Promise<[note:Note,users:Users]> {
-		try {
-			const response=await api.fetch.withToken(token)(e`notes/${noteId}.json`)
-			if (!response.ok) throw new NoteDataError(`note reload failed`)
-			const noteAndUsers=await readNoteResponse(noteId,response)
-			$a.classList.remove('absent')
-			$a.title=''
-			return noteAndUsers
-		} catch (ex) {
-			$a.classList.add('absent')
-			if (ex instanceof TypeError) {
-				$a.title=ex.message
-			} else {
-				$a.title=`unknown error ${ex}`
-			}
-			throw ex
-		} finally {
-			$a.classList.remove('loading')
-		}
+	const response=await api.fetch.withToken(token)(e`notes/${noteId}.json`)
+	if (!response.ok) throw new NoteDataError(`note reload failed`)
+	const noteAndUsers=await readNoteResponse(noteId,response)
+	return noteAndUsers
 }
 
 export async function readNoteResponse(
