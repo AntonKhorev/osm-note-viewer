@@ -9,7 +9,6 @@ export type ToolElements = Array<string|HTMLElement>
 export interface ToolCallbacks {
 	onRefresherRefreshChange(fromTool: Tool, replaceUpdatedNotes: boolean): void
 	onRefresherRefreshAll(fromTool: Tool): void
-	onNoteReload(fromTool: Tool, note: Note, users: Users): void
 }
 
 export abstract class Tool {

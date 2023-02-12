@@ -71,11 +71,6 @@ async function main() {
 		$fetchContainer,$moreContainer,
 		navbar,noteTable,map
 	)
-	if (toolPanel) {
-		toolPanel.onNoteReload=async(note,users)=>{
-			noteTable?.replaceNote(note,users)
-		}
-	}
 	if (globalHistory.hasServer()) {
 		document.body.addEventListener('osmNoteViewer:clickUpdateNoteLink',async(ev)=>{
 			const $a=ev.target
@@ -91,7 +86,7 @@ async function main() {
 				return
 			}
 			bubbleCustomEvent($a,'osmNoteViewer:noteFetch',[note,users])
-			noteTable?.replaceNote(note,users)
+			bubbleCustomEvent($a,'osmNoteViewer:pushNoteUpdate',[note,users])
 		})
 	}
 	globalHistory.restoreScrollPosition()

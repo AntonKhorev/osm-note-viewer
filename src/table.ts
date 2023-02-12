@@ -57,7 +57,7 @@ export default class NoteTable implements NoteTableUpdater {
 				$noteSection.dataset.updated='updated'
 			},
 			(note,users)=>{
-				this.replaceNote(note,users)
+				this.replaceNote(note,users) // TODO replace with pushNoteUpdate in stashed version
 			},
 			async(id)=>{
 				bubbleCustomEvent(this.$table,'osmNoteViewer:beforeNoteFetch',id) // TODO move inside the tool in stashed version
@@ -166,6 +166,9 @@ export default class NoteTable implements NoteTableUpdater {
 			if (!($a instanceof HTMLAnchorElement)) return
 			$a.classList.remove('loading','absent')
 			$a.title=''
+		})
+		$root.addEventListener('osmNoteViewer:pushNoteUpdate',({detail:[note,users]})=>{
+			this.replaceNote(note,users)
 		})
 	}
 	reset(): void {

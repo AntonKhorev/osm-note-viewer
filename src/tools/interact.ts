@@ -141,11 +141,11 @@ export class InteractTool extends Tool {
 		`Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `,
 		`If you've hidden a note and want to see it, look for it at `,this.$yourNotesWeb,` on the OSM website.`
 	)]}
-	protected getTool($root: HTMLElement, $tool: HTMLElement, callbacks: ToolCallbacks): ToolElements {
+	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
 		this.$commentText.oninput=()=>{
 			this.updateButtons()
 		}
-		const scheduleRunNextNote=this.makeRunScheduler($tool,callbacks)
+		const scheduleRunNextNote=this.makeRunScheduler($tool)
 		for (const interactionDescription of this.interactionDescriptions) {
 			interactionDescription.$button.onclick=()=>{
 				if (this.run?.status=='paused') {
@@ -351,7 +351,7 @@ export class InteractTool extends Tool {
 			)
 		}
 	}
-	private makeRunScheduler($tool: HTMLElement, callbacks: ToolCallbacks): ()=>void {
+	private makeRunScheduler($tool: HTMLElement): ()=>void {
 		let runTimeoutId: number|undefined
 		const runNextNote=async():Promise<boolean>=>{
 			const transitionToRunning=()=>{
@@ -422,7 +422,7 @@ export class InteractTool extends Tool {
 				}
 				const noteAndUsers=await readNoteResponse(id,response)
 				bubbleCustomEvent($tool,'osmNoteViewer:noteFetch',noteAndUsers)
-				callbacks.onNoteReload(this,...noteAndUsers)
+				bubbleCustomEvent($tool,'osmNoteViewer:pushNoteUpdate',noteAndUsers)
 				this.run.currentNoteId=undefined
 				this.run.outputNoteIds.push(id)
 			} catch (ex) {

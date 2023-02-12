@@ -11,6 +11,7 @@ declare global {
 		'osmNoteViewer:beforeNoteFetch': CustomEvent<number>
 		'osmNoteViewer:failedNoteFetch': CustomEvent<readonly [id: number, message: string]>
 		'osmNoteViewer:noteFetch': CustomEvent<readonly [note: Note, users: Users]>
+		'osmNoteViewer:pushNoteUpdate': CustomEvent<readonly [note: Note, users: Users]>
 		// removed in stashed version:
 		'osmNoteViewer:changeRefresherState': CustomEvent<readonly [isRunning: boolean, message: string|undefined]>
 		'osmNoteViewer:changeRefresherPeriod': CustomEvent<number>
