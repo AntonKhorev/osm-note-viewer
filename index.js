@@ -756,6 +756,88 @@ class ServerList {
     }
 }
 
+function makeLink(text, href, title) {
+    const $link = document.createElement('a');
+    $link.href = href;
+    $link.textContent = text;
+    if (title != null)
+        $link.title = title;
+    return $link;
+}
+function makeElement(tag) {
+    return (...classes) => (...items) => {
+        const $element = document.createElement(tag);
+        if (classes.length > 0)
+            $element.classList.add(...classes);
+        $element.append(...items);
+        return $element;
+    };
+}
+const makeDiv = makeElement('div');
+const makeLabel = makeElement('label');
+function startOrResetFadeAnimation($element, animationName, animationClass) {
+    if ($element.classList.contains(animationClass)) {
+        resetFadeAnimation($element, animationName);
+    }
+    else {
+        $element.classList.add(animationClass);
+    }
+}
+function resetFadeAnimation($element, animationName) {
+    const animation = getFadeAnimation($element, animationName);
+    if (!animation)
+        return;
+    animation.currentTime = 0;
+}
+function getFadeAnimation($element, animationName) {
+    if (typeof CSSAnimation == 'undefined')
+        return; // experimental technology, implemented in latest browser versions
+    for (const animation of $element.getAnimations()) {
+        if (!(animation instanceof CSSAnimation))
+            continue;
+        if (animation.animationName == animationName)
+            return animation;
+    }
+}
+async function wrapFetch($actionButton, action, getErrorMessage, $errorClassReceiver, writeErrorMessage) {
+    try {
+        $actionButton.disabled = true;
+        $errorClassReceiver.classList.remove('error');
+        writeErrorMessage('');
+        await action();
+    }
+    catch (ex) {
+        $errorClassReceiver.classList.add('error');
+        writeErrorMessage(getErrorMessage(ex));
+    }
+    finally {
+        $actionButton.disabled = false;
+    }
+}
+function wrapFetchForButton($actionButton, action, getErrorMessage) {
+    return wrapFetch($actionButton, action, getErrorMessage, $actionButton, message => $actionButton.title = message);
+}
+function makeGetKnownErrorMessage(KnownError // KnownError: typeof TypeError,
+) {
+    return (ex) => {
+        if (ex instanceof TypeError && ex instanceof KnownError) {
+            return ex.message;
+        }
+        else {
+            return `Unknown error ${ex}`;
+        }
+    };
+}
+function bubbleEvent($target, type) {
+    return $target.dispatchEvent(new Event(type, { bubbles: true }));
+}
+function bubbleCustomEvent($target, type, detail) {
+    return $target.dispatchEvent(new CustomEvent(type, {
+        bubbles: true,
+        detail
+    }));
+}
+
 class GlobalEventListener {
     constructor() {
         document.body.addEventListener('click', ev => {
@@ -763,26 +845,26 @@ class GlobalEventListener {
                 return;
             const $e = ev.target.closest('a.listened, time.listened');
             if ($e instanceof HTMLAnchorElement) {
-                if (this.noteSelfListener && $e.dataset.noteId && $e.dataset.self) {
-                    this.noteSelfListener($e, $e.dataset.noteId);
+                if ($e.dataset.noteId && $e.dataset.self) {
+                    bubbleEvent($e, 'osmNoteViewer:clickUpdateNoteLink');
                 }
-                else if (this.noteListener && $e.dataset.noteId) {
-                    this.noteListener($e, $e.dataset.noteId);
+                else if ($e.dataset.noteId) {
+                    bubbleEvent($e, 'osmNoteViewer:clickNoteLink');
                 }
-                else if (this.userListener && $e.dataset.userId) {
-                    this.userListener($e, Number($e.dataset.userId), $e.dataset.userName);
+                else if ($e.dataset.userId) {
+                    bubbleEvent($e, 'osmNoteViewer:clickUserLink');
                 }
-                else if (this.elementListener && $e.dataset.elementType && $e.dataset.elementId) {
-                    this.elementListener($e, $e.dataset.elementType, $e.dataset.elementId);
+                else if ($e.dataset.elementType && $e.dataset.elementId) {
+                    bubbleEvent($e, 'osmNoteViewer:clickElementLink');
                 }
-                else if (this.changesetListener && $e.dataset.changesetId) {
-                    this.changesetListener($e, $e.dataset.changesetId);
+                else if ($e.dataset.changesetId) {
+                    bubbleEvent($e, 'osmNoteViewer:clickChangesetLink');
                 }
-                else if (this.mapListener && $e.dataset.zoom && $e.dataset.lat && $e.dataset.lon) {
-                    this.mapListener($e, $e.dataset.zoom, $e.dataset.lat, $e.dataset.lon);
+                else if ($e.dataset.zoom && $e.dataset.lat && $e.dataset.lon) {
+                    bubbleEvent($e, 'osmNoteViewer:clickMapLink');
                 }
-                else if (this.imageListener && $e.classList.contains('image')) {
-                    this.imageListener($e);
+                else if ($e.classList.contains('image')) {
+                    bubbleEvent($e, 'osmNoteViewer:toggleImage');
                 }
                 else {
                     return; // don't stop event propagation
@@ -791,9 +873,10 @@ class GlobalEventListener {
                 ev.stopPropagation();
             }
             else if ($e instanceof HTMLTimeElement) {
-                if (this.timestampListener && $e.dateTime) {
+                if ($e.dateTime) {
+                    bubbleCustomEvent($e, 'osmNoteViewer:changeTimestamp', $e.dateTime);
+                    ev.preventDefault();
                     ev.stopPropagation();
-                    this.timestampListener($e.dateTime);
                 }
             }
         }, true); // need to capture event before it bubbles to note table sections
@@ -804,10 +887,9 @@ class GlobalEventListener {
                 return;
             const $e = ev.target.closest('time.listened');
             if ($e instanceof HTMLTimeElement) {
-                if (this.timestampListener && $e.dateTime) {
-                    ev.stopPropagation();
-                    this.timestampListener($e.dateTime);
-                }
+                $e.click();
+                ev.preventDefault();
+                ev.stopPropagation();
             }
         });
     }
@@ -1075,79 +1157,6 @@ class AuthStorage {
     setLoginsStorageItem(logins) {
         this.storage.setItem(`${this.prefix}logins`, JSON.stringify([...logins.entries()]));
     }
-}
-
-function makeLink(text, href, title) {
-    const $link = document.createElement('a');
-    $link.href = href;
-    $link.textContent = text;
-    if (title != null)
-        $link.title = title;
-    return $link;
-}
-function makeElement(tag) {
-    return (...classes) => (...items) => {
-        const $element = document.createElement(tag);
-        if (classes.length > 0)
-            $element.classList.add(...classes);
-        $element.append(...items);
-        return $element;
-    };
-}
-const makeDiv = makeElement('div');
-const makeLabel = makeElement('label');
-function startOrResetFadeAnimation($element, animationName, animationClass) {
-    if ($element.classList.contains(animationClass)) {
-        resetFadeAnimation($element, animationName);
-    }
-    else {
-        $element.classList.add(animationClass);
-    }
-}
-function resetFadeAnimation($element, animationName) {
-    const animation = getFadeAnimation($element, animationName);
-    if (!animation)
-        return;
-    animation.currentTime = 0;
-}
-function getFadeAnimation($element, animationName) {
-    if (typeof CSSAnimation == 'undefined')
-        return; // experimental technology, implemented in latest browser versions
-    for (const animation of $element.getAnimations()) {
-        if (!(animation instanceof CSSAnimation))
-            continue;
-        if (animation.animationName == animationName)
-            return animation;
-    }
-}
-async function wrapFetch($actionButton, action, getErrorMessage, $errorClassReceiver, writeErrorMessage) {
-    try {
-        $actionButton.disabled = true;
-        $errorClassReceiver.classList.remove('error');
-        writeErrorMessage('');
-        await action();
-    }
-    catch (ex) {
-        $errorClassReceiver.classList.add('error');
-        writeErrorMessage(getErrorMessage(ex));
-    }
-    finally {
-        $actionButton.disabled = false;
-    }
-}
-function wrapFetchForButton($actionButton, action, getErrorMessage) {
-    return wrapFetch($actionButton, action, getErrorMessage, $actionButton, message => $actionButton.title = message);
-}
-function makeGetKnownErrorMessage(KnownError // KnownError: typeof TypeError,
-) {
-    return (ex) => {
-        if (ex instanceof TypeError && ex instanceof KnownError) {
-            return ex.message;
-        }
-        else {
-            return `Unknown error ${ex}`;
-        }
-    };
 }
 
 const em = (...ss) => makeElement('em')()(...ss);
@@ -1462,7 +1471,7 @@ function makeLogin(scope, userData) {
     return login;
 }
 class AuthLoginSection {
-    constructor($section, authStorage, server, onLoginChange) {
+    constructor($section, authStorage, server) {
         this.authStorage = authStorage;
         this.$clientIdRequired = makeDiv('notice')(`Please register the app and enter the `, em(`client id`), ` above to be able to login.`);
         this.$loginForms = makeDiv()();
@@ -1500,7 +1509,7 @@ class AuthLoginSection {
         };
         const switchToToken = (token) => {
             authStorage.token = token;
-            onLoginChange();
+            bubbleEvent($section, 'osmNoteViewer:changeLogin');
         };
         const updateInResponseToLogin = () => {
             const logins = authStorage.getLogins();
@@ -1648,7 +1657,7 @@ class Auth {
         const $appSection = makeElement('section')()();
         const $loginSection = makeElement('section')()();
         const appSection = new AuthAppSection($appSection, this.authStorage, this.server, this.serverList);
-        const loginSection = new AuthLoginSection($loginSection, this.authStorage, this.server, () => this.onLoginChange?.());
+        const loginSection = new AuthLoginSection($loginSection, this.authStorage, this.server);
         appSection.onRegistrationUpdate = () => loginSection.respondToAppRegistration();
         $container.append($appSection, $loginSection);
     }
@@ -1789,7 +1798,7 @@ class NoteLayer extends L.FeatureGroup {
     }
 }
 class NoteMap {
-    constructor($container, tile) {
+    constructor($root, $container, tile, downloadAndShowChangeset, downloadAndShowElement) {
         this.needToFitNotes = false;
         this.freezeMode = 'no';
         this.leafletMap = L.map($container, {
@@ -1825,6 +1834,71 @@ class NoteMap {
                     .setContent(popupWriter)
                     .openOn(this.leafletMap);
                 geometry.bindPopup(popup);
+            }
+        });
+        $root.addEventListener('osmNoteViewer:clickMapLink', ev => {
+            const $e = ev.target;
+            if (!($e instanceof HTMLElement))
+                return;
+            this.panAndZoomTo([Number($e.dataset.lat), Number($e.dataset.lon)], Number($e.dataset.zoom));
+        });
+        const handleOsmDownloadAndLink = async ($a, download) => {
+            $a.classList.add('loading');
+            try {
+                // TODO cancel already running response
+                const [geometry, popupContents] = await download();
+                $a.classList.remove('absent');
+                $a.title = '';
+                this.addOsmElement(geometry, popupContents);
+            }
+            catch (ex) {
+                this.elementLayer.clearLayers();
+                $a.classList.add('absent');
+                if (ex instanceof TypeError) {
+                    $a.title = ex.message;
+                }
+                else {
+                    $a.title = `unknown error ${ex}`;
+                }
+            }
+            finally {
+                $a.classList.remove('loading');
+            }
+        };
+        $root.addEventListener('osmNoteViewer:clickChangesetLink', ev => {
+            const $a = ev.target;
+            if (!($a instanceof HTMLAnchorElement))
+                return;
+            const changesetId = $a.dataset.changesetId;
+            if (!changesetId)
+                return;
+            handleOsmDownloadAndLink($a, () => downloadAndShowChangeset(changesetId));
+        });
+        $root.addEventListener('osmNoteViewer:clickElementLink', ev => {
+            const $a = ev.target;
+            if (!($a instanceof HTMLAnchorElement))
+                return;
+            const elementType = $a.dataset.elementType;
+            if (elementType != 'node' && elementType != 'way' && elementType != 'relation')
+                return false;
+            const elementId = $a.dataset.elementId;
+            if (!elementId)
+                return;
+            handleOsmDownloadAndLink($a, () => downloadAndShowElement(elementType, elementId));
+        });
+        $root.addEventListener('osmNoteViewer:focusOnNote', ev => {
+            const noteId = ev.detail;
+            const marker = this.getNoteMarker(noteId);
+            if (!marker)
+                return;
+            const z1 = this.zoom;
+            const z2 = this.maxZoom;
+            if (this.isCloseEnoughToCenter(marker.getLatLng()) && z1 < z2) {
+                const nextZoom = Math.min(z2, z1 + Math.ceil((z2 - z1) / 2));
+                this.panAndZoomTo(marker.getLatLng(), nextZoom);
+            }
+            else {
+                this.panTo(marker.getLatLng());
             }
         });
     }
@@ -1919,7 +1993,15 @@ class NoteMap {
         if (bounds.isValid())
             this.fitBoundsIfNotFrozen(bounds);
     }
-    addOsmElement(geometry, popupWriter) {
+    addOsmElement(geometry, popupContents) {
+        const popupWriter = () => {
+            const $removeButton = document.createElement('button');
+            $removeButton.textContent = `Remove from map view`;
+            $removeButton.onclick = () => {
+                this.elementLayer.clearLayers();
+            };
+            return makeDiv('osm-element-popup-contents')(...popupContents, $removeButton);
+        };
         // TODO zoom on second click, like with notes
         this.elementLayer.clearLayers();
         this.elementLayer.addLayer(geometry);
@@ -2099,9 +2181,23 @@ function calculateOffsetsToFit(map, $popupContainer) {
 }
 
 class FigureDialog {
-    constructor($dialog) {
+    constructor($root, $dialog) {
         this.$dialog = $dialog;
         this.fallbackMode = (window.HTMLDialogElement == null);
+        for (const eventType of [
+            'osmNoteViewer:newFetch',
+            'osmNoteViewer:clickMapLink',
+            'osmNoteViewer:clickElementLink',
+            'osmNoteViewer:clickChangesetLink',
+            'osmNoteViewer:focusOnNote'
+        ]) {
+            $root.addEventListener(eventType, () => this.close());
+        }
+        $root.addEventListener('osmNoteViewer:toggleImage', ev => {
+            if (!(ev.target instanceof HTMLAnchorElement))
+                return;
+            this.toggle(ev.target.href);
+        });
     }
     close() {
         if (this.fallbackMode) {
@@ -4999,7 +5095,7 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
 }
 
 class NoteFetchDialogs {
-    constructor(server, $container, $moreContainer, noteTable, map, hashQuery, submitQueryToDialog, limitChangeListener) {
+    constructor($root, server, $container, $moreContainer, noteTable, map, hashQuery, submitQueryToDialog, limitChangeListener) {
         const $sharedCheckboxes = {
             showImages: [],
             advancedMode: []
@@ -5035,6 +5131,11 @@ class NoteFetchDialogs {
             $container.classList.toggle('advanced-mode', state);
             $moreContainer.classList.toggle('advanced-mode', state);
         });
+        $root.addEventListener('osmNoteViewer:newFetch', () => {
+            for (const dialog of this.allDialogs) {
+                dialog.resetFetch();
+            }
+        });
     }
     get allDialogs() {
         return [this.searchDialog, this.bboxDialog, this.xmlDialog, this.plaintextDialog];
@@ -5042,11 +5143,6 @@ class NoteFetchDialogs {
     populateInputs(query) {
         for (const dialog of this.allDialogs) {
             dialog.populateInputs(query);
-        }
-    }
-    resetFetch() {
-        for (const dialog of this.allDialogs) {
-            dialog.resetFetch();
         }
     }
     getDialogFromQuery(query) {
@@ -5063,14 +5159,14 @@ class NoteFetchDialogs {
 }
 
 class NoteFetchPanel {
-    constructor(storage, db, globalEventsListener, globalHistory, auth, $container, $moreContainer, navbar, noteTable, map, figureDialog) {
+    constructor($root, storage, db, globalHistory, auth, $container, $moreContainer, navbar, noteTable, map) {
         const self = this;
         const server = globalHistory.server;
         const moreButtonIntersectionObservers = [];
         const hashQuery = makeNoteQueryFromHash(globalHistory.getQueryHash());
         let fetchDialogs;
         if (server && noteTable && map) {
-            fetchDialogs = new NoteFetchDialogs(server, $container, $moreContainer, noteTable, map, hashQuery, (dialog, query) => {
+            fetchDialogs = new NoteFetchDialogs($root, server, $container, $moreContainer, noteTable, map, hashQuery, (dialog, query) => {
                 modifyHistory(query, true);
                 startFetcher(query, true, false, dialog);
             }, (dialog) => {
@@ -5104,25 +5200,30 @@ class NoteFetchPanel {
         modifyHistory(hashQuery, false);
         startFetcherFromQuery(hashQuery, false, globalHistory.hasMapHash() // when just opened a note-viewer page with map hash set - if query is set too, don't fit its result, keep the map hash
         );
-        globalEventsListener.userListener = (_, uid, username) => {
+        $root.addEventListener('osmNoteViewer:clickUserLink', ev => {
+            if (!(ev.target instanceof HTMLElement))
+                return;
             const query = {
                 mode: 'search',
                 closed: -1,
                 sort: 'created_at',
                 order: 'newest',
             };
-            if (username != null) {
-                query.display_name = username;
+            if (ev.target.dataset.userName) {
+                query.display_name = ev.target.dataset.userName;
             }
             else {
-                query.user = uid;
+                query.user = Number(ev.target.dataset.userId);
             }
             if (fetchDialogs) {
                 openQueryDialog(navbar, fetchDialogs, query, false);
                 fetchDialogs.populateInputs(query);
                 fetchDialogs.searchDialog.$section.scrollIntoView();
             }
-        };
+        });
+        $root.addEventListener('osmNoteViewer:noteFetch', ({ detail: [note, users] }) => {
+            this.fetcherRun?.updateNote(note, users);
+        });
         function startFetcherFromQuery(query, clearStore, suppressFitNotes) {
             if (!fetchDialogs)
                 return;
@@ -5138,9 +5239,7 @@ class NoteFetchPanel {
                 return;
             if (query.mode != 'search' && query.mode != 'bbox' && query.mode != 'ids')
                 return;
-            fetchDialogs.resetFetch();
-            if (figureDialog)
-                figureDialog.close();
+            bubbleEvent($container, 'osmNoteViewer:newFetch');
             while (moreButtonIntersectionObservers.length > 0)
                 moreButtonIntersectionObservers.pop()?.disconnect();
             if (map) {
@@ -6183,39 +6282,847 @@ class NoteSectionVisibilityObserver {
     }
 }
 
+class NoteTable {
+    constructor($root, $container, toolPanel, map, filter, server) {
+        this.map = map;
+        this.filter = filter;
+        this.server = server;
+        this.$table = makeElement('table')('only-date', 'only-short-username')();
+        this.$selectAllCheckbox = document.createElement('input');
+        this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
+        this.usersById = new Map();
+        this.showImages = false;
+        this.$table.setAttribute('role', 'grid');
+        const that = this;
+        let $clickReadyNoteSection;
+        this.wrappedNoteSectionListeners = [
+            ['mouseenter', function () {
+                    that.activateNote('hover', this);
+                }],
+            ['mouseleave', function () {
+                    that.deactivateNote('hover', this);
+                }],
+            ['mousemove', function () {
+                    $clickReadyNoteSection = undefined; // ideally should be reset by 'selectstart' event, however Chrome fires it even if no mouse drag has happened
+                    if (!this.classList.contains('active-click'))
+                        return;
+                    resetFadeAnimation(this, 'active-click-fade');
+                }],
+            ['animationend', function () {
+                    that.deactivateNote('click', this);
+                }],
+            ['mousedown', function () {
+                    $clickReadyNoteSection = this;
+                }],
+            // ['selectstart',function(){
+            // 	$clickReadyNoteSection=undefined // Chrome is too eager to fire this event, have to cancel click from 'mousemove' instead
+            // }],
+            ['click', function () {
+                    if ($clickReadyNoteSection == this) {
+                        that.focusOnNote(this, true);
+                    }
+                    $clickReadyNoteSection = undefined;
+                }]
+        ];
+        this.wrappedNoteCheckboxClickListener = function (ev) {
+            that.noteCheckboxClickListener(this, ev);
+        };
+        this.wrappedAllNotesCheckboxClickListener = function (ev) {
+            that.allNotesCheckboxClickListener(this, ev);
+        };
+        this.wrappedNoteMarkerClickListener = function () {
+            that.noteMarkerClickListener(this);
+        };
+        this.$table.addEventListener('keydown', noteTableKeydownListener);
+        this.noteSectionVisibilityObserver = new NoteSectionVisibilityObserver((visibleNoteIds, isMapFittingHalted) => {
+            map.showNoteTrack(visibleNoteIds);
+            if (!isMapFittingHalted && this.mapFitMode == 'inViewNotes')
+                map.fitNoteTrack();
+            bubbleCustomEvent(this.$table, 'osmNoteViewer:observeNotesByRefresher', visibleNoteIds.map(id => this.notesById.get(id)).filter(isDefined));
+        });
+        this.commentWriter = new CommentWriter(server);
+        $container.append(this.$table);
+        this.reset();
+        const looseParserPopup = new LooseParserPopup(server, $container);
+        this.looseParserListener = new LooseParserListener((x, y, text) => {
+            const parseResult = parseLoose(text);
+            if (!parseResult)
+                return;
+            looseParserPopup.open(x, y, ...parseResult);
+        });
+        $root.addEventListener('osmNoteViewer:clickNoteLink', ev => {
+            const $a = ev.target;
+            if (!($a instanceof HTMLAnchorElement) || !$a.dataset.noteId)
+                return;
+            this.pingNoteFromLink($a, $a.dataset.noteId);
+        });
+        $root.addEventListener('osmNoteViewer:changeMapFitMode', ev => {
+            const mapFitMode = ev.detail;
+            if (mapFitMode == 'allNotes') {
+                this.mapFitMode = mapFitMode;
+                map.fitNotes();
+            }
+            else if (mapFitMode == 'selectedNotes') {
+                this.mapFitMode = mapFitMode;
+                map.fitSelectedNotes();
+            }
+            else if (mapFitMode == 'inViewNotes') {
+                this.mapFitMode = mapFitMode;
+                map.fitNoteTrack();
+            }
+            else {
+                this.mapFitMode = undefined;
+            }
+        });
+        $root.addEventListener('osmNoteViewer:beforeNoteFetch', ({ detail: id }) => {
+            const $a = this.getNoteLink(id);
+            if (!($a instanceof HTMLAnchorElement))
+                return;
+            $a.classList.add('loading');
+        });
+        $root.addEventListener('osmNoteViewer:failedNoteFetch', ({ detail: [id, message] }) => {
+            const $a = this.getNoteLink(id);
+            if (!($a instanceof HTMLAnchorElement))
+                return;
+            $a.classList.remove('loading');
+            $a.classList.add('absent');
+            $a.title = message;
+        });
+        $root.addEventListener('osmNoteViewer:noteFetch', ({ detail: [note, users] }) => {
+            const $noteSection = this.getNoteSection(note.id);
+            if (!$noteSection)
+                return;
+            const $a = this.getNoteLink($noteSection);
+            if (!$a)
+                return;
+            $a.classList.remove('loading', 'absent');
+            $a.title = '';
+            let oldUpdateDate = 0;
+            const $time = $noteSection.querySelector('tr:last-of-type td.note-date time');
+            if ($time instanceof HTMLTimeElement) {
+                const oldUpdateDateInMs = Date.parse($time.dateTime);
+                if (oldUpdateDateInMs)
+                    oldUpdateDate = oldUpdateDateInMs / 1000;
+            }
+            if (oldUpdateDate < getNoteUpdateDate(note)) {
+                $noteSection.dataset.updated = 'updated';
+            }
+        });
+        $root.addEventListener('osmNoteViewer:pushNoteUpdate', ({ detail: [note, users] }) => {
+            this.replaceNote(note, users);
+        });
+        $root.addEventListener('osmNoteViewer:refreshNoteProgress', ev => {
+            const [id, progress] = ev.detail;
+            const $refreshWaitProgress = this.getNoteSection(id)?.querySelector('td.note-link progress');
+            if (!($refreshWaitProgress instanceof HTMLProgressElement))
+                return;
+            $refreshWaitProgress.value = progress;
+        });
+    }
+    reset() {
+        this.notesById.clear();
+        this.usersById.clear();
+        this.$lastClickedNoteSection = undefined;
+        this.noteSectionVisibilityObserver.disconnect();
+        this.$table.replaceChildren();
+        this.updateCheckboxDependentsAndSendNoteChangeEvents();
+    }
+    updateFilter(filter) {
+        this.filter = filter;
+        const getUsername = (uid) => this.usersById.get(uid);
+        for (const $noteSection of this.$table.tBodies) {
+            const noteId = Number($noteSection.dataset.noteId);
+            const note = this.notesById.get(noteId);
+            if (note == null)
+                continue;
+            if (this.filter.matchNote(note, getUsername)) {
+                let targetLayer = this.map.unselectedNoteLayer;
+                if (isSelectedNoteSection($noteSection)) {
+                    targetLayer = this.map.selectedNoteLayer;
+                }
+                this.map.moveNoteMarkerToLayer(noteId, targetLayer);
+                $noteSection.hidden = false;
+            }
+            else {
+                this.deactivateNote('click', $noteSection);
+                this.deactivateNote('hover', $noteSection);
+                this.map.moveNoteMarkerToLayer(noteId, this.map.filteredNoteLayer);
+                $noteSection.hidden = true;
+                this.setNoteSelection($noteSection, false);
+            }
+        }
+        this.updateCheckboxDependentsAndSendNoteChangeEvents();
+    }
+    /**
+     * @returns number of added notes that passed through the filter
+     */
+    addNotes(notes, users) {
+        // remember notes and users
+        const noteSequence = [];
+        for (const note of notes) {
+            noteSequence.push(note);
+            this.notesById.set(note.id, note);
+        }
+        for (const [uid, username] of Object.entries(users)) {
+            this.usersById.set(Number(uid), username);
+        }
+        // output table
+        if (this.$table.childElementCount == 0) {
+            this.$table.append(makeElement('caption')()(`Fetched notes`));
+            const $header = this.writeTableHeader();
+            this.noteSectionVisibilityObserver.stickyHeight = $header.offsetHeight;
+            document.documentElement.style.setProperty('--table-header-height', $header.offsetHeight + 'px');
+        }
+        let nUnfilteredNotes = 0;
+        const getUsername = (uid) => users[uid];
+        for (const note of noteSequence) {
+            const isVisible = this.filter.matchNote(note, getUsername);
+            if (isVisible)
+                nUnfilteredNotes++;
+            const $noteSection = this.$table.createTBody();
+            $noteSection.dataset.noteId = String(note.id);
+            this.noteSectionVisibilityObserver.observe($noteSection);
+            this.makeMarker(note, isVisible);
+            const $checkbox = document.createElement('input');
+            $checkbox.type = 'checkbox';
+            // $checkbox.title=`shift+click to select/unselect a range`
+            $checkbox.addEventListener('click', this.wrappedNoteCheckboxClickListener);
+            this.writeNoteSection($noteSection, $checkbox, note, users, isVisible);
+            bubbleCustomEvent(this.$table, 'osmNoteViewer:renderNote', note);
+        }
+        if (this.mapFitMode == 'allNotes') {
+            this.map.fitNotes();
+        }
+        else {
+            this.map.fitNotesIfNeeded();
+        }
+        this.sendNoteCounts();
+        return nUnfilteredNotes;
+    }
+    replaceNote(note, users) {
+        const $noteSection = this.getNoteSection(note.id);
+        if (!$noteSection)
+            throw new Error(`note section not found during note replace`);
+        const $checkbox = $noteSection.querySelector('.note-checkbox input');
+        if (!($checkbox instanceof HTMLInputElement))
+            throw new Error(`note checkbox not found during note replace`);
+        const $a = $noteSection.querySelector('td.note-link a');
+        if (!($a instanceof HTMLAnchorElement))
+            throw new Error(`note link not found during note replace`);
+        const isNoteLinkFocused = document.activeElement == $a;
+        this.map.removeNoteMarker(note.id);
+        // remember note and users
+        this.notesById.set(note.id, note);
+        for (const [uid, username] of Object.entries(users)) {
+            this.usersById.set(Number(uid), username);
+        }
+        // clean up table section
+        $noteSection.innerHTML = '';
+        delete $noteSection.dataset.updated;
+        $noteSection.className = '';
+        // output table section
+        const getUsername = (uid) => users[uid];
+        const isVisible = this.filter.matchNote(note, getUsername);
+        this.makeMarker(note, isVisible);
+        this.writeNoteSection($noteSection, $checkbox, note, users, isVisible);
+        const $a2 = $noteSection.querySelector('td.note-link a');
+        if (!($a2 instanceof HTMLAnchorElement))
+            throw new Error(`note link not found after note replace`);
+        if (isNoteLinkFocused)
+            $a2.focus();
+        this.updateCheckboxDependentsAndSendNoteChangeEvents();
+        bubbleCustomEvent(this.$table, 'osmNoteViewer:renderNote', note);
+    }
+    getVisibleNoteIds() {
+        const ids = [];
+        for (const [, id] of this.listVisibleNoteSectionsWithIds()) {
+            ids.push(id);
+        }
+        return ids;
+    }
+    getSelectedNoteIds() {
+        const ids = [];
+        for (const [$noteSection, id] of this.listVisibleNoteSectionsWithIds()) {
+            const $checkbox = $noteSection.querySelector('.note-checkbox input');
+            if (!($checkbox instanceof HTMLInputElement))
+                continue;
+            if (!$checkbox.checked)
+                continue;
+            ids.push(id);
+        }
+        return ids;
+    }
+    setShowImages(showImages) {
+        this.showImages = showImages;
+        this.$table.classList.toggle('with-images', showImages);
+        handleShowImagesUpdate(this.$table, showImages);
+    }
+    pingNoteFromLink($a, noteId) {
+        const $noteSection = this.getNoteSection(noteId);
+        if (!$noteSection) {
+            $a.classList.add('absent');
+            $a.title = `The note is not downloaded`;
+        }
+        else if ($noteSection.hidden) {
+            $a.classList.add('absent');
+            $a.title = `The note is filtered out`;
+        }
+        else {
+            $a.classList.remove('absent');
+            $a.title = '';
+            this.focusOnNote($noteSection);
+        }
+    }
+    writeTableHeader() {
+        const $header = this.$table.createTHead();
+        const $row = $header.insertRow();
+        this.$selectAllCheckbox.type = 'checkbox';
+        this.$selectAllCheckbox.title = `select all notes`;
+        this.$selectAllCheckbox.addEventListener('click', this.wrappedAllNotesCheckboxClickListener);
+        const makeExpander = (tableClass, expandButtonClass, collapseButtonClass, expandTitle, collapseTitle) => {
+            const $button = makeElement('button')('expander')();
+            $button.innerHTML = `<svg><use href="#table-expander" /></svg>`;
+            const update = (isCollapsed) => {
+                $button.classList.toggle(expandButtonClass, isCollapsed);
+                $button.classList.toggle(collapseButtonClass, !isCollapsed);
+                $button.title = isCollapsed ? expandTitle : collapseTitle;
+            };
+            update(this.$table.classList.contains(tableClass));
+            $button.onclick = () => update(this.$table.classList.toggle(tableClass));
+            return $button;
+        };
+        $row.append(makeElement('th')('note-checkbox')(this.$selectAllCheckbox), makeElement('th')()(`id`), makeElement('th')()(`date `, makeExpander('only-date', 'hor-out', 'hor-in', `show time of day`, `hide time of day`)), makeElement('th')()(`user `, makeExpander('only-short-username', 'hor-out', 'hor-in', `show full usernames with ids`, `clip long usernames`)), makeElement('th')()(makeExpander('only-first-comments', 'ver-out', 'ver-in', `show all comments/actions`, `show only first comment/action`)), makeElement('th')()(`comment `, makeExpander('one-line-comments', 'ver-out', 'hor-out', `allow line breaks in comments`, `keep comments on one line`)));
+        return $header;
+    }
+    makeMarker(note, isVisible) {
+        const marker = new NoteMarker(note);
+        marker.addTo(isVisible ? this.map.unselectedNoteLayer : this.map.filteredNoteLayer);
+        marker.on('click', this.wrappedNoteMarkerClickListener);
+        return marker;
+    }
+    writeNoteSection($noteSection, $checkbox, note, users, isVisible) {
+        if (!isVisible)
+            $noteSection.hidden = true;
+        $noteSection.id = `note-${note.id}`;
+        $noteSection.classList.add(`status-${note.status}`);
+        for (const [event, listener] of this.wrappedNoteSectionListeners) {
+            $noteSection.addEventListener(event, listener);
+        }
+        if (isVisible && !$checkbox.checked) {
+            if (this.$selectAllCheckbox.checked) {
+                this.$selectAllCheckbox.checked = false;
+                this.$selectAllCheckbox.indeterminate = true;
+            }
+        }
+        $checkbox.setAttribute('aria-label', `${note.status} note at latitude ${note.lat}, longitude ${note.lon}`);
+        const $commentCells = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, $checkbox, note, users, this.showImages);
+        for (const $commentCell of $commentCells) {
+            this.looseParserListener.listen($commentCell);
+        }
+    }
+    sendNoteCounts() {
+        let nFetched = 0;
+        let nVisible = 0;
+        let nSelected = 0;
+        for (const $noteSection of this.$table.tBodies) {
+            if (!$noteSection.dataset.noteId)
+                continue;
+            nFetched++;
+            if (!$noteSection.hidden)
+                nVisible++;
+            if (isSelectedNoteSection($noteSection))
+                nSelected++;
+        }
+        bubbleCustomEvent(this.$table, 'osmNoteViewer:changeNoteCounts', [nFetched, nVisible, nSelected]);
+    }
+    noteMarkerClickListener(marker) {
+        const $noteSection = this.getNoteSection(marker.noteId);
+        if ($noteSection)
+            this.focusOnNote($noteSection);
+    }
+    noteCheckboxClickListener($checkbox, ev) {
+        ev.stopPropagation();
+        const $clickedNoteSection = $checkbox.closest('tbody');
+        if ($clickedNoteSection) {
+            this.setNoteSelection($clickedNoteSection, $checkbox.checked);
+            if (ev.shiftKey && this.$lastClickedNoteSection) {
+                for (const $inRangeNoteSection of this.listVisibleNoteSectionsInRange(this.$lastClickedNoteSection, $clickedNoteSection)) {
+                    this.setNoteSelection($inRangeNoteSection, $checkbox.checked);
+                }
+            }
+            this.$lastClickedNoteSection = $clickedNoteSection;
+        }
+        this.updateCheckboxDependentsAndSendNoteChangeEvents();
+    }
+    allNotesCheckboxClickListener($allCheckbox, ev) {
+        for (const $noteSection of this.listVisibleNoteSections()) {
+            this.setNoteSelection($noteSection, $allCheckbox.checked);
+        }
+        this.updateCheckboxDependentsAndSendNoteChangeEvents();
+    }
+    focusOnNote($noteSection, isSectionClicked = false) {
+        this.activateNote('click', $noteSection);
+        this.noteSectionVisibilityObserver.haltMapFitting(); // otherwise scrollIntoView() may ruin note pan/zoom - it may cause observer to fire after exiting this function
+        if (!isSectionClicked)
+            $noteSection.scrollIntoView({ block: 'nearest' });
+        const noteId = Number($noteSection.dataset.noteId);
+        bubbleCustomEvent($noteSection, 'osmNoteViewer:focusOnNote', noteId); // TODO correct target, it could be a marker
+        if (!this.$selectAllCheckbox.checked && !this.$selectAllCheckbox.indeterminate) {
+            const noteId = Number($noteSection.dataset.noteId);
+            const note = this.notesById.get(noteId);
+            if (note) {
+                const noteUsers = new Map();
+                this.addNoteUsersToMap(noteUsers, note);
+                bubbleCustomEvent(this.$table, 'osmNoteViewer:changeInputNotes', [[note], noteUsers]);
+            }
+        }
+    }
+    deactivateNote(type, $noteSection) {
+        $noteSection.classList.remove('active-' + type);
+        const noteId = Number($noteSection.dataset.noteId);
+        const marker = this.map.getNoteMarker(noteId);
+        if (!marker)
+            return;
+        marker.getElement()?.classList.remove('active-' + type);
+        if ($noteSection.classList.contains('active-hover') || $noteSection.classList.contains('active-click'))
+            return;
+        marker.setZIndexOffset(0);
+    }
+    activateNote(type, $noteSection) {
+        let alreadyActive = false;
+        for (const $otherNoteSection of this.$table.querySelectorAll('tbody.active-' + type)) {
+            if (!($otherNoteSection instanceof HTMLTableSectionElement))
+                continue;
+            if ($otherNoteSection == $noteSection) {
+                alreadyActive = true;
+                if (type == 'click')
+                    resetFadeAnimation($noteSection, 'active-click-fade');
+            }
+            else {
+                this.deactivateNote(type, $otherNoteSection);
+            }
+        }
+        if (alreadyActive)
+            return;
+        const noteId = Number($noteSection.dataset.noteId);
+        const marker = this.map.getNoteMarker(noteId);
+        if (!marker)
+            return;
+        marker.setZIndexOffset(1000);
+        marker.getElement()?.classList.add('active-' + type);
+        $noteSection.classList.add('active-' + type);
+    }
+    updateCheckboxDependentsAndSendNoteChangeEvents() {
+        const [nFetched, nVisible, selectedNotes, selectedNoteUsers] = this.getCheckedData();
+        const hasSelected = selectedNotes.length > 0;
+        const hasUnselected = nVisible > selectedNotes.length;
+        this.$selectAllCheckbox.indeterminate = hasSelected && hasUnselected;
+        this.$selectAllCheckbox.checked = hasSelected && !hasUnselected;
+        bubbleCustomEvent(this.$table, 'osmNoteViewer:changeNoteCounts', [nFetched, nVisible, selectedNotes.length]);
+        bubbleCustomEvent(this.$table, 'osmNoteViewer:changeInputNotes', [selectedNotes, selectedNoteUsers]);
+        if (this.mapFitMode == 'selectedNotes')
+            this.map.fitSelectedNotes();
+    }
+    getCheckedData() {
+        let nFetched = 0;
+        let nVisible = 0;
+        const selectedNotes = [];
+        const selectedNoteUsers = new Map();
+        for (const $noteSection of this.$table.tBodies) {
+            nFetched++;
+            if ($noteSection.hidden)
+                continue;
+            nVisible++;
+            if (!isSelectedNoteSection($noteSection))
+                continue;
+            const noteId = Number($noteSection.dataset.noteId);
+            const note = this.notesById.get(noteId);
+            if (!note)
+                continue;
+            selectedNotes.push(note);
+            this.addNoteUsersToMap(selectedNoteUsers, note);
+        }
+        return [nFetched, nVisible, selectedNotes, selectedNoteUsers];
+    }
+    setNoteSelection($noteSection, isSelected) {
+        const getTargetLayer = () => {
+            if ($noteSection.hidden) {
+                return this.map.filteredNoteLayer;
+            }
+            else if (isSelected) {
+                return this.map.selectedNoteLayer;
+            }
+            else {
+                return this.map.unselectedNoteLayer;
+            }
+        };
+        const $checkbox = $noteSection.querySelector('.note-checkbox input');
+        if ($checkbox instanceof HTMLInputElement)
+            $checkbox.checked = isSelected;
+        const noteId = Number($noteSection.dataset.noteId);
+        const note = this.notesById.get(noteId);
+        if (!note)
+            return;
+        const marker = this.map.moveNoteMarkerToLayer(noteId, getTargetLayer());
+        if (!marker)
+            return;
+        marker.updateIcon(note, isSelected);
+        const activeClasses = ['hover', 'click'].map(type => 'active-' + type).filter(cls => $noteSection.classList.contains(cls));
+        marker.getElement()?.classList.add(...activeClasses);
+    }
+    listVisibleNoteSections() {
+        return this.$table.querySelectorAll('tbody:not([hidden])');
+    }
+    *listVisibleNoteSectionsWithIds() {
+        for (const $noteSection of this.listVisibleNoteSections()) {
+            const idString = $noteSection.dataset.noteId;
+            if (!idString)
+                continue;
+            yield [$noteSection, Number(idString)];
+        }
+    }
+    /**
+     * range including $fromSection but excluding $toSection
+     * excludes $toSection if equals to $fromSection
+     */
+    *listVisibleNoteSectionsInRange($fromSection, $toSection) {
+        const $sections = this.listVisibleNoteSections();
+        let i = 0;
+        let $guardSection;
+        for (; i < $sections.length; i++) {
+            const $section = $sections[i];
+            if ($section == $fromSection) {
+                $guardSection = $toSection;
+                break;
+            }
+            if ($section == $toSection) {
+                $guardSection = $fromSection;
+                break;
+            }
+        }
+        if (!$guardSection)
+            return;
+        for (; i < $sections.length; i++) {
+            const $section = $sections[i];
+            if ($section != $toSection) {
+                yield $section;
+            }
+            if ($section == $guardSection) {
+                return;
+            }
+        }
+    }
+    getNoteLink(noteIdOrSection) {
+        let $noteSection;
+        if (noteIdOrSection instanceof HTMLTableSectionElement) {
+            $noteSection = noteIdOrSection;
+        }
+        else {
+            $noteSection = this.getNoteSection(noteIdOrSection);
+        }
+        const $a = $noteSection?.querySelector('td.note-link a');
+        if ($a instanceof HTMLAnchorElement)
+            return $a;
+    }
+    getNoteSection(noteId) {
+        const $noteSection = document.getElementById(`note-` + noteId); // TODO look in $table
+        if (!($noteSection instanceof HTMLTableSectionElement))
+            return;
+        return $noteSection;
+    }
+    addNoteUsersToMap(selectedNoteUsers, note) {
+        for (const comment of note.comments) {
+            if (comment.uid == null)
+                continue;
+            const username = this.usersById.get(comment.uid);
+            if (username == null)
+                continue;
+            selectedNoteUsers.set(comment.uid, username);
+        }
+    }
+}
+function isSelectedNoteSection($noteSection) {
+    const $checkbox = $noteSection.querySelector('.note-checkbox input');
+    return $checkbox instanceof HTMLInputElement && $checkbox.checked;
+}
+function isDefined(argument) {
+    return argument !== undefined;
+}
+
+class Tool {
+    constructor(auth) {
+        this.auth = auth;
+        this.isFullWidth = false;
+        this.$buttonsRequiringSelectedNotes = [];
+    }
+    write($root, $container, storage, map) {
+        if (!this.isActiveWithCurrentServerConfiguration())
+            return;
+        const storageKey = 'commands-' + this.id;
+        const $tool = document.createElement('details');
+        $tool.classList.add('tool');
+        $tool.classList.toggle('full-width', this.isFullWidth);
+        $tool.open = storage.getBoolean(storageKey);
+        const $toolSummary = document.createElement('summary');
+        $toolSummary.textContent = this.name;
+        if (this.title)
+            $toolSummary.title = this.title;
+        $tool.addEventListener('toggle', () => {
+            storage.setBoolean(storageKey, $tool.open);
+        });
+        $tool.append($toolSummary, ...this.getTool($root, $tool, map));
+        $tool.addEventListener('animationend', toolAnimationEndListener);
+        const infoElements = this.getInfo();
+        if (infoElements) {
+            const $info = document.createElement('details');
+            $info.classList.add('info');
+            const $infoSummary = document.createElement('summary');
+            $infoSummary.textContent = `${this.name} info`;
+            $info.append($infoSummary, ...infoElements);
+            const $infoButton = document.createElement('button');
+            $infoButton.classList.add('info');
+            $infoButton.innerHTML = `<svg><title>Tool info</title><use href="#tools-info" /></svg>`;
+            const updateInfoButton = () => {
+                if ($info.open) {
+                    $infoButton.classList.add('open');
+                }
+                else {
+                    $infoButton.classList.remove('open');
+                }
+            };
+            updateInfoButton();
+            $infoButton.addEventListener('click', () => {
+                $info.open = !$info.open;
+            });
+            $info.addEventListener('toggle', () => {
+                updateInfoButton();
+            });
+            $tool.addEventListener('toggle', () => {
+                if ($tool.open)
+                    return;
+                $info.open = false;
+            });
+            $tool.append(` `, $infoButton);
+            $container.append($tool, $info);
+        }
+        else {
+            $container.append($tool);
+        }
+        $root.addEventListener('osmNoteViewer:toggleTools', ev => {
+            if (ev.target == $tool)
+                return;
+            $tool.open = ev.detail;
+            this.ping($tool);
+        });
+        $root.addEventListener('osmNoteViewer:changeInputNotes', ev => {
+            const [inputNotes] = ev.detail;
+            let reactedToButtons = false;
+            for (const $button of this.$buttonsRequiringSelectedNotes) {
+                const newDisabled = inputNotes.length <= 0;
+                if ($button.disabled != newDisabled) {
+                    $button.disabled = newDisabled;
+                    reactedToButtons = true;
+                }
+            }
+            if (reactedToButtons)
+                this.ping($tool);
+        });
+    }
+    isActiveWithCurrentServerConfiguration() { return true; }
+    getInfo() { return undefined; }
+    makeRequiringSelectedNotesButton() {
+        const $button = document.createElement('button');
+        $button.disabled = true;
+        this.$buttonsRequiringSelectedNotes.push($button);
+        return $button;
+    }
+    ping($tool) {
+        startOrResetFadeAnimation($tool, 'tool-ping-fade', 'ping');
+    }
+}
+function makeMapIcon(type) {
+    const $span = makeElement('span')(`icon-map-${type}`)();
+    $span.innerHTML = `<svg><use href="#tools-map" /></svg><span>map ${type}</span>`;
+    return $span;
+}
+function makeNotesIcon(type) {
+    const $span = makeElement('span')(`icon-notes-${type}`)();
+    $span.innerHTML = `<svg><use href="#tools-notes" /></svg><span>${type} notes</span>`;
+    return $span;
+}
+function makeActionIcon(type, text) {
+    const $span = makeElement('span')(`icon-action-${type}`)();
+    $span.innerHTML = `<svg><use href="#tools-${type}" /></svg>`;
+    $span.append(makeElement('span')()(text));
+    return $span;
+}
+function makeNoteStatusIcon(status, number = 1) {
+    const height = 16;
+    const width = 8;
+    const r = width / 2;
+    const $span = makeElement('span')(`icon-note-status`)();
+    const path = `<path d="${computeMarkerOutlinePath(height, width / 2 - .5)}" stroke="gray" ${pathAttrs()} />`;
+    $span.innerHTML = `<svg viewBox="${-r} ${-r} ${width} ${height}">${path}</svg><span>${status} note${number != 1 ? `s` : ``}</span>`;
+    return $span;
+    function pathAttrs() {
+        if (status == 'open') {
+            return `fill="red"`;
+        }
+        else if (status == 'closed') {
+            return `fill="green"`;
+        }
+        else {
+            return `fill="#444"`;
+        }
+    }
+    // copypaste from marker.ts
+    function computeMarkerOutlinePath(height, r) {
+        const rp = height - r;
+        const y = r ** 2 / rp;
+        const x = Math.sqrt(r ** 2 - y ** 2);
+        const xf = x.toFixed(2);
+        const yf = y.toFixed(2);
+        return `M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z`;
+    }
+}
+function toolAnimationEndListener() {
+    this.classList.remove('ping');
+}
+
+class AutozoomTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.id = 'autozoom';
+        this.name = `Map autozoom`;
+        this.title = `Select how the map is panned/zoomed to notes`;
+    }
+    getInfo() {
+        return [p(`Pan and zoom the map to notes in the table. `, `Can be used as `, em(`zoom to data`), ` for notes layer if `, dfn(`to all visible notes`), ` is selected. `), p(dfn(`To notes on screen in table`), ` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `, `This option is convenient to use when `, em(`Track between notes`), ` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`)];
+    }
+    getTool($root, $tool) {
+        const $fitModeSelect = makeElement('select')()(new Option('is disabled', 'none'), new Option('to selected notes', 'selectedNotes'), new Option('to notes on screen in table', 'inViewNotes'), new Option('to all visible notes', 'allNotes'));
+        $fitModeSelect.onchange = () => {
+            bubbleCustomEvent($tool, 'osmNoteViewer:changeMapFitMode', $fitModeSelect.value);
+        };
+        return [$fitModeSelect];
+    }
+}
+class TimestampTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.id = 'timestamp';
+        this.name = `Timestamp for historic queries`;
+        this.title = `Set timestamp for queries run by Overpass`;
+    }
+    getInfo() {
+        return [p(`Allows to select a timestamp for use with `, em(`Overpass`), ` and `, em(`Overpass turbo`), ` commands. `, `You can either enter the timestamp in ISO format (or anything else that Overpass understands) manually here click on a date of/in a note comment. `, `If present, a `, makeLink(`date setting`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL#date`), ` is added to Overpass queries. `, `The idea is to allow for examining the OSM data at the moment some note was opened/commented/closed to evaluate if this action was correct.`), p(`Timestamps inside note comments are usually generated by apps like `, makeLink(`MAPS.ME`, `https://wiki.openstreetmap.org/wiki/MAPS.ME`), ` to indicate their OSM data version.`)];
+    }
+    getTool($root, $tool) {
+        const $timestampInput = document.createElement('input');
+        // $timestampInput.type='datetime-local' // no standard datetime input for now because they're being difficult with UTC and 24-hour format.
+        // $timestampInput.step='1'
+        $timestampInput.type = 'text';
+        $timestampInput.size = 20;
+        $timestampInput.oninput = () => {
+            bubbleCustomEvent($tool, 'osmNoteViewer:changeTimestamp', $timestampInput.value);
+        };
+        $root.addEventListener('osmNoteViewer:changeTimestamp', ev => {
+            if (ev.target == $tool)
+                return;
+            $timestampInput.value = ev.detail;
+            this.ping($tool);
+        });
+        const $clearButton = document.createElement('button');
+        $clearButton.type = 'reset';
+        $clearButton.textContent = 'Clear';
+        const $form = makeElement('form')()($timestampInput, ` `, $clearButton);
+        $form.onreset = () => {
+            bubbleCustomEvent($tool, 'osmNoteViewer:changeTimestamp', '');
+        };
+        return [$form];
+    }
+}
+class CountTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.id = 'counts';
+        this.name = `Note counts`;
+        this.title = `See number of fetched/visible/selected notes`;
+    }
+    getTool($root, $tool) {
+        const $fetchedNoteCount = makeElement('output')()('0');
+        const $visibleNoteCount = makeElement('output')()('0');
+        const $selectedNoteCount = makeElement('output')()('0');
+        $root.addEventListener('osmNoteViewer:changeNoteCounts', ev => {
+            const [nFetched, nVisible, nSelected] = ev.detail;
+            $fetchedNoteCount.textContent = String(nFetched);
+            $visibleNoteCount.textContent = String(nVisible);
+            $selectedNoteCount.textContent = String(nSelected);
+            this.ping($tool);
+        });
+        return [
+            $fetchedNoteCount, ` fetched, `,
+            $visibleNoteCount, ` visible, `,
+            $selectedNoteCount, ` selected`
+        ];
+    }
+}
+class LegendTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.id = 'legend';
+        this.name = `Legend`;
+        this.title = `What do icons in command panel mean`;
+    }
+    getTool() {
+        return [
+            makeMapIcon('center'), ` = map center, `,
+            makeMapIcon('area'), ` = map area, `,
+            makeNotesIcon('selected'), ` = selected notes, `,
+            makeNoteStatusIcon('open'), ` = open (selected) note, `,
+            makeNoteStatusIcon('closed'), ` = closed (selected) note`
+        ];
+    }
+}
+class SettingsTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.id = 'settings';
+        this.name = `⚙️`;
+        this.title = `Settings`;
+    }
+    getTool($root, $tool) {
+        const $openAllButton = makeElement('button')('open-all-tools')(`Open all tools`);
+        $openAllButton.onclick = () => bubbleCustomEvent($tool, 'osmNoteViewer:toggleTools', true);
+        const $closeAllButton = makeElement('button')('close-all-tools')(`Close all tools`);
+        $closeAllButton.onclick = () => bubbleCustomEvent($tool, 'osmNoteViewer:toggleTools', false);
+        return [$openAllButton, ` `, $closeAllButton];
+    }
+}
+
 const e$2 = makeEscapeTag(encodeURIComponent);
 /**
  * Errors expected with working connection to the API
  */
 class NoteDataError extends TypeError {
 }
+function getFetchTableNoteErrorMessage(ex) {
+    if (ex instanceof TypeError) {
+        return ex.message;
+    }
+    else {
+        return `unknown error ${ex}`;
+    }
+}
 /**
  * Reload a single note updating its link
  */
-async function fetchTableNote(api, $a, noteId, token) {
-    $a.classList.add('loading');
-    try {
-        const response = await api.fetch.withToken(token)(e$2 `notes/${noteId}.json`);
-        if (!response.ok)
-            throw new NoteDataError(`note reload failed`);
-        const noteAndUsers = await readNoteResponse(noteId, response);
-        $a.classList.remove('absent');
-        $a.title = '';
-        return noteAndUsers;
-    }
-    catch (ex) {
-        $a.classList.add('absent');
-        if (ex instanceof TypeError) {
-            $a.title = ex.message;
-        }
-        else {
-            $a.title = `unknown error ${ex}`;
-        }
-        throw ex;
-    }
-    finally {
-        $a.classList.remove('loading');
-    }
+async function fetchTableNote(api, noteId, token) {
+    const response = await api.fetch.withToken(token)(e$2 `notes/${noteId}.json`);
+    if (!response.ok)
+        throw new NoteDataError(`note reload failed`);
+    const noteAndUsers = await readNoteResponse(noteId, response);
+    return noteAndUsers;
 }
 async function readNoteResponse(noteId, response) {
     const data = await response.json();
@@ -6230,8 +7137,569 @@ async function readNoteResponse(noteId, response) {
     return [newNote, newUsers];
 }
 
+const e$1 = makeEscapeTag(encodeURIComponent);
+class InteractionError extends TypeError {
+}
+class InteractTool extends Tool {
+    constructor(auth) {
+        super(auth);
+        this.id = 'interact';
+        this.name = `Interact`;
+        this.title = `Interact with notes on OSM server`;
+        this.isFullWidth = true;
+        this.$commentAppendControls = makeDiv('textarea-controls')();
+        this.$yourNotesApi = document.createElement('span');
+        this.$yourNotesWeb = document.createElement('span');
+        this.$asOutput = document.createElement('output');
+        this.$withOutput = document.createElement('output');
+        this.$commentText = document.createElement('textarea');
+        this.$commentButton = document.createElement('button');
+        this.$closeButton = document.createElement('button');
+        this.$reopenButton = document.createElement('button');
+        this.$hideOpenButton = document.createElement('button');
+        this.$hideClosedButton = document.createElement('button');
+        this.$reactivateButton = document.createElement('button');
+        this.$runButton = makeElement('button')('only-with-icon')();
+        this.$runOutput = document.createElement('output');
+        this.stagedNoteIds = new Map(noteStatuses.map(status => [status, []]));
+        this.interactionDescriptions = [{
+                verb: 'POST',
+                endpoint: 'comment',
+                label: `Comment`,
+                runningLabel: `Commenting`,
+                $button: this.$commentButton,
+                inputNoteStatus: 'open',
+                outputNoteStatus: 'open',
+                forModerator: false
+            }, {
+                verb: 'POST',
+                endpoint: 'close',
+                label: `Close`,
+                runningLabel: `Closing`,
+                $button: this.$closeButton,
+                inputNoteStatus: 'open',
+                outputNoteStatus: 'closed',
+                forModerator: false
+            }, {
+                verb: 'POST',
+                endpoint: 'reopen',
+                label: `Reopen`,
+                runningLabel: `Reopening`,
+                $button: this.$reopenButton,
+                inputNoteStatus: 'closed',
+                outputNoteStatus: 'open',
+                forModerator: false
+            }, {
+                verb: 'DELETE',
+                label: `Hide`,
+                runningLabel: `Hiding`,
+                $button: this.$hideOpenButton,
+                inputNoteStatus: 'open',
+                outputNoteStatus: 'hidden',
+                forModerator: true
+            }, {
+                verb: 'DELETE',
+                label: `Hide`,
+                runningLabel: `Hiding`,
+                $button: this.$hideClosedButton,
+                inputNoteStatus: 'closed',
+                outputNoteStatus: 'hidden',
+                forModerator: true
+            }, {
+                verb: 'POST',
+                endpoint: 'reopen',
+                label: `Reactivate`,
+                runningLabel: `Reactivating`,
+                $button: this.$reactivateButton,
+                inputNoteStatus: 'hidden',
+                outputNoteStatus: 'open',
+                forModerator: true
+            }];
+        this.updateLoginDependents();
+        this.updateWithOutput();
+        this.updateButtons();
+        this.updateRunButton();
+        this.updateRunOutput();
+    }
+    getInfo() {
+        return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again ("reactivates" it). `, `This means that a hidden note can only be restored to an open state, even if it had been closed before being hidden. `, `If you want the note to be closed again, you have to close it yourself after reactivating. `, `Also, unlike the OSM website, you can reactivate a note and add a comment in one action. `, `The OSM website currently doesn't provide a comment input for note reactivation.`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, `If you've hidden a note and want to see it, look for it at `, this.$yourNotesWeb, ` on the OSM website.`)];
+    }
+    getTool($root, $tool) {
+        const $appendLastChangeset = makeElement('a')('input-link')(`append last changeset`);
+        $appendLastChangeset.tabIndex = 0;
+        $appendLastChangeset.onclick = async () => {
+            if (this.auth.uid == null)
+                return;
+            try {
+                const response = await this.auth.server.api.fetch(e$1 `changesets.json?user=${this.auth.uid}`);
+                const data = await response.json();
+                const changesetId = getLatestChangesetId(data);
+                this.$commentText.value = appendToText(this.$commentText.value, this.auth.server.web.getUrl(e$1 `changeset/${changesetId}`));
+                $appendLastChangeset.dataset.changesetId = String(changesetId);
+                bubbleEvent($appendLastChangeset, 'osmNoteViewer:clickChangesetLink');
+            }
+            catch { }
+        };
+        $appendLastChangeset.onkeydown = ev => {
+            if (ev.key != 'Enter')
+                return;
+            $appendLastChangeset.click();
+            ev.preventDefault();
+            ev.stopPropagation();
+        };
+        this.$commentAppendControls.append($appendLastChangeset);
+        this.$commentText.oninput = () => {
+            this.updateButtons();
+        };
+        const scheduleRunNextNote = this.makeRunScheduler($tool);
+        for (const interactionDescription of this.interactionDescriptions) {
+            interactionDescription.$button.onclick = () => {
+                if (this.run?.status == 'paused') {
+                    this.run = undefined;
+                    this.updateButtons();
+                    this.updateRunButton();
+                    this.updateRunOutput();
+                }
+                else {
+                    const matchingNoteIds = this.stagedNoteIds.get(interactionDescription.inputNoteStatus);
+                    if (!matchingNoteIds)
+                        return;
+                    const runImmediately = matchingNoteIds.length <= 1;
+                    this.run = {
+                        interactionDescription,
+                        status: 'paused',
+                        requestedStatus: runImmediately ? 'running' : 'paused',
+                        inputNoteIds: [...matchingNoteIds],
+                        outputNoteIds: []
+                    };
+                    if (runImmediately)
+                        scheduleRunNextNote();
+                    this.updateButtons();
+                    this.updateRunButton();
+                    this.updateRunOutput();
+                }
+            };
+        }
+        this.$runButton.onclick = () => {
+            if (!this.run)
+                return;
+            if (this.run.status == 'running') {
+                this.run.requestedStatus = 'paused';
+                this.updateRunButton();
+            }
+            else if (this.run.status == 'paused') {
+                this.run.requestedStatus = 'running';
+                this.updateRunButton();
+                scheduleRunNextNote();
+            }
+        };
+        $root.addEventListener('osmNoteViewer:changeLogin', () => {
+            this.updateLoginDependents();
+            this.updateButtons();
+            this.ping($tool);
+        });
+        $root.addEventListener('osmNoteViewer:changeInputNotes', ev => {
+            const [inputNotes] = ev.detail;
+            for (const status of noteStatuses) {
+                const ids = this.stagedNoteIds.get(status);
+                if (ids)
+                    ids.length = 0;
+            }
+            for (const inputNote of inputNotes) {
+                const ids = this.stagedNoteIds.get(inputNote.status);
+                ids?.push(inputNote.id);
+            }
+            if (this.run?.status == 'running')
+                return;
+            this.updateWithOutput();
+            this.updateButtons();
+            this.ping($tool);
+        });
+        return [
+            this.$asOutput, ` `, this.$withOutput, ` `,
+            makeDiv('major-input')(this.$commentAppendControls, makeLabel()(`Comment `, this.$commentText)),
+            makeDiv('gridded-input')(...this.interactionDescriptions.map(({ $button }) => $button)),
+            this.$runButton, ` `, this.$runOutput
+        ];
+    }
+    updateLoginDependents() {
+        this.$commentAppendControls.hidden = this.auth.uid == null;
+        this.updateYourNotes();
+        this.updateAsOutput();
+    }
+    updateYourNotes() {
+        const apiText = `your own latest updated notes`;
+        const webText = `your notes page`;
+        if (this.auth.username == null) {
+            this.$yourNotesApi.replaceChildren(apiText);
+            this.$yourNotesWeb.replaceChildren(webText);
+        }
+        else {
+            const apiHref = makeHrefWithCurrentHost([
+                ['mode', 'search'],
+                ['display_name', this.auth.username],
+                ['sort', 'updated_at']
+            ]);
+            const webHref = this.auth.server.web.getUrl(e$1 `user/${this.auth.username}/notes`);
+            this.$yourNotesApi.replaceChildren(makeLink(apiText, apiHref));
+            this.$yourNotesWeb.replaceChildren(makeLink(webText, webHref));
+        }
+    }
+    updateAsOutput() {
+        if (this.auth.username == null || this.auth.uid == null) {
+            this.$asOutput.replaceChildren(`anonymously`);
+        }
+        else {
+            const href = this.auth.server.web.getUrl(e$1 `user/${this.auth.username}`);
+            const $a = makeLink(this.auth.username, href);
+            $a.classList.add('listened');
+            $a.dataset.userName = this.auth.username;
+            $a.dataset.userId = String(this.auth.uid);
+            this.$asOutput.replaceChildren(`as `, $a);
+        }
+    }
+    updateWithOutput() {
+        const multipleNoteIndicators = this.getMultipleNoteIndicators(this.stagedNoteIds, 5);
+        if (multipleNoteIndicators.length > 0) {
+            this.$withOutput.replaceChildren(`with `, ...multipleNoteIndicators);
+        }
+        else {
+            this.$withOutput.replaceChildren();
+        }
+    }
+    updateButtons() {
+        const buttonNoteIcon = (ids, inputStatus, outputStatus) => {
+            const outputIcon = [];
+            if (outputStatus != inputStatus) {
+                outputIcon.push(` → `, makeNoteStatusIcon(outputStatus, ids.length));
+            }
+            if (ids.length == 0) {
+                return [makeNoteStatusIcon(inputStatus, ids.length), ...outputIcon];
+            }
+            else if (ids.length == 1) {
+                return [makeNoteStatusIcon(inputStatus), ` ${ids[0]}`, ...outputIcon];
+            }
+            else {
+                return [`${ids.length} × `, makeNoteStatusIcon(inputStatus, ids.length), ...outputIcon, `...`];
+            }
+        };
+        for (const interactionDescription of this.interactionDescriptions) {
+            const inputNoteIds = this.stagedNoteIds.get(interactionDescription.inputNoteStatus) ?? [];
+            const { $button } = interactionDescription;
+            let cancelCondition = false;
+            if (this.run && this.run.status != 'finished') {
+                cancelCondition = this.run.status == 'paused' && this.run.interactionDescription == interactionDescription;
+                $button.disabled = (this.run.status == 'running' ||
+                    this.run.status == 'paused' && this.run.interactionDescription != interactionDescription);
+            }
+            else {
+                $button.disabled = inputNoteIds.length == 0;
+            }
+            if (cancelCondition) {
+                $button.replaceChildren(`Cancel`);
+            }
+            else {
+                $button.replaceChildren(`${interactionDescription.label} `, ...buttonNoteIcon(inputNoteIds, interactionDescription.inputNoteStatus, interactionDescription.outputNoteStatus));
+            }
+            $button.hidden = interactionDescription.forModerator && !this.auth.isModerator;
+        }
+        if (this.$commentText.value == '')
+            this.$commentButton.disabled = true;
+    }
+    updateRunButton() {
+        const canPause = this.run && this.run.status == 'running';
+        this.$runButton.replaceChildren(canPause
+            ? makeActionIcon('pause', `Halt`)
+            : makeActionIcon('play', `Resume`));
+        this.$runButton.disabled = !this.run || this.run.status != this.run.requestedStatus;
+    }
+    updateRunOutput() {
+        let firstFragment = true;
+        const outputFragment = (...content) => {
+            if (firstFragment) {
+                firstFragment = false;
+            }
+            else {
+                this.$runOutput.append(` → `);
+            }
+            this.$runOutput.append(...content);
+        };
+        if (!this.run) {
+            this.$runOutput.replaceChildren(`Select notes for interaction using checkboxes`);
+            return;
+        }
+        this.$runOutput.replaceChildren(this.run.interactionDescription.runningLabel, ` `);
+        const inputNoteIndicators = this.getMultipleNoteIndicators([[
+                this.run.interactionDescription.inputNoteStatus, this.run.inputNoteIds
+            ]], 0);
+        if (inputNoteIndicators.length > 0) {
+            outputFragment(`queued `, ...inputNoteIndicators);
+        }
+        else if (this.run.currentNoteId != null) {
+            outputFragment(`queue emptied`);
+        }
+        if (this.run.currentNoteId != null) {
+            const $a = this.getNoteIndicator(this.run.interactionDescription.inputNoteStatus, this.run.currentNoteId);
+            if (this.run.currentNoteError) {
+                $a.classList.add('error');
+                $a.title = this.run.currentNoteError;
+                outputFragment(`error on `, $a);
+            }
+            else {
+                outputFragment(`current `, $a);
+            }
+        }
+        const outputNoteIndicators = this.getMultipleNoteIndicators([[
+                this.run.interactionDescription.outputNoteStatus, this.run.outputNoteIds
+            ]], 0);
+        if (outputNoteIndicators.length > 0) {
+            outputFragment(`completed `, ...outputNoteIndicators);
+        }
+    }
+    makeRunScheduler($tool) {
+        let runTimeoutId;
+        const runNextNote = async () => {
+            const transitionToRunning = () => {
+                this.$commentText.disabled = true;
+                this.updateButtons();
+                this.updateRunButton();
+            };
+            const transitionToPaused = () => {
+                this.$commentText.disabled = false;
+                this.updateWithOutput(); // may have received input notes change
+                this.updateButtons();
+                this.updateRunButton();
+            };
+            const transitionToFinished = () => {
+                this.$commentText.disabled = false;
+                this.$commentText.value = '';
+                this.updateWithOutput(); // may have received input notes change
+                this.updateButtons();
+                this.updateRunButton();
+                this.updateRunOutput();
+            };
+            if (!this.run)
+                return false;
+            if (this.run.status == 'finished') {
+                return false;
+            }
+            else if (this.run.status == 'paused') {
+                if (this.run.requestedStatus == 'paused') {
+                    return false;
+                }
+                else if (this.run.requestedStatus == 'running') {
+                    this.run.status = 'running';
+                    transitionToRunning();
+                }
+            }
+            else if (this.run.status == 'running') {
+                if (this.run.requestedStatus == 'paused') {
+                    this.run.status = 'paused';
+                    transitionToPaused();
+                    return false;
+                }
+            }
+            const id = this.run.currentNoteId ?? this.run.inputNoteIds.shift();
+            if (id == null) {
+                this.run.status = 'finished';
+                transitionToFinished();
+                return false;
+            }
+            this.run.currentNoteId = id;
+            this.run.currentNoteError = undefined;
+            this.updateRunOutput();
+            bubbleCustomEvent($tool, 'osmNoteViewer:beforeNoteFetch', id);
+            try {
+                let response;
+                const fetchBuilder = this.auth.server.api.fetch.withToken(this.auth.token).withUrlencodedBody([
+                    ['text', this.$commentText.value]
+                ]);
+                if (this.run.interactionDescription.verb == 'DELETE') {
+                    const path = e$1 `notes/${id}.json`;
+                    response = await fetchBuilder.delete(path);
+                }
+                else { // POST
+                    const path = e$1 `notes/${id}/${this.run.interactionDescription.endpoint}.json`;
+                    response = await fetchBuilder.post(path);
+                }
+                if (!response.ok) {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType?.includes('text/plain')) {
+                        throw new InteractionError(await response.text());
+                    }
+                    else {
+                        throw new InteractionError(`${response.status} ${response.statusText}`);
+                    }
+                }
+                const noteAndUsers = await readNoteResponse(id, response);
+                bubbleCustomEvent($tool, 'osmNoteViewer:noteFetch', noteAndUsers);
+                bubbleCustomEvent($tool, 'osmNoteViewer:pushNoteUpdate', noteAndUsers);
+                this.run.currentNoteId = undefined;
+                this.run.outputNoteIds.push(id);
+            }
+            catch (ex) {
+                if (ex instanceof InteractionError) {
+                    this.run.currentNoteError = ex.message;
+                }
+                else if (ex instanceof NoteDataError) {
+                    this.run.currentNoteError = `Error after successful interaction: ${ex.message}`;
+                }
+                else {
+                    this.run.currentNoteError = `Unknown error ${ex}`;
+                }
+                bubbleCustomEvent($tool, 'osmNoteViewer:failedNoteFetch', [id, this.run.currentNoteError]);
+                this.run.status = this.run.requestedStatus = 'paused';
+                transitionToPaused();
+                this.updateRunOutput();
+            }
+            return true;
+        };
+        const wrappedRunNextNote = async () => {
+            let reschedule = false;
+            try {
+                reschedule = await runNextNote();
+            }
+            catch { }
+            runTimeoutId = undefined;
+            if (reschedule)
+                scheduleRunNextNote();
+        };
+        const scheduleRunNextNote = () => {
+            if (runTimeoutId)
+                return;
+            runTimeoutId = setTimeout(wrappedRunNextNote);
+        };
+        return scheduleRunNextNote;
+    }
+    getMultipleNoteIndicators(statusAndIds, maxIndividualNotes) {
+        const output = [];
+        let first = true;
+        const writeSingleNote = (id, status) => {
+            if (!first)
+                output.push(`, `);
+            first = false;
+            output.push(this.getNoteIndicator(status, id));
+        };
+        const writeOneOrManyNotes = (ids, status) => {
+            if (ids.length == 0) {
+                return;
+            }
+            if (ids.length == 1) {
+                writeSingleNote(ids[0], status);
+                return;
+            }
+            if (!first)
+                output.push(`, `);
+            first = false;
+            output.push(`${ids.length} × `, makeNoteStatusIcon(status, ids.length));
+        };
+        const statusAndIdsCopy = [...statusAndIds];
+        const nNotes = statusAndIdsCopy.reduce((n, [, ids]) => n + ids.length, 0);
+        if (nNotes == 0) ;
+        else if (nNotes <= maxIndividualNotes) {
+            for (const [status, ids] of statusAndIdsCopy) {
+                for (const id of ids) {
+                    writeSingleNote(id, status);
+                }
+            }
+        }
+        else {
+            for (const [status, ids] of statusAndIdsCopy) {
+                writeOneOrManyNotes(ids, status);
+            }
+        }
+        return output;
+    }
+    getNoteIndicator(status, id) {
+        const href = this.auth.server.web.getUrl(e$1 `note/${id}`);
+        const $a = document.createElement('a');
+        $a.href = href;
+        $a.classList.add('listened');
+        $a.dataset.noteId = String(id);
+        $a.append(makeNoteStatusIcon(status), ` ${id}`);
+        return $a;
+    }
+}
+function getLatestChangesetId(data) {
+    if (!data || typeof data != 'object' ||
+        !('changesets' in data) ||
+        !isArray(data.changesets))
+        throw new TypeError(`Invalid changesets data`);
+    const latestChangesetData = data.changesets[0];
+    if (!latestChangesetData)
+        throw new TypeError(`No changesets found`);
+    if (typeof latestChangesetData != 'object' ||
+        !('id' in latestChangesetData) ||
+        typeof latestChangesetData.id != 'number')
+        throw new TypeError(`Invalid latest changeset data`);
+    return latestChangesetData.id;
+}
+function appendToText(text, appended) {
+    if (text) {
+        if (text[text.length - 1] != `\n`)
+            text += `\n`;
+        if (text[text.length - 2] != `\n`)
+            text += `\n`;
+    }
+    text += appended;
+    return text;
+}
+
+class ReportTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.id = 'report';
+        this.name = `Report`;
+        this.title = `Report notes on OSM website`;
+    }
+    getInfo() {
+        return [p(makeLink(`Report`, 'https://wiki.openstreetmap.org/wiki/Notes#Reporting_notes'), ` selected notes. `, `Since reporting on the OSM website works for individual notes but here you can select many, you may choose between opening one and several tabs.`), ul(li(`If you choose to open one tab, it's going to report the first selected note. `, `The full list of notes will be copied to clipboard for you to paste into the `, em(`details`), ` input.`), li(`If you choose to open several tabs, each tab will have a report for every individual note you selected. `, `Since it could be many tabs opened at once, there's a confirmation button appearing for more than five selected notes. `, `Additionally the browser may choose to block opening of new tabs if too many are requested.`))];
+    }
+    getTool($root, $tool) {
+        let inputNoteIds = [];
+        const $tabCountOutput = document.createElement('output');
+        const $confirmTabCountOutput = document.createElement('output');
+        const e = makeEscapeTag(encodeURIComponent);
+        const getReportUrl = (id) => this.auth.server.web.getUrl(e `reports/new?reportable_id=${id}&reportable_type=Note`);
+        const getNoteListItem = (id) => `- ` + this.auth.server.web.getUrl(e `note/${id}`) + `\n`;
+        const getNoteList = () => inputNoteIds.map(getNoteListItem).join('');
+        const copyNoteList = () => navigator.clipboard.writeText(getNoteList());
+        const $reportOneButton = this.makeRequiringSelectedNotesButton();
+        const $reportManyButton = this.makeRequiringSelectedNotesButton();
+        const $cancelReportManyButton = this.makeRequiringSelectedNotesButton();
+        const $confirmReportManyButton = this.makeRequiringSelectedNotesButton();
+        $reportOneButton.append(`Report `, makeNotesIcon('selected'), ` in one tab`);
+        $reportManyButton.append(`Report `, makeNotesIcon('selected'), ` in `, $tabCountOutput);
+        $cancelReportManyButton.append(`Cancel reporting `, makeNotesIcon('selected'), ` in `, $confirmTabCountOutput);
+        $confirmReportManyButton.append(`Confirm`);
+        $reportOneButton.onclick = async () => {
+            await copyNoteList();
+            const id = inputNoteIds[0];
+            open(getReportUrl(id));
+        };
+        const reportManyListener = new ConfirmedButtonListener($reportManyButton, $cancelReportManyButton, $confirmReportManyButton, async () => {
+            await copyNoteList();
+            for (const id of inputNoteIds) {
+                open(getReportUrl(id));
+            }
+        }, () => inputNoteIds.length > 5);
+        $root.addEventListener('osmNoteViewer:changeInputNotes', ev => {
+            const [inputNotes] = ev.detail;
+            inputNoteIds = inputNotes.map(note => note.id);
+            const count = inputNotes.length;
+            $tabCountOutput.textContent = $confirmTabCountOutput.textContent = `${count} tab${count == 1 ? '' : 's'}`;
+            reportManyListener.reset();
+            this.ping($tool);
+        });
+        return [
+            $reportOneButton, ` `,
+            $reportManyButton, ` `, $cancelReportManyButton, ` `, $confirmReportManyButton
+        ];
+    }
+}
+
 const clamp = (min, value, max) => Math.max(min, Math.min(value, max));
-class NoteRefresher {
+class RefreshToolScheduler {
     constructor(isRunning, refreshPeriod, timeoutCaller, reportRefreshWaitProgress, reportUpdate, reportPostpone, reportHalt, fetchSingleNote) {
         this.isRunning = isRunning;
         this.refreshPeriod = refreshPeriod;
@@ -6386,81 +7854,146 @@ class NoteRefresher {
     }
 }
 
-class NoteTableAndRefresherConnector {
-    constructor(toolPanel, setNoteProgress, setNoteUpdatedState, updateNote, fetchSingleNote) {
-        this.noteRefreshTimestampsById = new Map();
-        this.notesWithPendingUpdate = new Set();
-        const isOnlineAndVisible = navigator.onLine && document.visibilityState == 'visible';
-        const refreshPeriod = 5 * 60 * 1000;
-        this.noteRefresher = new NoteRefresher(isOnlineAndVisible, refreshPeriod, makeTimeoutCaller(10 * 1000, 100), setNoteProgress, (note, users) => {
-            if (toolPanel.replaceUpdatedNotes) {
-                updateNote(note, users);
+class RefreshTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.id = 'refresh';
+        this.name = `Refresh`;
+        this.title = `Control automatic and manual refreshing of notes`;
+    }
+    getTool($root, $tool) {
+        const $runButton = makeElement('button')('only-with-icon')();
+        const $refreshPeriodInput = document.createElement('input');
+        const isOnlineAndVisibleAtLaunch = navigator.onLine && document.visibilityState == 'visible';
+        let stoppedBecauseOfflineOrHidden = !isOnlineAndVisibleAtLaunch;
+        const defaultRefreshPeriodInMinutes = 5;
+        const noteRefreshTimestampsById = new Map();
+        const notesWithPendingUpdate = new Set();
+        const scheduler = new RefreshToolScheduler(isOnlineAndVisibleAtLaunch, defaultRefreshPeriodInMinutes * 60 * 1000, makeTimeoutCaller(10 * 1000, 100), (id, progress) => {
+            bubbleCustomEvent($tool, 'osmNoteViewer:refreshNoteProgress', [id, progress]);
+        }, (note, users) => {
+            if ($refreshSelect.value == 'replace') {
+                bubbleCustomEvent($tool, 'osmNoteViewer:pushNoteUpdate', [note, users]);
             }
             else {
-                setNoteUpdatedState(note.id);
-                this.notesWithPendingUpdate.add(note.id);
+                notesWithPendingUpdate.add(note.id);
             }
         }, (id, message) => {
-            setNoteProgress(id, 0);
+            bubbleCustomEvent($tool, 'osmNoteViewer:refreshNoteProgress', [id, 0]);
             const refreshTimestamp = Date.now();
-            this.noteRefreshTimestampsById.set(id, refreshTimestamp);
+            noteRefreshTimestampsById.set(id, refreshTimestamp);
             return refreshTimestamp;
         }, (message) => {
-            toolPanel.receiveRefresherStateChange(false, message);
-        }, fetchSingleNote);
-        let stoppedBecauseOfflineOrHidden = !isOnlineAndVisible;
-        toolPanel.onRefresherStateChange = (isRunning) => {
-            this.noteRefresher.setRunState(isRunning);
-            stoppedBecauseOfflineOrHidden = false;
+            updateUiWithState(message);
+            this.ping($tool);
+        }, async (id) => {
+            bubbleCustomEvent($tool, 'osmNoteViewer:beforeNoteFetch', id);
+            let note;
+            let users;
+            try {
+                [note, users] = await fetchTableNote(this.auth.server.api, id);
+            }
+            catch (ex) {
+                bubbleCustomEvent($tool, 'osmNoteViewer:failedNoteFetch', [id, getFetchTableNoteErrorMessage(ex)]);
+                throw ex;
+            }
+            bubbleCustomEvent($tool, 'osmNoteViewer:noteFetch', [note, users]);
+            return [note, users];
+        });
+        const updateUiWithState = (message) => {
+            stoppedBecauseOfflineOrHidden = false; // TODO this is not an ui update
+            if (message == null) {
+                $runButton.classList.remove('error');
+                $runButton.title = (scheduler.isRunning ? `Halt` : `Resume`) + ` note auto refreshing`;
+            }
+            else {
+                $runButton.classList.add('error');
+                $runButton.title = message;
+            }
+            $runButton.replaceChildren(scheduler.isRunning
+                ? makeActionIcon('pause', `Halt`)
+                : makeActionIcon('play', `Resume`));
         };
-        toolPanel.onRefresherRefreshAll = () => this.noteRefresher.refreshAll(toolPanel.replaceUpdatedNotes);
-        toolPanel.onRefresherPeriodChange = (refreshPeriod) => this.noteRefresher.setPeriod(refreshPeriod);
-        toolPanel.receiveRefresherPeriodChange(refreshPeriod);
         const getHaltMessage = () => (!navigator.onLine
             ? `Refreshes halted in offline mode`
             : `Refreshes halted while the browser window is hidden`) + `. Click to attempt to resume.`;
-        if (!isOnlineAndVisible) {
-            toolPanel.receiveRefresherStateChange(false, getHaltMessage());
+        const $refreshSelect = makeElement('select')()(new Option('report'), new Option('replace'));
+        $refreshPeriodInput.type = 'number';
+        $refreshPeriodInput.min = '1';
+        $refreshPeriodInput.size = 5;
+        $refreshPeriodInput.step = 'any';
+        $refreshPeriodInput.value = String(defaultRefreshPeriodInMinutes);
+        const $refreshAllButton = makeElement('button')('only-with-icon')(makeActionIcon('refresh', `Refresh now`));
+        $refreshAllButton.title = `Refresh all notes currently on the screen in the table above`;
+        $runButton.onclick = () => {
+            scheduler.setRunState(!scheduler.isRunning);
+            stoppedBecauseOfflineOrHidden = false;
+            updateUiWithState();
+        };
+        $refreshPeriodInput.oninput = () => {
+            const str = $refreshPeriodInput.value;
+            if (!str)
+                return;
+            const minutes = Number(str);
+            if (!Number.isFinite(minutes) || minutes <= 0)
+                return;
+            scheduler.setPeriod(minutes * 60 * 1000);
+        };
+        $refreshAllButton.onclick = () => {
+            scheduler.refreshAll($refreshSelect.value == 'replace');
+        };
+        $root.addEventListener('osmNoteViewer:newFetch', () => {
+            scheduler.reset();
+            noteRefreshTimestampsById.clear();
+            notesWithPendingUpdate.clear();
+        });
+        $root.addEventListener('osmNoteViewer:observeNotesByRefresher', ev => {
+            const notes = ev.detail;
+            const noteRefreshList = [];
+            for (const note of notes) {
+                const lastRefreshTimestamp = noteRefreshTimestampsById.get(note.id);
+                if (!lastRefreshTimestamp)
+                    continue;
+                noteRefreshList.push([note.id, lastRefreshTimestamp, getNoteUpdateDate(note), notesWithPendingUpdate.has(note.id)]);
+            }
+            scheduler.observe(noteRefreshList);
+        });
+        $root.addEventListener('osmNoteViewer:renderNote', ({ detail: note }) => {
+            notesWithPendingUpdate.delete(note.id);
+            noteRefreshTimestampsById.set(note.id, Date.now());
+            scheduler.replaceNote(note.id, Date.now(), getNoteUpdateDate(note));
+        });
+        if (isOnlineAndVisibleAtLaunch) {
+            updateUiWithState();
+        }
+        else {
+            updateUiWithState(getHaltMessage());
         }
         const handleTemporaryHaltConditions = () => {
             if (navigator.onLine && document.visibilityState == 'visible') {
                 if (!stoppedBecauseOfflineOrHidden)
                     return;
                 stoppedBecauseOfflineOrHidden = false;
-                this.noteRefresher.setRunState(true);
-                toolPanel.receiveRefresherStateChange(true, undefined);
+                scheduler.setRunState(true);
+                updateUiWithState();
             }
             else {
-                if (!this.noteRefresher.isRunning)
+                if (!scheduler.isRunning)
                     return;
-                this.noteRefresher.setRunState(false);
-                toolPanel.receiveRefresherStateChange(false, getHaltMessage());
+                scheduler.setRunState(false);
+                updateUiWithState(getHaltMessage());
                 stoppedBecauseOfflineOrHidden = true;
             }
         };
         window.addEventListener('offline', handleTemporaryHaltConditions);
         window.addEventListener('online', handleTemporaryHaltConditions);
         document.addEventListener('visibilitychange', handleTemporaryHaltConditions);
-    }
-    reset() {
-        this.noteRefresher.reset();
-        this.noteRefreshTimestampsById.clear();
-        this.notesWithPendingUpdate.clear();
-    }
-    observeNotesByRefresher(notes) {
-        const noteRefreshList = [];
-        for (const note of notes) {
-            const lastRefreshTimestamp = this.noteRefreshTimestampsById.get(note.id);
-            if (!lastRefreshTimestamp)
-                continue;
-            noteRefreshList.push([note.id, lastRefreshTimestamp, getNoteUpdateDate(note), this.notesWithPendingUpdate.has(note.id)]);
-        }
-        this.noteRefresher.observe(noteRefreshList);
-    }
-    registerNote(note) {
-        this.notesWithPendingUpdate.delete(note.id);
-        this.noteRefreshTimestampsById.set(note.id, Date.now());
-        this.noteRefresher.replaceNote(note.id, Date.now(), getNoteUpdateDate(note));
+        return [
+            $runButton, ` `,
+            makeLabel('inline')($refreshSelect, ` updated notes`), ` `,
+            makeLabel('inline')(`every `, $refreshPeriodInput), ` min. or `,
+            $refreshAllButton
+        ];
     }
 }
 function makeTimeoutCaller(periodicCallDelay, immediateCallDelay) {
@@ -6476,1341 +8009,6 @@ function makeTimeoutCaller(periodicCallDelay, immediateCallDelay) {
         schedulePeriodicCall: scheduleCall(periodicCallDelay),
         scheduleImmediateCall: scheduleCall(immediateCallDelay),
     };
-}
-
-class NoteTable {
-    constructor($container, toolPanel, map, filter, figureDialog, server) {
-        this.toolPanel = toolPanel;
-        this.map = map;
-        this.filter = filter;
-        this.server = server;
-        this.$table = makeElement('table')('only-date', 'only-short-username')();
-        this.$selectAllCheckbox = document.createElement('input');
-        this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
-        this.usersById = new Map();
-        this.showImages = false;
-        this.$table.setAttribute('role', 'grid');
-        this.refresherConnector = new NoteTableAndRefresherConnector(toolPanel, (id, progress) => {
-            const $refreshWaitProgress = this.getNoteSection(id)?.querySelector('td.note-link progress');
-            if (!($refreshWaitProgress instanceof HTMLProgressElement))
-                return;
-            $refreshWaitProgress.value = progress;
-        }, (id) => {
-            const $noteSection = this.getNoteSection(id);
-            if (!$noteSection)
-                return;
-            $noteSection.dataset.updated = 'updated';
-        }, (note, users) => {
-            this.replaceNote(note, users);
-        }, async (id) => {
-            const $a = this.getNoteSection(id)?.querySelector('td.note-link a');
-            if (!($a instanceof HTMLAnchorElement)) {
-                throw new Error(`note link not found during single note fetch`);
-            }
-            const [note, users] = await fetchTableNote(server.api, $a, Number(id));
-            await this.onRefresherUpdate?.(note, users);
-            return [note, users];
-        });
-        const that = this;
-        let $clickReadyNoteSection;
-        this.wrappedNoteSectionListeners = [
-            ['mouseenter', function () {
-                    that.activateNote('hover', this);
-                }],
-            ['mouseleave', function () {
-                    that.deactivateNote('hover', this);
-                }],
-            ['mousemove', function () {
-                    $clickReadyNoteSection = undefined; // ideally should be reset by 'selectstart' event, however Chrome fires it even if no mouse drag has happened
-                    if (!this.classList.contains('active-click'))
-                        return;
-                    resetFadeAnimation(this, 'active-click-fade');
-                }],
-            ['animationend', function () {
-                    that.deactivateNote('click', this);
-                }],
-            ['mousedown', function () {
-                    $clickReadyNoteSection = this;
-                }],
-            // ['selectstart',function(){
-            // 	$clickReadyNoteSection=undefined // Chrome is too eager to fire this event, have to cancel click from 'mousemove' instead
-            // }],
-            ['click', function () {
-                    if ($clickReadyNoteSection == this) {
-                        figureDialog.close();
-                        that.focusOnNote(this, true);
-                    }
-                    $clickReadyNoteSection = undefined;
-                }]
-        ];
-        this.wrappedNoteCheckboxClickListener = function (ev) {
-            that.noteCheckboxClickListener(this, ev);
-        };
-        this.wrappedAllNotesCheckboxClickListener = function (ev) {
-            that.allNotesCheckboxClickListener(this, ev);
-        };
-        this.wrappedNoteMarkerClickListener = function () {
-            that.noteMarkerClickListener(this);
-        };
-        this.$table.addEventListener('keydown', noteTableKeydownListener);
-        this.noteSectionVisibilityObserver = new NoteSectionVisibilityObserver((visibleNoteIds, isMapFittingHalted) => {
-            map.showNoteTrack(visibleNoteIds);
-            if (!isMapFittingHalted && toolPanel.fitMode == 'inViewNotes')
-                map.fitNoteTrack();
-            this.refresherConnector.observeNotesByRefresher(visibleNoteIds.map(id => this.notesById.get(id)).filter(isDefined));
-        });
-        this.commentWriter = new CommentWriter(server);
-        $container.append(this.$table);
-        this.reset();
-        const looseParserPopup = new LooseParserPopup(server, $container);
-        this.looseParserListener = new LooseParserListener((x, y, text) => {
-            const parseResult = parseLoose(text);
-            if (!parseResult)
-                return;
-            looseParserPopup.open(x, y, ...parseResult);
-        });
-    }
-    reset() {
-        this.refresherConnector.reset();
-        this.notesById.clear();
-        this.usersById.clear();
-        this.$lastClickedNoteSection = undefined;
-        this.noteSectionVisibilityObserver.disconnect();
-        this.$table.replaceChildren();
-        this.toolPanel.receiveNoteCounts(0, 0);
-        this.updateCheckboxDependents();
-    }
-    updateFilter(filter) {
-        let nFetched = 0;
-        let nVisible = 0;
-        this.filter = filter;
-        const getUsername = (uid) => this.usersById.get(uid);
-        for (const $noteSection of this.$table.tBodies) {
-            const noteId = Number($noteSection.dataset.noteId);
-            const note = this.notesById.get(noteId);
-            if (note == null)
-                continue;
-            nFetched++;
-            if (this.filter.matchNote(note, getUsername)) {
-                nVisible++;
-                let targetLayer = this.map.unselectedNoteLayer;
-                const $checkbox = $noteSection.querySelector('.note-checkbox input');
-                if ($checkbox instanceof HTMLInputElement && $checkbox.checked) {
-                    targetLayer = this.map.selectedNoteLayer;
-                }
-                this.map.moveNoteMarkerToLayer(noteId, targetLayer);
-                $noteSection.classList.remove('hidden');
-            }
-            else {
-                this.deactivateNote('click', $noteSection);
-                this.deactivateNote('hover', $noteSection);
-                this.map.moveNoteMarkerToLayer(noteId, this.map.filteredNoteLayer);
-                $noteSection.classList.add('hidden');
-                this.setNoteSelection($noteSection, false);
-            }
-        }
-        this.toolPanel.receiveNoteCounts(nFetched, nVisible);
-        this.updateCheckboxDependents();
-    }
-    /**
-     * @returns number of added notes that passed through the filter
-     */
-    addNotes(notes, users) {
-        // remember notes and users
-        const noteSequence = [];
-        for (const note of notes) {
-            noteSequence.push(note);
-            this.notesById.set(note.id, note);
-        }
-        for (const [uid, username] of Object.entries(users)) {
-            this.usersById.set(Number(uid), username);
-        }
-        // output table
-        if (this.$table.childElementCount == 0) {
-            this.$table.append(makeElement('caption')()(`Fetched notes`));
-            const $header = this.writeTableHeader();
-            this.noteSectionVisibilityObserver.stickyHeight = $header.offsetHeight;
-            document.documentElement.style.setProperty('--table-header-height', $header.offsetHeight + 'px');
-        }
-        let nUnfilteredNotes = 0;
-        const getUsername = (uid) => users[uid];
-        for (const note of noteSequence) {
-            const isVisible = this.filter.matchNote(note, getUsername);
-            if (isVisible)
-                nUnfilteredNotes++;
-            const $noteSection = this.$table.createTBody();
-            $noteSection.dataset.noteId = String(note.id);
-            this.noteSectionVisibilityObserver.observe($noteSection);
-            this.makeMarker(note, isVisible);
-            const $checkbox = document.createElement('input');
-            $checkbox.type = 'checkbox';
-            // $checkbox.title=`shift+click to select/unselect a range`
-            $checkbox.addEventListener('click', this.wrappedNoteCheckboxClickListener);
-            this.writeNoteSection($noteSection, $checkbox, note, users, isVisible);
-            this.refresherConnector.registerNote(note);
-        }
-        if (this.toolPanel.fitMode == 'allNotes') {
-            this.map.fitNotes();
-        }
-        else {
-            this.map.fitNotesIfNeeded();
-        }
-        this.sendNoteCounts();
-        return nUnfilteredNotes;
-    }
-    replaceNote(note, users) {
-        const $noteSection = this.getNoteSection(note.id);
-        if (!$noteSection)
-            throw new Error(`note section not found during note replace`);
-        const $checkbox = $noteSection.querySelector('.note-checkbox input');
-        if (!($checkbox instanceof HTMLInputElement))
-            throw new Error(`note checkbox not found during note replace`);
-        const $a = $noteSection.querySelector('td.note-link a');
-        if (!($a instanceof HTMLAnchorElement))
-            throw new Error(`note link not found during note replace`);
-        const isNoteLinkFocused = document.activeElement == $a;
-        this.map.removeNoteMarker(note.id);
-        // remember note and users
-        this.notesById.set(note.id, note);
-        for (const [uid, username] of Object.entries(users)) {
-            this.usersById.set(Number(uid), username);
-        }
-        // clean up table section
-        $noteSection.innerHTML = '';
-        delete $noteSection.dataset.updated;
-        $noteSection.className = '';
-        // output table section
-        const getUsername = (uid) => users[uid];
-        const isVisible = this.filter.matchNote(note, getUsername);
-        this.makeMarker(note, isVisible);
-        this.writeNoteSection($noteSection, $checkbox, note, users, isVisible);
-        const $a2 = $noteSection.querySelector('td.note-link a');
-        if (!($a2 instanceof HTMLAnchorElement))
-            throw new Error(`note link not found after note replace`);
-        if (isNoteLinkFocused)
-            $a2.focus();
-        if (isVisible) {
-            this.sendSelectedNotes();
-        }
-        else {
-            this.updateCheckboxDependents();
-            this.sendNoteCounts();
-        }
-        this.refresherConnector.registerNote(note);
-    }
-    getVisibleNoteIds() {
-        const ids = [];
-        for (const [, id] of this.listVisibleNoteSectionsWithIds()) {
-            ids.push(id);
-        }
-        return ids;
-    }
-    getSelectedNoteIds() {
-        const ids = [];
-        for (const [$noteSection, id] of this.listVisibleNoteSectionsWithIds()) {
-            const $checkbox = $noteSection.querySelector('.note-checkbox input');
-            if (!($checkbox instanceof HTMLInputElement))
-                continue;
-            if (!$checkbox.checked)
-                continue;
-            ids.push(id);
-        }
-        return ids;
-    }
-    setShowImages(showImages) {
-        this.showImages = showImages;
-        this.$table.classList.toggle('with-images', showImages);
-        handleShowImagesUpdate(this.$table, showImages);
-    }
-    pingNoteFromLink($a, noteId) {
-        const $noteSection = this.getNoteSection(noteId);
-        if (!$noteSection) {
-            $a.classList.add('absent');
-            $a.title = `The note is not downloaded`;
-        }
-        else if ($noteSection.classList.contains('hidden')) {
-            $a.classList.add('absent');
-            $a.title = `The note is filtered out`;
-        }
-        else {
-            $a.classList.remove('absent');
-            $a.title = '';
-            this.focusOnNote($noteSection);
-        }
-    }
-    writeTableHeader() {
-        const $header = this.$table.createTHead();
-        const $row = $header.insertRow();
-        this.$selectAllCheckbox.type = 'checkbox';
-        this.$selectAllCheckbox.title = `select all notes`;
-        this.$selectAllCheckbox.addEventListener('click', this.wrappedAllNotesCheckboxClickListener);
-        const makeExpander = (tableClass, expandButtonClass, collapseButtonClass, expandTitle, collapseTitle) => {
-            const $button = makeElement('button')('expander')();
-            $button.innerHTML = `<svg><use href="#table-expander" /></svg>`;
-            const update = (isCollapsed) => {
-                $button.classList.toggle(expandButtonClass, isCollapsed);
-                $button.classList.toggle(collapseButtonClass, !isCollapsed);
-                $button.title = isCollapsed ? expandTitle : collapseTitle;
-            };
-            update(this.$table.classList.contains(tableClass));
-            $button.onclick = () => update(this.$table.classList.toggle(tableClass));
-            return $button;
-        };
-        $row.append(makeElement('th')('note-checkbox')(this.$selectAllCheckbox), makeElement('th')()(`id`), makeElement('th')()(`date `, makeExpander('only-date', 'hor-out', 'hor-in', `show time of day`, `hide time of day`)), makeElement('th')()(`user `, makeExpander('only-short-username', 'hor-out', 'hor-in', `show full usernames with ids`, `clip long usernames`)), makeElement('th')()(makeExpander('only-first-comments', 'ver-out', 'ver-in', `show all comments/actions`, `show only first comment/action`)), makeElement('th')()(`comment `, makeExpander('one-line-comments', 'ver-out', 'hor-out', `allow line breaks in comments`, `keep comments on one line`)));
-        return $header;
-    }
-    makeMarker(note, isVisible) {
-        const marker = new NoteMarker(note);
-        marker.addTo(isVisible ? this.map.unselectedNoteLayer : this.map.filteredNoteLayer);
-        marker.on('click', this.wrappedNoteMarkerClickListener);
-        return marker;
-    }
-    writeNoteSection($noteSection, $checkbox, note, users, isVisible) {
-        if (!isVisible)
-            $noteSection.classList.add('hidden');
-        $noteSection.id = `note-${note.id}`;
-        $noteSection.classList.add(`status-${note.status}`);
-        for (const [event, listener] of this.wrappedNoteSectionListeners) {
-            $noteSection.addEventListener(event, listener);
-        }
-        if (isVisible && !$checkbox.checked) {
-            if (this.$selectAllCheckbox.checked) {
-                this.$selectAllCheckbox.checked = false;
-                this.$selectAllCheckbox.indeterminate = true;
-            }
-        }
-        $checkbox.setAttribute('aria-label', `${note.status} note at latitude ${note.lat}, longitude ${note.lon}`);
-        const $commentCells = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, $checkbox, note, users, this.showImages);
-        for (const $commentCell of $commentCells) {
-            this.looseParserListener.listen($commentCell);
-        }
-    }
-    sendNoteCounts() {
-        let nFetched = 0;
-        let nVisible = 0;
-        for (const $noteSection of this.$table.tBodies) {
-            if (!$noteSection.dataset.noteId)
-                continue;
-            nFetched++;
-            if (!$noteSection.classList.contains('hidden'))
-                nVisible++;
-        }
-        this.toolPanel.receiveNoteCounts(nFetched, nVisible);
-    }
-    noteMarkerClickListener(marker) {
-        const $noteSection = this.getNoteSection(marker.noteId);
-        if ($noteSection)
-            this.focusOnNote($noteSection);
-    }
-    noteCheckboxClickListener($checkbox, ev) {
-        ev.stopPropagation();
-        const $clickedNoteSection = $checkbox.closest('tbody');
-        if ($clickedNoteSection) {
-            this.setNoteSelection($clickedNoteSection, $checkbox.checked);
-            if (ev.shiftKey && this.$lastClickedNoteSection) {
-                for (const $inRangeNoteSection of this.listVisibleNoteSectionsInRange(this.$lastClickedNoteSection, $clickedNoteSection)) {
-                    this.setNoteSelection($inRangeNoteSection, $checkbox.checked);
-                }
-            }
-            this.$lastClickedNoteSection = $clickedNoteSection;
-        }
-        this.updateCheckboxDependents();
-    }
-    allNotesCheckboxClickListener($allCheckbox, ev) {
-        for (const $noteSection of this.listVisibleNoteSections()) {
-            this.setNoteSelection($noteSection, $allCheckbox.checked);
-        }
-        this.updateCheckboxDependents();
-    }
-    focusOnNote($noteSection, isSectionClicked = false) {
-        this.activateNote('click', $noteSection);
-        this.noteSectionVisibilityObserver.haltMapFitting(); // otherwise scrollIntoView() may ruin note pan/zoom - it may cause observer to fire after exiting this function
-        if (!isSectionClicked)
-            $noteSection.scrollIntoView({ block: 'nearest' });
-        const noteId = Number($noteSection.dataset.noteId);
-        const marker = this.map.getNoteMarker(noteId);
-        if (!marker)
-            return;
-        const z1 = this.map.zoom;
-        const z2 = this.map.maxZoom;
-        if (this.map.isCloseEnoughToCenter(marker.getLatLng()) && z1 < z2) {
-            const nextZoom = Math.min(z2, z1 + Math.ceil((z2 - z1) / 2));
-            this.map.panAndZoomTo(marker.getLatLng(), nextZoom);
-        }
-        else {
-            this.map.panTo(marker.getLatLng());
-        }
-    }
-    deactivateNote(type, $noteSection) {
-        $noteSection.classList.remove('active-' + type);
-        const noteId = Number($noteSection.dataset.noteId);
-        const marker = this.map.getNoteMarker(noteId);
-        if (!marker)
-            return;
-        marker.getElement()?.classList.remove('active-' + type);
-        if ($noteSection.classList.contains('active-hover') || $noteSection.classList.contains('active-click'))
-            return;
-        marker.setZIndexOffset(0);
-    }
-    activateNote(type, $noteSection) {
-        let alreadyActive = false;
-        for (const $otherNoteSection of this.$table.querySelectorAll('tbody.active-' + type)) {
-            if (!($otherNoteSection instanceof HTMLTableSectionElement))
-                continue;
-            if ($otherNoteSection == $noteSection) {
-                alreadyActive = true;
-                if (type == 'click')
-                    resetFadeAnimation($noteSection, 'active-click-fade');
-            }
-            else {
-                this.deactivateNote(type, $otherNoteSection);
-            }
-        }
-        if (alreadyActive)
-            return;
-        const noteId = Number($noteSection.dataset.noteId);
-        const marker = this.map.getNoteMarker(noteId);
-        if (!marker)
-            return;
-        marker.setZIndexOffset(1000);
-        marker.getElement()?.classList.add('active-' + type);
-        $noteSection.classList.add('active-' + type);
-    }
-    sendSelectedNotes() {
-        const [checkedNotes, checkedNoteUsers] = this.getCheckedData();
-        this.toolPanel.receiveSelectedNotes(checkedNotes, checkedNoteUsers);
-    }
-    updateCheckboxDependents() {
-        const [checkedNotes, checkedNoteUsers, hasUnchecked] = this.getCheckedData();
-        const hasChecked = checkedNotes.length > 0;
-        this.$selectAllCheckbox.indeterminate = hasChecked && hasUnchecked;
-        this.$selectAllCheckbox.checked = hasChecked && !hasUnchecked;
-        this.toolPanel.receiveSelectedNotes(checkedNotes, checkedNoteUsers);
-        if (this.toolPanel.fitMode == 'selectedNotes')
-            this.map.fitSelectedNotes();
-    }
-    getCheckedData() {
-        const checkedNotes = [];
-        const checkedNoteUsers = new Map();
-        let hasUnchecked = false;
-        for (const $noteSection of this.listVisibleNoteSections()) {
-            const $checkbox = $noteSection.querySelector('.note-checkbox input');
-            if (!($checkbox instanceof HTMLInputElement))
-                continue;
-            if (!$checkbox.checked) {
-                hasUnchecked = true;
-                continue;
-            }
-            const noteId = Number($noteSection.dataset.noteId);
-            const note = this.notesById.get(noteId);
-            if (!note)
-                continue;
-            checkedNotes.push(note);
-            for (const comment of note.comments) {
-                if (comment.uid == null)
-                    continue;
-                const username = this.usersById.get(comment.uid);
-                if (username == null)
-                    continue;
-                checkedNoteUsers.set(comment.uid, username);
-            }
-        }
-        return [checkedNotes, checkedNoteUsers, hasUnchecked];
-    }
-    setNoteSelection($noteSection, isSelected) {
-        const getTargetLayer = () => {
-            if ($noteSection.classList.contains('hidden')) {
-                return this.map.filteredNoteLayer;
-            }
-            else if (isSelected) {
-                return this.map.selectedNoteLayer;
-            }
-            else {
-                return this.map.unselectedNoteLayer;
-            }
-        };
-        const $checkbox = $noteSection.querySelector('.note-checkbox input');
-        if ($checkbox instanceof HTMLInputElement)
-            $checkbox.checked = isSelected;
-        const noteId = Number($noteSection.dataset.noteId);
-        const note = this.notesById.get(noteId);
-        if (!note)
-            return;
-        const marker = this.map.moveNoteMarkerToLayer(noteId, getTargetLayer());
-        if (!marker)
-            return;
-        marker.updateIcon(note, isSelected);
-        const activeClasses = ['hover', 'click'].map(type => 'active-' + type).filter(cls => $noteSection.classList.contains(cls));
-        marker.getElement()?.classList.add(...activeClasses);
-    }
-    listVisibleNoteSections() {
-        return this.$table.querySelectorAll('tbody:not(.hidden)');
-    }
-    *listVisibleNoteSectionsWithIds() {
-        for (const $noteSection of this.listVisibleNoteSections()) {
-            const idString = $noteSection.dataset.noteId;
-            if (!idString)
-                continue;
-            yield [$noteSection, Number(idString)];
-        }
-    }
-    /**
-     * range including $fromSection but excluding $toSection
-     * excludes $toSection if equals to $fromSection
-     */
-    *listVisibleNoteSectionsInRange($fromSection, $toSection) {
-        const $sections = this.listVisibleNoteSections();
-        let i = 0;
-        let $guardSection;
-        for (; i < $sections.length; i++) {
-            const $section = $sections[i];
-            if ($section == $fromSection) {
-                $guardSection = $toSection;
-                break;
-            }
-            if ($section == $toSection) {
-                $guardSection = $fromSection;
-                break;
-            }
-        }
-        if (!$guardSection)
-            return;
-        for (; i < $sections.length; i++) {
-            const $section = $sections[i];
-            if ($section != $toSection) {
-                yield $section;
-            }
-            if ($section == $guardSection) {
-                return;
-            }
-        }
-    }
-    getNoteSection(noteId) {
-        const $noteSection = document.getElementById(`note-` + noteId); // TODO look in $table
-        if (!($noteSection instanceof HTMLTableSectionElement))
-            return;
-        return $noteSection;
-    }
-}
-function isDefined(argument) {
-    return argument !== undefined;
-}
-
-/******************************************************************************
-Copyright (c) Microsoft Corporation.
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
-REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
-AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
-INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
-LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
-OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
-PERFORMANCE OF THIS SOFTWARE.
-***************************************************************************** */
-
-function __classPrivateFieldGet(receiver, state, kind, f) {
-    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a getter");
-    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
-    return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
-}
-
-function __classPrivateFieldSet(receiver, state, value, kind, f) {
-    if (kind === "m") throw new TypeError("Private method is not writable");
-    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
-    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
-    return (kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value)), value;
-}
-
-class Tool {
-    constructor(auth) {
-        this.auth = auth;
-        this.isFullWidth = false;
-        this.$buttonsRequiringSelectedNotes = [];
-    }
-    getInfo() { return undefined; }
-    onLoginChange() { return false; }
-    onRefresherStateChange(isRunning, message) { return false; }
-    onRefresherPeriodChange(refreshPeriod) { return false; }
-    onTimestampChange(timestamp) { return false; }
-    onNoteCountsChange(nFetched, nVisible) { return false; }
-    onSelectedNotesChange(selectedNotes, selectedNoteUsers) {
-        let reactedToButtons = false;
-        for (const $button of this.$buttonsRequiringSelectedNotes) {
-            const newDisabled = selectedNotes.length <= 0;
-            if ($button.disabled != newDisabled) {
-                $button.disabled = newDisabled;
-                reactedToButtons = true;
-            }
-        }
-        const reactedToOthers = this.onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers);
-        return reactedToButtons || reactedToOthers;
-    }
-    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) { return false; }
-    makeRequiringSelectedNotesButton() {
-        const $button = document.createElement('button');
-        $button.disabled = true;
-        this.$buttonsRequiringSelectedNotes.push($button);
-        return $button;
-    }
-}
-function makeMapIcon(type) {
-    const $span = makeElement('span')(`icon-map-${type}`)();
-    $span.innerHTML = `<svg><use href="#tools-map" /></svg><span>map ${type}</span>`;
-    return $span;
-}
-function makeNotesIcon(type) {
-    const $span = makeElement('span')(`icon-notes-${type}`)();
-    $span.innerHTML = `<svg><use href="#tools-notes" /></svg><span>${type} notes</span>`;
-    return $span;
-}
-function makeActionIcon(type, text) {
-    const $span = makeElement('span')(`icon-action-${type}`)();
-    $span.innerHTML = `<svg><use href="#tools-${type}" /></svg>`;
-    $span.append(makeElement('span')()(text));
-    return $span;
-}
-function makeNoteStatusIcon(status, number = 1) {
-    const height = 16;
-    const width = 8;
-    const r = width / 2;
-    const $span = makeElement('span')(`icon-note-status`)();
-    const path = `<path d="${computeMarkerOutlinePath(height, width / 2 - .5)}" stroke="gray" ${pathAttrs()} />`;
-    $span.innerHTML = `<svg viewBox="${-r} ${-r} ${width} ${height}">${path}</svg><span>${status} note${number != 1 ? `s` : ``}</span>`;
-    return $span;
-    function pathAttrs() {
-        if (status == 'open') {
-            return `fill="red"`;
-        }
-        else if (status == 'closed') {
-            return `fill="green"`;
-        }
-        else {
-            return `fill="#444"`;
-        }
-    }
-    // copypaste from marker.ts
-    function computeMarkerOutlinePath(height, r) {
-        const rp = height - r;
-        const y = r ** 2 / rp;
-        const x = Math.sqrt(r ** 2 - y ** 2);
-        const xf = x.toFixed(2);
-        const yf = y.toFixed(2);
-        return `M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z`;
-    }
-}
-
-class AutozoomTool extends Tool {
-    constructor() {
-        super(...arguments);
-        this.id = 'autozoom';
-        this.name = `Map autozoom`;
-        this.title = `Select how the map is panned/zoomed to notes`;
-    }
-    getInfo() {
-        return [p(`Pan and zoom the map to notes in the table. `, `Can be used as `, em(`zoom to data`), ` for notes layer if `, dfn(`to all visible notes`), ` is selected. `), p(dfn(`To notes on screen in table`), ` allows to track notes in the table that are currently visible on screen, panning the map as you scroll through the table. `, `This option is convenient to use when `, em(`Track between notes`), ` map layer is enabled (and it is enabled by default). This way you can see the current sequence of notes from the table on the map, connected by a line in an order in which they appear in the table.`)];
-    }
-    getTool(callbacks, map) {
-        const $fitModeSelect = makeElement('select')()(new Option('is disabled', 'none'), new Option('to selected notes', 'selectedNotes'), new Option('to notes on screen in table', 'inViewNotes'), new Option('to all visible notes', 'allNotes'));
-        $fitModeSelect.onchange = () => {
-            if ($fitModeSelect.value == 'allNotes') {
-                callbacks.onFitModeChange(this, $fitModeSelect.value);
-                map.fitNotes();
-            }
-            else if ($fitModeSelect.value == 'selectedNotes') {
-                callbacks.onFitModeChange(this, $fitModeSelect.value);
-                map.fitSelectedNotes();
-            }
-            else if ($fitModeSelect.value == 'inViewNotes') {
-                callbacks.onFitModeChange(this, $fitModeSelect.value);
-                map.fitNoteTrack();
-            }
-            else {
-                callbacks.onFitModeChange(this, undefined);
-            }
-        };
-        return [$fitModeSelect];
-    }
-}
-class TimestampTool extends Tool {
-    constructor() {
-        super(...arguments);
-        this.id = 'timestamp';
-        this.name = `Timestamp for historic queries`;
-        this.title = `Set timestamp for queries run by Overpass`;
-        this.$timestampInput = document.createElement('input');
-    }
-    getInfo() {
-        return [p(`Allows to select a timestamp for use with `, em(`Overpass`), ` and `, em(`Overpass turbo`), ` commands. `, `You can either enter the timestamp in ISO format (or anything else that Overpass understands) manually here click on a date of/in a note comment. `, `If present, a `, makeLink(`date setting`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL#date`), ` is added to Overpass queries. `, `The idea is to allow for examining the OSM data at the moment some note was opened/commented/closed to evaluate if this action was correct.`), p(`Timestamps inside note comments are usually generated by apps like `, makeLink(`MAPS.ME`, `https://wiki.openstreetmap.org/wiki/MAPS.ME`), ` to indicate their OSM data version.`)];
-    }
-    getTool(callbacks) {
-        // this.$timestampInput.type='datetime-local' // no standard datetime input for now because they're being difficult with UTC and 24-hour format.
-        // this.$timestampInput.step='1'
-        this.$timestampInput.type = 'text';
-        this.$timestampInput.size = 20;
-        this.$timestampInput.oninput = () => {
-            callbacks.onTimestampChange(this, this.$timestampInput.value);
-        };
-        const $clearButton = document.createElement('button');
-        $clearButton.type = 'reset';
-        $clearButton.textContent = 'Clear';
-        const $form = makeElement('form')()(this.$timestampInput, ` `, $clearButton);
-        $form.onreset = () => {
-            callbacks.onTimestampChange(this, '');
-        };
-        return [$form];
-    }
-    onTimestampChange(timestamp) {
-        this.$timestampInput.value = timestamp;
-        return true;
-    }
-}
-class CountTool extends Tool {
-    constructor() {
-        super(...arguments);
-        this.id = 'counts';
-        this.name = `Note counts`;
-        this.title = `See number of fetched/visible/selected notes`;
-        this.$fetchedNoteCount = document.createElement('output');
-        this.$visibleNoteCount = document.createElement('output');
-        this.$selectedNoteCount = document.createElement('output');
-    }
-    getTool() {
-        this.$fetchedNoteCount.textContent = '0';
-        this.$visibleNoteCount.textContent = '0';
-        this.$selectedNoteCount.textContent = '0';
-        return [
-            this.$fetchedNoteCount, ` fetched, `,
-            this.$visibleNoteCount, ` visible, `,
-            this.$selectedNoteCount, ` selected`
-        ];
-    }
-    onNoteCountsChange(nFetched, nVisible) {
-        this.$fetchedNoteCount.textContent = String(nFetched);
-        this.$visibleNoteCount.textContent = String(nVisible);
-        return true;
-    }
-    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) {
-        this.$selectedNoteCount.textContent = String(selectedNotes.length);
-        return true;
-    }
-}
-class LegendTool extends Tool {
-    constructor() {
-        super(...arguments);
-        this.id = 'legend';
-        this.name = `Legend`;
-        this.title = `What do icons in command panel mean`;
-    }
-    getTool() {
-        return [
-            makeMapIcon('center'), ` = map center, `,
-            makeMapIcon('area'), ` = map area, `,
-            makeNotesIcon('selected'), ` = selected notes, `,
-            makeNoteStatusIcon('open'), ` = open (selected) note, `,
-            makeNoteStatusIcon('closed'), ` = closed (selected) note`
-        ];
-    }
-}
-class SettingsTool extends Tool {
-    constructor() {
-        super(...arguments);
-        this.id = 'settings';
-        this.name = `⚙️`;
-        this.title = `Settings`;
-    }
-    getTool(callbacks) {
-        const $openAllButton = makeElement('button')('open-all-tools')(`Open all tools`);
-        $openAllButton.onclick = () => callbacks.onToolOpenToggle(this, true);
-        const $closeAllButton = makeElement('button')('close-all-tools')(`Close all tools`);
-        $closeAllButton.onclick = () => callbacks.onToolOpenToggle(this, false);
-        return [$openAllButton, ` `, $closeAllButton];
-    }
-}
-
-const e$1 = makeEscapeTag(encodeURIComponent);
-class InteractionError extends TypeError {
-}
-class InteractTool extends Tool {
-    constructor(auth) {
-        super(auth);
-        this.id = 'interact';
-        this.name = `Interact`;
-        this.title = `Interact with notes on OSM server`;
-        this.isFullWidth = true;
-        this.$yourNotesApi = document.createElement('span');
-        this.$yourNotesWeb = document.createElement('span');
-        this.$asOutput = document.createElement('output');
-        this.$withOutput = document.createElement('output');
-        this.$commentText = document.createElement('textarea');
-        this.$commentButton = document.createElement('button');
-        this.$closeButton = document.createElement('button');
-        this.$reopenButton = document.createElement('button');
-        this.$hideOpenButton = document.createElement('button');
-        this.$hideClosedButton = document.createElement('button');
-        this.$reactivateButton = document.createElement('button');
-        this.$runButton = makeElement('button')('only-with-icon')();
-        this.$runOutput = document.createElement('output');
-        this.selectedNoteIds = new Map(noteStatuses.map(status => [status, []]));
-        this.interactionDescriptions = [{
-                verb: 'POST',
-                endpoint: 'comment',
-                label: `Comment`,
-                runningLabel: `Commenting`,
-                $button: this.$commentButton,
-                inputNoteStatus: 'open',
-                outputNoteStatus: 'open',
-                forModerator: false
-            }, {
-                verb: 'POST',
-                endpoint: 'close',
-                label: `Close`,
-                runningLabel: `Closing`,
-                $button: this.$closeButton,
-                inputNoteStatus: 'open',
-                outputNoteStatus: 'closed',
-                forModerator: false
-            }, {
-                verb: 'POST',
-                endpoint: 'reopen',
-                label: `Reopen`,
-                runningLabel: `Reopening`,
-                $button: this.$reopenButton,
-                inputNoteStatus: 'closed',
-                outputNoteStatus: 'open',
-                forModerator: false
-            }, {
-                verb: 'DELETE',
-                label: `Hide`,
-                runningLabel: `Hiding`,
-                $button: this.$hideOpenButton,
-                inputNoteStatus: 'open',
-                outputNoteStatus: 'hidden',
-                forModerator: true
-            }, {
-                verb: 'DELETE',
-                label: `Hide`,
-                runningLabel: `Hiding`,
-                $button: this.$hideClosedButton,
-                inputNoteStatus: 'closed',
-                outputNoteStatus: 'hidden',
-                forModerator: true
-            }, {
-                verb: 'POST',
-                endpoint: 'reopen',
-                label: `Reactivate`,
-                runningLabel: `Reactivating`,
-                $button: this.$reactivateButton,
-                inputNoteStatus: 'hidden',
-                outputNoteStatus: 'open',
-                forModerator: true
-            }];
-        this.updateYourNotes();
-        this.updateAsOutput();
-        this.updateWithOutput();
-        this.$commentText.placeholder = `Comment text`;
-        this.updateButtons();
-        this.updateRunButton();
-        this.updateRunOutput();
-    }
-    getInfo() {
-        return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again ("reactivates" it). `, `This means that a hidden note can only be restored to an open state, even if it had been closed before being hidden. `, `If you want the note to be closed again, you have to close it yourself after reactivating. `, `Also, unlike the OSM website, you can reactivate a note and add a comment in one action. `, `The OSM website currently doesn't provide a comment input for note reactivation.`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, `If you've hidden a note and want to see it, look for it at `, this.$yourNotesWeb, ` on the OSM website.`)];
-    }
-    getTool(callbacks) {
-        this.$commentText.oninput = () => {
-            this.updateButtons();
-        };
-        const scheduleRunNextNote = this.makeRunScheduler(callbacks);
-        for (const interactionDescription of this.interactionDescriptions) {
-            interactionDescription.$button.onclick = () => {
-                if (this.run?.status == 'paused') {
-                    this.run = undefined;
-                    this.updateButtons();
-                    this.updateRunButton();
-                    this.updateRunOutput();
-                }
-                else {
-                    const matchingNoteIds = this.selectedNoteIds.get(interactionDescription.inputNoteStatus);
-                    if (!matchingNoteIds)
-                        return;
-                    const runImmediately = matchingNoteIds.length <= 1;
-                    this.run = {
-                        interactionDescription,
-                        status: 'paused',
-                        requestedStatus: runImmediately ? 'running' : 'paused',
-                        inputNoteIds: [...matchingNoteIds],
-                        outputNoteIds: []
-                    };
-                    if (runImmediately)
-                        scheduleRunNextNote();
-                    this.updateButtons();
-                    this.updateRunButton();
-                    this.updateRunOutput();
-                }
-            };
-        }
-        this.$runButton.onclick = () => {
-            if (!this.run)
-                return;
-            if (this.run.status == 'running') {
-                this.run.requestedStatus = 'paused';
-                this.updateRunButton();
-            }
-            else if (this.run.status == 'paused') {
-                this.run.requestedStatus = 'running';
-                this.updateRunButton();
-                scheduleRunNextNote();
-            }
-        };
-        return [
-            this.$asOutput, ` `, this.$withOutput, ` `,
-            makeDiv('major-input')(this.$commentText),
-            makeDiv('gridded-input')(...this.interactionDescriptions.map(({ $button }) => $button)),
-            this.$runButton, ` `, this.$runOutput
-        ];
-    }
-    onLoginChange() {
-        this.updateYourNotes();
-        this.updateAsOutput();
-        this.updateButtons();
-        return true;
-    }
-    onSelectedNotesChange(selectedNotes) {
-        for (const status of noteStatuses) {
-            const ids = this.selectedNoteIds.get(status);
-            if (ids)
-                ids.length = 0;
-        }
-        for (const selectedNote of selectedNotes) {
-            const ids = this.selectedNoteIds.get(selectedNote.status);
-            ids?.push(selectedNote.id);
-        }
-        if (this.run?.status == 'running') {
-            return false;
-        }
-        else {
-            this.updateWithOutput();
-            this.updateButtons();
-            return true;
-        }
-    }
-    updateYourNotes() {
-        const apiText = `your own latest updated notes`;
-        const webText = `your notes page`;
-        if (this.auth.username == null) {
-            this.$yourNotesApi.replaceChildren(apiText);
-            this.$yourNotesWeb.replaceChildren(webText);
-        }
-        else {
-            const apiHref = makeHrefWithCurrentHost([
-                ['mode', 'search'],
-                ['display_name', this.auth.username],
-                ['sort', 'updated_at']
-            ]);
-            const webHref = this.auth.server.web.getUrl(e$1 `user/${this.auth.username}/notes`);
-            this.$yourNotesApi.replaceChildren(makeLink(apiText, apiHref));
-            this.$yourNotesWeb.replaceChildren(makeLink(webText, webHref));
-        }
-    }
-    updateAsOutput() {
-        if (this.auth.username == null || this.auth.uid == null) {
-            this.$asOutput.replaceChildren(`anonymously`);
-        }
-        else {
-            const href = this.auth.server.web.getUrl(e$1 `user/${this.auth.username}`);
-            const $a = makeLink(this.auth.username, href);
-            $a.classList.add('listened');
-            $a.dataset.userName = this.auth.username;
-            $a.dataset.userId = String(this.auth.uid);
-            this.$asOutput.replaceChildren(`as `, $a);
-        }
-    }
-    updateWithOutput() {
-        const multipleNoteIndicators = this.getMultipleNoteIndicators(this.selectedNoteIds, 5);
-        if (multipleNoteIndicators.length > 0) {
-            this.$withOutput.replaceChildren(`with `, ...multipleNoteIndicators);
-        }
-        else {
-            this.$withOutput.replaceChildren();
-        }
-    }
-    updateButtons() {
-        const buttonNoteIcon = (ids, inputStatus, outputStatus) => {
-            const outputIcon = [];
-            if (outputStatus != inputStatus) {
-                outputIcon.push(` → `, makeNoteStatusIcon(outputStatus, ids.length));
-            }
-            if (ids.length == 0) {
-                return [makeNoteStatusIcon(inputStatus, ids.length), ...outputIcon];
-            }
-            else if (ids.length == 1) {
-                return [makeNoteStatusIcon(inputStatus), ` ${ids[0]}`, ...outputIcon];
-            }
-            else {
-                return [`${ids.length} × `, makeNoteStatusIcon(inputStatus, ids.length), ...outputIcon, `...`];
-            }
-        };
-        for (const interactionDescription of this.interactionDescriptions) {
-            const inputNoteIds = this.selectedNoteIds.get(interactionDescription.inputNoteStatus) ?? [];
-            const { $button } = interactionDescription;
-            let cancelCondition = false;
-            if (this.run && this.run.status != 'finished') {
-                cancelCondition = this.run.status == 'paused' && this.run.interactionDescription == interactionDescription;
-                $button.disabled = (this.run.status == 'running' ||
-                    this.run.status == 'paused' && this.run.interactionDescription != interactionDescription);
-            }
-            else {
-                $button.disabled = inputNoteIds.length == 0;
-            }
-            if (cancelCondition) {
-                $button.replaceChildren(`Cancel`);
-            }
-            else {
-                $button.replaceChildren(`${interactionDescription.label} `, ...buttonNoteIcon(inputNoteIds, interactionDescription.inputNoteStatus, interactionDescription.outputNoteStatus));
-            }
-            $button.hidden = interactionDescription.forModerator && !this.auth.isModerator;
-        }
-        if (this.$commentText.value == '')
-            this.$commentButton.disabled = true;
-    }
-    updateRunButton() {
-        const canPause = this.run && this.run.status == 'running';
-        this.$runButton.replaceChildren(canPause
-            ? makeActionIcon('pause', `Halt`)
-            : makeActionIcon('play', `Resume`));
-        this.$runButton.disabled = !this.run || this.run.status != this.run.requestedStatus;
-    }
-    updateRunOutput() {
-        let firstFragment = true;
-        const outputFragment = (...content) => {
-            if (firstFragment) {
-                firstFragment = false;
-            }
-            else {
-                this.$runOutput.append(` → `);
-            }
-            this.$runOutput.append(...content);
-        };
-        if (!this.run) {
-            this.$runOutput.replaceChildren(`Select notes for interaction using checkboxes`);
-            return;
-        }
-        this.$runOutput.replaceChildren(this.run.interactionDescription.runningLabel, ` `);
-        const inputNoteIndicators = this.getMultipleNoteIndicators([[
-                this.run.interactionDescription.inputNoteStatus, this.run.inputNoteIds
-            ]], 0);
-        if (inputNoteIndicators.length > 0) {
-            outputFragment(`queued `, ...inputNoteIndicators);
-        }
-        else if (this.run.currentNoteId != null) {
-            outputFragment(`queue emptied`);
-        }
-        if (this.run.currentNoteId != null) {
-            const $a = this.getNoteIndicator(this.run.interactionDescription.inputNoteStatus, this.run.currentNoteId);
-            if (this.run.currentNoteError) {
-                $a.classList.add('error');
-                $a.title = this.run.currentNoteError;
-                outputFragment(`error on `, $a);
-            }
-            else {
-                outputFragment(`current `, $a);
-            }
-        }
-        const outputNoteIndicators = this.getMultipleNoteIndicators([[
-                this.run.interactionDescription.outputNoteStatus, this.run.outputNoteIds
-            ]], 0);
-        if (outputNoteIndicators.length > 0) {
-            outputFragment(`completed `, ...outputNoteIndicators);
-        }
-    }
-    makeRunScheduler(callbacks) {
-        let runTimeoutId;
-        const runNextNote = async () => {
-            const transitionToRunning = () => {
-                this.$commentText.disabled = true;
-                this.updateButtons();
-                this.updateRunButton();
-            };
-            const transitionToPaused = () => {
-                this.$commentText.disabled = false;
-                this.updateWithOutput(); // may have received selected notes change
-                this.updateButtons();
-                this.updateRunButton();
-            };
-            const transitionToFinished = () => {
-                this.$commentText.disabled = false;
-                this.$commentText.value = '';
-                this.updateWithOutput(); // may have received selected notes change
-                this.updateButtons();
-                this.updateRunButton();
-                this.updateRunOutput();
-            };
-            if (!this.run)
-                return false;
-            if (this.run.status == 'finished') {
-                return false;
-            }
-            else if (this.run.status == 'paused') {
-                if (this.run.requestedStatus == 'paused') {
-                    return false;
-                }
-                else if (this.run.requestedStatus == 'running') {
-                    this.run.status = 'running';
-                    transitionToRunning();
-                }
-            }
-            else if (this.run.status == 'running') {
-                if (this.run.requestedStatus == 'paused') {
-                    this.run.status = 'paused';
-                    transitionToPaused();
-                    return false;
-                }
-            }
-            const id = this.run.currentNoteId ?? this.run.inputNoteIds.shift();
-            if (id == null) {
-                this.run.status = 'finished';
-                transitionToFinished();
-                return false;
-            }
-            this.run.currentNoteId = id;
-            this.run.currentNoteError = undefined;
-            this.updateRunOutput();
-            try {
-                let response;
-                const fetchBuilder = this.auth.server.api.fetch.withToken(this.auth.token).withUrlencodedBody([
-                    ['text', this.$commentText.value]
-                ]);
-                if (this.run.interactionDescription.verb == 'DELETE') {
-                    const path = e$1 `notes/${id}.json`;
-                    response = await fetchBuilder.delete(path);
-                }
-                else { // POST
-                    const path = e$1 `notes/${id}/${this.run.interactionDescription.endpoint}.json`;
-                    response = await fetchBuilder.post(path);
-                }
-                if (!response.ok) {
-                    const contentType = response.headers.get('content-type');
-                    if (contentType?.includes('text/plain')) {
-                        throw new InteractionError(await response.text());
-                    }
-                    else {
-                        throw new InteractionError(`${response.status} ${response.statusText}`);
-                    }
-                }
-                const noteAndUsers = await readNoteResponse(id, response);
-                callbacks.onNoteReload(this, ...noteAndUsers);
-                this.run.currentNoteId = undefined;
-                this.run.outputNoteIds.push(id);
-            }
-            catch (ex) {
-                if (ex instanceof InteractionError) {
-                    this.run.currentNoteError = ex.message;
-                }
-                else if (ex instanceof NoteDataError) {
-                    this.run.currentNoteError = `Error after successful interaction: ${ex.message}`;
-                }
-                else {
-                    this.run.currentNoteError = `Unknown error ${ex}`;
-                }
-                this.run.status = this.run.requestedStatus = 'paused';
-                transitionToPaused();
-                this.updateRunOutput();
-            }
-            return true;
-        };
-        const wrappedRunNextNote = async () => {
-            let reschedule = false;
-            try {
-                reschedule = await runNextNote();
-            }
-            catch { }
-            runTimeoutId = undefined;
-            if (reschedule)
-                scheduleRunNextNote();
-        };
-        const scheduleRunNextNote = () => {
-            if (runTimeoutId)
-                return;
-            runTimeoutId = setTimeout(wrappedRunNextNote);
-        };
-        return scheduleRunNextNote;
-    }
-    getMultipleNoteIndicators(statusAndIds, maxIndividualNotes) {
-        const output = [];
-        let first = true;
-        const writeSingleNote = (id, status) => {
-            if (!first)
-                output.push(`, `);
-            first = false;
-            output.push(this.getNoteIndicator(status, id));
-        };
-        const writeOneOrManyNotes = (ids, status) => {
-            if (ids.length == 0) {
-                return;
-            }
-            if (ids.length == 1) {
-                writeSingleNote(ids[0], status);
-                return;
-            }
-            if (!first)
-                output.push(`, `);
-            first = false;
-            output.push(`${ids.length} × `, makeNoteStatusIcon(status, ids.length));
-        };
-        const statusAndIdsCopy = [...statusAndIds];
-        const nNotes = statusAndIdsCopy.reduce((n, [, ids]) => n + ids.length, 0);
-        if (nNotes == 0) ;
-        else if (nNotes <= maxIndividualNotes) {
-            for (const [status, ids] of statusAndIdsCopy) {
-                for (const id of ids) {
-                    writeSingleNote(id, status);
-                }
-            }
-        }
-        else {
-            for (const [status, ids] of statusAndIdsCopy) {
-                writeOneOrManyNotes(ids, status);
-            }
-        }
-        return output;
-    }
-    getNoteIndicator(status, id) {
-        const href = this.auth.server.web.getUrl(e$1 `note/${id}`);
-        const $a = document.createElement('a');
-        $a.href = href;
-        $a.classList.add('listened');
-        $a.dataset.noteId = String(id);
-        $a.append(makeNoteStatusIcon(status), ` ${id}`);
-        return $a;
-    }
-}
-
-class ReportTool extends Tool {
-    constructor() {
-        super(...arguments);
-        this.id = 'report';
-        this.name = `Report`;
-        this.title = `Report notes on OSM website`;
-        this.selectedNoteIds = [];
-        this.$tabCountOutput = document.createElement('output');
-        this.$confirmTabCountOutput = document.createElement('output');
-    }
-    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes) {
-        this.selectedNoteIds = selectedNotes.map(note => note.id);
-        const count = selectedNotes.length;
-        this.$tabCountOutput.textContent = this.$confirmTabCountOutput.textContent = `${count} tab${count == 1 ? '' : 's'}`;
-        this.reportManyListener?.reset();
-        return true;
-    }
-    getInfo() {
-        return [p(makeLink(`Report`, 'https://wiki.openstreetmap.org/wiki/Notes#Reporting_notes'), ` selected notes. `, `Since reporting on the OSM website works for individual notes but here you can select many, you may choose between opening one and several tabs.`), ul(li(`If you choose to open one tab, it's going to report the first selected note. `, `The full list of notes will be copied to clipboard for you to paste into the `, em(`details`), ` input.`), li(`If you choose to open several tabs, each tab will have a report for every individual note you selected. `, `Since it could be many tabs opened at once, there's a confirmation button appearing for more than five selected notes. `, `Additionally the browser may choose to block opening of new tabs if too many are requested.`))];
-    }
-    getTool() {
-        const e = makeEscapeTag(encodeURIComponent);
-        const getReportUrl = (id) => this.auth.server.web.getUrl(e `reports/new?reportable_id=${id}&reportable_type=Note`);
-        const getNoteListItem = (id) => `- ` + this.auth.server.web.getUrl(e `note/${id}`) + `\n`;
-        const getNoteList = () => this.selectedNoteIds.map(getNoteListItem).join('');
-        const copyNoteList = () => navigator.clipboard.writeText(getNoteList());
-        const $reportOneButton = this.makeRequiringSelectedNotesButton();
-        const $reportManyButton = this.makeRequiringSelectedNotesButton();
-        const $cancelReportManyButton = this.makeRequiringSelectedNotesButton();
-        const $confirmReportManyButton = this.makeRequiringSelectedNotesButton();
-        $reportOneButton.append(`Report `, makeNotesIcon('selected'), ` in one tab`);
-        $reportManyButton.append(`Report `, makeNotesIcon('selected'), ` in `, this.$tabCountOutput);
-        $cancelReportManyButton.append(`Cancel reporting `, makeNotesIcon('selected'), ` in `, this.$confirmTabCountOutput);
-        $confirmReportManyButton.append(`Confirm`);
-        $reportOneButton.onclick = async () => {
-            await copyNoteList();
-            const id = this.selectedNoteIds[0];
-            open(getReportUrl(id));
-        };
-        this.reportManyListener = new ConfirmedButtonListener($reportManyButton, $cancelReportManyButton, $confirmReportManyButton, async () => {
-            await copyNoteList();
-            for (const id of this.selectedNoteIds) {
-                open(getReportUrl(id));
-            }
-        }, () => this.selectedNoteIds.length > 5);
-        return [
-            $reportOneButton, ` `,
-            $reportManyButton, ` `, $cancelReportManyButton, ` `, $confirmReportManyButton
-        ];
-    }
-}
-
-class RefreshTool extends Tool {
-    constructor() {
-        super(...arguments);
-        this.id = 'refresh';
-        this.name = `Refresh`;
-        this.title = `Control automatic and manual refreshing of notes`;
-        this.isRunning = true;
-        this.$runButton = makeElement('button')('only-with-icon')();
-        this.$refreshPeriodInput = document.createElement('input');
-    }
-    getTool(callbacks) {
-        this.updateState(true);
-        const $refreshSelect = makeElement('select')()(new Option('report'), new Option('replace'));
-        this.$refreshPeriodInput.type = 'number';
-        this.$refreshPeriodInput.min = '1';
-        this.$refreshPeriodInput.size = 5;
-        this.$refreshPeriodInput.step = 'any';
-        const $refreshAllButton = makeElement('button')('only-with-icon')(makeActionIcon('refresh', `Refresh now`));
-        $refreshAllButton.title = `Refresh all notes currently on the screen in the table above`;
-        this.$runButton.onclick = () => {
-            const newIsRunning = !this.isRunning;
-            this.updateState(newIsRunning);
-            callbacks.onRefresherStateChange(this, newIsRunning, undefined);
-        };
-        $refreshSelect.onchange = () => {
-            callbacks.onRefresherRefreshChange(this, $refreshSelect.value == 'replace');
-        };
-        this.$refreshPeriodInput.oninput = () => {
-            const str = this.$refreshPeriodInput.value;
-            if (!str)
-                return;
-            const minutes = Number(str);
-            if (!Number.isFinite(minutes) || minutes <= 0)
-                return;
-            callbacks.onRefresherPeriodChange(this, minutes * 60 * 1000);
-        };
-        $refreshAllButton.onclick = () => {
-            callbacks.onRefresherRefreshAll(this);
-        };
-        return [
-            this.$runButton, ` `,
-            makeLabel('inline')($refreshSelect, ` updated notes`), ` `,
-            makeLabel('inline')(`every `, this.$refreshPeriodInput), ` min. or `,
-            $refreshAllButton
-        ];
-    }
-    onRefresherStateChange(isRunning, message) {
-        this.updateState(isRunning, message);
-        return true;
-    }
-    onRefresherPeriodChange(refreshPeriod) {
-        let minutes = (refreshPeriod / (60 * 1000)).toFixed(2);
-        if (minutes.includes('.')) {
-            minutes = minutes.replace(/\.?0+$/, '');
-        }
-        this.$refreshPeriodInput.value = minutes;
-        return true;
-    }
-    updateState(isRunning, message) {
-        this.isRunning = isRunning;
-        if (message == null) {
-            this.$runButton.classList.remove('error');
-            this.$runButton.title = (isRunning ? `Halt` : `Resume`) + ` note auto refreshing`;
-        }
-        else {
-            this.$runButton.classList.add('error');
-            this.$runButton.title = message;
-        }
-        this.$runButton.replaceChildren(isRunning
-            ? makeActionIcon('pause', `Halt`)
-            : makeActionIcon('play', `Resume`));
-    }
 }
 
 class ParseTool extends Tool {
@@ -7868,9 +8066,11 @@ class OverpassBaseTool extends Tool {
         super(...arguments);
         this.timestamp = '';
     }
-    onTimestampChange(timestamp) {
-        this.timestamp = timestamp;
-        return true;
+    installTimestampListener($root, $tool) {
+        $root.addEventListener('osmNoteViewer:changeTimestamp', ev => {
+            this.timestamp = ev.detail;
+            this.ping($tool);
+        });
     }
     getOverpassQueryPreamble(map) {
         let query = '';
@@ -7888,10 +8088,14 @@ class OverpassTurboTool extends OverpassBaseTool {
         this.name = `Overpass turbo`;
         this.title = `Open an Overpass turbo window with various queries`;
     }
+    isActiveWithCurrentServerConfiguration() {
+        return !!this.auth.server.overpassTurbo;
+    }
     getInfo() {
         return [p(`Some Overpass queries to run from `, makeLink(`Overpass turbo`, 'https://wiki.openstreetmap.org/wiki/Overpass_turbo'), `, web UI for Overpass API. `, `Useful to inspect historic data at the time a particular note comment was made.`)];
     }
-    getTool(callbacks, map) {
+    getTool($root, $tool, map) {
+        this.installTimestampListener($root, $tool);
         const $overpassButtons = [];
         const buttonClickListener = (withRelations, onlyAround) => {
             let query = this.getOverpassQueryPreamble(map);
@@ -7944,10 +8148,14 @@ class OverpassTool extends OverpassBaseTool {
         this.name = `Overpass`;
         this.title = `Run an Overpass query`;
     }
+    isActiveWithCurrentServerConfiguration() {
+        return !!this.auth.server.overpass;
+    }
     getInfo() {
         return [p(`Query `, makeLink(`Overpass API`, 'https://wiki.openstreetmap.org/wiki/Overpass_API'), ` without going through Overpass turbo. `, `Shows results on the map. Also gives link to the element page on the OSM website.`)];
     }
-    getTool(callbacks, map) {
+    getTool($root, $tool, map) {
+        this.installTimestampListener($root, $tool);
         const $button = document.createElement('button');
         $button.append(`Find closest node to `, makeMapIcon('center'));
         const $output = document.createElement('code');
@@ -8008,17 +8216,17 @@ class RcTool extends Tool {
         this.id = 'rc';
         this.name = `RC`;
         this.title = `Run remote control commands in external editors (usually JOSM)`;
-        this.selectedNotes = [];
     }
     getInfo() {
         return [p(`Load note/map data to an editor with `, makeLink(`remote control`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl'), `.`)];
     }
-    getTool(callbacks, map) {
+    getTool($root, $tool, map) {
+        let inputNotes = [];
         const e = makeEscapeTag(encodeURIComponent);
         const $loadNotesButton = this.makeRequiringSelectedNotesButton();
         $loadNotesButton.append(`Load `, makeNotesIcon('selected'));
         $loadNotesButton.onclick = async () => {
-            for (const { id } of this.selectedNotes) {
+            for (const { id } of inputNotes) {
                 const noteUrl = this.auth.server.web.getUrl(e `note/${id}`);
                 const rcUrl = e `http://127.0.0.1:8111/import?url=${noteUrl}`;
                 const success = await openRcUrl($loadNotesButton, rcUrl);
@@ -8035,11 +8243,11 @@ class RcTool extends Tool {
                 `&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`;
             openRcUrl($loadMapButton, rcUrl);
         };
+        $root.addEventListener('osmNoteViewer:changeInputNotes', ev => {
+            [inputNotes] = ev.detail;
+            this.ping($tool);
+        });
         return [$loadNotesButton, ` `, $loadMapButton];
-    }
-    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) {
-        this.selectedNotes = selectedNotes;
-        return true;
     }
 }
 class IdTool extends Tool {
@@ -8052,7 +8260,7 @@ class IdTool extends Tool {
     getInfo() {
         return [p(`Follow your notes by zooming from one place to another in one `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), ` window. `, `It could be faster to do first here in note-viewer than in iD directly because note-viewer won't try to download more data during panning. `, `After zooming in note-viewer, click the `, em(`Open`), ` button to open this location in iD. `, `When you go back to note-viewer, zoom to another place and click the `, em(`Open`), ` button for the second time, the already opened iD instance zooms to that place. `, `Your edits are not lost between such zooms.`), p(`Technical details: this is an attempt to make something like `, em(`remote control`), ` in iD editor. `, `Convincing iD to load notes has proven to be tricky. `, `Your best chance of seeing the selected notes is importing them as a `, em(`gpx`), ` file. `, `See `, makeLink(`this diary post`, `https://www.openstreetmap.org/user/Anton%20Khorev/diary/398991`), ` for further explanations.`), p(`Zooming/panning is easier to do, and that's what is currently implemented. `, `It's not without quirks however. You'll notice that the iD window opened from here doesn't have the OSM website header. `, `This is because the editor is opened at `, makeLink(`/id`, `https://www.openstreetmap.org/id`), ` url instead of `, makeLink(`/edit`, `https://www.openstreetmap.org/edit`), `. `, `It has to be done because otherwise iD won't listen to `, em(`#map`), ` changes in the webpage location.`)];
     }
-    getTool(callbacks, map) {
+    getTool($root, $tool, map) {
         // limited to what hashchange() lets you do here https://github.com/openstreetmap/iD/blob/develop/modules/behavior/hash.js
         // which is zooming/panning
         const $zoomButton = document.createElement('button');
@@ -8089,13 +8297,8 @@ async function openRcUrl($button, rcUrl) {
 class ExportTool extends Tool {
     constructor() {
         super(...arguments);
-        this.selectedNotes = [];
-        this.selectedNoteUsers = new Map();
-    }
-    onSelectedNotesChangeWithoutHandlingButtons(selectedNotes, selectedNoteUsers) {
-        this.selectedNotes = selectedNotes;
-        this.selectedNoteUsers = selectedNoteUsers;
-        return true;
+        this.inputNotes = [];
+        this.inputNoteUsers = new Map();
     }
     getInfo() {
         return [
@@ -8103,7 +8306,7 @@ class ExportTool extends Tool {
             p(`Instead of clicking the `, em(`Export`), ` button, you can drag it and drop into a place that accepts data sent by `, makeLink(`Drag and Drop API`, `https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API`), `. `, `Not many places actually do, and those who do often can handle only plaintext. `, `That's why there's a type selector, with which plaintext format can be forced on transmitted data.`)
         ];
     }
-    getTool() {
+    getTool($root, $tool) {
         const $optionSelects = Object.fromEntries(Object.entries(this.describeOptions()).map(([key, valuesWithTexts]) => {
             const $select = document.createElement('select');
             $select.append(...valuesWithTexts.map(([value, text]) => new Option(text, value)));
@@ -8130,6 +8333,12 @@ class ExportTool extends Tool {
                 return;
             ev.dataTransfer.setData($dataTypeSelect.value, data);
         };
+        $root.addEventListener('osmNoteViewer:changeInputNotes', ev => {
+            const [inputNotes, inputNoteUsers] = ev.detail;
+            this.inputNotes = inputNotes;
+            this.inputNoteUsers = inputNoteUsers;
+            this.ping($tool);
+        });
         return [
             $exportNotesButton, ` `,
             ...this.writeOptions($optionSelects), `, `,
@@ -8144,7 +8353,7 @@ class ExportTool extends Tool {
         for (const comment of comments) {
             let t = '';
             if (comment.uid) {
-                const username = this.selectedNoteUsers.get(comment.uid);
+                const username = this.inputNoteUsers.get(comment.uid);
                 if (username != null) {
                     t += `${username}`;
                 }
@@ -8206,7 +8415,7 @@ class GpxTool extends ExportTool {
         const e = makeEscapeTag(escapeXml);
         const getPoints = (pointTag, getDetails = () => '') => {
             let gpx = '';
-            for (const note of this.selectedNotes) {
+            for (const note of this.inputNotes) {
                 const firstComment = note.comments[0];
                 gpx += e `<${pointTag} lat="${note.lat}" lon="${note.lon}">\n`;
                 if (firstComment)
@@ -8310,7 +8519,7 @@ class GeoJsonTool extends ExportTool {
             if (comment.uid == null)
                 return result;
             result.uid = comment.uid;
-            const username = this.selectedNoteUsers.get(comment.uid);
+            const username = this.inputNoteUsers.get(comment.uid);
             if (username == null)
                 return result;
             result.user = username;
@@ -8383,7 +8592,7 @@ class GeoJsonTool extends ExportTool {
                 }
             }
         };
-        const features = this.selectedNotes.map(note => ({
+        const features = this.inputNotes.map(note => ({
             type: 'Feature',
             geometry: {
                 type: 'Point',
@@ -8397,12 +8606,12 @@ class GeoJsonTool extends ExportTool {
                 ...generateNoteComments(note.comments),
             }
         }));
-        if (options.connect == 'line' && this.selectedNotes.length > 1) {
+        if (options.connect == 'line' && this.inputNotes.length > 1) {
             features.push({
                 type: 'Feature',
                 geometry: {
                     type: 'LineString',
-                    coordinates: this.selectedNotes.map(note => [note.lon, note.lat]),
+                    coordinates: this.inputNotes.map(note => [note.lon, note.lat]),
                 },
                 properties: null
             });
@@ -8416,7 +8625,10 @@ class GeoJsonTool extends ExportTool {
 }
 
 class StreetViewTool extends Tool {
-    getTool(callbacks, map) {
+    isActiveWithCurrentServerConfiguration() {
+        return this.auth.server.world == 'earth';
+    }
+    getTool($root, $tool, map) {
         const $viewButton = document.createElement('button');
         $viewButton.append(`Open `, makeMapIcon('center'));
         $viewButton.onclick = () => {
@@ -8467,158 +8679,13 @@ const toolMakerSequence = [
     CountTool, LegendTool, SettingsTool
 ].map(ToolClass => (auth) => new ToolClass(auth));
 
-var _ToolPanel_fitMode, _ToolPanel_replaceUpdatedNotes;
-class ToolBroadcaster {
-    constructor(tools) {
-        this.tools = tools;
-        this.sources = new Set();
-    }
-    broadcastLoginChange(fromTool) {
-        this.broadcast(fromTool, tool => tool.onLoginChange());
-    }
-    broadcastRefresherStateChange(fromTool, isRunning, message) {
-        this.broadcast(fromTool, tool => tool.onRefresherStateChange(isRunning, message));
-    }
-    broadcastRefresherPeriodChange(fromTool, refreshPeriod) {
-        this.broadcast(fromTool, tool => tool.onRefresherPeriodChange(refreshPeriod));
-    }
-    broadcastTimestampChange(fromTool, timestamp) {
-        this.broadcast(fromTool, tool => tool.onTimestampChange(timestamp));
-    }
-    broadcastNoteCountsChange(fromTool, nFetched, nVisible) {
-        this.broadcast(fromTool, tool => tool.onNoteCountsChange(nFetched, nVisible));
-    }
-    broadcastSelectedNotesChange(fromTool, selectedNotes, selectedNoteUsers) {
-        this.broadcast(fromTool, tool => tool.onSelectedNotesChange(selectedNotes, selectedNoteUsers));
-    }
-    broadcast(fromTool, sendMessageToTool) {
-        if (fromTool) {
-            if (this.sources.has(fromTool))
-                return;
-            this.sources.add(fromTool);
-        }
-        for (const [tool, $tool] of this.tools) {
-            if (this.sources.has(tool))
-                continue;
-            const reacted = sendMessageToTool(tool);
-            if (reacted)
-                startOrResetFadeAnimation($tool, 'tool-ping-fade', 'ping');
-        }
-        if (fromTool) {
-            this.sources.delete(fromTool);
-        }
-    }
-}
 class ToolPanel {
-    constructor(storage, auth, globalEventsListener, $container, map, figureDialog) {
-        _ToolPanel_fitMode.set(this, void 0);
-        _ToolPanel_replaceUpdatedNotes.set(this, false);
-        const tools = [];
-        const toolCallbacks = {
-            onFitModeChange: (fromTool, fitMode) => __classPrivateFieldSet(this, _ToolPanel_fitMode, fitMode, "f"),
-            onRefresherStateChange: (fromTool, isRunning, message) => this.onRefresherStateChange?.(isRunning),
-            onRefresherRefreshChange: (fromTool, replaceUpdatedNotes) => __classPrivateFieldSet(this, _ToolPanel_replaceUpdatedNotes, replaceUpdatedNotes, "f"),
-            onRefresherPeriodChange: (fromTool, refreshPeriod) => this.onRefresherPeriodChange?.(refreshPeriod),
-            onRefresherRefreshAll: (fromTool) => this.onRefresherRefreshAll?.(),
-            onTimestampChange: (fromTool, timestamp) => {
-                this.toolBroadcaster.broadcastTimestampChange(fromTool, timestamp);
-            },
-            onToolOpenToggle: (fromTool, setToOpen) => {
-                for (const [, $tool] of tools)
-                    $tool.open = setToOpen;
-            },
-            onNoteReload: (fromTool, note, users) => this.onNoteReload?.(note, users)
-        };
+    constructor($root, $container, storage, auth, map) {
         for (const makeTool of toolMakerSequence) {
             const tool = makeTool(auth);
-            if (!auth.server.overpassTurbo && tool instanceof OverpassTurboTool)
-                continue;
-            if (!auth.server.overpass && tool instanceof OverpassTool)
-                continue;
-            if (auth.server.world != 'earth' && tool instanceof StreetViewTool)
-                continue;
-            const storageKey = 'commands-' + tool.id;
-            const $toolDetails = document.createElement('details');
-            $toolDetails.classList.add('tool');
-            $toolDetails.classList.toggle('full-width', tool.isFullWidth);
-            $toolDetails.open = storage.getBoolean(storageKey);
-            const $toolSummary = document.createElement('summary');
-            $toolSummary.textContent = tool.name;
-            if (tool.title)
-                $toolSummary.title = tool.title;
-            $toolDetails.addEventListener('toggle', () => {
-                storage.setBoolean(storageKey, $toolDetails.open);
-            });
-            $toolDetails.append($toolSummary, ...tool.getTool(toolCallbacks, map, figureDialog));
-            $toolDetails.addEventListener('animationend', toolAnimationEndListener);
-            const infoElements = tool.getInfo();
-            if (infoElements) {
-                const $infoDetails = document.createElement('details');
-                $infoDetails.classList.add('info');
-                const $infoSummary = document.createElement('summary');
-                $infoSummary.textContent = `${tool.name} info`;
-                $infoDetails.append($infoSummary, ...infoElements);
-                const $infoButton = document.createElement('button');
-                $infoButton.classList.add('info');
-                $infoButton.innerHTML = `<svg><title>Tool info</title><use href="#tools-info" /></svg>`;
-                const updateInfoButton = () => {
-                    if ($infoDetails.open) {
-                        $infoButton.classList.add('open');
-                    }
-                    else {
-                        $infoButton.classList.remove('open');
-                    }
-                };
-                updateInfoButton();
-                $infoButton.addEventListener('click', () => {
-                    $infoDetails.open = !$infoDetails.open;
-                });
-                $infoDetails.addEventListener('toggle', () => {
-                    updateInfoButton();
-                });
-                $toolDetails.addEventListener('toggle', () => {
-                    if ($toolDetails.open)
-                        return;
-                    $infoDetails.open = false;
-                });
-                $toolDetails.append(` `, $infoButton);
-                $container.append($toolDetails, $infoDetails);
-            }
-            else {
-                $container.append($toolDetails);
-            }
-            tools.push([tool, $toolDetails]);
+            tool.write($root, $container, storage, map);
         }
-        this.toolBroadcaster = new ToolBroadcaster(tools);
-        globalEventsListener.timestampListener = (timestamp) => {
-            this.toolBroadcaster.broadcastTimestampChange(null, timestamp);
-        };
     }
-    receiveLoginChange() {
-        this.toolBroadcaster.broadcastLoginChange(null);
-    }
-    receiveRefresherStateChange(isRunning, message) {
-        this.toolBroadcaster.broadcastRefresherStateChange(null, isRunning, message);
-    }
-    receiveRefresherPeriodChange(refreshPeriod) {
-        this.toolBroadcaster.broadcastRefresherPeriodChange(null, refreshPeriod);
-    }
-    receiveNoteCounts(nFetched, nVisible) {
-        this.toolBroadcaster.broadcastNoteCountsChange(null, nFetched, nVisible);
-    }
-    receiveSelectedNotes(selectedNotes, selectedNoteUsers) {
-        this.toolBroadcaster.broadcastSelectedNotesChange(null, selectedNotes, selectedNoteUsers);
-    }
-    get fitMode() {
-        return __classPrivateFieldGet(this, _ToolPanel_fitMode, "f");
-    }
-    get replaceUpdatedNotes() {
-        return __classPrivateFieldGet(this, _ToolPanel_replaceUpdatedNotes, "f");
-    }
-}
-_ToolPanel_fitMode = new WeakMap(), _ToolPanel_replaceUpdatedNotes = new WeakMap();
-function toolAnimationEndListener() {
-    this.classList.remove('ping');
 }
 
 function isOsmBase(d) {
@@ -8705,21 +8772,22 @@ function isOsmChangeset(c) {
     }
 }
 const e = makeEscapeTag(encodeURIComponent);
-async function downloadAndShowChangeset($a, server, map, changesetId) {
-    downloadCommon($a, map, async () => {
-        const response = await server.api.fetch(e `changeset/${changesetId}.json`);
-        if (!response.ok) {
-            if (response.status == 404) {
-                throw new TypeError(`changeset doesn't exist`);
-            }
-            else {
-                throw new TypeError(`OSM API error: unsuccessful response`);
-            }
+async function downloadAndShowChangeset(server, changesetId) {
+    const response = await server.api.fetch(e `changeset/${changesetId}.json`);
+    if (!response.ok) {
+        if (response.status == 404) {
+            throw new TypeError(`changeset doesn't exist`);
         }
-        const data = await response.json();
-        const changeset = getChangesetFromOsmApiResponse(data);
-        addGeometryToMap(map, makeChangesetGeometry(changeset), () => makeChangesetPopupContents(server, changeset));
-    });
+        else {
+            throw new TypeError(`OSM API error: unsuccessful response`);
+        }
+    }
+    const data = await response.json();
+    const changeset = getChangesetFromOsmApiResponse(data);
+    return [
+        makeChangesetGeometry(changeset),
+        makeChangesetPopupContents(server, changeset)
+    ];
     function makeChangesetGeometry(changeset) {
         if (changeset.minlat == null || changeset.minlon == null ||
             changeset.maxlat == null || changeset.maxlon == null) {
@@ -8731,39 +8799,46 @@ async function downloadAndShowChangeset($a, server, map, changesetId) {
         ]);
     }
 }
-async function downloadAndShowElement($a, server, map, elementType, elementId) {
-    downloadCommon($a, map, async () => {
-        const fullBit = (elementType == 'node' ? '' : '/full');
-        const response = await server.api.fetch(e `${elementType}/${elementId}` + `${fullBit}.json`);
-        if (!response.ok) {
-            if (response.status == 404) {
-                throw new TypeError(`element doesn't exist`);
-            }
-            else if (response.status == 410) {
-                throw new TypeError(`element was deleted`);
-            }
-            else {
-                throw new TypeError(`OSM API error: unsuccessful response`);
-            }
+async function downloadAndShowElement(server, elementType, elementId) {
+    const fullBit = (elementType == 'node' ? '' : '/full');
+    const response = await server.api.fetch(e `${elementType}/${elementId}` + `${fullBit}.json`);
+    if (!response.ok) {
+        if (response.status == 404) {
+            throw new TypeError(`element doesn't exist`);
         }
-        const data = await response.json();
-        const elements = getElementsFromOsmApiResponse(data);
-        const element = elements[elementType][elementId];
-        if (!element)
-            throw new TypeError(`OSM API error: requested element not found in response data`);
-        if (isOsmNodeElement(element)) {
-            addGeometryToMap(map, makeNodeGeometry(element), () => makeElementPopupContents(server, element));
-        }
-        else if (isOsmWayElement(element)) {
-            addGeometryToMap(map, makeWayGeometry(element, elements), () => makeElementPopupContents(server, element));
-        }
-        else if (isOsmRelationElement(element)) {
-            addGeometryToMap(map, makeRelationGeometry(element, elements), () => makeElementPopupContents(server, element));
+        else if (response.status == 410) {
+            throw new TypeError(`element was deleted`);
         }
         else {
-            throw new TypeError(`OSM API error: requested element has unknown type`); // shouldn't happen
+            throw new TypeError(`OSM API error: unsuccessful response`);
         }
-    });
+    }
+    const data = await response.json();
+    const elements = getElementsFromOsmApiResponse(data);
+    const element = elements[elementType][elementId];
+    if (!element)
+        throw new TypeError(`OSM API error: requested element not found in response data`);
+    if (isOsmNodeElement(element)) {
+        return [
+            makeNodeGeometry(element),
+            makeElementPopupContents(server, element)
+        ];
+    }
+    else if (isOsmWayElement(element)) {
+        return [
+            makeWayGeometry(element, elements),
+            makeElementPopupContents(server, element)
+        ];
+    }
+    else if (isOsmRelationElement(element)) {
+        return [
+            makeRelationGeometry(element, elements),
+            makeElementPopupContents(server, element)
+        ];
+    }
+    else {
+        throw new TypeError(`OSM API error: requested element has unknown type`); // shouldn't happen
+    }
     function makeNodeGeometry(node) {
         return L.circleMarker([node.lat, node.lon]);
     }
@@ -8795,28 +8870,6 @@ async function downloadAndShowElement($a, server, map, elementType, elementId) {
             // TODO indicate that there might be relations, their data may be incomplete
         }
         return geometry;
-    }
-}
-async function downloadCommon($a, map, downloadSpecific) {
-    $a.classList.add('loading');
-    try {
-        // TODO cancel already running response
-        await downloadSpecific();
-        $a.classList.remove('absent');
-        $a.title = '';
-    }
-    catch (ex) {
-        map.elementLayer.clearLayers();
-        $a.classList.add('absent');
-        if (ex instanceof TypeError) {
-            $a.title = ex.message;
-        }
-        else {
-            $a.title = `unknown error ${ex}`;
-        }
-    }
-    finally {
-        $a.classList.remove('loading');
     }
 }
 function getChangesetFromOsmApiResponse(data) {
@@ -8893,17 +8946,6 @@ function makeElementPopupContents(server, element) {
     if ($tags)
         contents.push($tags);
     return contents;
-}
-function addGeometryToMap(map, geometry, makePopupContents) {
-    const popupWriter = () => {
-        const $removeButton = document.createElement('button');
-        $removeButton.textContent = `Remove from map view`;
-        $removeButton.onclick = () => {
-            map.elementLayer.clearLayers();
-        };
-        return makeDiv('osm-element-popup-contents')(...makePopupContents(), $removeButton);
-    };
-    map.addOsmElement(geometry, popupWriter);
 }
 function capitalize(s) {
     return s[0].toUpperCase() + s.slice(1);
@@ -9009,7 +9051,7 @@ async function main() {
     }
     catch { }
     const serverList = new ServerList(...serverListConfigSources);
-    const globalEventsListener = new GlobalEventListener();
+    new GlobalEventListener();
     const $navbarContainer = document.createElement('nav');
     const $fetchContainer = makeDiv('panel', 'fetch')();
     const $moreContainer = makeDiv('more')();
@@ -9022,50 +9064,48 @@ async function main() {
     const globalHistory = new GlobalHistory($scrollingPart, serverList);
     let auth;
     let map;
-    let figureDialog;
     let noteTable;
     let toolPanel;
     if (globalHistory.hasServer()) {
         auth = new Auth(storage, globalHistory.server, serverList);
-        [map, figureDialog] = writeGraphicSide(globalEventsListener, globalHistory);
-        [noteTable, toolPanel] = writeBelowFetchPanel($scrollingPart, $stickyPart, $moreContainer, storage, auth, globalEventsListener, globalHistory, map, figureDialog);
+        map = writeGraphicSide(globalHistory);
+        [noteTable, toolPanel] = writeBelowFetchPanel($scrollingPart, $stickyPart, $moreContainer, storage, auth, globalHistory, map);
     }
     else {
         document.body.classList.add('only-text-side');
     }
     const navbar = new Navbar(storage, $navbarContainer, map);
-    const fetchPanel = new NoteFetchPanel(storage, db, globalEventsListener, globalHistory, auth, $fetchContainer, $moreContainer, navbar, noteTable, map, figureDialog);
-    if (noteTable) {
-        noteTable.onRefresherUpdate = async (note, users) => {
-            await fetchPanel.fetcherRun?.updateNote(note, users);
-        };
-    }
-    if (toolPanel) {
-        toolPanel.onNoteReload = async (note, users) => {
-            await fetchPanel.fetcherRun?.updateNote(note, users);
-            noteTable?.replaceNote(note, users);
-        };
-    }
+    new NoteFetchPanel(document.body, storage, db, globalHistory, auth, $fetchContainer, $moreContainer, navbar, noteTable, map);
     if (globalHistory.hasServer()) {
-        globalEventsListener.noteSelfListener = async ($a, noteId) => {
+        document.body.addEventListener('osmNoteViewer:clickUpdateNoteLink', async (ev) => {
+            const $a = ev.target;
+            if (!($a instanceof HTMLAnchorElement))
+                return;
+            const id = Number($a.dataset.noteId);
+            bubbleCustomEvent($a, 'osmNoteViewer:beforeNoteFetch', id);
+            let note;
+            let users;
             try {
-                const [note, users] = await fetchTableNote(globalHistory.server.api, $a, Number(noteId), auth?.token);
-                await fetchPanel.fetcherRun?.updateNote(note, users);
-                noteTable?.replaceNote(note, users);
+                [note, users] = await fetchTableNote(globalHistory.server.api, id, auth?.token);
             }
-            catch { }
-        };
+            catch (ex) {
+                bubbleCustomEvent($a, 'osmNoteViewer:failedNoteFetch', [id, getFetchTableNoteErrorMessage(ex)]);
+                return;
+            }
+            bubbleCustomEvent($a, 'osmNoteViewer:noteFetch', [note, users]);
+            bubbleCustomEvent($a, 'osmNoteViewer:pushNoteUpdate', [note, users]);
+        });
     }
     globalHistory.restoreScrollPosition();
 }
-function writeGraphicSide(globalEventsListener, globalHistory) {
+function writeGraphicSide(globalHistory) {
     const $graphicSide = makeDiv('graphic-side')();
     const $mapContainer = makeDiv('map')();
     const $figureDialog = document.createElement('dialog');
     $figureDialog.classList.add('figure');
     $graphicSide.append($mapContainer, $figureDialog);
     document.body.append($graphicSide);
-    const map = new NoteMap($mapContainer, globalHistory.server.tile);
+    const map = new NoteMap(document.body, $mapContainer, globalHistory.server.tile, (changesetId) => downloadAndShowChangeset(globalHistory.server, changesetId), (elementType, elementId) => downloadAndShowElement(globalHistory.server, elementType, elementId));
     map.onMoveEnd(() => {
         globalHistory.setMapHash(map.hash);
     });
@@ -9076,39 +9116,18 @@ function writeGraphicSide(globalEventsListener, globalHistory) {
         }
     };
     globalHistory.triggerInitialMapHashChange();
-    const figureDialog = new FigureDialog($figureDialog);
-    globalEventsListener.elementListener = ($a, elementType, elementId) => {
-        if (elementType != 'node' && elementType != 'way' && elementType != 'relation')
-            return false;
-        figureDialog.close();
-        downloadAndShowElement($a, globalHistory.server, map, elementType, elementId);
-    };
-    globalEventsListener.changesetListener = ($a, changesetId) => {
-        figureDialog.close();
-        downloadAndShowChangeset($a, globalHistory.server, map, changesetId);
-    };
-    globalEventsListener.mapListener = ($a, zoom, lat, lon) => {
-        figureDialog.close();
-        map.panAndZoomTo([Number(lat), Number(lon)], Number(zoom));
-    };
-    globalEventsListener.imageListener = ($a) => {
-        figureDialog.toggle($a.href);
-    };
-    return [map, figureDialog];
+    new FigureDialog(document.body, $figureDialog);
+    return map;
 }
-function writeBelowFetchPanel($scrollingPart, $stickyPart, $moreContainer, storage, auth, globalEventsListener, globalHistory, map, figureDialog) {
+function writeBelowFetchPanel($scrollingPart, $stickyPart, $moreContainer, storage, auth, globalHistory, map) {
     const $filterContainer = makeDiv('panel', 'fetch')();
     const $notesContainer = makeDiv('notes')();
     $scrollingPart.append($filterContainer, $notesContainer, $moreContainer);
     const filterPanel = new NoteFilterPanel(globalHistory.server, $filterContainer);
     const $toolContainer = makeDiv('panel', 'command')();
     $stickyPart.append($toolContainer);
-    const toolPanel = new ToolPanel(storage, auth, globalEventsListener, $toolContainer, map, figureDialog);
-    auth.onLoginChange = () => toolPanel.receiveLoginChange();
-    const noteTable = new NoteTable($notesContainer, toolPanel, map, filterPanel.noteFilter, figureDialog, globalHistory.server);
-    globalEventsListener.noteListener = ($a, noteId) => {
-        noteTable.pingNoteFromLink($a, noteId);
-    };
+    const toolPanel = new ToolPanel(document.body, $toolContainer, storage, auth, map);
+    const noteTable = new NoteTable(document.body, $notesContainer, toolPanel, map, filterPanel.noteFilter, globalHistory.server);
     filterPanel.subscribe(noteFilter => noteTable.updateFilter(noteFilter));
     globalHistory.$resizeObservationTarget = $notesContainer;
     return [noteTable, toolPanel];

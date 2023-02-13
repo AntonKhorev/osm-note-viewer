@@ -489,6 +489,9 @@ nav [role=tablist] [role=tab]:focus {
 .panel .major-input button {
 	padding: var(--major-button-padding);
 }
+.panel .major-input .textarea-controls {
+	float: right;
+}
 .panel .text-button-input {
 	display: flex;
 	gap: .5em;
@@ -673,9 +676,6 @@ nav [role=tablist] [role=tab]:focus {
 }
 .notes tbody.status-hidden {
 	box-shadow: -2px 0px 0px 0px black, 2px 0px 0px 0px black;
-}
-.notes tbody.hidden {
-	display: none;
 }
 .notes tbody.active-hover::before {
 	content: '';
