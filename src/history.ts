@@ -7,14 +7,20 @@ const scrollRestorerEnabled=true // almost works without this, just won't restor
 
 export interface GlobalHistoryWithServer {
 	onMapHashChange?: (mapHash: string) => void
+	onQueryHashChange?: (queryHash: string) => void
 	$resizeObservationTarget: HTMLElement|undefined
 	readonly server: Server
+	readonly serverList: ServerList
 	triggerInitialMapHashChange(): void
+	restoreScrollPosition(): void
+	getQueryHash(): string
+	setQueryHash(queryHash: string, pushStateAndRemoveMapHash: boolean): void
 	setMapHash(mapHash: string): void
+	hasMapHash(): boolean
 }
 
 export default class GlobalHistory {
-	onMapHashChange?: (mapHash: string) => void
+	onMapHashChange?: (mapHashValue: string) => void
 	onQueryHashChange?: (queryHash: string) => void
 	$resizeObservationTarget: HTMLElement|undefined // needs to be set before calling restoreScrollPosition()
 	private rememberScrollPosition=false
@@ -64,9 +70,9 @@ export default class GlobalHistory {
 		})
 	}
 	triggerInitialMapHashChange(): void {
-		const [,mapHash]=this.getAllHashes()
-		if (this.onMapHashChange && mapHash) {
-			this.onMapHashChange(mapHash)
+		const [,mapHashValue]=this.getAllHashes()
+		if (this.onMapHashChange && mapHashValue) {
+			this.onMapHashChange(mapHashValue)
 		}
 	}
 	restoreScrollPosition(): void {

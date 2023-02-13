@@ -20,7 +20,7 @@ export default class OverlayDialog {
 		auth: Auth|undefined
 	) {
 		this.fallbackMode=((window as any).HTMLDialogElement == null)
-		this.$menuPanel.hidden=true
+		this.$menuPanel.hidden=!!auth
 		this.writeMenuPanel(storage,db,server,serverList,serverHash,auth)
 		for (const eventType of [
 			'osmNoteViewer:newFetch',

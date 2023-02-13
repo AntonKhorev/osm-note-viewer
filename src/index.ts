@@ -35,47 +35,53 @@ async function main() {
 	} catch {}
 	const serverList=new ServerList(...serverListConfigSources)
 	new GlobalEventsListener()
+	let auth: Auth|undefined
 
 	const $navbarContainer=document.createElement('nav')
 	const $fetchContainer=makeDiv('panel','fetch')()
 	const $moreContainer=makeDiv('more')()
-
 	const $scrollingPart=makeDiv('scrolling')($navbarContainer,$fetchContainer)
 	const $stickyPart=makeDiv('sticky')()
+	const $graphicSide=makeDiv('graphic-side')(makeMenuButton())
+	document.body.append($graphicSide)
 
 	const flipped=storage.getBoolean('flipped')
 	if (flipped) document.body.classList.add('flipped')
-	document.body.append(makeDiv('text-side')($scrollingPart,$stickyPart))
 
 	const globalHistory=new GlobalHistory($scrollingPart,serverList)
-	
-	let auth: Auth|undefined
-	let map: NoteMap|undefined
-	let noteTable: NoteTable|undefined
 	if (globalHistory.hasServer()) {
 		auth=new Auth(storage,globalHistory.server,serverList)
+		document.body.append(makeDiv('text-side')($scrollingPart,$stickyPart))
+		const map=writeMap($graphicSide,globalHistory)
+		const navbar=new Navbar(storage,$navbarContainer,map)
+		const noteTable=writeBelowFetchPanel(
+			$scrollingPart,$stickyPart,$moreContainer,
+			storage,auth,globalHistory,
+			map
+		)
+		new NoteFetchPanel(
+			document.body,
+			db,globalHistory,
+			$fetchContainer,$moreContainer,
+			navbar,noteTable,map
+		)
+	} else {
+		document.body.classList.add('only-graphic-side')
+	}
+	
+	{
 		const overlayDialog=new OverlayDialog(
 			document.body,
 			storage,db,
 			globalHistory.server,serverList,globalHistory.serverHash,
 			auth
 		)
-		map=writeGraphicSide(globalHistory,overlayDialog)
-		noteTable=writeBelowFetchPanel(
-			$scrollingPart,$stickyPart,$moreContainer,
-			storage,auth,globalHistory,
-			map
+		$graphicSide.append(
+			overlayDialog.$menuPanel,
+			overlayDialog.$figureDialog
 		)
-	} else {
-		document.body.classList.add('only-text-side')
 	}
-	const navbar=new Navbar(storage,$navbarContainer,map)
-	new NoteFetchPanel(
-		document.body,
-		db,globalHistory,
-		$fetchContainer,$moreContainer,
-		navbar,noteTable,map
-	)
+
 	if (globalHistory.hasServer()) {
 		document.body.addEventListener('osmNoteViewer:clickUpdateNoteLink',async(ev)=>{
 			const $a=ev.target
@@ -93,25 +99,16 @@ async function main() {
 			bubbleCustomEvent($a,'osmNoteViewer:noteFetch',[note,users])
 			bubbleCustomEvent($a,'osmNoteViewer:pushNoteUpdate',[note,users])
 		})
+		globalHistory.restoreScrollPosition()
 	}
-	globalHistory.restoreScrollPosition()
 }
 
-function writeGraphicSide(
-	globalHistory: GlobalHistoryWithServer,
-	overlayDialog: OverlayDialog
-): NoteMap {
-	const $graphicSide=makeDiv('graphic-side')()
-	const $menuButton=makeMenuButton()
+function writeMap(
+	$graphicSide: HTMLElement,
+	globalHistory: GlobalHistoryWithServer
+) {
 	const $mapContainer=makeDiv('map')()
-	$graphicSide.append(
-		$menuButton,
-		$mapContainer,
-		overlayDialog.$menuPanel,
-		overlayDialog.$figureDialog
-	)
-	document.body.append($graphicSide)
-	
+	$graphicSide.append($mapContainer)
 	const map=new NoteMap(
 		document.body,$mapContainer,globalHistory.server.tile,
 		(changesetId)=>downloadAndShowChangeset(globalHistory.server,changesetId),
@@ -120,21 +117,20 @@ function writeGraphicSide(
 	map.onMoveEnd(()=>{
 		globalHistory.setMapHash(map.hash)
 	})
-	globalHistory.onMapHashChange=(mapHash: string)=>{
-		const [zoomString,latString,lonString]=mapHash.split('/')
+	globalHistory.onMapHashChange=(mapHashValue: string)=>{
+		const [zoomString,latString,lonString]=mapHashValue.split('/')
 		if (zoomString && latString && lonString) {
 			map.panAndZoomTo([Number(latString),Number(lonString)],Number(zoomString))
 		}
 	}
 	globalHistory.triggerInitialMapHashChange()
-
 	return map
 }
 
 function writeBelowFetchPanel(
-	$scrollingPart:HTMLElement, $stickyPart:HTMLElement, $moreContainer:HTMLElement,
-	storage:NoteViewerStorage, auth:Auth, globalHistory:GlobalHistoryWithServer,
-	map:NoteMap
+	$scrollingPart: HTMLElement, $stickyPart: HTMLElement, $moreContainer: HTMLElement,
+	storage: NoteViewerStorage, auth: Auth, globalHistory: GlobalHistoryWithServer,
+	map: NoteMap
 ): NoteTable {
 	const $filterContainer=makeDiv('panel','fetch')()
 	const $notesContainer=makeDiv('notes')()

@@ -1,5 +1,5 @@
 import type NoteViewerDB from './db'
-import type GlobalHistory from './history'
+import type {GlobalHistoryWithServer} from './history'
 import type NoteMap from './map'
 import type Navbar from './navbar'
 import type NoteTable from './table'
@@ -17,49 +17,40 @@ export default class NoteFetchPanel {
 	private fetcherInvoker?: NoteFetchDialog
 	constructor(
 		$root: HTMLElement,
-		db: NoteViewerDB, globalHistory: GlobalHistory,
+		db: NoteViewerDB, globalHistory: GlobalHistoryWithServer,
 		$container: HTMLElement, $moreContainer: HTMLElement,
-		navbar: Navbar, noteTable: NoteTable|undefined, map: NoteMap|undefined
+		navbar: Navbar, noteTable: NoteTable, map: NoteMap
 	) {
 		const self=this
 		const server=globalHistory.server
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
 		const hashQuery=makeNoteQueryFromHash(globalHistory.getQueryHash())
 
-		let fetchDialogs: NoteFetchDialogs|undefined
-		if (server && noteTable && map) {
-			fetchDialogs=new NoteFetchDialogs(
-				$root,server,$container,$moreContainer,noteTable,map,hashQuery,
-				(dialog:NoteFetchDialog,query:NoteQuery)=>{
-					modifyHistory(query,true)
-					startFetcher(query,true,false,dialog)
-				},
-				(dialog:NoteFetchDialog)=>{
-					if (this.fetcherRun && this.fetcherInvoker==dialog) {
-						this.fetcherRun.reactToLimitUpdateForAdvancedMode()
-					}
+		const fetchDialogs=new NoteFetchDialogs(
+			$root,server,$container,$moreContainer,noteTable,map,hashQuery,
+			(dialog:NoteFetchDialog,query:NoteQuery)=>{
+				modifyHistory(query,true)
+				startFetcher(query,true,false,dialog)
+			},
+			(dialog:NoteFetchDialog)=>{
+				if (this.fetcherRun && this.fetcherInvoker==dialog) {
+					this.fetcherRun.reactToLimitUpdateForAdvancedMode()
 				}
-			)
-			for (const dialog of fetchDialogs.allDialogs) {
-				navbar.addTab(dialog)
 			}
+		)
+		for (const dialog of fetchDialogs.allDialogs) {
+			navbar.addTab(dialog)
 		}
 		
 		globalHistory.onQueryHashChange=(queryHash: string)=>{
 			const query=makeNoteQueryFromHash(queryHash)
 			modifyHistory(query,false) // in case location was edited manually
-			if (fetchDialogs) {
-				openQueryDialog(navbar,fetchDialogs,query,false)
-				fetchDialogs.populateInputs(query)
-			}
+			openQueryDialog(navbar,fetchDialogs,query,false)
+			fetchDialogs.populateInputs(query)
 			startFetcherFromQuery(query,false,false)
 			globalHistory.restoreScrollPosition()
 		}
-		if (fetchDialogs) {
-			openQueryDialog(navbar,fetchDialogs,hashQuery,true)
-		} else {
-			// navbar.openTab(aboutDialog) // TODO shouldn't have fetch-panel
-		}
+		openQueryDialog(navbar,fetchDialogs,hashQuery,true)
 		modifyHistory(hashQuery,false)
 		startFetcherFromQuery(
 			hashQuery,false,
@@ -79,18 +70,15 @@ export default class NoteFetchPanel {
 			} else {
 				query.user=Number(ev.target.dataset.userId)
 			}
-			if (fetchDialogs) {
-				openQueryDialog(navbar,fetchDialogs,query,false)
-				fetchDialogs.populateInputs(query)
-				fetchDialogs.searchDialog.$section.scrollIntoView()
-			}
+			openQueryDialog(navbar,fetchDialogs,query,false)
+			fetchDialogs.populateInputs(query)
+			fetchDialogs.searchDialog.$section.scrollIntoView()
 		})
 		$root.addEventListener('osmNoteViewer:noteFetch',({detail:[note,users]})=>{
 			this.fetcherRun?.updateNote(note,users)
 		})
 		
 		function startFetcherFromQuery(query: NoteQuery|undefined, clearStore: boolean, suppressFitNotes: boolean): void {
-			if (!fetchDialogs) return
 			if (!query) return
 			const dialog=fetchDialogs.getDialogFromQuery(query)
 			if (!dialog) return
@@ -99,7 +87,6 @@ export default class NoteFetchPanel {
 		function startFetcher(
 			query: NoteQuery, clearStore: boolean, suppressFitNotes: boolean, dialog: NoteFetchDialog
 		): void {
-			if (!(server && fetchDialogs && noteTable)) return
 			if (query.mode!='search' && query.mode!='bbox' && query.mode!='ids') return
 			bubbleEvent($container,'osmNoteViewer:newFetch')
 			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
