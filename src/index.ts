@@ -6,7 +6,7 @@ import GlobalEventsListener from './events'
 import GlobalHistory, {GlobalHistoryWithServer} from './history'
 import Auth, {checkAuthRedirect} from './auth'
 import NoteMap from './map'
-import FigureDialog from './figure'
+import OverlayDialog from './overlay'
 import Navbar from './navbar'
 import NoteFetchPanel from './fetch-panel'
 import NoteFilterPanel from './filter-panel'
@@ -14,7 +14,7 @@ import NoteTable from './table'
 import ToolPanel from './tool-panel'
 import fetchTableNote, {getFetchTableNoteErrorMessage} from './fetch-note'
 import {downloadAndShowChangeset, downloadAndShowElement} from './osm'
-import {bubbleCustomEvent, makeDiv} from './html'
+import {bubbleCustomEvent, bubbleEvent, makeDiv} from './html'
 import serverListConfig from './server-list-config'
 
 main()
@@ -52,11 +52,16 @@ async function main() {
 	let auth: Auth|undefined
 	let map: NoteMap|undefined
 	let noteTable: NoteTable|undefined
-	let toolPanel: ToolPanel|undefined
 	if (globalHistory.hasServer()) {
 		auth=new Auth(storage,globalHistory.server,serverList)
-		map=writeGraphicSide(globalHistory)
-		;[noteTable,toolPanel]=writeBelowFetchPanel(
+		const overlayDialog=new OverlayDialog(
+			document.body,
+			storage,db,
+			globalHistory.server,serverList,globalHistory.serverHash,
+			auth
+		)
+		map=writeGraphicSide(globalHistory,overlayDialog)
+		noteTable=writeBelowFetchPanel(
 			$scrollingPart,$stickyPart,$moreContainer,
 			storage,auth,globalHistory,
 			map
@@ -67,7 +72,7 @@ async function main() {
 	const navbar=new Navbar(storage,$navbarContainer,map)
 	new NoteFetchPanel(
 		document.body,
-		storage,db,globalHistory,auth,
+		db,globalHistory,
 		$fetchContainer,$moreContainer,
 		navbar,noteTable,map
 	)
@@ -93,15 +98,20 @@ async function main() {
 }
 
 function writeGraphicSide(
-	globalHistory:GlobalHistoryWithServer
+	globalHistory: GlobalHistoryWithServer,
+	overlayDialog: OverlayDialog
 ): NoteMap {
 	const $graphicSide=makeDiv('graphic-side')()
+	const $menuButton=makeMenuButton()
 	const $mapContainer=makeDiv('map')()
-	const $figureDialog=document.createElement('dialog')
-	$figureDialog.classList.add('figure')
-	$graphicSide.append($mapContainer,$figureDialog)
+	$graphicSide.append(
+		$menuButton,
+		$mapContainer,
+		overlayDialog.$menuPanel,
+		overlayDialog.$figureDialog
+	)
 	document.body.append($graphicSide)
-
+	
 	const map=new NoteMap(
 		document.body,$mapContainer,globalHistory.server.tile,
 		(changesetId)=>downloadAndShowChangeset(globalHistory.server,changesetId),
@@ -117,7 +127,6 @@ function writeGraphicSide(
 		}
 	}
 	globalHistory.triggerInitialMapHashChange()
-	new FigureDialog(document.body,$figureDialog)
 
 	return map
 }
@@ -126,7 +135,7 @@ function writeBelowFetchPanel(
 	$scrollingPart:HTMLElement, $stickyPart:HTMLElement, $moreContainer:HTMLElement,
 	storage:NoteViewerStorage, auth:Auth, globalHistory:GlobalHistoryWithServer,
 	map:NoteMap
-): [NoteTable,ToolPanel] {
+): NoteTable {
 	const $filterContainer=makeDiv('panel','fetch')()
 	const $notesContainer=makeDiv('notes')()
 	$scrollingPart.append($filterContainer,$notesContainer,$moreContainer)
@@ -146,5 +155,17 @@ function writeBelowFetchPanel(
 	filterPanel.subscribe(noteFilter=>noteTable.updateFilter(noteFilter))
 	globalHistory.$resizeObservationTarget=$notesContainer
 
-	return [noteTable,toolPanel]
+	return noteTable
+}
+
+function makeMenuButton(): HTMLButtonElement {
+	const $button=document.createElement('button')
+	$button.tabIndex=-1
+	$button.title=`Menu`
+	$button.classList.add('global','menu')
+	$button.innerHTML=`<svg><use href="#menu" /></svg>`
+	$button.onclick=()=>{
+		bubbleEvent($button,'osmNoteViewer:toggleMenu')
+	}
+	return $button
 }

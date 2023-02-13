@@ -1,11 +1,7 @@
-import type NoteViewerStorage from './storage'
 import type NoteViewerDB from './db'
-import type GlobalEventsListener from './events'
 import type GlobalHistory from './history'
-import type Auth from './auth'
 import type NoteMap from './map'
 import type Navbar from './navbar'
-import AboutDialog from './about-dialog'
 import type NoteTable from './table'
 import type {NoteQuery, NoteSearchQuery} from './query' 
 import {makeNoteQueryFromHash, makeNoteQueryString} from './query'
@@ -21,8 +17,7 @@ export default class NoteFetchPanel {
 	private fetcherInvoker?: NoteFetchDialog
 	constructor(
 		$root: HTMLElement,
-		storage: NoteViewerStorage, db: NoteViewerDB,
-		globalHistory: GlobalHistory, auth: Auth|undefined,
+		db: NoteViewerDB, globalHistory: GlobalHistory,
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		navbar: Navbar, noteTable: NoteTable|undefined, map: NoteMap|undefined
 	) {
@@ -49,9 +44,6 @@ export default class NoteFetchPanel {
 				navbar.addTab(dialog)
 			}
 		}
-		const aboutDialog=new AboutDialog(storage,db,server,globalHistory.serverList,globalHistory.serverHash,auth)
-		aboutDialog.write($container)
-		navbar.addTab(aboutDialog,true)
 		
 		globalHistory.onQueryHashChange=(queryHash: string)=>{
 			const query=makeNoteQueryFromHash(queryHash)
@@ -66,7 +58,7 @@ export default class NoteFetchPanel {
 		if (fetchDialogs) {
 			openQueryDialog(navbar,fetchDialogs,hashQuery,true)
 		} else {
-			navbar.openTab(aboutDialog)
+			// navbar.openTab(aboutDialog) // TODO shouldn't have fetch-panel
 		}
 		modifyHistory(hashQuery,false)
 		startFetcherFromQuery(

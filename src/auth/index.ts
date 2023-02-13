@@ -50,7 +50,7 @@ export default class Auth {
 	) {
 		this.authStorage=new AuthStorage(storage,server.host,installUri)
 	}
-	writeAboutDialogSections(
+	writeMenuSections(
 		$container: HTMLElement
 	):void {
 		const $appSection=makeElement('section')()()
@@ -58,7 +58,7 @@ export default class Auth {
 		const appSection=new AuthAppSection($appSection,this.authStorage,this.server,this.serverList)
 		const loginSection=new AuthLoginSection($loginSection,this.authStorage,this.server)
 		appSection.onRegistrationUpdate=()=>loginSection.respondToAppRegistration()
-		$container.append($appSection,$loginSection)
+		$container.append($loginSection,$appSection)
 	}
 	get token(): string {
 		return this.authStorage.token

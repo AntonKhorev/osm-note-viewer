@@ -51,9 +51,6 @@ nav [role=tablist] [role=tab] {
 nav [role=tablist] [role=tab]:first-child {
 	margin-left: 0;
 }
-nav [role=tablist] [role=tab].push {
-	margin-left: auto;
-}
 nav [role=tablist] [role=tab][aria-selected=true] {
 	background: canvas;
 }

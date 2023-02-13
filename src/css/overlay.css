@@ -1,5 +1,39 @@
+.graphic-side button.menu {
+	z-index: 1;
+	/* copied from leaflet: */
+	top: 10px;
+	left: 10px;
+	border: 2px solid rgba(0,0,0,0.2);
+	border-radius: 5px;
+}
+.graphic-side button.menu:hover {
+	outline: auto;
+}
+.graphic-side button.menu > svg {
+	background: canvas;
+}
+
+.graphic-side div.menu:not([hidden]) {
+	position: absolute;
+	inset: 0;
+	background: canvas;
+	display: flex;
+	flex-direction: column;
+}
+.graphic-side div.menu .lead {
+	margin-left: calc(20px + 2rem);
+	min-height: calc(20px + 2rem);
+	display: grid;
+	align-content: center;
+}
+.graphic-side div.menu .scrolling {
+	flex-grow: 1;
+	overflow-y: scroll;
+}
+
 dialog.figure {
 	position: absolute;
+	z-index: 2;
 	inset: 0;
 	padding: 0;
 	border: 0;

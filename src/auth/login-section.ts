@@ -69,7 +69,7 @@ function makeLogin(scope: string, userData: Readonly<UserData>): Login {
 
 export default class AuthLoginSection {
 	private readonly $clientIdRequired=makeDiv('notice')(
-		`Please register the app and enter the `,em(`client id`),` above to be able to login.`
+		`Please register the app and enter the `,em(`client id`),` below to be able to login.`
 	)
 	private readonly $loginForms=makeDiv()()
 	private readonly loginForms: AuthLoginForms
