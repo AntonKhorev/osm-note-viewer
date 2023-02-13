@@ -43,6 +43,7 @@ async function main() {
 	const $scrollingPart=makeDiv('scrolling')($navbarContainer,$fetchContainer)
 	const $stickyPart=makeDiv('sticky')()
 	const $graphicSide=makeDiv('graphic-side')(makeMenuButton())
+	const $mapContainer=makeDiv('map')()
 	document.body.append($graphicSide)
 
 	const flipped=storage.getBoolean('flipped')
@@ -52,7 +53,8 @@ async function main() {
 	if (globalHistory.hasServer()) {
 		auth=new Auth(storage,globalHistory.server,serverList)
 		document.body.append(makeDiv('text-side')($scrollingPart,$stickyPart))
-		const map=writeMap($graphicSide,globalHistory)
+		$graphicSide.append($mapContainer)
+		const map=writeMap($mapContainer,globalHistory)
 		const navbar=new Navbar(storage,$navbarContainer,map)
 		const noteTable=writeBelowFetchPanel(
 			$scrollingPart,$stickyPart,$moreContainer,
@@ -74,7 +76,7 @@ async function main() {
 			document.body,
 			storage,db,
 			globalHistory.server,serverList,globalHistory.serverHash,
-			auth
+			auth,$mapContainer
 		)
 		$graphicSide.append(
 			overlayDialog.$menuPanel,
@@ -104,11 +106,9 @@ async function main() {
 }
 
 function writeMap(
-	$graphicSide: HTMLElement,
+	$mapContainer: HTMLElement,
 	globalHistory: GlobalHistoryWithServer
 ) {
-	const $mapContainer=makeDiv('map')()
-	$graphicSide.append($mapContainer)
 	const map=new NoteMap(
 		document.body,$mapContainer,globalHistory.server.tile,
 		(changesetId)=>downloadAndShowChangeset(globalHistory.server,changesetId),

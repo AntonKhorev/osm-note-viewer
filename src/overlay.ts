@@ -17,7 +17,8 @@ export default class OverlayDialog {
 		$root: HTMLElement,
 		storage: NoteViewerStorage, db: NoteViewerDB,
 		server: Server|undefined, serverList: ServerList, serverHash: string,
-		auth: Auth|undefined
+		auth: Auth|undefined,
+		private $mapContainer: HTMLElement
 	) {
 		this.fallbackMode=((window as any).HTMLDialogElement == null)
 		this.$menuPanel.hidden=!!auth
@@ -36,10 +37,13 @@ export default class OverlayDialog {
 			this.toggleImage(ev.target.href)
 		})
 		$root.addEventListener('osmNoteViewer:toggleMenu',()=>{
+			if (this.url!=null) this.close()
 			this.$menuPanel.hidden=!this.$menuPanel.hidden
+			this.$mapContainer.hidden=!this.$menuPanel.hidden
 		})
 	}
 	private close(): void {
+		this.$mapContainer.hidden=false
 		this.$menuPanel.hidden=true
 		if (this.fallbackMode) {
 			return
@@ -58,6 +62,8 @@ export default class OverlayDialog {
 			this.close()
 			return
 		}
+		this.$mapContainer.hidden=true
+
 		const $figure=document.createElement('figure')
 		$figure.tabIndex=0
 		const $backdrop=document.createElement('div')
