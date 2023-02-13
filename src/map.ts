@@ -58,9 +58,13 @@ export default class NoteMap {
 		]>
 	) {
 		this.leafletMap=L.map($container,{
-			worldCopyJump: true
-		})
-		this.leafletMap.addLayer(L.tileLayer(
+			worldCopyJump: true,
+			zoomControl: false
+		}).addControl(L.control.zoom({
+			position: 'bottomright'
+		})).addControl(L.control.scale({
+			position: 'bottomleft'
+		})).addLayer(L.tileLayer(
 			tile.urlTemplate,{
 				attribution: e`© <a href="${tile.attributionUrl}">${tile.attributionText}</a>`,
 				maxZoom: tile.maxZoom
