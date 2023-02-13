@@ -156,7 +156,6 @@ function writeBelowFetchPanel(
 
 function makeMenuButton(): HTMLButtonElement {
 	const $button=document.createElement('button')
-	$button.tabIndex=-1
 	$button.title=`Menu`
 	$button.classList.add('global','menu')
 	$button.innerHTML=`<svg><use href="#menu" /></svg>`
