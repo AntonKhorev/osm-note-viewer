@@ -4,7 +4,7 @@ import type {Note} from '../data'
 import {noteStatuses} from '../data'
 import {readNoteResponse, NoteDataError} from '../fetch-note'
 import {makeHrefWithCurrentHost} from '../hash'
-import {makeElement, makeDiv, makeLabel, makeLink, bubbleCustomEvent} from '../html'
+import {makeElement, makeDiv, makeLabel, makeLink, bubbleEvent, bubbleCustomEvent} from '../html'
 import {p,ul,li,code} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 import {isArray} from '../types'
@@ -154,6 +154,8 @@ export class InteractTool extends Tool {
 					this.$commentText.value,
 					this.auth.server.web.getUrl(e`changeset/${changesetId}`)
 				)
+				$appendLastChangeset.dataset.changesetId=String(changesetId)
+				bubbleEvent($appendLastChangeset,'osmNoteViewer:clickChangesetLink')
 			} catch {}
 		}
 		$appendLastChangeset.onkeydown=ev=>{
