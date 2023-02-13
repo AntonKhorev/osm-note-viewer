@@ -261,6 +261,9 @@
 .panel .major-input button {
 	padding: var(--major-button-padding);
 }
+.panel .major-input .textarea-controls {
+	float: right;
+}
 .panel .text-button-input {
 	display: flex;
 	gap: .5em;

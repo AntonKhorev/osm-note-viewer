@@ -4,9 +4,10 @@ import type {Note} from '../data'
 import {noteStatuses} from '../data'
 import {readNoteResponse, NoteDataError} from '../fetch-note'
 import {makeHrefWithCurrentHost} from '../hash'
-import {makeElement, makeDiv, makeLink, bubbleCustomEvent} from '../html'
+import {makeElement, makeDiv, makeLabel, makeLink, bubbleCustomEvent} from '../html'
 import {p,ul,li,code} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
+import {isArray} from '../types'
 
 const e=makeEscapeTag(encodeURIComponent)
 
@@ -41,6 +42,7 @@ export class InteractTool extends Tool {
 	name=`Interact`
 	title=`Interact with notes on OSM server`
 	isFullWidth=true
+	private $commentAppendControls=makeDiv('textarea-controls')()
 	private $yourNotesApi=document.createElement('span')
 	private $yourNotesWeb=document.createElement('span')
 	private $asOutput=document.createElement('output')
@@ -111,10 +113,8 @@ export class InteractTool extends Tool {
 	}]
 	constructor(auth: Auth) {
 		super(auth)
-		this.updateYourNotes()
-		this.updateAsOutput()
+		this.updateLoginDependents()
 		this.updateWithOutput()
-		this.$commentText.placeholder=`Comment text`
 		this.updateButtons()
 		this.updateRunButton()
 		this.updateRunOutput()
@@ -142,6 +142,29 @@ export class InteractTool extends Tool {
 		`If you've hidden a note and want to see it, look for it at `,this.$yourNotesWeb,` on the OSM website.`
 	)]}
 	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
+		const $appendLastChangeset=makeElement('a')('input-link')(`append last changeset`)
+		$appendLastChangeset.tabIndex=0
+		$appendLastChangeset.onclick=async()=>{
+			if (this.auth.uid==null) return
+			try {
+				const response=await this.auth.server.api.fetch(e`changesets.json?user=${this.auth.uid}`)
+				const data=await response.json()
+				const changesetId=getLatestChangesetId(data)
+				this.$commentText.value=appendToText(
+					this.$commentText.value,
+					this.auth.server.web.getUrl(e`changeset/${changesetId}`)
+				)
+			} catch {}
+		}
+		$appendLastChangeset.onkeydown=ev=>{
+			if (ev.key!='Enter') return
+			$appendLastChangeset.click()
+			ev.preventDefault()
+			ev.stopPropagation()
+		}
+		this.$commentAppendControls.append(
+			$appendLastChangeset
+		)
 		this.$commentText.oninput=()=>{
 			this.updateButtons()
 		}
@@ -183,8 +206,7 @@ export class InteractTool extends Tool {
 			}
 		}
 		$root.addEventListener('osmNoteViewer:changeLogin',()=>{
-			this.updateYourNotes()
-			this.updateAsOutput()
+			this.updateLoginDependents()
 			this.updateButtons()
 			this.ping($tool)
 		})
@@ -205,10 +227,21 @@ export class InteractTool extends Tool {
 		})
 		return [
 			this.$asOutput,` `,this.$withOutput,` `,
-			makeDiv('major-input')(this.$commentText),
+			makeDiv('major-input')(
+				this.$commentAppendControls,
+				makeLabel()(
+					`Comment `,
+					this.$commentText
+				)
+			),
 			makeDiv('gridded-input')(...this.interactionDescriptions.map(({$button})=>$button)),
 			this.$runButton,` `,this.$runOutput
 		]
+	}
+	private updateLoginDependents(): void {
+		this.$commentAppendControls.hidden=this.auth.uid==null
+		this.updateYourNotes()
+		this.updateAsOutput()
 	}
 	private updateYourNotes(): void {
 		const apiText=`your own latest updated notes`
@@ -504,4 +537,29 @@ export class InteractTool extends Tool {
 		$a.append(makeNoteStatusIcon(status),` ${id}`)
 		return $a
 	}
+}
+
+function getLatestChangesetId(data: unknown): number {
+	if (
+		!data || typeof data !='object' ||
+		!('changesets' in data) ||
+		!isArray(data.changesets)
+	) throw new TypeError(`Invalid changesets data`)
+	const latestChangesetData=data.changesets[0]
+	if (!latestChangesetData) throw new TypeError(`No changesets found`)
+	if (
+		typeof latestChangesetData !='object' ||
+		!('id' in latestChangesetData) ||
+		typeof latestChangesetData.id != 'number'
+	) throw new TypeError(`Invalid latest changeset data`)
+	return latestChangesetData.id
+}
+
+function appendToText(text: string, appended: string): string {
+	if (text) {
+		if (text[text.length-1]!=`\n`) text+=`\n`
+		if (text[text.length-2]!=`\n`) text+=`\n`
+	}
+	text+=appended
+	return text
 }
