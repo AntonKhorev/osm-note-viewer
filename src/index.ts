@@ -36,13 +36,14 @@ async function main() {
 	const serverList=new ServerList(...serverListConfigSources)
 	new GlobalEventsListener()
 	let auth: Auth|undefined
+	const $menuButton=makeMenuButton()
 
 	const $navbarContainer=document.createElement('nav')
 	const $fetchContainer=makeDiv('panel','fetch')()
 	const $moreContainer=makeDiv('more')()
 	const $scrollingPart=makeDiv('scrolling')($navbarContainer,$fetchContainer)
 	const $stickyPart=makeDiv('sticky')()
-	const $graphicSide=makeDiv('graphic-side')(makeMenuButton())
+	const $graphicSide=makeDiv('graphic-side')($menuButton)
 	const $mapContainer=makeDiv('map')()
 	document.body.append($graphicSide)
 
@@ -68,6 +69,7 @@ async function main() {
 			navbar,noteTable,map
 		)
 	} else {
+		$menuButton.disabled=true
 		document.body.classList.add('only-graphic-side')
 	}
 	

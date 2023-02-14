@@ -6,7 +6,7 @@
 	border: 2px solid rgba(0,0,0,0.2);
 	border-radius: 5px;
 }
-.graphic-side button.menu:hover {
+.graphic-side button.menu:not([disabled]):hover {
 	outline: auto;
 }
 .graphic-side button.menu > svg {
