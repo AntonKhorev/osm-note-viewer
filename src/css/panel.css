@@ -24,6 +24,19 @@
 .panel [class$="-input"] {
 	margin: .5rem 0;
 }
+.panel div.notice:not(:empty) {
+	margin: .5em -.5em; /* negative margins only for block-level notices */
+}
+.panel .notice:not(:empty) {
+	padding: .5em;
+}
+.panel .notice {
+	background: var(--notice-background-color);
+}
+.panel .notice.error {
+	color: var(--error-color);
+	background: var(--error-background-color);
+}
 
 .panel.fetch .advanced-hint,
 .more .advanced-hint {
@@ -47,19 +60,6 @@
 }
 .panel.fetch.advanced-mode .non-advanced-input {
 	display: none;
-}
-.panel.fetch div.notice:not(:empty) {
-	margin: .5em -.5em; /* negative margins only for block-level notices */
-}
-.panel.fetch .notice:not(:empty) {
-	padding: .5em;
-}
-.panel.fetch .notice {
-	background: var(--notice-background-color);
-}
-.panel.fetch .notice.error {
-	color: var(--error-color);
-	background: var(--error-background-color);
 }
 .panel.fetch input[type=number] {
 	width: 4em;
