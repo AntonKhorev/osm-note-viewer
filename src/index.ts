@@ -53,7 +53,7 @@ async function main() {
 	const globalHistory=new GlobalHistory($scrollingPart,serverList)
 	if (globalHistory.hasServer()) {
 		auth=new Auth(storage,globalHistory.server,serverList)
-		document.body.append(makeDiv('text-side')($scrollingPart,$stickyPart))
+		$graphicSide.before(makeDiv('text-side')($scrollingPart,$stickyPart))
 		$graphicSide.append($mapContainer)
 		const map=writeMap($mapContainer,globalHistory)
 		const navbar=new Navbar(storage,$navbarContainer,map)
@@ -70,7 +70,6 @@ async function main() {
 		)
 	} else {
 		$menuButton.disabled=true
-		document.body.classList.add('only-graphic-side')
 	}
 	
 	{
