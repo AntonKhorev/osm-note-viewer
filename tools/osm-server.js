@@ -34,6 +34,8 @@ export default async function runOsmServer(authRedirectUrl,port=0) {
 				'cache-control': 'public, max-age=604800, immutable',
 			})
 			response.end(tileData)
+		} else if (pathname=='/api/0.6/notes.json') {
+			respondToBbox(response,query)
 		} else if (pathname=='/api/0.6/notes/search.json') {
 			respondToSearch(response,query)
 		} else if (match=pathname.match(new RegExp('/api/0\\.6/notes/(\\d+)\\.json'))) {
@@ -170,6 +172,17 @@ function readRequestBody(request) {
 			resolve(body)
 		})
 	})
+}
+
+function respondToBbox(response,query) {
+	const params=querystring.parse(query)
+	const [left,bottom,right,top]=params.bbox.split(',')
+	const notes=[...notesById.values()].filter(note=>(note.lat>=bottom && note.lat<=top && note.lon>=left && note.lon<=right))
+	const data={
+		type: "FeatureCollection",
+		features: notes.map(getNoteJson)
+	}
+	serveJson(response,data)
 }
 
 function respondToSearch(response,query) {

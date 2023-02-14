@@ -17,7 +17,7 @@ export abstract class NavDialog {
 		$container.append(this.$section)
 	}
 	isOpen(): boolean {
-		return this.$section.classList.contains('active')
+		return !this.$section.hidden
 	}
 	onOpen(): void {}
 	onClose(): void {}

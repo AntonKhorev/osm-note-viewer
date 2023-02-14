@@ -82,6 +82,7 @@ describe("browser tests",function(){
 	afterEach(async function(){
 		if (!keepBrowser) await this.browser.close()
 	})
+
 	it("runs basic query",async function(){
 		this.osmServer.setNotes([{
 			"text": "the-only-note-comment"
@@ -322,6 +323,21 @@ describe("browser tests",function(){
 			null
 		)
 		assert.equal(lastError,undefined)
+	})
+	it("runs auto-updating bbox query",async function(){
+		this.osmServer.setNotes([{
+			"text": "the-only-note-comment"
+		}])
+		const page=await this.openPage('#map=10/0/0')
+		const fetchButton=await this.waitForFetchButton()
+		await this.assertNoText(page,"the-only-note-comment")
+		const bboxTab=await page.$('#tab-BBox')
+		await bboxTab.click()
+		const bboxPanel=await page.$('#tab-panel-BBox')
+		const [trackMapSelect]=await bboxPanel.$x(`//select[contains(.,"Fetch")]`)
+		await trackMapSelect.select('fetch')
+		await page.waitForSelector('.notes tbody')
+		await this.assertText(page,"the-only-note-comment")
 	})
 
 	// refresher
