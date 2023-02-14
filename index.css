@@ -41,36 +41,29 @@ body > .symbols {
 }
 
 .text-side,
-.graphic-side {
+.text-side + .graphic-side {
 	position: fixed;
 	height: 50%;
 	width: 100%;
 }
-body.flipped .graphic-side,
-body.flipped .text-side {
+body.flipped .text-side,
+body.flipped .text-side + .graphic-side {
 	height: 100%;
 	width: 50%;
-}
-body.only-text-side .text-side {
-	height: 100%;
-	width: 100%;
-}
-body.only-text-side .graphic-side {
-	display: none;
-}
-.text-side {
-	top: 0;
-	left: 0;
-	z-index: 1; /* be above photo with blurry backdrop */
-	overflow-y: auto; /* scrollbar should appear only for oversized tools panel */
 }
 .graphic-side {
 	bottom: 0;
 	right: 0;
+	height: 100%;
+	width: 100%;
 }
 .text-side {
 	display: flex;
 	flex-direction: column;
+	top: 0;
+	left: 0;
+	z-index: 1; /* be above photo with blurry backdrop */
+	overflow-y: auto; /* scrollbar should appear only for oversized tools panel */
 }
 .text-side .scrolling {
 	overflow-y: scroll;
@@ -212,9 +205,6 @@ nav [role=tablist] [role=tab] {
 nav [role=tablist] [role=tab]:first-child {
 	margin-left: 0;
 }
-nav [role=tablist] [role=tab].push {
-	margin-left: auto;
-}
 nav [role=tablist] [role=tab][aria-selected=true] {
 	background: canvas;
 }
@@ -243,13 +233,27 @@ nav [role=tablist] [role=tab]:focus {
 	white-space: nowrap;
 }
 .panel h2 {
-	margin: .3rem 0 .5rem 0;
+	margin: 1.5rem 0 .5rem 0;
 }
-.panel h3 {
-	margin: 1rem 0 .5rem 0;
+.panel section:first-child h2,
+.panel section[role=tabpanel] h2 {
+	margin-top: .3rem;
 }
 .panel [class$="-input"] {
 	margin: .5rem 0;
+}
+.panel div.notice:not(:empty) {
+	margin: .5em -.5em; /* negative margins only for block-level notices */
+}
+.panel .notice:not(:empty) {
+	padding: .5em;
+}
+.panel .notice {
+	background: var(--notice-background-color);
+}
+.panel .notice.error {
+	color: var(--error-color);
+	background: var(--error-background-color);
 }
 
 .panel.fetch .advanced-hint,
@@ -274,19 +278,6 @@ nav [role=tablist] [role=tab]:focus {
 }
 .panel.fetch.advanced-mode .non-advanced-input {
 	display: none;
-}
-.panel.fetch div.notice:not(:empty) {
-	margin: .5em -.5em; /* negative margins only for block-level notices */
-}
-.panel.fetch .notice:not(:empty) {
-	padding: .5em;
-}
-.panel.fetch .notice {
-	background: var(--notice-background-color);
-}
-.panel.fetch .notice.error {
-	color: var(--error-color);
-	background: var(--error-background-color);
 }
 .panel.fetch input[type=number] {
 	width: 4em;
@@ -945,9 +936,43 @@ body.flipped table.only-short-username td.note-user {
 	}
 }
 
-/*** css/figure.css ***/
+/*** css/overlay.css ***/
+.graphic-side button.menu {
+	z-index: 1;
+	/* copied from leaflet: */
+	top: 10px;
+	left: 10px;
+	border: 2px solid rgba(0,0,0,0.2);
+	border-radius: 5px;
+}
+.graphic-side button.menu:not([disabled]):hover {
+	outline: auto;
+}
+.graphic-side button.menu > svg {
+	background: canvas;
+}
+
+.graphic-side div.menu:not([hidden]) {
+	position: absolute;
+	inset: 0;
+	background: canvas;
+	display: flex;
+	flex-direction: column;
+}
+.graphic-side div.menu .lead {
+	margin-left: calc(20px + 2rem);
+	min-height: calc(20px + 2rem);
+	display: grid;
+	align-content: center;
+}
+.graphic-side div.menu .scrolling {
+	flex-grow: 1;
+	overflow-y: scroll;
+}
+
 dialog.figure {
 	position: absolute;
+	z-index: 2;
 	inset: 0;
 	padding: 0;
 	border: 0;

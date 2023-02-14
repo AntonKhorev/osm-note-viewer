@@ -957,9 +957,9 @@ class GlobalHistory {
         });
     }
     triggerInitialMapHashChange() {
-        const [, mapHash] = this.getAllHashes();
-        if (this.onMapHashChange && mapHash) {
-            this.onMapHashChange(mapHash);
+        const [, mapHashValue] = this.getAllHashes();
+        if (this.onMapHashChange && mapHashValue) {
+            this.onMapHashChange(mapHashValue);
         }
     }
     restoreScrollPosition() {
@@ -1265,7 +1265,7 @@ class AuthAppSection {
                 $details.open = true;
             return $details;
         };
-        $section.append(makeElement('h3')()(`Register app`), p(`Only required if you don't yet have a `, em(`client id`), `. `, `You have to get a `, em(`client id`), ` if you want to run your own copy of `, app(), ` and be able to manipulate notes from it. `, `There are two possible app registration methods described below. `, `Their necessary steps are the same except for the `, mark(`marked`), ` parts.`), registrationDetails(!authStorage.clientId && isSecureWebInstall, authStorage.installUri, false, `Instructions for setting up automatic logins`, [
+        $section.append(makeElement('h2')()(`Register app`), p(`Only required if you don't yet have a `, em(`client id`), `. `, `You have to get a `, em(`client id`), ` if you want to run your own copy of `, app(), ` and be able to manipulate notes from it. `, `There are two possible app registration methods described below. `, `Their necessary steps are the same except for the `, mark(`marked`), ` parts.`), registrationDetails(!authStorage.clientId && isSecureWebInstall, authStorage.installUri, false, `Instructions for setting up automatic logins`, [
             p(`This method sets up the most expected login workflow: login happens after the `, em(`Authorize`), ` button is pressed.`), ` `,
             p(`This method will only work when `, app(), ` served over `, em(`https`), ` or over `, em(`http`), ` on localhost. `, ...(isSecureWebInstall
                 ? [`This seems to be the case with your install.`]
@@ -1473,7 +1473,7 @@ function makeLogin(scope, userData) {
 class AuthLoginSection {
     constructor($section, authStorage, server) {
         this.authStorage = authStorage;
-        this.$clientIdRequired = makeDiv('notice')(`Please register the app and enter the `, em(`client id`), ` above to be able to login.`);
+        this.$clientIdRequired = makeDiv('notice')(`Please register the app and enter the `, em(`client id`), ` below to be able to login.`);
         this.$loginForms = makeDiv()();
         this.$logins = makeDiv()();
         const webPostUrlencodedWithPossibleAuthError = async (webPath, parameters, whenMessage) => {
@@ -1608,7 +1608,7 @@ class AuthLoginSection {
         });
         this.updateVisibility();
         updateInResponseToLogin();
-        $section.append(makeElement('h3')()(`Logins`), this.$clientIdRequired, this.$loginForms, this.$logins);
+        $section.append(makeElement('h2')()(`Logins`), this.$clientIdRequired, this.$loginForms, this.$logins);
     }
     respondToAppRegistration() {
         this.loginForms.respondToAppRegistration(this.authStorage.isManualCodeEntry);
@@ -1653,13 +1653,13 @@ class Auth {
         this.serverList = serverList;
         this.authStorage = new AuthStorage(storage, server.host, installUri);
     }
-    writeAboutDialogSections($container) {
+    writeMenuSections($container) {
         const $appSection = makeElement('section')()();
         const $loginSection = makeElement('section')()();
         const appSection = new AuthAppSection($appSection, this.authStorage, this.server, this.serverList);
         const loginSection = new AuthLoginSection($loginSection, this.authStorage, this.server);
         appSection.onRegistrationUpdate = () => loginSection.respondToAppRegistration();
-        $container.append($appSection, $loginSection);
+        $container.append($loginSection, $appSection);
     }
     get token() {
         return this.authStorage.token;
@@ -1802,9 +1802,13 @@ class NoteMap {
         this.needToFitNotes = false;
         this.freezeMode = 'no';
         this.leafletMap = L.map($container, {
-            worldCopyJump: true
-        });
-        this.leafletMap.addLayer(L.tileLayer(tile.urlTemplate, {
+            worldCopyJump: true,
+            zoomControl: false
+        }).addControl(L.control.zoom({
+            position: 'bottomright'
+        })).addControl(L.control.scale({
+            position: 'bottomleft'
+        })).addLayer(L.tileLayer(tile.urlTemplate, {
             attribution: e$6 `© <a href="${tile.attributionUrl}">${tile.attributionText}</a>`,
             maxZoom: tile.maxZoom
         })).fitWorld();
@@ -2180,234 +2184,6 @@ function calculateOffsetsToFit(map, $popupContainer) {
     return [-dx, -dy];
 }
 
-class FigureDialog {
-    constructor($root, $dialog) {
-        this.$dialog = $dialog;
-        this.fallbackMode = (window.HTMLDialogElement == null);
-        for (const eventType of [
-            'osmNoteViewer:newFetch',
-            'osmNoteViewer:clickMapLink',
-            'osmNoteViewer:clickElementLink',
-            'osmNoteViewer:clickChangesetLink',
-            'osmNoteViewer:focusOnNote'
-        ]) {
-            $root.addEventListener(eventType, () => this.close());
-        }
-        $root.addEventListener('osmNoteViewer:toggleImage', ev => {
-            if (!(ev.target instanceof HTMLAnchorElement))
-                return;
-            this.toggle(ev.target.href);
-        });
-    }
-    close() {
-        if (this.fallbackMode) {
-            return;
-        }
-        this.$dialog.close();
-        this.url = undefined;
-    }
-    toggle(url) {
-        if (this.fallbackMode) {
-            open(url, 'photo');
-            return;
-        }
-        this.$dialog.innerHTML = '';
-        if (url == this.url) {
-            this.close();
-            return;
-        }
-        const $figure = document.createElement('figure');
-        $figure.tabIndex = 0;
-        const $backdrop = document.createElement('div');
-        $backdrop.classList.add('backdrop');
-        $backdrop.style.backgroundImage = `url(${url})`;
-        const $img = document.createElement('img');
-        $img.src = url;
-        $img.alt = 'attached photo';
-        $figure.append($backdrop, $img);
-        const $closeButton = document.createElement('button');
-        $closeButton.classList.add('global');
-        $closeButton.innerHTML = `<svg><title>Close photo</title><use href="#reset" /></svg>`;
-        this.$dialog.append($figure, $closeButton);
-        $figure.addEventListener('keydown', (ev) => {
-            if (ev.key == 'Enter' || ev.key == ' ') {
-                ev.stopPropagation();
-                $figure.classList.toggle('zoomed');
-            }
-        });
-        $figure.addEventListener('click', (ev) => {
-            if ($figure.classList.contains('zoomed')) {
-                $figure.classList.remove('zoomed');
-            }
-            else {
-                const clamp = (num) => Math.min(Math.max(num, 0), 1);
-                let xScrollFraction = (ev.offsetX >= $figure.offsetWidth / 2 ? 1 : 0);
-                let yScrollFraction = (ev.offsetY >= $figure.offsetHeight / 2 ? 1 : 0);
-                if (ev.target == $img) {
-                    xScrollFraction = clamp(ev.offsetX / $img.offsetWidth);
-                    yScrollFraction = clamp(ev.offsetY / $img.offsetHeight);
-                }
-                $figure.classList.add('zoomed');
-                const xMaxScrollDistance = $figure.scrollWidth - $figure.clientWidth;
-                const yMaxScrollDistance = $figure.scrollHeight - $figure.clientHeight;
-                if (xMaxScrollDistance > 0)
-                    $figure.scrollLeft = Math.round(xScrollFraction * xMaxScrollDistance);
-                if (yMaxScrollDistance > 0)
-                    $figure.scrollTop = Math.round(yScrollFraction * yMaxScrollDistance);
-            }
-        });
-        $figure.addEventListener('mousemove', (ev) => {
-            $closeButton.classList.toggle('right-position', ev.offsetX >= $figure.offsetWidth / 2);
-            $closeButton.classList.toggle('bottom-position', ev.offsetY >= $figure.offsetHeight / 2);
-            startOrResetFadeAnimation($closeButton, 'photo-button-fade', 'fading');
-        });
-        $closeButton.addEventListener('click', () => {
-            this.close();
-        });
-        $closeButton.addEventListener('animationend', () => {
-            $closeButton.classList.remove('fading');
-        });
-        this.$dialog.addEventListener('keydown', (ev) => {
-            if (ev.key == 'Escape') {
-                ev.stopPropagation();
-                this.close();
-            }
-        });
-        this.$dialog.show();
-        $figure.focus();
-        this.url = url;
-    }
-}
-
-const e$5 = makeEscapeTag(escapeXml);
-class NavDialog {
-    constructor() {
-        this.$section = document.createElement('section');
-    }
-    write($container) {
-        this.$section.classList.add('nav-dialog');
-        const $heading = document.createElement('h2');
-        $heading.textContent = this.title;
-        this.$section.append($heading);
-        this.writeSectionContent();
-        $container.append(this.$section);
-    }
-    isOpen() {
-        return this.$section.classList.contains('active');
-    }
-    onOpen() { }
-    onClose() { }
-}
-// https://www.w3.org/WAI/ARIA/apg/example-index/tabs/tabs-automatic.html
-// https://www.w3.org/WAI/ARIA/apg/example-index/tabs/tabs-manual.html
-class Navbar {
-    constructor(storage, $container, map) {
-        this.$tabList = document.createElement('div');
-        this.tabs = new Map();
-        this.$tabList.setAttribute('role', 'tablist');
-        this.$tabList.setAttribute('aria-label', `Note query modes`);
-        if (map)
-            $container.append(makeFlipLayoutButton(storage, map));
-        $container.append(this.$tabList);
-        $container.append(makeResetButton());
-        $container.onkeydown = ev => {
-            const $button = ev.target;
-            if (!($button instanceof HTMLButtonElement))
-                return;
-            const focusButton = (c, o) => {
-                const $buttons = [...$container.querySelectorAll('button')];
-                const i = $buttons.indexOf($button);
-                const l = $buttons.length;
-                if (l <= 0 || i < 0)
-                    return;
-                $buttons[(l + i * c + o) % l].focus();
-            };
-            if (ev.key == 'ArrowLeft') {
-                focusButton(1, -1);
-            }
-            else if (ev.key == 'ArrowRight') {
-                focusButton(1, +1);
-            }
-            else if (ev.key == 'Home') {
-                focusButton(0, 0);
-            }
-            else if (ev.key == 'End') {
-                focusButton(0, -1);
-            }
-            else {
-                return;
-            }
-            ev.stopPropagation();
-            ev.preventDefault();
-        };
-    }
-    addTab(dialog, push = false) {
-        const tabId = 'tab-' + dialog.shortTitle;
-        const tabPanelId = 'tab-panel-' + dialog.shortTitle;
-        const $tab = document.createElement('button');
-        $tab.id = tabId;
-        $tab.tabIndex = -1;
-        $tab.innerText = dialog.shortTitle;
-        $tab.setAttribute('role', 'tab');
-        $tab.setAttribute('aria-controls', tabPanelId);
-        $tab.setAttribute('aria-selected', 'false');
-        $tab.classList.toggle('push', push);
-        dialog.$section.id = tabPanelId;
-        dialog.$section.tabIndex = 0;
-        dialog.$section.hidden = true;
-        dialog.$section.setAttribute('role', 'tabpanel');
-        dialog.$section.setAttribute('aria-labelledby', tabId);
-        this.$tabList.append($tab);
-        this.tabs.set(dialog, $tab);
-        $tab.onclick = () => {
-            this.openTab(dialog);
-        };
-    }
-    openTab(targetDialog) {
-        for (const [dialog] of this.tabs) {
-            const willBeActive = dialog == targetDialog;
-            if (!willBeActive && dialog.isOpen()) {
-                dialog.onClose();
-            }
-        }
-        for (const [dialog, $tab] of this.tabs) {
-            const willBeActive = dialog == targetDialog;
-            const willCallOnOpen = (willBeActive && !dialog.isOpen());
-            $tab.setAttribute('aria-selected', String(willBeActive));
-            $tab.tabIndex = willBeActive ? 0 : -1;
-            dialog.$section.hidden = !willBeActive;
-            if (willCallOnOpen) {
-                dialog.onOpen();
-            }
-        }
-    }
-}
-function makeFlipLayoutButton(storage, map) {
-    return makeButton('flip', `Flip layout`, () => {
-        document.body.classList.toggle('flipped');
-        storage.setBoolean('flipped', document.body.classList.contains('flipped'));
-        map.invalidateSize();
-    });
-}
-function makeResetButton() {
-    return makeButton('reset', `Reset query`, () => {
-        location.href = location.pathname + location.search;
-        // TODO this would have worked better, if it also cleared the notes table:
-        // const url=location.pathname+location.search
-        // location.href=url+'#'
-        // history.replaceState(null,'',url)
-    });
-}
-function makeButton(id, title, listener) {
-    const $button = document.createElement('button');
-    $button.tabIndex = -1;
-    $button.title = title;
-    $button.classList.add('global', id);
-    $button.innerHTML = e$5 `<svg><use href="#${id}" /></svg>`;
-    $button.onclick = listener;
-    return $button;
-}
-
 function makeCodeForm(initialValue, summary, textareaLabel, buttonLabel, isSameInput, checkInput, applyInput, runCallback, syntaxDescription, syntaxExamples) {
     const $formDetails = document.createElement('details');
     const $form = document.createElement('form');
@@ -2663,7 +2439,7 @@ const syntaxExamples$1 = [
 ];
 class ServerListSection {
     constructor($section, storage, server, serverList, serverHash) {
-        $section.append(makeElement('h3')()(`Servers`));
+        $section.append(makeElement('h2')()(`Servers`));
         if (!server)
             $section.append(makeDiv('notice', 'error')(`Unknown server in URL hash parameter `, code(serverHash), `. Please select one of the servers below.`));
         {
@@ -2762,49 +2538,19 @@ class ConfirmedButtonListener {
     }
 }
 
-class AboutDialog extends NavDialog {
-    constructor(storage, db, server, serverList, serverHash, auth) {
-        super();
-        this.storage = storage;
-        this.db = db;
-        this.server = server;
-        this.serverList = serverList;
-        this.serverHash = serverHash;
-        this.auth = auth;
-        this.shortTitle = `About`;
-        this.title = `About`;
-    }
-    writeSectionContent() {
-        {
-            const $section = makeElement('section')()(makeElement('strong')()(`note-viewer`));
-            const build = document.body.dataset.build;
-            if (build)
-                $section.append(` build ${build}`);
-            $section.append(` — `, makeLink(`source code`, `https://github.com/AntonKhorev/osm-note-viewer`));
-            this.$section.append($section);
-        }
-        this.writeServersSubsection();
-        this.auth?.writeAboutDialogSections(this.$section);
-        this.writeStorageSubsection();
-        this.writeExtraSubsection();
-    }
-    writeServersSubsection() {
-        const $subsection = makeElement('section')()();
-        new ServerListSection($subsection, this.storage, this.server, this.serverList, this.serverHash);
-        this.$section.append($subsection);
-    }
-    writeStorageSubsection() {
-        const $subsection = startSubsection(`Storage`);
+class StorageSection {
+    constructor($section, storage, db, serverList) {
+        $section.append(makeElement('h2')()(`Storage`));
         const $updateFetchesButton = document.createElement('button');
         $updateFetchesButton.textContent = `Update stored fetch list`;
-        $subsection.append(makeDiv('major-input')($updateFetchesButton));
+        $section.append(makeDiv('major-input')($updateFetchesButton));
         const $fetchesContainer = makeDiv()(p(`Click Update button above to see stored fetches.`));
-        $subsection.append($fetchesContainer);
+        $section.append($fetchesContainer);
         $updateFetchesButton.addEventListener('click', async () => {
             $updateFetchesButton.disabled = true;
             let fetchEntries = [];
             try {
-                fetchEntries = await this.db.listFetches();
+                fetchEntries = await db.listFetches();
             }
             catch { }
             $updateFetchesButton.disabled = false;
@@ -2832,7 +2578,7 @@ class AboutDialog extends NavDialog {
                 const username = searchParams.get('display_name');
                 const ids = searchParams.get('ids');
                 const host = searchParams.get('host');
-                const fetchEntryServer = this.serverList.getServer(host);
+                const fetchEntryServer = serverList.getServer(host);
                 if (username) {
                     if (fetchEntryServer) {
                         const href = fetchEntryServer.web.getUrl(`user/` + encodeURIComponent(username));
@@ -2860,7 +2606,7 @@ class AboutDialog extends NavDialog {
                 $deleteButton.textContent = `Delete`;
                 $deleteButton.addEventListener('click', async () => {
                     $deleteButton.disabled = true;
-                    await this.db.deleteFetch(fetchEntry);
+                    await db.deleteFetch(fetchEntry);
                     $updateFetchesButton.click();
                 });
                 $row.insertCell().append($deleteButton);
@@ -2871,19 +2617,280 @@ class AboutDialog extends NavDialog {
             const $clearButton = makeElement('button')()(`Clear settings`);
             const $cancelButton = makeElement('button')()(`Cancel clear settings`);
             const $confirmButton = makeElement('button')()(`Confirm clear settings`);
-            new ConfirmedButtonListener($clearButton, $cancelButton, $confirmButton, async () => this.storage.clear());
-            $subsection.append(makeDiv('major-input')($clearButton, $cancelButton, $confirmButton));
+            new ConfirmedButtonListener($clearButton, $cancelButton, $confirmButton, async () => storage.clear());
+            $section.append(makeDiv('major-input')($clearButton, $cancelButton, $confirmButton));
         }
-        this.$section.append($subsection);
-    }
-    writeExtraSubsection() {
-        const $subsection = startSubsection(`Extra information`);
-        $subsection.append(p(`Notes implementation code: `, makeLink(`notes api controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`), ` (db search query is build there), `, makeLink(`notes controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/notes_controller.rb`), ` (paginated user notes query is build there), `, makeLink(`note model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note.rb`), `, `, makeLink(`note comment model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note_comment.rb`), ` in `, makeLink(`openstreetmap-website`, `https://wiki.openstreetmap.org/wiki/Openstreetmap-website`), ` (not implemented in `, makeLink(`CGIMap`, `https://wiki.openstreetmap.org/wiki/Cgimap`), `)`), p(`OAuth 2.0: `, makeLink(`main RFC`, `https://www.rfc-editor.org/rfc/rfc6749`), `, `, makeLink(`token revocation RFC`, `https://www.rfc-editor.org/rfc/rfc7009`), ` (logouts), `, makeLink(`proof key RFC`, `https://www.rfc-editor.org/rfc/rfc7636`), `, `, makeLink(`Doorkeeper`, `https://github.com/doorkeeper-gem/doorkeeper`), ` (OAuth implementation used in `, em(`openstreetmap-website`), `), `, makeLink(`OSM wiki`, `https://wiki.openstreetmap.org/wiki/OAuth`)), p(`Other documentation: `, makeLink(`Overpass queries`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`), `, `, makeLink(`Puppeteer`, `https://pptr.dev/`), ` (in-browser testing)`));
-        this.$section.append($subsection);
     }
 }
-function startSubsection(heading) {
-    return makeElement('section')()(makeElement('h3')()(heading));
+
+class OverlayDialog {
+    constructor($root, storage, db, server, serverList, serverHash, auth, $mapContainer) {
+        this.$mapContainer = $mapContainer;
+        this.$menuPanel = makeElement('div')('menu')();
+        this.$figureDialog = makeElement('dialog')('figure')();
+        this.fallbackMode = (window.HTMLDialogElement == null);
+        this.$menuPanel.hidden = !!auth;
+        this.writeMenuPanel(storage, db, server, serverList, serverHash, auth);
+        for (const eventType of [
+            'osmNoteViewer:newFetch',
+            'osmNoteViewer:clickMapLink',
+            'osmNoteViewer:clickElementLink',
+            'osmNoteViewer:clickChangesetLink',
+            'osmNoteViewer:focusOnNote'
+        ]) {
+            $root.addEventListener(eventType, () => this.close());
+        }
+        $root.addEventListener('osmNoteViewer:toggleImage', ev => {
+            if (!(ev.target instanceof HTMLAnchorElement))
+                return;
+            this.toggleImage(ev.target.href);
+        });
+        $root.addEventListener('osmNoteViewer:toggleMenu', () => {
+            if (this.url != null)
+                this.close();
+            this.$menuPanel.hidden = !this.$menuPanel.hidden;
+            this.$mapContainer.hidden = !this.$menuPanel.hidden;
+        });
+    }
+    close() {
+        this.$mapContainer.hidden = false;
+        this.$menuPanel.hidden = true;
+        if (this.fallbackMode) {
+            return;
+        }
+        this.$figureDialog.close();
+        this.url = undefined;
+    }
+    toggleImage(url) {
+        if (this.fallbackMode) {
+            open(url, 'photo');
+            return;
+        }
+        this.$menuPanel.hidden = true;
+        this.$figureDialog.innerHTML = '';
+        if (url == this.url) {
+            this.close();
+            return;
+        }
+        this.$mapContainer.hidden = true;
+        const $figure = document.createElement('figure');
+        $figure.tabIndex = 0;
+        const $backdrop = document.createElement('div');
+        $backdrop.classList.add('backdrop');
+        $backdrop.style.backgroundImage = `url(${url})`;
+        const $img = document.createElement('img');
+        $img.src = url;
+        $img.alt = 'attached photo';
+        $figure.append($backdrop, $img);
+        const $closeButton = document.createElement('button');
+        $closeButton.classList.add('global');
+        $closeButton.innerHTML = `<svg><title>Close photo</title><use href="#reset" /></svg>`;
+        this.$figureDialog.append($figure, $closeButton);
+        $figure.addEventListener('keydown', (ev) => {
+            if (ev.key == 'Enter' || ev.key == ' ') {
+                ev.stopPropagation();
+                $figure.classList.toggle('zoomed');
+            }
+        });
+        $figure.addEventListener('click', (ev) => {
+            if ($figure.classList.contains('zoomed')) {
+                $figure.classList.remove('zoomed');
+            }
+            else {
+                const clamp = (num) => Math.min(Math.max(num, 0), 1);
+                let xScrollFraction = (ev.offsetX >= $figure.offsetWidth / 2 ? 1 : 0);
+                let yScrollFraction = (ev.offsetY >= $figure.offsetHeight / 2 ? 1 : 0);
+                if (ev.target == $img) {
+                    xScrollFraction = clamp(ev.offsetX / $img.offsetWidth);
+                    yScrollFraction = clamp(ev.offsetY / $img.offsetHeight);
+                }
+                $figure.classList.add('zoomed');
+                const xMaxScrollDistance = $figure.scrollWidth - $figure.clientWidth;
+                const yMaxScrollDistance = $figure.scrollHeight - $figure.clientHeight;
+                if (xMaxScrollDistance > 0)
+                    $figure.scrollLeft = Math.round(xScrollFraction * xMaxScrollDistance);
+                if (yMaxScrollDistance > 0)
+                    $figure.scrollTop = Math.round(yScrollFraction * yMaxScrollDistance);
+            }
+        });
+        $figure.addEventListener('mousemove', (ev) => {
+            $closeButton.classList.toggle('right-position', ev.offsetX >= $figure.offsetWidth / 2);
+            $closeButton.classList.toggle('bottom-position', ev.offsetY >= $figure.offsetHeight / 2);
+            startOrResetFadeAnimation($closeButton, 'photo-button-fade', 'fading');
+        });
+        $closeButton.addEventListener('click', () => {
+            this.close();
+        });
+        $closeButton.addEventListener('animationend', () => {
+            $closeButton.classList.remove('fading');
+        });
+        this.$figureDialog.addEventListener('keydown', (ev) => {
+            if (ev.key == 'Escape') {
+                ev.stopPropagation();
+                this.close();
+            }
+        });
+        this.$figureDialog.show();
+        $figure.focus();
+        this.url = url;
+    }
+    writeMenuPanel(storage, db, server, serverList, serverHash, auth) {
+        const $lead = makeDiv('lead')();
+        {
+            const $about = makeDiv()(makeElement('strong')()(`note-viewer`));
+            const build = document.body.dataset.build;
+            if (build)
+                $about.append(` build ${build}`);
+            $about.append(` — `, makeLink(`source code`, `https://github.com/AntonKhorev/osm-note-viewer`));
+            $lead.append($about);
+        }
+        const $scrolling = makeDiv('panel', 'scrolling')();
+        auth?.writeMenuSections($scrolling);
+        {
+            const $subsection = makeElement('section')()();
+            new ServerListSection($subsection, storage, server, serverList, serverHash);
+            $scrolling.append($subsection);
+        }
+        {
+            const $subsection = makeElement('section')()();
+            new StorageSection($subsection, storage, db, serverList);
+            $scrolling.append($subsection);
+        }
+        $scrolling.append(makeExtraSubsection());
+        this.$menuPanel.append($lead, $scrolling);
+    }
+}
+function makeExtraSubsection() {
+    return makeElement('section')()(makeElement('h2')()(`Extra information`), p(`Notes implementation code: `, makeLink(`notes api controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`), ` (db search query is build there), `, makeLink(`notes controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/notes_controller.rb`), ` (paginated user notes query is build there), `, makeLink(`note model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note.rb`), `, `, makeLink(`note comment model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note_comment.rb`), ` in `, makeLink(`openstreetmap-website`, `https://wiki.openstreetmap.org/wiki/Openstreetmap-website`), ` (not implemented in `, makeLink(`CGIMap`, `https://wiki.openstreetmap.org/wiki/Cgimap`), `)`), p(`OAuth 2.0: `, makeLink(`main RFC`, `https://www.rfc-editor.org/rfc/rfc6749`), `, `, makeLink(`token revocation RFC`, `https://www.rfc-editor.org/rfc/rfc7009`), ` (logouts), `, makeLink(`proof key RFC`, `https://www.rfc-editor.org/rfc/rfc7636`), `, `, makeLink(`Doorkeeper`, `https://github.com/doorkeeper-gem/doorkeeper`), ` (OAuth implementation used in `, em(`openstreetmap-website`), `), `, makeLink(`OSM wiki`, `https://wiki.openstreetmap.org/wiki/OAuth`)), p(`Other documentation: `, makeLink(`Overpass queries`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`), `, `, makeLink(`Puppeteer`, `https://pptr.dev/`), ` (in-browser testing)`));
+}
+
+const e$5 = makeEscapeTag(escapeXml);
+class NavDialog {
+    constructor() {
+        this.$section = document.createElement('section');
+    }
+    write($container) {
+        this.$section.classList.add('nav-dialog');
+        const $heading = document.createElement('h2');
+        $heading.textContent = this.title;
+        this.$section.append($heading);
+        this.writeSectionContent();
+        $container.append(this.$section);
+    }
+    isOpen() {
+        return !this.$section.hidden;
+    }
+    onOpen() { }
+    onClose() { }
+}
+// https://www.w3.org/WAI/ARIA/apg/example-index/tabs/tabs-automatic.html
+// https://www.w3.org/WAI/ARIA/apg/example-index/tabs/tabs-manual.html
+class Navbar {
+    constructor(storage, $container, map) {
+        this.$tabList = document.createElement('div');
+        this.tabs = new Map();
+        this.$tabList.setAttribute('role', 'tablist');
+        this.$tabList.setAttribute('aria-label', `Note query modes`);
+        if (map)
+            $container.append(makeFlipLayoutButton(storage, map));
+        $container.append(this.$tabList);
+        $container.append(makeResetButton());
+        $container.onkeydown = ev => {
+            const $button = ev.target;
+            if (!($button instanceof HTMLButtonElement))
+                return;
+            const focusButton = (c, o) => {
+                const $buttons = [...$container.querySelectorAll('button')];
+                const i = $buttons.indexOf($button);
+                const l = $buttons.length;
+                if (l <= 0 || i < 0)
+                    return;
+                $buttons[(l + i * c + o) % l].focus();
+            };
+            if (ev.key == 'ArrowLeft') {
+                focusButton(1, -1);
+            }
+            else if (ev.key == 'ArrowRight') {
+                focusButton(1, +1);
+            }
+            else if (ev.key == 'Home') {
+                focusButton(0, 0);
+            }
+            else if (ev.key == 'End') {
+                focusButton(0, -1);
+            }
+            else {
+                return;
+            }
+            ev.stopPropagation();
+            ev.preventDefault();
+        };
+    }
+    addTab(dialog, push = false) {
+        const tabId = 'tab-' + dialog.shortTitle;
+        const tabPanelId = 'tab-panel-' + dialog.shortTitle;
+        const $tab = document.createElement('button');
+        $tab.id = tabId;
+        $tab.tabIndex = -1;
+        $tab.innerText = dialog.shortTitle;
+        $tab.setAttribute('role', 'tab');
+        $tab.setAttribute('aria-controls', tabPanelId);
+        $tab.setAttribute('aria-selected', 'false');
+        $tab.classList.toggle('push', push);
+        dialog.$section.id = tabPanelId;
+        dialog.$section.tabIndex = 0;
+        dialog.$section.hidden = true;
+        dialog.$section.setAttribute('role', 'tabpanel');
+        dialog.$section.setAttribute('aria-labelledby', tabId);
+        this.$tabList.append($tab);
+        this.tabs.set(dialog, $tab);
+        $tab.onclick = () => {
+            this.openTab(dialog);
+        };
+    }
+    openTab(targetDialog) {
+        for (const [dialog] of this.tabs) {
+            const willBeActive = dialog == targetDialog;
+            if (!willBeActive && dialog.isOpen()) {
+                dialog.onClose();
+            }
+        }
+        for (const [dialog, $tab] of this.tabs) {
+            const willBeActive = dialog == targetDialog;
+            const willCallOnOpen = (willBeActive && !dialog.isOpen());
+            $tab.setAttribute('aria-selected', String(willBeActive));
+            $tab.tabIndex = willBeActive ? 0 : -1;
+            dialog.$section.hidden = !willBeActive;
+            if (willCallOnOpen) {
+                dialog.onOpen();
+            }
+        }
+    }
+}
+function makeFlipLayoutButton(storage, map) {
+    return makeButton('flip', `Flip layout`, () => {
+        document.body.classList.toggle('flipped');
+        storage.setBoolean('flipped', document.body.classList.contains('flipped'));
+        map.invalidateSize();
+    });
+}
+function makeResetButton() {
+    return makeButton('reset', `Reset query`, () => {
+        location.href = location.pathname + location.search;
+        // TODO this would have worked better, if it also cleared the notes table:
+        // const url=location.pathname+location.search
+        // location.href=url+'#'
+        // history.replaceState(null,'',url)
+    });
+}
+function makeButton(id, title, listener) {
+    const $button = document.createElement('button');
+    $button.tabIndex = -1;
+    $button.title = title;
+    $button.classList.add('global', id);
+    $button.innerHTML = e$5 `<svg><use href="#${id}" /></svg>`;
+    $button.onclick = listener;
+    return $button;
 }
 
 function toUserQuery(urlLister, value) {
@@ -5159,44 +5166,31 @@ class NoteFetchDialogs {
 }
 
 class NoteFetchPanel {
-    constructor($root, storage, db, globalHistory, auth, $container, $moreContainer, navbar, noteTable, map) {
+    constructor($root, db, globalHistory, $container, $moreContainer, navbar, noteTable, map) {
         const self = this;
         const server = globalHistory.server;
         const moreButtonIntersectionObservers = [];
         const hashQuery = makeNoteQueryFromHash(globalHistory.getQueryHash());
-        let fetchDialogs;
-        if (server && noteTable && map) {
-            fetchDialogs = new NoteFetchDialogs($root, server, $container, $moreContainer, noteTable, map, hashQuery, (dialog, query) => {
-                modifyHistory(query, true);
-                startFetcher(query, true, false, dialog);
-            }, (dialog) => {
-                if (this.fetcherRun && this.fetcherInvoker == dialog) {
-                    this.fetcherRun.reactToLimitUpdateForAdvancedMode();
-                }
-            });
-            for (const dialog of fetchDialogs.allDialogs) {
-                navbar.addTab(dialog);
+        const fetchDialogs = new NoteFetchDialogs($root, server, $container, $moreContainer, noteTable, map, hashQuery, (dialog, query) => {
+            modifyHistory(query, true);
+            startFetcher(query, true, false, dialog);
+        }, (dialog) => {
+            if (this.fetcherRun && this.fetcherInvoker == dialog) {
+                this.fetcherRun.reactToLimitUpdateForAdvancedMode();
             }
+        });
+        for (const dialog of fetchDialogs.allDialogs) {
+            navbar.addTab(dialog);
         }
-        const aboutDialog = new AboutDialog(storage, db, server, globalHistory.serverList, globalHistory.serverHash, auth);
-        aboutDialog.write($container);
-        navbar.addTab(aboutDialog, true);
         globalHistory.onQueryHashChange = (queryHash) => {
             const query = makeNoteQueryFromHash(queryHash);
             modifyHistory(query, false); // in case location was edited manually
-            if (fetchDialogs) {
-                openQueryDialog(navbar, fetchDialogs, query, false);
-                fetchDialogs.populateInputs(query);
-            }
+            openQueryDialog(navbar, fetchDialogs, query, false);
+            fetchDialogs.populateInputs(query);
             startFetcherFromQuery(query, false, false);
             globalHistory.restoreScrollPosition();
         };
-        if (fetchDialogs) {
-            openQueryDialog(navbar, fetchDialogs, hashQuery, true);
-        }
-        else {
-            navbar.openTab(aboutDialog);
-        }
+        openQueryDialog(navbar, fetchDialogs, hashQuery, true);
         modifyHistory(hashQuery, false);
         startFetcherFromQuery(hashQuery, false, globalHistory.hasMapHash() // when just opened a note-viewer page with map hash set - if query is set too, don't fit its result, keep the map hash
         );
@@ -5215,18 +5209,14 @@ class NoteFetchPanel {
             else {
                 query.user = Number(ev.target.dataset.userId);
             }
-            if (fetchDialogs) {
-                openQueryDialog(navbar, fetchDialogs, query, false);
-                fetchDialogs.populateInputs(query);
-                fetchDialogs.searchDialog.$section.scrollIntoView();
-            }
+            openQueryDialog(navbar, fetchDialogs, query, false);
+            fetchDialogs.populateInputs(query);
+            fetchDialogs.searchDialog.$section.scrollIntoView();
         });
         $root.addEventListener('osmNoteViewer:noteFetch', ({ detail: [note, users] }) => {
             this.fetcherRun?.updateNote(note, users);
         });
         function startFetcherFromQuery(query, clearStore, suppressFitNotes) {
-            if (!fetchDialogs)
-                return;
             if (!query)
                 return;
             const dialog = fetchDialogs.getDialogFromQuery(query);
@@ -5235,8 +5225,6 @@ class NoteFetchPanel {
             startFetcher(query, clearStore, suppressFitNotes, dialog);
         }
         function startFetcher(query, clearStore, suppressFitNotes, dialog) {
-            if (!(server && fetchDialogs && noteTable))
-                return;
             if (query.mode != 'search' && query.mode != 'bbox' && query.mode != 'ids')
                 return;
             bubbleEvent($container, 'osmNoteViewer:newFetch');
@@ -9052,30 +9040,36 @@ async function main() {
     catch { }
     const serverList = new ServerList(...serverListConfigSources);
     new GlobalEventListener();
+    let auth;
+    const $menuButton = makeMenuButton();
     const $navbarContainer = document.createElement('nav');
     const $fetchContainer = makeDiv('panel', 'fetch')();
     const $moreContainer = makeDiv('more')();
     const $scrollingPart = makeDiv('scrolling')($navbarContainer, $fetchContainer);
     const $stickyPart = makeDiv('sticky')();
+    const $graphicSide = makeDiv('graphic-side')($menuButton);
+    const $mapContainer = makeDiv('map')();
+    document.body.append($graphicSide);
     const flipped = storage.getBoolean('flipped');
     if (flipped)
         document.body.classList.add('flipped');
-    document.body.append(makeDiv('text-side')($scrollingPart, $stickyPart));
     const globalHistory = new GlobalHistory($scrollingPart, serverList);
-    let auth;
-    let map;
-    let noteTable;
-    let toolPanel;
     if (globalHistory.hasServer()) {
         auth = new Auth(storage, globalHistory.server, serverList);
-        map = writeGraphicSide(globalHistory);
-        [noteTable, toolPanel] = writeBelowFetchPanel($scrollingPart, $stickyPart, $moreContainer, storage, auth, globalHistory, map);
+        $graphicSide.before(makeDiv('text-side')($scrollingPart, $stickyPart));
+        $graphicSide.append($mapContainer);
+        const map = writeMap($mapContainer, globalHistory);
+        const navbar = new Navbar(storage, $navbarContainer, map);
+        const noteTable = writeBelowFetchPanel($scrollingPart, $stickyPart, $moreContainer, storage, auth, globalHistory, map);
+        new NoteFetchPanel(document.body, db, globalHistory, $fetchContainer, $moreContainer, navbar, noteTable, map);
     }
     else {
-        document.body.classList.add('only-text-side');
+        $menuButton.disabled = true;
     }
-    const navbar = new Navbar(storage, $navbarContainer, map);
-    new NoteFetchPanel(document.body, storage, db, globalHistory, auth, $fetchContainer, $moreContainer, navbar, noteTable, map);
+    {
+        const overlayDialog = new OverlayDialog(document.body, storage, db, globalHistory.server, serverList, globalHistory.serverHash, auth, $mapContainer);
+        $graphicSide.append(overlayDialog.$menuPanel, overlayDialog.$figureDialog);
+    }
     if (globalHistory.hasServer()) {
         document.body.addEventListener('osmNoteViewer:clickUpdateNoteLink', async (ev) => {
             const $a = ev.target;
@@ -9095,28 +9089,21 @@ async function main() {
             bubbleCustomEvent($a, 'osmNoteViewer:noteFetch', [note, users]);
             bubbleCustomEvent($a, 'osmNoteViewer:pushNoteUpdate', [note, users]);
         });
+        globalHistory.restoreScrollPosition();
     }
-    globalHistory.restoreScrollPosition();
 }
-function writeGraphicSide(globalHistory) {
-    const $graphicSide = makeDiv('graphic-side')();
-    const $mapContainer = makeDiv('map')();
-    const $figureDialog = document.createElement('dialog');
-    $figureDialog.classList.add('figure');
-    $graphicSide.append($mapContainer, $figureDialog);
-    document.body.append($graphicSide);
+function writeMap($mapContainer, globalHistory) {
     const map = new NoteMap(document.body, $mapContainer, globalHistory.server.tile, (changesetId) => downloadAndShowChangeset(globalHistory.server, changesetId), (elementType, elementId) => downloadAndShowElement(globalHistory.server, elementType, elementId));
     map.onMoveEnd(() => {
         globalHistory.setMapHash(map.hash);
     });
-    globalHistory.onMapHashChange = (mapHash) => {
-        const [zoomString, latString, lonString] = mapHash.split('/');
+    globalHistory.onMapHashChange = (mapHashValue) => {
+        const [zoomString, latString, lonString] = mapHashValue.split('/');
         if (zoomString && latString && lonString) {
             map.panAndZoomTo([Number(latString), Number(lonString)], Number(zoomString));
         }
     };
     globalHistory.triggerInitialMapHashChange();
-    new FigureDialog(document.body, $figureDialog);
     return map;
 }
 function writeBelowFetchPanel($scrollingPart, $stickyPart, $moreContainer, storage, auth, globalHistory, map) {
@@ -9130,5 +9117,15 @@ function writeBelowFetchPanel($scrollingPart, $stickyPart, $moreContainer, stora
     const noteTable = new NoteTable(document.body, $notesContainer, toolPanel, map, filterPanel.noteFilter, globalHistory.server);
     filterPanel.subscribe(noteFilter => noteTable.updateFilter(noteFilter));
     globalHistory.$resizeObservationTarget = $notesContainer;
-    return [noteTable, toolPanel];
+    return noteTable;
+}
+function makeMenuButton() {
+    const $button = document.createElement('button');
+    $button.title = `Menu`;
+    $button.classList.add('global', 'menu');
+    $button.innerHTML = `<svg><use href="#menu" /></svg>`;
+    $button.onclick = () => {
+        bubbleEvent($button, 'osmNoteViewer:toggleMenu');
+    };
+    return $button;
 }
