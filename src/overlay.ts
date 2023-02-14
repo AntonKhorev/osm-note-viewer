@@ -158,7 +158,7 @@ export default class OverlayDialog {
 }
 
 function makeExtraSubsection() {
-	return makeElement('section')()(makeElement('h3')()(
+	return makeElement('section')()(makeElement('h2')()(
 		`Extra information`
 	),p(
 		`Notes implementation code: `,

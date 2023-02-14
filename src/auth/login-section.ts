@@ -209,7 +209,7 @@ export default class AuthLoginSection {
 		this.updateVisibility()
 		updateInResponseToLogin()
 		$section.append(
-			makeElement('h3')()(`Logins`),
+			makeElement('h2')()(`Logins`),
 			this.$clientIdRequired,
 			this.$loginForms,
 			this.$logins

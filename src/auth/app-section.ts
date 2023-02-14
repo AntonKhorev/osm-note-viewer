@@ -158,7 +158,7 @@ export default class AuthAppSection {
 			return $details
 		}
 		$section.append(
-			makeElement('h3')()(`Register app`),
+			makeElement('h2')()(`Register app`),
 			p(
 				`Only required if you don't yet have a `,em(`client id`),`. `,
 				`You have to get a `,em(`client id`),` if you want to run your own copy of `,app(),` and be able to manipulate notes from it. `,

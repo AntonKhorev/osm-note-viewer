@@ -14,7 +14,7 @@ export default class StorageSection {
 		serverList: ServerList
 	) {
 		$section.append(
-			makeElement('h3')()(`Storage`)
+			makeElement('h2')()(`Storage`)
 		)
 		const $updateFetchesButton=document.createElement('button')
 		$updateFetchesButton.textContent=`Update stored fetch list`

@@ -101,7 +101,7 @@ export default class ServerListSection {
 		serverHash: string
 	) {
 		$section.append(
-			makeElement('h3')()(`Servers`)
+			makeElement('h2')()(`Servers`)
 		)
 		if (!server) $section.append(makeDiv('notice','error')(
 			`Unknown server in URL hash parameter `,

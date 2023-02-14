@@ -15,10 +15,11 @@
 	white-space: nowrap;
 }
 .panel h2 {
-	margin: .3rem 0 .5rem 0;
+	margin: 1.5rem 0 .5rem 0;
 }
-.panel h3 {
-	margin: 1rem 0 .5rem 0;
+.panel section:first-child h2,
+.panel section[role=tabpanel] h2 {
+	margin-top: .3rem;
 }
 .panel [class$="-input"] {
 	margin: .5rem 0;
