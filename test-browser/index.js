@@ -61,10 +61,11 @@ describe("browser tests",function(){
 		}
 		this.waitForFetchButton=()=>page.waitForXPath(`//button[not(@disabled) and contains(.,"Fetch notes")]`)
 		this.waitForTool=(summaryText)=>page.waitForXPath(`//details[${containsClassCondition('tool')} and contains(./summary,"${summaryText}")]`)
-		this.getToAboutTab=async()=>{
+		this.getToMenu=async()=>{
 			await this.waitForFetchButton()
-			const aboutTab=await page.$('#tab-About')
-			await aboutTab.click()
+			const menuButton=await page.$('button.global.menu')
+			await menuButton.click()
+			return await page.$('.graphic-side .menu .panel')
 		}
 		const hasText=async(target,text)=>(await target.$x(`//*[contains(text(),"${text}")]`)).length
 		this.assertText=async(target,text)=>assert(await hasText(target,text),`missing expected text "${text}"`)
@@ -286,9 +287,8 @@ describe("browser tests",function(){
 		const tool=await this.waitForTool(`Interact`)
 		await tool.click()
 		await this.assertNoText(tool,"logged-in-user-name")
-		await this.getToAboutTab()
-		const aboutSection=await page.$('#tab-panel-About')
-		const [storageSection]=await aboutSection.$x(`//section[contains(h3,"Storage")]`)
+		const menuPanel=await this.getToMenu()
+		const [storageSection]=await menuPanel.$x(`//section[contains(h2,"Storage")]`)
 		const clearButton=await storageSection.waitForXPath(`//button[contains(.,"Clear")]`,{visible:true})
 		await clearButton.click()
 		const cancelButton=await storageSection.waitForXPath(`//button[contains(.,"Cancel")]`,{visible:true})
@@ -429,26 +429,24 @@ describe("browser tests",function(){
 	it("has login button when app is registered",async function(){
 		const page=await this.openPage()
 		{
-			await this.getToAboutTab()
-			const aboutSection=await page.$('#tab-panel-About')
-			await aboutSection.waitForXPath(buttonPath(`Login`),{visible:true})
-			const [loginButton]=await aboutSection.$x(buttonPath(`Login`))
-			const clientIdInput=await aboutSection.$('#auth-app-client-id')
+			const menuPanel=await this.getToMenu()
+			await menuPanel.waitForXPath(buttonPath(`Login`),{visible:true})
+			const [loginButton]=await menuPanel.$x(buttonPath(`Login`))
+			const clientIdInput=await menuPanel.$('#auth-app-client-id')
 			await clientIdInput.focus()
 			await page.keyboard.down('Control')
 			await page.keyboard.press('A')
 			await page.keyboard.up('Control')
 			await page.keyboard.press('Backspace')
-			await aboutSection.waitForXPath(`//div[${containsClassCondition('notice')} and contains(.,"Please register")]`,{visible:true})
+			await menuPanel.waitForXPath(`//div[${containsClassCondition('notice')} and contains(.,"Please register")]`,{visible:true})
 			assert.equal(await loginButton.boundingBox(),null)
 			await clientIdInput.type('fake')
-			await aboutSection.waitForXPath(buttonPath(`Login`),{visible:true})
+			await menuPanel.waitForXPath(buttonPath(`Login`),{visible:true})
 		}
 		await page.reload()
 		{
-			await this.getToAboutTab()
-			const aboutSection=await page.$('#tab-panel-About')
-			await aboutSection.waitForXPath(buttonPath(`Login`),{visible:true})
+			const menuPanel=await this.getToMenu()
+			await menuPanel.waitForXPath(buttonPath(`Login`),{visible:true})
 		}
 	})
 	it("has error message when directly opening page with oauth redirect parameters",async function(){
@@ -461,9 +459,8 @@ describe("browser tests",function(){
 		const tool=await this.waitForTool(`Interact`)
 		await tool.click()
 		await this.assertNoText(tool,"logged-in-user-name")
-		await this.getToAboutTab()
-		const aboutSection=await page.$('#tab-panel-About')
-		const [loginSection]=await aboutSection.$x(`//section[contains(h3,"Logins")]`)
+		const menuPanel=await this.getToMenu()
+		const [loginSection]=await menuPanel.$x(`//section[contains(h2,"Logins")]`)
 		const loginButton=await loginSection.waitForXPath(`//button[contains(.,"Login")]`)
 		await this.assertNoText(loginSection,"logged-in-user-name")
 		loginButton.click()
@@ -489,9 +486,8 @@ describe("browser tests",function(){
 		await fetchButton.click()
 		await page.waitForSelector('.notes tbody')
 		// login
-		await this.getToAboutTab()
-		const aboutSection=await page.$('#tab-panel-About')
-		const [loginSection]=await aboutSection.$x(`//section[contains(h3,"Logins")]`)
+		const menuPanel=await this.getToMenu()
+		const [loginSection]=await menuPanel.$x(`//section[contains(h2,"Logins")]`)
 		const loginButton=await loginSection.waitForXPath(`//button[contains(.,"Login")]`,{visible:true,timeout:1000})
 		loginButton.click()
 		await loginSection.waitForSelector('table')
