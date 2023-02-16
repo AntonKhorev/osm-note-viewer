@@ -7213,20 +7213,38 @@ class InteractTool extends Tool {
         return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again ("reactivates" it). `, `This means that a hidden note can only be restored to an open state, even if it had been closed before being hidden. `, `If you want the note to be closed again, you have to close it yourself after reactivating. `, `Also, unlike the OSM website, you can reactivate a note and add a comment in one action. `, `The OSM website currently doesn't provide a comment input for note reactivation.`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, `If you've hidden a note and want to see it, look for it at `, this.$yourNotesWeb, ` on the OSM website.`)];
     }
     getTool($root, $tool) {
-        const $appendLastChangeset = makeElement('a')('input-link')(`append last changeset`);
+        let lastAppend;
+        const $appendLastChangeset = makeElement('a')('input-link')();
         $appendLastChangeset.tabIndex = 0;
+        const canUndoAppend = (append) => append != null && this.$commentText.value.endsWith(append);
+        const updateAppendLastChangeset = () => {
+            $appendLastChangeset.textContent = (canUndoAppend(lastAppend)
+                ? `undo append`
+                : `append last changeset`);
+        };
+        updateAppendLastChangeset();
         $appendLastChangeset.onclick = async () => {
-            if (this.auth.uid == null)
-                return;
-            try {
-                const response = await this.auth.server.api.fetch(e$1 `changesets.json?user=${this.auth.uid}`);
-                const data = await response.json();
-                const changesetId = getLatestChangesetId(data);
-                this.$commentText.value = appendToText(this.$commentText.value, this.auth.server.web.getUrl(e$1 `changeset/${changesetId}`));
-                $appendLastChangeset.dataset.changesetId = String(changesetId);
-                bubbleEvent($appendLastChangeset, 'osmNoteViewer:clickChangesetLink');
+            if (canUndoAppend(lastAppend)) {
+                this.$commentText.value = this.$commentText.value.slice(0, -lastAppend.length);
+                lastAppend = undefined;
+                updateAppendLastChangeset();
             }
-            catch { }
+            else {
+                if (this.auth.uid == null)
+                    return;
+                try {
+                    const response = await this.auth.server.api.fetch(e$1 `changesets.json?user=${this.auth.uid}`);
+                    const data = await response.json();
+                    const changesetId = getLatestChangesetId(data);
+                    lastAppend = getParagraphAppend(this.$commentText.value, this.auth.server.web.getUrl(e$1 `changeset/${changesetId}`));
+                    this.$commentText.value += lastAppend;
+                    $appendLastChangeset.dataset.changesetId = String(changesetId);
+                    bubbleEvent($appendLastChangeset, 'osmNoteViewer:clickChangesetLink');
+                }
+                finally {
+                    updateAppendLastChangeset();
+                }
+            }
         };
         $appendLastChangeset.onkeydown = ev => {
             if (ev.key != 'Enter')
@@ -7237,6 +7255,7 @@ class InteractTool extends Tool {
         };
         this.$commentAppendControls.append($appendLastChangeset);
         this.$commentText.oninput = () => {
+            updateAppendLastChangeset();
             this.updateButtons();
         };
         const scheduleRunNextNote = this.makeRunScheduler($tool);
@@ -7622,15 +7641,14 @@ function getLatestChangesetId(data) {
         throw new TypeError(`Invalid latest changeset data`);
     return latestChangesetData.id;
 }
-function appendToText(text, appended) {
-    if (text) {
-        if (text[text.length - 1] != `\n`)
-            text += `\n`;
-        if (text[text.length - 2] != `\n`)
-            text += `\n`;
+function getParagraphAppend(text, appended) {
+    const nTargetNewlines = 2;
+    let i = 0;
+    for (; i < nTargetNewlines; i++) {
+        if ((text[text.length - 1 - i] ?? '\n') != '\n')
+            break;
     }
-    text += appended;
-    return text;
+    return '\n'.repeat(nTargetNewlines - i) + appended;
 }
 
 class ReportTool extends Tool {
@@ -7641,14 +7659,18 @@ class ReportTool extends Tool {
         this.title = `Report notes on OSM website`;
     }
     getInfo() {
-        return [p(makeLink(`Report`, 'https://wiki.openstreetmap.org/wiki/Notes#Reporting_notes'), ` selected notes. `, `Since reporting on the OSM website works for individual notes but here you can select many, you may choose between opening one and several tabs.`), ul(li(`If you choose to open one tab, it's going to report the first selected note. `, `The full list of notes will be copied to clipboard for you to paste into the `, em(`details`), ` input.`), li(`If you choose to open several tabs, each tab will have a report for every individual note you selected. `, `Since it could be many tabs opened at once, there's a confirmation button appearing for more than five selected notes. `, `Additionally the browser may choose to block opening of new tabs if too many are requested.`))];
+        return [p(makeLink(`Report`, 'https://wiki.openstreetmap.org/wiki/Notes#Reporting_notes'), ` selected notes. `, `Since reporting on the OSM website works for individual notes but here you can select many, you may choose between opening one and several tabs.`), ul(li(`If you choose to open one tab, it's going to report the first selected note. `, `The full list of notes will be copied to clipboard for you to paste into the `, em(`details`), ` input.`), li(`If you choose to open several tabs, each tab will have a report for every individual note you selected. `, `Since it could be many tabs opened at once, there's a confirmation button appearing for more than five selected notes. `, `Additionally the browser may choose to block opening of new tabs if too many are requested.`)), p(`It's also possible to `, makeLink(`report the user`, 'https://wiki.openstreetmap.org/wiki/Report_user'), ` that opened the selected notes, if all of them were opened by the same user. `, `For moderators there's a `, makeLink(`block`, 'https://wiki.openstreetmap.org/wiki/Data_working_group#User_blocks'), ` button. `, `The clipboard is going to contain a list of notes, like when reporting notes.`)];
     }
     getTool($root, $tool) {
+        let inputUid;
+        let inputUsername;
         let inputNoteIds = [];
         const $tabCountOutput = document.createElement('output');
         const $confirmTabCountOutput = document.createElement('output');
         const e = makeEscapeTag(encodeURIComponent);
-        const getReportUrl = (id) => this.auth.server.web.getUrl(e `reports/new?reportable_id=${id}&reportable_type=Note`);
+        const getNoteReportUrl = (id) => this.auth.server.web.getUrl(e `reports/new?reportable_id=${id}&reportable_type=Note`);
+        const getUserReportUrl = (id) => this.auth.server.web.getUrl(e `reports/new?reportable_id=${id}&reportable_type=User`);
+        const getUserBlockUrl = (username) => this.auth.server.web.getUrl(e `blocks/new/${username}`);
         const getNoteListItem = (id) => `- ` + this.auth.server.web.getUrl(e `note/${id}`) + `\n`;
         const getNoteList = () => inputNoteIds.map(getNoteListItem).join('');
         const copyNoteList = () => navigator.clipboard.writeText(getNoteList());
@@ -7656,32 +7678,59 @@ class ReportTool extends Tool {
         const $reportManyButton = this.makeRequiringSelectedNotesButton();
         const $cancelReportManyButton = this.makeRequiringSelectedNotesButton();
         const $confirmReportManyButton = this.makeRequiringSelectedNotesButton();
+        const $reportUserButton = document.createElement('button');
+        const $blockUserButton = document.createElement('button');
         $reportOneButton.append(`Report `, makeNotesIcon('selected'), ` in one tab`);
         $reportManyButton.append(`Report `, makeNotesIcon('selected'), ` in `, $tabCountOutput);
         $cancelReportManyButton.append(`Cancel reporting `, makeNotesIcon('selected'), ` in `, $confirmTabCountOutput);
         $confirmReportManyButton.append(`Confirm`);
+        $reportUserButton.append(`Report opening user`);
+        $blockUserButton.append(`Block opening user`);
+        $blockUserButton.disabled = $reportUserButton.disabled = true;
+        const updateLoginDependents = () => {
+            $blockUserButton.hidden = !this.auth.isModerator;
+        };
+        updateLoginDependents();
         $reportOneButton.onclick = async () => {
             await copyNoteList();
             const id = inputNoteIds[0];
-            open(getReportUrl(id));
+            open(getNoteReportUrl(id));
         };
         const reportManyListener = new ConfirmedButtonListener($reportManyButton, $cancelReportManyButton, $confirmReportManyButton, async () => {
             await copyNoteList();
             for (const id of inputNoteIds) {
-                open(getReportUrl(id));
+                open(getNoteReportUrl(id));
             }
         }, () => inputNoteIds.length > 5);
-        $root.addEventListener('osmNoteViewer:changeInputNotes', ev => {
-            const [inputNotes] = ev.detail;
+        $reportUserButton.onclick = async () => {
+            if (inputUid == null)
+                return;
+            await copyNoteList();
+            open(getUserReportUrl(inputUid));
+        };
+        $blockUserButton.onclick = async () => {
+            if (inputUsername == null)
+                return;
+            await copyNoteList();
+            open(getUserBlockUrl(inputUsername));
+        };
+        $root.addEventListener('osmNoteViewer:changeInputNotes', ({ detail: [inputNotes, inputUsers] }) => {
+            inputUid = inputNotes[0]?.comments[0]?.uid;
+            inputUsername = inputUid ? inputUsers.get(inputUid) : undefined;
+            $blockUserButton.disabled = $reportUserButton.disabled = !(inputUid != null && inputNotes.every(note => note.comments[0]?.uid == inputUid));
             inputNoteIds = inputNotes.map(note => note.id);
             const count = inputNotes.length;
             $tabCountOutput.textContent = $confirmTabCountOutput.textContent = `${count} tab${count == 1 ? '' : 's'}`;
             reportManyListener.reset();
             this.ping($tool);
         });
+        $root.addEventListener('osmNoteViewer:changeLogin', () => {
+            updateLoginDependents();
+        });
         return [
             $reportOneButton, ` `,
-            $reportManyButton, ` `, $cancelReportManyButton, ` `, $confirmReportManyButton
+            $reportManyButton, ` `, $cancelReportManyButton, ` `, $confirmReportManyButton, ` `,
+            $reportUserButton, ` `, $blockUserButton
         ];
     }
 }
