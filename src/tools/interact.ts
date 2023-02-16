@@ -142,21 +142,39 @@ export class InteractTool extends Tool {
 		`If you've hidden a note and want to see it, look for it at `,this.$yourNotesWeb,` on the OSM website.`
 	)]}
 	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
-		const $appendLastChangeset=makeElement('a')('input-link')(`append last changeset`)
+		let lastAppend: string|undefined
+		const $appendLastChangeset=makeElement('a')('input-link')()
 		$appendLastChangeset.tabIndex=0
+		const canUndoAppend=(append: string|undefined):append is string=>append!=null && this.$commentText.value.endsWith(append)
+		const updateAppendLastChangeset=()=>{
+			$appendLastChangeset.textContent=(canUndoAppend(lastAppend)
+				? `undo append`
+				: `append last changeset`
+			)
+		}
+		updateAppendLastChangeset()
 		$appendLastChangeset.onclick=async()=>{
-			if (this.auth.uid==null) return
-			try {
-				const response=await this.auth.server.api.fetch(e`changesets.json?user=${this.auth.uid}`)
-				const data=await response.json()
-				const changesetId=getLatestChangesetId(data)
-				this.$commentText.value=appendToText(
-					this.$commentText.value,
-					this.auth.server.web.getUrl(e`changeset/${changesetId}`)
-				)
-				$appendLastChangeset.dataset.changesetId=String(changesetId)
-				bubbleEvent($appendLastChangeset,'osmNoteViewer:clickChangesetLink')
-			} catch {}
+			if (canUndoAppend(lastAppend)) {
+				this.$commentText.value=this.$commentText.value.slice(0,-lastAppend.length)
+				lastAppend=undefined
+				updateAppendLastChangeset()
+			} else {
+				if (this.auth.uid==null) return
+				try {
+					const response=await this.auth.server.api.fetch(e`changesets.json?user=${this.auth.uid}`)
+					const data=await response.json()
+					const changesetId=getLatestChangesetId(data)
+					lastAppend=getParagraphAppend(
+						this.$commentText.value,
+						this.auth.server.web.getUrl(e`changeset/${changesetId}`)
+					)
+					this.$commentText.value+=lastAppend
+					$appendLastChangeset.dataset.changesetId=String(changesetId)
+					bubbleEvent($appendLastChangeset,'osmNoteViewer:clickChangesetLink')
+				} finally {
+					updateAppendLastChangeset()
+				}
+			}
 		}
 		$appendLastChangeset.onkeydown=ev=>{
 			if (ev.key!='Enter') return
@@ -168,6 +186,7 @@ export class InteractTool extends Tool {
 			$appendLastChangeset
 		)
 		this.$commentText.oninput=()=>{
+			updateAppendLastChangeset()
 			this.updateButtons()
 		}
 		const scheduleRunNextNote=this.makeRunScheduler($tool)
@@ -557,11 +576,11 @@ function getLatestChangesetId(data: unknown): number {
 	return latestChangesetData.id
 }
 
-function appendToText(text: string, appended: string): string {
-	if (text) {
-		if (text[text.length-1]!=`\n`) text+=`\n`
-		if (text[text.length-2]!=`\n`) text+=`\n`
+function getParagraphAppend(text: string, appended: string): string {
+	const nTargetNewlines=2
+	let i=0
+	for (;i<nTargetNewlines;i++) {
+		if ((text[text.length-1-i]??'\n')!='\n') break
 	}
-	text+=appended
-	return text
+	return '\n'.repeat(nTargetNewlines-i)+appended
 }
