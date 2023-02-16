@@ -20,13 +20,17 @@ export class ReportTool extends Tool {
 			`Since it could be many tabs opened at once, there's a confirmation button appearing for more than five selected notes. `,
 			`Additionally the browser may choose to block opening of new tabs if too many are requested.`
 		)
+	),p(
+		`It's also possible to `,makeLink(`report the user`,'https://wiki.openstreetmap.org/wiki/Report_user'),` that opened the selected notes, if all of them were opened by the same user.`
 	)]}
 	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
+		let inputUid: number|undefined
 		let inputNoteIds: ReadonlyArray<number> = []
 		const $tabCountOutput=document.createElement('output')
 		const $confirmTabCountOutput=document.createElement('output')
 		const e=makeEscapeTag(encodeURIComponent)
-		const getReportUrl=(id:number)=>this.auth.server.web.getUrl(e`reports/new?reportable_id=${id}&reportable_type=Note`)
+		const getNoteReportUrl=(id:number)=>this.auth.server.web.getUrl(e`reports/new?reportable_id=${id}&reportable_type=Note`)
+		const getUserReportUrl=(id:number)=>this.auth.server.web.getUrl(e`reports/new?reportable_id=${id}&reportable_type=User`)
 		const getNoteListItem=(id:number)=>`- `+this.auth.server.web.getUrl(e`note/${id}`)+`\n`
 		const getNoteList=()=>inputNoteIds.map(getNoteListItem).join('')
 		const copyNoteList=()=>navigator.clipboard.writeText(getNoteList())
@@ -34,27 +38,36 @@ export class ReportTool extends Tool {
 		const $reportManyButton=this.makeRequiringSelectedNotesButton()
 		const $cancelReportManyButton=this.makeRequiringSelectedNotesButton()
 		const $confirmReportManyButton=this.makeRequiringSelectedNotesButton()
+		const $reportUserButton=document.createElement('button')
 		$reportOneButton.append(`Report `,makeNotesIcon('selected'),` in one tab`)
 		$reportManyButton.append(`Report `,makeNotesIcon('selected'),` in `,$tabCountOutput)
 		$cancelReportManyButton.append(`Cancel reporting `,makeNotesIcon('selected'),` in `,$confirmTabCountOutput)
 		$confirmReportManyButton.append(`Confirm`)
+		$reportUserButton.append(`Report opening user`)
+		$reportUserButton.disabled=true
 		$reportOneButton.onclick=async()=>{
 			await copyNoteList()
 			const id=inputNoteIds[0]
-			open(getReportUrl(id))
+			open(getNoteReportUrl(id))
 		}
 		const reportManyListener=new ConfirmedButtonListener(
 			$reportManyButton,$cancelReportManyButton,$confirmReportManyButton,
 			async()=>{
 				await copyNoteList()
 				for (const id of inputNoteIds) {
-					open(getReportUrl(id))
+					open(getNoteReportUrl(id))
 				}
 			},
 			()=>inputNoteIds.length>5
 		)
-		$root.addEventListener('osmNoteViewer:changeInputNotes',ev=>{
-			const [inputNotes]=ev.detail
+		$reportUserButton.onclick=async()=>{
+			if (inputUid==null) return
+			await copyNoteList()
+			open(getUserReportUrl(inputUid))
+		}
+		$root.addEventListener('osmNoteViewer:changeInputNotes',({detail:[inputNotes]})=>{
+			inputUid=inputNotes[0]?.comments[0]?.uid
+			$reportUserButton.disabled=!(inputUid!=null && inputNotes.every(note=>note.comments[0]?.uid==inputUid))
 			inputNoteIds=inputNotes.map(note=>note.id)
 			const count=inputNotes.length
 			$tabCountOutput.textContent=$confirmTabCountOutput.textContent=`${count} tab${count==1?'':'s'}`
@@ -63,7 +76,8 @@ export class ReportTool extends Tool {
 		})
 		return [
 			$reportOneButton,` `,
-			$reportManyButton,` `,$cancelReportManyButton,` `,$confirmReportManyButton
+			$reportManyButton,` `,$cancelReportManyButton,` `,$confirmReportManyButton,` `,
+			$reportUserButton
 		]
 	}
 }
