@@ -380,7 +380,6 @@ describe("browser tests",function(){
 		await this.assertAlternativeText(button,0,'Halt','Resume')
 	})
 	it("replaces note after it has reported update",async function(){
-		this.timeout(5000)
 		this.osmServer.setNotes([{
 			"id": 101,
 			"comments": [{
@@ -401,7 +400,11 @@ describe("browser tests",function(){
 		await page.waitForSelector('.notes tbody')
 		await this.assertText(page,"the-first-note-comment")
 		await this.assertNoText(page,"the-second-note-comment")
-		await (await page.$('.notes tbody a')).focus()
+		{
+			const updateLink=await page.$('.notes tbody td.note-link a[title*=reload]')
+			assert.notEqual(updateLink,null)
+			await updateLink.focus()
+		}
 		this.osmServer.setNotes([{
 			"id": 101,
 			"comments": [{
@@ -416,6 +419,10 @@ describe("browser tests",function(){
 		await page.waitForSelector('.notes tbody[data-updated]')
 		await this.assertText(page,"the-first-note-comment")
 		await this.assertNoText(page,"the-second-note-comment")
+		{
+			const updateLink=await page.$('.notes tbody td.note-link a[title*=reload]')
+			assert.notEqual(updateLink,null)
+		}
 		const [refreshSelect]=await tool.$x(`//select[contains(.,"replace")]`)
 		await refreshSelect.select('replace')
 		await refreshButton.click()

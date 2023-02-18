@@ -134,7 +134,7 @@ export default class NoteTable implements NoteTableUpdater {
 			const $a=this.getNoteLink($noteSection)
 			if (!$a) return
 			$a.classList.remove('loading','absent')
-			$a.title=''
+			$a.title=`reload the note`
 			let oldUpdateDate=0
 			const $time=$noteSection.querySelector('tr:last-of-type td.note-date time')
 			if ($time instanceof HTMLTimeElement) {
@@ -143,6 +143,7 @@ export default class NoteTable implements NoteTableUpdater {
 			}
 			if (oldUpdateDate<getNoteUpdateDate(note)) {
 				$noteSection.dataset.updated='updated'
+				$a.title=`reload the updated note`
 			}
 		})
 		$root.addEventListener('osmNoteViewer:pushNoteUpdate',({detail:[note,users,updateType]})=>{
