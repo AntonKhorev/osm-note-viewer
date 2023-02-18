@@ -99,8 +99,8 @@ async function main() {
 				bubbleCustomEvent($a,'osmNoteViewer:failedNoteFetch',[id,getFetchTableNoteErrorMessage(ex)])
 				return
 			}
-			bubbleCustomEvent($a,'osmNoteViewer:noteFetch',[note,users])
-			bubbleCustomEvent($a,'osmNoteViewer:pushNoteUpdate',[note,users,'manual'])
+			bubbleCustomEvent($a,'osmNoteViewer:noteFetch',[note,users,'manual'])
+			bubbleCustomEvent($a,'osmNoteViewer:pushNoteUpdate',[note,users])
 		})
 		globalHistory.restoreScrollPosition()
 	}

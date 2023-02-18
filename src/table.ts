@@ -126,15 +126,14 @@ export default class NoteTable implements NoteTableUpdater {
 			if (!($a instanceof HTMLAnchorElement)) return
 			$a.classList.remove('loading')
 			$a.classList.add('absent')
-			$a.title=message
+			$a.title=`${message}, try to reload again`
 		})
-		$root.addEventListener('osmNoteViewer:noteFetch',({detail:[note,users]})=>{
+		$root.addEventListener('osmNoteViewer:noteFetch',({detail:[note,users,updateType]})=>{
 			const $noteSection=this.getNoteSection(note.id)
 			if (!$noteSection) return
 			const $a=this.getNoteLink($noteSection)
 			if (!$a) return
 			$a.classList.remove('loading','absent')
-			$a.title=`reload the note`
 			let oldUpdateDate=0
 			const $time=$noteSection.querySelector('tr:last-of-type td.note-date time')
 			if ($time instanceof HTMLTimeElement) {
@@ -143,11 +142,21 @@ export default class NoteTable implements NoteTableUpdater {
 			}
 			if (oldUpdateDate<getNoteUpdateDate(note)) {
 				$noteSection.dataset.updated='updated'
-				$a.title=`reload the updated note`
 			}
+			if (updateType=='manual') {
+				const nManualUpdates=Number($noteSection.dataset.nManualUpdates)
+				if (nManualUpdates) {
+					$noteSection.dataset.nManualUpdates=String(nManualUpdates+1)
+				} else {
+					$noteSection.dataset.nManualUpdates='1'
+				}
+			} else {
+				delete $noteSection.dataset.nManualUpdates
+			}
+			setUpdateLinkTitle($noteSection,$a)
 		})
-		$root.addEventListener('osmNoteViewer:pushNoteUpdate',({detail:[note,users,updateType]})=>{
-			this.replaceNote(note,users,updateType)
+		$root.addEventListener('osmNoteViewer:pushNoteUpdate',({detail:[note,users]})=>{
+			this.replaceNote(note,users)
 		})
 		$root.addEventListener('osmNoteViewer:refreshNoteProgress',ev=>{
 			const [id,progress]=ev.detail
@@ -234,7 +243,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.sendNoteCounts()
 		return nUnfilteredNotes
 	}
-	private replaceNote(note: Note, users: Users, updateType?: 'manual'): void {
+	private replaceNote(note: Note, users: Users): void {
 		const $noteSection=this.getNoteSection(note.id)
 		if (!$noteSection) throw new Error(`note section not found during note replace`)
 		const $checkbox=$noteSection.querySelector('.note-checkbox input')
@@ -259,7 +268,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.writeNoteSection($noteSection,$checkbox,note,users,isVisible)
 		const $a2=this.getNoteLink($noteSection)
 		if (!($a2 instanceof HTMLAnchorElement)) throw new Error(`note link not found after note replace`)
-		if (updateType=='manual') $a2.title='note reloaded manually, reload again'
+		setUpdateLinkTitle($noteSection,$a2)
 		if (isNoteLinkFocused) $a2.focus()
 		this.updateCheckboxDependentsAndSendNoteChangeEvents()
 		bubbleCustomEvent(this.$table,'osmNoteViewer:renderNote',note)
@@ -582,6 +591,21 @@ export default class NoteTable implements NoteTableUpdater {
 			if (username==null) continue
 			selectedNoteUsers.set(comment.uid,username)
 		}
+	}
+}
+
+function setUpdateLinkTitle($noteSection: HTMLTableSectionElement, $a: HTMLAnchorElement) {
+	const noteReference=($noteSection.dataset.updated
+		? `the updated note`
+		: `the note`
+	)
+	const nManualUpdates=$noteSection.dataset.nManualUpdates
+	if (!nManualUpdates) {
+		$a.title=`reload ${noteReference}`
+	} else if (nManualUpdates=='1') {
+		$a.title=`reloaded manually, reload ${noteReference} again`
+	} else {
+		$a.title=`reloaded manually ${nManualUpdates} times, reload ${noteReference} again`
 	}
 }
 

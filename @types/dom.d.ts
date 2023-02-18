@@ -10,8 +10,8 @@ declare global {
 		'osmNoteViewer:toggleTools': CustomEvent<boolean>
 		'osmNoteViewer:beforeNoteFetch': CustomEvent<number>
 		'osmNoteViewer:failedNoteFetch': CustomEvent<readonly [id: number, message: string]>
-		'osmNoteViewer:noteFetch': CustomEvent<readonly [note: Note, users: Users]>
-		'osmNoteViewer:pushNoteUpdate': CustomEvent<readonly [note: Note, users: Users, updateType?: 'manual']>
+		'osmNoteViewer:noteFetch': CustomEvent<readonly [note: Note, users: Users, updateType?: 'manual']>
+		'osmNoteViewer:pushNoteUpdate': CustomEvent<readonly [note: Note, users: Users]>
 		'osmNoteViewer:renderNote': CustomEvent<Note>
 		'osmNoteViewer:refreshNoteProgress': CustomEvent<readonly [id: number, progress: number]>
 		'osmNoteViewer:observeNotesByRefresher': CustomEvent<readonly Note[]> // TODO don't limit to refresher - rename to viewport-something
