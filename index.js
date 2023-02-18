@@ -6374,9 +6374,9 @@ class NoteTable {
                 return;
             $a.classList.remove('loading');
             $a.classList.add('absent');
-            $a.title = message;
+            $a.title = `${message}, try to reload again`;
         });
-        $root.addEventListener('osmNoteViewer:noteFetch', ({ detail: [note, users] }) => {
+        $root.addEventListener('osmNoteViewer:noteFetch', ({ detail: [note, users, updateType] }) => {
             const $noteSection = this.getNoteSection(note.id);
             if (!$noteSection)
                 return;
@@ -6384,7 +6384,6 @@ class NoteTable {
             if (!$a)
                 return;
             $a.classList.remove('loading', 'absent');
-            $a.title = '';
             let oldUpdateDate = 0;
             const $time = $noteSection.querySelector('tr:last-of-type td.note-date time');
             if ($time instanceof HTMLTimeElement) {
@@ -6395,6 +6394,19 @@ class NoteTable {
             if (oldUpdateDate < getNoteUpdateDate(note)) {
                 $noteSection.dataset.updated = 'updated';
             }
+            if (updateType == 'manual') {
+                const nManualUpdates = Number($noteSection.dataset.nManualUpdates);
+                if (nManualUpdates) {
+                    $noteSection.dataset.nManualUpdates = String(nManualUpdates + 1);
+                }
+                else {
+                    $noteSection.dataset.nManualUpdates = '1';
+                }
+            }
+            else {
+                delete $noteSection.dataset.nManualUpdates;
+            }
+            setUpdateLinkTitle($noteSection, $a);
         });
         $root.addEventListener('osmNoteViewer:pushNoteUpdate', ({ detail: [note, users] }) => {
             this.replaceNote(note, users);
@@ -6513,9 +6525,10 @@ class NoteTable {
         const isVisible = this.filter.matchNote(note, getUsername);
         this.makeMarker(note, isVisible);
         this.writeNoteSection($noteSection, $checkbox, note, users, isVisible);
-        const $a2 = $noteSection.querySelector('td.note-link a');
+        const $a2 = this.getNoteLink($noteSection);
         if (!($a2 instanceof HTMLAnchorElement))
             throw new Error(`note link not found after note replace`);
+        setUpdateLinkTitle($noteSection, $a2);
         if (isNoteLinkFocused)
             $a2.focus();
         this.updateCheckboxDependentsAndSendNoteChangeEvents();
@@ -6827,6 +6840,21 @@ class NoteTable {
                 continue;
             selectedNoteUsers.set(comment.uid, username);
         }
+    }
+}
+function setUpdateLinkTitle($noteSection, $a) {
+    const noteReference = ($noteSection.dataset.updated
+        ? `the updated note`
+        : `the note`);
+    const nManualUpdates = $noteSection.dataset.nManualUpdates;
+    if (!nManualUpdates) {
+        $a.title = `reload ${noteReference}`;
+    }
+    else if (nManualUpdates == '1') {
+        $a.title = `reloaded manually, reload ${noteReference} again`;
+    }
+    else {
+        $a.title = `reloaded manually ${nManualUpdates} times, reload ${noteReference} again`;
     }
 }
 function isSelectedNoteSection($noteSection) {
@@ -9135,7 +9163,7 @@ async function main() {
                 bubbleCustomEvent($a, 'osmNoteViewer:failedNoteFetch', [id, getFetchTableNoteErrorMessage(ex)]);
                 return;
             }
-            bubbleCustomEvent($a, 'osmNoteViewer:noteFetch', [note, users]);
+            bubbleCustomEvent($a, 'osmNoteViewer:noteFetch', [note, users, 'manual']);
             bubbleCustomEvent($a, 'osmNoteViewer:pushNoteUpdate', [note, users]);
         });
         globalHistory.restoreScrollPosition();
