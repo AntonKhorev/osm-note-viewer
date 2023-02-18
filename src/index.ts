@@ -100,7 +100,7 @@ async function main() {
 				return
 			}
 			bubbleCustomEvent($a,'osmNoteViewer:noteFetch',[note,users])
-			bubbleCustomEvent($a,'osmNoteViewer:pushNoteUpdate',[note,users])
+			bubbleCustomEvent($a,'osmNoteViewer:pushNoteUpdate',[note,users,'manual'])
 		})
 		globalHistory.restoreScrollPosition()
 	}

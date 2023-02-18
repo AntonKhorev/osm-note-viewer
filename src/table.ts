@@ -145,8 +145,8 @@ export default class NoteTable implements NoteTableUpdater {
 				$noteSection.dataset.updated='updated'
 			}
 		})
-		$root.addEventListener('osmNoteViewer:pushNoteUpdate',({detail:[note,users]})=>{
-			this.replaceNote(note,users)
+		$root.addEventListener('osmNoteViewer:pushNoteUpdate',({detail:[note,users,updateType]})=>{
+			this.replaceNote(note,users,updateType)
 		})
 		$root.addEventListener('osmNoteViewer:refreshNoteProgress',ev=>{
 			const [id,progress]=ev.detail
@@ -233,7 +233,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.sendNoteCounts()
 		return nUnfilteredNotes
 	}
-	private replaceNote(note: Note, users: Users): void {
+	private replaceNote(note: Note, users: Users, updateType?: 'manual'): void {
 		const $noteSection=this.getNoteSection(note.id)
 		if (!$noteSection) throw new Error(`note section not found during note replace`)
 		const $checkbox=$noteSection.querySelector('.note-checkbox input')
@@ -256,8 +256,9 @@ export default class NoteTable implements NoteTableUpdater {
 		const isVisible=this.filter.matchNote(note,getUsername)
 		this.makeMarker(note,isVisible)
 		this.writeNoteSection($noteSection,$checkbox,note,users,isVisible)
-		const $a2=$noteSection.querySelector('td.note-link a')
+		const $a2=this.getNoteLink($noteSection)
 		if (!($a2 instanceof HTMLAnchorElement)) throw new Error(`note link not found after note replace`)
+		if (updateType=='manual') $a2.title='note reloaded manually, reload again'
 		if (isNoteLinkFocused) $a2.focus()
 		this.updateCheckboxDependentsAndSendNoteChangeEvents()
 		bubbleCustomEvent(this.$table,'osmNoteViewer:renderNote',note)
