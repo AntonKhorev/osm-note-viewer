@@ -2,7 +2,7 @@ import {Tool, ToolElements, makeNotesIcon, makeMapIcon} from './base'
 import type {Note} from '../data'
 import type NoteMap from '../map'
 import {makeLink} from '../html'
-import {p,em} from '../html-shortcuts'
+import {p,em,ul,li,code} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 
 export class RcTool extends Tool {
@@ -13,6 +13,10 @@ export class RcTool extends Tool {
 		`Load note/map data to an editor with `,
 		makeLink(`remote control`,'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl'),
 		`.`
+	),ul(
+		li(`Notes are loaded by `,makeRcCommandLink(`import`),` RC command `,
+		`with note webpage the osm website as the `,code(`url`),` parameter.`),
+		li(`Map area is loaded by `,makeRcCommandLink(`load_and_zoom`),` RC command.`)
 	)]}
 	protected getTool($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements {
 		let inputNotes: ReadonlyArray<Note> = []
@@ -77,6 +81,10 @@ export class IdTool extends Tool {
 		}
 		return [$zoomButton]
 	}
+}
+
+function makeRcCommandLink(command: string) {
+	return code(makeLink(command,`https://josm.openstreetmap.de/wiki/Help/RemoteControlCommands#${command}`))
 }
 
 async function openRcUrl($button: HTMLButtonElement, rcUrl: string): Promise<boolean> {
