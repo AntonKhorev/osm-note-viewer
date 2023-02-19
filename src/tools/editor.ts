@@ -15,19 +15,22 @@ export class RcTool extends Tool {
 		`.`
 	),ul(
 		li(`Notes are loaded by `,makeRcCommandLink(`import`),` RC command `,
-		`with note webpage the osm website as the `,code(`url`),` parameter.`),
-		li(`Map area is loaded by `,makeRcCommandLink(`load_and_zoom`),` RC command.`)
+		`with note webpage the OSM website as the `,code(`url`),` parameter.`),
+		li(`Map area is loaded by `,makeRcCommandLink(`load_and_zoom`),` RC command. `,
+		`Area loading is also used as an opportunity to set the default changeset comment containing note ids using the `,code(`changeset_tags`),` parameter.`),
+		li(`OSM elements are loaded by `,makeRcCommandLink(`load_object`),` RC command. The button is enabled after the element link is clicked in some note comment.`)
 	)]}
 	protected getTool($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements {
 		let inputNotes: ReadonlyArray<Note> = []
+		let inputElement: string|undefined
 		const e=makeEscapeTag(encodeURIComponent)
 		const $loadNotesButton=this.makeRequiringSelectedNotesButton()
 		$loadNotesButton.append(`Load `,makeNotesIcon('selected'))
 		$loadNotesButton.onclick=async()=>{
 			for (const {id} of inputNotes) {
 				const noteUrl=this.auth.server.web.getUrl(e`note/${id}`)
-				const rcUrl=e`http://127.0.0.1:8111/import?url=${noteUrl}`
-				const success=await openRcUrl($loadNotesButton,rcUrl)
+				const rcPath=e`import?url=${noteUrl}`
+				const success=await openRcPath($loadNotesButton,rcPath)
 				if (!success) break
 			}
 		}
@@ -35,7 +38,7 @@ export class RcTool extends Tool {
 		$loadMapButton.append(`Load `,makeMapIcon('area'))
 		$loadMapButton.onclick=()=>{
 			const bounds=map.bounds
-			let rcUrl=e`http://127.0.0.1:8111/load_and_zoom`+
+			let rcPath=e`load_and_zoom`+
 				`?left=${bounds.getWest()}&right=${bounds.getEast()}`+
 				`&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`
 			if (inputNotes.length>=1) {
@@ -44,15 +47,34 @@ export class RcTool extends Tool {
 					: `note ${inputNotes[0].id}`
 				)
 				const changesetTags=`comment=${changesetComment}`
-				rcUrl+=`&changeset_tags=${changesetTags}`
+				rcPath+=`&changeset_tags=${changesetTags}`
 			}
-			openRcUrl($loadMapButton,rcUrl)
+			openRcPath($loadMapButton,rcPath)
+		}
+		const $loadElementButton=document.createElement('button')
+		$loadElementButton.append(`Load OSM element`)
+		$loadElementButton.disabled=true
+		$loadElementButton.onclick=()=>{
+			if (!inputElement) return
+			const rcPath=e`load_object?objects=${inputElement}`
+			openRcPath($loadElementButton,rcPath)
 		}
 		$root.addEventListener('osmNoteViewer:changeInputNotes',ev=>{
 			[inputNotes]=ev.detail
 			this.ping($tool)
 		})
-		return [$loadNotesButton,` `,$loadMapButton]
+		$root.addEventListener('osmNoteViewer:clickElementLink',ev=>{
+			const $a=ev.target
+			if (!($a instanceof HTMLAnchorElement)) return
+			const elementType=$a.dataset.elementType
+			if (elementType!='node' && elementType!='way' && elementType!='relation') return false
+			const elementId=$a.dataset.elementId
+			if (!elementId) return
+			inputElement=`${elementType[0]}${elementId}`
+			$loadElementButton.disabled=false
+			$loadElementButton.textContent=`Load ${inputElement}`
+		})
+		return [$loadNotesButton,` `,$loadMapButton,` `,$loadElementButton]
 	}
 }
 
@@ -95,7 +117,8 @@ function makeRcCommandLink(command: string) {
 	return code(makeLink(command,`https://josm.openstreetmap.de/wiki/Help/RemoteControlCommands#${command}`))
 }
 
-async function openRcUrl($button: HTMLButtonElement, rcUrl: string): Promise<boolean> {
+async function openRcPath($button: HTMLButtonElement, rcPath: string): Promise<boolean> {
+	const rcUrl=`http://127.0.0.1:8111/`+rcPath
 	try {
 		const response=await fetch(rcUrl)
 		if (response.ok) {
