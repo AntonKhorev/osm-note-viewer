@@ -35,9 +35,17 @@ export class RcTool extends Tool {
 		$loadMapButton.append(`Load `,makeMapIcon('area'))
 		$loadMapButton.onclick=()=>{
 			const bounds=map.bounds
-			const rcUrl=e`http://127.0.0.1:8111/load_and_zoom`+
+			let rcUrl=e`http://127.0.0.1:8111/load_and_zoom`+
 				`?left=${bounds.getWest()}&right=${bounds.getEast()}`+
 				`&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`
+			if (inputNotes.length>=1) {
+				const changesetComment=(inputNotes.length>1
+					? `notes `+inputNotes.map(note=>note.id).join(`, `)
+					: `note ${inputNotes[0].id}`
+				)
+				const changesetTags=`comment=${changesetComment}`
+				rcUrl+=`&changeset_tags=${changesetTags}`
+			}
 			openRcUrl($loadMapButton,rcUrl)
 		}
 		$root.addEventListener('osmNoteViewer:changeInputNotes',ev=>{
