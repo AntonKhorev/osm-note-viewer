@@ -51,7 +51,7 @@ export default class NoteFetchDialogs {
 		)
 		this.bboxDialog=makeFetchDialog(
 			new NoteBboxFetcherRequest,
-			(getRequestApiPaths,submitQuery)=>new NoteBboxFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery,map)
+			(getRequestApiPaths,submitQuery)=>new NoteBboxFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery,map,$root)
 		)
 		this.xmlDialog=makeFetchDialog(
 			new NoteIdsFetcherRequest,

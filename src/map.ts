@@ -1,6 +1,6 @@
 import type {TileProvider} from './server'
 import NoteMarker from './marker'
-import {makeDiv} from './html'
+import {bubbleCustomEvent, makeDiv} from './html'
 import {escapeXml, makeEscapeTag} from './escape'
 
 const e=makeEscapeTag(escapeXml)
@@ -84,7 +84,13 @@ export default class NoteMap {
 		layersControl.addOverlay(this.trackLayer,`Track between notes`)
 		layersControl.addOverlay(crosshairLayer,`Crosshair`)
 		layersControl.addTo(this.leafletMap)
-		this.onMoveEnd(()=>{
+		this.leafletMap.on('moveend',()=>{
+			const precision=this.precision
+			bubbleCustomEvent($container,'osmNoteViewer:mapMoveEnd',{
+				zoom: this.zoom.toFixed(0),
+				lat: this.lat.toFixed(precision),
+				lon: this.lon.toFixed(precision),
+			})
 			if (!this.queuedPopup) return
 			const [layerId,popupWriter]=this.queuedPopup
 			this.queuedPopup=undefined
@@ -339,18 +345,11 @@ export default class NoteMap {
 	get lon(): number {
 		return this.leafletMap.getCenter().lng
 	}
-	get hash(): string {
-		const precision=this.precision
-		return `${this.zoom.toFixed(0)}/${this.lat.toFixed(precision)}/${this.lon.toFixed(precision)}`
-	}
 	get bounds(): L.LatLngBounds {
 		return this.leafletMap.getBounds()
 	}
 	get precisionBounds(): NoteMapBounds {
 		return new NoteMapBounds(this.bounds,this.precision)
-	}
-	onMoveEnd(fn: L.LeafletEventHandlerFn): void {
-		this.leafletMap.on('moveend',fn)
 	}
 	private fitBoundsIfNotFrozen(bounds: L.LatLngBoundsExpression): void {
 		if (this.freezeMode=='full') return

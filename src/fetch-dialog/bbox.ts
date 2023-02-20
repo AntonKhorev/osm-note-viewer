@@ -26,7 +26,8 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		server: Server,
 		getRequestApiPaths: (query: NoteQuery, limit: number) => [type: string, apiPath: string][],
 		submitQuery: (query: NoteQuery) => void,
-		private map: NoteMap
+		private map: NoteMap,
+		private $root: HTMLElement
 	) {
 		super($sharedCheckboxes,server,getRequestApiPaths,submitQuery)
 		if (server.nominatim) {
@@ -159,7 +160,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 			}
 		}
 		updateTrackMapZoomNotice()
-		this.map.onMoveEnd(()=>{
+		this.$root.addEventListener('osmNoteViewer:mapMoveEnd',()=>{
 			trackMap()
 			if (this.isOpen() && this.mapBoundsForFreezeRestore) {
 				this.mapBoundsForFreezeRestore=undefined

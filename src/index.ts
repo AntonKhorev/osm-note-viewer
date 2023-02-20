@@ -118,9 +118,6 @@ function writeMap(
 		(changesetId)=>downloadAndShowChangeset(globalHistory.server,changesetId),
 		(elementType,elementId)=>downloadAndShowElement(globalHistory.server,elementType,elementId)
 	)
-	map.onMoveEnd(()=>{
-		globalHistory.setMapHash(map.hash)
-	})
 	globalHistory.triggerInitialMapHashChange()
 	return map
 }

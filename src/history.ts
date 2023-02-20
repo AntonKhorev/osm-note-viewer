@@ -15,7 +15,6 @@ export interface GlobalHistoryWithServer {
 	restoreScrollPosition(): void
 	getQueryHash(): string
 	setQueryHash(queryHash: string, pushStateAndRemoveMapHash: boolean): void
-	setMapHash(mapHash: string): void
 	hasMapHash(): boolean
 }
 
@@ -67,6 +66,15 @@ export default class GlobalHistory {
 			if (this.onQueryHashChange) {
 				this.onQueryHashChange(queryHash) // TODO don't run if only map hash changed? or don't zoom to notes if map hash present?
 			}
+		})
+		$root.addEventListener('osmNoteViewer:mapMoveEnd',({detail:{zoom,lat,lon}})=>{
+			const mapHashValue=`${zoom}/${lat}/${lon}`
+			const searchParams=getHashSearchParams()
+			searchParams.delete('map')
+			const hostHashValue=searchParams.get('host')
+			searchParams.delete('host')
+			const queryHash=searchParams.toString()
+			history.replaceState(null,'',this.getFullHash(queryHash,mapHashValue,hostHashValue))
 		})
 	}
 	triggerInitialMapHashChange(): void {
@@ -129,14 +137,6 @@ export default class GlobalHistory {
 		const mapHashValue=searchParams.get('map')
 		return !!mapHashValue
 	}
-	setMapHash(mapHash: string): void {
-		const searchParams=getHashSearchParams()
-		searchParams.delete('map')
-		const hostHash=searchParams.get('host')
-		searchParams.delete('host')
-		const queryHash=searchParams.toString()
-		history.replaceState(null,'',this.getFullHash(queryHash,mapHash,hostHash))
-	}
 	hasServer(): this is GlobalHistoryWithServer {
 		return !!this.server
 	}
@@ -163,6 +163,7 @@ export default class GlobalHistory {
 	}
 	private onMapHashChange(mapHashValue: string) {
 		const [zoom,lat,lon]=mapHashValue.split('/')
-		bubbleCustomEvent(this.$root,'osmNoteViewer:mapMoveTrigger',{zoom,lat,lon})
+		if (zoom && lat && lon) {
+			bubbleCustomEvent(this.$root,'osmNoteViewer:mapMoveTrigger',{zoom,lat,lon})
+		}
 	}
-}
