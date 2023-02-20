@@ -25,7 +25,7 @@ export default class OverlayDialog {
 		this.writeMenuPanel(storage,db,server,serverList,serverHash,auth)
 		for (const eventType of [
 			'osmNoteViewer:newFetch',
-			'osmNoteViewer:clickMapLink',
+			'osmNoteViewer:mapMoveTrigger',
 			'osmNoteViewer:clickElementLink',
 			'osmNoteViewer:clickChangesetLink',
 			'osmNoteViewer:focusOnNote'

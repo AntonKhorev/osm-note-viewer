@@ -2,11 +2,11 @@ import type ServerList from './server-list'
 import type Server from './server'
 import {getHashSearchParams} from './hash'
 import {escapeHash} from './escape'
+import {bubbleCustomEvent} from './html'
 
 const scrollRestorerEnabled=true // almost works without this, just won't restore position correctly on forward
 
 export interface GlobalHistoryWithServer {
-	onMapHashChange?: (mapHash: string) => void
 	onQueryHashChange?: (queryHash: string) => void
 	$resizeObservationTarget: HTMLElement|undefined
 	readonly server: Server
@@ -20,7 +20,6 @@ export interface GlobalHistoryWithServer {
 }
 
 export default class GlobalHistory {
-	onMapHashChange?: (mapHashValue: string) => void
 	onQueryHashChange?: (queryHash: string) => void
 	$resizeObservationTarget: HTMLElement|undefined // needs to be set before calling restoreScrollPosition()
 	private rememberScrollPosition=false
@@ -28,6 +27,7 @@ export default class GlobalHistory {
 	public readonly serverHash: string = ''
 	private readonly hostHashValue: string|null
 	constructor(
+		private readonly $root: HTMLElement,
 		private readonly $scrollingPart: HTMLElement,
 		public readonly serverList: ServerList
 	) {
@@ -61,7 +61,7 @@ export default class GlobalHistory {
 				location.reload()
 				return
 			}
-			if (this.onMapHashChange && mapHashValue) {
+			if (mapHashValue) {
 				this.onMapHashChange(mapHashValue)
 			}
 			if (this.onQueryHashChange) {
@@ -71,7 +71,7 @@ export default class GlobalHistory {
 	}
 	triggerInitialMapHashChange(): void {
 		const [,mapHashValue]=this.getAllHashes()
-		if (this.onMapHashChange && mapHashValue) {
+		if (mapHashValue) {
 			this.onMapHashChange(mapHashValue)
 		}
 	}
@@ -160,5 +160,9 @@ export default class GlobalHistory {
 		if (mapHashValue) appendToFullHash('map='+escapeHash(mapHashValue))
 		if (fullHash) fullHash='#'+fullHash
 		return fullHash
+	}
+	private onMapHashChange(mapHashValue: string) {
+		const [zoom,lat,lon]=mapHashValue.split('/')
+		bubbleCustomEvent(this.$root,'osmNoteViewer:mapMoveTrigger',{zoom,lat,lon})
 	}
 }

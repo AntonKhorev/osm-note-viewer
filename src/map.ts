@@ -97,10 +97,8 @@ export default class NoteMap {
 				geometry.bindPopup(popup)
 			}
 		})
-		$root.addEventListener('osmNoteViewer:clickMapLink',ev=>{
-			const $e=ev.target
-			if (!($e instanceof HTMLElement)) return
-			this.panAndZoomTo([Number($e.dataset.lat),Number($e.dataset.lon)],Number($e.dataset.zoom))
+		$root.addEventListener('osmNoteViewer:mapMoveTrigger',({detail:{zoom,lat,lon}})=>{
+			this.panAndZoomTo([Number(lat),Number(lon)],Number(zoom))
 		})
 		const handleOsmDownloadAndLink=async(
 			$a: HTMLAnchorElement,
@@ -321,7 +319,7 @@ export default class NoteMap {
 	panTo(latlng: L.LatLngExpression): void {
 		this.panToIfNotFrozen(latlng)
 	}
-	panAndZoomTo(latlng: L.LatLngExpression, zoom: number): void {
+	private panAndZoomTo(latlng: L.LatLngExpression, zoom: number): void {
 		this.flyToIfNotFrozen(latlng,zoom,{duration:.5}) // default duration is too long despite docs saying it's 0.25
 	}
 	private isCloseEnoughToCenter(latlng: L.LatLngExpression): boolean {

@@ -38,6 +38,7 @@ async function main() {
 	let auth: Auth|undefined
 	const $menuButton=makeMenuButton()
 
+	const $root=document.body
 	const $navbarContainer=document.createElement('nav')
 	const $fetchContainer=makeDiv('panel','fetch')()
 	const $moreContainer=makeDiv('more')()
@@ -45,25 +46,26 @@ async function main() {
 	const $stickyPart=makeDiv('sticky')()
 	const $graphicSide=makeDiv('graphic-side')($menuButton)
 	const $mapContainer=makeDiv('map')()
-	document.body.append($graphicSide)
+	$root.append($graphicSide)
 
 	const flipped=storage.getBoolean('flipped')
-	if (flipped) document.body.classList.add('flipped')
+	if (flipped) $root.classList.add('flipped')
 
-	const globalHistory=new GlobalHistory($scrollingPart,serverList)
+	const globalHistory=new GlobalHistory($root,$scrollingPart,serverList)
 	if (globalHistory.hasServer()) {
 		auth=new Auth(storage,globalHistory.server,serverList)
 		$graphicSide.before(makeDiv('text-side')($scrollingPart,$stickyPart))
 		$graphicSide.append($mapContainer)
-		const map=writeMap($mapContainer,globalHistory)
+		const map=writeMap($root,$mapContainer,globalHistory)
 		const navbar=new Navbar(storage,$navbarContainer,map)
 		const noteTable=writeBelowFetchPanel(
+			$root,
 			$scrollingPart,$stickyPart,$moreContainer,
 			storage,auth,globalHistory,
 			map
 		)
 		new NoteFetchPanel(
-			document.body,
+			$root,
 			db,globalHistory,
 			$fetchContainer,$moreContainer,
 			navbar,noteTable,map
@@ -74,7 +76,7 @@ async function main() {
 	
 	{
 		const overlayDialog=new OverlayDialog(
-			document.body,
+			$root,
 			storage,db,
 			globalHistory.server,serverList,globalHistory.serverHash,
 			auth,$mapContainer
@@ -86,7 +88,7 @@ async function main() {
 	}
 
 	if (globalHistory.hasServer()) {
-		document.body.addEventListener('osmNoteViewer:clickUpdateNoteLink',async(ev)=>{
+		$root.addEventListener('osmNoteViewer:clickUpdateNoteLink',async(ev)=>{
 			const $a=ev.target
 			if (!($a instanceof HTMLAnchorElement)) return
 			const id=Number($a.dataset.noteId)
@@ -107,28 +109,24 @@ async function main() {
 }
 
 function writeMap(
+	$root: HTMLElement,
 	$mapContainer: HTMLElement,
 	globalHistory: GlobalHistoryWithServer
 ) {
 	const map=new NoteMap(
-		document.body,$mapContainer,globalHistory.server.tile,
+		$root,$mapContainer,globalHistory.server.tile,
 		(changesetId)=>downloadAndShowChangeset(globalHistory.server,changesetId),
 		(elementType,elementId)=>downloadAndShowElement(globalHistory.server,elementType,elementId)
 	)
 	map.onMoveEnd(()=>{
 		globalHistory.setMapHash(map.hash)
 	})
-	globalHistory.onMapHashChange=(mapHashValue: string)=>{
-		const [zoomString,latString,lonString]=mapHashValue.split('/')
-		if (zoomString && latString && lonString) {
-			map.panAndZoomTo([Number(latString),Number(lonString)],Number(zoomString))
-		}
-	}
 	globalHistory.triggerInitialMapHashChange()
 	return map
 }
 
 function writeBelowFetchPanel(
+	$root: HTMLElement,
 	$scrollingPart: HTMLElement, $stickyPart: HTMLElement, $moreContainer: HTMLElement,
 	storage: NoteViewerStorage, auth: Auth, globalHistory: GlobalHistoryWithServer,
 	map: NoteMap
@@ -141,11 +139,11 @@ function writeBelowFetchPanel(
 	$stickyPart.append($toolContainer)
 
 	const toolPanel=new ToolPanel(
-		document.body,$toolContainer,
+		$root,$toolContainer,
 		storage,auth,map
 	)
 	const noteTable=new NoteTable(
-		document.body,
+		$root,
 		$notesContainer,toolPanel,map,filterPanel.noteFilter,
 		globalHistory.server
 	)

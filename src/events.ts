@@ -17,7 +17,11 @@ export default class GlobalEventListener {
 				} else if ($e.dataset.changesetId) {
 					bubbleEvent($e,'osmNoteViewer:clickChangesetLink')
 				} else if ($e.dataset.zoom && $e.dataset.lat && $e.dataset.lon) {
-					bubbleEvent($e,'osmNoteViewer:clickMapLink')
+					bubbleCustomEvent($e,'osmNoteViewer:mapMoveTrigger',{
+						zoom: $e.dataset.zoom,
+						lat: $e.dataset.lat,
+						lon: $e.dataset.lon,
+					})
 				} else if ($e.classList.contains('image')) {
 					bubbleEvent($e,'osmNoteViewer:toggleImage')
 				} else {

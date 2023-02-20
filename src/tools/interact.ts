@@ -42,7 +42,7 @@ export class InteractTool extends Tool {
 	name=`Interact`
 	title=`Interact with notes on OSM server`
 	isFullWidth=true
-	private $commentAppendControls=makeDiv('textarea-controls')()
+	private $commentAppendControls=makeDiv('text-controls')()
 	private $yourNotesApi=document.createElement('span')
 	private $yourNotesWeb=document.createElement('span')
 	private $asOutput=document.createElement('output')
