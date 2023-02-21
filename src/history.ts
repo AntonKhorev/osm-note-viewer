@@ -73,7 +73,7 @@ export default class GlobalHistory {
 			const hostHashValue=searchParams.get('host')
 			searchParams.delete('host')
 			const queryHash=searchParams.toString()
-			history.replaceState(null,'',this.getFullHash(queryHash,mapHashValue,hostHashValue))
+			history.replaceState(history.state,'',this.getFullHash(queryHash,mapHashValue,hostHashValue))
 		})
 		$root.addEventListener('osmNoteViewer:newNoteStream',({detail:[queryHash,isNewStart]})=>{
 			if (!this.server) return
@@ -87,9 +87,9 @@ export default class GlobalHistory {
 			if (fullHash!=location.hash) {
 				const url=fullHash||location.pathname+location.search
 				if (isNewStart) {
-					history.pushState(null,'',url)
+					history.replaceState(history.state,'',url)
 				} else {
-					history.replaceState(null,'',url)
+					history.replaceState(history.state,'',url)
 				}
 			}
 		})
