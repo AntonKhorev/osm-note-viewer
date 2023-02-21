@@ -40,14 +40,13 @@ export default class NoteFetchPanel {
 		for (const dialog of fetchDialogs.allDialogs) {
 			navbar.addTab(dialog)
 		}
-		
-		globalHistory.onQueryHashChange=(queryHash: string)=>{
+
+		$root.addEventListener('osmNoteViewer:queryHashChange',({detail:queryHash})=>{
 			const query=makeNoteQueryFromHash(queryHash)
 			openQueryDialog(navbar,fetchDialogs,query,false)
 			fetchDialogs.populateInputs(query)
 			startFetcherFromQuery(query,false,false)
-			globalHistory.restoreScrollPosition()
-		}
+		})
 		openQueryDialog(navbar,fetchDialogs,hashQuery,true)
 		startFetcherFromQuery(
 			hashQuery,false,

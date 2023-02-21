@@ -7,7 +7,6 @@ import {bubbleCustomEvent} from './html'
 const scrollRestorerEnabled=true // almost works without this, just won't restore position correctly on forward
 
 export interface GlobalHistoryWithServer {
-	onQueryHashChange?: (queryHash: string) => void
 	$resizeObservationTarget: HTMLElement|undefined
 	readonly server: Server
 	readonly serverList: ServerList
@@ -18,7 +17,6 @@ export interface GlobalHistoryWithServer {
 }
 
 export default class GlobalHistory {
-	onQueryHashChange?: (queryHash: string) => void
 	$resizeObservationTarget: HTMLElement|undefined // needs to be set before calling restoreScrollPosition()
 	private rememberScrollPosition=false
 	public readonly server: Server|undefined
@@ -62,9 +60,9 @@ export default class GlobalHistory {
 			if (mapHashValue) {
 				this.onMapHashChange(mapHashValue)
 			}
-			if (this.onQueryHashChange) {
-				this.onQueryHashChange(queryHash) // TODO don't run if only map hash changed? or don't zoom to notes if map hash present?
-			}
+			// TODO don't run stuff below if only map hash changed? or don't zoom to notes if map hash present?
+			bubbleCustomEvent($root,'osmNoteViewer:queryHashChange',queryHash)
+			this.restoreScrollPosition()
 		})
 		$root.addEventListener('osmNoteViewer:mapMoveEnd',({detail:{zoom,lat,lon}})=>{
 			const mapHashValue=`${zoom}/${lat}/${lon}`
