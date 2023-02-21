@@ -66,9 +66,11 @@ async function main() {
 		)
 		new NoteFetchPanel(
 			$root,
-			db,globalHistory,
+			db,globalHistory.server,
 			$fetchContainer,$moreContainer,
-			navbar,noteTable,map
+			navbar,noteTable,map,
+			globalHistory.getQueryHash(),globalHistory.hasMapHash(),
+			serverList.getHostHashValue(globalHistory.server)
 		)
 	} else {
 		$menuButton.disabled=true

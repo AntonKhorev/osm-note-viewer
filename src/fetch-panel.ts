@@ -1,5 +1,5 @@
 import type NoteViewerDB from './db'
-import type {GlobalHistoryWithServer} from './history'
+import type Server from './server'
 import type NoteMap from './map'
 import type Navbar from './navbar'
 import type NoteTable from './table'
@@ -17,14 +17,14 @@ export default class NoteFetchPanel {
 	private fetcherInvoker?: NoteFetchDialog
 	constructor(
 		$root: HTMLElement,
-		db: NoteViewerDB, globalHistory: GlobalHistoryWithServer,
+		db: NoteViewerDB, server: Server,
 		$container: HTMLElement, $moreContainer: HTMLElement,
-		navbar: Navbar, noteTable: NoteTable, map: NoteMap
+		navbar: Navbar, noteTable: NoteTable, map: NoteMap,
+		queryHash: string, hasMapHash: boolean, hostHashValue: string|null
 	) {
 		const self=this
-		const server=globalHistory.server
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
-		const hashQuery=makeNoteQueryFromHash(globalHistory.getQueryHash())
+		const hashQuery=makeNoteQueryFromHash(queryHash)
 
 		const fetchDialogs=new NoteFetchDialogs(
 			$root,server,$container,$moreContainer,noteTable,map,hashQuery,
@@ -50,7 +50,7 @@ export default class NoteFetchPanel {
 		openQueryDialog(navbar,fetchDialogs,hashQuery,true)
 		startFetcherFromQuery(
 			hashQuery,false,
-			globalHistory.hasMapHash() // when just opened a note-viewer page with map hash set - if query is set too, don't fit its result, keep the map hash
+			hasMapHash // when just opened a note-viewer page with map hash set - if query is set too, don't fit its result, keep the map hash
 		)
 
 		$root.addEventListener('osmNoteViewer:userLinkClick',ev=>{
@@ -96,7 +96,7 @@ export default class NoteFetchPanel {
 			const environment: NoteFetcherEnvironment = {
 				db,
 				api: server.api,
-				hostHashValue: globalHistory.serverList.getHostHashValue(server),
+				hostHashValue,
 				noteTable,$moreContainer,
 				getLimit: dialog.getLimit,
 				getAutoLoad: dialog.getAutoLoad,
