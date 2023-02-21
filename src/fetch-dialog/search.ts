@@ -189,7 +189,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 		this.$userInputControls.replaceChildren()
 		if (this.auth.uid!=null && this.auth.username!=null) {
 			this.$userInputControls.append(
-				this.auth.server.web.makeUserLink(this.auth.uid,this.auth.username)
+				`set to `,this.auth.server.web.makeUserLink(this.auth.uid,this.auth.username)
 			)
 		}
 	}
