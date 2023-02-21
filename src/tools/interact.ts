@@ -226,7 +226,7 @@ export class InteractTool extends Tool {
 				scheduleRunNextNote()
 			}
 		}
-		$root.addEventListener('osmNoteViewer:changeLogin',()=>{
+		$root.addEventListener('osmNoteViewer:loginChange',()=>{
 			this.updateLoginDependents()
 			this.updateButtons()
 			this.ping($tool)
@@ -287,13 +287,8 @@ export class InteractTool extends Tool {
 				`anonymously`
 			)
 		} else {
-			const href=this.auth.server.web.getUrl(e`user/${this.auth.username}`)
-			const $a=makeLink(this.auth.username,href)
-			$a.classList.add('listened')
-			$a.dataset.userName=this.auth.username
-			$a.dataset.userId=String(this.auth.uid)
 			this.$asOutput.replaceChildren(
-				`as `,$a
+				`as `,this.auth.server.web.makeUserLink(this.auth.uid,this.auth.username)
 			)
 		}
 	}

@@ -92,7 +92,7 @@ export class ReportTool extends Tool {
 			reportManyListener.reset()
 			this.ping($tool)
 		})
-		$root.addEventListener('osmNoteViewer:changeLogin',()=>{
+		$root.addEventListener('osmNoteViewer:loginChange',()=>{
 			updateLoginDependents()
 		})
 		return [

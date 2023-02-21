@@ -3,7 +3,7 @@ import {NoteSearchFetchDialog} from './search'
 import {NoteBboxFetchDialog} from './bbox'
 import {NoteXmlFetchDialog} from './xml'
 import {NotePlaintextFetchDialog} from './plaintext'
-import type Server from '../server'
+import type Auth from '../auth'
 import type NoteMap from '../map'
 import type NoteTable from '../table'
 import type {NoteQuery} from '../query'
@@ -18,7 +18,7 @@ export default class NoteFetchDialogs {
 	plaintextDialog: NoteFetchDialog
 	constructor(
 		$root: HTMLElement,
-		server: Server,
+		auth: Auth,
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		noteTable: NoteTable, map: NoteMap,
 		hashQuery: NoteQuery|undefined,
@@ -47,19 +47,19 @@ export default class NoteFetchDialogs {
 		}
 		this.searchDialog=makeFetchDialog(
 			new NoteSearchFetcherRequest,
-			(getRequestApiPaths,submitQuery)=>new NoteSearchFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery)
+			(getRequestApiPaths,submitQuery)=>new NoteSearchFetchDialog($root,$sharedCheckboxes,auth,getRequestApiPaths,submitQuery)
 		)
 		this.bboxDialog=makeFetchDialog(
 			new NoteBboxFetcherRequest,
-			(getRequestApiPaths,submitQuery)=>new NoteBboxFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery,map,$root)
+			(getRequestApiPaths,submitQuery)=>new NoteBboxFetchDialog($root,$sharedCheckboxes,auth,getRequestApiPaths,submitQuery,map)
 		)
 		this.xmlDialog=makeFetchDialog(
 			new NoteIdsFetcherRequest,
-			(getRequestApiPaths,submitQuery)=>new NoteXmlFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery)
+			(getRequestApiPaths,submitQuery)=>new NoteXmlFetchDialog($root,$sharedCheckboxes,auth,getRequestApiPaths,submitQuery)
 		)
 		this.plaintextDialog=makeFetchDialog(
 			new NoteIdsFetcherRequest,
-			(getRequestApiPaths,submitQuery)=>new NotePlaintextFetchDialog($sharedCheckboxes,server,getRequestApiPaths,submitQuery,noteTable)
+			(getRequestApiPaths,submitQuery)=>new NotePlaintextFetchDialog($root,$sharedCheckboxes,auth,getRequestApiPaths,submitQuery,noteTable)
 		)
 
 		const handleSharedCheckboxes = ($checkboxes: HTMLInputElement[], stateChangeListener: (state:boolean)=>void) => {

@@ -109,7 +109,7 @@ export default class AuthLoginSection {
 
 		const switchToToken=(token:string)=>{
 			authStorage.token=token
-			bubbleEvent($section,'osmNoteViewer:changeLogin')
+			bubbleEvent($section,'osmNoteViewer:loginChange')
 		}
 		const updateInResponseToLogin=()=>{
 			const logins=authStorage.getLogins()

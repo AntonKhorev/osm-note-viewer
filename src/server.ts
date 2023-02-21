@@ -1,3 +1,4 @@
+import {makeLink} from './html'
 import {makeEscapeTag} from './escape'
 
 export interface ApiUrlLister {
@@ -90,6 +91,14 @@ export class WebProvider extends OsmProvider {
 	}
 	getUrl(path:string):string {
 		return `${this.urls[0]}${path}`
+	}
+	makeUserLink(uid:number,username:string):HTMLAnchorElement {
+		const href=this.getUrl(`user/`+encodeURIComponent(username))
+		const $a=makeLink(username,href)
+		$a.classList.add('listened')
+		$a.dataset.userName=username
+		$a.dataset.userId=String(uid)
+		return $a
 	}
 }
 

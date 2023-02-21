@@ -1,7 +1,7 @@
 import type {NoteFetchDialogSharedCheckboxes} from './base'
 import {NoteQueryFetchDialog} from './base'
 import NominatimSubForm from './bbox-nominatim'
-import type Server from '../server'
+import type Auth from '../auth'
 import type NoteMap from '../map'
 import type {NoteMapFreezeMode} from '../map'
 import type {NoteQuery} from '../query'
@@ -22,17 +22,17 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 	protected $bboxInput=document.createElement('input')
 	private mapBoundsForFreezeRestore: L.LatLngBounds|undefined
 	constructor(
+		$root: HTMLElement,
 		$sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
-		server: Server,
+		auth: Auth,
 		getRequestApiPaths: (query: NoteQuery, limit: number) => [type: string, apiPath: string][],
 		submitQuery: (query: NoteQuery) => void,
-		private map: NoteMap,
-		private $root: HTMLElement
+		private map: NoteMap
 	) {
-		super($sharedCheckboxes,server,getRequestApiPaths,submitQuery)
-		if (server.nominatim) {
+		super($root,$sharedCheckboxes,auth,getRequestApiPaths,submitQuery)
+		if (auth.server.nominatim) {
 			this.nominatimSubForm=new NominatimSubForm(
-				server.nominatim,
+				auth.server.nominatim,
 				()=>map.bounds,
 				(bbox:NominatimBbox)=>{
 					const [minLat,maxLat,minLon,maxLon]=bbox
@@ -61,7 +61,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 	protected makeLeadAdvancedHint(): Array<string|HTMLElement> {
 		return [p(
 			`Get `,makeLink(`notes by bounding box`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`),
-			` request at `,code(this.server.api.getUrl(`notes?`),em(`parameters`)),`; see `,em(`parameters`),` below.`
+			` request at `,code(this.auth.server.api.getUrl(`notes?`),em(`parameters`)),`; see `,em(`parameters`),` below.`
 		)]
 	}
 	protected listParameters(closedDescriptionItems: Array<string|HTMLElement>): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][] {

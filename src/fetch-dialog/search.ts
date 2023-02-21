@@ -12,6 +12,7 @@ const rq2=(param1: string, param2: string)=>makeElement('span')('advanced-hint')
 export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDialog) {
 	shortTitle=`Search`
 	title=`Search notes for user / text / date range`
+	private $userInputControls=makeDiv('text-controls')()
 	protected $userInput=document.createElement('input')
 	protected $textInput=document.createElement('input')
 	protected $fromInput=document.createElement('input')
@@ -21,7 +22,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 	protected makeLeadAdvancedHint(): Array<string|HTMLElement> {
 		return [p(
 			`Make a `,makeLink(`search for notes`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`),
-			` request at `,code(this.server.api.getUrl(`notes/search?`),em(`parameters`)),`; see `,em(`parameters`),` below.`
+			` request at `,code(this.auth.server.api.getUrl(`notes/search?`),em(`parameters`)),`; see `,em(`parameters`),` below.`
 		)]
 	}
 	protected listParameters(closedDescriptionItems: Array<string|HTMLElement>): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][] {
@@ -81,9 +82,10 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 		{
 			this.$userInput.type='text'
 			this.$userInput.name='user'
-			$fieldset.append(makeDiv('major-input')(makeLabel()(
+			$fieldset.append(makeDiv('major-input')(this.$userInputControls,makeLabel()(
 				`OSM username, URL or #id`,rq2('display_name','user'),` `,this.$userInput
 			)))
+			this.updateLoginDependents()
 		}{
 			this.$textInput.type='text'
 			this.$textInput.name='text'
@@ -149,8 +151,11 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 		this.$orderSelect.value=query?.order ?? 'newest'
 	}
 	protected addEventListenersBeforeClosedLine(): void {
+		this.$root.addEventListener('osmNoteViewer:loginChange',()=>{
+			this.updateLoginDependents()
+		})
 		this.$userInput.addEventListener('input',()=>{
-			const userQuery=toUserQuery(this.server,this.$userInput.value)
+			const userQuery=toUserQuery(this.auth.server,this.$userInput.value)
 			if (userQuery.userType=='invalid') {
 				this.$userInput.setCustomValidity(userQuery.message)
 			} else {
@@ -168,7 +173,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 	}
 	protected constructQuery(): NoteQuery | undefined {
 		return makeNoteSearchQueryFromValues(
-			this.server,
+			this.auth.server,
 			this.$userInput.value,this.$textInput.value,this.$fromInput.value,this.$toInput.value,
 			this.closedValue,this.$sortSelect.value,this.$orderSelect.value
 		)
@@ -178,5 +183,14 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 			this.$userInput,this.$textInput,this.$fromInput,this.$toInput,
 			this.$closedInput,this.$closedSelect,this.$sortSelect,this.$orderSelect
 		]
+	}
+	private updateLoginDependents() {
+		this.$userInputControls.hidden=this.auth.uid==null || this.auth.username==null
+		this.$userInputControls.replaceChildren()
+		if (this.auth.uid!=null && this.auth.username!=null) {
+			this.$userInputControls.append(
+				this.auth.server.web.makeUserLink(this.auth.uid,this.auth.username)
+			)
+		}
 	}
 }

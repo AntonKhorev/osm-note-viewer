@@ -66,7 +66,7 @@ async function main() {
 		)
 		new NoteFetchPanel(
 			$root,
-			db,globalHistory.server,
+			db,auth,
 			$fetchContainer,$moreContainer,
 			navbar,noteTable,map,
 			globalHistory.getQueryHash(),globalHistory.hasMapHash(),

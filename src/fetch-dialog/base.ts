@@ -1,4 +1,4 @@
-import type Server from '../server'
+import type Auth from '../auth'
 import {NavDialog} from '../navbar'
 import type {NoteQuery} from '../query'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
@@ -23,10 +23,11 @@ export abstract class NoteFetchDialog extends NavDialog {
 	protected abstract limitIsParameter: boolean
 	private $requestOutput=document.createElement('output')
 	constructor(
+		protected $root: HTMLElement,
 		private $sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
-		protected server: Server,
+		protected auth: Auth,
 		private getRequestApiPaths: (query: NoteQuery, limit: number) => [type: string, apiPath: string][],
-		protected submitQuery: (query: NoteQuery) => void
+		protected submitQuery: (query: NoteQuery) => void,
 	) {
 		super()
 	}
@@ -89,7 +90,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 			return
 		}
 		const [[mainType,mainApiPath],...otherRequestApiPaths]=requestApiPaths
-		const mainUrl=this.server.api.getUrl(mainApiPath)
+		const mainUrl=this.auth.server.api.getUrl(mainApiPath)
 		const $a=makeLink(mainUrl,mainUrl)
 		$a.classList.add('request')
 		this.$requestOutput.replaceChildren(code($a),` in ${mainType} format`)
@@ -104,7 +105,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 			} else {
 				this.$requestOutput.append(`, `)
 			}
-			const url=this.server.api.getUrl(apiPath)
+			const url=this.auth.server.api.getUrl(apiPath)
 			this.$requestOutput.append(code(makeLink(type,url)))
 			appendLinkIfKnown(type)
 		}

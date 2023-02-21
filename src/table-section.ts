@@ -3,7 +3,7 @@ import type {WebProvider} from './server'
 import type CommentWriter from './comment-writer'
 import {makeDateOutput} from './comment-writer'
 import {toReadableDate} from './query-date'
-import {makeDiv, makeElement, makeLink} from './html'
+import {makeDiv, makeElement} from './html'
 
 /**
  * @returns comment cells
@@ -54,11 +54,7 @@ export default function writeNoteSectionRows(
 			if (comment.uid!=null) {
 				const username=users[comment.uid]
 				if (username!=null) {
-					const href=web.getUrl(`user/`+encodeURIComponent(username))
-					const $a=makeLink(username,href)
-					$a.classList.add('listened')
-					$a.dataset.userName=username
-					$a.dataset.userId=String(comment.uid)
+					const $a=web.makeUserLink(comment.uid,username)
 					$cell.append($a,makeElement('span')('uid')(` #${comment.uid}`))
 				} else {
 					$cell.append(`#${comment.uid}`)
