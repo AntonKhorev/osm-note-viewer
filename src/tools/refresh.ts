@@ -101,7 +101,7 @@ export class RefreshTool extends Tool {
 		$refreshAllButton.onclick=()=>{
 			scheduler.refreshAll($refreshSelect.value=='replace')
 		}
-		$root.addEventListener('osmNoteViewer:newFetch',()=>{
+		$root.addEventListener('osmNoteViewer:newNoteStream',()=>{
 			scheduler.reset()
 			noteRefreshTimestampsById.clear()
 			notesWithPendingUpdate.clear()

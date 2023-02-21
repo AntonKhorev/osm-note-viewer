@@ -14,7 +14,6 @@ export interface GlobalHistoryWithServer {
 	triggerInitialMapHashChange(): void
 	restoreScrollPosition(): void
 	getQueryHash(): string
-	setQueryHash(queryHash: string, pushStateAndRemoveMapHash: boolean): void
 	hasMapHash(): boolean
 }
 
@@ -76,6 +75,24 @@ export default class GlobalHistory {
 			const queryHash=searchParams.toString()
 			history.replaceState(null,'',this.getFullHash(queryHash,mapHashValue,hostHashValue))
 		})
+		$root.addEventListener('osmNoteViewer:newNoteStream',({detail:[queryHash,isNewStart]})=>{
+			if (!this.server) return
+			let mapHashValue=''
+			if (!isNewStart) {
+				const searchParams=getHashSearchParams()
+				mapHashValue=searchParams.get('map')??''
+			}
+			const hostHashValue=this.serverList.getHostHashValue(this.server)
+			const fullHash=this.getFullHash(queryHash,mapHashValue,hostHashValue)
+			if (fullHash!=location.hash) {
+				const url=fullHash||location.pathname+location.search
+				if (isNewStart) {
+					history.pushState(null,'',url)
+				} else {
+					history.replaceState(null,'',url)
+				}
+			}
+		})
 	}
 	triggerInitialMapHashChange(): void {
 		const [,mapHashValue]=this.getAllHashes()
@@ -114,24 +131,6 @@ export default class GlobalHistory {
 	getQueryHash(): string {
 		return this.getAllHashes()[0]
 	}
-	setQueryHash(queryHash: string, pushStateAndRemoveMapHash: boolean): void {
-		if (!this.server) return
-		let mapHashValue=''
-		if (!pushStateAndRemoveMapHash) {
-			const searchParams=getHashSearchParams()
-			mapHashValue=searchParams.get('map')??''
-		}
-		const hostHashValue=this.serverList.getHostHashValue(this.server)
-		const fullHash=this.getFullHash(queryHash,mapHashValue,hostHashValue)
-		if (fullHash!=location.hash) {
-			const url=fullHash||location.pathname+location.search
-			if (pushStateAndRemoveMapHash) {
-				history.pushState(null,'',url)
-			} else {
-				history.replaceState(null,'',url)
-			}
-		}
-	}
 	hasMapHash(): boolean {
 		const searchParams=getHashSearchParams()
 		const mapHashValue=searchParams.get('map')
@@ -167,3 +166,4 @@ export default class GlobalHistory {
 			bubbleCustomEvent(this.$root,'osmNoteViewer:mapMoveTrigger',{zoom,lat,lon})
 		}
 	}
+}

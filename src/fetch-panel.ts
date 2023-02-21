@@ -9,7 +9,7 @@ import type {NoteFetcherEnvironment, NoteFetcherRun} from './fetch'
 import {NoteSearchFetcherRun, NoteBboxFetcherRun, NoteIdsFetcherRun} from './fetch'
 import type {NoteFetchDialog} from './fetch-dialog'
 import NoteFetchDialogs from './fetch-dialog'
-import {bubbleEvent} from './html'
+import {bubbleCustomEvent} from './html'
 
 export default class NoteFetchPanel {
 	// TODO have invoking dialog object; react only on dl params change in it; display that fieldset differently
@@ -29,7 +29,6 @@ export default class NoteFetchPanel {
 		const fetchDialogs=new NoteFetchDialogs(
 			$root,server,$container,$moreContainer,noteTable,map,hashQuery,
 			(dialog:NoteFetchDialog,query:NoteQuery)=>{
-				modifyHistory(query,true)
 				startFetcher(query,true,false,dialog)
 			},
 			(dialog:NoteFetchDialog)=>{
@@ -44,14 +43,12 @@ export default class NoteFetchPanel {
 		
 		globalHistory.onQueryHashChange=(queryHash: string)=>{
 			const query=makeNoteQueryFromHash(queryHash)
-			modifyHistory(query,false) // in case location was edited manually
 			openQueryDialog(navbar,fetchDialogs,query,false)
 			fetchDialogs.populateInputs(query)
 			startFetcherFromQuery(query,false,false)
 			globalHistory.restoreScrollPosition()
 		}
 		openQueryDialog(navbar,fetchDialogs,hashQuery,true)
-		modifyHistory(hashQuery,false)
 		startFetcherFromQuery(
 			hashQuery,false,
 			globalHistory.hasMapHash() // when just opened a note-viewer page with map hash set - if query is set too, don't fit its result, keep the map hash
@@ -78,17 +75,16 @@ export default class NoteFetchPanel {
 			this.fetcherRun?.updateNote(note,users)
 		})
 		
-		function startFetcherFromQuery(query: NoteQuery|undefined, clearStore: boolean, suppressFitNotes: boolean): void {
+		function startFetcherFromQuery(query: NoteQuery|undefined, isNewStart: boolean, suppressFitNotes: boolean): void {
 			if (!query) return
 			const dialog=fetchDialogs.getDialogFromQuery(query)
 			if (!dialog) return
-			startFetcher(query,clearStore,suppressFitNotes,dialog)
+			startFetcher(query,isNewStart,suppressFitNotes,dialog)
 		}
 		function startFetcher(
-			query: NoteQuery, clearStore: boolean, suppressFitNotes: boolean, dialog: NoteFetchDialog
+			query: NoteQuery, isNewStart: boolean, suppressFitNotes: boolean, dialog: NoteFetchDialog
 		): void {
 			if (query.mode!='search' && query.mode!='bbox' && query.mode!='ids') return
-			bubbleEvent($container,'osmNoteViewer:newFetch')
 			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
 			if (map) {
 				map.clearNotes()
@@ -97,6 +93,7 @@ export default class NoteFetchPanel {
 				}
 			}
 			noteTable.reset()
+			bubbleCustomEvent($container,'osmNoteViewer:newNoteStream',[makeNoteQueryString(query),isNewStart])
 			const environment: NoteFetcherEnvironment = {
 				db,
 				api: server.api,
@@ -109,18 +106,12 @@ export default class NoteFetchPanel {
 			}
 			self.fetcherInvoker=dialog
 			if (query.mode=='search') {
-				self.fetcherRun=new NoteSearchFetcherRun(environment,query,clearStore)
+				self.fetcherRun=new NoteSearchFetcherRun(environment,query,isNewStart)
 			} else if (query.mode=='bbox') {
-				self.fetcherRun=new NoteBboxFetcherRun(environment,query,clearStore)
+				self.fetcherRun=new NoteBboxFetcherRun(environment,query,isNewStart)
 			} else if (query.mode=='ids') {
-				self.fetcherRun=new NoteIdsFetcherRun(environment,query,clearStore)
+				self.fetcherRun=new NoteIdsFetcherRun(environment,query,isNewStart)
 			}
-		}
-		function modifyHistory(query: NoteQuery|undefined, push: boolean): void {
-			const queryHash = query
-				? makeNoteQueryString(query)
-				: ''
-			globalHistory.setQueryHash(queryHash,push)
 		}
 	}
 }

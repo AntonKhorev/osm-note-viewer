@@ -24,7 +24,7 @@ export default class OverlayDialog {
 		this.$menuPanel.hidden=!!auth
 		this.writeMenuPanel(storage,db,server,serverList,serverHash,auth)
 		for (const eventType of [
-			'osmNoteViewer:newFetch',
+			'osmNoteViewer:newNoteStream',
 			'osmNoteViewer:mapMoveTrigger',
 			'osmNoteViewer:clickElementLink',
 			'osmNoteViewer:clickChangesetLink',
