@@ -88,7 +88,7 @@ async function main() {
 	}
 
 	if (globalHistory.hasServer()) {
-		$root.addEventListener('osmNoteViewer:clickUpdateNoteLink',async(ev)=>{
+		$root.addEventListener('osmNoteViewer:updateNoteLinkClick',async(ev)=>{
 			const $a=ev.target
 			if (!($a instanceof HTMLAnchorElement)) return
 			const id=Number($a.dataset.noteId)
@@ -102,7 +102,7 @@ async function main() {
 				return
 			}
 			bubbleCustomEvent($a,'osmNoteViewer:noteFetch',[note,users,'manual'])
-			bubbleCustomEvent($a,'osmNoteViewer:pushNoteUpdate',[note,users])
+			bubbleCustomEvent($a,'osmNoteViewer:noteUpdatePush',[note,users])
 		})
 		globalHistory.restoreScrollPosition()
 	}

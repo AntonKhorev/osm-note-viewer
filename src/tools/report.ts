@@ -80,7 +80,7 @@ export class ReportTool extends Tool {
 			await copyNoteList()
 			open(getUserBlockUrl(inputUsername))
 		}
-		$root.addEventListener('osmNoteViewer:changeInputNotes',({detail:[inputNotes,inputUsers]})=>{
+		$root.addEventListener('osmNoteViewer:notesInput',({detail:[inputNotes,inputUsers]})=>{
 			inputUid=inputNotes[0]?.comments[0]?.uid
 			inputUsername=inputUid ? inputUsers.get(inputUid) : undefined
 			$blockUserButton.disabled=$reportUserButton.disabled=!(

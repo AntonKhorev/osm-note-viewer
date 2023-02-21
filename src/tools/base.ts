@@ -66,12 +66,12 @@ export abstract class Tool {
 		} else {
 			$container.append($tool)
 		}
-		$root.addEventListener('osmNoteViewer:toggleTools',ev=>{
+		$root.addEventListener('osmNoteViewer:toolsToggle',ev=>{
 			if (ev.target==$tool) return
 			$tool.open=ev.detail
 			this.ping($tool)
 		})
-		$root.addEventListener('osmNoteViewer:changeInputNotes',ev=>{
+		$root.addEventListener('osmNoteViewer:notesInput',ev=>{
 			const [inputNotes]=ev.detail
 			let reactedToButtons=false
 			for (const $button of this.$buttonsRequiringSelectedNotes) {

@@ -23,17 +23,17 @@ export class RefreshTool extends Tool {
 			defaultRefreshPeriodInMinutes*60*1000,
 			makeTimeoutCaller(10*1000,100),
 			(id,progress)=>{
-				bubbleCustomEvent($tool,'osmNoteViewer:refreshNoteProgress',[id,progress])
+				bubbleCustomEvent($tool,'osmNoteViewer:noteRefreshWaitProgress',[id,progress])
 			},
 			(note,users)=>{
 				if ($refreshSelect.value=='replace') {
-					bubbleCustomEvent($tool,'osmNoteViewer:pushNoteUpdate',[note,users])
+					bubbleCustomEvent($tool,'osmNoteViewer:noteUpdatePush',[note,users])
 				} else {
 					notesWithPendingUpdate.add(note.id)
 				}
 			},
 			(id,message)=>{
-				bubbleCustomEvent($tool,'osmNoteViewer:refreshNoteProgress',[id,0])
+				bubbleCustomEvent($tool,'osmNoteViewer:noteRefreshWaitProgress',[id,0])
 				const refreshTimestamp=Date.now()
 				noteRefreshTimestampsById.set(id,refreshTimestamp)
 				return refreshTimestamp
@@ -106,7 +106,7 @@ export class RefreshTool extends Tool {
 			noteRefreshTimestampsById.clear()
 			notesWithPendingUpdate.clear()
 		})
-		$root.addEventListener('osmNoteViewer:observeNotesByRefresher',ev=>{
+		$root.addEventListener('osmNoteViewer:notesInViewportChange',ev=>{
 			const notes=ev.detail
 			const noteRefreshList:[id:number,lastRefreshTimestamp:number,updateDate:number,hasPendingUpdate:boolean][]=[]
 			for (const note of notes) {
@@ -116,7 +116,7 @@ export class RefreshTool extends Tool {
 			}
 			scheduler.observe(noteRefreshList)
 		})
-		$root.addEventListener('osmNoteViewer:renderNote',({detail:note})=>{
+		$root.addEventListener('osmNoteViewer:noteRender',({detail:note})=>{
 			notesWithPendingUpdate.delete(note.id)
 			noteRefreshTimestampsById.set(note.id,Date.now())
 			scheduler.replaceNote(note.id,Date.now(),getNoteUpdateDate(note))

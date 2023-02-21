@@ -170,7 +170,7 @@ export class InteractTool extends Tool {
 					)
 					this.$commentText.value+=lastAppend
 					$appendLastChangeset.dataset.changesetId=String(changesetId)
-					bubbleEvent($appendLastChangeset,'osmNoteViewer:clickChangesetLink')
+					bubbleEvent($appendLastChangeset,'osmNoteViewer:changesetLinkClick')
 				} finally {
 					updateAppendLastChangeset()
 				}
@@ -231,7 +231,7 @@ export class InteractTool extends Tool {
 			this.updateButtons()
 			this.ping($tool)
 		})
-		$root.addEventListener('osmNoteViewer:changeInputNotes',ev=>{
+		$root.addEventListener('osmNoteViewer:notesInput',ev=>{
 			const [inputNotes]=ev.detail
 			for (const status of noteStatuses) {
 				const ids=this.stagedNoteIds.get(status)
@@ -476,7 +476,7 @@ export class InteractTool extends Tool {
 				}
 				const noteAndUsers=await readNoteResponse(id,response)
 				bubbleCustomEvent($tool,'osmNoteViewer:noteFetch',noteAndUsers)
-				bubbleCustomEvent($tool,'osmNoteViewer:pushNoteUpdate',noteAndUsers)
+				bubbleCustomEvent($tool,'osmNoteViewer:noteUpdatePush',noteAndUsers)
 				this.run.currentNoteId=undefined
 				this.run.outputNoteIds.push(id)
 			} catch (ex) {

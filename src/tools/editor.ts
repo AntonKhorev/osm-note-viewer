@@ -17,7 +17,7 @@ abstract class EditorTool extends Tool {
 		this.$actOnElementButton.onclick=()=>{
 			if (this.inputElement) this.doElementAction(map)
 		}
-		$root.addEventListener('osmNoteViewer:clickElementLink',ev=>{
+		$root.addEventListener('osmNoteViewer:elementLinkClick',ev=>{
 			const $a=ev.target
 			if (!($a instanceof HTMLAnchorElement)) return
 			const elementType=$a.dataset.elementType
@@ -79,7 +79,7 @@ export class RcTool extends EditorTool {
 			}
 			openRcPath($loadMapButton,rcPath)
 		}
-		$root.addEventListener('osmNoteViewer:changeInputNotes',ev=>{
+		$root.addEventListener('osmNoteViewer:notesInput',ev=>{
 			[inputNotes]=ev.detail
 			this.ping($tool)
 		})

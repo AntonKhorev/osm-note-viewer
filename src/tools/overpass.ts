@@ -8,7 +8,7 @@ import {makeEscapeTag} from '../escape'
 abstract class OverpassBaseTool extends Tool {
 	protected timestamp: string = ''
 	protected installTimestampListener($root: HTMLElement, $tool: HTMLElement) {
-		$root.addEventListener('osmNoteViewer:changeTimestamp',ev=>{
+		$root.addEventListener('osmNoteViewer:timestampChange',ev=>{
 			this.timestamp=ev.detail
 			this.ping($tool)
 		})

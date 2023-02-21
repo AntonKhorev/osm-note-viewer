@@ -21,7 +21,7 @@ export class AutozoomTool extends Tool {
 			new Option('to all visible notes','allNotes')
 		)
 		$fitModeSelect.onchange=()=>{
-			bubbleCustomEvent($tool,'osmNoteViewer:changeMapFitMode',$fitModeSelect.value)
+			bubbleCustomEvent($tool,'osmNoteViewer:mapFitModeChange',$fitModeSelect.value)
 		}
 		return [$fitModeSelect]
 	}
@@ -46,9 +46,9 @@ export class TimestampTool extends Tool {
 		$timestampInput.type='text'
 		$timestampInput.size=20
 		$timestampInput.oninput=()=>{
-			bubbleCustomEvent($tool,'osmNoteViewer:changeTimestamp',$timestampInput.value)
+			bubbleCustomEvent($tool,'osmNoteViewer:timestampChange',$timestampInput.value)
 		}
-		$root.addEventListener('osmNoteViewer:changeTimestamp',ev=>{
+		$root.addEventListener('osmNoteViewer:timestampChange',ev=>{
 			if (ev.target==$tool) return
 			$timestampInput.value=ev.detail
 			this.ping($tool)
@@ -58,7 +58,7 @@ export class TimestampTool extends Tool {
 		$clearButton.textContent='Clear'
 		const $form=makeElement('form')()($timestampInput,` `,$clearButton)
 		$form.onreset=()=>{
-			bubbleCustomEvent($tool,'osmNoteViewer:changeTimestamp','')
+			bubbleCustomEvent($tool,'osmNoteViewer:timestampChange','')
 		}
 		return [$form]
 	}
@@ -72,7 +72,7 @@ export class CountTool extends Tool {
 		const $fetchedNoteCount=makeElement('output')()('0')
 		const $visibleNoteCount=makeElement('output')()('0')
 		const $selectedNoteCount=makeElement('output')()('0')
-		$root.addEventListener('osmNoteViewer:changeNoteCounts',ev=>{
+		$root.addEventListener('osmNoteViewer:noteCountsChange',ev=>{
 			const [nFetched,nVisible,nSelected]=ev.detail
 			$fetchedNoteCount.textContent=String(nFetched)
 			$visibleNoteCount.textContent=String(nVisible)
@@ -108,9 +108,9 @@ export class SettingsTool extends Tool {
 	title=`Settings`
 	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
 		const $openAllButton=makeElement('button')('open-all-tools')(`Open all tools`)
-		$openAllButton.onclick=()=>bubbleCustomEvent($tool,'osmNoteViewer:toggleTools',true)
+		$openAllButton.onclick=()=>bubbleCustomEvent($tool,'osmNoteViewer:toolsToggle',true)
 		const $closeAllButton=makeElement('button')('close-all-tools')(`Close all tools`)
-		$closeAllButton.onclick=()=>bubbleCustomEvent($tool,'osmNoteViewer:toggleTools',false)
+		$closeAllButton.onclick=()=>bubbleCustomEvent($tool,'osmNoteViewer:toolsToggle',false)
 		return [$openAllButton,` `,$closeAllButton]
 	}
 }

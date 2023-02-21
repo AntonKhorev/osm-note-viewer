@@ -7,15 +7,15 @@ export default class GlobalEventListener {
 			const $e=ev.target.closest('a.listened, time.listened')
 			if ($e instanceof HTMLAnchorElement) {
 				if ($e.dataset.noteId && $e.dataset.self) {
-					bubbleEvent($e,'osmNoteViewer:clickUpdateNoteLink')
+					bubbleEvent($e,'osmNoteViewer:updateNoteLinkClick')
 				} else if ($e.dataset.noteId) {
-					bubbleEvent($e,'osmNoteViewer:clickNoteLink')
+					bubbleEvent($e,'osmNoteViewer:noteLinkClick')
 				} else if ($e.dataset.userId) {
-					bubbleEvent($e,'osmNoteViewer:clickUserLink')
+					bubbleEvent($e,'osmNoteViewer:userLinkClick')
 				} else if ($e.dataset.elementType && $e.dataset.elementId) {
-					bubbleEvent($e,'osmNoteViewer:clickElementLink')
+					bubbleEvent($e,'osmNoteViewer:elementLinkClick')
 				} else if ($e.dataset.changesetId) {
-					bubbleEvent($e,'osmNoteViewer:clickChangesetLink')
+					bubbleEvent($e,'osmNoteViewer:changesetLinkClick')
 				} else if ($e.dataset.zoom && $e.dataset.lat && $e.dataset.lon) {
 					bubbleCustomEvent($e,'osmNoteViewer:mapMoveTrigger',{
 						zoom: $e.dataset.zoom,
@@ -31,7 +31,7 @@ export default class GlobalEventListener {
 				ev.stopPropagation()
 			} else if ($e instanceof HTMLTimeElement) {
 				if ($e.dateTime) {
-					bubbleCustomEvent($e,'osmNoteViewer:changeTimestamp',$e.dateTime)
+					bubbleCustomEvent($e,'osmNoteViewer:timestampChange',$e.dateTime)
 					ev.preventDefault()
 					ev.stopPropagation()
 				}

@@ -56,7 +56,7 @@ abstract class ExportTool extends Tool {
 			if (!ev.dataTransfer) return
 			ev.dataTransfer.setData($dataTypeSelect.value,data)
 		}
-		$root.addEventListener('osmNoteViewer:changeInputNotes',ev=>{
+		$root.addEventListener('osmNoteViewer:notesInput',ev=>{
 			const [inputNotes,inputNoteUsers]=ev.detail
 			this.inputNotes=inputNotes
 			this.inputNoteUsers=inputNoteUsers

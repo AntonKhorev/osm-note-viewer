@@ -132,7 +132,7 @@ export default class NoteMap {
 				$a.classList.remove('loading')
 			}
 		}
-		$root.addEventListener('osmNoteViewer:clickChangesetLink',ev=>{
+		$root.addEventListener('osmNoteViewer:changesetLinkClick',ev=>{
 			const $a=ev.target
 			if (!($a instanceof HTMLAnchorElement)) return
 			const changesetId=$a.dataset.changesetId
@@ -142,7 +142,7 @@ export default class NoteMap {
 				()=>downloadAndShowChangeset(changesetId)
 			)
 		})
-		$root.addEventListener('osmNoteViewer:clickElementLink',ev=>{
+		$root.addEventListener('osmNoteViewer:elementLinkClick',ev=>{
 			const $a=ev.target
 			if (!($a instanceof HTMLAnchorElement)) return
 			const elementType=$a.dataset.elementType
@@ -154,7 +154,7 @@ export default class NoteMap {
 				()=>downloadAndShowElement(elementType,elementId)
 			)
 		})
-		$root.addEventListener('osmNoteViewer:focusOnNote',ev=>{
+		$root.addEventListener('osmNoteViewer:noteFocus',ev=>{
 			const noteId=ev.detail
 			const marker=this.getNoteMarker(noteId)
 			if (!marker) return

@@ -53,7 +53,7 @@ export default class NoteFetchPanel {
 			globalHistory.hasMapHash() // when just opened a note-viewer page with map hash set - if query is set too, don't fit its result, keep the map hash
 		)
 
-		$root.addEventListener('osmNoteViewer:clickUserLink',ev=>{
+		$root.addEventListener('osmNoteViewer:userLinkClick',ev=>{
 			if (!(ev.target instanceof HTMLElement)) return
 			const query: NoteSearchQuery = {
 				mode: 'search',

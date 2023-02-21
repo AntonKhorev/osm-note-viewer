@@ -83,7 +83,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver((visibleNoteIds,isMapFittingHalted)=>{
 			map.showNoteTrack(visibleNoteIds)
 			if (!isMapFittingHalted && this.mapFitMode=='inViewNotes') map.fitNoteTrack()
-			bubbleCustomEvent(this.$table,'osmNoteViewer:observeNotesByRefresher',
+			bubbleCustomEvent(this.$table,'osmNoteViewer:notesInViewportChange',
 				visibleNoteIds.map(id=>this.notesById.get(id)).filter(isDefined)
 			)
 		})
@@ -96,12 +96,12 @@ export default class NoteTable implements NoteTableUpdater {
 			if (!parseResult) return
 			looseParserPopup.open(x,y,...parseResult)
 		})
-		$root.addEventListener('osmNoteViewer:clickNoteLink',ev=>{
+		$root.addEventListener('osmNoteViewer:noteLinkClick',ev=>{
 			const $a=ev.target
 			if (!($a instanceof HTMLAnchorElement) || !$a.dataset.noteId) return
 			this.pingNoteFromLink($a,$a.dataset.noteId)
 		})
-		$root.addEventListener('osmNoteViewer:changeMapFitMode',ev=>{
+		$root.addEventListener('osmNoteViewer:mapFitModeChange',ev=>{
 			const mapFitMode=ev.detail
 			if (mapFitMode=='allNotes') {
 				this.mapFitMode=mapFitMode
@@ -155,10 +155,10 @@ export default class NoteTable implements NoteTableUpdater {
 			}
 			setUpdateLinkTitle($noteSection,$a)
 		})
-		$root.addEventListener('osmNoteViewer:pushNoteUpdate',({detail:[note,users]})=>{
+		$root.addEventListener('osmNoteViewer:noteUpdatePush',({detail:[note,users]})=>{
 			this.replaceNote(note,users)
 		})
-		$root.addEventListener('osmNoteViewer:refreshNoteProgress',ev=>{
+		$root.addEventListener('osmNoteViewer:noteRefreshWaitProgress',ev=>{
 			const [id,progress]=ev.detail
 			const $refreshWaitProgress=this.getNoteSection(id)?.querySelector('td.note-link progress')
 			if (!($refreshWaitProgress instanceof HTMLProgressElement)) return
@@ -233,7 +233,7 @@ export default class NoteTable implements NoteTableUpdater {
 			// $checkbox.title=`shift+click to select/unselect a range`
 			$checkbox.addEventListener('click',this.wrappedNoteCheckboxClickListener)
 			this.writeNoteSection($noteSection,$checkbox,note,users,isVisible)
-			bubbleCustomEvent(this.$table,'osmNoteViewer:renderNote',note)
+			bubbleCustomEvent(this.$table,'osmNoteViewer:noteRender',note)
 		}
 		if (this.mapFitMode=='allNotes') {
 			this.map.fitNotes()
@@ -271,7 +271,7 @@ export default class NoteTable implements NoteTableUpdater {
 		setUpdateLinkTitle($noteSection,$a2)
 		if (isNoteLinkFocused) $a2.focus()
 		this.updateCheckboxDependentsAndSendNoteChangeEvents()
-		bubbleCustomEvent(this.$table,'osmNoteViewer:renderNote',note)
+		bubbleCustomEvent(this.$table,'osmNoteViewer:noteRender',note)
 	}
 	getVisibleNoteIds(): number[] {
 		const ids: number[] = []
@@ -403,7 +403,7 @@ export default class NoteTable implements NoteTableUpdater {
 			if (!$noteSection.hidden) nVisible++
 			if (isSelectedNoteSection($noteSection)) nSelected++
 		}
-		bubbleCustomEvent(this.$table,'osmNoteViewer:changeNoteCounts',[nFetched,nVisible,nSelected])
+		bubbleCustomEvent(this.$table,'osmNoteViewer:noteCountsChange',[nFetched,nVisible,nSelected])
 	}
 	private noteMarkerClickListener(marker: NoteMarker): void {
 		const $noteSection=this.getNoteSection(marker.noteId)
@@ -434,14 +434,14 @@ export default class NoteTable implements NoteTableUpdater {
 		this.noteSectionVisibilityObserver.haltMapFitting() // otherwise scrollIntoView() may ruin note pan/zoom - it may cause observer to fire after exiting this function
 		if (!isSectionClicked) $noteSection.scrollIntoView({block:'nearest'})
 		const noteId=Number($noteSection.dataset.noteId)
-		bubbleCustomEvent($noteSection,'osmNoteViewer:focusOnNote',noteId) // TODO correct target, it could be a marker
+		bubbleCustomEvent($noteSection,'osmNoteViewer:noteFocus',noteId) // TODO correct target, it could be a marker
 		if (!this.$selectAllCheckbox.checked && !this.$selectAllCheckbox.indeterminate) {
 			const noteId=Number($noteSection.dataset.noteId)
 			const note=this.notesById.get(noteId)
 			if (note) {
 				const noteUsers=new Map<number,string>()
 				this.addNoteUsersToMap(noteUsers,note)
-				bubbleCustomEvent(this.$table,'osmNoteViewer:changeInputNotes',[[note],noteUsers])
+				bubbleCustomEvent(this.$table,'osmNoteViewer:notesInput',[[note],noteUsers])
 			}
 		}
 	}
@@ -479,8 +479,8 @@ export default class NoteTable implements NoteTableUpdater {
 		const hasUnselected=nVisible>selectedNotes.length
 		this.$selectAllCheckbox.indeterminate=hasSelected && hasUnselected
 		this.$selectAllCheckbox.checked=hasSelected && !hasUnselected
-		bubbleCustomEvent(this.$table,'osmNoteViewer:changeNoteCounts',[nFetched,nVisible,selectedNotes.length])
-		bubbleCustomEvent(this.$table,'osmNoteViewer:changeInputNotes',[selectedNotes,selectedNoteUsers])
+		bubbleCustomEvent(this.$table,'osmNoteViewer:noteCountsChange',[nFetched,nVisible,selectedNotes.length])
+		bubbleCustomEvent(this.$table,'osmNoteViewer:notesInput',[selectedNotes,selectedNoteUsers])
 		if (this.mapFitMode=='selectedNotes') this.map.fitSelectedNotes()
 	}
 	private getCheckedData(): [
