@@ -164,8 +164,8 @@ export class InteractTool extends Tool {
 				bubbleEvent($a,'osmNoteViewer:changesetLinkClick')
 				return append
 			},
-			()=>`undo append`,
-			()=>`append last changeset`
+			()=>[makeElement('span')()(`undo append`)],
+			()=>[makeElement('span')()(`append last changeset`)]
 		)
 		this.$commentText.oninput=()=>{
 			this.updateButtons()

@@ -265,6 +265,12 @@
 .panel .major-input .text-controls {
 	float: right;
 }
+.panel .major-input .text-controls a span {
+	opacity: .7;
+}
+.panel .major-input .text-controls a em {
+	font-style: inherit;
+}
 .panel .text-button-input {
 	display: flex;
 	gap: .5em;

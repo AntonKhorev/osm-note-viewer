@@ -11,8 +11,8 @@ export default class TextControl<T> {
 		private canUndoInput: (textState:string)=>boolean,
 		undoInput: (textState:string)=>void,
 		doInput: (textState:string,logicState:T,$a:HTMLAnchorElement)=>string,
-		private getUndoLabel: ()=>string,
-		private getDoLabel: ()=>string
+		private getUndoLabel: ()=>(string|HTMLElement)[],
+		private getDoLabel: ()=>(string|HTMLElement)[]
 	) {
 		this.$a=makeElement('a')('input-link')()
 		this.$a.tabIndex=0
@@ -52,9 +52,9 @@ export default class TextControl<T> {
 		this.$controls.hidden=!toBeVisible
 	}
 	private updateControl(): void {
-		this.$a.textContent=(this.textState!=null && this.canUndoInput(this.textState)
+		this.$a.replaceChildren(...(this.textState!=null && this.canUndoInput(this.textState)
 			? this.getUndoLabel()
 			: this.getDoLabel()
-		)
+		))
 	}
 }

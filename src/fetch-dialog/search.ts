@@ -96,8 +96,8 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 					this.$userInput.value=username
 					return oldUsername
 				},
-				()=>`undo set username`,
-				()=>`set to ${this.auth.username}`
+				()=>[makeElement('span')()(`undo set username`)],
+				()=>[makeElement('span')()(`set to`),` `,em(String(this.auth.username))]
 			)
 			$fieldset.append(makeDiv('major-input')(userInputControl.$controls,makeLabel()(
 				`OSM username, URL or #id`,rq2('display_name','user'),` `,this.$userInput
