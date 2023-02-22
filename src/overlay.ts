@@ -5,8 +5,18 @@ import type NoteViewerDB from './db'
 import type Server from './server'
 import type ServerList from './server-list'
 import type Auth from './auth'
-import {makeElement, makeDiv, makeLink, startOrResetFadeAnimation} from './html'
+import {makeElement, makeDiv, makeLink, bubbleEvent, startOrResetFadeAnimation} from './html'
 import {p,em} from './html-shortcuts'
+
+export function makeMenuButton(): HTMLButtonElement {
+	const $button=document.createElement('button')
+	$button.classList.add('global','menu')
+	$button.innerHTML=`<svg><use href="#menu" /></svg>`
+	$button.onclick=()=>{
+		bubbleEvent($button,'osmNoteViewer:toggleMenu')
+	}
+	return $button
+}
 
 export default class OverlayDialog {
 	public $menuPanel=makeElement('div')('menu')()
@@ -23,6 +33,7 @@ export default class OverlayDialog {
 	) {
 		this.fallbackMode=((window as any).HTMLDialogElement == null)
 		this.menuHidden=!!auth
+		this.$menuButton.disabled=!auth
 		this.writeMenuPanel(storage,db,server,serverList,serverHash,auth)
 		for (const eventType of [
 			'osmNoteViewer:newNoteStream',
@@ -162,6 +173,7 @@ export default class OverlayDialog {
 	set menuHidden(value: boolean) {
 		this.$menuPanel.hidden=value
 		this.$menuButton.classList.toggle('opened',!value)
+		this.$menuButton.title=value?`Open menu`:`Close menu`
 	}
 }
 

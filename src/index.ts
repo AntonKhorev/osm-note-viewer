@@ -6,7 +6,7 @@ import GlobalEventsListener from './events'
 import GlobalHistory, {GlobalHistoryWithServer} from './history'
 import Auth, {checkAuthRedirect} from './auth'
 import NoteMap from './map'
-import OverlayDialog from './overlay'
+import OverlayDialog, {makeMenuButton} from './overlay'
 import Navbar from './navbar'
 import NoteFetchPanel from './fetch-panel'
 import NoteFilterPanel from './filter-panel'
@@ -14,7 +14,7 @@ import NoteTable from './table'
 import ToolPanel from './tool-panel'
 import fetchTableNote, {getFetchTableNoteErrorMessage} from './fetch-note'
 import {downloadAndShowChangeset, downloadAndShowElement} from './osm'
-import {bubbleCustomEvent, bubbleEvent, makeDiv} from './html'
+import {bubbleCustomEvent, makeDiv} from './html'
 import serverListConfig from './server-list-config'
 
 main()
@@ -72,8 +72,6 @@ async function main() {
 			globalHistory.getQueryHash(),globalHistory.hasMapHash(),
 			serverList.getHostHashValue(globalHistory.server)
 		)
-	} else {
-		$menuButton.disabled=true
 	}
 	
 	{
@@ -150,15 +148,4 @@ function writeBelowFetchPanel(
 	globalHistory.$resizeObservationTarget=$notesContainer
 
 	return noteTable
-}
-
-function makeMenuButton(): HTMLButtonElement {
-	const $button=document.createElement('button')
-	$button.title=`Menu`
-	$button.classList.add('global','menu')
-	$button.innerHTML=`<svg><use href="#menu" /></svg>`
-	$button.onclick=()=>{
-		bubbleEvent($button,'osmNoteViewer:toggleMenu')
-	}
-	return $button
 }
