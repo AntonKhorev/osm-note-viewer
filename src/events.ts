@@ -23,7 +23,7 @@ export default class GlobalEventListener {
 						lon: $e.dataset.lon,
 					})
 				} else if ($e.classList.contains('image')) {
-					bubbleEvent($e,'osmNoteViewer:toggleImage')
+					bubbleEvent($e,'osmNoteViewer:imageToggle')
 				} else {
 					return // don't stop event propagation
 				}

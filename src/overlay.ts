@@ -32,7 +32,7 @@ export default class OverlayDialog {
 		]) {
 			$root.addEventListener(eventType,()=>this.close())
 		}
-		$root.addEventListener('osmNoteViewer:toggleImage',ev=>{
+		$root.addEventListener('osmNoteViewer:imageToggle',ev=>{
 			if (!(ev.target instanceof HTMLAnchorElement)) return
 			this.toggleImage(ev.target.href)
 		})
