@@ -84,9 +84,9 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 			this.$userInput.name='user'
 			const userInputControl=new TextControl(
 				this.$userInput,
-				()=>this.auth.uid!=null && this.auth.username!=null,
-				(oldUsername)=>!(this.$userInput.value==this.auth.username && oldUsername==null),
-				()=>this.$userInput.value==this.auth.username,
+				()=>this.auth.username!=null,
+				()=>this.$userInput.value!=this.auth.username,
+				()=>this.$userInput.value!=this.auth.username,
 				(username)=>this.$userInput.value=username,
 				async($a)=>{
 					if (this.auth.username==null) throw new TypeError(`Undefined user when setting user search value`)
@@ -94,7 +94,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 					this.$userInput.value=this.auth.username
 					return oldUsername
 				},
-				()=>[makeElement('span')()(`undo set username`)],
+				()=>[makeElement('span')()(`undo set to`)],
 				()=>[makeElement('span')()(`set to`),` `,em(String(this.auth.username))]
 			)
 			$fieldset.append(makeDiv('major-input')(userInputControl.$controls,makeLabel()(

@@ -146,7 +146,7 @@ export class InteractTool extends Tool {
 			this.$commentText,
 			()=>this.auth.uid!=null,
 			()=>true,
-			(append)=>this.$commentText.value.endsWith(append),
+			(append)=>!this.$commentText.value.endsWith(append),
 			(append)=>this.$commentText.value=this.$commentText.value.slice(0,-append.length),
 			async($a)=>{
 				if (this.auth.uid==null) throw new TypeError(`Undefined user id when getting last changeset`)
