@@ -4,6 +4,7 @@ import type {Note} from '../data'
 import {noteStatuses} from '../data'
 import {readNoteResponse, NoteDataError} from '../fetch-note'
 import {makeHrefWithCurrentHost} from '../hash'
+import TextControl from '../text-control'
 import {makeElement, makeDiv, makeLabel, makeLink, bubbleEvent, bubbleCustomEvent} from '../html'
 import {p,ul,li,code} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
@@ -142,51 +143,33 @@ export class InteractTool extends Tool {
 		`If you've hidden a note and want to see it, look for it at `,this.$yourNotesWeb,` on the OSM website.`
 	)]}
 	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
-		let lastAppend: string|undefined
-		const $appendLastChangeset=makeElement('a')('input-link')()
-		$appendLastChangeset.tabIndex=0
-		const canUndoAppend=(append: string|undefined):append is string=>append!=null && this.$commentText.value.endsWith(append)
-		const updateAppendLastChangeset=()=>{
-			$appendLastChangeset.textContent=(canUndoAppend(lastAppend)
-				? `undo append`
-				: `append last changeset`
-			)
-		}
-		updateAppendLastChangeset()
-		$appendLastChangeset.onclick=async()=>{
-			if (canUndoAppend(lastAppend)) {
-				this.$commentText.value=this.$commentText.value.slice(0,-lastAppend.length)
-				lastAppend=undefined
-				updateAppendLastChangeset()
-			} else {
-				if (this.auth.uid==null) return
-				try {
-					const response=await this.auth.server.api.fetch(e`changesets.json?user=${this.auth.uid}`)
-					const data=await response.json()
-					const changesetId=getLatestChangesetId(data)
-					lastAppend=getParagraphAppend(
-						this.$commentText.value,
-						this.auth.server.web.getUrl(e`changeset/${changesetId}`)
-					)
-					this.$commentText.value+=lastAppend
-					$appendLastChangeset.dataset.changesetId=String(changesetId)
-					bubbleEvent($appendLastChangeset,'osmNoteViewer:changesetLinkClick')
-				} finally {
-					updateAppendLastChangeset()
-				}
-			}
-		}
-		$appendLastChangeset.onkeydown=ev=>{
-			if (ev.key!='Enter') return
-			$appendLastChangeset.click()
-			ev.preventDefault()
-			ev.stopPropagation()
-		}
+		const appendLastChangeset=new TextControl(
+			(append)=>this.$commentText.value.endsWith(append),
+			(append)=>this.$commentText.value=this.$commentText.value.slice(0,-append.length),
+			(append,changesetId,$a)=>{
+				this.$commentText.value+=append
+				$a.dataset.changesetId=String(changesetId)
+				bubbleEvent($a,'osmNoteViewer:changesetLinkClick')
+			},
+			async()=>{
+				if (this.auth.uid==null) throw new TypeError(`Undefined user id when getting last changeset`)
+				const response=await this.auth.server.api.fetch(e`changesets.json?user=${this.auth.uid}`)
+				const data=await response.json()
+				const changesetId=getLatestChangesetId(data)
+				const append=getParagraphAppend(
+					this.$commentText.value,
+					this.auth.server.web.getUrl(e`changeset/${changesetId}`)
+				)
+				return [append,changesetId]
+			},
+			()=>`undo append`,
+			()=>`append last changeset`
+		)
 		this.$commentAppendControls.append(
-			$appendLastChangeset
+			appendLastChangeset.$a
 		)
 		this.$commentText.oninput=()=>{
-			updateAppendLastChangeset()
+			appendLastChangeset.update()
 			this.updateButtons()
 		}
 		const scheduleRunNextNote=this.makeRunScheduler($tool)
