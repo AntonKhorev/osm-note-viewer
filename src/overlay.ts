@@ -18,10 +18,11 @@ export default class OverlayDialog {
 		storage: NoteViewerStorage, db: NoteViewerDB,
 		server: Server|undefined, serverList: ServerList, serverHash: string,
 		auth: Auth|undefined,
-		private $mapContainer: HTMLElement
+		private $mapContainer: HTMLElement,
+		private $menuButton: HTMLButtonElement
 	) {
 		this.fallbackMode=((window as any).HTMLDialogElement == null)
-		this.$menuPanel.hidden=!!auth
+		this.menuHidden=!!auth
 		this.writeMenuPanel(storage,db,server,serverList,serverHash,auth)
 		for (const eventType of [
 			'osmNoteViewer:newNoteStream',
@@ -38,13 +39,13 @@ export default class OverlayDialog {
 		})
 		$root.addEventListener('osmNoteViewer:toggleMenu',()=>{
 			if (this.url!=null) this.close()
-			this.$menuPanel.hidden=!this.$menuPanel.hidden
-			this.$mapContainer.hidden=!this.$menuPanel.hidden
+			this.menuHidden=!this.menuHidden
+			this.$mapContainer.hidden=!this.menuHidden
 		})
 	}
 	private close(): void {
 		this.$mapContainer.hidden=false
-		this.$menuPanel.hidden=true
+		this.menuHidden=true
 		if (this.fallbackMode) {
 			return
 		}
@@ -56,7 +57,7 @@ export default class OverlayDialog {
 			open(url,'photo')
 			return
 		}
-		this.$menuPanel.hidden=true
+		this.menuHidden=true
 		this.$figureDialog.innerHTML=''
 		if (url==this.url) {
 			this.close()
@@ -154,6 +155,13 @@ export default class OverlayDialog {
 		}
 		$scrolling.append(makeExtraSubsection())
 		this.$menuPanel.append($lead,$scrolling)
+	}
+	get menuHidden() {
+		return this.$menuPanel.hidden
+	}
+	set menuHidden(value: boolean) {
+		this.$menuPanel.hidden=value
+		this.$menuButton.classList.toggle('opened',!value)
 	}
 }
 

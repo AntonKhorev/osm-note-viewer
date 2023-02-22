@@ -80,8 +80,8 @@ async function main() {
 		const overlayDialog=new OverlayDialog(
 			$root,
 			storage,db,
-			globalHistory.server,serverList,globalHistory.serverHash,
-			auth,$mapContainer
+			globalHistory.server,serverList,globalHistory.serverHash,auth,
+			$mapContainer,$menuButton
 		)
 		$graphicSide.append(
 			overlayDialog.$menuPanel,
