@@ -7,10 +7,10 @@ export default class TextControl<T> {
 	constructor(
 		$input: HTMLInputElement|HTMLTextAreaElement,
 		private isVisible: ()=>boolean,
+		getState: ()=>Promise<[textState:string,logicState:T]>,
 		private canUndoInput: (textState:string)=>boolean,
 		undoInput: (textState:string)=>void,
-		doInput: (textState:string,logicState:T,$a:HTMLAnchorElement)=>void,
-		getState: ()=>Promise<[textState:string,logicState:T]>,
+		doInput: (textState:string,logicState:T,$a:HTMLAnchorElement)=>string,
 		private getUndoLabel: ()=>string,
 		private getDoLabel: ()=>string
 	) {
@@ -24,8 +24,7 @@ export default class TextControl<T> {
 			} else {
 				try {
 					const [textState,logicState]=await getState()
-					doInput(textState,logicState,this.$a)
-					this.textState=textState
+					this.textState=doInput(textState,logicState,this.$a)
 					this.updateControl()
 				} catch {}
 			}

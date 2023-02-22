@@ -3,7 +3,8 @@ import type {NoteQuery} from '../query'
 import {makeNoteSearchQueryFromValues} from '../query'
 import {toUserQuery} from '../query-user'
 import {toDateQuery, toReadableDate} from '../query-date'
-import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
+import TextControl from '../text-control'
+import {makeElement, makeLink, makeDiv, makeLabel, bubbleEvent} from '../html'
 import {p,em,code} from '../html-shortcuts'
 
 const rq=(param: string)=>makeElement('span')('advanced-hint')(` (`,code(param),` parameter)`)
@@ -12,7 +13,6 @@ const rq2=(param1: string, param2: string)=>makeElement('span')('advanced-hint')
 export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDialog) {
 	shortTitle=`Search`
 	title=`Search notes for user / text / date range`
-	private $userInputControls=makeDiv('text-controls')()
 	protected $userInput=document.createElement('input')
 	protected $textInput=document.createElement('input')
 	protected $fromInput=document.createElement('input')
@@ -82,10 +82,29 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 		{
 			this.$userInput.type='text'
 			this.$userInput.name='user'
-			$fieldset.append(makeDiv('major-input')(this.$userInputControls,makeLabel()(
+			const userInputControl=new TextControl(
+				this.$userInput,
+				()=>this.auth.uid!=null && this.auth.username!=null,
+				async()=>{
+					if (this.auth.uid==null || this.auth.username==null) throw new TypeError(`Undefined user when setting user search value`)
+					return [this.auth.username,this.auth.uid]
+				},
+				(username)=>this.$userInput.value==this.auth.username,
+				(username)=>this.$userInput.value=username,
+				(username,uid,$a)=>{
+					const oldUsername=this.$userInput.value
+					this.$userInput.value=username
+					return oldUsername
+				},
+				()=>`undo set username`,
+				()=>`set to ${this.auth.username}`
+			)
+			$fieldset.append(makeDiv('major-input')(userInputControl.$controls,makeLabel()(
 				`OSM username, URL or #id`,rq2('display_name','user'),` `,this.$userInput
 			)))
-			this.updateLoginDependents()
+			this.$root.addEventListener('osmNoteViewer:loginChange',()=>{
+				userInputControl.update()
+			})
 		}{
 			this.$textInput.type='text'
 			this.$textInput.name='text'
@@ -151,9 +170,6 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 		this.$orderSelect.value=query?.order ?? 'newest'
 	}
 	protected addEventListenersBeforeClosedLine(): void {
-		this.$root.addEventListener('osmNoteViewer:loginChange',()=>{
-			this.updateLoginDependents()
-		})
 		this.$userInput.addEventListener('input',()=>{
 			const userQuery=toUserQuery(this.auth.server,this.$userInput.value)
 			if (userQuery.userType=='invalid') {
@@ -183,14 +199,5 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 			this.$userInput,this.$textInput,this.$fromInput,this.$toInput,
 			this.$closedInput,this.$closedSelect,this.$sortSelect,this.$orderSelect
 		]
-	}
-	private updateLoginDependents() {
-		this.$userInputControls.hidden=this.auth.uid==null || this.auth.username==null
-		this.$userInputControls.replaceChildren()
-		if (this.auth.uid!=null && this.auth.username!=null) {
-			this.$userInputControls.append(
-				`set to `,this.auth.server.web.makeUserLink(this.auth.uid,this.auth.username)
-			)
-		}
 	}
 }
