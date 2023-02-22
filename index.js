@@ -307,6 +307,88 @@ function writeUsers(userStore, fetchTimestamp, users) {
     }
 }
 
+function makeLink(text, href, title) {
+    const $link = document.createElement('a');
+    $link.href = href;
+    $link.textContent = text;
+    if (title != null)
+        $link.title = title;
+    return $link;
+}
+function makeElement(tag) {
+    return (...classes) => (...items) => {
+        const $element = document.createElement(tag);
+        if (classes.length > 0)
+            $element.classList.add(...classes);
+        $element.append(...items);
+        return $element;
+    };
+}
+const makeDiv = makeElement('div');
+const makeLabel = makeElement('label');
+function startOrResetFadeAnimation($element, animationName, animationClass) {
+    if ($element.classList.contains(animationClass)) {
+        resetFadeAnimation($element, animationName);
+    }
+    else {
+        $element.classList.add(animationClass);
+    }
+}
+function resetFadeAnimation($element, animationName) {
+    const animation = getFadeAnimation($element, animationName);
+    if (!animation)
+        return;
+    animation.currentTime = 0;
+}
+function getFadeAnimation($element, animationName) {
+    if (typeof CSSAnimation == 'undefined')
+        return; // experimental technology, implemented in latest browser versions
+    for (const animation of $element.getAnimations()) {
+        if (!(animation instanceof CSSAnimation))
+            continue;
+        if (animation.animationName == animationName)
+            return animation;
+    }
+}
+async function wrapFetch($actionButton, action, getErrorMessage, $errorClassReceiver, writeErrorMessage) {
+    try {
+        $actionButton.disabled = true;
+        $errorClassReceiver.classList.remove('error');
+        writeErrorMessage('');
+        await action();
+    }
+    catch (ex) {
+        $errorClassReceiver.classList.add('error');
+        writeErrorMessage(getErrorMessage(ex));
+    }
+    finally {
+        $actionButton.disabled = false;
+    }
+}
+function wrapFetchForButton($actionButton, action, getErrorMessage) {
+    return wrapFetch($actionButton, action, getErrorMessage, $actionButton, message => $actionButton.title = message);
+}
+function makeGetKnownErrorMessage(KnownError // KnownError: typeof TypeError,
+) {
+    return (ex) => {
+        if (ex instanceof TypeError && ex instanceof KnownError) {
+            return ex.message;
+        }
+        else {
+            return `Unknown error ${ex}`;
+        }
+    };
+}
+function bubbleEvent($target, type) {
+    return $target.dispatchEvent(new Event(type, { bubbles: true }));
+}
+function bubbleCustomEvent($target, type, detail) {
+    return $target.dispatchEvent(new CustomEvent(type, {
+        bubbles: true,
+        detail
+    }));
+}
+
 function escapeRegex(text) {
     return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 }
@@ -410,6 +492,14 @@ class WebProvider extends OsmProvider {
     }
     getUrl(path) {
         return `${this.urls[0]}${path}`;
+    }
+    makeUserLink(uid, username) {
+        const href = this.getUrl(`user/` + encodeURIComponent(username));
+        const $a = makeLink(username, href);
+        $a.classList.add('listened');
+        $a.dataset.userName = username;
+        $a.dataset.userId = String(uid);
+        return $a;
     }
 }
 class ApiProvider extends OsmProvider {
@@ -756,88 +846,6 @@ class ServerList {
     }
 }
 
-function makeLink(text, href, title) {
-    const $link = document.createElement('a');
-    $link.href = href;
-    $link.textContent = text;
-    if (title != null)
-        $link.title = title;
-    return $link;
-}
-function makeElement(tag) {
-    return (...classes) => (...items) => {
-        const $element = document.createElement(tag);
-        if (classes.length > 0)
-            $element.classList.add(...classes);
-        $element.append(...items);
-        return $element;
-    };
-}
-const makeDiv = makeElement('div');
-const makeLabel = makeElement('label');
-function startOrResetFadeAnimation($element, animationName, animationClass) {
-    if ($element.classList.contains(animationClass)) {
-        resetFadeAnimation($element, animationName);
-    }
-    else {
-        $element.classList.add(animationClass);
-    }
-}
-function resetFadeAnimation($element, animationName) {
-    const animation = getFadeAnimation($element, animationName);
-    if (!animation)
-        return;
-    animation.currentTime = 0;
-}
-function getFadeAnimation($element, animationName) {
-    if (typeof CSSAnimation == 'undefined')
-        return; // experimental technology, implemented in latest browser versions
-    for (const animation of $element.getAnimations()) {
-        if (!(animation instanceof CSSAnimation))
-            continue;
-        if (animation.animationName == animationName)
-            return animation;
-    }
-}
-async function wrapFetch($actionButton, action, getErrorMessage, $errorClassReceiver, writeErrorMessage) {
-    try {
-        $actionButton.disabled = true;
-        $errorClassReceiver.classList.remove('error');
-        writeErrorMessage('');
-        await action();
-    }
-    catch (ex) {
-        $errorClassReceiver.classList.add('error');
-        writeErrorMessage(getErrorMessage(ex));
-    }
-    finally {
-        $actionButton.disabled = false;
-    }
-}
-function wrapFetchForButton($actionButton, action, getErrorMessage) {
-    return wrapFetch($actionButton, action, getErrorMessage, $actionButton, message => $actionButton.title = message);
-}
-function makeGetKnownErrorMessage(KnownError // KnownError: typeof TypeError,
-) {
-    return (ex) => {
-        if (ex instanceof TypeError && ex instanceof KnownError) {
-            return ex.message;
-        }
-        else {
-            return `Unknown error ${ex}`;
-        }
-    };
-}
-function bubbleEvent($target, type) {
-    return $target.dispatchEvent(new Event(type, { bubbles: true }));
-}
-function bubbleCustomEvent($target, type, detail) {
-    return $target.dispatchEvent(new CustomEvent(type, {
-        bubbles: true,
-        detail
-    }));
-}
-
 class GlobalEventListener {
     constructor() {
         document.body.addEventListener('click', ev => {
@@ -846,25 +854,29 @@ class GlobalEventListener {
             const $e = ev.target.closest('a.listened, time.listened');
             if ($e instanceof HTMLAnchorElement) {
                 if ($e.dataset.noteId && $e.dataset.self) {
-                    bubbleEvent($e, 'osmNoteViewer:clickUpdateNoteLink');
+                    bubbleEvent($e, 'osmNoteViewer:updateNoteLinkClick');
                 }
                 else if ($e.dataset.noteId) {
-                    bubbleEvent($e, 'osmNoteViewer:clickNoteLink');
+                    bubbleEvent($e, 'osmNoteViewer:noteLinkClick');
                 }
                 else if ($e.dataset.userId) {
-                    bubbleEvent($e, 'osmNoteViewer:clickUserLink');
+                    bubbleEvent($e, 'osmNoteViewer:userLinkClick');
                 }
                 else if ($e.dataset.elementType && $e.dataset.elementId) {
-                    bubbleEvent($e, 'osmNoteViewer:clickElementLink');
+                    bubbleEvent($e, 'osmNoteViewer:elementLinkClick');
                 }
                 else if ($e.dataset.changesetId) {
-                    bubbleEvent($e, 'osmNoteViewer:clickChangesetLink');
+                    bubbleEvent($e, 'osmNoteViewer:changesetLinkClick');
                 }
                 else if ($e.dataset.zoom && $e.dataset.lat && $e.dataset.lon) {
-                    bubbleEvent($e, 'osmNoteViewer:clickMapLink');
+                    bubbleCustomEvent($e, 'osmNoteViewer:mapMoveTrigger', {
+                        zoom: $e.dataset.zoom,
+                        lat: $e.dataset.lat,
+                        lon: $e.dataset.lon,
+                    });
                 }
                 else if ($e.classList.contains('image')) {
-                    bubbleEvent($e, 'osmNoteViewer:toggleImage');
+                    bubbleEvent($e, 'osmNoteViewer:imageToggle');
                 }
                 else {
                     return; // don't stop event propagation
@@ -874,7 +886,7 @@ class GlobalEventListener {
             }
             else if ($e instanceof HTMLTimeElement) {
                 if ($e.dateTime) {
-                    bubbleCustomEvent($e, 'osmNoteViewer:changeTimestamp', $e.dateTime);
+                    bubbleCustomEvent($e, 'osmNoteViewer:timestampChange', $e.dateTime);
                     ev.preventDefault();
                     ev.stopPropagation();
                 }
@@ -911,7 +923,8 @@ function makeHrefWithCurrentHost(parameters) {
 }
 
 class GlobalHistory {
-    constructor($scrollingPart, serverList) {
+    constructor($root, $scrollingPart, serverList) {
+        this.$root = $root;
         this.$scrollingPart = $scrollingPart;
         this.serverList = serverList;
         this.rememberScrollPosition = false;
@@ -948,17 +961,46 @@ class GlobalHistory {
                 location.reload();
                 return;
             }
-            if (this.onMapHashChange && mapHashValue) {
+            if (mapHashValue) {
                 this.onMapHashChange(mapHashValue);
             }
-            if (this.onQueryHashChange) {
-                this.onQueryHashChange(queryHash); // TODO don't run if only map hash changed? or don't zoom to notes if map hash present?
+            // TODO don't run stuff below if only map hash changed? or don't zoom to notes if map hash present?
+            bubbleCustomEvent($root, 'osmNoteViewer:queryHashChange', queryHash);
+            this.restoreScrollPosition();
+        });
+        $root.addEventListener('osmNoteViewer:mapMoveEnd', ({ detail: { zoom, lat, lon } }) => {
+            const mapHashValue = `${zoom}/${lat}/${lon}`;
+            const searchParams = getHashSearchParams();
+            searchParams.delete('map');
+            const hostHashValue = searchParams.get('host');
+            searchParams.delete('host');
+            const queryHash = searchParams.toString();
+            history.replaceState(history.state, '', this.getFullHash(queryHash, mapHashValue, hostHashValue));
+        });
+        $root.addEventListener('osmNoteViewer:newNoteStream', ({ detail: [queryHash, isNewStart] }) => {
+            if (!this.server)
+                return;
+            let mapHashValue = '';
+            if (!isNewStart) {
+                const searchParams = getHashSearchParams();
+                mapHashValue = searchParams.get('map') ?? '';
+            }
+            const hostHashValue = this.serverList.getHostHashValue(this.server);
+            const fullHash = this.getFullHash(queryHash, mapHashValue, hostHashValue);
+            if (fullHash != location.hash) {
+                const url = fullHash || location.pathname + location.search;
+                if (isNewStart) {
+                    history.replaceState(history.state, '', url);
+                }
+                else {
+                    history.replaceState(history.state, '', url);
+                }
             }
         });
     }
     triggerInitialMapHashChange() {
         const [, mapHashValue] = this.getAllHashes();
-        if (this.onMapHashChange && mapHashValue) {
+        if (mapHashValue) {
             this.onMapHashChange(mapHashValue);
         }
     }
@@ -998,38 +1040,10 @@ class GlobalHistory {
     getQueryHash() {
         return this.getAllHashes()[0];
     }
-    setQueryHash(queryHash, pushStateAndRemoveMapHash) {
-        if (!this.server)
-            return;
-        let mapHashValue = '';
-        if (!pushStateAndRemoveMapHash) {
-            const searchParams = getHashSearchParams();
-            mapHashValue = searchParams.get('map') ?? '';
-        }
-        const hostHashValue = this.serverList.getHostHashValue(this.server);
-        const fullHash = this.getFullHash(queryHash, mapHashValue, hostHashValue);
-        if (fullHash != location.hash) {
-            const url = fullHash || location.pathname + location.search;
-            if (pushStateAndRemoveMapHash) {
-                history.pushState(null, '', url);
-            }
-            else {
-                history.replaceState(null, '', url);
-            }
-        }
-    }
     hasMapHash() {
         const searchParams = getHashSearchParams();
         const mapHashValue = searchParams.get('map');
         return !!mapHashValue;
-    }
-    setMapHash(mapHash) {
-        const searchParams = getHashSearchParams();
-        searchParams.delete('map');
-        const hostHash = searchParams.get('host');
-        searchParams.delete('host');
-        const queryHash = searchParams.toString();
-        history.replaceState(null, '', this.getFullHash(queryHash, mapHash, hostHash));
     }
     hasServer() {
         return !!this.server;
@@ -1058,6 +1072,12 @@ class GlobalHistory {
         if (fullHash)
             fullHash = '#' + fullHash;
         return fullHash;
+    }
+    onMapHashChange(mapHashValue) {
+        const [zoom, lat, lon] = mapHashValue.split('/');
+        if (zoom && lat && lon) {
+            bubbleCustomEvent(this.$root, 'osmNoteViewer:mapMoveTrigger', { zoom, lat, lon });
+        }
     }
 }
 
@@ -1509,7 +1529,7 @@ class AuthLoginSection {
         };
         const switchToToken = (token) => {
             authStorage.token = token;
-            bubbleEvent($section, 'osmNoteViewer:changeLogin');
+            bubbleEvent($section, 'osmNoteViewer:loginChange');
         };
         const updateInResponseToLogin = () => {
             const logins = authStorage.getLogins();
@@ -1675,7 +1695,7 @@ class Auth {
     }
 }
 
-const e$7 = makeEscapeTag(escapeXml);
+const e$8 = makeEscapeTag(escapeXml);
 class NoteMarker extends L.Marker {
     constructor(note) {
         const icon = getNoteMarkerIcon(note, false);
@@ -1697,16 +1717,16 @@ function getNoteMarkerIcon(note, isSelected) {
     const rWithAura = widthWithAura / 2;
     const nInnerCircles = 4;
     let html = ``;
-    html += e$7 `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`;
-    html += e$7 `<title>${note.status} note #${note.id}</title>`,
-        html += e$7 `<path d="${computeMarkerOutlinePath(heightWithAura - .5, rWithAura - .5)}" class="aura" fill="none" />`;
-    html += e$7 `<path d="${computeMarkerOutlinePath(height, r)}" fill="${getStatusColor(note.status)}" />`;
+    html += e$8 `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`;
+    html += e$8 `<title>${note.status} note #${note.id}</title>`,
+        html += e$8 `<path d="${computeMarkerOutlinePath(heightWithAura - .5, rWithAura - .5)}" class="aura" fill="none" />`;
+    html += e$8 `<path d="${computeMarkerOutlinePath(height, r)}" fill="${getStatusColor(note.status)}" />`;
     const statuses = [...noteCommentsToStatuses(note.comments)];
     html += drawStateCircles(r, nInnerCircles, statuses.slice(-nInnerCircles, -1));
     if (isSelected) {
         html += drawCheckMark();
     }
-    html += e$7 `</svg>`;
+    html += e$8 `</svg>`;
     return L.divIcon({
         html,
         className: 'note-marker',
@@ -1728,7 +1748,7 @@ function getNoteMarkerIcon(note, isSelected) {
             if (i >= statusesToDraw.length)
                 continue;
             const cr = dcr * (i + 1);
-            html += e$7 `<circle r="${cr}" fill="${color()}" stroke="white" />`;
+            html += e$8 `<circle r="${cr}" fill="${color()}" stroke="white" />`;
             function color() {
                 if (i == 0 && statuses.length <= nInnerCircles)
                     return 'white';
@@ -1740,8 +1760,8 @@ function getNoteMarkerIcon(note, isSelected) {
     function drawCheckMark() {
         const path = `M-${r / 4},0 L0,${r / 4} L${r / 2},-${r / 4}`;
         let html = ``;
-        html += e$7 `<path d="${path}" fill="none" stroke-width="6" stroke-linecap="round" stroke="blue" />`;
-        html += e$7 `<path d="${path}" fill="none" stroke-width="2" stroke-linecap="round" stroke="white" />`;
+        html += e$8 `<path d="${path}" fill="none" stroke-width="6" stroke-linecap="round" stroke="blue" />`;
+        html += e$8 `<path d="${path}" fill="none" stroke-width="2" stroke-linecap="round" stroke="white" />`;
         return html;
     }
     function getStatusColor(status) {
@@ -1772,7 +1792,7 @@ function* noteCommentsToStatuses(comments) {
     }
 }
 
-const e$6 = makeEscapeTag(escapeXml);
+const e$7 = makeEscapeTag(escapeXml);
 class NoteMapBounds {
     constructor(bounds, precision) {
         this.w = bounds.getWest().toFixed(precision);
@@ -1809,7 +1829,7 @@ class NoteMap {
         })).addControl(L.control.scale({
             position: 'bottomleft'
         })).addLayer(L.tileLayer(tile.urlTemplate, {
-            attribution: e$6 `© <a href="${tile.attributionUrl}">${tile.attributionText}</a>`,
+            attribution: e$7 `© <a href="${tile.attributionUrl}">${tile.attributionText}</a>`,
             maxZoom: tile.maxZoom
         })).fitWorld();
         this.elementLayer = L.featureGroup().addTo(this.leafletMap);
@@ -1826,7 +1846,13 @@ class NoteMap {
         layersControl.addOverlay(this.trackLayer, `Track between notes`);
         layersControl.addOverlay(crosshairLayer, `Crosshair`);
         layersControl.addTo(this.leafletMap);
-        this.onMoveEnd(() => {
+        this.leafletMap.on('moveend', () => {
+            const precision = this.precision;
+            bubbleCustomEvent($container, 'osmNoteViewer:mapMoveEnd', {
+                zoom: this.zoom.toFixed(0),
+                lat: this.lat.toFixed(precision),
+                lon: this.lon.toFixed(precision),
+            });
             if (!this.queuedPopup)
                 return;
             const [layerId, popupWriter] = this.queuedPopup;
@@ -1840,11 +1866,8 @@ class NoteMap {
                 geometry.bindPopup(popup);
             }
         });
-        $root.addEventListener('osmNoteViewer:clickMapLink', ev => {
-            const $e = ev.target;
-            if (!($e instanceof HTMLElement))
-                return;
-            this.panAndZoomTo([Number($e.dataset.lat), Number($e.dataset.lon)], Number($e.dataset.zoom));
+        $root.addEventListener('osmNoteViewer:mapMoveTrigger', ({ detail: { zoom, lat, lon } }) => {
+            this.panAndZoomTo([Number(lat), Number(lon)], Number(zoom));
         });
         const handleOsmDownloadAndLink = async ($a, download) => {
             $a.classList.add('loading');
@@ -1869,7 +1892,7 @@ class NoteMap {
                 $a.classList.remove('loading');
             }
         };
-        $root.addEventListener('osmNoteViewer:clickChangesetLink', ev => {
+        $root.addEventListener('osmNoteViewer:changesetLinkClick', ev => {
             const $a = ev.target;
             if (!($a instanceof HTMLAnchorElement))
                 return;
@@ -1878,7 +1901,7 @@ class NoteMap {
                 return;
             handleOsmDownloadAndLink($a, () => downloadAndShowChangeset(changesetId));
         });
-        $root.addEventListener('osmNoteViewer:clickElementLink', ev => {
+        $root.addEventListener('osmNoteViewer:elementLinkClick', ev => {
             const $a = ev.target;
             if (!($a instanceof HTMLAnchorElement))
                 return;
@@ -1890,7 +1913,7 @@ class NoteMap {
                 return;
             handleOsmDownloadAndLink($a, () => downloadAndShowElement(elementType, elementId));
         });
-        $root.addEventListener('osmNoteViewer:focusOnNote', ev => {
+        $root.addEventListener('osmNoteViewer:noteFocus', ev => {
             const noteId = ev.detail;
             const marker = this.getNoteMarker(noteId);
             if (!marker)
@@ -2092,18 +2115,11 @@ class NoteMap {
     get lon() {
         return this.leafletMap.getCenter().lng;
     }
-    get hash() {
-        const precision = this.precision;
-        return `${this.zoom.toFixed(0)}/${this.lat.toFixed(precision)}/${this.lon.toFixed(precision)}`;
-    }
     get bounds() {
         return this.leafletMap.getBounds();
     }
     get precisionBounds() {
         return new NoteMapBounds(this.bounds, this.precision);
-    }
-    onMoveEnd(fn) {
-        this.leafletMap.on('moveend', fn);
     }
     fitBoundsIfNotFrozen(bounds) {
         if (this.freezeMode == 'full')
@@ -2632,15 +2648,15 @@ class OverlayDialog {
         this.$menuPanel.hidden = !!auth;
         this.writeMenuPanel(storage, db, server, serverList, serverHash, auth);
         for (const eventType of [
-            'osmNoteViewer:newFetch',
-            'osmNoteViewer:clickMapLink',
-            'osmNoteViewer:clickElementLink',
-            'osmNoteViewer:clickChangesetLink',
-            'osmNoteViewer:focusOnNote'
+            'osmNoteViewer:newNoteStream',
+            'osmNoteViewer:mapMoveTrigger',
+            'osmNoteViewer:elementLinkClick',
+            'osmNoteViewer:changesetLinkClick',
+            'osmNoteViewer:noteFocus'
         ]) {
             $root.addEventListener(eventType, () => this.close());
         }
-        $root.addEventListener('osmNoteViewer:toggleImage', ev => {
+        $root.addEventListener('osmNoteViewer:imageToggle', ev => {
             if (!(ev.target instanceof HTMLAnchorElement))
                 return;
             this.toggleImage(ev.target.href);
@@ -2764,7 +2780,7 @@ function makeExtraSubsection() {
     return makeElement('section')()(makeElement('h2')()(`Extra information`), p(`Notes implementation code: `, makeLink(`notes api controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`), ` (db search query is build there), `, makeLink(`notes controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/notes_controller.rb`), ` (paginated user notes query is build there), `, makeLink(`note model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note.rb`), `, `, makeLink(`note comment model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note_comment.rb`), ` in `, makeLink(`openstreetmap-website`, `https://wiki.openstreetmap.org/wiki/Openstreetmap-website`), ` (not implemented in `, makeLink(`CGIMap`, `https://wiki.openstreetmap.org/wiki/Cgimap`), `)`), p(`OAuth 2.0: `, makeLink(`main RFC`, `https://www.rfc-editor.org/rfc/rfc6749`), `, `, makeLink(`token revocation RFC`, `https://www.rfc-editor.org/rfc/rfc7009`), ` (logouts), `, makeLink(`proof key RFC`, `https://www.rfc-editor.org/rfc/rfc7636`), `, `, makeLink(`Doorkeeper`, `https://github.com/doorkeeper-gem/doorkeeper`), ` (OAuth implementation used in `, em(`openstreetmap-website`), `), `, makeLink(`OSM wiki`, `https://wiki.openstreetmap.org/wiki/OAuth`)), p(`Other documentation: `, makeLink(`Overpass queries`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`), `, `, makeLink(`Puppeteer`, `https://pptr.dev/`), ` (in-browser testing)`));
 }
 
-const e$5 = makeEscapeTag(escapeXml);
+const e$6 = makeEscapeTag(escapeXml);
 class NavDialog {
     constructor() {
         this.$section = document.createElement('section');
@@ -2888,7 +2904,7 @@ function makeButton(id, title, listener) {
     $button.tabIndex = -1;
     $button.title = title;
     $button.classList.add('global', id);
-    $button.innerHTML = e$5 `<svg><use href="#${id}" /></svg>`;
+    $button.innerHTML = e$6 `<svg><use href="#${id}" /></svg>`;
     $button.onclick = listener;
     return $button;
 }
@@ -3398,7 +3414,7 @@ function getNoteUpdateDate(note) {
     return note.comments[note.comments.length - 1]?.date ?? 0;
 }
 
-const e$4 = makeEscapeTag(encodeURIComponent);
+const e$5 = makeEscapeTag(encodeURIComponent);
 const maxSingleAutoLoadLimit = 200;
 const maxTotalAutoLoadLimit = 1000;
 const maxFullyFilteredFetches = 10;
@@ -3437,10 +3453,10 @@ class NoteBboxFetcherRequest extends NoteFetcherRequest {
     getRequestUrlPathAndParameters(query, limit) {
         if (query.mode != 'bbox')
             return;
-        return ['', this.getRequestUrlParametersWithoutLimit(query) + e$4 `&limit=${limit}`];
+        return ['', this.getRequestUrlParametersWithoutLimit(query) + e$5 `&limit=${limit}`];
     }
     getRequestUrlParametersWithoutLimit(query) {
-        return e$4 `bbox=${query.bbox}&closed=${query.closed}`;
+        return e$5 `bbox=${query.bbox}&closed=${query.closed}`;
     }
 }
 class NoteIdsFetcherRequest extends NoteFetcherRequest {
@@ -3720,7 +3736,7 @@ class NoteBboxFetcherRun extends NoteFeatureCollectionFetcherRun {
     }
     getCycleFetchDetails(limit) {
         const parametersWithoutLimit = this.request.getRequestUrlParametersWithoutLimit(this.query);
-        const pathAndParameters = ['', parametersWithoutLimit + e$4 `&limit=${limit}`];
+        const pathAndParameters = ['', parametersWithoutLimit + e$5 `&limit=${limit}`];
         return {
             pathAndParametersList: [pathAndParameters],
             limit
@@ -3828,10 +3844,11 @@ function rewriteFetchErrorMessage($container, query, responseKindText, fetchErro
 }
 
 class NoteFetchDialog extends NavDialog {
-    constructor($sharedCheckboxes, server, getRequestApiPaths, submitQuery) {
+    constructor($root, $sharedCheckboxes, auth, getRequestApiPaths, submitQuery) {
         super();
+        this.$root = $root;
         this.$sharedCheckboxes = $sharedCheckboxes;
-        this.server = server;
+        this.auth = auth;
         this.getRequestApiPaths = getRequestApiPaths;
         this.submitQuery = submitQuery;
         this.$form = document.createElement('form');
@@ -3895,7 +3912,7 @@ class NoteFetchDialog extends NavDialog {
             return;
         }
         const [[mainType, mainApiPath], ...otherRequestApiPaths] = requestApiPaths;
-        const mainUrl = this.server.api.getUrl(mainApiPath);
+        const mainUrl = this.auth.server.api.getUrl(mainApiPath);
         const $a = makeLink(mainUrl, mainUrl);
         $a.classList.add('request');
         this.$requestOutput.replaceChildren(code($a), ` in ${mainType} format`);
@@ -3911,7 +3928,7 @@ class NoteFetchDialog extends NavDialog {
             else {
                 this.$requestOutput.append(`, `);
             }
-            const url = this.server.api.getUrl(apiPath);
+            const url = this.auth.server.api.getUrl(apiPath);
             this.$requestOutput.append(code(makeLink(type, url)));
             appendLinkIfKnown(type);
         }
@@ -4149,6 +4166,60 @@ function restrictClosedSelectValue(v) {
     }
 }
 
+class TextControl {
+    constructor($input, isVisible, getState, canUndoInput, undoInput, doInput, getUndoLabel, getDoLabel) {
+        this.isVisible = isVisible;
+        this.canUndoInput = canUndoInput;
+        this.getUndoLabel = getUndoLabel;
+        this.getDoLabel = getDoLabel;
+        this.$a = makeElement('a')('input-link')();
+        this.$a.tabIndex = 0;
+        this.$a.onclick = async () => {
+            if (this.textState != null && this.canUndoInput(this.textState)) {
+                undoInput(this.textState);
+                this.textState = undefined;
+                this.updateControl();
+            }
+            else {
+                try {
+                    const [textState, logicState] = await getState();
+                    this.textState = doInput(textState, logicState, this.$a);
+                    this.updateControl();
+                }
+                catch { }
+            }
+        };
+        this.$a.onkeydown = ev => {
+            if (ev.key != 'Enter')
+                return;
+            this.$a.click();
+            ev.preventDefault();
+            ev.stopPropagation();
+        };
+        $input.addEventListener('input', () => {
+            if (this.$controls.hidden)
+                return;
+            this.updateControl();
+        });
+        this.$controls = makeDiv('text-controls')(this.$a);
+        this.$controls.hidden = true;
+        this.update();
+    }
+    update() {
+        const toBeVisible = this.isVisible();
+        if (toBeVisible && this.$controls.hidden) {
+            this.textState = undefined;
+            this.updateControl();
+        }
+        this.$controls.hidden = !toBeVisible;
+    }
+    updateControl() {
+        this.$a.textContent = (this.textState != null && this.canUndoInput(this.textState)
+            ? this.getUndoLabel()
+            : this.getDoLabel());
+    }
+}
+
 const rq$1 = (param) => makeElement('span')('advanced-hint')(` (`, code(param), ` parameter)`);
 const rq2 = (param1, param2) => makeElement('span')('advanced-hint')(` (`, code(param1), ` or `, code(param2), ` parameter)`);
 class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDialog) {
@@ -4170,7 +4241,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         this.limitIsParameter = true;
     }
     makeLeadAdvancedHint() {
-        return [p(`Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`), ` request at `, code(this.server.api.getUrl(`notes/search?`), em(`parameters`)), `; see `, em(`parameters`), ` below.`)];
+        return [p(`Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`), ` request at `, code(this.auth.server.api.getUrl(`notes/search?`), em(`parameters`)), `; see `, em(`parameters`), ` below.`)];
     }
     listParameters(closedDescriptionItems) {
         return [
@@ -4229,7 +4300,19 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         {
             this.$userInput.type = 'text';
             this.$userInput.name = 'user';
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`OSM username, URL or #id`, rq2('display_name', 'user'), ` `, this.$userInput)));
+            const userInputControl = new TextControl(this.$userInput, () => this.auth.uid != null && this.auth.username != null, async () => {
+                if (this.auth.uid == null || this.auth.username == null)
+                    throw new TypeError(`Undefined user when setting user search value`);
+                return [this.auth.username, this.auth.uid];
+            }, (username) => this.$userInput.value == this.auth.username, (username) => this.$userInput.value = username, (username, uid, $a) => {
+                const oldUsername = this.$userInput.value;
+                this.$userInput.value = username;
+                return oldUsername;
+            }, () => `undo set username`, () => `set to ${this.auth.username}`);
+            $fieldset.append(makeDiv('major-input')(userInputControl.$controls, makeLabel()(`OSM username, URL or #id`, rq2('display_name', 'user'), ` `, this.$userInput)));
+            this.$root.addEventListener('osmNoteViewer:loginChange', () => {
+                userInputControl.update();
+            });
         }
         {
             this.$textInput.type = 'text';
@@ -4278,7 +4361,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
     }
     addEventListenersBeforeClosedLine() {
         this.$userInput.addEventListener('input', () => {
-            const userQuery = toUserQuery(this.server, this.$userInput.value);
+            const userQuery = toUserQuery(this.auth.server, this.$userInput.value);
             if (userQuery.userType == 'invalid') {
                 this.$userInput.setCustomValidity(userQuery.message);
             }
@@ -4298,7 +4381,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
             });
     }
     constructQuery() {
-        return makeNoteSearchQueryFromValues(this.server, this.$userInput.value, this.$textInput.value, this.$fromInput.value, this.$toInput.value, this.closedValue, this.$sortSelect.value, this.$orderSelect.value);
+        return makeNoteSearchQueryFromValues(this.auth.server, this.$userInput.value, this.$textInput.value, this.$fromInput.value, this.$toInput.value, this.closedValue, this.$sortSelect.value, this.$orderSelect.value);
     }
     listQueryChangingInputs() {
         return [
@@ -4410,8 +4493,8 @@ function makeDumbCache() {
 const rq = (param) => makeElement('span')('advanced-hint')(` (`, code(param), ` parameter)`);
 const spanRequest = (...ss) => makeElement('span')('advanced-hint')(...ss);
 class NoteBboxFetchDialog extends NoteQueryFetchDialog {
-    constructor($sharedCheckboxes, server, getRequestApiPaths, submitQuery, map) {
-        super($sharedCheckboxes, server, getRequestApiPaths, submitQuery);
+    constructor($root, $sharedCheckboxes, auth, getRequestApiPaths, submitQuery, map) {
+        super($root, $sharedCheckboxes, auth, getRequestApiPaths, submitQuery);
         this.map = map;
         this.shortTitle = `BBox`;
         this.title = `Get notes inside rectangular area`;
@@ -4424,8 +4507,8 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         this.limitLabelBeforeText = `at most `;
         this.limitLabelAfterText = ` notes`;
         this.limitIsParameter = true;
-        if (server.nominatim) {
-            this.nominatimSubForm = new NominatimSubForm(server.nominatim, () => map.bounds, (bbox) => {
+        if (auth.server.nominatim) {
+            this.nominatimSubForm = new NominatimSubForm(auth.server.nominatim, () => map.bounds, (bbox) => {
                 const [minLat, maxLat, minLon, maxLon] = bbox;
                 this.setBbox(minLon, minLat, maxLon, maxLat);
                 this.$trackMapSelect.value = 'nothing';
@@ -4449,7 +4532,7 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         }
     }
     makeLeadAdvancedHint() {
-        return [p(`Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code(this.server.api.getUrl(`notes?`), em(`parameters`)), `; see `, em(`parameters`), ` below.`)];
+        return [p(`Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code(this.auth.server.api.getUrl(`notes?`), em(`parameters`)), `; see `, em(`parameters`), ` below.`)];
     }
     listParameters(closedDescriptionItems) {
         return [
@@ -4526,7 +4609,7 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
             }
         };
         updateTrackMapZoomNotice();
-        this.map.onMoveEnd(() => {
+        this.$root.addEventListener('osmNoteViewer:mapMoveEnd', () => {
             trackMap();
             if (this.isOpen() && this.mapBoundsForFreezeRestore) {
                 this.mapBoundsForFreezeRestore = undefined;
@@ -5044,8 +5127,8 @@ const neisCountries = [
 ];
 
 class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) {
-    constructor($sharedCheckboxes, server, getRequestApiPaths, submitQuery, noteTable) {
-        super($sharedCheckboxes, server, getRequestApiPaths, submitQuery);
+    constructor($root, $sharedCheckboxes, auth, getRequestApiPaths, submitQuery, noteTable) {
+        super($root, $sharedCheckboxes, auth, getRequestApiPaths, submitQuery);
         this.noteTable = noteTable;
         this.shortTitle = `Plaintext`;
         this.title = `Fetch notes by ids from unstructured text`;
@@ -5102,7 +5185,7 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
 }
 
 class NoteFetchDialogs {
-    constructor($root, server, $container, $moreContainer, noteTable, map, hashQuery, submitQueryToDialog, limitChangeListener) {
+    constructor($root, auth, $container, $moreContainer, noteTable, map, hashQuery, submitQueryToDialog, limitChangeListener) {
         const $sharedCheckboxes = {
             showImages: [],
             advancedMode: []
@@ -5114,10 +5197,10 @@ class NoteFetchDialogs {
             dialog.populateInputs(hashQuery);
             return dialog;
         };
-        this.searchDialog = makeFetchDialog(new NoteSearchFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteSearchFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery));
-        this.bboxDialog = makeFetchDialog(new NoteBboxFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteBboxFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery, map));
-        this.xmlDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteXmlFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery));
-        this.plaintextDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NotePlaintextFetchDialog($sharedCheckboxes, server, getRequestApiPaths, submitQuery, noteTable));
+        this.searchDialog = makeFetchDialog(new NoteSearchFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteSearchFetchDialog($root, $sharedCheckboxes, auth, getRequestApiPaths, submitQuery));
+        this.bboxDialog = makeFetchDialog(new NoteBboxFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteBboxFetchDialog($root, $sharedCheckboxes, auth, getRequestApiPaths, submitQuery, map));
+        this.xmlDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteXmlFetchDialog($root, $sharedCheckboxes, auth, getRequestApiPaths, submitQuery));
+        this.plaintextDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NotePlaintextFetchDialog($root, $sharedCheckboxes, auth, getRequestApiPaths, submitQuery, noteTable));
         const handleSharedCheckboxes = ($checkboxes, stateChangeListener) => {
             for (const $checkbox of $checkboxes) {
                 $checkbox.addEventListener('input', inputListener);
@@ -5138,7 +5221,7 @@ class NoteFetchDialogs {
             $container.classList.toggle('advanced-mode', state);
             $moreContainer.classList.toggle('advanced-mode', state);
         });
-        $root.addEventListener('osmNoteViewer:newFetch', () => {
+        $root.addEventListener('osmNoteViewer:newNoteStream', () => {
             for (const dialog of this.allDialogs) {
                 dialog.resetFetch();
             }
@@ -5166,13 +5249,11 @@ class NoteFetchDialogs {
 }
 
 class NoteFetchPanel {
-    constructor($root, db, globalHistory, $container, $moreContainer, navbar, noteTable, map) {
+    constructor($root, db, auth, $container, $moreContainer, navbar, noteTable, map, queryHash, hasMapHash, hostHashValue) {
         const self = this;
-        const server = globalHistory.server;
         const moreButtonIntersectionObservers = [];
-        const hashQuery = makeNoteQueryFromHash(globalHistory.getQueryHash());
-        const fetchDialogs = new NoteFetchDialogs($root, server, $container, $moreContainer, noteTable, map, hashQuery, (dialog, query) => {
-            modifyHistory(query, true);
+        const hashQuery = makeNoteQueryFromHash(queryHash);
+        const fetchDialogs = new NoteFetchDialogs($root, auth, $container, $moreContainer, noteTable, map, hashQuery, (dialog, query) => {
             startFetcher(query, true, false, dialog);
         }, (dialog) => {
             if (this.fetcherRun && this.fetcherInvoker == dialog) {
@@ -5182,19 +5263,16 @@ class NoteFetchPanel {
         for (const dialog of fetchDialogs.allDialogs) {
             navbar.addTab(dialog);
         }
-        globalHistory.onQueryHashChange = (queryHash) => {
+        $root.addEventListener('osmNoteViewer:queryHashChange', ({ detail: queryHash }) => {
             const query = makeNoteQueryFromHash(queryHash);
-            modifyHistory(query, false); // in case location was edited manually
             openQueryDialog(navbar, fetchDialogs, query, false);
             fetchDialogs.populateInputs(query);
             startFetcherFromQuery(query, false, false);
-            globalHistory.restoreScrollPosition();
-        };
+        });
         openQueryDialog(navbar, fetchDialogs, hashQuery, true);
-        modifyHistory(hashQuery, false);
-        startFetcherFromQuery(hashQuery, false, globalHistory.hasMapHash() // when just opened a note-viewer page with map hash set - if query is set too, don't fit its result, keep the map hash
+        startFetcherFromQuery(hashQuery, false, hasMapHash // when just opened a note-viewer page with map hash set - if query is set too, don't fit its result, keep the map hash
         );
-        $root.addEventListener('osmNoteViewer:clickUserLink', ev => {
+        $root.addEventListener('osmNoteViewer:userLinkClick', ev => {
             if (!(ev.target instanceof HTMLElement))
                 return;
             const query = {
@@ -5216,18 +5294,17 @@ class NoteFetchPanel {
         $root.addEventListener('osmNoteViewer:noteFetch', ({ detail: [note, users] }) => {
             this.fetcherRun?.updateNote(note, users);
         });
-        function startFetcherFromQuery(query, clearStore, suppressFitNotes) {
+        function startFetcherFromQuery(query, isNewStart, suppressFitNotes) {
             if (!query)
                 return;
             const dialog = fetchDialogs.getDialogFromQuery(query);
             if (!dialog)
                 return;
-            startFetcher(query, clearStore, suppressFitNotes, dialog);
+            startFetcher(query, isNewStart, suppressFitNotes, dialog);
         }
-        function startFetcher(query, clearStore, suppressFitNotes, dialog) {
+        function startFetcher(query, isNewStart, suppressFitNotes, dialog) {
             if (query.mode != 'search' && query.mode != 'bbox' && query.mode != 'ids')
                 return;
-            bubbleEvent($container, 'osmNoteViewer:newFetch');
             while (moreButtonIntersectionObservers.length > 0)
                 moreButtonIntersectionObservers.pop()?.disconnect();
             if (map) {
@@ -5237,10 +5314,11 @@ class NoteFetchPanel {
                 }
             }
             noteTable.reset();
+            bubbleCustomEvent($container, 'osmNoteViewer:newNoteStream', [makeNoteQueryString(query), isNewStart]);
             const environment = {
                 db,
-                api: server.api,
-                hostHashValue: globalHistory.serverList.getHostHashValue(server),
+                api: auth.server.api,
+                hostHashValue,
                 noteTable, $moreContainer,
                 getLimit: dialog.getLimit,
                 getAutoLoad: dialog.getAutoLoad,
@@ -5249,20 +5327,14 @@ class NoteFetchPanel {
             };
             self.fetcherInvoker = dialog;
             if (query.mode == 'search') {
-                self.fetcherRun = new NoteSearchFetcherRun(environment, query, clearStore);
+                self.fetcherRun = new NoteSearchFetcherRun(environment, query, isNewStart);
             }
             else if (query.mode == 'bbox') {
-                self.fetcherRun = new NoteBboxFetcherRun(environment, query, clearStore);
+                self.fetcherRun = new NoteBboxFetcherRun(environment, query, isNewStart);
             }
             else if (query.mode == 'ids') {
-                self.fetcherRun = new NoteIdsFetcherRun(environment, query, clearStore);
+                self.fetcherRun = new NoteIdsFetcherRun(environment, query, isNewStart);
             }
-        }
-        function modifyHistory(query, push) {
-            const queryHash = query
-                ? makeNoteQueryString(query)
-                : '';
-            globalHistory.setQueryHash(queryHash, push);
         }
     }
 }
@@ -5607,7 +5679,7 @@ class LooseParserListener {
     }
 }
 
-const e$3 = makeEscapeTag(encodeURIComponent);
+const e$4 = makeEscapeTag(encodeURIComponent);
 const makeItem = makeElement('li')();
 const makeITEM = makeElement('li')('main');
 class LooseParserPopup {
@@ -5639,7 +5711,7 @@ class LooseParserPopup {
         if (type == null)
             return makeElement('a')()('?');
         const $a = makeElement('a')()(type);
-        $a.href = this.webUrlLister.web.getUrl(e$3 `${type}/${id}`);
+        $a.href = this.webUrlLister.web.getUrl(e$4 `${type}/${id}`);
         if (type == 'note') {
             $a.classList.add('other-note');
             $a.dataset.noteId = String(id);
@@ -5990,11 +6062,7 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
             if (comment.uid != null) {
                 const username = users[comment.uid];
                 if (username != null) {
-                    const href = web.getUrl(`user/` + encodeURIComponent(username));
-                    const $a = makeLink(username, href);
-                    $a.classList.add('listened');
-                    $a.dataset.userName = username;
-                    $a.dataset.userId = String(comment.uid);
+                    const $a = web.makeUserLink(comment.uid, username);
                     $cell.append($a, makeElement('span')('uid')(` #${comment.uid}`));
                 }
                 else {
@@ -6326,7 +6394,7 @@ class NoteTable {
             map.showNoteTrack(visibleNoteIds);
             if (!isMapFittingHalted && this.mapFitMode == 'inViewNotes')
                 map.fitNoteTrack();
-            bubbleCustomEvent(this.$table, 'osmNoteViewer:observeNotesByRefresher', visibleNoteIds.map(id => this.notesById.get(id)).filter(isDefined));
+            bubbleCustomEvent(this.$table, 'osmNoteViewer:notesInViewportChange', visibleNoteIds.map(id => this.notesById.get(id)).filter(isDefined));
         });
         this.commentWriter = new CommentWriter(server);
         $container.append(this.$table);
@@ -6338,13 +6406,13 @@ class NoteTable {
                 return;
             looseParserPopup.open(x, y, ...parseResult);
         });
-        $root.addEventListener('osmNoteViewer:clickNoteLink', ev => {
+        $root.addEventListener('osmNoteViewer:noteLinkClick', ev => {
             const $a = ev.target;
             if (!($a instanceof HTMLAnchorElement) || !$a.dataset.noteId)
                 return;
             this.pingNoteFromLink($a, $a.dataset.noteId);
         });
-        $root.addEventListener('osmNoteViewer:changeMapFitMode', ev => {
+        $root.addEventListener('osmNoteViewer:mapFitModeChange', ev => {
             const mapFitMode = ev.detail;
             if (mapFitMode == 'allNotes') {
                 this.mapFitMode = mapFitMode;
@@ -6408,10 +6476,10 @@ class NoteTable {
             }
             setUpdateLinkTitle($noteSection, $a);
         });
-        $root.addEventListener('osmNoteViewer:pushNoteUpdate', ({ detail: [note, users] }) => {
+        $root.addEventListener('osmNoteViewer:noteUpdatePush', ({ detail: [note, users] }) => {
             this.replaceNote(note, users);
         });
-        $root.addEventListener('osmNoteViewer:refreshNoteProgress', ev => {
+        $root.addEventListener('osmNoteViewer:noteRefreshWaitProgress', ev => {
             const [id, progress] = ev.detail;
             const $refreshWaitProgress = this.getNoteSection(id)?.querySelector('td.note-link progress');
             if (!($refreshWaitProgress instanceof HTMLProgressElement))
@@ -6488,7 +6556,7 @@ class NoteTable {
             // $checkbox.title=`shift+click to select/unselect a range`
             $checkbox.addEventListener('click', this.wrappedNoteCheckboxClickListener);
             this.writeNoteSection($noteSection, $checkbox, note, users, isVisible);
-            bubbleCustomEvent(this.$table, 'osmNoteViewer:renderNote', note);
+            bubbleCustomEvent(this.$table, 'osmNoteViewer:noteRender', note);
         }
         if (this.mapFitMode == 'allNotes') {
             this.map.fitNotes();
@@ -6532,7 +6600,7 @@ class NoteTable {
         if (isNoteLinkFocused)
             $a2.focus();
         this.updateCheckboxDependentsAndSendNoteChangeEvents();
-        bubbleCustomEvent(this.$table, 'osmNoteViewer:renderNote', note);
+        bubbleCustomEvent(this.$table, 'osmNoteViewer:noteRender', note);
     }
     getVisibleNoteIds() {
         const ids = [];
@@ -6634,7 +6702,7 @@ class NoteTable {
             if (isSelectedNoteSection($noteSection))
                 nSelected++;
         }
-        bubbleCustomEvent(this.$table, 'osmNoteViewer:changeNoteCounts', [nFetched, nVisible, nSelected]);
+        bubbleCustomEvent(this.$table, 'osmNoteViewer:noteCountsChange', [nFetched, nVisible, nSelected]);
     }
     noteMarkerClickListener(marker) {
         const $noteSection = this.getNoteSection(marker.noteId);
@@ -6667,14 +6735,14 @@ class NoteTable {
         if (!isSectionClicked)
             $noteSection.scrollIntoView({ block: 'nearest' });
         const noteId = Number($noteSection.dataset.noteId);
-        bubbleCustomEvent($noteSection, 'osmNoteViewer:focusOnNote', noteId); // TODO correct target, it could be a marker
+        bubbleCustomEvent($noteSection, 'osmNoteViewer:noteFocus', noteId); // TODO correct target, it could be a marker
         if (!this.$selectAllCheckbox.checked && !this.$selectAllCheckbox.indeterminate) {
             const noteId = Number($noteSection.dataset.noteId);
             const note = this.notesById.get(noteId);
             if (note) {
                 const noteUsers = new Map();
                 this.addNoteUsersToMap(noteUsers, note);
-                bubbleCustomEvent(this.$table, 'osmNoteViewer:changeInputNotes', [[note], noteUsers]);
+                bubbleCustomEvent(this.$table, 'osmNoteViewer:notesInput', [[note], noteUsers]);
             }
         }
     }
@@ -6719,8 +6787,8 @@ class NoteTable {
         const hasUnselected = nVisible > selectedNotes.length;
         this.$selectAllCheckbox.indeterminate = hasSelected && hasUnselected;
         this.$selectAllCheckbox.checked = hasSelected && !hasUnselected;
-        bubbleCustomEvent(this.$table, 'osmNoteViewer:changeNoteCounts', [nFetched, nVisible, selectedNotes.length]);
-        bubbleCustomEvent(this.$table, 'osmNoteViewer:changeInputNotes', [selectedNotes, selectedNoteUsers]);
+        bubbleCustomEvent(this.$table, 'osmNoteViewer:noteCountsChange', [nFetched, nVisible, selectedNotes.length]);
+        bubbleCustomEvent(this.$table, 'osmNoteViewer:notesInput', [selectedNotes, selectedNoteUsers]);
         if (this.mapFitMode == 'selectedNotes')
             this.map.fitSelectedNotes();
     }
@@ -6924,13 +6992,13 @@ class Tool {
         else {
             $container.append($tool);
         }
-        $root.addEventListener('osmNoteViewer:toggleTools', ev => {
+        $root.addEventListener('osmNoteViewer:toolsToggle', ev => {
             if (ev.target == $tool)
                 return;
             $tool.open = ev.detail;
             this.ping($tool);
         });
-        $root.addEventListener('osmNoteViewer:changeInputNotes', ev => {
+        $root.addEventListener('osmNoteViewer:notesInput', ev => {
             const [inputNotes] = ev.detail;
             let reactedToButtons = false;
             for (const $button of this.$buttonsRequiringSelectedNotes) {
@@ -7018,7 +7086,7 @@ class AutozoomTool extends Tool {
     getTool($root, $tool) {
         const $fitModeSelect = makeElement('select')()(new Option('is disabled', 'none'), new Option('to selected notes', 'selectedNotes'), new Option('to notes on screen in table', 'inViewNotes'), new Option('to all visible notes', 'allNotes'));
         $fitModeSelect.onchange = () => {
-            bubbleCustomEvent($tool, 'osmNoteViewer:changeMapFitMode', $fitModeSelect.value);
+            bubbleCustomEvent($tool, 'osmNoteViewer:mapFitModeChange', $fitModeSelect.value);
         };
         return [$fitModeSelect];
     }
@@ -7040,9 +7108,9 @@ class TimestampTool extends Tool {
         $timestampInput.type = 'text';
         $timestampInput.size = 20;
         $timestampInput.oninput = () => {
-            bubbleCustomEvent($tool, 'osmNoteViewer:changeTimestamp', $timestampInput.value);
+            bubbleCustomEvent($tool, 'osmNoteViewer:timestampChange', $timestampInput.value);
         };
-        $root.addEventListener('osmNoteViewer:changeTimestamp', ev => {
+        $root.addEventListener('osmNoteViewer:timestampChange', ev => {
             if (ev.target == $tool)
                 return;
             $timestampInput.value = ev.detail;
@@ -7053,7 +7121,7 @@ class TimestampTool extends Tool {
         $clearButton.textContent = 'Clear';
         const $form = makeElement('form')()($timestampInput, ` `, $clearButton);
         $form.onreset = () => {
-            bubbleCustomEvent($tool, 'osmNoteViewer:changeTimestamp', '');
+            bubbleCustomEvent($tool, 'osmNoteViewer:timestampChange', '');
         };
         return [$form];
     }
@@ -7069,7 +7137,7 @@ class CountTool extends Tool {
         const $fetchedNoteCount = makeElement('output')()('0');
         const $visibleNoteCount = makeElement('output')()('0');
         const $selectedNoteCount = makeElement('output')()('0');
-        $root.addEventListener('osmNoteViewer:changeNoteCounts', ev => {
+        $root.addEventListener('osmNoteViewer:noteCountsChange', ev => {
             const [nFetched, nVisible, nSelected] = ev.detail;
             $fetchedNoteCount.textContent = String(nFetched);
             $visibleNoteCount.textContent = String(nVisible);
@@ -7109,14 +7177,14 @@ class SettingsTool extends Tool {
     }
     getTool($root, $tool) {
         const $openAllButton = makeElement('button')('open-all-tools')(`Open all tools`);
-        $openAllButton.onclick = () => bubbleCustomEvent($tool, 'osmNoteViewer:toggleTools', true);
+        $openAllButton.onclick = () => bubbleCustomEvent($tool, 'osmNoteViewer:toolsToggle', true);
         const $closeAllButton = makeElement('button')('close-all-tools')(`Close all tools`);
-        $closeAllButton.onclick = () => bubbleCustomEvent($tool, 'osmNoteViewer:toggleTools', false);
+        $closeAllButton.onclick = () => bubbleCustomEvent($tool, 'osmNoteViewer:toolsToggle', false);
         return [$openAllButton, ` `, $closeAllButton];
     }
 }
 
-const e$2 = makeEscapeTag(encodeURIComponent);
+const e$3 = makeEscapeTag(encodeURIComponent);
 /**
  * Errors expected with working connection to the API
  */
@@ -7134,7 +7202,7 @@ function getFetchTableNoteErrorMessage(ex) {
  * Reload a single note updating its link
  */
 async function fetchTableNote(api, noteId, token) {
-    const response = await api.fetch.withToken(token)(e$2 `notes/${noteId}.json`);
+    const response = await api.fetch.withToken(token)(e$3 `notes/${noteId}.json`);
     if (!response.ok)
         throw new NoteDataError(`note reload failed`);
     const noteAndUsers = await readNoteResponse(noteId, response);
@@ -7153,7 +7221,7 @@ async function readNoteResponse(noteId, response) {
     return [newNote, newUsers];
 }
 
-const e$1 = makeEscapeTag(encodeURIComponent);
+const e$2 = makeEscapeTag(encodeURIComponent);
 class InteractionError extends TypeError {
 }
 class InteractTool extends Tool {
@@ -7163,7 +7231,6 @@ class InteractTool extends Tool {
         this.name = `Interact`;
         this.title = `Interact with notes on OSM server`;
         this.isFullWidth = true;
-        this.$commentAppendControls = makeDiv('textarea-controls')();
         this.$yourNotesApi = document.createElement('span');
         this.$yourNotesWeb = document.createElement('span');
         this.$asOutput = document.createElement('output');
@@ -7241,49 +7308,21 @@ class InteractTool extends Tool {
         return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again ("reactivates" it). `, `This means that a hidden note can only be restored to an open state, even if it had been closed before being hidden. `, `If you want the note to be closed again, you have to close it yourself after reactivating. `, `Also, unlike the OSM website, you can reactivate a note and add a comment in one action. `, `The OSM website currently doesn't provide a comment input for note reactivation.`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, `If you've hidden a note and want to see it, look for it at `, this.$yourNotesWeb, ` on the OSM website.`)];
     }
     getTool($root, $tool) {
-        let lastAppend;
-        const $appendLastChangeset = makeElement('a')('input-link')();
-        $appendLastChangeset.tabIndex = 0;
-        const canUndoAppend = (append) => append != null && this.$commentText.value.endsWith(append);
-        const updateAppendLastChangeset = () => {
-            $appendLastChangeset.textContent = (canUndoAppend(lastAppend)
-                ? `undo append`
-                : `append last changeset`);
-        };
-        updateAppendLastChangeset();
-        $appendLastChangeset.onclick = async () => {
-            if (canUndoAppend(lastAppend)) {
-                this.$commentText.value = this.$commentText.value.slice(0, -lastAppend.length);
-                lastAppend = undefined;
-                updateAppendLastChangeset();
-            }
-            else {
-                if (this.auth.uid == null)
-                    return;
-                try {
-                    const response = await this.auth.server.api.fetch(e$1 `changesets.json?user=${this.auth.uid}`);
-                    const data = await response.json();
-                    const changesetId = getLatestChangesetId(data);
-                    lastAppend = getParagraphAppend(this.$commentText.value, this.auth.server.web.getUrl(e$1 `changeset/${changesetId}`));
-                    this.$commentText.value += lastAppend;
-                    $appendLastChangeset.dataset.changesetId = String(changesetId);
-                    bubbleEvent($appendLastChangeset, 'osmNoteViewer:clickChangesetLink');
-                }
-                finally {
-                    updateAppendLastChangeset();
-                }
-            }
-        };
-        $appendLastChangeset.onkeydown = ev => {
-            if (ev.key != 'Enter')
-                return;
-            $appendLastChangeset.click();
-            ev.preventDefault();
-            ev.stopPropagation();
-        };
-        this.$commentAppendControls.append($appendLastChangeset);
+        const appendLastChangeset = new TextControl(this.$commentText, () => this.auth.uid != null, async () => {
+            if (this.auth.uid == null)
+                throw new TypeError(`Undefined user id when getting last changeset`);
+            const response = await this.auth.server.api.fetch(e$2 `changesets.json?user=${this.auth.uid}`);
+            const data = await response.json();
+            const changesetId = getLatestChangesetId(data);
+            const append = getParagraphAppend(this.$commentText.value, this.auth.server.web.getUrl(e$2 `changeset/${changesetId}`));
+            return [append, changesetId];
+        }, (append) => this.$commentText.value.endsWith(append), (append) => this.$commentText.value = this.$commentText.value.slice(0, -append.length), (append, changesetId, $a) => {
+            this.$commentText.value += append;
+            $a.dataset.changesetId = String(changesetId);
+            bubbleEvent($a, 'osmNoteViewer:changesetLinkClick');
+            return append;
+        }, () => `undo append`, () => `append last changeset`);
         this.$commentText.oninput = () => {
-            updateAppendLastChangeset();
             this.updateButtons();
         };
         const scheduleRunNextNote = this.makeRunScheduler($tool);
@@ -7328,12 +7367,13 @@ class InteractTool extends Tool {
                 scheduleRunNextNote();
             }
         };
-        $root.addEventListener('osmNoteViewer:changeLogin', () => {
+        $root.addEventListener('osmNoteViewer:loginChange', () => {
+            appendLastChangeset.update();
             this.updateLoginDependents();
             this.updateButtons();
             this.ping($tool);
         });
-        $root.addEventListener('osmNoteViewer:changeInputNotes', ev => {
+        $root.addEventListener('osmNoteViewer:notesInput', ev => {
             const [inputNotes] = ev.detail;
             for (const status of noteStatuses) {
                 const ids = this.stagedNoteIds.get(status);
@@ -7352,13 +7392,12 @@ class InteractTool extends Tool {
         });
         return [
             this.$asOutput, ` `, this.$withOutput, ` `,
-            makeDiv('major-input')(this.$commentAppendControls, makeLabel()(`Comment `, this.$commentText)),
+            makeDiv('major-input')(appendLastChangeset.$controls, makeLabel()(`Comment `, this.$commentText)),
             makeDiv('gridded-input')(...this.interactionDescriptions.map(({ $button }) => $button)),
             this.$runButton, ` `, this.$runOutput
         ];
     }
     updateLoginDependents() {
-        this.$commentAppendControls.hidden = this.auth.uid == null;
         this.updateYourNotes();
         this.updateAsOutput();
     }
@@ -7375,7 +7414,7 @@ class InteractTool extends Tool {
                 ['display_name', this.auth.username],
                 ['sort', 'updated_at']
             ]);
-            const webHref = this.auth.server.web.getUrl(e$1 `user/${this.auth.username}/notes`);
+            const webHref = this.auth.server.web.getUrl(e$2 `user/${this.auth.username}/notes`);
             this.$yourNotesApi.replaceChildren(makeLink(apiText, apiHref));
             this.$yourNotesWeb.replaceChildren(makeLink(webText, webHref));
         }
@@ -7385,12 +7424,7 @@ class InteractTool extends Tool {
             this.$asOutput.replaceChildren(`anonymously`);
         }
         else {
-            const href = this.auth.server.web.getUrl(e$1 `user/${this.auth.username}`);
-            const $a = makeLink(this.auth.username, href);
-            $a.classList.add('listened');
-            $a.dataset.userName = this.auth.username;
-            $a.dataset.userId = String(this.auth.uid);
-            this.$asOutput.replaceChildren(`as `, $a);
+            this.$asOutput.replaceChildren(`as `, this.auth.server.web.makeUserLink(this.auth.uid, this.auth.username));
         }
     }
     updateWithOutput() {
@@ -7550,11 +7584,11 @@ class InteractTool extends Tool {
                     ['text', this.$commentText.value]
                 ]);
                 if (this.run.interactionDescription.verb == 'DELETE') {
-                    const path = e$1 `notes/${id}.json`;
+                    const path = e$2 `notes/${id}.json`;
                     response = await fetchBuilder.delete(path);
                 }
                 else { // POST
-                    const path = e$1 `notes/${id}/${this.run.interactionDescription.endpoint}.json`;
+                    const path = e$2 `notes/${id}/${this.run.interactionDescription.endpoint}.json`;
                     response = await fetchBuilder.post(path);
                 }
                 if (!response.ok) {
@@ -7568,7 +7602,7 @@ class InteractTool extends Tool {
                 }
                 const noteAndUsers = await readNoteResponse(id, response);
                 bubbleCustomEvent($tool, 'osmNoteViewer:noteFetch', noteAndUsers);
-                bubbleCustomEvent($tool, 'osmNoteViewer:pushNoteUpdate', noteAndUsers);
+                bubbleCustomEvent($tool, 'osmNoteViewer:noteUpdatePush', noteAndUsers);
                 this.run.currentNoteId = undefined;
                 this.run.outputNoteIds.push(id);
             }
@@ -7646,7 +7680,7 @@ class InteractTool extends Tool {
         return output;
     }
     getNoteIndicator(status, id) {
-        const href = this.auth.server.web.getUrl(e$1 `note/${id}`);
+        const href = this.auth.server.web.getUrl(e$2 `note/${id}`);
         const $a = document.createElement('a');
         $a.href = href;
         $a.classList.add('listened');
@@ -7742,7 +7776,7 @@ class ReportTool extends Tool {
             await copyNoteList();
             open(getUserBlockUrl(inputUsername));
         };
-        $root.addEventListener('osmNoteViewer:changeInputNotes', ({ detail: [inputNotes, inputUsers] }) => {
+        $root.addEventListener('osmNoteViewer:notesInput', ({ detail: [inputNotes, inputUsers] }) => {
             inputUid = inputNotes[0]?.comments[0]?.uid;
             inputUsername = inputUid ? inputUsers.get(inputUid) : undefined;
             $blockUserButton.disabled = $reportUserButton.disabled = !(inputUid != null && inputNotes.every(note => note.comments[0]?.uid == inputUid));
@@ -7752,7 +7786,7 @@ class ReportTool extends Tool {
             reportManyListener.reset();
             this.ping($tool);
         });
-        $root.addEventListener('osmNoteViewer:changeLogin', () => {
+        $root.addEventListener('osmNoteViewer:loginChange', () => {
             updateLoginDependents();
         });
         return [
@@ -7935,16 +7969,16 @@ class RefreshTool extends Tool {
         const noteRefreshTimestampsById = new Map();
         const notesWithPendingUpdate = new Set();
         const scheduler = new RefreshToolScheduler(isOnlineAndVisibleAtLaunch, defaultRefreshPeriodInMinutes * 60 * 1000, makeTimeoutCaller(10 * 1000, 100), (id, progress) => {
-            bubbleCustomEvent($tool, 'osmNoteViewer:refreshNoteProgress', [id, progress]);
+            bubbleCustomEvent($tool, 'osmNoteViewer:noteRefreshWaitProgress', [id, progress]);
         }, (note, users) => {
             if ($refreshSelect.value == 'replace') {
-                bubbleCustomEvent($tool, 'osmNoteViewer:pushNoteUpdate', [note, users]);
+                bubbleCustomEvent($tool, 'osmNoteViewer:noteUpdatePush', [note, users]);
             }
             else {
                 notesWithPendingUpdate.add(note.id);
             }
         }, (id, message) => {
-            bubbleCustomEvent($tool, 'osmNoteViewer:refreshNoteProgress', [id, 0]);
+            bubbleCustomEvent($tool, 'osmNoteViewer:noteRefreshWaitProgress', [id, 0]);
             const refreshTimestamp = Date.now();
             noteRefreshTimestampsById.set(id, refreshTimestamp);
             return refreshTimestamp;
@@ -8007,12 +8041,12 @@ class RefreshTool extends Tool {
         $refreshAllButton.onclick = () => {
             scheduler.refreshAll($refreshSelect.value == 'replace');
         };
-        $root.addEventListener('osmNoteViewer:newFetch', () => {
+        $root.addEventListener('osmNoteViewer:newNoteStream', () => {
             scheduler.reset();
             noteRefreshTimestampsById.clear();
             notesWithPendingUpdate.clear();
         });
-        $root.addEventListener('osmNoteViewer:observeNotesByRefresher', ev => {
+        $root.addEventListener('osmNoteViewer:notesInViewportChange', ev => {
             const notes = ev.detail;
             const noteRefreshList = [];
             for (const note of notes) {
@@ -8023,7 +8057,7 @@ class RefreshTool extends Tool {
             }
             scheduler.observe(noteRefreshList);
         });
-        $root.addEventListener('osmNoteViewer:renderNote', ({ detail: note }) => {
+        $root.addEventListener('osmNoteViewer:noteRender', ({ detail: note }) => {
             notesWithPendingUpdate.delete(note.id);
             noteRefreshTimestampsById.set(note.id, Date.now());
             scheduler.replaceNote(note.id, Date.now(), getNoteUpdateDate(note));
@@ -8132,7 +8166,7 @@ class OverpassBaseTool extends Tool {
         this.timestamp = '';
     }
     installTimestampListener($root, $tool) {
-        $root.addEventListener('osmNoteViewer:changeTimestamp', ev => {
+        $root.addEventListener('osmNoteViewer:timestampChange', ev => {
             this.timestamp = ev.detail;
             this.ping($tool);
         });
@@ -8275,26 +8309,56 @@ function getClosestNodeId(doc, centerLat, centerLon) {
     return closestNodeId;
 }
 
-class RcTool extends Tool {
+const e$1 = makeEscapeTag(encodeURIComponent);
+class EditorTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.$actOnElementButton = document.createElement('button');
+    }
+    getTool($root, $tool, map) {
+        this.$actOnElementButton.append(`${this.elementAction} OSM element`);
+        this.$actOnElementButton.disabled = true;
+        this.$actOnElementButton.onclick = () => {
+            if (this.inputElement)
+                this.doElementAction(map);
+        };
+        $root.addEventListener('osmNoteViewer:elementLinkClick', ev => {
+            const $a = ev.target;
+            if (!($a instanceof HTMLAnchorElement))
+                return;
+            const elementType = $a.dataset.elementType;
+            if (elementType != 'node' && elementType != 'way' && elementType != 'relation')
+                return false;
+            const elementId = $a.dataset.elementId;
+            if (!elementId)
+                return;
+            this.inputElement = `${elementType[0]}${elementId}`;
+            this.$actOnElementButton.disabled = false;
+            this.$actOnElementButton.textContent = `${this.elementAction} ${this.inputElement}`;
+        });
+        return [...this.getSpecificControls($root, $tool, map), ` `, this.$actOnElementButton];
+    }
+}
+class RcTool extends EditorTool {
     constructor() {
         super(...arguments);
         this.id = 'rc';
         this.name = `RC`;
         this.title = `Run remote control commands in external editors (usually JOSM)`;
+        this.elementAction = `Load`;
     }
     getInfo() {
-        return [p(`Load note/map data to an editor with `, makeLink(`remote control`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl'), `.`)];
+        return [p(`Load note/map data to an editor with `, makeLink(`remote control`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl'), `.`), ul(li(`Notes are loaded by `, makeRcCommandLink(`import`), ` RC command `, `with note webpage the OSM website as the `, code(`url`), ` parameter.`), li(`Map area is loaded by `, makeRcCommandLink(`load_and_zoom`), ` RC command. `, `Area loading is also used as an opportunity to set the default changeset comment containing note ids using the `, code(`changeset_tags`), ` parameter.`), li(`OSM elements are loaded by `, makeRcCommandLink(`load_object`), ` RC command. The button is enabled after the element link is clicked in some note comment.`))];
     }
-    getTool($root, $tool, map) {
+    getSpecificControls($root, $tool, map) {
         let inputNotes = [];
-        const e = makeEscapeTag(encodeURIComponent);
         const $loadNotesButton = this.makeRequiringSelectedNotesButton();
         $loadNotesButton.append(`Load `, makeNotesIcon('selected'));
         $loadNotesButton.onclick = async () => {
             for (const { id } of inputNotes) {
-                const noteUrl = this.auth.server.web.getUrl(e `note/${id}`);
-                const rcUrl = e `http://127.0.0.1:8111/import?url=${noteUrl}`;
-                const success = await openRcUrl($loadNotesButton, rcUrl);
+                const noteUrl = this.auth.server.web.getUrl(e$1 `note/${id}`);
+                const rcPath = e$1 `import?url=${noteUrl}`;
+                const success = await openRcPath($loadNotesButton, rcPath);
                 if (!success)
                     break;
             }
@@ -8303,42 +8367,62 @@ class RcTool extends Tool {
         $loadMapButton.append(`Load `, makeMapIcon('area'));
         $loadMapButton.onclick = () => {
             const bounds = map.bounds;
-            const rcUrl = e `http://127.0.0.1:8111/load_and_zoom` +
+            let rcPath = e$1 `load_and_zoom` +
                 `?left=${bounds.getWest()}&right=${bounds.getEast()}` +
                 `&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`;
-            openRcUrl($loadMapButton, rcUrl);
+            if (inputNotes.length >= 1) {
+                const changesetComment = (inputNotes.length > 1
+                    ? `notes ` + inputNotes.map(note => note.id).join(`, `)
+                    : `note ${inputNotes[0].id}`);
+                const changesetTags = `comment=${changesetComment}`;
+                rcPath += `&changeset_tags=${changesetTags}`;
+            }
+            openRcPath($loadMapButton, rcPath);
         };
-        $root.addEventListener('osmNoteViewer:changeInputNotes', ev => {
+        $root.addEventListener('osmNoteViewer:notesInput', ev => {
             [inputNotes] = ev.detail;
             this.ping($tool);
         });
         return [$loadNotesButton, ` `, $loadMapButton];
     }
+    doElementAction() {
+        const rcPath = e$1 `load_object?objects=${this.inputElement}`;
+        openRcPath(this.$actOnElementButton, rcPath);
+    }
 }
-class IdTool extends Tool {
+class IdTool extends EditorTool {
     constructor() {
         super(...arguments);
         this.id = 'id';
         this.name = `iD`;
         this.title = `Open an iD editor window`;
+        this.elementAction = `Select`;
     }
     getInfo() {
-        return [p(`Follow your notes by zooming from one place to another in one `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), ` window. `, `It could be faster to do first here in note-viewer than in iD directly because note-viewer won't try to download more data during panning. `, `After zooming in note-viewer, click the `, em(`Open`), ` button to open this location in iD. `, `When you go back to note-viewer, zoom to another place and click the `, em(`Open`), ` button for the second time, the already opened iD instance zooms to that place. `, `Your edits are not lost between such zooms.`), p(`Technical details: this is an attempt to make something like `, em(`remote control`), ` in iD editor. `, `Convincing iD to load notes has proven to be tricky. `, `Your best chance of seeing the selected notes is importing them as a `, em(`gpx`), ` file. `, `See `, makeLink(`this diary post`, `https://www.openstreetmap.org/user/Anton%20Khorev/diary/398991`), ` for further explanations.`), p(`Zooming/panning is easier to do, and that's what is currently implemented. `, `It's not without quirks however. You'll notice that the iD window opened from here doesn't have the OSM website header. `, `This is because the editor is opened at `, makeLink(`/id`, `https://www.openstreetmap.org/id`), ` url instead of `, makeLink(`/edit`, `https://www.openstreetmap.org/edit`), `. `, `It has to be done because otherwise iD won't listen to `, em(`#map`), ` changes in the webpage location.`)];
+        return [p(`Follow your notes by zooming from one place to another in one `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), ` window. `, `It could be faster to do first here in note-viewer than in iD directly because note-viewer won't try to download more data during panning. `, `After zooming in note-viewer, click the `, em(`Open`), ` button to open this location in iD. `, `When you go back to note-viewer, zoom to another place and click the `, em(`Open`), ` button for the second time, the already opened iD instance zooms to that place. `, `Your edits are not lost between such zooms.`), p(`Technical details: this is an attempt to make something like `, em(`remote control`), ` in iD editor. `, `Convincing iD to load notes has proven to be tricky. `, `Your best chance of seeing the selected notes is importing them as a `, em(`gpx`), ` file. `, `See `, makeLink(`this diary post`, `https://www.openstreetmap.org/user/Anton%20Khorev/diary/398991`), ` for further explanations.`), p(`Zooming/panning is easier to do, and that's what is currently implemented. `, `It's not without quirks however. You'll notice that the iD window opened from here doesn't have the OSM website header. `, `This is because the editor is opened at `, code(makeLink(`/id`, `https://www.openstreetmap.org/id`)), ` url instead of `, code(makeLink(`/edit`, `https://www.openstreetmap.org/edit`)), `. `, `It has to be done because otherwise iD won't listen to `, code(`#map`), ` changes in the webpage location.`), p(`There's also the `, em(`Select element`), ` button, but it's not guaranteed to work every time. `, `There is a way to open a new iD window and have a selected element in it for sure by using `, code(`edit?type=id`), `. `, `When working with existing window however, things work differently. `, `Selecting an element by using the `, code(`id`), ` hash parameter also requires the `, code(`map`), ` parameter, otherwise it's ignored. `, `There's no way for note-viewer to know iD's current map view location because of cross-origin restrictions, so note-viewer's own map location is passed as `, code(`map`), `. `, `Selecting won't work if the element is not already loaded. `, `Therefore when you press the `, em(`Select element`), ` button on a new location, it likely won't select the element because the element is not yet loaded.`)];
     }
-    getTool($root, $tool, map) {
+    getSpecificControls($root, $tool, map) {
         // limited to what hashchange() lets you do here https://github.com/openstreetmap/iD/blob/develop/modules/behavior/hash.js
-        // which is zooming/panning
+        // which is zooming / panning / selecting osm elements
+        // selecting requires map parameter set
         const $zoomButton = document.createElement('button');
         $zoomButton.append(`Open `, makeMapIcon('center'));
         $zoomButton.onclick = () => {
-            const e = makeEscapeTag(encodeURIComponent);
-            const url = this.auth.server.web.getUrl(e `id#map=${map.zoom}/${map.lat}/${map.lon}`);
+            const url = this.auth.server.web.getUrl(e$1 `id#map=${map.zoom}/${map.lat}/${map.lon}`);
             open(url, 'id');
         };
         return [$zoomButton];
     }
+    doElementAction(map) {
+        const url = this.auth.server.web.getUrl(e$1 `id#id=${this.inputElement}&map=${map.zoom}/${map.lat}/${map.lon}`);
+        open(url, 'id');
+    }
 }
-async function openRcUrl($button, rcUrl) {
+function makeRcCommandLink(command) {
+    return code(makeLink(command, `https://josm.openstreetmap.de/wiki/Help/RemoteControlCommands#${command}`));
+}
+async function openRcPath($button, rcPath) {
+    const rcUrl = `http://127.0.0.1:8111/` + rcPath;
     try {
         const response = await fetch(rcUrl);
         if (response.ok) {
@@ -8398,7 +8482,7 @@ class ExportTool extends Tool {
                 return;
             ev.dataTransfer.setData($dataTypeSelect.value, data);
         };
-        $root.addEventListener('osmNoteViewer:changeInputNotes', ev => {
+        $root.addEventListener('osmNoteViewer:notesInput', ev => {
             const [inputNotes, inputNoteUsers] = ev.detail;
             this.inputNotes = inputNotes;
             this.inputNoteUsers = inputNoteUsers;
@@ -9119,6 +9203,7 @@ async function main() {
     new GlobalEventListener();
     let auth;
     const $menuButton = makeMenuButton();
+    const $root = document.body;
     const $navbarContainer = document.createElement('nav');
     const $fetchContainer = makeDiv('panel', 'fetch')();
     const $moreContainer = makeDiv('more')();
@@ -9126,29 +9211,29 @@ async function main() {
     const $stickyPart = makeDiv('sticky')();
     const $graphicSide = makeDiv('graphic-side')($menuButton);
     const $mapContainer = makeDiv('map')();
-    document.body.append($graphicSide);
+    $root.append($graphicSide);
     const flipped = storage.getBoolean('flipped');
     if (flipped)
-        document.body.classList.add('flipped');
-    const globalHistory = new GlobalHistory($scrollingPart, serverList);
+        $root.classList.add('flipped');
+    const globalHistory = new GlobalHistory($root, $scrollingPart, serverList);
     if (globalHistory.hasServer()) {
         auth = new Auth(storage, globalHistory.server, serverList);
         $graphicSide.before(makeDiv('text-side')($scrollingPart, $stickyPart));
         $graphicSide.append($mapContainer);
-        const map = writeMap($mapContainer, globalHistory);
+        const map = writeMap($root, $mapContainer, globalHistory);
         const navbar = new Navbar(storage, $navbarContainer, map);
-        const noteTable = writeBelowFetchPanel($scrollingPart, $stickyPart, $moreContainer, storage, auth, globalHistory, map);
-        new NoteFetchPanel(document.body, db, globalHistory, $fetchContainer, $moreContainer, navbar, noteTable, map);
+        const noteTable = writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer, storage, auth, globalHistory, map);
+        new NoteFetchPanel($root, db, auth, $fetchContainer, $moreContainer, navbar, noteTable, map, globalHistory.getQueryHash(), globalHistory.hasMapHash(), serverList.getHostHashValue(globalHistory.server));
     }
     else {
         $menuButton.disabled = true;
     }
     {
-        const overlayDialog = new OverlayDialog(document.body, storage, db, globalHistory.server, serverList, globalHistory.serverHash, auth, $mapContainer);
+        const overlayDialog = new OverlayDialog($root, storage, db, globalHistory.server, serverList, globalHistory.serverHash, auth, $mapContainer);
         $graphicSide.append(overlayDialog.$menuPanel, overlayDialog.$figureDialog);
     }
     if (globalHistory.hasServer()) {
-        document.body.addEventListener('osmNoteViewer:clickUpdateNoteLink', async (ev) => {
+        $root.addEventListener('osmNoteViewer:updateNoteLinkClick', async (ev) => {
             const $a = ev.target;
             if (!($a instanceof HTMLAnchorElement))
                 return;
@@ -9164,34 +9249,25 @@ async function main() {
                 return;
             }
             bubbleCustomEvent($a, 'osmNoteViewer:noteFetch', [note, users, 'manual']);
-            bubbleCustomEvent($a, 'osmNoteViewer:pushNoteUpdate', [note, users]);
+            bubbleCustomEvent($a, 'osmNoteViewer:noteUpdatePush', [note, users]);
         });
         globalHistory.restoreScrollPosition();
     }
 }
-function writeMap($mapContainer, globalHistory) {
-    const map = new NoteMap(document.body, $mapContainer, globalHistory.server.tile, (changesetId) => downloadAndShowChangeset(globalHistory.server, changesetId), (elementType, elementId) => downloadAndShowElement(globalHistory.server, elementType, elementId));
-    map.onMoveEnd(() => {
-        globalHistory.setMapHash(map.hash);
-    });
-    globalHistory.onMapHashChange = (mapHashValue) => {
-        const [zoomString, latString, lonString] = mapHashValue.split('/');
-        if (zoomString && latString && lonString) {
-            map.panAndZoomTo([Number(latString), Number(lonString)], Number(zoomString));
-        }
-    };
+function writeMap($root, $mapContainer, globalHistory) {
+    const map = new NoteMap($root, $mapContainer, globalHistory.server.tile, (changesetId) => downloadAndShowChangeset(globalHistory.server, changesetId), (elementType, elementId) => downloadAndShowElement(globalHistory.server, elementType, elementId));
     globalHistory.triggerInitialMapHashChange();
     return map;
 }
-function writeBelowFetchPanel($scrollingPart, $stickyPart, $moreContainer, storage, auth, globalHistory, map) {
+function writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer, storage, auth, globalHistory, map) {
     const $filterContainer = makeDiv('panel', 'fetch')();
     const $notesContainer = makeDiv('notes')();
     $scrollingPart.append($filterContainer, $notesContainer, $moreContainer);
     const filterPanel = new NoteFilterPanel(globalHistory.server, $filterContainer);
     const $toolContainer = makeDiv('panel', 'command')();
     $stickyPart.append($toolContainer);
-    const toolPanel = new ToolPanel(document.body, $toolContainer, storage, auth, map);
-    const noteTable = new NoteTable(document.body, $notesContainer, toolPanel, map, filterPanel.noteFilter, globalHistory.server);
+    const toolPanel = new ToolPanel($root, $toolContainer, storage, auth, map);
+    const noteTable = new NoteTable($root, $notesContainer, toolPanel, map, filterPanel.noteFilter, globalHistory.server);
     filterPanel.subscribe(noteFilter => noteTable.updateFilter(noteFilter));
     globalHistory.$resizeObservationTarget = $notesContainer;
     return noteTable;

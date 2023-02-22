@@ -480,7 +480,7 @@ nav [role=tablist] [role=tab]:focus {
 .panel .major-input button {
 	padding: var(--major-button-padding);
 }
-.panel .major-input .textarea-controls {
+.panel .major-input .text-controls {
 	float: right;
 }
 .panel .text-button-input {
