@@ -4167,26 +4167,26 @@ function restrictClosedSelectValue(v) {
 }
 
 class TextControl {
-    constructor($input, isVisible, getState, canUndoInput, undoInput, doInput, getUndoLabel, getDoLabel) {
+    constructor($input, isVisible, canDoWithoutTextState, canDoWithTextState, undoInput, doInput, getUndoLabel, getDoLabel) {
         this.isVisible = isVisible;
-        this.canUndoInput = canUndoInput;
+        this.canDoWithoutTextState = canDoWithoutTextState;
+        this.canDoWithTextState = canDoWithTextState;
         this.getUndoLabel = getUndoLabel;
         this.getDoLabel = getDoLabel;
         this.$a = makeElement('a')('input-link')();
-        this.$a.tabIndex = 0;
         this.$a.onclick = async () => {
-            if (this.textState != null && this.canUndoInput(this.textState)) {
+            if (this.canUndo(this.textState)) {
                 undoInput(this.textState);
                 this.textState = undefined;
                 this.updateControl();
             }
-            else {
+            else if (this.canDo(this.textState)) {
                 try {
-                    const [textState, logicState] = await getState();
-                    this.textState = doInput(textState, logicState, this.$a);
+                    this.textState = await doInput(this.$a);
                     this.updateControl();
                 }
                 catch { }
+                return;
             }
         };
         this.$a.onkeydown = ev => {
@@ -4214,9 +4214,23 @@ class TextControl {
         this.$controls.hidden = !toBeVisible;
     }
     updateControl() {
-        this.$a.textContent = (this.textState != null && this.canUndoInput(this.textState)
+        const canUndo = this.canUndo(this.textState);
+        const canDo = this.canDo(this.textState);
+        if (canUndo || canDo) {
+            this.$a.setAttribute('tabindex', '0');
+        }
+        else {
+            this.$a.removeAttribute('tabindex');
+        }
+        this.$a.replaceChildren(...(canUndo
             ? this.getUndoLabel()
-            : this.getDoLabel());
+            : this.getDoLabel()));
+    }
+    canUndo(textState) {
+        return textState != null && !this.canDoWithTextState(textState);
+    }
+    canDo(textState) {
+        return textState != null ? this.canDoWithTextState(textState) : this.canDoWithoutTextState();
     }
 }
 
@@ -4300,15 +4314,13 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         {
             this.$userInput.type = 'text';
             this.$userInput.name = 'user';
-            const userInputControl = new TextControl(this.$userInput, () => this.auth.uid != null && this.auth.username != null, async () => {
-                if (this.auth.uid == null || this.auth.username == null)
+            const userInputControl = new TextControl(this.$userInput, () => this.auth.username != null, () => this.$userInput.value != this.auth.username, () => this.$userInput.value != this.auth.username, (username) => this.$userInput.value = username, async ($a) => {
+                if (this.auth.username == null)
                     throw new TypeError(`Undefined user when setting user search value`);
-                return [this.auth.username, this.auth.uid];
-            }, (username) => this.$userInput.value == this.auth.username, (username) => this.$userInput.value = username, (username, uid, $a) => {
                 const oldUsername = this.$userInput.value;
-                this.$userInput.value = username;
+                this.$userInput.value = this.auth.username;
                 return oldUsername;
-            }, () => `undo set username`, () => `set to ${this.auth.username}`);
+            }, () => [makeElement('span')()(`undo set to`)], () => [makeElement('span')()(`set to`), ` `, em(String(this.auth.username))]);
             $fieldset.append(makeDiv('major-input')(userInputControl.$controls, makeLabel()(`OSM username, URL or #id`, rq2('display_name', 'user'), ` `, this.$userInput)));
             this.$root.addEventListener('osmNoteViewer:loginChange', () => {
                 userInputControl.update();
@@ -4353,6 +4365,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         else {
             this.$userInput.value = '';
         }
+        this.$userInput.dispatchEvent(new Event('input')); // update text controls
         this.$textInput.value = query?.q ?? '';
         this.$fromInput.value = toReadableDate(query?.from);
         this.$toInput.value = toReadableDate(query?.to);
@@ -7308,20 +7321,18 @@ class InteractTool extends Tool {
         return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again ("reactivates" it). `, `This means that a hidden note can only be restored to an open state, even if it had been closed before being hidden. `, `If you want the note to be closed again, you have to close it yourself after reactivating. `, `Also, unlike the OSM website, you can reactivate a note and add a comment in one action. `, `The OSM website currently doesn't provide a comment input for note reactivation.`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, `If you've hidden a note and want to see it, look for it at `, this.$yourNotesWeb, ` on the OSM website.`)];
     }
     getTool($root, $tool) {
-        const appendLastChangeset = new TextControl(this.$commentText, () => this.auth.uid != null, async () => {
+        const appendLastChangeset = new TextControl(this.$commentText, () => this.auth.uid != null, () => true, (append) => !this.$commentText.value.endsWith(append), (append) => this.$commentText.value = this.$commentText.value.slice(0, -append.length), async ($a) => {
             if (this.auth.uid == null)
                 throw new TypeError(`Undefined user id when getting last changeset`);
             const response = await this.auth.server.api.fetch(e$2 `changesets.json?user=${this.auth.uid}`);
             const data = await response.json();
             const changesetId = getLatestChangesetId(data);
             const append = getParagraphAppend(this.$commentText.value, this.auth.server.web.getUrl(e$2 `changeset/${changesetId}`));
-            return [append, changesetId];
-        }, (append) => this.$commentText.value.endsWith(append), (append) => this.$commentText.value = this.$commentText.value.slice(0, -append.length), (append, changesetId, $a) => {
             this.$commentText.value += append;
             $a.dataset.changesetId = String(changesetId);
             bubbleEvent($a, 'osmNoteViewer:changesetLinkClick');
             return append;
-        }, () => `undo append`, () => `append last changeset`);
+        }, () => [makeElement('span')()(`undo append`)], () => [makeElement('span')()(`append last changeset`)]);
         this.$commentText.oninput = () => {
             this.updateButtons();
         };

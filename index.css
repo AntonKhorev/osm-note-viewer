@@ -70,13 +70,13 @@ body.flipped .text-side + .graphic-side {
 	flex-grow: 1;
 }
 
-a.input-link,
+a.input-link[tabindex],
 a.listened,
 time.listened {
 	text-decoration: underline dotted 1px;
 	cursor: pointer;
 }
-a.input-link,
+a.input-link[tabindex],
 time.listened {
 	color: var(--semi-link-color);
 }
@@ -482,6 +482,12 @@ nav [role=tablist] [role=tab]:focus {
 }
 .panel .major-input .text-controls {
 	float: right;
+}
+.panel .major-input .text-controls a span {
+	opacity: .7;
+}
+.panel .major-input .text-controls a em {
+	font-style: inherit;
 }
 .panel .text-button-input {
 	display: flex;
