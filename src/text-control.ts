@@ -1,30 +1,29 @@
 import {makeElement, makeDiv} from './html'
 
-export default class TextControl<T> {
+export default class TextControl {
 	$controls: HTMLDivElement
 	private $a: HTMLAnchorElement
-	private textState: string|undefined
+	private state: string|undefined
 	constructor(
 		$input: HTMLInputElement|HTMLTextAreaElement,
 		private isVisible: ()=>boolean,
-		getState: ()=>Promise<[textState:string,logicState:T]>,
-		private canUndoInput: (textState:string)=>boolean,
+		private isEnabled: (state:string|undefined)=>boolean,
+		private canUndoInput: (state:string)=>boolean,
 		undoInput: (textState:string)=>void,
-		doInput: (textState:string,logicState:T,$a:HTMLAnchorElement)=>string,
+		doInput: ($a:HTMLAnchorElement)=>Promise<string>,
 		private getUndoLabel: ()=>(string|HTMLElement)[],
 		private getDoLabel: ()=>(string|HTMLElement)[]
 	) {
 		this.$a=makeElement('a')('input-link')()
-		this.$a.tabIndex=0
 		this.$a.onclick=async()=>{
-			if (this.textState!=null && this.canUndoInput(this.textState)) {
-				undoInput(this.textState)
-				this.textState=undefined
+			if (!this.$a.hasAttribute('tabindex')) return
+			if (this.state!=null && this.canUndoInput(this.state)) {
+				undoInput(this.state)
+				this.state=undefined
 				this.updateControl()
 			} else {
 				try {
-					const [textState,logicState]=await getState()
-					this.textState=doInput(textState,logicState,this.$a)
+					this.state=await doInput(this.$a)
 					this.updateControl()
 				} catch {}
 			}
@@ -46,13 +45,18 @@ export default class TextControl<T> {
 	update(): void {
 		const toBeVisible=this.isVisible()
 		if (toBeVisible && this.$controls.hidden) {
-			this.textState=undefined
+			this.state=undefined
 			this.updateControl()
 		}
 		this.$controls.hidden=!toBeVisible
 	}
 	private updateControl(): void {
-		this.$a.replaceChildren(...(this.textState!=null && this.canUndoInput(this.textState)
+		if (this.isEnabled(this.state)) {
+			this.$a.setAttribute('tabindex','0')
+		} else {
+			this.$a.removeAttribute('tabindex')
+		}
+		this.$a.replaceChildren(...(this.state!=null && this.canUndoInput(this.state)
 			? this.getUndoLabel()
 			: this.getDoLabel()
 		))

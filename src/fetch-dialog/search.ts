@@ -85,15 +85,13 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 			const userInputControl=new TextControl(
 				this.$userInput,
 				()=>this.auth.uid!=null && this.auth.username!=null,
-				async()=>{
-					if (this.auth.uid==null || this.auth.username==null) throw new TypeError(`Undefined user when setting user search value`)
-					return [this.auth.username,this.auth.uid]
-				},
-				(username)=>this.$userInput.value==this.auth.username,
+				(oldUsername)=>!(this.$userInput.value==this.auth.username && oldUsername==null),
+				()=>this.$userInput.value==this.auth.username,
 				(username)=>this.$userInput.value=username,
-				(username,uid,$a)=>{
+				async($a)=>{
+					if (this.auth.username==null) throw new TypeError(`Undefined user when setting user search value`)
 					const oldUsername=this.$userInput.value
-					this.$userInput.value=username
+					this.$userInput.value=this.auth.username
 					return oldUsername
 				},
 				()=>[makeElement('span')()(`undo set username`)],
@@ -163,6 +161,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 		} else {
 			this.$userInput.value=''
 		}
+		this.$userInput.dispatchEvent(new Event('input')) // update text controls
 		this.$textInput.value=query?.q ?? ''
 		this.$fromInput.value=toReadableDate(query?.from)
 		this.$toInput.value=toReadableDate(query?.to)
