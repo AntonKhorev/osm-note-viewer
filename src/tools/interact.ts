@@ -43,7 +43,6 @@ export class InteractTool extends Tool {
 	name=`Interact`
 	title=`Interact with notes on OSM server`
 	isFullWidth=true
-	private $commentAppendControls=makeDiv('text-controls')()
 	private $yourNotesApi=document.createElement('span')
 	private $yourNotesWeb=document.createElement('span')
 	private $asOutput=document.createElement('output')
@@ -144,6 +143,8 @@ export class InteractTool extends Tool {
 	)]}
 	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
 		const appendLastChangeset=new TextControl(
+			this.$commentText,
+			()=>this.auth.uid!=null,
 			(append)=>this.$commentText.value.endsWith(append),
 			(append)=>this.$commentText.value=this.$commentText.value.slice(0,-append.length),
 			(append,changesetId,$a)=>{
@@ -165,11 +166,7 @@ export class InteractTool extends Tool {
 			()=>`undo append`,
 			()=>`append last changeset`
 		)
-		this.$commentAppendControls.append(
-			appendLastChangeset.$a
-		)
 		this.$commentText.oninput=()=>{
-			appendLastChangeset.update()
 			this.updateButtons()
 		}
 		const scheduleRunNextNote=this.makeRunScheduler($tool)
@@ -210,6 +207,7 @@ export class InteractTool extends Tool {
 			}
 		}
 		$root.addEventListener('osmNoteViewer:loginChange',()=>{
+			appendLastChangeset.update()
 			this.updateLoginDependents()
 			this.updateButtons()
 			this.ping($tool)
@@ -232,7 +230,7 @@ export class InteractTool extends Tool {
 		return [
 			this.$asOutput,` `,this.$withOutput,` `,
 			makeDiv('major-input')(
-				this.$commentAppendControls,
+				appendLastChangeset.$controls,
 				makeLabel()(
 					`Comment `,
 					this.$commentText
@@ -243,7 +241,6 @@ export class InteractTool extends Tool {
 		]
 	}
 	private updateLoginDependents(): void {
-		this.$commentAppendControls.hidden=this.auth.uid==null
 		this.updateYourNotes()
 		this.updateAsOutput()
 	}
