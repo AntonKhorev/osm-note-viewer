@@ -78,14 +78,13 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 		const showSomeNotesThreshold=5
 		const showAllNotesThreshold=7
 		if (query.mode!='ids') return super.getQueryCaption(query)
+		const prefix=query.ids.length==1 ? `note` : `notes`
 		let ids: string
-		if (query.ids.length==1) {
-			ids=`with id `+query.ids.join(`, `)
-		} else if (query.ids.length<=showAllNotesThreshold) {
-			ids=`with ids `+query.ids.join(`, `)
+		if (query.ids.length<=showAllNotesThreshold) {
+			ids=query.ids.join(`, `)
 		} else {
-			ids=`with ids `+query.ids.slice(0,showSomeNotesThreshold).join(`, `)+` and ${query.ids.length-showSomeNotesThreshold} other notes`
+			ids=query.ids.slice(0,showSomeNotesThreshold).join(`, `)+` and ${query.ids.length-showSomeNotesThreshold} other notes`
 		}
-		return makeElement('caption')()(`notes `,this.makeInputLink(this.$idsTextarea,ids))
+		return makeElement('caption')()(prefix,` `,this.makeInputLink(this.$idsTextarea,ids))
 	}
 }
