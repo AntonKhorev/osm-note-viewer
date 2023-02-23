@@ -957,6 +957,9 @@ body.flipped table.only-short-username td.note-user {
 .graphic-side button.menu > svg {
 	background: canvas;
 }
+.graphic-side button.menu.opened {
+	--menu-cross-part-visibility: visible;
+}
 
 .graphic-side div.menu:not([hidden]) {
 	position: absolute;

@@ -8,11 +8,12 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" crossorigin="" />
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
 </head>
-<body data-build="2023-02-22T14:51:44.711Z">
+<body data-build="2023-02-23T00:15:49.650Z">
 <svg class="symbols">
 <style>
 #flip .hor { visibility: var(--flip-hor-part-visibility,hidden); }
 #flip .ver { visibility: var(--flip-ver-part-visibility,hidden); }
+#menu .cross { visibility: var(--menu-cross-part-visibility,hidden); }
 #table-expander .hor-out { visibility: var(--table-expander-hor-out-part-visibility,hidden); }
 #table-expander .hor-in { visibility: var(--table-expander-hor-in-part-visibility,hidden); }
 #table-expander .ver-out { visibility: var(--table-expander-ver-out-part-visibility,hidden); }
@@ -86,6 +87,16 @@
 <line x1="-20" x2="+20" y1="-10" y2="-10" />
 <line x1="-20" x2="+20" />
 <line x1="-20" x2="+20" y1="+10" y2="+10" />
+</g>
+<g class="cross">
+<g stroke-width="8" stroke="canvas">
+<line x1="-15" y1="-15" x2="+15" y2="+15" />
+<line x1="-15" y1="+15" x2="+15" y2="-15" />
+</g>
+<g stroke-width="4" stroke="currentColor">
+<line x1="-15" y1="-15" x2="+15" y2="+15" />
+<line x1="-15" y1="+15" x2="+15" y2="-15" />
+</g>
 </g>
 </symbol>
 <symbol id="reset" viewBox="-32 -32 64 64">

@@ -2200,7 +2200,7 @@ function calculateOffsetsToFit(map, $popupContainer) {
     return [-dx, -dy];
 }
 
-function makeCodeForm(initialValue, summary, textareaLabel, buttonLabel, isSameInput, checkInput, applyInput, runCallback, syntaxDescription, syntaxExamples) {
+function makeCodeForm(initialValue, stashedValue, summary, textareaLabel, applyButtonLabel, isSameInput, checkInput, applyInput, runCallback, syntaxDescription, syntaxExamples) {
     const $formDetails = document.createElement('details');
     const $form = document.createElement('form');
     const $output = document.createElement('output');
@@ -2210,8 +2210,7 @@ function makeCodeForm(initialValue, summary, textareaLabel, buttonLabel, isSameI
     const $undoClearButton = document.createElement('button');
     $textarea.value = initialValue;
     const isEmpty = () => !$textarea.value;
-    const canUndoClear = () => stashedValue != null && isEmpty();
-    let stashedValue;
+    const canUndoClear = () => !!stashedValue && isEmpty();
     const reactToChanges = () => {
         const isSame = isSameInput($textarea.value);
         $output.replaceChildren();
@@ -2268,9 +2267,9 @@ function makeCodeForm(initialValue, summary, textareaLabel, buttonLabel, isSameI
         $form.append(makeDiv('major-input')(makeLabel()(textareaLabel, ` `, $textarea)));
     }
     {
-        $applyButton.textContent = buttonLabel;
+        $applyButton.textContent = applyButtonLabel;
         $clearButton.textContent = `Clear`;
-        $undoClearButton.textContent = `Undo clear`;
+        $undoClearButton.textContent = `Restore previous`;
         $undoClearButton.type = $clearButton.type = 'button';
         $form.append(makeDiv('gridded-input')($applyButton, $clearButton, $undoClearButton));
     }
@@ -2278,6 +2277,7 @@ function makeCodeForm(initialValue, summary, textareaLabel, buttonLabel, isSameI
     $clearButton.onclick = () => {
         stashedValue = $textarea.value;
         $textarea.value = '';
+        $undoClearButton.textContent = `Undo clear`;
         reactToChanges();
     };
     $undoClearButton.onclick = () => {
@@ -2499,7 +2499,7 @@ class ServerListSection {
             }
             $section.append(serverTable.$table);
         }
-        $section.append(makeCodeForm(storage.getString('servers'), `Custom servers configuration`, `Configuration`, `Apply changes`, input => input == storage.getString('servers'), input => {
+        $section.append(makeCodeForm(storage.getString('servers'), '', `Custom servers configuration`, `Configuration`, `Apply changes`, input => input == storage.getString('servers'), input => {
             if (input.trim() == '')
                 return;
             const configSource = JSON.parse(input);
@@ -2639,13 +2639,24 @@ class StorageSection {
     }
 }
 
+function makeMenuButton() {
+    const $button = document.createElement('button');
+    $button.classList.add('global', 'menu');
+    $button.innerHTML = `<svg><use href="#menu" /></svg>`;
+    $button.onclick = () => {
+        bubbleEvent($button, 'osmNoteViewer:toggleMenu');
+    };
+    return $button;
+}
 class OverlayDialog {
-    constructor($root, storage, db, server, serverList, serverHash, auth, $mapContainer) {
+    constructor($root, storage, db, server, serverList, serverHash, auth, $mapContainer, $menuButton) {
         this.$mapContainer = $mapContainer;
+        this.$menuButton = $menuButton;
         this.$menuPanel = makeElement('div')('menu')();
         this.$figureDialog = makeElement('dialog')('figure')();
         this.fallbackMode = (window.HTMLDialogElement == null);
-        this.$menuPanel.hidden = !!auth;
+        this.menuHidden = !!auth;
+        this.$menuButton.disabled = !auth;
         this.writeMenuPanel(storage, db, server, serverList, serverHash, auth);
         for (const eventType of [
             'osmNoteViewer:newNoteStream',
@@ -2664,13 +2675,13 @@ class OverlayDialog {
         $root.addEventListener('osmNoteViewer:toggleMenu', () => {
             if (this.url != null)
                 this.close();
-            this.$menuPanel.hidden = !this.$menuPanel.hidden;
-            this.$mapContainer.hidden = !this.$menuPanel.hidden;
+            this.menuHidden = !this.menuHidden;
+            this.$mapContainer.hidden = !this.menuHidden;
         });
     }
     close() {
         this.$mapContainer.hidden = false;
-        this.$menuPanel.hidden = true;
+        this.menuHidden = true;
         if (this.fallbackMode) {
             return;
         }
@@ -2682,7 +2693,7 @@ class OverlayDialog {
             open(url, 'photo');
             return;
         }
-        this.$menuPanel.hidden = true;
+        this.menuHidden = true;
         this.$figureDialog.innerHTML = '';
         if (url == this.url) {
             this.close();
@@ -2774,6 +2785,14 @@ class OverlayDialog {
         }
         $scrolling.append(makeExtraSubsection());
         this.$menuPanel.append($lead, $scrolling);
+    }
+    get menuHidden() {
+        return this.$menuPanel.hidden;
+    }
+    set menuHidden(value) {
+        this.$menuPanel.hidden = value;
+        this.$menuButton.classList.toggle('opened', !value);
+        this.$menuButton.title = value ? `Open menu` : `Close menu`;
     }
 }
 function makeExtraSubsection() {
@@ -5615,10 +5634,11 @@ function term(t) {
     return `<em>&lt;${t}&gt;</em>`;
 }
 class NoteFilterPanel {
-    constructor(urlLister, $container) {
+    constructor(storage, urlLister, $container) {
         this.noteFilter = new NoteFilter(urlLister, ``);
-        const $form = makeCodeForm('', `Note filter`, `Filter`, `Apply filter`, input => this.noteFilter.isSameQuery(input), input => new NoteFilter(urlLister, input), input => {
+        const $form = makeCodeForm('', storage.getString('filter'), `Note filter`, `Filter`, `Apply filter`, input => this.noteFilter.isSameQuery(input), input => new NoteFilter(urlLister, input), input => {
             this.noteFilter = new NoteFilter(urlLister, input);
+            storage.setString('filter', input);
         }, () => {
             if (this.callback)
                 this.callback(this.noteFilter);
@@ -9236,11 +9256,8 @@ async function main() {
         const noteTable = writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer, storage, auth, globalHistory, map);
         new NoteFetchPanel($root, db, auth, $fetchContainer, $moreContainer, navbar, noteTable, map, globalHistory.getQueryHash(), globalHistory.hasMapHash(), serverList.getHostHashValue(globalHistory.server));
     }
-    else {
-        $menuButton.disabled = true;
-    }
     {
-        const overlayDialog = new OverlayDialog($root, storage, db, globalHistory.server, serverList, globalHistory.serverHash, auth, $mapContainer);
+        const overlayDialog = new OverlayDialog($root, storage, db, globalHistory.server, serverList, globalHistory.serverHash, auth, $mapContainer, $menuButton);
         $graphicSide.append(overlayDialog.$menuPanel, overlayDialog.$figureDialog);
     }
     if (globalHistory.hasServer()) {
@@ -9274,7 +9291,7 @@ function writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer
     const $filterContainer = makeDiv('panel', 'fetch')();
     const $notesContainer = makeDiv('notes')();
     $scrollingPart.append($filterContainer, $notesContainer, $moreContainer);
-    const filterPanel = new NoteFilterPanel(globalHistory.server, $filterContainer);
+    const filterPanel = new NoteFilterPanel(storage, globalHistory.server, $filterContainer);
     const $toolContainer = makeDiv('panel', 'command')();
     $stickyPart.append($toolContainer);
     const toolPanel = new ToolPanel($root, $toolContainer, storage, auth, map);
@@ -9282,14 +9299,4 @@ function writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer
     filterPanel.subscribe(noteFilter => noteTable.updateFilter(noteFilter));
     globalHistory.$resizeObservationTarget = $notesContainer;
     return noteTable;
-}
-function makeMenuButton() {
-    const $button = document.createElement('button');
-    $button.title = `Menu`;
-    $button.classList.add('global', 'menu');
-    $button.innerHTML = `<svg><use href="#menu" /></svg>`;
-    $button.onclick = () => {
-        bubbleEvent($button, 'osmNoteViewer:toggleMenu');
-    };
-    return $button;
 }
