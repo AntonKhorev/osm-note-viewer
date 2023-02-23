@@ -4,7 +4,7 @@ import type Auth from '../auth'
 import type NoteTable from '../table'
 import type {NoteQuery} from '../query'
 import {makeNoteIdsQueryFromValue} from '../query'
-import {makeDiv, makeLabel} from '../html'
+import {makeElement, makeDiv, makeLabel} from '../html'
 
 export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) {
 	shortTitle=`Plaintext`
@@ -32,6 +32,7 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 				this.$copyButton
 			))
 		}{
+			this.$idsTextarea.name='ids'
 			this.$idsTextarea.required=true
 			this.$idsTextarea.rows=10
 			$fieldset.append(makeDiv('major-input')(makeLabel()(
@@ -72,5 +73,17 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 	}
 	protected listQueryChangingInputs() {
 		return [this.$idsTextarea]
+	}
+	getQueryCaption(query: NoteQuery): HTMLTableCaptionElement {
+		const showSomeNotesThreshold=5
+		const showAllNotesThreshold=7
+		if (query.mode!='ids') return super.getQueryCaption(query)
+		let ids=`with ids `
+		if (query.ids.length<=showAllNotesThreshold) {
+			ids+=query.ids.join(`, `)
+		} else {
+			ids+=query.ids.slice(0,showSomeNotesThreshold).join(`, `)+` and ${query.ids.length-showSomeNotesThreshold} other notes`
+		}
+		return makeElement('caption')()(`Fetched notes `,this.makeInputLink(this.$idsTextarea,ids))
 	}
 }

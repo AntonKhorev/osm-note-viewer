@@ -97,7 +97,7 @@ export default class NoteFetchPanel {
 				if (!($a instanceof HTMLAnchorElement)) return
 				if (!$a.dataset.inputName) return
 				const $input=dialog.$form.elements.namedItem($a.dataset.inputName)
-				if (!($input instanceof HTMLInputElement)) return
+				if (!($input instanceof HTMLInputElement || $input instanceof HTMLTextAreaElement)) return
 				$input.focus()
 				ev.preventDefault()
 				ev.stopPropagation()

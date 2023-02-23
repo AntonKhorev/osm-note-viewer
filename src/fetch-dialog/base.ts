@@ -230,6 +230,12 @@ export abstract class NoteFetchDialog extends NavDialog {
 	protected abstract addEventListeners(): void
 	protected abstract constructQuery(): NoteQuery | undefined
 	protected abstract listQueryChangingInputs(): Array<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>
+	protected makeInputLink($input: HTMLInputElement|HTMLTextAreaElement, text: string): HTMLAnchorElement {
+		const $a=makeElement('a')('input-link')(text)
+		$a.tabIndex=0
+		$a.dataset.inputName=$input.name
+		return $a
+	}
 }
 
 export function mixinWithAutoLoadCheckbox<T extends abstract new (...args: any[]) => any>(c: T) {
@@ -366,14 +372,8 @@ export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetc
 		)
 	}
 	getQueryCaption(query: NoteQuery): HTMLTableCaptionElement {
-		const makeInputLink=($input:HTMLInputElement,text:string)=>{
-			const $a=makeElement('a')('input-link')(text)
-			$a.tabIndex=0
-			$a.dataset.inputName=$input.name
-			return $a
-		}
 		if (query.mode!='search' && query.mode!='bbox') return super.getQueryCaption(query)
-		const items=this.getQueryCaptionItems(query,makeInputLink)
+		const items=this.getQueryCaptionItems(query)
 		const $caption=makeElement('caption')()(`Fetched `)
 		if (query.closed==0) {
 			$caption.append(`open notes`)
@@ -398,7 +398,7 @@ export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetc
 		}
 		return $caption
 	}
-	protected abstract getQueryCaptionItems(query: NoteQuery, makeInputLink: ($input:HTMLInputElement,text:string)=>HTMLAnchorElement): (string|HTMLElement)[][]
+	protected abstract getQueryCaptionItems(query: NoteQuery): (string|HTMLElement)[][]
 }
 
 export abstract class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {

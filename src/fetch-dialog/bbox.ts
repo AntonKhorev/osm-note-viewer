@@ -232,10 +232,10 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		this.$bboxInput.setCustomValidity('')
 		return true
 	}
-	protected getQueryCaptionItems(query: NoteQuery, makeInputLink: ($input:HTMLInputElement,text:string)=>HTMLAnchorElement) {
+	protected getQueryCaptionItems(query: NoteQuery) {
 		if (query.mode!='bbox') return []
 		return [
-			[`inside bounding box `,makeInputLink(this.$bboxInput,query.bbox)]
+			[`inside bounding box `,this.makeInputLink(this.$bboxInput,query.bbox)]
 		]
 	}
 }

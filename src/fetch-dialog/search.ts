@@ -199,28 +199,28 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 			this.$closedInput,this.$closedSelect,this.$sortSelect,this.$orderSelect
 		]
 	}
-	protected getQueryCaptionItems(query: NoteQuery, makeInputLink: ($input:HTMLInputElement,text:string)=>HTMLAnchorElement) {
+	protected getQueryCaptionItems(query: NoteQuery) {
 		if (query.mode!='search') return []
 		const items: (string|HTMLElement)[][] = []
 		if (query.display_name!=null) {
-			items.push([`user `,makeInputLink(this.$userInput,query.display_name)])
+			items.push([`user `,this.makeInputLink(this.$userInput,query.display_name)])
 		} else if (query.user!=null) {
-			items.push([`user id `,makeInputLink(this.$userInput,String(query.user))])
+			items.push([`user id `,this.makeInputLink(this.$userInput,String(query.user))])
 		}
 		if (query.q!=null) {
-			items.push([`text `,makeInputLink(this.$textInput,query.q)])
+			items.push([`text `,this.makeInputLink(this.$textInput,query.q)])
 		}
 		if (query.from!=null && query.to!=null) {
 			items.push([`dates `,
-				makeInputLink(this.$textInput,toShortReadableDate(query.from)),`..`,
-				makeInputLink(this.$textInput,toShortReadableDate(query.to))
+				this.makeInputLink(this.$textInput,toShortReadableDate(query.from)),`..`,
+				this.makeInputLink(this.$textInput,toShortReadableDate(query.to))
 			])
 		} else {
 			if (query.from!=null) {
-				items.push([`dates starting at `,makeInputLink(this.$textInput,toShortReadableDate(query.from))])
+				items.push([`dates starting at `,this.makeInputLink(this.$textInput,toShortReadableDate(query.from))])
 			}
 			if (query.to!=null) {
-				items.push([`dates ending at `,makeInputLink(this.$textInput,toShortReadableDate(query.to))])
+				items.push([`dates ending at `,this.makeInputLink(this.$textInput,toShortReadableDate(query.to))])
 			}
 		}
 		return items
