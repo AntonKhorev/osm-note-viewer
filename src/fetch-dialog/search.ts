@@ -207,10 +207,42 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 			return $a
 		}
 		if (query.mode!='search') return super.getQueryCaption(query)
-		const items: (string|HTMLElement)[] = [`Fetched notes`]
+		const items: (string|HTMLElement)[][] = []
 		if (query.display_name!=null) {
-			items.push(` for user `,makeInputLink(this.$userInput,query.display_name))
+			items.push([`user `,makeInputLink(this.$userInput,query.display_name)])
+		} else if (query.user!=null) {
+			items.push([`user id `,makeInputLink(this.$userInput,String(query.user))])
 		}
-		return makeElement('caption')()(...items)
+		if (query.q!=null) {
+			items.push([`text `,makeInputLink(this.$textInput,query.q)])
+		}
+		if (query.from!=null && query.to!=null) {
+			// TODO shortened readable date, same for inputs BUT NOT TABLE COLUMNS
+			items.push([`dates `,
+				makeInputLink(this.$textInput,toReadableDate(query.from)),`..`,
+				makeInputLink(this.$textInput,toReadableDate(query.to))
+			])
+		} else {
+			if (query.from!=null) {
+				items.push([`dates starting at `,makeInputLink(this.$textInput,toReadableDate(query.from))])
+			}
+			if (query.to!=null) {
+				items.push([`dates ending at `,makeInputLink(this.$textInput,toReadableDate(query.to))])
+			}
+		}
+		const $caption=makeElement('caption')()(`Fetched notes`)
+		if (items.length>0) {
+			$caption.append(` for `)
+			let first=true
+			for (const item of items) {
+				if (first) {
+					first=false
+				} else {
+					$caption.append(`, `)
+				}
+				$caption.append(...item)
+			}
+		}
+		return $caption
 	}
 }
