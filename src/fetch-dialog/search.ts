@@ -2,7 +2,7 @@ import {NoteQueryFetchDialog, mixinWithAutoLoadCheckbox} from './base'
 import type {NoteQuery} from '../query'
 import {makeNoteSearchQueryFromValues} from '../query'
 import {toUserQuery} from '../query-user'
-import {toDateQuery, toReadableDate} from '../query-date'
+import {toDateQuery, toShortReadableDate} from '../query-date'
 import TextControl from '../text-control'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
 import {p,em,code} from '../html-shortcuts'
@@ -163,8 +163,8 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 		}
 		this.$userInput.dispatchEvent(new Event('input')) // update text controls
 		this.$textInput.value=query?.q ?? ''
-		this.$fromInput.value=toReadableDate(query?.from)
-		this.$toInput.value=toReadableDate(query?.to)
+		this.$fromInput.value=toShortReadableDate(query?.from)
+		this.$toInput.value=toShortReadableDate(query?.to)
 		this.$sortSelect.value=query?.sort ?? 'created_at'
 		this.$orderSelect.value=query?.order ?? 'newest'
 	}
@@ -217,17 +217,16 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 			items.push([`text `,makeInputLink(this.$textInput,query.q)])
 		}
 		if (query.from!=null && query.to!=null) {
-			// TODO shortened readable date, same for inputs BUT NOT TABLE COLUMNS
 			items.push([`dates `,
-				makeInputLink(this.$textInput,toReadableDate(query.from)),`..`,
-				makeInputLink(this.$textInput,toReadableDate(query.to))
+				makeInputLink(this.$textInput,toShortReadableDate(query.from)),`..`,
+				makeInputLink(this.$textInput,toShortReadableDate(query.to))
 			])
 		} else {
 			if (query.from!=null) {
-				items.push([`dates starting at `,makeInputLink(this.$textInput,toReadableDate(query.from))])
+				items.push([`dates starting at `,makeInputLink(this.$textInput,toShortReadableDate(query.from))])
 			}
 			if (query.to!=null) {
-				items.push([`dates ending at `,makeInputLink(this.$textInput,toReadableDate(query.to))])
+				items.push([`dates ending at `,makeInputLink(this.$textInput,toShortReadableDate(query.to))])
 			}
 		}
 		const $caption=makeElement('caption')()(`Fetched notes`)

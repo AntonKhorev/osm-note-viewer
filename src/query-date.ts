@@ -14,22 +14,29 @@ export interface EmptyDateQuery {
 
 export type DateQuery = ValidDateQuery | InvalidDateQuery | EmptyDateQuery
 
-export function toReadableDate(date: number | undefined): string {
+export function toReadableDate(date: number|undefined): string {
+	return toShortOrFullReadableDate(date,true)
+}
+
+export function toShortReadableDate(date: number|undefined): string {
+	return toShortOrFullReadableDate(date,false)
+}
+
+function toShortOrFullReadableDate(date: number|undefined, full: boolean): string {
 	if (date==null) return ''
 	const pad=(n: number): string => ('0'+n).slice(-2)
 	const dateObject=new Date(date*1000)
-	const dateString=
-		dateObject.getUTCFullYear()+
-		'-'+
-		pad(dateObject.getUTCMonth()+1)+
-		'-'+
-		pad(dateObject.getUTCDate())+
-		' '+
-		pad(dateObject.getUTCHours())+
-		':'+
-		pad(dateObject.getUTCMinutes())+
-		':'+
-		pad(dateObject.getUTCSeconds())
+	let dateString=''
+	switch (true) {
+	case full || dateObject.getUTCSeconds()!=0:
+		dateString=':'+pad(dateObject.getUTCSeconds())
+	case dateObject.getUTCMinutes()!=0 || dateObject.getUTCHours()!=0:
+		dateString=' '+pad(dateObject.getUTCHours())+':'+pad(dateObject.getUTCMinutes())+dateString
+	case dateObject.getUTCDate()!=1 || dateObject.getUTCMonth()!=0:
+		dateString='-'+pad(dateObject.getUTCMonth()+1)+'-'+pad(dateObject.getUTCDate())+dateString
+	default:
+		dateString=dateObject.getUTCFullYear()+dateString
+	}
 	return dateString
 }
 

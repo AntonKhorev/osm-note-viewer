@@ -1,5 +1,5 @@
 import {strict as assert} from 'assert'
-import {toReadableDate, toDateQuery} from '../../test-build/query-date.js'
+import {toReadableDate, toShortReadableDate, toDateQuery} from '../../test-build/query-date.js'
 
 describe("date query module / toReadableDate()",()=>{
 	it("returns blank for undefined date",()=>{
@@ -12,6 +12,57 @@ describe("date query module / toReadableDate()",()=>{
 		assert.equal(
 			toReadableDate(makeDate('2015-07-24 16:53:48Z')),
 			'2015-07-24 16:53:48'
+		)
+	})
+	it("returns full string for valid date even if it could have been shortened",()=>{
+		assert.equal(
+			toReadableDate(makeDate('2015-07-24 16:53:00Z')),
+			'2015-07-24 16:53:00'
+		)
+	})
+})
+
+describe("date query module / toShortReadableDate()",()=>{
+	it("returns blank for undefined date",()=>{
+		assert.equal(
+			toShortReadableDate(undefined),
+			''
+		)
+	})
+	it("returns full date string",()=>{
+		assert.equal(
+			toShortReadableDate(makeDate('2021-01-01 00:00:01Z')),
+			'2021-01-01 00:00:01'
+		)
+	})
+	it("returns date string up to minutes",()=>{
+		assert.equal(
+			toShortReadableDate(makeDate('2021-01-01 00:01:00Z')),
+			'2021-01-01 00:01'
+		)
+	})
+	it("returns date string up to hours with 00 minutes",()=>{
+		assert.equal(
+			toShortReadableDate(makeDate('2021-01-01 01:00:00Z')),
+			'2021-01-01 01:00'
+		)
+	})
+	it("returns date string up to day",()=>{
+		assert.equal(
+			toShortReadableDate(makeDate('2021-01-02 00:00:00Z')),
+			'2021-01-02'
+		)
+	})
+	it("returns date string up to month with 01 day",()=>{
+		assert.equal(
+			toShortReadableDate(makeDate('2021-02-01 00:00:00Z')),
+			'2021-02-01'
+		)
+	})
+	it("returns date string up to year",()=>{
+		assert.equal(
+			toShortReadableDate(makeDate('2021-01-01 00:00:00Z')),
+			'2021'
 		)
 	})
 })
