@@ -11,7 +11,7 @@ export interface NoteFetchDialogSharedCheckboxes {
 
 export abstract class NoteFetchDialog extends NavDialog {
 	limitChangeListener?: ()=>void
-	protected $form=document.createElement('form')
+	$form=document.createElement('form')
 	protected $advancedModeCheckbox=document.createElement('input')
 	protected $limitSelect=document.createElement('select')
 	protected $limitInput=document.createElement('input')
@@ -68,6 +68,9 @@ export abstract class NoteFetchDialog extends NavDialog {
 		}
 	}
 	abstract get getAutoLoad(): ()=>boolean
+	getQueryCaption(query: NoteQuery): HTMLTableCaptionElement {
+		return makeElement('caption')()(`Fetched notes`)
+	}
 	protected updateRequest(): void {
 		const knownTypes: {[type:string]:string} = {
 			json: `https://wiki.openstreetmap.org/wiki/GeoJSON`,

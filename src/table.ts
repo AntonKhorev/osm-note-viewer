@@ -164,12 +164,13 @@ export default class NoteTable implements NoteTableUpdater {
 			$refreshWaitProgress.value=progress
 		})
 	}
-	reset(): void {
+	reset($caption?: HTMLTableCaptionElement): void {
 		this.notesById.clear()
 		this.usersById.clear()
 		this.$lastClickedNoteSection=undefined
 		this.noteSectionVisibilityObserver.disconnect()
 		this.$table.replaceChildren()
+		if ($caption) this.$table.append($caption)
 		this.updateCheckboxDependentsAndSendNoteChangeEvents()
 	}
 	updateFilter(filter: NoteFilter): void {
@@ -210,10 +211,7 @@ export default class NoteTable implements NoteTableUpdater {
 			this.usersById.set(Number(uid),username)
 		}
 		// output table
-		if (this.$table.childElementCount==0) {
-			this.$table.append(
-				makeElement('caption')()(`Fetched notes`)
-			)
+		if (this.$table.rows.length==0) {
 			const $header=this.writeTableHeader()
 			this.noteSectionVisibilityObserver.stickyHeight=$header.offsetHeight
 			document.documentElement.style.setProperty('--table-header-height',$header.offsetHeight+'px')

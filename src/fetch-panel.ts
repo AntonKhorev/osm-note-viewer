@@ -91,7 +91,25 @@ export default class NoteFetchPanel {
 					map.needToFitNotes=false
 				}
 			}
-			noteTable.reset()
+			const $caption=dialog.getQueryCaption(query)
+			$caption.onclick=ev=>{
+				const $a=ev.target
+				if (!($a instanceof HTMLAnchorElement)) return
+				if (!$a.dataset.inputName) return
+				const $input=dialog.$form.elements.namedItem($a.dataset.inputName)
+				if (!($input instanceof HTMLInputElement)) return
+				$input.focus()
+				ev.preventDefault()
+				ev.stopPropagation()
+			}
+			$caption.onkeydown=ev=>{
+				const $a=ev.target
+				if (!($a instanceof HTMLAnchorElement)) return
+				$a.click()
+				ev.preventDefault()
+				ev.stopPropagation()
+			}
+			noteTable.reset($caption)
 			bubbleCustomEvent($container,'osmNoteViewer:newNoteStream',[makeNoteQueryString(query),isNewStart])
 			const environment: NoteFetcherEnvironment = {
 				db,

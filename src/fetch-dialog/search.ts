@@ -4,7 +4,7 @@ import {makeNoteSearchQueryFromValues} from '../query'
 import {toUserQuery} from '../query-user'
 import {toDateQuery, toReadableDate} from '../query-date'
 import TextControl from '../text-control'
-import {makeElement, makeLink, makeDiv, makeLabel, bubbleEvent} from '../html'
+import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
 import {p,em,code} from '../html-shortcuts'
 
 const rq=(param: string)=>makeElement('span')('advanced-hint')(` (`,code(param),` parameter)`)
@@ -198,5 +198,19 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 			this.$userInput,this.$textInput,this.$fromInput,this.$toInput,
 			this.$closedInput,this.$closedSelect,this.$sortSelect,this.$orderSelect
 		]
+	}
+	getQueryCaption(query: NoteQuery): HTMLTableCaptionElement {
+		const makeInputLink=($input:HTMLInputElement,text:string)=>{
+			const $a=makeElement('a')('input-link')(text)
+			$a.tabIndex=0
+			$a.dataset.inputName=$input.name
+			return $a
+		}
+		if (query.mode!='search') return super.getQueryCaption(query)
+		const items: (string|HTMLElement)[] = [`Fetched notes`]
+		if (query.display_name!=null) {
+			items.push(` for user `,makeInputLink(this.$userInput,query.display_name))
+		}
+		return makeElement('caption')()(...items)
 	}
 }
