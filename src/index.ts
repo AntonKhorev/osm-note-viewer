@@ -131,7 +131,7 @@ function writeBelowFetchPanel(
 	const $filterContainer=makeDiv('panel','fetch')()
 	const $notesContainer=makeDiv('notes')()
 	$scrollingPart.append($filterContainer,$notesContainer,$moreContainer)
-	const filterPanel=new NoteFilterPanel(globalHistory.server,$filterContainer)
+	const filterPanel=new NoteFilterPanel(storage,globalHistory.server,$filterContainer)
 	const $toolContainer=makeDiv('panel','command')()
 	$stickyPart.append($toolContainer)
 

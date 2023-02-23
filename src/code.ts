@@ -2,7 +2,8 @@ import {makeDiv, makeLabel} from './html'
 
 export default function makeCodeForm(
 	initialValue: string,
-	summary: string, textareaLabel: string, buttonLabel: string,
+	stashedValue: string,
+	summary: string, textareaLabel: string, applyButtonLabel: string,
 	isSameInput: (input:string)=>boolean,
 	checkInput: (input:string)=>void,
 	applyInput: (input:string)=>void,
@@ -18,8 +19,7 @@ export default function makeCodeForm(
 	const $undoClearButton=document.createElement('button')
 	$textarea.value=initialValue
 	const isEmpty=()=>!$textarea.value
-	const canUndoClear=()=>stashedValue!=null && isEmpty()
-	let stashedValue: string
+	const canUndoClear=()=>!!stashedValue && isEmpty()
 	const reactToChanges=()=>{
 		const isSame=isSameInput($textarea.value)
 		$output.replaceChildren()
@@ -72,9 +72,9 @@ export default function makeCodeForm(
 			textareaLabel,` `,$textarea
 		)))
 	}{
-		$applyButton.textContent=buttonLabel
+		$applyButton.textContent=applyButtonLabel
 		$clearButton.textContent=`Clear`
-		$undoClearButton.textContent=`Undo clear`
+		$undoClearButton.textContent=`Restore previous`
 		$undoClearButton.type=$clearButton.type='button'
 		$form.append(makeDiv('gridded-input')(
 			$applyButton,$clearButton,$undoClearButton
@@ -84,6 +84,7 @@ export default function makeCodeForm(
 	$clearButton.onclick=()=>{
 		stashedValue=$textarea.value
 		$textarea.value=''
+		$undoClearButton.textContent=`Undo clear`
 		reactToChanges()
 	}
 	$undoClearButton.onclick=()=>{

@@ -1,4 +1,5 @@
 import NoteFilter from './filter'
+import type NoteViewerStorage from './storage'
 import type {ApiUrlLister, WebUrlLister} from './server'
 import makeCodeForm from './code'
 
@@ -64,15 +65,20 @@ function term(t:string):string {
 export default class NoteFilterPanel {
 	noteFilter: NoteFilter
 	private callback?: (noteFilter: NoteFilter) => void
-	constructor(urlLister: ApiUrlLister&WebUrlLister, $container: HTMLElement) {
+	constructor(
+		storage: NoteViewerStorage,
+		urlLister: ApiUrlLister&WebUrlLister,
+		$container: HTMLElement
+	) {
 		this.noteFilter=new NoteFilter(urlLister,``)
 		const $form=makeCodeForm(
-			'',
+			'',storage.getString('filter'),
 			`Note filter`,`Filter`,`Apply filter`,
 			input=>this.noteFilter.isSameQuery(input),
 			input=>new NoteFilter(urlLister,input),
 			input=>{
 				this.noteFilter=new NoteFilter(urlLister,input)
+				storage.setString('filter',input)
 			},
 			()=>{
 				if (this.callback) this.callback(this.noteFilter)
