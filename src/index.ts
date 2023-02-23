@@ -135,13 +135,13 @@ function writeBelowFetchPanel(
 	const $toolContainer=makeDiv('panel','command')()
 	$stickyPart.append($toolContainer)
 
-	const toolPanel=new ToolPanel(
+	new ToolPanel(
 		$root,$toolContainer,
 		storage,auth,map
 	)
 	const noteTable=new NoteTable(
 		$root,
-		$notesContainer,toolPanel,map,filterPanel.noteFilter,
+		$notesContainer,map,filterPanel.noteFilter,
 		globalHistory.server
 	)
 	filterPanel.subscribe(noteFilter=>noteTable.updateFilter(noteFilter))

@@ -8,7 +8,6 @@ import parseLoose from './loose'
 import writeNoteSectionRows from './table-section'
 import noteTableKeydownListener from './table-keyboard'
 import CommentWriter, {handleShowImagesUpdate} from './comment-writer'
-import type ToolPanel from './tool-panel'
 import type NoteFilter from './filter'
 import NoteSectionVisibilityObserver from './observer'
 import type Server from './server'
@@ -36,7 +35,7 @@ export default class NoteTable implements NoteTableUpdater {
 	constructor(
 		$root: HTMLElement,
 		$container: HTMLElement,
-		toolPanel: ToolPanel, private map: NoteMap, private filter: NoteFilter,
+		private map: NoteMap, private filter: NoteFilter,
 		private server: Server
 	) {
 		this.$table.setAttribute('role','grid')
