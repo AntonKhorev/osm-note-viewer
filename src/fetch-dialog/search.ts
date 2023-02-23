@@ -229,7 +229,16 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 				items.push([`dates ending at `,makeInputLink(this.$textInput,toShortReadableDate(query.to))])
 			}
 		}
-		const $caption=makeElement('caption')()(`Fetched notes`)
+		const $caption=makeElement('caption')()(`Fetched `)
+		if (query.closed==0) {
+			$caption.append(`open notes`)
+		} else if (query.closed==7) {
+			$caption.append(`open and recently closed notes`)
+		} else if (query.closed>0) {
+			$caption.append(`open notes and notes closed up to ${query.closed} days ago`)
+		} else {
+			$caption.append(`notes`)
+		}
 		if (items.length>0) {
 			$caption.append(` for `)
 			let first=true
