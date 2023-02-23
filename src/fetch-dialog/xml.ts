@@ -44,6 +44,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 		}
 	}
 	protected makeFetchControlDiv(): HTMLDivElement {
+		this.$fileInput.name='xml'
 		this.$fileInput.type='file'
 		return makeDiv('major-input')(makeLabel('file-reader')(
 			makeElement('span')('over')(`Read XML file`),` `,
@@ -222,6 +223,9 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 	}
 	protected listQueryChangingInputs(): Array<HTMLInputElement|HTMLSelectElement> {
 		return []
+	}
+	getQueryCaption(query: NoteQuery): HTMLTableCaptionElement {
+		return makeElement('caption')()(`Fetched notes from xml file `,this.makeInputLink(this.$fileInput,this.$fileInput.value))
 	}
 }
 
