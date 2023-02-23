@@ -1,6 +1,7 @@
 .notes table {
 	border-collapse: collapse;
 	margin: 0 2px;
+	min-width: calc(100% - 4px);
 }
 .notes caption {
 	margin: .5em;
