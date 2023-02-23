@@ -86,6 +86,6 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 		} else {
 			ids=`with ids `+query.ids.slice(0,showSomeNotesThreshold).join(`, `)+` and ${query.ids.length-showSomeNotesThreshold} other notes`
 		}
-		return makeElement('caption')()(`Fetched notes `,this.makeInputLink(this.$idsTextarea,ids))
+		return makeElement('caption')()(`notes `,this.makeInputLink(this.$idsTextarea,ids))
 	}
 }

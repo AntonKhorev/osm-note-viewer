@@ -93,6 +93,7 @@ export default class NoteFetchPanel {
 			}
 			const $caption=dialog.getQueryCaption(query)
 			document.title=($caption.textContent??'')+` | note-viewer`
+			$caption.prepend(`Fetched `)
 			$caption.onclick=ev=>{
 				const $a=ev.target
 				if (!($a instanceof HTMLAnchorElement)) return

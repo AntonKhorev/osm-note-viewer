@@ -225,7 +225,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 		return []
 	}
 	getQueryCaption(query: NoteQuery): HTMLTableCaptionElement {
-		return makeElement('caption')()(`Fetched notes from xml file `,this.makeInputLink(this.$fileInput,this.$fileInput.value))
+		return makeElement('caption')()(`notes from xml file `,this.makeInputLink(this.$fileInput,this.$fileInput.value))
 	}
 }
 

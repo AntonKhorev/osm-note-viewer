@@ -69,7 +69,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 	}
 	abstract get getAutoLoad(): ()=>boolean
 	getQueryCaption(query: NoteQuery): HTMLTableCaptionElement {
-		return makeElement('caption')()(`Fetched notes`)
+		return makeElement('caption')()(`notes`)
 	}
 	protected updateRequest(): void {
 		const knownTypes: {[type:string]:string} = {
@@ -374,7 +374,7 @@ export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetc
 	getQueryCaption(query: NoteQuery): HTMLTableCaptionElement {
 		if (query.mode!='search' && query.mode!='bbox') return super.getQueryCaption(query)
 		const items=this.getQueryCaptionItems(query)
-		const $caption=makeElement('caption')()(`Fetched `)
+		const $caption=makeElement('caption')()()
 		if (query.closed==0) {
 			$caption.append(`open notes`)
 		} else if (query.closed==7) {
