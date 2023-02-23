@@ -199,14 +199,8 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 			this.$closedInput,this.$closedSelect,this.$sortSelect,this.$orderSelect
 		]
 	}
-	getQueryCaption(query: NoteQuery): HTMLTableCaptionElement {
-		const makeInputLink=($input:HTMLInputElement,text:string)=>{
-			const $a=makeElement('a')('input-link')(text)
-			$a.tabIndex=0
-			$a.dataset.inputName=$input.name
-			return $a
-		}
-		if (query.mode!='search') return super.getQueryCaption(query)
+	protected getQueryCaptionItems(query: NoteQuery, makeInputLink: ($input:HTMLInputElement,text:string)=>HTMLAnchorElement) {
+		if (query.mode!='search') return []
 		const items: (string|HTMLElement)[][] = []
 		if (query.display_name!=null) {
 			items.push([`user `,makeInputLink(this.$userInput,query.display_name)])
@@ -229,28 +223,6 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 				items.push([`dates ending at `,makeInputLink(this.$textInput,toShortReadableDate(query.to))])
 			}
 		}
-		const $caption=makeElement('caption')()(`Fetched `)
-		if (query.closed==0) {
-			$caption.append(`open notes`)
-		} else if (query.closed==7) {
-			$caption.append(`open and recently closed notes`)
-		} else if (query.closed>0) {
-			$caption.append(`open notes and notes closed up to ${query.closed} days ago`)
-		} else {
-			$caption.append(`notes`)
-		}
-		if (items.length>0) {
-			$caption.append(` for `)
-			let first=true
-			for (const item of items) {
-				if (first) {
-					first=false
-				} else {
-					$caption.append(`, `)
-				}
-				$caption.append(...item)
-			}
-		}
-		return $caption
+		return items
 	}
 }

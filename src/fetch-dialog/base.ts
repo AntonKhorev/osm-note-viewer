@@ -365,6 +365,40 @@ export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetc
 			: this.$closedSelect.value
 		)
 	}
+	getQueryCaption(query: NoteQuery): HTMLTableCaptionElement {
+		const makeInputLink=($input:HTMLInputElement,text:string)=>{
+			const $a=makeElement('a')('input-link')(text)
+			$a.tabIndex=0
+			$a.dataset.inputName=$input.name
+			return $a
+		}
+		if (query.mode!='search' && query.mode!='bbox') return super.getQueryCaption(query)
+		const items=this.getQueryCaptionItems(query,makeInputLink)
+		const $caption=makeElement('caption')()(`Fetched `)
+		if (query.closed==0) {
+			$caption.append(`open notes`)
+		} else if (query.closed==7) {
+			$caption.append(`open and recently closed notes`)
+		} else if (query.closed>0) {
+			$caption.append(`open notes and notes closed up to ${query.closed} days ago`)
+		} else {
+			$caption.append(`notes`)
+		}
+		if (items.length>0) {
+			$caption.append(` for `)
+			let first=true
+			for (const item of items) {
+				if (first) {
+					first=false
+				} else {
+					$caption.append(`, `)
+				}
+				$caption.append(...item)
+			}
+		}
+		return $caption
+	}
+	protected abstract getQueryCaptionItems(query: NoteQuery, makeInputLink: ($input:HTMLInputElement,text:string)=>HTMLAnchorElement): (string|HTMLElement)[][]
 }
 
 export abstract class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
