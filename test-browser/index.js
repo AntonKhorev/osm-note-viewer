@@ -47,7 +47,10 @@ describe("browser tests",function(){
 		this.timeout(0)
 		this.osmServer.clearData()
 		if (keepBrowser) {
-			if (this.currentTest.title=="hides note with comment") { // restart browser hack
+			if (
+				this.currentTest.title=="hides note with comment" ||
+				this.currentTest.title=="clears 'undo append' state after commenting with latest changeset"
+			) { // restart browser hack - looks like it's required for all interaction tests
 				await this.browser.close()
 				this.browser=await puppeteer.launch(browserOptions)
 			}
@@ -558,6 +561,52 @@ describe("browser tests",function(){
 				body: `text=h1d3-m3`
 			}
 		)
+	})
+	it("clears 'undo append' state after commenting with latest changeset",async function(){
+		this.osmServer.setLogin(true)
+		this.osmServer.setNotes([{
+			"id": 101,
+			"comments": [{
+				"date": "2022-04-01",
+				"text": "the-first-note-comment"
+			}]
+		}])
+		const page=await this.openPage()
+		// fetch note
+		const fetchButton=await this.waitForFetchButton()
+		await fetchButton.click()
+		await page.waitForSelector('.notes tbody')
+		// login
+		const menuPanel=await this.getToMenu()
+		const [loginSection]=await menuPanel.$x(`//section[contains(h2,"Logins")]`)
+		const loginButton=await loginSection.waitForXPath(`//button[contains(.,"Login")]`,{visible:true,timeout:1000})
+		loginButton.click()
+		await loginSection.waitForSelector('table')
+		// interact with note
+		const noteCheckbox=await page.$(`.notes tbody .note-checkbox input`)
+		await noteCheckbox.click()
+		const tool=await this.waitForTool(`Interact`)
+		await tool.click()
+		const assertAndGetTextControl=async(undo)=>{
+			const [appendControl]=await tool.$x(`//a[${containsClassCondition("input-link")} and contains(.,"append last changeset")]`)
+			const [undoControl]=await tool.$x(`//a[${containsClassCondition("input-link")} and contains(.,"undo append")]`)
+			if (undo) {
+				assert.equal(appendControl,undefined)
+				assert.notEqual(undoControl,undefined)
+				return undoControl
+			} else {
+				assert.notEqual(appendControl,undefined)
+				assert.equal(undoControl,undefined)
+				return appendControl
+			}
+		}
+		const appendControl=await assertAndGetTextControl(false)
+		await appendControl.click()
+		const commentButton=await tool.waitForXPath(buttonPath(`Comment`))
+		await assertAndGetTextControl(true)
+		commentButton.click()
+		await page.waitForSelector('.notes tbody tr + tr')
+		await assertAndGetTextControl(false)
 	})
 })
 

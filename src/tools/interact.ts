@@ -400,6 +400,7 @@ export class InteractTool extends Tool {
 			const transitionToFinished=()=>{
 				this.$commentText.disabled=false
 				this.$commentText.value=''
+				this.$commentText.dispatchEvent(new Event('input')) // update text controls
 				this.updateWithOutput() // may have received input notes change
 				this.updateButtons()
 				this.updateRunButton()

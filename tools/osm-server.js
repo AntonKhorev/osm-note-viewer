@@ -42,10 +42,14 @@ export default async function runOsmServer(authRedirectUrl,port=0) {
 			const [,id]=match
 			if (request.method=='DELETE') {
 				const params=querystring.parse(body)
-				respondToNoteDelete(response,Number(id),params.text)
+				respondToNoteAction(response,Number(id),'hidden',params.text)
 			} else {
 				respondToNote(response,Number(id))
 			}
+		} else if (match=pathname.match(new RegExp('/api/0\\.6/notes/(\\d+)/comment\\.json'))) {
+			const [,id]=match
+			const params=querystring.parse(body)
+			respondToNoteAction(response,Number(id),'commented',params.text)
 		} else if (pathname=='/oauth2/authorize') {
 			if (!login.authCode) {
 				response.writeHead(200) // empty page displayed to the user telling
@@ -73,6 +77,8 @@ export default async function runOsmServer(authRedirectUrl,port=0) {
 			} else {
 				serveJson(response,login.userDetails)
 			}
+		} else if (pathname=='/api/0.6/changesets.json') {
+			serveJson(response,{changesets:[{id:12345}]})
 		} else {
 			response.writeHead(404)
 			response.end(`Route not defined`)
@@ -203,7 +209,7 @@ function respondToNote(response,id) {
 	serveJson(response,getNoteJson(note))
 }
 
-function respondToNoteDelete(response,id,text) {
+function respondToNoteAction(response,id,action,text) {
 	const now='2023-02'
 	const note=notesById.get(id)
 	if (!note) {
@@ -212,7 +218,7 @@ function respondToNoteDelete(response,id,text) {
 	}
 	note.comments.push({
 		date: new Date(now),
-		action: 'hidden',
+		action,
 		text: text??''
 	})
 	serveJson(response,getNoteJson(note))
