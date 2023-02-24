@@ -7469,7 +7469,10 @@ class InteractTool extends Tool {
         return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again ("reactivates" it). `, `This means that a hidden note can only be restored to an open state, even if it had been closed before being hidden. `, `If you want the note to be closed again, you have to close it yourself after reactivating. `, `Also, unlike the OSM website, you can reactivate a note and add a comment in one action. `, `The OSM website currently doesn't provide a comment input for note reactivation.`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, `If you've hidden a note and want to see it, look for it at `, this.$yourNotesWeb, ` on the OSM website.`)];
     }
     getTool($root, $tool) {
-        const appendLastChangeset = new TextControl(this.$commentText, () => this.auth.uid != null, () => true, (append) => !this.$commentText.value.endsWith(append), (append) => this.$commentText.value = this.$commentText.value.slice(0, -append.length), async ($a) => {
+        const appendLastChangeset = new TextControl(this.$commentText, () => this.auth.uid != null, () => true, (append) => !this.$commentText.value.endsWith(append), (append) => {
+            this.$commentText.value = this.$commentText.value.slice(0, -append.length);
+            this.updateButtons();
+        }, async ($a) => {
             if (this.auth.uid == null)
                 throw new TypeError(`Undefined user id when getting last changeset`);
             const response = await this.auth.server.api.fetch(e$2 `changesets.json?user=${this.auth.uid}`);
@@ -7477,6 +7480,7 @@ class InteractTool extends Tool {
             const changesetId = getLatestChangesetId(data);
             const append = getParagraphAppend(this.$commentText.value, this.auth.server.web.getUrl(e$2 `changeset/${changesetId}`));
             this.$commentText.value += append;
+            this.updateButtons();
             $a.dataset.changesetId = String(changesetId);
             bubbleEvent($a, 'osmNoteViewer:changesetLinkClick');
             return append;
@@ -7701,6 +7705,7 @@ class InteractTool extends Tool {
             const transitionToFinished = () => {
                 this.$commentText.disabled = false;
                 this.$commentText.value = '';
+                this.$commentText.dispatchEvent(new Event('input')); // update text controls
                 this.updateWithOutput(); // may have received input notes change
                 this.updateButtons();
                 this.updateRunButton();
