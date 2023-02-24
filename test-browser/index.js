@@ -59,7 +59,7 @@ describe("browser tests",function(){
 			await page.goto(this.clientUrl+path)
 			return page
 		}
-		this.waitForFetchButton=()=>page.waitForXPath(`//button[not(@disabled) and contains(.,"Fetch notes")]`)
+		this.waitForFetchButton=()=>page.waitForXPath(buttonPath(`Fetch notes`),{visible:true})
 		this.waitForTool=(summaryText)=>page.waitForXPath(`//details[${containsClassCondition('tool')} and contains(./summary,"${summaryText}")]`)
 		this.getToMenu=async()=>{
 			await this.waitForFetchButton()
@@ -78,6 +78,12 @@ describe("browser tests",function(){
 				assert(!await hasText(target,text0),`present unexpected text "${text0}"`)
 				assert( await hasText(target,text1),`missing expected text "${text1}"`)
 			}
+		}
+		this.deleteAll=async()=>{
+			await page.keyboard.down('Control')
+			await page.keyboard.press('A')
+			await page.keyboard.up('Control')
+			await page.keyboard.press('Backspace')
 		}
 	})
 	afterEach(async function(){
@@ -329,7 +335,7 @@ describe("browser tests",function(){
 			"text": "the-only-note-comment"
 		}])
 		const page=await this.openPage('#map=10/0/0')
-		const fetchButton=await this.waitForFetchButton()
+		await this.waitForFetchButton()
 		await this.assertNoText(page,"the-only-note-comment")
 		const bboxTab=await page.$('#tab-BBox')
 		await bboxTab.click()
@@ -338,6 +344,45 @@ describe("browser tests",function(){
 		await trackMapSelect.select('fetch')
 		await page.waitForSelector('.notes tbody')
 		await this.assertText(page,"the-only-note-comment")
+	})
+	it("gets back to previous bbox query",async function(){
+		this.osmServer.setNotes([{
+			"map": "1.5/1.5",
+			"text": "the-first-note"
+		},{
+			"map": "2.5/2.5",
+			"text": "the-second-note"
+		}])
+		const page=await this.openPage()
+		await this.waitForFetchButton()
+		await this.assertNoText(page,"the-first-note")
+		await this.assertNoText(page,"the-second-note")
+		const bboxTab=await page.$('#tab-BBox')
+		await bboxTab.click()
+		const bboxPanel=await page.$('#tab-panel-BBox')
+		const [fetchButton]=await bboxPanel.$x(buttonPath("Fetch notes"))
+		const bboxInput=await page.$('#tab-panel-BBox input[name=bbox]')
+		const waitForBbox=async(bbox)=>{
+			await page.waitForXPath(`//div[${containsClassCondition('notes')}]//caption/a[contains(.,"${bbox}")]`)
+			await page.waitForSelector('.notes tbody')
+		}
+		const fetchBbox=async(bbox)=>{
+			await bboxInput.focus()
+			await this.deleteAll()
+			await bboxInput.type(bbox)
+			await fetchButton.click()
+			await waitForBbox(bbox)
+		}
+		await fetchBbox('1,1,2,2')
+		await this.assertText(page,"the-first-note")
+		await this.assertNoText(page,"the-second-note")
+		await fetchBbox('2,2,3,3')
+		await this.assertNoText(page,"the-first-note")
+		await this.assertText(page,"the-second-note")
+		await page.goBack()
+		await waitForBbox('1,1,2,2')
+		await this.assertText(page,"the-first-note")
+		await this.assertNoText(page,"the-second-note")
 	})
 
 	// refresher
@@ -441,10 +486,7 @@ describe("browser tests",function(){
 			const [loginButton]=await menuPanel.$x(buttonPath(`Login`))
 			const clientIdInput=await menuPanel.$('#auth-app-client-id')
 			await clientIdInput.focus()
-			await page.keyboard.down('Control')
-			await page.keyboard.press('A')
-			await page.keyboard.up('Control')
-			await page.keyboard.press('Backspace')
+			await this.deleteAll()
 			await menuPanel.waitForXPath(`//div[${containsClassCondition('notice')} and contains(.,"Please register")]`,{visible:true})
 			assert.equal(await loginButton.boundingBox(),null)
 			await clientIdInput.type('fake')

@@ -85,7 +85,7 @@ export default class GlobalHistory {
 			if (fullHash!=location.hash) {
 				const url=fullHash||location.pathname+location.search
 				if (isNewStart) {
-					history.replaceState(history.state,'',url)
+					history.pushState(history.state,'',url)
 				} else {
 					history.replaceState(history.state,'',url)
 				}
