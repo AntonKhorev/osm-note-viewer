@@ -147,7 +147,10 @@ export class InteractTool extends Tool {
 			()=>this.auth.uid!=null,
 			()=>true,
 			(append)=>!this.$commentText.value.endsWith(append),
-			(append)=>this.$commentText.value=this.$commentText.value.slice(0,-append.length),
+			(append)=>{
+				this.$commentText.value=this.$commentText.value.slice(0,-append.length)
+				this.updateButtons()
+			},
 			async($a)=>{
 				if (this.auth.uid==null) throw new TypeError(`Undefined user id when getting last changeset`)
 				const response=await this.auth.server.api.fetch(e`changesets.json?user=${this.auth.uid}`)
@@ -158,6 +161,7 @@ export class InteractTool extends Tool {
 					this.auth.server.web.getUrl(e`changeset/${changesetId}`)
 				)
 				this.$commentText.value+=append
+				this.updateButtons()
 				$a.dataset.changesetId=String(changesetId)
 				bubbleEvent($a,'osmNoteViewer:changesetLinkClick')
 				return append
