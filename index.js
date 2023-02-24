@@ -990,7 +990,7 @@ class GlobalHistory {
             if (fullHash != location.hash) {
                 const url = fullHash || location.pathname + location.search;
                 if (isNewStart) {
-                    history.replaceState(history.state, '', url);
+                    history.pushState(history.state, '', url);
                 }
                 else {
                     history.replaceState(history.state, '', url);
@@ -3049,21 +3049,27 @@ function makeUserQueryFromUserNameAndId(username, uid) {
 }
 
 function toReadableDate(date) {
+    return toShortOrFullReadableDate(date, true);
+}
+function toShortReadableDate(date) {
+    return toShortOrFullReadableDate(date, false);
+}
+function toShortOrFullReadableDate(date, full) {
     if (date == null)
         return '';
     const pad = (n) => ('0' + n).slice(-2);
     const dateObject = new Date(date * 1000);
-    const dateString = dateObject.getUTCFullYear() +
-        '-' +
-        pad(dateObject.getUTCMonth() + 1) +
-        '-' +
-        pad(dateObject.getUTCDate()) +
-        ' ' +
-        pad(dateObject.getUTCHours()) +
-        ':' +
-        pad(dateObject.getUTCMinutes()) +
-        ':' +
-        pad(dateObject.getUTCSeconds());
+    let dateString = '';
+    switch (true) {
+        case full || dateObject.getUTCSeconds() != 0:
+            dateString = ':' + pad(dateObject.getUTCSeconds());
+        case dateObject.getUTCMinutes() != 0 || dateObject.getUTCHours() != 0:
+            dateString = ' ' + pad(dateObject.getUTCHours()) + ':' + pad(dateObject.getUTCMinutes()) + dateString;
+        case dateObject.getUTCDate() != 1 || dateObject.getUTCMonth() != 0:
+            dateString = '-' + pad(dateObject.getUTCMonth() + 1) + '-' + pad(dateObject.getUTCDate()) + dateString;
+        default:
+            dateString = dateObject.getUTCFullYear() + dateString;
+    }
     return dateString;
 }
 function toUrlDate(date) {
@@ -3908,6 +3914,9 @@ class NoteFetchDialog extends NavDialog {
             return this.limitDefaultValue;
         };
     }
+    getQueryCaption(query) {
+        return makeElement('caption')()(`notes`);
+    }
     updateRequest() {
         const knownTypes = {
             json: `https://wiki.openstreetmap.org/wiki/GeoJSON`,
@@ -4049,6 +4058,12 @@ class NoteFetchDialog extends NavDialog {
     }
     writePrependedFieldset($fieldset, $legend) { }
     writeExtraForms() { }
+    makeInputLink($input, text) {
+        const $a = makeElement('a')('input-link')(text);
+        $a.tabIndex = 0;
+        $a.dataset.inputName = $input.name;
+        return $a;
+    }
 }
 function mixinWithAutoLoadCheckbox(c) {
     class WithAutoLoadCheckbox extends c {
@@ -4153,6 +4168,38 @@ class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
         return (this.$advancedModeCheckbox.checked
             ? this.$closedInput.value
             : this.$closedSelect.value);
+    }
+    getQueryCaption(query) {
+        if (query.mode != 'search' && query.mode != 'bbox')
+            return super.getQueryCaption(query);
+        const items = this.getQueryCaptionItems(query);
+        const $caption = makeElement('caption')()();
+        if (query.closed == 0) {
+            $caption.append(`open notes`);
+        }
+        else if (query.closed == 7) {
+            $caption.append(`open and recently closed notes`);
+        }
+        else if (query.closed > 0) {
+            $caption.append(`open notes and notes closed up to ${query.closed} days ago`);
+        }
+        else {
+            $caption.append(`notes`);
+        }
+        if (items.length > 0) {
+            $caption.append(` for `);
+            let first = true;
+            for (const item of items) {
+                if (first) {
+                    first = false;
+                }
+                else {
+                    $caption.append(`, `);
+                }
+                $caption.append(...item);
+            }
+        }
+        return $caption;
     }
 }
 class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
@@ -4386,8 +4433,8 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         }
         this.$userInput.dispatchEvent(new Event('input')); // update text controls
         this.$textInput.value = query?.q ?? '';
-        this.$fromInput.value = toReadableDate(query?.from);
-        this.$toInput.value = toReadableDate(query?.to);
+        this.$fromInput.value = toShortReadableDate(query?.from);
+        this.$toInput.value = toShortReadableDate(query?.to);
         this.$sortSelect.value = query?.sort ?? 'created_at';
         this.$orderSelect.value = query?.order ?? 'newest';
     }
@@ -4420,6 +4467,35 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
             this.$userInput, this.$textInput, this.$fromInput, this.$toInput,
             this.$closedInput, this.$closedSelect, this.$sortSelect, this.$orderSelect
         ];
+    }
+    getQueryCaptionItems(query) {
+        if (query.mode != 'search')
+            return [];
+        const items = [];
+        if (query.display_name != null) {
+            items.push([`user `, this.makeInputLink(this.$userInput, query.display_name)]);
+        }
+        else if (query.user != null) {
+            items.push([`user id `, this.makeInputLink(this.$userInput, String(query.user))]);
+        }
+        if (query.q != null) {
+            items.push([`text `, this.makeInputLink(this.$textInput, query.q)]);
+        }
+        if (query.from != null && query.to != null) {
+            items.push([`dates `,
+                this.makeInputLink(this.$textInput, toShortReadableDate(query.from)), `..`,
+                this.makeInputLink(this.$textInput, toShortReadableDate(query.to))
+            ]);
+        }
+        else {
+            if (query.from != null) {
+                items.push([`dates starting at `, this.makeInputLink(this.$textInput, toShortReadableDate(query.from))]);
+            }
+            if (query.to != null) {
+                items.push([`dates ending at `, this.makeInputLink(this.$textInput, toShortReadableDate(query.to))]);
+            }
+        }
+        return items;
     }
 }
 
@@ -4716,6 +4792,13 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         this.$bboxInput.setCustomValidity('');
         return true;
     }
+    getQueryCaptionItems(query) {
+        if (query.mode != 'bbox')
+            return [];
+        return [
+            [`inside bounding box `, this.makeInputLink(this.$bboxInput, query.bbox)]
+        ];
+    }
 }
 
 class NoteXmlFetchDialog extends NoteIdsFetchDialog {
@@ -4754,6 +4837,7 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
         }
     }
     makeFetchControlDiv() {
+        this.$fileInput.name = 'xml';
         this.$fileInput.type = 'file';
         return makeDiv('major-input')(makeLabel('file-reader')(makeElement('span')('over')(`Read XML file`), ` `, this.$fileInput));
     }
@@ -4892,6 +4976,9 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
     }
     listQueryChangingInputs() {
         return [];
+    }
+    getQueryCaption(query) {
+        return makeElement('caption')()(`notes from xml file `, this.makeInputLink(this.$fileInput, this.$fileInput.value));
     }
 }
 const neisFeedStatuses = [
@@ -5176,6 +5263,7 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
             $fieldset.append(makeDiv('checkbox-button-input')(this.$copySelectedCheckbox, ' ', this.$copyButton));
         }
         {
+            this.$idsTextarea.name = 'ids';
             this.$idsTextarea.required = true;
             this.$idsTextarea.rows = 10;
             $fieldset.append(makeDiv('major-input')(makeLabel()(`Note ids separated by anything `, this.$idsTextarea)));
@@ -5213,6 +5301,21 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
     }
     listQueryChangingInputs() {
         return [this.$idsTextarea];
+    }
+    getQueryCaption(query) {
+        const showSomeNotesThreshold = 5;
+        const showAllNotesThreshold = 7;
+        if (query.mode != 'ids')
+            return super.getQueryCaption(query);
+        const prefix = query.ids.length == 1 ? `note` : `notes`;
+        let ids;
+        if (query.ids.length <= showAllNotesThreshold) {
+            ids = query.ids.join(`, `);
+        }
+        else {
+            ids = query.ids.slice(0, showSomeNotesThreshold).join(`, `) + ` and ${query.ids.length - showSomeNotesThreshold} other notes`;
+        }
+        return makeElement('caption')()(prefix, ` `, this.makeInputLink(this.$idsTextarea, ids));
     }
 }
 
@@ -5345,7 +5448,31 @@ class NoteFetchPanel {
                     map.needToFitNotes = false;
                 }
             }
-            noteTable.reset();
+            const $caption = dialog.getQueryCaption(query);
+            document.title = ($caption.textContent ?? '') + ` | note-viewer`;
+            $caption.prepend(`Fetched `);
+            $caption.onclick = ev => {
+                const $a = ev.target;
+                if (!($a instanceof HTMLAnchorElement))
+                    return;
+                if (!$a.dataset.inputName)
+                    return;
+                const $input = dialog.$form.elements.namedItem($a.dataset.inputName);
+                if (!($input instanceof HTMLInputElement || $input instanceof HTMLTextAreaElement))
+                    return;
+                $input.focus();
+                ev.preventDefault();
+                ev.stopPropagation();
+            };
+            $caption.onkeydown = ev => {
+                const $a = ev.target;
+                if (!($a instanceof HTMLAnchorElement))
+                    return;
+                $a.click();
+                ev.preventDefault();
+                ev.stopPropagation();
+            };
+            noteTable.reset($caption);
             bubbleCustomEvent($container, 'osmNoteViewer:newNoteStream', [makeNoteQueryString(query), isNewStart]);
             const environment = {
                 db,
@@ -6372,7 +6499,7 @@ class NoteSectionVisibilityObserver {
 }
 
 class NoteTable {
-    constructor($root, $container, toolPanel, map, filter, server) {
+    constructor($root, $container, map, filter, server) {
         this.map = map;
         this.filter = filter;
         this.server = server;
@@ -6520,12 +6647,14 @@ class NoteTable {
             $refreshWaitProgress.value = progress;
         });
     }
-    reset() {
+    reset($caption) {
         this.notesById.clear();
         this.usersById.clear();
         this.$lastClickedNoteSection = undefined;
         this.noteSectionVisibilityObserver.disconnect();
         this.$table.replaceChildren();
+        if ($caption)
+            this.$table.append($caption);
         this.updateCheckboxDependentsAndSendNoteChangeEvents();
     }
     updateFilter(filter) {
@@ -6568,8 +6697,7 @@ class NoteTable {
             this.usersById.set(Number(uid), username);
         }
         // output table
-        if (this.$table.childElementCount == 0) {
-            this.$table.append(makeElement('caption')()(`Fetched notes`));
+        if (this.$table.rows.length == 0) {
             const $header = this.writeTableHeader();
             this.noteSectionVisibilityObserver.stickyHeight = $header.offsetHeight;
             document.documentElement.style.setProperty('--table-header-height', $header.offsetHeight + 'px');
@@ -9294,8 +9422,8 @@ function writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer
     const filterPanel = new NoteFilterPanel(storage, globalHistory.server, $filterContainer);
     const $toolContainer = makeDiv('panel', 'command')();
     $stickyPart.append($toolContainer);
-    const toolPanel = new ToolPanel($root, $toolContainer, storage, auth, map);
-    const noteTable = new NoteTable($root, $notesContainer, toolPanel, map, filterPanel.noteFilter, globalHistory.server);
+    new ToolPanel($root, $toolContainer, storage, auth, map);
+    const noteTable = new NoteTable($root, $notesContainer, map, filterPanel.noteFilter, globalHistory.server);
     filterPanel.subscribe(noteFilter => noteTable.updateFilter(noteFilter));
     globalHistory.$resizeObservationTarget = $notesContainer;
     return noteTable;
