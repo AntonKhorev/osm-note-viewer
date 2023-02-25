@@ -5,7 +5,7 @@ export default class TextControl {
 	private $a: HTMLAnchorElement
 	private textState: string|undefined
 	constructor(
-		$input: HTMLInputElement|HTMLTextAreaElement,
+		private $input: HTMLInputElement|HTMLTextAreaElement,
 		private isVisible: ()=>boolean,
 		private canDoWithoutTextState: ()=>boolean,
 		private canDoWithTextState: (textState:string)=>boolean,
@@ -14,8 +14,13 @@ export default class TextControl {
 		private getUndoLabel: ()=>(string|HTMLElement)[],
 		private getDoLabel: ()=>(string|HTMLElement)[]
 	) {
+		const inputMutationObserver=new MutationObserver(()=>{
+			this.updateControl()
+		})
+		inputMutationObserver.observe(this.$input,{attributes:true,attributeFilter:['disabled']})
 		this.$a=makeElement('a')('input-link')()
 		this.$a.onclick=async()=>{
+			if (this.$input.disabled) return
 			if (this.canUndo(this.textState)) {
 				undoInput(this.textState)
 				this.textState=undefined
@@ -28,7 +33,6 @@ export default class TextControl {
 				} finally {
 					this.$a.classList.remove('loading')
 				}
-				return
 			}
 		}
 		this.$a.onkeydown=ev=>{
@@ -37,7 +41,7 @@ export default class TextControl {
 			ev.preventDefault()
 			ev.stopPropagation()
 		}
-		$input.addEventListener('input',()=>{
+		this.$input.addEventListener('input',()=>{
 			if (this.$controls.hidden) return
 			this.updateControl()
 		})
@@ -56,7 +60,7 @@ export default class TextControl {
 	private updateControl(): void {
 		const canUndo=this.canUndo(this.textState)
 		const canDo=this.canDo(this.textState)
-		if (canUndo || canDo) {
+		if (!this.$input.disabled && (canUndo || canDo)) {
 			this.$a.setAttribute('tabindex','0')
 		} else {
 			this.$a.removeAttribute('tabindex')
