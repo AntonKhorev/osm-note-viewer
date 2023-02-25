@@ -111,7 +111,7 @@ export default class NoteFetchPanel {
 				ev.preventDefault()
 				ev.stopPropagation()
 			}
-			noteTable.reset($caption)
+			noteTable.reset($caption,getMarkUser(query))
 			bubbleCustomEvent($container,'osmNoteViewer:newNoteStream',[makeNoteQueryString(query),isNewStart])
 			const environment: NoteFetcherEnvironment = {
 				db,
@@ -147,4 +147,9 @@ function openQueryDialog(
 		if (!dialog) return
 		navbar.openTab(dialog)
 	}
+}
+
+function getMarkUser(query: NoteQuery): string|number|undefined {
+	if (query.mode!='search') return
+	return query.display_name ?? query.user
 }

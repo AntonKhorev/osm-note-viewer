@@ -4,6 +4,7 @@ import type CommentWriter from './comment-writer'
 import {makeDateOutput} from './comment-writer'
 import {toReadableDate} from './query-date'
 import {makeDiv, makeElement} from './html'
+import {mark} from './html-shortcuts'
 
 /**
  * @returns comment cells
@@ -13,7 +14,8 @@ export default function writeNoteSectionRows(
 	$noteSection: HTMLTableSectionElement,
 	$checkbox: HTMLInputElement,
 	note: Note, users: Users,
-	showImages: boolean
+	showImages: boolean,
+	markUser: string|number|undefined
 ): HTMLTableCellElement[] {
 	const $commentCells: HTMLTableCellElement[]=[]
 	let $row=$noteSection.insertRow()
@@ -52,12 +54,21 @@ export default function writeNoteSectionRows(
 			const $cell=$row.insertCell()
 			$cell.classList.add('note-user')
 			if (comment.uid!=null) {
+				const makeUidText=()=>((typeof markUser == 'number' && markUser==comment.uid)
+					? mark(`#${comment.uid}`)
+					: `#${comment.uid}`
+				)
 				const username=users[comment.uid]
 				if (username!=null) {
 					const $a=web.makeUserLink(comment.uid,username)
-					$cell.append($a,makeElement('span')('uid')(` #${comment.uid}`))
+					if (typeof markUser == 'string' && markUser==username) {
+						$cell.append(mark($a))
+					} else {
+						$cell.append($a)
+					}
+					$cell.append(makeElement('span')('uid')(` `,makeUidText()))
 				} else {
-					$cell.append(`#${comment.uid}`)
+					$cell.append(makeUidText())
 				}
 			} else {
 				const $a=makeElement('a')()(`anonymous`)
