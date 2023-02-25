@@ -70,6 +70,7 @@ export class NoteIdsFetcherRequest extends NoteFetcherRequest {
 export interface NoteFetcherEnvironment {
 	db: NoteViewerDB
 	api: ApiProvider,
+	token: string,
 	hostHashValue: string|null,
 	noteTable: NoteTableUpdater
 	$moreContainer: HTMLElement
@@ -90,7 +91,7 @@ export abstract class NoteFetcherRun {
 	lastTriedPath: string | undefined // needed for ids fetch
 	private updateRequestHintInAdvancedMode: ()=>void = ()=>{}
 	constructor(
-		{db,api,hostHashValue,noteTable,$moreContainer,getLimit,getAutoLoad,blockDownloads,moreButtonIntersectionObservers}: NoteFetcherEnvironment,
+		{db,api,token,hostHashValue,noteTable,$moreContainer,getLimit,getAutoLoad,blockDownloads,moreButtonIntersectionObservers}: NoteFetcherEnvironment,
 		query: NoteQuery,
 		clearStore: boolean
 	) {
@@ -179,7 +180,7 @@ export abstract class NoteFetcherRun {
 					const [path,parameters]=pathAndParameters
 					lastTriedPath=path
 					const apiPath=this.request.constructApiPath(path,parameters)
-					const response=await api.fetch(apiPath)
+					const response=await api.fetch.withToken(token)(apiPath)
 					if (!response.ok) {
 						if (response.status==410) { // likely hidden note in ids query
 							continue // TODO report it

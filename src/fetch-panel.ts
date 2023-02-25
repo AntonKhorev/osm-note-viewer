@@ -116,6 +116,7 @@ export default class NoteFetchPanel {
 			const environment: NoteFetcherEnvironment = {
 				db,
 				api: auth.server.api,
+				token: auth.token,
 				hostHashValue,
 				noteTable,$moreContainer,
 				getLimit: dialog.getLimit,
