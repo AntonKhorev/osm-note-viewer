@@ -1185,6 +1185,7 @@ const sup = (...ss) => makeElement('sup')()(...ss);
 const dfn = (...ss) => makeElement('dfn')()(...ss);
 const code = (...ss) => makeElement('code')()(...ss);
 const mark = (...ss) => makeElement('mark')()(...ss);
+const a = (...ss) => makeElement('a')()(...ss);
 const p = (...ss) => makeElement('p')()(...ss);
 const ul = (...ss) => makeElement('ul')()(...ss);
 const ol = (...ss) => makeElement('ol')()(...ss);
@@ -5481,7 +5482,7 @@ class NoteFetchPanel {
                 ev.preventDefault();
                 ev.stopPropagation();
             };
-            noteTable.reset($caption);
+            noteTable.reset($caption, getMarkUser(query), getMarkText(query));
             bubbleCustomEvent($container, 'osmNoteViewer:newNoteStream', [makeNoteQueryString(query), isNewStart]);
             const environment = {
                 db,
@@ -5518,6 +5519,16 @@ function openQueryDialog(navbar, fetchDialogs, query, initial) {
             return;
         navbar.openTab(dialog);
     }
+}
+function getMarkUser(query) {
+    if (query.mode != 'search')
+        return;
+    return query.display_name ?? query.user;
+}
+function getMarkText(query) {
+    if (query.mode != 'search')
+        return;
+    return query.q;
 }
 
 function isValidOperator(op) {
@@ -6063,12 +6074,14 @@ class CommentWriter {
     constructor(webUrlLister) {
         this.webUrlLister = webUrlLister;
     }
-    makeCommentElements(commentText, showImages = false) {
+    makeCommentElements(commentText, showImages = false, markText) {
         const inlineElements = [];
         const imageElements = [];
         for (const item of getCommentItems(this.webUrlLister, commentText)) {
+            const markedText = makeMarkedText(item.text, markText);
             if (item.type == 'link' && item.link == 'image') {
-                const $inlineLink = makeLink(item.href, item.href);
+                const $inlineLink = a(...markedText);
+                $inlineLink.href = item.href;
                 $inlineLink.classList.add('listened', 'image', 'inline');
                 inlineElements.push($inlineLink);
                 const $img = document.createElement('img');
@@ -6077,14 +6090,13 @@ class CommentWriter {
                     $img.src = item.href; // therefore only set the link if user agreed to loading
                 $img.alt = `attached photo`;
                 $img.addEventListener('error', imageErrorHandler);
-                const $floatLink = document.createElement('a');
+                const $floatLink = a($img);
                 $floatLink.classList.add('listened', 'image', 'float');
                 $floatLink.href = item.href;
-                $floatLink.append($img);
                 imageElements.push($floatLink);
             }
             else if (item.type == 'link' && item.link == 'osm') {
-                const $a = makeLink(item.text, item.href);
+                const $a = a(...markedText);
                 if (item.map)
                     [$a.dataset.zoom, $a.dataset.lat, $a.dataset.lon] = item.map;
                 if (item.osm == 'element') {
@@ -6103,17 +6115,17 @@ class CommentWriter {
                 inlineElements.push($a);
             }
             else if (item.type == 'date') {
-                const $time = makeActiveTimeElement(item.text, '', item.text);
+                const $time = makeActiveTimeElement(markedText, '', item.text);
                 inlineElements.push($time);
             }
             else {
-                inlineElements.push(item.text);
+                inlineElements.push(...markedText);
             }
         }
         return [inlineElements, imageElements];
     }
-    writeComment($cell, commentText, showImages) {
-        const [inlineElements, imageElements] = this.makeCommentElements(commentText, showImages);
+    writeComment($cell, commentText, showImages, markText) {
+        const [inlineElements, imageElements] = this.makeCommentElements(commentText, showImages, markText);
         if (imageElements.length > 0) {
             $cell.addEventListener('mouseover', imageCommentHoverListener);
             $cell.addEventListener('mouseout', imageCommentHoverListener);
@@ -6135,7 +6147,7 @@ function handleShowImagesUpdate($table, showImages) {
 function makeDateOutput(readableDate) {
     const [readableDateWithoutTime, readableDateTime] = readableDate.split(' ', 2);
     if (readableDate && readableDateWithoutTime) {
-        return makeActiveTimeElement(readableDateWithoutTime, ` ${readableDateTime}`, `${readableDate.replace(' ', 'T')}Z`, `${readableDate} UTC`);
+        return makeActiveTimeElement([readableDateWithoutTime], ` ${readableDateTime}`, `${readableDate.replace(' ', 'T')}Z`, `${readableDate} UTC`);
     }
     else {
         const $unknownDateTime = document.createElement('span');
@@ -6144,7 +6156,7 @@ function makeDateOutput(readableDate) {
     }
 }
 function makeActiveTimeElement(unwrappedPart, wrappedPart, dateTime, title) {
-    const $time = makeElement('time')('listened')(unwrappedPart);
+    const $time = makeElement('time')('listened')(...unwrappedPart);
     $time.tabIndex = 0;
     $time.dateTime = dateTime;
     if (title)
@@ -6152,6 +6164,23 @@ function makeActiveTimeElement(unwrappedPart, wrappedPart, dateTime, title) {
     if (wrappedPart)
         $time.append(makeElement('span')()(wrappedPart));
     return $time;
+}
+function makeMarkedText(text, markText) {
+    if (!markText)
+        return [text];
+    const result = [];
+    let first = true;
+    for (const fragment of text.split(markText)) {
+        if (first) {
+            first = false;
+        }
+        else {
+            result.push(mark(markText));
+        }
+        if (fragment)
+            result.push(fragment);
+    }
+    return result;
 }
 function imageCommentHoverListener(ev) {
     const $targetLink = getTargetLink();
@@ -6187,7 +6216,7 @@ function imageErrorHandler() {
 /**
  * @returns comment cells
  */
-function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note, users, showImages) {
+function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note, users, showImages, markUser, markText) {
     const $commentCells = [];
     let $row = $noteSection.insertRow();
     const nComments = note.comments.length;
@@ -6230,13 +6259,22 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
             const $cell = $row.insertCell();
             $cell.classList.add('note-user');
             if (comment.uid != null) {
+                const makeUidText = () => ((typeof markUser == 'number' && markUser == comment.uid)
+                    ? mark(`#${comment.uid}`)
+                    : `#${comment.uid}`);
                 const username = users[comment.uid];
                 if (username != null) {
                     const $a = web.makeUserLink(comment.uid, username);
-                    $cell.append($a, makeElement('span')('uid')(` #${comment.uid}`));
+                    if (typeof markUser == 'string' && markUser == username) {
+                        $cell.append(mark($a));
+                    }
+                    else {
+                        $cell.append($a);
+                    }
+                    $cell.append(makeElement('span')('uid')(` `, makeUidText()));
                 }
                 else {
-                    $cell.append(`#${comment.uid}`);
+                    $cell.append(makeUidText());
                 }
             }
             else {
@@ -6277,7 +6315,7 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
             const $cell = $row.insertCell();
             $cell.classList.add('note-comment');
             $cell.tabIndex = 0;
-            commentWriter.writeComment($cell, comment.text, showImages);
+            commentWriter.writeComment($cell, comment.text, showImages, markText);
             $commentCells.push($cell);
         }
         iComment++;
@@ -6657,7 +6695,9 @@ class NoteTable {
             $refreshWaitProgress.value = progress;
         });
     }
-    reset($caption) {
+    reset($caption, markUser, markText) {
+        this.markUser = markUser;
+        this.markText = markText;
         this.notesById.clear();
         this.usersById.clear();
         this.$lastClickedNoteSection = undefined;
@@ -6707,14 +6747,14 @@ class NoteTable {
             this.usersById.set(Number(uid), username);
         }
         // output table
-        if (this.$table.rows.length == 0) {
-            const $header = this.writeTableHeader();
-            this.noteSectionVisibilityObserver.stickyHeight = $header.offsetHeight;
-            document.documentElement.style.setProperty('--table-header-height', $header.offsetHeight + 'px');
-        }
         let nUnfilteredNotes = 0;
         const getUsername = (uid) => users[uid];
         for (const note of noteSequence) {
+            if (this.$table.rows.length == 0) {
+                const $header = this.writeTableHeader();
+                this.noteSectionVisibilityObserver.stickyHeight = $header.offsetHeight;
+                document.documentElement.style.setProperty('--table-header-height', $header.offsetHeight + 'px');
+            }
             const isVisible = this.filter.matchNote(note, getUsername);
             if (isVisible)
                 nUnfilteredNotes++;
@@ -6855,7 +6895,7 @@ class NoteTable {
             }
         }
         $checkbox.setAttribute('aria-label', `${note.status} note at latitude ${note.lat}, longitude ${note.lon}`);
-        const $commentCells = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, $checkbox, note, users, this.showImages);
+        const $commentCells = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, $checkbox, note, users, this.showImages, this.markUser, this.markText);
         for (const $commentCell of $commentCells) {
             this.looseParserListener.listen($commentCell);
         }
