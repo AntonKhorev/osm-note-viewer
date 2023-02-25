@@ -6,7 +6,7 @@ import {readNoteResponse, NoteDataError} from '../fetch-note'
 import {makeHrefWithCurrentHost} from '../hash'
 import TextControl from '../text-control'
 import {makeElement, makeDiv, makeLabel, makeLink, bubbleEvent, bubbleCustomEvent} from '../html'
-import {p,ul,li,code} from '../html-shortcuts'
+import {p,ul,li,code,em} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 import {isArray} from '../types'
 
@@ -139,7 +139,8 @@ export class InteractTool extends Tool {
 	),p(
 		`If you want to find the notes you interacted with, try searching for `,this.$yourNotesApi,`. `,
 		`Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `,
-		`If you've hidden a note and want to see it, look for it at `,this.$yourNotesWeb,` on the OSM website.`
+		em(`Plaintext`),` mode will show hidden notes to moderators, but it requires knowing the note ids. `,
+		`If you've hidden a note and want to see it but don't know its id, look for the note at `,this.$yourNotesWeb,` on the OSM website.`
 	)]}
 	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
 		const appendLastChangeset=new TextControl(
