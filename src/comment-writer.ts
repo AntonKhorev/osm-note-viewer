@@ -1,7 +1,7 @@
 import type {WebUrlLister} from './server'
 import getCommentItems from './comment'
-import {makeElement, makeLink} from './html'
-import {mark} from './html-shortcuts'
+import {makeElement} from './html'
+import {a,mark} from './html-shortcuts'
 
 export default class CommentWriter {
 	constructor(private webUrlLister: WebUrlLister) {}
@@ -15,7 +15,8 @@ export default class CommentWriter {
 		const imageElements: Array<HTMLAnchorElement> = []
 		for (const item of getCommentItems(this.webUrlLister,commentText)) {
 			if (item.type=='link' && item.link=='image') {
-				const $inlineLink=makeLink(item.href,item.href)
+				const $inlineLink=a(...makeMarkedTextContent(item.text,markText))
+				$inlineLink.href=item.href
 				$inlineLink.classList.add('listened','image','inline')
 				inlineElements.push($inlineLink)
 				const $img=document.createElement('img')
@@ -23,13 +24,12 @@ export default class CommentWriter {
 				if (showImages) $img.src=item.href // therefore only set the link if user agreed to loading
 				$img.alt=`attached photo`
 				$img.addEventListener('error',imageErrorHandler)
-				const $floatLink=document.createElement('a')
+				const $floatLink=a($img)
 				$floatLink.classList.add('listened','image','float')
 				$floatLink.href=item.href
-				$floatLink.append($img)
 				imageElements.push($floatLink)
 			} else if (item.type=='link' && item.link=='osm') {
-				const $a=makeLink(item.text,item.href)
+				const $a=a(...makeMarkedTextContent(item.text,markText))
 				if (item.map) [$a.dataset.zoom,$a.dataset.lat,$a.dataset.lon]=item.map
 				if (item.osm=='element') {
 					$a.dataset.elementType=item.element
