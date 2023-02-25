@@ -80,6 +80,7 @@ a.input-link[tabindex],
 time.listened {
 	color: var(--semi-link-color);
 }
+a.input-link[tabindex].loading,
 a.listened.loading {
 	cursor: progress;
 }

@@ -3497,7 +3497,7 @@ class NoteIdsFetcherRequest extends NoteFetcherRequest {
     }
 }
 class NoteFetcherRun {
-    constructor({ db, api, hostHashValue, noteTable, $moreContainer, getLimit, getAutoLoad, blockDownloads, moreButtonIntersectionObservers }, query, clearStore) {
+    constructor({ db, api, token, hostHashValue, noteTable, $moreContainer, getLimit, getAutoLoad, blockDownloads, moreButtonIntersectionObservers }, query, clearStore) {
         this.fetchEntry = null;
         this.notes = new Map();
         this.users = {};
@@ -3583,7 +3583,7 @@ class NoteFetcherRun {
                         const [path, parameters] = pathAndParameters;
                         lastTriedPath = path;
                         const apiPath = this.request.constructApiPath(path, parameters);
-                        const response = await api.fetch(apiPath);
+                        const response = await api.fetch.withToken(token)(apiPath);
                         if (!response.ok) {
                             if (response.status == 410) { // likely hidden note in ids query
                                 continue; // TODO report it
@@ -4234,13 +4234,20 @@ function restrictClosedSelectValue(v) {
 
 class TextControl {
     constructor($input, isVisible, canDoWithoutTextState, canDoWithTextState, undoInput, doInput, getUndoLabel, getDoLabel) {
+        this.$input = $input;
         this.isVisible = isVisible;
         this.canDoWithoutTextState = canDoWithoutTextState;
         this.canDoWithTextState = canDoWithTextState;
         this.getUndoLabel = getUndoLabel;
         this.getDoLabel = getDoLabel;
+        const inputMutationObserver = new MutationObserver(() => {
+            this.updateControl();
+        });
+        inputMutationObserver.observe(this.$input, { attributes: true, attributeFilter: ['disabled'] });
         this.$a = makeElement('a')('input-link')();
         this.$a.onclick = async () => {
+            if (this.$input.disabled)
+                return;
             if (this.canUndo(this.textState)) {
                 undoInput(this.textState);
                 this.textState = undefined;
@@ -4248,11 +4255,13 @@ class TextControl {
             }
             else if (this.canDo(this.textState)) {
                 try {
+                    this.$a.classList.add('loading');
                     this.textState = await doInput(this.$a);
                     this.updateControl();
                 }
-                catch { }
-                return;
+                finally {
+                    this.$a.classList.remove('loading');
+                }
             }
         };
         this.$a.onkeydown = ev => {
@@ -4262,7 +4271,7 @@ class TextControl {
             ev.preventDefault();
             ev.stopPropagation();
         };
-        $input.addEventListener('input', () => {
+        this.$input.addEventListener('input', () => {
             if (this.$controls.hidden)
                 return;
             this.updateControl();
@@ -4282,7 +4291,7 @@ class TextControl {
     updateControl() {
         const canUndo = this.canUndo(this.textState);
         const canDo = this.canDo(this.textState);
-        if (canUndo || canDo) {
+        if (!this.$input.disabled && (canUndo || canDo)) {
             this.$a.setAttribute('tabindex', '0');
         }
         else {
@@ -5477,6 +5486,7 @@ class NoteFetchPanel {
             const environment = {
                 db,
                 api: auth.server.api,
+                token: auth.token,
                 hostHashValue,
                 noteTable, $moreContainer,
                 getLimit: dialog.getLimit,
@@ -7466,7 +7476,7 @@ class InteractTool extends Tool {
         this.updateRunOutput();
     }
     getInfo() {
-        return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again ("reactivates" it). `, `This means that a hidden note can only be restored to an open state, even if it had been closed before being hidden. `, `If you want the note to be closed again, you have to close it yourself after reactivating. `, `Also, unlike the OSM website, you can reactivate a note and add a comment in one action. `, `The OSM website currently doesn't provide a comment input for note reactivation.`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, `If you've hidden a note and want to see it, look for it at `, this.$yourNotesWeb, ` on the OSM website.`)];
+        return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again ("reactivates" it). `, `This means that a hidden note can only be restored to an open state, even if it had been closed before being hidden. `, `If you want the note to be closed again, you have to close it yourself after reactivating. `, `Also, unlike the OSM website, you can reactivate a note and add a comment in one action. `, `The OSM website currently doesn't provide a comment input for note reactivation.`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, em(`Plaintext`), ` mode will show hidden notes to moderators, but it requires knowing the note ids. `, `If you've hidden a note and want to see it but don't know its id, look for the note at `, this.$yourNotesWeb, ` on the OSM website.`)];
     }
     getTool($root, $tool) {
         const appendLastChangeset = new TextControl(this.$commentText, () => this.auth.uid != null, () => true, (append) => !this.$commentText.value.endsWith(append), (append) => {
@@ -8154,7 +8164,7 @@ class RefreshTool extends Tool {
             let note;
             let users;
             try {
-                [note, users] = await fetchTableNote(this.auth.server.api, id);
+                [note, users] = await fetchTableNote(this.auth.server.api, id, this.auth.token);
             }
             catch (ex) {
                 bubbleCustomEvent($tool, 'osmNoteViewer:failedNoteFetch', [id, getFetchTableNoteErrorMessage(ex)]);
