@@ -14,8 +14,9 @@ export default class CommentWriter {
 		const inlineElements: Array<string|HTMLElement> = []
 		const imageElements: Array<HTMLAnchorElement> = []
 		for (const item of getCommentItems(this.webUrlLister,commentText)) {
+			const markedText=makeMarkedText(item.text,markText)
 			if (item.type=='link' && item.link=='image') {
-				const $inlineLink=a(...makeMarkedTextContent(item.text,markText))
+				const $inlineLink=a(...markedText)
 				$inlineLink.href=item.href
 				$inlineLink.classList.add('listened','image','inline')
 				inlineElements.push($inlineLink)
@@ -29,7 +30,7 @@ export default class CommentWriter {
 				$floatLink.href=item.href
 				imageElements.push($floatLink)
 			} else if (item.type=='link' && item.link=='osm') {
-				const $a=a(...makeMarkedTextContent(item.text,markText))
+				const $a=a(...markedText)
 				if (item.map) [$a.dataset.zoom,$a.dataset.lat,$a.dataset.lon]=item.map
 				if (item.osm=='element') {
 					$a.dataset.elementType=item.element
@@ -46,10 +47,10 @@ export default class CommentWriter {
 				$a.classList.add('listened','osm')
 				inlineElements.push($a)
 			} else if (item.type=='date') {
-				const $time=makeActiveTimeElement(item.text,'',item.text)
+				const $time=makeActiveTimeElement(markedText,'',item.text)
 				inlineElements.push($time)
 			} else {
-				inlineElements.push(...makeMarkedTextContent(item.text,markText))
+				inlineElements.push(...markedText)
 			}
 		}
 		return [inlineElements,imageElements]
@@ -79,7 +80,7 @@ export function handleShowImagesUpdate($table: HTMLTableElement, showImages: boo
 export function makeDateOutput(readableDate: string): HTMLElement {
 	const [readableDateWithoutTime,readableDateTime]=readableDate.split(' ',2)
 	if (readableDate && readableDateWithoutTime) {
-		return makeActiveTimeElement(readableDateWithoutTime,` ${readableDateTime}`,`${readableDate.replace(' ','T')}Z`,`${readableDate} UTC`)
+		return makeActiveTimeElement([readableDateWithoutTime],` ${readableDateTime}`,`${readableDate.replace(' ','T')}Z`,`${readableDate} UTC`)
 	} else {
 		const $unknownDateTime=document.createElement('span')
 		$unknownDateTime.textContent=`?`
@@ -87,8 +88,8 @@ export function makeDateOutput(readableDate: string): HTMLElement {
 	}
 }
 
-function makeActiveTimeElement(unwrappedPart: string, wrappedPart: string, dateTime: string, title?: string): HTMLTimeElement {
-	const $time=makeElement('time')('listened')(unwrappedPart)
+function makeActiveTimeElement(unwrappedPart: Array<string|HTMLElement>, wrappedPart: string, dateTime: string, title?: string): HTMLTimeElement {
+	const $time=makeElement('time')('listened')(...unwrappedPart)
 	$time.tabIndex=0
 	$time.dateTime=dateTime
 	if (title) $time.title=title
@@ -96,7 +97,7 @@ function makeActiveTimeElement(unwrappedPart: string, wrappedPart: string, dateT
 	return $time
 }
 
-function makeMarkedTextContent(text: string, markText: string|undefined): (string|HTMLElement)[] {
+function makeMarkedText(text: string, markText: string|undefined): (string|HTMLElement)[] {
 	if (!markText) return [text]
 	const result: (string|HTMLElement)[] = []
 	let first=true
