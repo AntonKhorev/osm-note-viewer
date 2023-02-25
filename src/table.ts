@@ -215,14 +215,14 @@ export default class NoteTable implements NoteTableUpdater {
 			this.usersById.set(Number(uid),username)
 		}
 		// output table
-		if (this.$table.rows.length==0) {
-			const $header=this.writeTableHeader()
-			this.noteSectionVisibilityObserver.stickyHeight=$header.offsetHeight
-			document.documentElement.style.setProperty('--table-header-height',$header.offsetHeight+'px')
-		}
 		let nUnfilteredNotes=0
 		const getUsername=(uid:number)=>users[uid]
 		for (const note of noteSequence) {
+			if (this.$table.rows.length==0) {
+				const $header=this.writeTableHeader()
+				this.noteSectionVisibilityObserver.stickyHeight=$header.offsetHeight
+				document.documentElement.style.setProperty('--table-header-height',$header.offsetHeight+'px')
+			}
 			const isVisible=this.filter.matchNote(note,getUsername)
 			if (isVisible) nUnfilteredNotes++
 			const $noteSection=this.$table.createTBody()
