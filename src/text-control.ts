@@ -22,9 +22,12 @@ export default class TextControl {
 				this.updateControl()
 			} else if (this.canDo(this.textState)) {
 				try {
+					this.$a.classList.add('loading')
 					this.textState=await doInput(this.$a)
 					this.updateControl()
-				} catch {}
+				} finally {
+					this.$a.classList.remove('loading')
+				}
 				return
 			}
 		}
