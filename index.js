@@ -6097,6 +6097,7 @@ class CommentWriter {
             }
             else if (item.type == 'link' && item.link == 'osm') {
                 const $a = a(...markedText);
+                $a.href = item.href;
                 if (item.map)
                     [$a.dataset.zoom, $a.dataset.lat, $a.dataset.lon] = item.map;
                 if (item.osm == 'element') {
