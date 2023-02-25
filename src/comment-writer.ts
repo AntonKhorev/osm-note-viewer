@@ -1,16 +1,17 @@
 import type {WebUrlLister} from './server'
 import getCommentItems from './comment'
 import {makeElement, makeLink} from './html'
+import {mark} from './html-shortcuts'
 
 export default class CommentWriter {
 	constructor(private webUrlLister: WebUrlLister) {}
 	makeCommentElements(
-		commentText: string, showImages=false
+		commentText: string, showImages=false, markText?: string|undefined
 	): [
-		inlineElements: Array<string|HTMLAnchorElement|HTMLTimeElement>,
+		inlineElements: Array<string|HTMLElement>,
 		imageElements: Array<HTMLAnchorElement>
 	] {
-		const inlineElements: Array<string|HTMLAnchorElement|HTMLTimeElement> = []
+		const inlineElements: Array<string|HTMLElement> = []
 		const imageElements: Array<HTMLAnchorElement> = []
 		for (const item of getCommentItems(this.webUrlLister,commentText)) {
 			if (item.type=='link' && item.link=='image') {
@@ -48,13 +49,16 @@ export default class CommentWriter {
 				const $time=makeActiveTimeElement(item.text,'',item.text)
 				inlineElements.push($time)
 			} else {
-				inlineElements.push(item.text)
+				inlineElements.push(...makeMarkedTextContent(item.text,markText))
 			}
 		}
 		return [inlineElements,imageElements]
 	}
-	writeComment($cell: HTMLElement, commentText: string, showImages: boolean): void {
-		const [inlineElements,imageElements]=this.makeCommentElements(commentText,showImages)
+	writeComment(
+		$cell: HTMLElement,
+		commentText: string, showImages: boolean, markText: string|undefined
+	): void {
+		const [inlineElements,imageElements]=this.makeCommentElements(commentText,showImages,markText)
 		if (imageElements.length>0) {
 			$cell.addEventListener('mouseover',imageCommentHoverListener)
 			$cell.addEventListener('mouseout',imageCommentHoverListener)
@@ -90,6 +94,21 @@ function makeActiveTimeElement(unwrappedPart: string, wrappedPart: string, dateT
 	if (title) $time.title=title
 	if (wrappedPart) $time.append(makeElement('span')()(wrappedPart))
 	return $time
+}
+
+function makeMarkedTextContent(text: string, markText: string|undefined): (string|HTMLElement)[] {
+	if (!markText) return [text]
+	const result: (string|HTMLElement)[] = []
+	let first=true
+	for (const fragment of text.split(markText)) {
+		if (first) {
+			first=false
+		} else {
+			result.push(mark(markText))
+		}
+		if (fragment) result.push(fragment)
+	}
+	return result
 }
 
 function imageCommentHoverListener(this: HTMLElement, ev: MouseEvent): void {

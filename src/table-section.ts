@@ -15,7 +15,8 @@ export default function writeNoteSectionRows(
 	$checkbox: HTMLInputElement,
 	note: Note, users: Users,
 	showImages: boolean,
-	markUser: string|number|undefined
+	markUser: string|number|undefined,
+	markText: string|undefined
 ): HTMLTableCellElement[] {
 	const $commentCells: HTMLTableCellElement[]=[]
 	let $row=$noteSection.insertRow()
@@ -105,7 +106,7 @@ export default function writeNoteSectionRows(
 			const $cell=$row.insertCell()
 			$cell.classList.add('note-comment')
 			$cell.tabIndex=0
-			commentWriter.writeComment($cell,comment.text,showImages)
+			commentWriter.writeComment($cell,comment.text,showImages,markText)
 			$commentCells.push($cell)
 		}
 		iComment++

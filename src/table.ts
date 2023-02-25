@@ -33,6 +33,7 @@ export default class NoteTable implements NoteTableUpdater {
 	private showImages: boolean = false
 	private mapFitMode: 'allNotes' | 'selectedNotes' | 'inViewNotes' | undefined
 	private markUser: string|number|undefined
+	private markText: string|undefined
 	constructor(
 		$root: HTMLElement,
 		$container: HTMLElement,
@@ -165,8 +166,9 @@ export default class NoteTable implements NoteTableUpdater {
 			$refreshWaitProgress.value=progress
 		})
 	}
-	reset($caption?: HTMLTableCaptionElement, markUser?: string|number|undefined): void {
+	reset($caption?: HTMLTableCaptionElement, markUser?: string|number|undefined, markText?: string|undefined): void {
 		this.markUser=markUser
+		this.markText=markText
 		this.notesById.clear()
 		this.usersById.clear()
 		this.$lastClickedNoteSection=undefined
@@ -387,7 +389,7 @@ export default class NoteTable implements NoteTableUpdater {
 			this.server.web,this.commentWriter,
 			$noteSection,$checkbox,
 			note,users,this.showImages,
-			this.markUser
+			this.markUser,this.markText
 		)
 		for (const $commentCell of $commentCells) {
 			this.looseParserListener.listen($commentCell)

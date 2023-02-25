@@ -43,7 +43,7 @@ export class ParseTool extends Tool {
 			$output.replaceChildren(getFirstActiveElement([]))
 		}
 		return [$form,` → `,$output]
-		function getFirstActiveElement(elements: Array<string|HTMLAnchorElement|HTMLTimeElement>): string|HTMLElement {
+		function getFirstActiveElement(elements: Array<string|HTMLElement>): string|HTMLElement {
 			for (const element of elements) {
 				if (element instanceof HTMLAnchorElement) {
 					element.textContent=`link`
