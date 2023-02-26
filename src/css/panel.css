@@ -197,9 +197,6 @@
 .panel.command details.tool .major-input {
 	margin: .2em 0;
 }
-.panel.command [class|=icon] > span {
-	display: none;
-}
 .panel.command [class|=icon] > svg {
 	vertical-align: middle;
 }

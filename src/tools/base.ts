@@ -103,20 +103,22 @@ export abstract class Tool {
 
 export function makeMapIcon(type: string): HTMLElement {
 	const $span=makeElement('span')(`icon-map-${type}`)()
-	$span.innerHTML=`<svg><use href="#tools-map" /></svg><span>map ${type}</span>`
+	$span.title=`map ${type}`
+	$span.innerHTML=`<svg><use href="#tools-map" /></svg>`
 	return $span
 }
 
 export function makeNotesIcon(type: string): HTMLElement {
 	const $span=makeElement('span')(`icon-notes-${type}`)()
-	$span.innerHTML=`<svg><use href="#tools-notes" /></svg><span>${type} notes</span>`
+	$span.title=`${type} notes`
+	$span.innerHTML=`<svg><use href="#tools-notes" /></svg>`
 	return $span
 }
 
 export function makeActionIcon(type: string, text: string): HTMLElement {
 	const $span=makeElement('span')(`icon-action-${type}`)()
+	$span.title=text
 	$span.innerHTML=`<svg><use href="#tools-${type}" /></svg>`
-	$span.append(makeElement('span')()(text))
 	return $span
 }
 
@@ -125,8 +127,9 @@ export function makeNoteStatusIcon(status: Note['status'], number = 1): HTMLElem
 	const width=8
 	const r=width/2
 	const $span=makeElement('span')(`icon-note-status`)()
+	$span.title=`${status} note${number!=1?`s`:``}`
 	const path=`<path d="${computeMarkerOutlinePath(height,width/2-.5)}" stroke="gray" ${pathAttrs()} />`
-	$span.innerHTML=`<svg viewBox="${-r} ${-r} ${width} ${height}">${path}</svg><span>${status} note${number!=1?`s`:``}</span>`
+	$span.innerHTML=`<svg viewBox="${-r} ${-r} ${width} ${height}">${path}</svg>`
 	return $span
 	function pathAttrs() {
 		if (status=='open') {
