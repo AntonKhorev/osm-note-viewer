@@ -20,6 +20,7 @@ const dstDir='test-build/dist'
 // can test XPath in browser like this:
 // document.evaluate(`//button[not(@disabled) and contains(.,"Halt")]`,document).iterateNext()
 const buttonPath=(text)=>`//button[not(@disabled) and contains(.,"${text}")]`
+const buttonTitlePath=(text)=>`//button[not(@disabled) and contains(@title,"${text}")]`
 const containsClassCondition=(className)=>`contains(concat(' ', @class, ' '), ' ${className} ')` // https://stackoverflow.com/a/1604480
 
 describe("browser tests",function(){
@@ -71,15 +72,16 @@ describe("browser tests",function(){
 			return await page.$('.graphic-side .menu .panel')
 		}
 		const hasText=async(target,text)=>(await target.$x(`//*[contains(text(),"${text}")]`)).length
+		const hasTitleText=async(target,text)=>(await target.$x(`//*[contains(@title,"${text}")]`)).length
 		this.assertText=async(target,text)=>assert(await hasText(target,text),`missing expected text "${text}"`)
 		this.assertNoText=async(target,text)=>assert(!await hasText(target,text),`present unexpected text "${text}"`)
-		this.assertAlternativeText=async(target,condition,text0,text1)=>{
+		this.assertAlternativeTitleText=async(target,condition,text0,text1)=>{
 			if (!condition) {
-				assert( await hasText(target,text0),`missing expected text "${text0}"`)
-				assert(!await hasText(target,text1),`present unexpected text "${text1}"`)
+				assert( await hasTitleText(target,text0),`missing expected text "${text0}"`)
+				assert(!await hasTitleText(target,text1),`present unexpected text "${text1}"`)
 			} else {
-				assert(!await hasText(target,text0),`present unexpected text "${text0}"`)
-				assert( await hasText(target,text1),`missing expected text "${text1}"`)
+				assert(!await hasTitleText(target,text0),`present unexpected text "${text0}"`)
+				assert( await hasTitleText(target,text1),`missing expected text "${text1}"`)
 			}
 		}
 		this.deleteAll=async()=>{
@@ -395,37 +397,37 @@ describe("browser tests",function(){
 		const tool=await this.waitForTool(`Refresh`)
 		await tool.click()
 		const button=await tool.$('button')
-		await this.assertAlternativeText(button,0,'Halt','Resume')
+		await this.assertAlternativeTitleText(button,0,'Halt','Resume')
 		await button.click()
-		await this.assertAlternativeText(button,1,'Halt','Resume')
+		await this.assertAlternativeTitleText(button,1,'Halt','Resume')
 		await button.click()
-		await this.assertAlternativeText(button,0,'Halt','Resume')
+		await this.assertAlternativeTitleText(button,0,'Halt','Resume')
 	})
 	it("halts/resumes note refreshes when entering/exiting offline mode",async function(){
 		const page=await this.openPage()
 		const tool=await this.waitForTool(`Refresh`)
 		await tool.click()
 		const button=await tool.$('button')
-		await this.assertAlternativeText(button,0,'Halt','Resume')
+		await this.assertAlternativeTitleText(button,0,'Halt','Resume')
 		await page.setOfflineMode(true)
-		await this.assertAlternativeText(button,1,'Halt','Resume')
+		await this.assertAlternativeTitleText(button,1,'Halt','Resume')
 		await page.setOfflineMode(false)
-		await this.assertAlternativeText(button,0,'Halt','Resume')
+		await this.assertAlternativeTitleText(button,0,'Halt','Resume')
 	})
 	it("halts/resumes note refreshes when clicking play button and, after that, entering/exiting offline mode",async function(){
 		const page=await this.openPage()
 		const tool=await this.waitForTool(`Refresh`)
 		await tool.click()
 		const button=await tool.$('button')
-		await this.assertAlternativeText(button,0,'Halt','Resume')
+		await this.assertAlternativeTitleText(button,0,'Halt','Resume')
 		await button.click()
-		await this.assertAlternativeText(button,1,'Halt','Resume')
+		await this.assertAlternativeTitleText(button,1,'Halt','Resume')
 		await button.click()
-		await this.assertAlternativeText(button,0,'Halt','Resume')
+		await this.assertAlternativeTitleText(button,0,'Halt','Resume')
 		await page.setOfflineMode(true)
-		await this.assertAlternativeText(button,1,'Halt','Resume')
+		await this.assertAlternativeTitleText(button,1,'Halt','Resume')
 		await page.setOfflineMode(false)
-		await this.assertAlternativeText(button,0,'Halt','Resume')
+		await this.assertAlternativeTitleText(button,0,'Halt','Resume')
 	})
 	it("replaces note after it has reported update",async function(){
 		this.osmServer.setNotes([{
@@ -439,8 +441,8 @@ describe("browser tests",function(){
 		const fetchButton=await this.waitForFetchButton()
 		const tool=await this.waitForTool(`Refresh`)
 		await tool.click()
-		const [haltButton]=await tool.$x(buttonPath('Halt'))
-		const [refreshButton]=await tool.$x(buttonPath('Refresh'))
+		const [haltButton]=await tool.$x(buttonTitlePath('Halt'))
+		const [refreshButton]=await tool.$x(buttonTitlePath('Refresh'))
 		await this.assertNoText(page,"the-first-note-comment")
 		await this.assertNoText(page,"the-second-note-comment")
 		await haltButton.click()
