@@ -416,9 +416,6 @@ nav [role=tablist] [role=tab]:focus {
 .panel.command details.tool .major-input {
 	margin: .2em 0;
 }
-.panel.command [class|=icon] > span {
-	display: none;
-}
 .panel.command [class|=icon] > svg {
 	vertical-align: middle;
 }
@@ -813,6 +810,12 @@ nav [role=tablist] [role=tab]:focus {
 }
 .notes table.with-images td.note-comment a.image.float {
 	display: block;
+}
+.notes table.shortened-ids td.note-link a .constant {
+	display: none;
+}
+.notes table.shortened-ids td.note-link a .constant + .variable::before {
+	content: '...';
 }
 .notes table.only-date td.note-date time > span {
 	display: none;

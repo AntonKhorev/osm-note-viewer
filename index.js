@@ -6553,6 +6553,39 @@ class NoteSectionVisibilityObserver {
     }
 }
 
+class IdShortener {
+    constructor() {
+        this.diverse = false;
+    }
+    /**
+     * @returns if can break
+     */
+    scan(id) {
+        if (this.template == null || this.bound == null) {
+            this.template = id;
+            this.bound = id.length;
+            return false;
+        }
+        this.diverse || (this.diverse = this.template != id);
+        if (this.template.length != id.length) {
+            this.bound = 0;
+            return true;
+        }
+        for (let i = 0; i < this.bound; i++) {
+            if (this.template[i] != id[i]) {
+                this.bound = i;
+                break;
+            }
+        }
+        return this.bound == 0;
+    }
+    split(id) {
+        if (!this.diverse || this.bound == null)
+            return ['', id];
+        return [id.slice(0, this.bound), id.slice(this.bound)];
+    }
+}
+
 class NoteTable {
     constructor($root, $container, map, filter, server) {
         this.map = map;
@@ -6776,6 +6809,7 @@ class NoteTable {
             this.writeNoteSection($noteSection, $checkbox, note, users, isVisible);
             bubbleCustomEvent(this.$table, 'osmNoteViewer:noteRender', note);
         }
+        this.updateShortenedNoteIds();
         if (this.mapFitMode == 'allNotes') {
             this.map.fitNotes();
         }
@@ -6817,6 +6851,7 @@ class NoteTable {
         setUpdateLinkTitle($noteSection, $a2);
         if (isNoteLinkFocused)
             $a2.focus();
+        this.updateShortenedNoteIds(); // id doesn't change but it's overwritten and not shortened by default
         this.updateCheckboxDependentsAndSendNoteChangeEvents();
         bubbleCustomEvent(this.$table, 'osmNoteViewer:noteRender', note);
     }
@@ -6878,7 +6913,7 @@ class NoteTable {
             $button.onclick = () => update(this.$table.classList.toggle(tableClass));
             return $button;
         };
-        $row.append(makeElement('th')('note-checkbox')(this.$selectAllCheckbox), makeElement('th')()(`id`), makeElement('th')()(`date `, makeExpander('only-date', 'hor-out', 'hor-in', `show time of day`, `hide time of day`)), makeElement('th')()(`user `, makeExpander('only-short-username', 'hor-out', 'hor-in', `show full usernames with ids`, `clip long usernames`)), makeElement('th')()(makeExpander('only-first-comments', 'ver-out', 'ver-in', `show all comments/actions`, `show only first comment/action`)), makeElement('th')()(`comment `, makeExpander('one-line-comments', 'ver-out', 'hor-out', `allow line breaks in comments`, `keep comments on one line`)));
+        $row.append(makeElement('th')('note-checkbox')(this.$selectAllCheckbox), makeElement('th')()(`id `, makeExpander('shortened-ids', 'hor-out', 'hor-in', `show all id digits`, `show only changing id digits`)), makeElement('th')()(`date `, makeExpander('only-date', 'hor-out', 'hor-in', `show time of day`, `hide time of day`)), makeElement('th')()(`user `, makeExpander('only-short-username', 'hor-out', 'hor-in', `show full usernames with ids`, `clip long usernames`)), makeElement('th')()(makeExpander('only-first-comments', 'ver-out', 'ver-in', `show all comments/actions`, `show only first comment/action`)), makeElement('th')()(`comment `, makeExpander('one-line-comments', 'ver-out', 'hor-out', `allow line breaks in comments`, `keep comments on one line`)));
         return $header;
     }
     makeMarker(note, isVisible) {
@@ -6905,6 +6940,35 @@ class NoteTable {
         const $commentCells = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, $checkbox, note, users, this.showImages, this.markUser, this.markText);
         for (const $commentCell of $commentCells) {
             this.looseParserListener.listen($commentCell);
+        }
+    }
+    updateShortenedNoteIds() {
+        const shortener = new IdShortener;
+        for (const $noteSection of this.$table.tBodies) {
+            const $a = this.getNoteLink($noteSection);
+            if (!$a)
+                continue;
+            const id = $a.dataset.noteId;
+            if (id == null)
+                continue;
+            if (shortener.scan(id))
+                break;
+        }
+        for (const $noteSection of this.$table.tBodies) {
+            const $a = this.getNoteLink($noteSection);
+            if (!$a)
+                continue;
+            const id = $a.dataset.noteId;
+            if (id == null)
+                continue;
+            const [constantPart, variablePart] = shortener.split(id);
+            $a.replaceChildren();
+            if (constantPart) {
+                $a.append(makeElement('span')('constant')(constantPart));
+            }
+            if (variablePart) {
+                $a.append(makeElement('span')('variable')(variablePart));
+            }
         }
     }
     sendNoteCounts() {
@@ -7183,12 +7247,14 @@ class Tool {
             $info.append($infoSummary, ...infoElements);
             const $infoButton = document.createElement('button');
             $infoButton.classList.add('info');
-            $infoButton.innerHTML = `<svg><title>Tool info</title><use href="#tools-info" /></svg>`;
+            $infoButton.innerHTML = `<svg><use href="#tools-info" /></svg>`;
             const updateInfoButton = () => {
                 if ($info.open) {
+                    $infoButton.title = `Close tool info`;
                     $infoButton.classList.add('open');
                 }
                 else {
+                    $infoButton.title = `Open tool info`;
                     $infoButton.classList.remove('open');
                 }
             };
@@ -7244,18 +7310,20 @@ class Tool {
 }
 function makeMapIcon(type) {
     const $span = makeElement('span')(`icon-map-${type}`)();
-    $span.innerHTML = `<svg><use href="#tools-map" /></svg><span>map ${type}</span>`;
+    $span.title = `map ${type}`;
+    $span.innerHTML = `<svg><use href="#tools-map" /></svg>`;
     return $span;
 }
 function makeNotesIcon(type) {
     const $span = makeElement('span')(`icon-notes-${type}`)();
-    $span.innerHTML = `<svg><use href="#tools-notes" /></svg><span>${type} notes</span>`;
+    $span.title = `${type} notes`;
+    $span.innerHTML = `<svg><use href="#tools-notes" /></svg>`;
     return $span;
 }
 function makeActionIcon(type, text) {
     const $span = makeElement('span')(`icon-action-${type}`)();
+    $span.title = text;
     $span.innerHTML = `<svg><use href="#tools-${type}" /></svg>`;
-    $span.append(makeElement('span')()(text));
     return $span;
 }
 function makeNoteStatusIcon(status, number = 1) {
@@ -7263,8 +7331,9 @@ function makeNoteStatusIcon(status, number = 1) {
     const width = 8;
     const r = width / 2;
     const $span = makeElement('span')(`icon-note-status`)();
+    $span.title = `${status} note${number != 1 ? `s` : ``}`;
     const path = `<path d="${computeMarkerOutlinePath(height, width / 2 - .5)}" stroke="gray" ${pathAttrs()} />`;
-    $span.innerHTML = `<svg viewBox="${-r} ${-r} ${width} ${height}">${path}</svg><span>${status} note${number != 1 ? `s` : ``}</span>`;
+    $span.innerHTML = `<svg viewBox="${-r} ${-r} ${width} ${height}">${path}</svg>`;
     return $span;
     function pathAttrs() {
         if (status == 'open') {
