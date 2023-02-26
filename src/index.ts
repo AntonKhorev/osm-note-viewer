@@ -51,12 +51,13 @@ async function main() {
 	const flipped=storage.getBoolean('flipped')
 	if (flipped) $root.classList.add('flipped')
 
+	let map: NoteMap|undefined
 	const globalHistory=new GlobalHistory($root,$scrollingPart,serverList)
 	if (globalHistory.hasServer()) {
 		auth=new Auth(storage,globalHistory.server,serverList)
 		$graphicSide.before(makeDiv('text-side')($scrollingPart,$stickyPart))
 		$graphicSide.append($mapContainer)
-		const map=writeMap($root,$mapContainer,globalHistory)
+		map=writeMap($root,$mapContainer,globalHistory)
 		const navbar=new Navbar(storage,$navbarContainer,map)
 		const noteTable=writeBelowFetchPanel(
 			$root,
@@ -79,7 +80,7 @@ async function main() {
 			$root,
 			storage,db,
 			globalHistory.server,serverList,globalHistory.serverHash,auth,
-			$mapContainer,$menuButton
+			map,$menuButton
 		)
 		$graphicSide.append(
 			overlayDialog.$menuPanel,

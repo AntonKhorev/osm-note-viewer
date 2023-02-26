@@ -47,7 +47,9 @@ export default class NoteMap {
 	freezeMode: NoteMapFreezeMode = 'no'
 	private queuedPopup: [layerId: number, writer: ()=>HTMLElement] | undefined
 	constructor(
-		$root: HTMLElement, $container: HTMLElement, tile: TileProvider,
+		$root: HTMLElement,
+		private $container: HTMLElement,
+		tile: TileProvider,
 		downloadAndShowChangeset: (changesetId: string) => Promise<[
 			geometry: L.Layer,
 			popupContents: HTMLElement[]
@@ -167,6 +169,10 @@ export default class NoteMap {
 				this.panTo(marker.getLatLng())
 			}
 		})
+	}
+	hide(hidden: boolean) {
+		this.$container.hidden=hidden
+		if (!hidden) this.invalidateSize()
 	}
 	getNoteMarker(noteId: number): NoteMarker | undefined {
 		for (const layer of [this.unselectedNoteLayer,this.selectedNoteLayer,this.filteredNoteLayer]) {

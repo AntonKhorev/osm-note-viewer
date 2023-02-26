@@ -5,6 +5,7 @@ import type NoteViewerDB from './db'
 import type Server from './server'
 import type ServerList from './server-list'
 import type Auth from './auth'
+import type NoteMap from './map'
 import {makeElement, makeDiv, makeLink, bubbleEvent, startOrResetFadeAnimation} from './html'
 import {p,em} from './html-shortcuts'
 
@@ -28,8 +29,8 @@ export default class OverlayDialog {
 		storage: NoteViewerStorage, db: NoteViewerDB,
 		server: Server|undefined, serverList: ServerList, serverHash: string,
 		auth: Auth|undefined,
-		private $mapContainer: HTMLElement,
-		private $menuButton: HTMLButtonElement
+		private map: NoteMap|undefined,
+		private $menuButton: HTMLButtonElement,
 	) {
 		this.fallbackMode=((window as any).HTMLDialogElement == null)
 		this.menuHidden=!!auth
@@ -51,11 +52,11 @@ export default class OverlayDialog {
 		$root.addEventListener('osmNoteViewer:toggleMenu',()=>{
 			if (this.url!=null) this.close()
 			this.menuHidden=!this.menuHidden
-			this.$mapContainer.hidden=!this.menuHidden
+			this.map?.hide(!this.menuHidden)
 		})
 	}
 	private close(): void {
-		this.$mapContainer.hidden=false
+		this.map?.hide(false)
 		this.menuHidden=true
 		if (this.fallbackMode) {
 			return
@@ -74,7 +75,7 @@ export default class OverlayDialog {
 			this.close()
 			return
 		}
-		this.$mapContainer.hidden=true
+		this.map?.hide(true)
 
 		const $figure=document.createElement('figure')
 		$figure.tabIndex=0
