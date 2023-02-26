@@ -1820,6 +1820,7 @@ class NoteLayer extends L.FeatureGroup {
 }
 class NoteMap {
     constructor($root, $container, tile, downloadAndShowChangeset, downloadAndShowElement) {
+        this.$container = $container;
         this.needToFitNotes = false;
         this.freezeMode = 'no';
         this.leafletMap = L.map($container, {
@@ -1929,6 +1930,11 @@ class NoteMap {
                 this.panTo(marker.getLatLng());
             }
         });
+    }
+    hide(hidden) {
+        this.$container.hidden = hidden;
+        if (!hidden)
+            this.invalidateSize();
     }
     getNoteMarker(noteId) {
         for (const layer of [this.unselectedNoteLayer, this.selectedNoteLayer, this.filteredNoteLayer]) {
@@ -2650,8 +2656,8 @@ function makeMenuButton() {
     return $button;
 }
 class OverlayDialog {
-    constructor($root, storage, db, server, serverList, serverHash, auth, $mapContainer, $menuButton) {
-        this.$mapContainer = $mapContainer;
+    constructor($root, storage, db, server, serverList, serverHash, auth, map, $menuButton) {
+        this.map = map;
         this.$menuButton = $menuButton;
         this.$menuPanel = makeElement('div')('menu')();
         this.$figureDialog = makeElement('dialog')('figure')();
@@ -2677,11 +2683,11 @@ class OverlayDialog {
             if (this.url != null)
                 this.close();
             this.menuHidden = !this.menuHidden;
-            this.$mapContainer.hidden = !this.menuHidden;
+            this.map?.hide(!this.menuHidden);
         });
     }
     close() {
-        this.$mapContainer.hidden = false;
+        this.map?.hide(false);
         this.menuHidden = true;
         if (this.fallbackMode) {
             return;
@@ -2700,7 +2706,7 @@ class OverlayDialog {
             this.close();
             return;
         }
-        this.$mapContainer.hidden = true;
+        this.map?.hide(true);
         const $figure = document.createElement('figure');
         $figure.tabIndex = 0;
         const $backdrop = document.createElement('div');
@@ -9430,18 +9436,19 @@ async function main() {
     const flipped = storage.getBoolean('flipped');
     if (flipped)
         $root.classList.add('flipped');
+    let map;
     const globalHistory = new GlobalHistory($root, $scrollingPart, serverList);
     if (globalHistory.hasServer()) {
         auth = new Auth(storage, globalHistory.server, serverList);
         $graphicSide.before(makeDiv('text-side')($scrollingPart, $stickyPart));
         $graphicSide.append($mapContainer);
-        const map = writeMap($root, $mapContainer, globalHistory);
+        map = writeMap($root, $mapContainer, globalHistory);
         const navbar = new Navbar(storage, $navbarContainer, map);
         const noteTable = writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer, storage, auth, globalHistory, map);
         new NoteFetchPanel($root, db, auth, $fetchContainer, $moreContainer, navbar, noteTable, map, globalHistory.getQueryHash(), globalHistory.hasMapHash(), serverList.getHostHashValue(globalHistory.server));
     }
     {
-        const overlayDialog = new OverlayDialog($root, storage, db, globalHistory.server, serverList, globalHistory.serverHash, auth, $mapContainer, $menuButton);
+        const overlayDialog = new OverlayDialog($root, storage, db, globalHistory.server, serverList, globalHistory.serverHash, auth, map, $menuButton);
         $graphicSide.append(overlayDialog.$menuPanel, overlayDialog.$figureDialog);
     }
     if (globalHistory.hasServer()) {
