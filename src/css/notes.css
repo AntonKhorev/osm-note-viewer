@@ -194,6 +194,12 @@
 .notes table.with-images td.note-comment a.image.float {
 	display: block;
 }
+.notes table.shortened-ids td.note-link a .constant {
+	display: none;
+}
+.notes table.shortened-ids td.note-link a .constant + .variable::before {
+	content: '...';
+}
 .notes table.only-date td.note-date time > span {
 	display: none;
 }

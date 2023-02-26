@@ -10,6 +10,7 @@ import noteTableKeydownListener from './table-keyboard'
 import CommentWriter, {handleShowImagesUpdate} from './comment-writer'
 import type NoteFilter from './filter'
 import NoteSectionVisibilityObserver from './observer'
+import IdShortener from './id-shortener'
 import type Server from './server'
 import {makeElement, resetFadeAnimation, bubbleCustomEvent} from './html'
 
@@ -236,6 +237,7 @@ export default class NoteTable implements NoteTableUpdater {
 			this.writeNoteSection($noteSection,$checkbox,note,users,isVisible)
 			bubbleCustomEvent(this.$table,'osmNoteViewer:noteRender',note)
 		}
+		this.updateShortenedNoteIds()
 		if (this.mapFitMode=='allNotes') {
 			this.map.fitNotes()
 		} else {
@@ -271,6 +273,7 @@ export default class NoteTable implements NoteTableUpdater {
 		if (!($a2 instanceof HTMLAnchorElement)) throw new Error(`note link not found after note replace`)
 		setUpdateLinkTitle($noteSection,$a2)
 		if (isNoteLinkFocused) $a2.focus()
+		this.updateShortenedNoteIds() // id doesn't change but it's overwritten and not shortened by default
 		this.updateCheckboxDependentsAndSendNoteChangeEvents()
 		bubbleCustomEvent(this.$table,'osmNoteViewer:noteRender',note)
 	}
@@ -336,7 +339,11 @@ export default class NoteTable implements NoteTableUpdater {
 			makeElement('th')('note-checkbox')(
 				this.$selectAllCheckbox
 			),
-			makeElement('th')()(`id`),
+			makeElement('th')()(`id `,makeExpander(
+				'shortened-ids',
+				'hor-out','hor-in',
+				`show all id digits`,`show only changing id digits`
+			)),
 			makeElement('th')()(`date `,makeExpander(
 				'only-date',
 				'hor-out','hor-in',
@@ -393,6 +400,30 @@ export default class NoteTable implements NoteTableUpdater {
 		)
 		for (const $commentCell of $commentCells) {
 			this.looseParserListener.listen($commentCell)
+		}
+	}
+	private updateShortenedNoteIds() {
+		const shortener=new IdShortener
+		for (const $noteSection of this.$table.tBodies) {
+			const $a=this.getNoteLink($noteSection)
+			if (!$a) continue
+			const id=$a.dataset.noteId
+			if (id==null) continue
+			if (shortener.scan(id)) break
+		}
+		for (const $noteSection of this.$table.tBodies) {
+			const $a=this.getNoteLink($noteSection)
+			if (!$a) continue
+			const id=$a.dataset.noteId
+			if (id==null) continue
+			const [constantPart,variablePart]=shortener.split(id)
+			$a.replaceChildren()
+			if (constantPart) {
+				$a.append(makeElement('span')('constant')(constantPart))
+			}
+			if (variablePart) {
+				$a.append(makeElement('span')('variable')(variablePart))
+			}
 		}
 	}
 	private sendNoteCounts(): void {
