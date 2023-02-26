@@ -5,8 +5,10 @@ import NoteViewerDB from '../../test-build/db.js'
 
 describe("NoteViewerDB",()=>{
 	const makeNote=(id)=>({id, lat:60, lon:30, status:'open', comments:[]})
-	it("saves and restores data for query",async()=>{
+	beforeEach(function(){
 		indexedDB=new IDBFactory()
+	})
+	it("saves and restores data for query",async()=>{
 		const db=await NoteViewerDB.open()
 		const queryString='testQuery'
 		const fetchEntry10=await db.getFetchWithClearedData(1001001,queryString)
@@ -41,7 +43,6 @@ describe("NoteViewerDB",()=>{
 		)
 	})
 	it("detects that fetch is stale if the query was cleared",async()=>{
-		indexedDB=new IDBFactory()
 		const db=await NoteViewerDB.open()
 		const queryString='testQuery'
 		const fetchEntry10=await db.getFetchWithClearedData(1001001,queryString)
@@ -65,7 +66,6 @@ describe("NoteViewerDB",()=>{
 		assert.equal(writeConflictData11,null)
 	})
 	it("detects write conflict",async()=>{
-		indexedDB=new IDBFactory()
 		const db=await NoteViewerDB.open()
 		const queryString='testQuery'
 		const fetchEntry10=await db.getFetchWithClearedData(1001001,queryString)
@@ -123,7 +123,6 @@ describe("NoteViewerDB",()=>{
 		])
 	})
 	it("updates note",async()=>{
-		indexedDB=new IDBFactory()
 		const db=await NoteViewerDB.open()
 		const queryString='testQuery'
 		const fetchEntry10=await db.getFetchWithClearedData(1001001,queryString)
