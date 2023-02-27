@@ -5,6 +5,7 @@ import {noteStatuses} from '../data'
 import {readNoteResponse, NoteDataError} from '../fetch-note'
 import {makeHrefWithCurrentHost} from '../hash'
 import TextControl from '../text-control'
+import listNoteIds from '../id-lister'
 import {makeElement, makeDiv, makeLabel, makeLink, bubbleEvent, bubbleCustomEvent} from '../html'
 import {p,ul,li,code,em} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
@@ -176,7 +177,7 @@ export class InteractTool extends Tool {
 			for (const statusIds of this.stagedNoteIds.values()) {
 				ids.push(...statusIds)
 			}
-			navigator.clipboard.writeText(`notes `+ids.join(`, `))
+			navigator.clipboard.writeText(listNoteIds(ids))
 		}
 		this.$commentText.oninput=()=>{
 			this.updateButtons()
