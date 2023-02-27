@@ -378,18 +378,18 @@ nav [role=tablist] [role=tab]:focus {
 	width: var(--info-size);
 	height: var(--info-height-with-tip);
 }
-.panel.command details.tool button.info:not(.open) {
+.panel.command details.tool button.info[aria-expanded=false] {
 	cursor: help;
 }
 .panel.command details.tool button.info:hover {
 	--tools-info-hover-part-visibility: visible;
 }
-.panel.command details.tool button.info.open {
+.panel.command details.tool button.info[aria-expanded=true] {
 	margin-bottom: calc(-1px - var(--gap));
 	height: var(--info-height-with-tip);
 	--tools-info-tip-part-visibility: visible;
 }
-.panel.command details.tool button.info.open:hover {
+.panel.command details.tool button.info[aria-expanded=true]:hover {
 	--tools-info-close-hover-part-visibility: visible;
 }
 .panel.command details.tool form {
@@ -811,34 +811,34 @@ nav [role=tablist] [role=tab]:focus {
 .notes table.with-images td.note-comment a.image.float {
 	display: block;
 }
-.notes table.shortened-ids td.note-link a .constant {
+.notes table:not(.expanded-id) td.note-link a .constant {
 	display: none;
 }
-.notes table.shortened-ids td.note-link a .constant + .variable::before {
+.notes table:not(.expanded-id) td.note-link a .constant + .variable::before {
 	content: '...';
 }
-.notes table.only-date td.note-date time > span {
+.notes table:not(.expanded-date) td.note-date time > span {
 	display: none;
 }
-.notes table.only-short-username td.note-user {
+.notes table:not(.expanded-username) td.note-user {
 	max-width: 20vw;
 }
-body.flipped table.only-short-username td.note-user {
+body.flipped table:not(.expanded-username) td.note-user {
 	max-width: 10vw;
 }
-.notes table.only-short-username td.note-user .uid {
+.notes table:not(.expanded-username) td.note-user .uid {
 	display: none;
 }
-.notes table.only-first-comments tr:not(:first-child) {
+.notes table:not(.expanded-comments) tr:not(:first-child) {
 	display: none;
 }
-.notes table.only-first-comments td.note-action [class|=icon-status] {
+.notes table:not(.expanded-comments) td.note-action [class|=icon-status] {
 	display: none;
 }
-.notes table:not(.only-first-comments) td.note-action [class|=icon-comments-count] {
+.notes table.expanded-comments td.note-action [class|=icon-comments-count] {
 	display: none;
 }
-.notes table.one-line-comments td.note-comment {
+.notes table:not(.expanded-comment-lines) td.note-comment {
 	white-space: nowrap;
 	overflow: hidden;
 }

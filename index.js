@@ -5807,6 +5807,74 @@ class NoteFilterPanel {
     }
 }
 
+const expanderDescriptions = new Map([
+    ['id', [
+            true,
+            'hor-out', 'hor-in',
+            `show all id digits`, `show only changing id digits`
+        ]],
+    ['date', [
+            false,
+            'hor-out', 'hor-in',
+            `show time of day`, `hide time of day`
+        ]],
+    ['username', [
+            false,
+            'hor-out', 'hor-in',
+            `show full usernames with ids`, `clip long usernames`
+        ]],
+    ['comments', [
+            true,
+            'ver-out', 'ver-in',
+            `show all comments/actions`, `show only first comment/action`
+        ]],
+    ['comment-lines', [
+            true,
+            'ver-out', 'hor-out',
+            `allow line breaks in comments`, `keep comments on one line`
+        ]]
+]);
+class Expanders {
+    constructor(storage, $table) {
+        this.storage = storage;
+        this.$table = $table;
+        for (const [key, [defaultValue]] of expanderDescriptions) {
+            const tableClass = `expanded-${key}`;
+            const storageKey = `table-expanded[${key}]`;
+            const storedValue = this.storage.getItem(storageKey);
+            let value = defaultValue;
+            if (storedValue == '0')
+                value = false;
+            if (storedValue == '1')
+                value = true;
+            if (value)
+                this.$table.classList.add(tableClass);
+        }
+    }
+    makeButton(key) {
+        const expanderDescription = expanderDescriptions.get(key);
+        if (!expanderDescription)
+            return;
+        const [, expandButtonClass, collapseButtonClass, expandTitle, collapseTitle] = expanderDescription;
+        const $button = makeElement('button')('expander')();
+        $button.innerHTML = `<svg><use href="#table-expander" /></svg>`;
+        const update = (value) => {
+            $button.classList.toggle(expandButtonClass, !value);
+            $button.classList.toggle(collapseButtonClass, value);
+            $button.title = value ? collapseTitle : expandTitle;
+        };
+        const tableClass = `expanded-${key}`;
+        const storageKey = `table-expanded[${key}]`;
+        update(this.$table.classList.contains(tableClass));
+        $button.onclick = () => {
+            const value = this.$table.classList.toggle(tableClass);
+            this.storage.setItem(storageKey, value ? '1' : '0');
+            update(value);
+        };
+        return $button;
+    }
+}
+
 class LooseParserListener {
     constructor(callback) {
         this.hadSelectionOnMouseDown = false;
@@ -6360,8 +6428,8 @@ function noteTableKeydownListener(ev) {
     const makeScopedSelector = (selector) => {
         const [generalSelector, notOnlyFirstCommentSelector, onlyFirstCommentSelector] = selector;
         const tbodySelectorPart = ev.shiftKey ? ' tbody' : ''; // prevent shift+movement from reaching 'select all' checkbox
-        return (`table:not(.only-first-comments)${tbodySelectorPart} ${notOnlyFirstCommentSelector ?? generalSelector}, ` +
-            `table.only-first-comments${tbodySelectorPart} tr:first-child ${onlyFirstCommentSelector ?? generalSelector}`);
+        return (`table.expanded-comments${tbodySelectorPart} ${notOnlyFirstCommentSelector ?? generalSelector}, ` +
+            `table:not(.expanded-comments)${tbodySelectorPart} tr:first-child ${onlyFirstCommentSelector ?? generalSelector}`);
     };
     if (ev.ctrlKey && ev.key.toLowerCase() == 'a') {
         const $allCheckbox = this.querySelector('thead .note-checkbox input');
@@ -6587,15 +6655,16 @@ class IdShortener {
 }
 
 class NoteTable {
-    constructor($root, $container, map, filter, server) {
+    constructor($root, $container, storage, map, filter, server) {
         this.map = map;
         this.filter = filter;
         this.server = server;
-        this.$table = makeElement('table')('only-date', 'only-short-username')();
+        this.$table = makeElement('table')()();
         this.$selectAllCheckbox = document.createElement('input');
         this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
         this.usersById = new Map();
         this.showImages = false;
+        this.expanders = new Expanders(storage, this.$table);
         this.$table.setAttribute('role', 'grid');
         const that = this;
         let $clickReadyNoteSection;
@@ -6901,19 +6970,18 @@ class NoteTable {
         this.$selectAllCheckbox.type = 'checkbox';
         this.$selectAllCheckbox.title = `select all notes`;
         this.$selectAllCheckbox.addEventListener('click', this.wrappedAllNotesCheckboxClickListener);
-        const makeExpander = (tableClass, expandButtonClass, collapseButtonClass, expandTitle, collapseTitle) => {
-            const $button = makeElement('button')('expander')();
-            $button.innerHTML = `<svg><use href="#table-expander" /></svg>`;
-            const update = (isCollapsed) => {
-                $button.classList.toggle(expandButtonClass, isCollapsed);
-                $button.classList.toggle(collapseButtonClass, !isCollapsed);
-                $button.title = isCollapsed ? expandTitle : collapseTitle;
-            };
-            update(this.$table.classList.contains(tableClass));
-            $button.onclick = () => update(this.$table.classList.toggle(tableClass));
-            return $button;
+        const makeExpanderCell = (title, key) => {
+            const $th = makeElement('th')()();
+            const $button = this.expanders.makeButton(key);
+            if (title)
+                $th.append(title);
+            if (title && $button)
+                $th.append(` `);
+            if ($button)
+                $th.append($button);
+            return $th;
         };
-        $row.append(makeElement('th')('note-checkbox')(this.$selectAllCheckbox), makeElement('th')()(`id `, makeExpander('shortened-ids', 'hor-out', 'hor-in', `show all id digits`, `show only changing id digits`)), makeElement('th')()(`date `, makeExpander('only-date', 'hor-out', 'hor-in', `show time of day`, `hide time of day`)), makeElement('th')()(`user `, makeExpander('only-short-username', 'hor-out', 'hor-in', `show full usernames with ids`, `clip long usernames`)), makeElement('th')()(makeExpander('only-first-comments', 'ver-out', 'ver-in', `show all comments/actions`, `show only first comment/action`)), makeElement('th')()(`comment `, makeExpander('one-line-comments', 'ver-out', 'hor-out', `allow line breaks in comments`, `keep comments on one line`)));
+        $row.append(makeElement('th')('note-checkbox')(this.$selectAllCheckbox), makeExpanderCell(`id`, 'id'), makeExpanderCell(`date`, 'date'), makeExpanderCell(`user`, 'username'), makeExpanderCell(``, 'comments'), makeExpanderCell(`comment`, 'comment-lines'));
         return $header;
     }
     makeMarker(note, isVisible) {
@@ -7249,14 +7317,8 @@ class Tool {
             $infoButton.classList.add('info');
             $infoButton.innerHTML = `<svg><use href="#tools-info" /></svg>`;
             const updateInfoButton = () => {
-                if ($info.open) {
-                    $infoButton.title = `Close tool info`;
-                    $infoButton.classList.add('open');
-                }
-                else {
-                    $infoButton.title = `Open tool info`;
-                    $infoButton.classList.remove('open');
-                }
+                $infoButton.title = ($info.open ? `Close` : `Open`) + ` tool info`;
+                $infoButton.setAttribute('aria-expanded', String($info.open));
             };
             updateInfoButton();
             $infoButton.addEventListener('click', () => {
@@ -7508,6 +7570,48 @@ async function readNoteResponse(noteId, response) {
     return [newNote, newUsers];
 }
 
+function listNoteIds(inputIds) {
+    const ids = [...inputIds].sort((a, b) => a - b);
+    if (ids.length == 0)
+        return '';
+    if (ids.length == 1)
+        return 'note ' + ids[0];
+    let result = 'notes ';
+    let first = true;
+    let rangeStart;
+    let rangeEnd;
+    const appendRange = () => {
+        if (rangeStart == null || rangeEnd == null)
+            return;
+        if (first) {
+            first = false;
+        }
+        else {
+            result += ',';
+        }
+        if (rangeEnd == rangeStart) {
+            result += rangeStart;
+        }
+        else if (rangeEnd == rangeStart + 1) {
+            result += rangeStart + ',' + rangeEnd;
+        }
+        else {
+            result += rangeStart + '-' + rangeEnd;
+        }
+    };
+    for (const id of ids) {
+        if (rangeEnd != null && id == rangeEnd + 1) {
+            rangeEnd = id;
+        }
+        else {
+            appendRange();
+            rangeStart = rangeEnd = id;
+        }
+    }
+    appendRange();
+    return result;
+}
+
 const e$2 = makeEscapeTag(encodeURIComponent);
 class InteractionError extends TypeError {
 }
@@ -7522,6 +7626,7 @@ class InteractTool extends Tool {
         this.$yourNotesWeb = document.createElement('span');
         this.$asOutput = document.createElement('output');
         this.$withOutput = document.createElement('output');
+        this.$copyIdsButton = makeElement('button')()('Copy ids');
         this.$commentText = document.createElement('textarea');
         this.$commentButton = document.createElement('button');
         this.$closeButton = document.createElement('button');
@@ -7592,7 +7697,7 @@ class InteractTool extends Tool {
         this.updateRunOutput();
     }
     getInfo() {
-        return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again ("reactivates" it). `, `This means that a hidden note can only be restored to an open state, even if it had been closed before being hidden. `, `If you want the note to be closed again, you have to close it yourself after reactivating. `, `Also, unlike the OSM website, you can reactivate a note and add a comment in one action. `, `The OSM website currently doesn't provide a comment input for note reactivation.`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, em(`Plaintext`), ` mode will show hidden notes to moderators, but it requires knowing the note ids. `, `If you've hidden a note and want to see it but don't know its id, look for the note at `, this.$yourNotesWeb, ` on the OSM website.`)];
+        return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again ("reactivates" it). `, `This means that a hidden note can only be restored to an open state, even if it had been closed before being hidden. `, `If you want the note to be closed again, you have to close it yourself after reactivating. `, `Also, unlike the OSM website, you can reactivate a note and add a comment in one action. `, `The OSM website currently doesn't provide a comment input for note reactivation.`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, em(`Plaintext`), ` mode will show hidden notes to moderators, but it requires knowing the note ids. `, `If you've hidden a note and want to see it but don't know its id, look for the note at `, this.$yourNotesWeb, ` on the OSM website.`), p(`The `, em(`Copy ids`), ` button on top is useful for making changeset comments. `, `It copies to the clipboard the same note list that you'd get by using the `, em(`Load map area`), ` remote control command. `, em(`Load map area`), ` sets the changeset comment tag to selected notes as a side effect. `, `If you're not using remote control but want to get the note list for a comment, you can press `, em(`Copy ids`), ` instead.`)];
     }
     getTool($root, $tool) {
         const appendLastChangeset = new TextControl(this.$commentText, () => this.auth.uid != null, () => true, (append) => !this.$commentText.value.endsWith(append), (append) => {
@@ -7611,6 +7716,13 @@ class InteractTool extends Tool {
             bubbleEvent($a, 'osmNoteViewer:changesetLinkClick');
             return append;
         }, () => [makeElement('span')()(`undo append`)], () => [makeElement('span')()(`append last changeset`)]);
+        this.$copyIdsButton.onclick = () => {
+            const ids = [];
+            for (const statusIds of this.stagedNoteIds.values()) {
+                ids.push(...statusIds);
+            }
+            navigator.clipboard.writeText(listNoteIds(ids));
+        };
         this.$commentText.oninput = () => {
             this.updateButtons();
         };
@@ -7680,7 +7792,7 @@ class InteractTool extends Tool {
             this.ping($tool);
         });
         return [
-            this.$asOutput, ` `, this.$withOutput, ` `,
+            this.$asOutput, ` `, this.$withOutput, ` `, this.$copyIdsButton,
             makeDiv('major-input')(appendLastChangeset.$controls, makeLabel()(`Comment `, this.$commentText)),
             makeDiv('gridded-input')(...this.interactionDescriptions.map(({ $button }) => $button)),
             this.$runButton, ` `, this.$runOutput
@@ -7726,6 +7838,9 @@ class InteractTool extends Tool {
         }
     }
     updateButtons() {
+        // button next to with-output
+        this.$copyIdsButton.disabled = [...this.stagedNoteIds.values()].every(ids => ids.length == 0);
+        // buttons below comment
         const buttonNoteIcon = (ids, inputStatus, outputStatus) => {
             const outputIcon = [];
             if (outputStatus != inputStatus) {
@@ -8661,9 +8776,7 @@ class RcTool extends EditorTool {
                 `?left=${bounds.getWest()}&right=${bounds.getEast()}` +
                 `&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`;
             if (inputNotes.length >= 1) {
-                const changesetComment = (inputNotes.length > 1
-                    ? `notes ` + inputNotes.map(note => note.id).join(`, `)
-                    : `note ${inputNotes[0].id}`);
+                const changesetComment = listNoteIds(inputNotes.map(note => note.id));
                 const changesetTags = `comment=${changesetComment}`;
                 rcPath += `&changeset_tags=${changesetTags}`;
             }
@@ -9555,7 +9668,7 @@ function writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer
     const $toolContainer = makeDiv('panel', 'command')();
     $stickyPart.append($toolContainer);
     new ToolPanel($root, $toolContainer, storage, auth, map);
-    const noteTable = new NoteTable($root, $notesContainer, map, filterPanel.noteFilter, globalHistory.server);
+    const noteTable = new NoteTable($root, $notesContainer, storage, map, filterPanel.noteFilter, globalHistory.server);
     filterPanel.subscribe(noteFilter => noteTable.updateFilter(noteFilter));
     globalHistory.$resizeObservationTarget = $notesContainer;
     return noteTable;
