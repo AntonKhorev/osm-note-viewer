@@ -1,7 +1,9 @@
 import type {Note, Users} from './data'
 import {getNoteUpdateDate} from './data'
+import type NoteViewerStorage from './storage'
 import type NoteMap from './map'
 import NoteMarker from './marker'
+import Expanders from './expanders'
 import LooseParserListener from './loose-listen'
 import LooseParserPopup from './loose-popup'
 import parseLoose from './loose'
@@ -23,9 +25,10 @@ export default class NoteTable implements NoteTableUpdater {
 	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedAllNotesCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
+	private expanders: Expanders
 	private noteSectionVisibilityObserver: NoteSectionVisibilityObserver
 	private looseParserListener: LooseParserListener
-	private $table = makeElement('table')('only-date','only-short-username')()
+	private $table = makeElement('table')()()
 	private $selectAllCheckbox = document.createElement('input')
 	private $lastClickedNoteSection: HTMLTableSectionElement | undefined
 	private notesById = new Map<number,Note>() // in the future these might be windowed to limit the amount of stuff on one page
@@ -38,9 +41,12 @@ export default class NoteTable implements NoteTableUpdater {
 	constructor(
 		$root: HTMLElement,
 		$container: HTMLElement,
-		private map: NoteMap, private filter: NoteFilter,
+		storage: NoteViewerStorage,
+		private map: NoteMap,
+		private filter: NoteFilter,
 		private server: Server
 	) {
+		this.expanders=new Expanders(storage,this.$table)
 		this.$table.setAttribute('role','grid')
 		const that=this
 		let $clickReadyNoteSection: HTMLTableSectionElement | undefined
@@ -319,51 +325,23 @@ export default class NoteTable implements NoteTableUpdater {
 		this.$selectAllCheckbox.type='checkbox'
 		this.$selectAllCheckbox.title=`select all notes`
 		this.$selectAllCheckbox.addEventListener('click',this.wrappedAllNotesCheckboxClickListener)
-		const makeExpander=(
-			tableClass:string,
-			expandButtonClass:string,collapseButtonClass:string,
-			expandTitle:string,collapseTitle:string
-		)=>{
-			const $button=makeElement('button')('expander')()
-			$button.innerHTML=`<svg><use href="#table-expander" /></svg>`
-			const update=(isCollapsed:boolean)=>{
-				$button.classList.toggle(expandButtonClass,isCollapsed)
-				$button.classList.toggle(collapseButtonClass,!isCollapsed)
-				$button.title=isCollapsed?expandTitle:collapseTitle
-			}
-			update(this.$table.classList.contains(tableClass))
-			$button.onclick=()=>update(this.$table.classList.toggle(tableClass))
-			return $button
+		const makeExpanderCell=(title:string,key:string)=>{
+			const $th=makeElement('th')()()
+			const $button=this.expanders.makeButton(key)
+			if (title) $th.append(title)
+			if (title && $button) $th.append(` `)
+			if ($button) $th.append($button)
+			return $th
 		}
 		$row.append(
 			makeElement('th')('note-checkbox')(
 				this.$selectAllCheckbox
 			),
-			makeElement('th')()(`id `,makeExpander(
-				'shortened-ids',
-				'hor-out','hor-in',
-				`show all id digits`,`show only changing id digits`
-			)),
-			makeElement('th')()(`date `,makeExpander(
-				'only-date',
-				'hor-out','hor-in',
-				`show time of day`,`hide time of day`
-			)),
-			makeElement('th')()(`user `,makeExpander(
-				'only-short-username',
-				'hor-out','hor-in',
-				`show full usernames with ids`,`clip long usernames`
-			)),
-			makeElement('th')()(makeExpander(
-				'only-first-comments',
-				'ver-out','ver-in',
-				`show all comments/actions`,`show only first comment/action`
-			)),
-			makeElement('th')()(`comment `,makeExpander(
-				'one-line-comments',
-				'ver-out','hor-out',
-				`allow line breaks in comments`,`keep comments on one line`
-			))
+			makeExpanderCell(`id`,'id'),
+			makeExpanderCell(`date`,'date'),
+			makeExpanderCell(`user`,'username'),
+			makeExpanderCell(``,'comments'),
+			makeExpanderCell(`comment`,'comment-lines')
 		)
 		return $header
 	}

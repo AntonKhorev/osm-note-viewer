@@ -23,8 +23,8 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 		]=selector
 		const tbodySelectorPart=ev.shiftKey?' tbody':'' // prevent shift+movement from reaching 'select all' checkbox
 		return (
-			`table:not(.only-first-comments)${tbodySelectorPart} ${notOnlyFirstCommentSelector??generalSelector}, `+
-			`table.only-first-comments${tbodySelectorPart} tr:first-child ${onlyFirstCommentSelector??generalSelector}`
+			`table.expanded-comments${tbodySelectorPart} ${notOnlyFirstCommentSelector??generalSelector}, `+
+			`table:not(.expanded-comments)${tbodySelectorPart} tr:first-child ${onlyFirstCommentSelector??generalSelector}`
 		)
 	}
 	if (ev.ctrlKey && ev.key.toLowerCase()=='a') {

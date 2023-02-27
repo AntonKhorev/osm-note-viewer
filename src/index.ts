@@ -141,8 +141,8 @@ function writeBelowFetchPanel(
 		storage,auth,map
 	)
 	const noteTable=new NoteTable(
-		$root,
-		$notesContainer,map,filterPanel.noteFilter,
+		$root,$notesContainer,
+		storage,map,filterPanel.noteFilter,
 		globalHistory.server
 	)
 	filterPanel.subscribe(noteFilter=>noteTable.updateFilter(noteFilter))
