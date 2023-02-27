@@ -47,6 +47,7 @@ export class InteractTool extends Tool {
 	private $yourNotesWeb=document.createElement('span')
 	private $asOutput=document.createElement('output')
 	private $withOutput=document.createElement('output')
+	private $copyIdsButton=makeElement('button')()('Copy ids')
 	private $commentText=document.createElement('textarea')
 	private $commentButton=document.createElement('button')
 	private $closeButton=document.createElement('button')
@@ -170,6 +171,13 @@ export class InteractTool extends Tool {
 			()=>[makeElement('span')()(`undo append`)],
 			()=>[makeElement('span')()(`append last changeset`)]
 		)
+		this.$copyIdsButton.onclick=()=>{
+			const ids: number[] = []
+			for (const statusIds of this.stagedNoteIds.values()) {
+				ids.push(...statusIds)
+			}
+			navigator.clipboard.writeText(`notes `+ids.join(`, `))
+		}
 		this.$commentText.oninput=()=>{
 			this.updateButtons()
 		}
@@ -232,7 +240,7 @@ export class InteractTool extends Tool {
 			this.ping($tool)
 		})
 		return [
-			this.$asOutput,` `,this.$withOutput,` `,
+			this.$asOutput,` `,this.$withOutput,` `,this.$copyIdsButton,
 			makeDiv('major-input')(
 				appendLastChangeset.$controls,
 				makeLabel()(
@@ -285,6 +293,9 @@ export class InteractTool extends Tool {
 		}
 	}
 	private updateButtons(): void {
+		// button next to with-output
+		this.$copyIdsButton.disabled=[...this.stagedNoteIds.values()].every(ids=>ids.length==0)
+		// buttons below comment
 		const buttonNoteIcon=(ids:readonly number[],inputStatus:Note['status'],outputStatus:Note['status']): (string|HTMLElement)[]=>{
 			const outputIcon=[]
 			if (outputStatus!=inputStatus) {
