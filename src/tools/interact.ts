@@ -143,6 +143,11 @@ export class InteractTool extends Tool {
 		`Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `,
 		em(`Plaintext`),` mode will show hidden notes to moderators, but it requires knowing the note ids. `,
 		`If you've hidden a note and want to see it but don't know its id, look for the note at `,this.$yourNotesWeb,` on the OSM website.`
+	),p(
+		`The `,em(`Copy ids`),` button on top is useful for making changeset comments. `,
+		`It copies to the clipboard the same note list that you'd get by using the `,em(`Load map area`),` remote control command. `,
+		em(`Load map area`),` sets the changeset comment tag to selected notes as a side effect. `,
+		`If you're not using remote control but want to get the note list for a comment, you can press `,em(`Copy ids`),` instead.`
 	)]}
 	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
 		const appendLastChangeset=new TextControl(
