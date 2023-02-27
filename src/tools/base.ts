@@ -44,13 +44,8 @@ export abstract class Tool {
 			$infoButton.classList.add('info')
 			$infoButton.innerHTML=`<svg><use href="#tools-info" /></svg>`
 			const updateInfoButton=()=>{
-				if ($info.open) {
-					$infoButton.title=`Close tool info`
-					$infoButton.classList.add('open')
-				} else {
-					$infoButton.title=`Open tool info`
-					$infoButton.classList.remove('open')
-				}
+				$infoButton.title=($info.open?`Close`:`Open`)+` tool info`
+				$infoButton.setAttribute('aria-expanded',String($info.open))
 			}
 			updateInfoButton()
 			$infoButton.addEventListener('click',()=>{

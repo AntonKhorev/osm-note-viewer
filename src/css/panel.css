@@ -159,18 +159,18 @@
 	width: var(--info-size);
 	height: var(--info-height-with-tip);
 }
-.panel.command details.tool button.info:not(.open) {
+.panel.command details.tool button.info[aria-expanded=false] {
 	cursor: help;
 }
 .panel.command details.tool button.info:hover {
 	--tools-info-hover-part-visibility: visible;
 }
-.panel.command details.tool button.info.open {
+.panel.command details.tool button.info[aria-expanded=true] {
 	margin-bottom: calc(-1px - var(--gap));
 	height: var(--info-height-with-tip);
 	--tools-info-tip-part-visibility: visible;
 }
-.panel.command details.tool button.info.open:hover {
+.panel.command details.tool button.info[aria-expanded=true]:hover {
 	--tools-info-close-hover-part-visibility: visible;
 }
 .panel.command details.tool form {
