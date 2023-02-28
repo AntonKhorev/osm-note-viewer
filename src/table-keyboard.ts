@@ -1,30 +1,32 @@
 type SelectorSpec = [
+	headSelector: string,
 	generalSelector: string,
 	notOnlyFirstCommentSelector?: string,
 	onlyFirstCommentSelector?: string
 ]
 
 const selectors: SelectorSpec[] = [
-	['.note-checkbox input'],
-	['.note-link a'],
-	['.note-date time'],
-	['.note-user a'],
-	['.note-action [class|=icon]','.note-action [class|=icon-status]','.note-action .icon-comments-count'],
-	['.note-comment']
+	['.note-checkbox input','.note-checkbox input'],
+	['.note-link button','.note-link a'],
+	['.note-date button','.note-date time'],
+	['.note-user button','.note-user a'],
+	['.note-action button','.note-action [class|=icon]','.note-action [class|=icon-status]','.note-action .icon-comments-count'],
+	['.note-comment button','.note-comment']
 ]
-const anySelector=selectors.map(([generalSelector])=>generalSelector).join(',')
+const anySelector=selectors.map(([,generalSelector])=>generalSelector).join(',')
+const anyHeadSelector=selectors.map(([headSelector])=>headSelector).join(',')
 
 export default function noteTableKeydownListener(this: HTMLTableElement, ev: KeyboardEvent): void {
-	const makeScopedSelector=(selector:SelectorSpec)=>{
-		const [
+	const makeHeadSelector=([headSelector]:SelectorSpec)=>headSelector
+	const makeScopedSelector=([
+			headSelector,
 			generalSelector,
 			notOnlyFirstCommentSelector,
 			onlyFirstCommentSelector
-		]=selector
-		const tbodySelectorPart=ev.shiftKey?' tbody':'' // prevent shift+movement from reaching 'select all' checkbox
+	]:SelectorSpec)=>{
 		return (
-			`table.expanded-comments${tbodySelectorPart} ${notOnlyFirstCommentSelector??generalSelector}, `+
-			`table:not(.expanded-comments)${tbodySelectorPart} tr:first-child ${onlyFirstCommentSelector??generalSelector}`
+			`table.expanded-comments tbody ${notOnlyFirstCommentSelector??generalSelector}, `+
+			`table:not(.expanded-comments) tbody tr:first-child ${onlyFirstCommentSelector??generalSelector}`
 		)
 	}
 	if (ev.ctrlKey && ev.key.toLowerCase()=='a') {
@@ -51,27 +53,46 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 	)
 	if (!isVerticalMovementKey && !isHorizontalMovementKey) return
 	if (!(ev.target instanceof HTMLElement)) return
-	const $e=ev.target.closest(anySelector)
-	if (!($e instanceof HTMLElement)) return
-	const $section=$e.closest('thead, tbody')
+	const $section=ev.target.closest('thead, tbody')
 	if (!($section instanceof HTMLTableSectionElement)) return
-	const $tr=$e.closest('tr')
-	if (!($tr instanceof HTMLTableRowElement)) return
-	const iHasCommentRows=2
-	for (let i=0;i<selectors.length;i++) {
-		const [generalSelector]=selectors[i]
-		if (!$e.matches(generalSelector)) continue
-		if (isVerticalMovementKey) {
-			const $eList=this.querySelectorAll(makeScopedSelector(selectors[i]))
-			if (!moveVerticallyAmongProvidedElements(ev.key,$e,$eList,ev.shiftKey&&i==0)) return
-		} else if (isHorizontalMovementKey) {
-			const j=getIndexForKeyMovement(ev.key,i,selectors.length)
-			if (j<0 || j>=selectors.length) return
-			const $e2=(j<iHasCommentRows?$section:$tr).querySelector(makeScopedSelector(selectors[j]))
-			if (!focus($e2)) return
+	if ($section.tagName=='THEAD') {
+		const $e=ev.target.closest(anyHeadSelector)
+		if (!($e instanceof HTMLElement)) return
+		for (let i=0;i<selectors.length;i++) {
+			const [headSelector]=selectors[i]
+			if (!$e.matches(headSelector)) continue
+			if (isVerticalMovementKey) {
+				return
+			} else if (isHorizontalMovementKey) {
+				const j=getIndexForKeyMovement(ev.key,i,selectors.length)
+				if (j<0 || j>=selectors.length) return
+				const $e2=$section.querySelector(makeHeadSelector(selectors[j]))
+				if (!focus($e2)) return
+			}
+			ev.stopPropagation()
+			ev.preventDefault()
 		}
-		ev.stopPropagation()
-		ev.preventDefault()
+	} else {
+		const $e=ev.target.closest(anySelector)
+		if (!($e instanceof HTMLElement)) return
+		const $tr=$e.closest('tr')
+		if (!($tr instanceof HTMLTableRowElement)) return
+		const iHasCommentRows=2
+		for (let i=0;i<selectors.length;i++) {
+			const [,generalSelector]=selectors[i]
+			if (!$e.matches(generalSelector)) continue
+			if (isVerticalMovementKey) {
+				const $eList=this.querySelectorAll(makeScopedSelector(selectors[i]))
+				if (!moveVerticallyAmongProvidedElements(ev.key,$e,$eList,ev.shiftKey&&i==0)) return
+			} else if (isHorizontalMovementKey) {
+				const j=getIndexForKeyMovement(ev.key,i,selectors.length)
+				if (j<0 || j>=selectors.length) return
+				const $e2=(j<iHasCommentRows?$section:$tr).querySelector(makeScopedSelector(selectors[j]))
+				if (!focus($e2)) return
+			}
+			ev.stopPropagation()
+			ev.preventDefault()
+		}
 	}
 }
 

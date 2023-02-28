@@ -325,8 +325,8 @@ export default class NoteTable implements NoteTableUpdater {
 		this.$selectAllCheckbox.type='checkbox'
 		this.$selectAllCheckbox.title=`select all notes`
 		this.$selectAllCheckbox.addEventListener('click',this.wrappedAllNotesCheckboxClickListener)
-		const makeExpanderCell=(title:string,key:string)=>{
-			const $th=makeElement('th')()()
+		const makeExpanderCell=(cssClass:string,title:string,key:string)=>{
+			const $th=makeElement('th')(cssClass)()
 			const $button=this.expanders.makeButton(key)
 			if (title) $th.append(title)
 			if (title && $button) $th.append(` `)
@@ -337,11 +337,11 @@ export default class NoteTable implements NoteTableUpdater {
 			makeElement('th')('note-checkbox')(
 				this.$selectAllCheckbox
 			),
-			makeExpanderCell(`id`,'id'),
-			makeExpanderCell(`date`,'date'),
-			makeExpanderCell(`user`,'username'),
-			makeExpanderCell(``,'comments'),
-			makeExpanderCell(`comment`,'comment-lines')
+			makeExpanderCell('note-link',`id`,'id'),
+			makeExpanderCell('note-date',`date`,'date'),
+			makeExpanderCell('note-user',`user`,'username'),
+			makeExpanderCell('note-action',``,'comments'),
+			makeExpanderCell('note-comment',`comment`,'comment-lines')
 		)
 		return $header
 	}
