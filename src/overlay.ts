@@ -202,6 +202,7 @@ export default class OverlayDialog {
 		this.menuHidden=true
 		this.$figureDialog.close()
 		this.imageSequence=undefined
+		this.updateImageState()
 	}
 	private toggleImage(imageSequence: UrlSequence): void {
 		this.menuHidden=true
