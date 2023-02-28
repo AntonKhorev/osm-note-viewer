@@ -8,7 +8,7 @@ import LooseParserListener from './loose-listen'
 import LooseParserPopup from './loose-popup'
 import parseLoose from './loose'
 import writeNoteSectionRows from './table-section'
-import noteTableKeydownListener from './table-keyboard'
+import {noteTableKeydownListener, noteTableCleanupRovingTabindex} from './table-keyboard'
 import CommentWriter, {handleShowImagesUpdate} from './comment-writer'
 import type NoteFilter from './filter'
 import NoteSectionVisibilityObserver from './observer'
@@ -379,6 +379,7 @@ export default class NoteTable implements NoteTableUpdater {
 		for (const $commentCell of $commentCells) {
 			this.looseParserListener.listen($commentCell)
 		}
+		noteTableCleanupRovingTabindex(this.$table)
 	}
 	private updateShortenedNoteIds() {
 		const shortener=new IdShortener

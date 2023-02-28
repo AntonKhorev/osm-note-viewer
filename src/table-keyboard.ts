@@ -32,7 +32,7 @@ const anyHeadSelector=selectors.map(([headSelector])=>headSelector).join(',')
 
 const iHasCommentRows=2
 
-export default function noteTableKeydownListener(this: HTMLTableElement, ev: KeyboardEvent): void {
+export function noteTableKeydownListener(this: HTMLTableElement, ev: KeyboardEvent): void {
 	if (ev.ctrlKey && ev.key.toLowerCase()=='a') {
 		const $allCheckbox=this.querySelector('thead .note-checkbox input')
 		if (!($allCheckbox instanceof HTMLInputElement)) return
@@ -228,5 +228,27 @@ function roveBodyTabIndex($table: HTMLTableElement, $focused: HTMLElement, i: nu
 			const $e=$table.tHead.querySelector(makeHeadSelector(selectors[i]))
 			if ($e instanceof HTMLElement) $e.tabIndex=0
 		}
+	}
+}
+
+export function noteTableCleanupRovingTabindex($table: HTMLTableElement) {
+	const $e=$table.querySelector(`tbody :is(${tabbableSelector})`)
+	if ($e instanceof HTMLElement) {
+		for (let i=0;i<selectors.length;i++) {
+			const [,generalSelector]=selectors[i]
+			if ($e.matches(generalSelector)) {
+				roveBodyTabIndex($table,$e,i)
+				return
+			}
+			const $e2=$e.closest(generalSelector)
+			if ($e2 instanceof HTMLElement) {
+				roveBodyTabIndex($table,$e2,i)
+			}
+		}
+	}
+	{
+		const $e=$table.querySelector('tbody input')
+		if (!($e instanceof HTMLElement)) return
+		roveBodyTabIndex($table,$e,0)
 	}
 }
