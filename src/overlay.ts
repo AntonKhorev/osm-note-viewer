@@ -25,7 +25,6 @@ export default class OverlayDialog {
 	public $menuPanel=makeElement('div')('menu')()
 	public $figureDialog=makeElement('dialog')('figure')()
 	private imageSequence?: UrlSequence
-	private fallbackMode: boolean
 	constructor(
 		$root: HTMLElement,
 		storage: NoteViewerStorage, db: NoteViewerDB,
@@ -34,7 +33,6 @@ export default class OverlayDialog {
 		private map: NoteMap|undefined,
 		private $menuButton: HTMLButtonElement,
 	) {
-		this.fallbackMode=((window as any).HTMLDialogElement == null)
 		this.menuHidden=!!auth
 		this.$menuButton.disabled=!auth
 		this.writeMenuPanel(storage,db,server,serverList,serverHash,auth)
@@ -59,17 +57,10 @@ export default class OverlayDialog {
 	private close(): void {
 		this.map?.hide(false)
 		this.menuHidden=true
-		if (this.fallbackMode) {
-			return
-		}
 		this.$figureDialog.close()
 		this.imageSequence=undefined
 	}
 	private toggleImage(imageSequence: UrlSequence): void {
-		if (this.fallbackMode) {
-			open(imageSequence.urls[imageSequence.index],'photo')
-			return
-		}
 		this.menuHidden=true
 		this.$figureDialog.innerHTML=''
 		if (this.imageSequence && equalUrlSequences(imageSequence,this.imageSequence)) {
