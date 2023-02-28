@@ -19,10 +19,12 @@ export function makeMenuButton(): HTMLButtonElement {
 	return $button
 }
 
+type UrlSequence = {urls: string[], index: number}
+
 export default class OverlayDialog {
 	public $menuPanel=makeElement('div')('menu')()
 	public $figureDialog=makeElement('dialog')('figure')()
-	private url: string|undefined
+	private imageSequence?: UrlSequence
 	private fallbackMode: boolean
 	constructor(
 		$root: HTMLElement,
@@ -45,12 +47,11 @@ export default class OverlayDialog {
 		]) {
 			$root.addEventListener(eventType,()=>this.close())
 		}
-		$root.addEventListener('osmNoteViewer:imageToggle',ev=>{
-			if (!(ev.target instanceof HTMLAnchorElement)) return
-			this.toggleImage(ev.target.href)
+		$root.addEventListener('osmNoteViewer:imageToggle',({detail:imageSequence})=>{
+			this.toggleImage(imageSequence)
 		})
 		$root.addEventListener('osmNoteViewer:toggleMenu',()=>{
-			if (this.url!=null) this.close()
+			if (this.imageSequence!=null) this.close()
 			this.menuHidden=!this.menuHidden
 			this.map?.hide(!this.menuHidden)
 		})
@@ -62,40 +63,61 @@ export default class OverlayDialog {
 			return
 		}
 		this.$figureDialog.close()
-		this.url=undefined
+		this.imageSequence=undefined
 	}
-	private toggleImage(url: string): void {
+	private toggleImage(imageSequence: UrlSequence): void {
 		if (this.fallbackMode) {
-			open(url,'photo')
+			open(imageSequence.urls[imageSequence.index],'photo')
 			return
 		}
 		this.menuHidden=true
 		this.$figureDialog.innerHTML=''
-		if (url==this.url) {
+		if (this.imageSequence && equalUrlSequences(imageSequence,this.imageSequence)) {
 			this.close()
 			return
 		}
 		this.map?.hide(true)
 
+		this.imageSequence=imageSequence
 		const $figure=document.createElement('figure')
 		$figure.tabIndex=0
 		const $backdrop=document.createElement('div')
-		$backdrop.classList.add('backdrop')
-		$backdrop.style.backgroundImage=`url(${url})`
 		const $img=document.createElement('img')
-		$img.src=url
+		$backdrop.classList.add('backdrop')
 		$img.alt='attached photo'
+		const updateImageUrl=()=>{
+			const url=imageSequence.urls[imageSequence.index]
+			$backdrop.style.backgroundImage=`url(${url})`
+			$img.src=url
+		}
+		updateImageUrl()
 		$figure.append($backdrop,$img)
 		const $closeButton=document.createElement('button')
 		$closeButton.classList.add('global')
 		$closeButton.innerHTML=`<svg><title>Close photo</title><use href="#reset" /></svg>`
 		this.$figureDialog.append($figure,$closeButton)
 
-		$figure.addEventListener('keydown',(ev)=>{ // probably can't make it a button
+		$figure.addEventListener('keydown',ev=>{
 			if (ev.key=='Enter' || ev.key==' ') {
-				ev.stopPropagation()
 				$figure.classList.toggle('zoomed')
+			} else if (this.imageSequence && !$figure.classList.contains('zoomed')) {
+				if (ev.key=='ArrowUp' || ev.key=='ArrowLeft') {
+					this.imageSequence.index=(this.imageSequence.index+this.imageSequence.urls.length-1)%this.imageSequence.urls.length
+				} else if (ev.key=='ArrowDown' || ev.key=='ArrowRight') {
+					this.imageSequence.index=(this.imageSequence.index+this.imageSequence.urls.length+1)%this.imageSequence.urls.length
+				} else if (ev.key=='Home') {
+					this.imageSequence.index=0
+				} else if (ev.key=='End') {
+					this.imageSequence.index=this.imageSequence.urls.length-1
+				} else {
+					return
+				}
+				updateImageUrl()
+			} else {
+				return
 			}
+			ev.stopPropagation()
+			ev.preventDefault()
 		})
 		$figure.addEventListener('click',(ev)=>{
 			if ($figure.classList.contains('zoomed')) {
@@ -135,7 +157,6 @@ export default class OverlayDialog {
 
 		this.$figureDialog.show()
 		$figure.focus()
-		this.url=url
 	}
 	private writeMenuPanel(
 		storage: NoteViewerStorage, db: NoteViewerDB,
@@ -207,4 +228,10 @@ function makeExtraSubsection() {
 		makeLink(`Overpass queries`,`https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`),`, `,
 		makeLink(`Puppeteer`,`https://pptr.dev/`),` (in-browser testing)`
 	))
+}
+
+function equalUrlSequences(seq1: UrlSequence, seq2: UrlSequence): boolean {
+	if (seq1.index!=seq2.index) return false
+	if (seq1.urls.length!=seq2.urls.length) return false
+	return seq1.urls.every((_,i)=>seq1.urls[i]==seq2.urls[i])
 }

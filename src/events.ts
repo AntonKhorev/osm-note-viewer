@@ -23,7 +23,28 @@ export default class GlobalEventListener {
 						lon: $e.dataset.lon,
 					})
 				} else if ($e.classList.contains('image')) {
-					bubbleEvent($e,'osmNoteViewer:imageToggle')
+					let siblingImageSelector: string|undefined
+					if ($e.classList.contains('float')) {
+						siblingImageSelector='a.listened.image.float'
+					} else {
+						siblingImageSelector='a.listened.image.inline'
+					}
+					const urlSet=new Set<string>
+					if ($e.parentElement && siblingImageSelector) {
+						const $siblingImageLinks=$e.parentElement.querySelectorAll('a.listened.image')
+						for (const $siblingImageLink of $siblingImageLinks) {
+							if (!($siblingImageLink instanceof HTMLAnchorElement)) continue
+							if (!$siblingImageLink.href) continue
+							urlSet.add($siblingImageLink.href)
+						}
+					}
+					const urls=[...urlSet.values()]
+					let index=urls.indexOf($e.href)
+					if (index<0) {
+						index=urls.length
+						urls.push($e.href)
+					}
+					bubbleCustomEvent($e,'osmNoteViewer:imageToggle',{urls,index})
 				} else {
 					return // don't stop event propagation
 				}
