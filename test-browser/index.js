@@ -309,32 +309,6 @@ describe("browser tests",function(){
 			await confirmButton.boxModel()
 		)
 	})
-	it("produces no errors with keyboard navigation",async function(){
-		this.osmServer.setNotes([{
-			"id": 101,
-			"comments": [{
-				"date": "2022-04-01",
-				"text": "the-first-note-comment"
-			}]
-		}])
-		const page=await this.openPage()
-		const fetchButton=await this.waitForFetchButton()
-		await fetchButton.click()
-		await page.waitForSelector('.notes tbody')
-		const commentCell=await page.$('.notes tbody .note-comment')
-		await commentCell.focus()
-		let lastError
-		page.on('pageerror',(error)=>{
-			lastError=error
-		})
-		await page.keyboard.press('ArrowRight')
-		await page.keyboard.press('ArrowLeft')
-		assert.notEqual(
-			await page.$('.notes tbody .note-action:focus-within'),
-			null
-		)
-		assert.equal(lastError,undefined)
-	})
 	it("runs auto-updating bbox query",async function(){
 		this.osmServer.setNotes([{
 			"text": "the-only-note-comment"
@@ -388,6 +362,72 @@ describe("browser tests",function(){
 		await waitForBbox('1,1,2,2')
 		await this.assertText(page,"the-first-note")
 		await this.assertNoText(page,"the-second-note")
+	})
+
+	// keyboard controls
+
+	it("produces no errors with keyboard navigation",async function(){
+		this.osmServer.setNotes([{
+			"id": 101,
+			"comments": [{
+				"date": "2022-04-01",
+				"text": "the-first-note-comment"
+			}]
+		}])
+		const page=await this.openPage()
+		const fetchButton=await this.waitForFetchButton()
+		await fetchButton.click()
+		await page.waitForSelector('.notes tbody')
+		const commentCell=await page.$('.notes tbody .note-comment')
+		await commentCell.focus()
+		let lastError
+		page.on('pageerror',(error)=>{
+			lastError=error
+		})
+		await page.keyboard.press('ArrowRight')
+		await page.keyboard.press('ArrowLeft')
+		assert.notEqual(
+			await page.$('.notes tbody .note-action:focus-within'),
+			null
+		)
+		assert.equal(lastError,undefined)
+	})
+	it("can enter and exit comment cell",async function(){
+		this.osmServer.setNotes([{
+			"id": 101,
+			"comments": [{
+				"date": "2022-04-01",
+				"text": "the-first-note-comment\n"+
+					"https://westnordost.de/p/1.jpg\n"+
+					"https://westnordost.de/p/2.jpg\n"+
+					"https://westnordost.de/p/3.jpg"
+			}]
+		}])
+		const page=await this.openPage()
+		const fetchButton=await this.waitForFetchButton()
+		await fetchButton.click()
+		await page.waitForSelector('.notes tbody')
+		const commentCell=await page.$('.notes tbody .note-comment')
+		await commentCell.focus()
+		assert.notEqual(
+			await page.$('.notes tbody .note-comment:focus'),
+			null
+		)
+		await page.keyboard.press('Enter')
+		assert.notEqual(
+			await page.$('.notes tbody .note-comment a[href="https://westnordost.de/p/1.jpg"]:focus'),
+			null
+		)
+		await page.keyboard.press('ArrowDown')
+		assert.notEqual(
+			await page.$('.notes tbody .note-comment a[href="https://westnordost.de/p/2.jpg"]:focus'),
+			null
+		)
+		await page.keyboard.press('Escape')
+		assert.notEqual(
+			await page.$('.notes tbody .note-comment:focus'),
+			null
+		)
 	})
 
 	// refresher

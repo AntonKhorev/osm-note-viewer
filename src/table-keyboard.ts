@@ -31,6 +31,9 @@ const anySelector=selectors.map(([,generalSelector])=>generalSelector).join(',')
 const anyHeadSelector=selectors.map(([headSelector])=>headSelector).join(',')
 
 const iHasCommentRows=2
+const iComment=5
+
+const commentItemSelector='.listened:not(.image.float)'
 
 export function noteTableKeydownListener(this: HTMLTableElement, ev: KeyboardEvent): void {
 	if (ev.ctrlKey && ev.key.toLowerCase()=='a') {
@@ -55,7 +58,7 @@ export function noteTableKeydownListener(this: HTMLTableElement, ev: KeyboardEve
 		ev.key=='Home' && !ev.ctrlKey ||
 		ev.key=='End' && !ev.ctrlKey
 	)
-	if (!isVerticalMovementKey && !isHorizontalMovementKey) return
+	if (!isVerticalMovementKey && !isHorizontalMovementKey && ev.key!='Enter' && ev.key!='Escape') return
 	if (!(ev.target instanceof HTMLElement)) return
 	const $section=ev.target.closest('thead, tbody')
 	if (!($section instanceof HTMLTableSectionElement)) return
@@ -73,6 +76,8 @@ export function noteTableKeydownListener(this: HTMLTableElement, ev: KeyboardEve
 				const $e2=$section.querySelector(makeHeadSelector(selectors[j]))
 				if (!focus($e2)) return
 				roveHeadTabIndex(this,$e2,j)
+			} else {
+				return
 			}
 			ev.stopPropagation()
 			ev.preventDefault()
@@ -85,6 +90,14 @@ export function noteTableKeydownListener(this: HTMLTableElement, ev: KeyboardEve
 		for (let i=0;i<selectors.length;i++) {
 			const [,generalSelector]=selectors[i]
 			if (!$e.matches(generalSelector)) continue
+			if (i==iComment) {
+				const $targetCommentItem=ev.target.closest(commentItemSelector)
+				if (handleCommentItem(ev.key,$e,$targetCommentItem)) {
+					ev.stopPropagation()
+					ev.preventDefault()
+					return
+				}
+			}
 			if (isVerticalMovementKey) {
 				const $eList=this.querySelectorAll(makeScopedSelector(selectors[i]))
 				const $e2=moveVerticallyAmongProvidedElements(ev.key,$e,$eList,ev.shiftKey&&i==0)
@@ -96,11 +109,34 @@ export function noteTableKeydownListener(this: HTMLTableElement, ev: KeyboardEve
 				const $e2=(j<iHasCommentRows?$section:$tr).querySelector(makeScopedSelector(selectors[j]))
 				if (!focus($e2)) return
 				roveBodyTabIndex(this,$e2,j)
+			} else {
+				return
 			}
 			ev.stopPropagation()
 			ev.preventDefault()
 		}
 	}
+}
+
+function handleCommentItem(key: string, $e: HTMLElement, $targetCommentItem: Element|null): boolean {
+	if (key=='Enter') {
+		if ($targetCommentItem) return false // enter when comment item is already focused - leave it to element click handler
+		const $commentItem=$e.querySelector(commentItemSelector)
+		return focus($commentItem)
+	} else if (key=='Escape') {
+		return focus($e)
+	} else if ($targetCommentItem && (key=='ArrowLeft' || key=='ArrowUp')) {
+		const $es=[...$e.querySelectorAll(commentItemSelector)]
+		const i=$es.indexOf($targetCommentItem)
+		if (i<=0) return false
+		return focus($es[i-1])
+	} else if ($targetCommentItem && (key=='ArrowRight' || key=='ArrowDown')) {
+		const $es=[...$e.querySelectorAll(commentItemSelector)]
+		const i=$es.indexOf($targetCommentItem)
+		if (i<0 || i>=$es.length-1) return false
+		return focus($es[i+1])
+	}
+	return false
 }
 
 function moveVerticallyAmongProvidedElements(key: string, $e: HTMLElement, $eList: Iterable<Element>, isSelection: boolean): HTMLElement|null {
