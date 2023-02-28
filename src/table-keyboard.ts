@@ -1,3 +1,39 @@
+import makeHelpDialog from './help-dialog'
+import {makeElement} from './html'
+import {ul,li,p,kbd} from './html-shortcuts'
+
+export function makeNoteTableKeydownListener(): [
+	listener: (this: HTMLTableElement, ev: KeyboardEvent)=>void,
+	$helpDialog: HTMLDialogElement
+] {
+	const $helpDialog=makeHelpDialog(`Close note table help`,[
+		makeElement('h2')()(`Note table keyboard controls`),
+		p(`Inside the table head:`),
+		ul(
+			li(kbd(`Left`),` / `,kbd(`Right`),` — switch between controls`),
+			li(kbd(`Tab`),` — go to table body`),
+		),
+		p(`Inside the table body:`),
+		ul(
+			li(kbd(`Arrow keys`),` — go to adjacent table cell`),
+			li(kbd(`Home`),` / `,kbd(`End`),` — go to first/last column`),
+			li(kbd(`Ctrl`),` + `,kbd(`Home`),` / `,kbd(`End`),` — go to first/last row`),
+			li(kbd(`PageUp`),` / `,kbd(`PageDown`),` — go approximately one viewport up/down`),
+			li(kbd(`Shift`),` + any vertical navigation keys while in the checkbox column — select notes`),
+			li(kbd(`Enter`),` while in comment column — go inside the comment cell`),
+			li(kbd(`Esc`),` while inside a comment cell — exit the cell`),
+			li(kbd(`Shift`),` + `,kbd(`Tab`),` — go to table head`),
+		),
+	])
+	return [function(this: HTMLTableElement, ev: KeyboardEvent) {
+		if (ev.key=='F1') {
+			$helpDialog.showModal()
+		} else {
+			noteTableKeydownListener(this,ev)
+		}
+	},$helpDialog]
+}
+
 type SelectorSpec = [
 	headSelector: string,
 	generalSelector: string,
@@ -35,9 +71,9 @@ const iComment=5
 
 const commentItemSelector='.listened:not(.image.float)'
 
-export function noteTableKeydownListener(this: HTMLTableElement, ev: KeyboardEvent): void {
+function noteTableKeydownListener($table: HTMLTableElement, ev: KeyboardEvent): void {
 	if (ev.ctrlKey && ev.key.toLowerCase()=='a') {
-		const $allCheckbox=this.querySelector('thead .note-checkbox input')
+		const $allCheckbox=$table.querySelector('thead .note-checkbox input')
 		if (!($allCheckbox instanceof HTMLInputElement)) return
 		$allCheckbox.click()
 		ev.stopPropagation()
@@ -75,7 +111,7 @@ export function noteTableKeydownListener(this: HTMLTableElement, ev: KeyboardEve
 				if (j<0 || j>=selectors.length) return
 				const $e2=$section.querySelector(makeHeadSelector(selectors[j]))
 				if (!focus($e2)) return
-				roveHeadTabIndex(this,$e2,j)
+				roveHeadTabIndex($table,$e2,j)
 			} else {
 				return
 			}
@@ -99,16 +135,16 @@ export function noteTableKeydownListener(this: HTMLTableElement, ev: KeyboardEve
 				}
 			}
 			if (isVerticalMovementKey) {
-				const $eList=this.querySelectorAll(makeScopedSelector(selectors[i]))
+				const $eList=$table.querySelectorAll(makeScopedSelector(selectors[i]))
 				const $e2=moveVerticallyAmongProvidedElements(ev.key,$e,$eList,ev.shiftKey&&i==0)
 				if (!$e2) return
-				roveBodyTabIndex(this,$e2,i)
+				roveBodyTabIndex($table,$e2,i)
 			} else if (isHorizontalMovementKey) {
 				const j=getIndexForKeyMovement(ev.key,i,selectors.length)
 				if (j<0 || j>=selectors.length) return
 				const $e2=(j<iHasCommentRows?$section:$tr).querySelector(makeScopedSelector(selectors[j]))
 				if (!focus($e2)) return
-				roveBodyTabIndex(this,$e2,j)
+				roveBodyTabIndex($table,$e2,j)
 			} else {
 				return
 			}
