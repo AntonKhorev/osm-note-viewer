@@ -73,29 +73,20 @@ export default class OverlayDialog {
 		$closeButton.innerHTML=`<svg><title>Close photo</title><use href="#reset" /></svg>`
 		this.$figureDialog.append(this.$figure,$closeButton)
 
-		this.$figureDialog.addEventListener('keydown',ev=>{
+		this.$figureDialog.onkeydown=ev=>{
 			if (ev.key=='Escape') {
 				this.close()
 			} else if (ev.key=='F1') {
 				this.$figureHelpDialog.showModal()
-			} else {
-				return
-			}
-			ev.stopPropagation()
-			ev.preventDefault()
-		})
-		this.$figure.addEventListener('keydown',ev=>{
-			if (ev.key=='Enter' || ev.key==' ') {
-				this.$figure.classList.toggle('zoomed')
-			} else if (this.imageSequence && !this.$figure.classList.contains('zoomed')) {
+			} else if (this.viewingZoomedOutImage) {
 				if (ev.key=='ArrowUp' || ev.key=='ArrowLeft') {
-					this.imageSequence.index=(this.imageSequence.index+this.imageSequence.urls.length-1)%this.imageSequence.urls.length
+					this.switchToImageDelta(-1)
 				} else if (ev.key=='ArrowDown' || ev.key=='ArrowRight') {
-					this.imageSequence.index=(this.imageSequence.index+this.imageSequence.urls.length+1)%this.imageSequence.urls.length
+					this.switchToImageDelta(+1)
 				} else if (ev.key=='Home') {
-					this.imageSequence.index=0
+					this.switchToImage(0)
 				} else if (ev.key=='End') {
-					this.imageSequence.index=this.imageSequence.urls.length-1
+					this.switchToImage(-1)
 				} else {
 					return
 				}
@@ -105,8 +96,27 @@ export default class OverlayDialog {
 			}
 			ev.stopPropagation()
 			ev.preventDefault()
-		})
-		this.$figure.addEventListener('click',ev=>{
+		}
+		this.$figureDialog.onwheel=ev=>{
+			if (this.viewingZoomedOutImage) {
+				const dIndex=Math.sign(ev.deltaY)
+				if (!dIndex) return
+				this.switchToImageDelta(dIndex)
+				this.updateImageState()
+				ev.stopPropagation()
+				ev.preventDefault()
+			}
+		}
+		this.$figure.onkeydown=ev=>{
+			if (ev.key=='Enter' || ev.key==' ') {
+				this.$figure.classList.toggle('zoomed')
+			} else {
+				return
+			}
+			ev.stopPropagation()
+			ev.preventDefault()
+		}
+		this.$figure.onclick=ev=>{
 			if (this.$figure.classList.contains('zoomed')) {
 				this.$figure.classList.remove('zoomed')
 			} else {
@@ -123,18 +133,18 @@ export default class OverlayDialog {
 				if (xMaxScrollDistance>0) this.$figure.scrollLeft=Math.round(xScrollFraction*xMaxScrollDistance)
 				if (yMaxScrollDistance>0) this.$figure.scrollTop =Math.round(yScrollFraction*yMaxScrollDistance)
 			}
-		})
-		this.$figure.addEventListener('mousemove',ev=>{
+		}
+		this.$figure.onmousemove=ev=>{
 			$closeButton.classList.toggle('right-position',ev.offsetX>=this.$figure.offsetWidth/2)
 			$closeButton.classList.toggle('bottom-position',ev.offsetY>=this.$figure.offsetHeight/2)
 			startOrResetFadeAnimation($closeButton,'photo-button-fade','fading')
-		})
-		$closeButton.addEventListener('click',()=>{
+		}
+		$closeButton.onclick=()=>{
 			this.close()
-		})
-		$closeButton.addEventListener('animationend',()=>{
+		}
+		$closeButton.onanimationend=()=>{
 			$closeButton.classList.remove('fading')
-		})
+		}
 	}
 	private writeMenuPanel(
 		storage: NoteViewerStorage, db: NoteViewerDB,
@@ -223,6 +233,17 @@ export default class OverlayDialog {
 			this.$backdrop.style.removeProperty('backgroundImage')
 			this.$img.removeAttribute('src')
 		}
+	}
+	private switchToImage(index: number) {
+		if (!this.imageSequence) return
+		this.imageSequence.index=(this.imageSequence.urls.length+index)%this.imageSequence.urls.length
+	}
+	private switchToImageDelta(dIndex: number) {
+		if (!this.imageSequence) return
+		this.imageSequence.index=(this.imageSequence.index+this.imageSequence.urls.length+dIndex)%this.imageSequence.urls.length
+	}
+	private get viewingZoomedOutImage(): boolean {
+		return !!this.imageSequence && !this.$figure.classList.contains('zoomed')
 	}
 }
 
