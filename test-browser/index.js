@@ -391,6 +391,11 @@ describe("browser tests",function(){
 			null
 		)
 		assert.equal(lastError,undefined)
+		await page.keyboard.press('Home')
+		await page.keyboard.down('Shift')
+		await page.keyboard.press('ArrowUp')
+		await page.keyboard.up('Shift')
+		assert.equal(lastError,undefined)
 	})
 	it("can enter and exit comment cell",async function(){
 		this.osmServer.setNotes([{

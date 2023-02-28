@@ -196,6 +196,7 @@ function moveVerticallyAmongProvidedElements(key: string, $e: HTMLElement, $eLis
 		}
 	} else {
 		j=getIndexForKeyMovement(key,i,$es.length)
+		if (j<0 || j>=selectors.length) return null
 	}
 	if (i==j) return null
 	if (isSelection) {
