@@ -14,7 +14,7 @@ export function makeMenuButton(): HTMLButtonElement {
 	$button.classList.add('global','menu')
 	$button.innerHTML=`<svg><use href="#menu" /></svg>`
 	$button.onclick=()=>{
-		bubbleEvent($button,'osmNoteViewer:toggleMenu')
+		bubbleEvent($button,'osmNoteViewer:menuToggle')
 	}
 	return $button
 }
@@ -24,6 +24,9 @@ type UrlSequence = {urls: string[], index: number}
 export default class OverlayDialog {
 	public $menuPanel=makeElement('div')('menu')()
 	public $figureDialog=makeElement('dialog')('figure')()
+	private $figure=document.createElement('figure')
+	private $backdrop=document.createElement('div')
+	private $img=document.createElement('img')
 	private imageSequence?: UrlSequence
 	constructor(
 		$root: HTMLElement,
@@ -36,6 +39,7 @@ export default class OverlayDialog {
 		this.menuHidden=!!auth
 		this.$menuButton.disabled=!auth
 		this.writeMenuPanel(storage,db,server,serverList,serverHash,auth)
+		this.writeFigureDialog()
 		for (const eventType of [
 			'osmNoteViewer:newNoteStream',
 			'osmNoteViewer:mapMoveTrigger',
@@ -48,50 +52,35 @@ export default class OverlayDialog {
 		$root.addEventListener('osmNoteViewer:imageToggle',({detail:imageSequence})=>{
 			this.toggleImage(imageSequence)
 		})
-		$root.addEventListener('osmNoteViewer:toggleMenu',()=>{
+		$root.addEventListener('osmNoteViewer:menuToggle',()=>{
 			if (this.imageSequence!=null) this.close()
 			this.menuHidden=!this.menuHidden
 			this.map?.hide(!this.menuHidden)
 		})
 	}
-	private close(): void {
-		this.map?.hide(false)
-		this.menuHidden=true
-		this.$figureDialog.close()
-		this.imageSequence=undefined
-	}
-	private toggleImage(imageSequence: UrlSequence): void {
-		this.menuHidden=true
-		this.$figureDialog.innerHTML=''
-		if (this.imageSequence && equalUrlSequences(imageSequence,this.imageSequence)) {
-			this.close()
-			return
-		}
-		this.map?.hide(true)
-
-		this.imageSequence=imageSequence
-		const $figure=document.createElement('figure')
-		$figure.tabIndex=0
-		const $backdrop=document.createElement('div')
-		const $img=document.createElement('img')
-		$backdrop.classList.add('backdrop')
-		$img.alt='attached photo'
-		const updateImageUrl=()=>{
-			const url=imageSequence.urls[imageSequence.index]
-			$backdrop.style.backgroundImage=`url(${url})`
-			$img.src=url
-		}
-		updateImageUrl()
-		$figure.append($backdrop,$img)
+	private writeFigureDialog() {
+		this.$figure.tabIndex=0
+		this.$backdrop.classList.add('backdrop')
+		this.$img.alt='attached photo'
+		this.updateImageUrl()
+		this.$figure.append(this.$backdrop,this.$img)
 		const $closeButton=document.createElement('button')
+		$closeButton.tabIndex=-1
 		$closeButton.classList.add('global')
 		$closeButton.innerHTML=`<svg><title>Close photo</title><use href="#reset" /></svg>`
-		this.$figureDialog.append($figure,$closeButton)
+		this.$figureDialog.append(this.$figure,$closeButton)
 
-		$figure.addEventListener('keydown',ev=>{
+		this.$figureDialog.addEventListener('keydown',ev=>{
+			if (ev.key=='Escape') {
+				this.close()
+				ev.stopPropagation()
+				ev.preventDefault()
+			}
+		})
+		this.$figure.addEventListener('keydown',ev=>{
 			if (ev.key=='Enter' || ev.key==' ') {
-				$figure.classList.toggle('zoomed')
-			} else if (this.imageSequence && !$figure.classList.contains('zoomed')) {
+				this.$figure.classList.toggle('zoomed')
+			} else if (this.imageSequence && !this.$figure.classList.contains('zoomed')) {
 				if (ev.key=='ArrowUp' || ev.key=='ArrowLeft') {
 					this.imageSequence.index=(this.imageSequence.index+this.imageSequence.urls.length-1)%this.imageSequence.urls.length
 				} else if (ev.key=='ArrowDown' || ev.key=='ArrowRight') {
@@ -103,34 +92,34 @@ export default class OverlayDialog {
 				} else {
 					return
 				}
-				updateImageUrl()
+				this.updateImageUrl()
 			} else {
 				return
 			}
 			ev.stopPropagation()
 			ev.preventDefault()
 		})
-		$figure.addEventListener('click',(ev)=>{
-			if ($figure.classList.contains('zoomed')) {
-				$figure.classList.remove('zoomed')
+		this.$figure.addEventListener('click',ev=>{
+			if (this.$figure.classList.contains('zoomed')) {
+				this.$figure.classList.remove('zoomed')
 			} else {
 				const clamp=(num:number)=>Math.min(Math.max(num,0),1)
-				let xScrollFraction=(ev.offsetX>=$figure.offsetWidth /2 ? 1 : 0)
-				let yScrollFraction=(ev.offsetY>=$figure.offsetHeight/2 ? 1 : 0)
-				if (ev.target==$img) {
-					xScrollFraction=clamp(ev.offsetX/$img.offsetWidth)
-					yScrollFraction=clamp(ev.offsetY/$img.offsetHeight)
+				let xScrollFraction=(ev.offsetX>=this.$figure.offsetWidth /2 ? 1 : 0)
+				let yScrollFraction=(ev.offsetY>=this.$figure.offsetHeight/2 ? 1 : 0)
+				if (ev.target==this.$img) {
+					xScrollFraction=clamp(ev.offsetX/this.$img.offsetWidth)
+					yScrollFraction=clamp(ev.offsetY/this.$img.offsetHeight)
 				}
-				$figure.classList.add('zoomed')
-				const xMaxScrollDistance=$figure.scrollWidth -$figure.clientWidth
-				const yMaxScrollDistance=$figure.scrollHeight-$figure.clientHeight
-				if (xMaxScrollDistance>0) $figure.scrollLeft=Math.round(xScrollFraction*xMaxScrollDistance)
-				if (yMaxScrollDistance>0) $figure.scrollTop =Math.round(yScrollFraction*yMaxScrollDistance)
+				this.$figure.classList.add('zoomed')
+				const xMaxScrollDistance=this.$figure.scrollWidth -this.$figure.clientWidth
+				const yMaxScrollDistance=this.$figure.scrollHeight-this.$figure.clientHeight
+				if (xMaxScrollDistance>0) this.$figure.scrollLeft=Math.round(xScrollFraction*xMaxScrollDistance)
+				if (yMaxScrollDistance>0) this.$figure.scrollTop =Math.round(yScrollFraction*yMaxScrollDistance)
 			}
 		})
-		$figure.addEventListener('mousemove',(ev)=>{
-			$closeButton.classList.toggle('right-position',ev.offsetX>=$figure.offsetWidth/2)
-			$closeButton.classList.toggle('bottom-position',ev.offsetY>=$figure.offsetHeight/2)
+		this.$figure.addEventListener('mousemove',ev=>{
+			$closeButton.classList.toggle('right-position',ev.offsetX>=this.$figure.offsetWidth/2)
+			$closeButton.classList.toggle('bottom-position',ev.offsetY>=this.$figure.offsetHeight/2)
 			startOrResetFadeAnimation($closeButton,'photo-button-fade','fading')
 		})
 		$closeButton.addEventListener('click',()=>{
@@ -139,15 +128,6 @@ export default class OverlayDialog {
 		$closeButton.addEventListener('animationend',()=>{
 			$closeButton.classList.remove('fading')
 		})
-		this.$figureDialog.addEventListener('keydown',(ev)=>{
-			if (ev.key=='Escape') {
-				ev.stopPropagation()
-				this.close()
-			}
-		})
-
-		this.$figureDialog.show()
-		$figure.focus()
 	}
 	private writeMenuPanel(
 		storage: NoteViewerStorage, db: NoteViewerDB,
@@ -180,13 +160,41 @@ export default class OverlayDialog {
 		$scrolling.append(makeExtraSubsection())
 		this.$menuPanel.append($lead,$scrolling)
 	}
-	get menuHidden() {
+	private close(): void {
+		this.map?.hide(false)
+		this.menuHidden=true
+		this.$figureDialog.close()
+		this.imageSequence=undefined
+	}
+	private toggleImage(imageSequence: UrlSequence): void {
+		this.menuHidden=true
+		if (this.imageSequence && equalUrlSequences(imageSequence,this.imageSequence)) {
+			this.close()
+			return
+		}
+		this.map?.hide(true)
+		this.imageSequence=imageSequence
+		this.updateImageUrl()
+		this.$figureDialog.show()
+		this.$figure.focus()
+	}
+	private get menuHidden() {
 		return this.$menuPanel.hidden
 	}
-	set menuHidden(value: boolean) {
+	private set menuHidden(value: boolean) {
 		this.$menuPanel.hidden=value
 		this.$menuButton.classList.toggle('opened',!value)
 		this.$menuButton.title=value?`Open menu`:`Close menu`
+	}
+	private updateImageUrl() {
+		if (this.imageSequence) {
+			const url=this.imageSequence.urls[this.imageSequence.index]
+			this.$backdrop.style.backgroundImage=`url(${url})`
+			this.$img.src=url
+		} else {
+			this.$backdrop.style.removeProperty('backgroundImage')
+			this.$img.removeAttribute('src')
+		}
 	}
 }
 
