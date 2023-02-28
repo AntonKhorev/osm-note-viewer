@@ -108,3 +108,43 @@ dialog.figure button:focus {
 	opacity: 1;
 	animation: none;
 }
+
+dialog.help {
+	padding: 1rem;
+}
+dialog.help > h2:first-child {
+	margin-top: 0;
+}
+dialog.help .major-input {
+	margin: 1rem 0;
+}
+dialog.help .major-input button {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	padding: var(--major-button-padding);
+}
+dialog.help .notice {
+	margin-left: -1rem;
+	margin-right: -1rem;
+	padding: 1rem;
+	background: var(--notice-background-color);
+}
+dialog.help > .notice:last-child {
+	margin-bottom: -1rem;
+}
+dialog.help p,
+dialog.help ul {
+	line-height: 1.5;
+}
+dialog.help kbd {
+	display: inline-block;
+	background: var(--inset-background-color);
+	border-radius: 3px;
+	line-height: 1;
+	padding: 2px 4px;
+	white-space: nowrap;
+	font-weight: bold;
+	border: solid 1px var(--frame-color);
+	box-shadow: 0 1px 1px var(--frame-color);
+}

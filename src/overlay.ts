@@ -7,7 +7,7 @@ import type ServerList from './server-list'
 import type Auth from './auth'
 import type NoteMap from './map'
 import {makeElement, makeDiv, makeLink, bubbleEvent, startOrResetFadeAnimation} from './html'
-import {p,em} from './html-shortcuts'
+import {ul,li,p,em,kbd} from './html-shortcuts'
 
 export function makeMenuButton(): HTMLButtonElement {
 	const $button=document.createElement('button')
@@ -27,6 +27,7 @@ export default class OverlayDialog {
 	private $figure=document.createElement('figure')
 	private $backdrop=document.createElement('div')
 	private $img=document.createElement('img')
+	private $figureHelpDialog=makeElement('dialog')('help')()
 	private imageSequence?: UrlSequence
 	constructor(
 		$root: HTMLElement,
@@ -40,6 +41,8 @@ export default class OverlayDialog {
 		this.$menuButton.disabled=!auth
 		this.writeMenuPanel(storage,db,server,serverList,serverHash,auth)
 		this.writeFigureDialog()
+		this.writeFigureHelpDialog()
+		$root.append(this.$figureHelpDialog)
 		for (const eventType of [
 			'osmNoteViewer:newNoteStream',
 			'osmNoteViewer:mapMoveTrigger',
@@ -73,9 +76,13 @@ export default class OverlayDialog {
 		this.$figureDialog.addEventListener('keydown',ev=>{
 			if (ev.key=='Escape') {
 				this.close()
-				ev.stopPropagation()
-				ev.preventDefault()
+			} else if (ev.key=='F1') {
+				this.$figureHelpDialog.showModal()
+			} else {
+				return
 			}
+			ev.stopPropagation()
+			ev.preventDefault()
 		})
 		this.$figure.addEventListener('keydown',ev=>{
 			if (ev.key=='Enter' || ev.key==' ') {
@@ -159,6 +166,26 @@ export default class OverlayDialog {
 		}
 		$scrolling.append(makeExtraSubsection())
 		this.$menuPanel.append($lead,$scrolling)
+	}
+	private writeFigureHelpDialog() {
+		const $closeButton=makeElement('button')()(`Close image viewer help`)
+		$closeButton.onclick=()=>{
+			this.$figureHelpDialog.close()
+		}
+		this.$figureHelpDialog.append(
+			makeElement('h2')()(`Image viewer keyboard controls`),
+			ul(
+				li(kbd(`Enter`),` and `,kbd(`Space`),` toggle image zoom`),
+				li(kbd(`Esc`),` close image viewer`),
+			),
+			p(`When zoomed out:`),
+			ul(
+				li(kbd(`Arrow keys`),` go to previous/next image in sequence`),
+				li(kbd(`Home`),`/`,kbd(`End`),` go to first/last image in sequence`),
+			),
+			makeDiv('major-input')($closeButton),
+			makeDiv('notice')(`Press `,kbd(`F1`),` again to access the default browser help; press `,kbd(`ESC`),` to close this dialog.`)
+		)
 	}
 	private close(): void {
 		this.map?.hide(false)
