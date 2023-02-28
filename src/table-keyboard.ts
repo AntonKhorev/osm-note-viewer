@@ -13,22 +13,26 @@ const selectors: SelectorSpec[] = [
 	['.note-action button','.note-action [class|=icon]','.note-action [class|=icon-status]','.note-action .icon-comments-count'],
 	['.note-comment button','.note-comment']
 ]
+
+const makeHeadSelector=([headSelector]:SelectorSpec)=>headSelector
+const makeScopedSelector=([
+		headSelector,
+		generalSelector,
+		notOnlyFirstCommentSelector,
+		onlyFirstCommentSelector
+]:SelectorSpec)=>{
+	return (
+		`table.expanded-comments tbody ${notOnlyFirstCommentSelector??generalSelector}, `+
+		`table:not(.expanded-comments) tbody tr:first-child ${onlyFirstCommentSelector??generalSelector}`
+	)
+}
+
 const anySelector=selectors.map(([,generalSelector])=>generalSelector).join(',')
 const anyHeadSelector=selectors.map(([headSelector])=>headSelector).join(',')
 
+const iHasCommentRows=2
+
 export default function noteTableKeydownListener(this: HTMLTableElement, ev: KeyboardEvent): void {
-	const makeHeadSelector=([headSelector]:SelectorSpec)=>headSelector
-	const makeScopedSelector=([
-			headSelector,
-			generalSelector,
-			notOnlyFirstCommentSelector,
-			onlyFirstCommentSelector
-	]:SelectorSpec)=>{
-		return (
-			`table.expanded-comments tbody ${notOnlyFirstCommentSelector??generalSelector}, `+
-			`table:not(.expanded-comments) tbody tr:first-child ${onlyFirstCommentSelector??generalSelector}`
-		)
-	}
 	if (ev.ctrlKey && ev.key.toLowerCase()=='a') {
 		const $allCheckbox=this.querySelector('thead .note-checkbox input')
 		if (!($allCheckbox instanceof HTMLInputElement)) return
@@ -68,6 +72,7 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 				if (j<0 || j>=selectors.length) return
 				const $e2=$section.querySelector(makeHeadSelector(selectors[j]))
 				if (!focus($e2)) return
+				roveHeadTabIndex(this,$e2,j)
 			}
 			ev.stopPropagation()
 			ev.preventDefault()
@@ -77,18 +82,20 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 		if (!($e instanceof HTMLElement)) return
 		const $tr=$e.closest('tr')
 		if (!($tr instanceof HTMLTableRowElement)) return
-		const iHasCommentRows=2
 		for (let i=0;i<selectors.length;i++) {
 			const [,generalSelector]=selectors[i]
 			if (!$e.matches(generalSelector)) continue
 			if (isVerticalMovementKey) {
 				const $eList=this.querySelectorAll(makeScopedSelector(selectors[i]))
-				if (!moveVerticallyAmongProvidedElements(ev.key,$e,$eList,ev.shiftKey&&i==0)) return
+				const $e2=moveVerticallyAmongProvidedElements(ev.key,$e,$eList,ev.shiftKey&&i==0)
+				if (!$e2) return
+				roveBodyTabIndex(this,$e2,i)
 			} else if (isHorizontalMovementKey) {
 				const j=getIndexForKeyMovement(ev.key,i,selectors.length)
 				if (j<0 || j>=selectors.length) return
 				const $e2=(j<iHasCommentRows?$section:$tr).querySelector(makeScopedSelector(selectors[j]))
 				if (!focus($e2)) return
+				roveBodyTabIndex(this,$e2,j)
 			}
 			ev.stopPropagation()
 			ev.preventDefault()
@@ -96,14 +103,14 @@ export default function noteTableKeydownListener(this: HTMLTableElement, ev: Key
 	}
 }
 
-function moveVerticallyAmongProvidedElements(key: string, $e: HTMLElement, $eList: Iterable<Element>, isSelection: boolean): boolean {
+function moveVerticallyAmongProvidedElements(key: string, $e: HTMLElement, $eList: Iterable<Element>, isSelection: boolean): HTMLElement|null {
 	const $es=[...$eList]
 	const i=$es.indexOf($e)
-	if (i<0) return false
+	if (i<0) return null
 	let j:number
 	if (key=='PageUp' || key=='PageDown') {
 		const $scrollingPart=$e.closest('.scrolling')
-		if (!($scrollingPart instanceof HTMLElement)) return false
+		if (!($scrollingPart instanceof HTMLElement)) return null
 		const scrollRect=$scrollingPart.getBoundingClientRect()
 		if (key=='PageUp') {
 			j=getNextPageIndex($es,i,-1,0,
@@ -118,11 +125,12 @@ function moveVerticallyAmongProvidedElements(key: string, $e: HTMLElement, $eLis
 	} else {
 		j=getIndexForKeyMovement(key,i,$es.length)
 	}
-	if (i==j) return false
+	if (i==j) return null
 	if (isSelection) {
 		checkRange($es,i,j)
 	}
-	return focus($es[j],key=='Home'||key=='End'||key=='PageUp'||key=='PageDown')
+	const $e2=$es[j]
+	return focus($e2,key=='Home'||key=='End'||key=='PageUp'||key=='PageDown') ? $e2 : null
 }
 
 function getNextPageIndex(
@@ -160,7 +168,7 @@ function getIndexForKeyMovement(key: string, i: number, length: number): number 
 	return -1
 }
 
-function focus($e: Element|null|undefined, far: boolean = false): boolean {
+function focus($e: Element|null|undefined, far: boolean = false): $e is HTMLElement {
 	if (!($e instanceof HTMLElement)) return false
 	if (far) {
 		$e.focus({preventScroll:true})
@@ -179,4 +187,46 @@ function checkRange($es: Element[], fromIndex: number, toIndex: number): void {
 	$es[toIndex].dispatchEvent(
 		new MouseEvent('click',{shiftKey:true})
 	)
+}
+
+const tabbableSelector=`a[href]:not([tabindex="-1"]), input:not([tabindex="-1"]), button:not([tabindex="-1"]), [tabindex="0"]`
+
+function roveHeadTabIndex($table: HTMLTableElement, $focused: HTMLElement, i: number) {
+	for (const $e of $table.querySelectorAll(`thead :is(${tabbableSelector})`)) {
+		if ($e instanceof HTMLElement) $e.tabIndex=-1
+	}
+	$focused.tabIndex=0
+	const $tabbableInBody=$table.querySelector(`tbody :is(${tabbableSelector})`)
+	let $bodySectionOrRowWithTabbable: HTMLTableSectionElement|HTMLTableRowElement|null = null
+	if ($tabbableInBody instanceof HTMLElement) {
+		const $tr=$tabbableInBody.closest('tr')
+		const $section=$tabbableInBody.closest('tbody')
+		$bodySectionOrRowWithTabbable=(i<iHasCommentRows?$section:$tr)
+	}
+	for (const $e of $table.querySelectorAll(`tbody :is(${tabbableSelector})`)) {
+		if ($e instanceof HTMLElement) $e.tabIndex=-1
+	}
+	if ($bodySectionOrRowWithTabbable) {
+		const $e=$bodySectionOrRowWithTabbable.querySelector(makeScopedSelector(selectors[i]))
+		if ($e instanceof HTMLElement) $e.tabIndex=0
+	} else {
+		const $e=$table.querySelector('tbody input')
+		if ($e instanceof HTMLElement) $e.tabIndex=0
+	}
+}
+
+function roveBodyTabIndex($table: HTMLTableElement, $focused: HTMLElement, i: number) {
+	for (const $e of $table.querySelectorAll(`tbody :is(${tabbableSelector})`)) {
+		if ($e instanceof HTMLElement) $e.tabIndex=-1
+	}
+	$focused.tabIndex=0
+	if ($table.tHead) {
+		for (const $e of $table.tHead.querySelectorAll(tabbableSelector)) {
+			if ($e instanceof HTMLElement) $e.tabIndex=-1
+		}
+		{
+			const $e=$table.tHead.querySelector(makeHeadSelector(selectors[i]))
+			if ($e instanceof HTMLElement) $e.tabIndex=0
+		}
+	}
 }
