@@ -65,7 +65,7 @@ export default class OverlayDialog {
 		this.$figure.tabIndex=0
 		this.$backdrop.classList.add('backdrop')
 		this.$img.alt='attached photo'
-		this.updateImageUrl()
+		this.updateImageState()
 		this.$figure.append(this.$backdrop,this.$img)
 		const $closeButton=document.createElement('button')
 		$closeButton.tabIndex=-1
@@ -99,7 +99,7 @@ export default class OverlayDialog {
 				} else {
 					return
 				}
-				this.updateImageUrl()
+				this.updateImageState()
 			} else {
 				return
 			}
@@ -201,7 +201,7 @@ export default class OverlayDialog {
 		}
 		this.map?.hide(true)
 		this.imageSequence=imageSequence
-		this.updateImageUrl()
+		this.updateImageState()
 		this.$figureDialog.show()
 		this.$figure.focus()
 	}
@@ -213,7 +213,8 @@ export default class OverlayDialog {
 		this.$menuButton.classList.toggle('opened',!value)
 		this.$menuButton.title=value?`Open menu`:`Close menu`
 	}
-	private updateImageUrl() {
+	private updateImageState() {
+		this.$figure.classList.remove('zoomed')
 		if (this.imageSequence) {
 			const url=this.imageSequence.urls[this.imageSequence.index]
 			this.$backdrop.style.backgroundImage=`url(${url})`
