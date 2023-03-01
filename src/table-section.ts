@@ -47,11 +47,10 @@ export function writeNoteSectionRows(
 		if (nComments>1) $cell.rowSpan=nComments
 		const $button=makeElement('button')('icon-comments-count')()
 		if (note.comments.length>1) {
-			const nAdditionalComments=note.comments.length-1
-			updateCommentsButton($button,hideRows,nAdditionalComments)
 			$button.innerHTML=`<svg>`+
-				`<use href="#table-comments" /><text x="8" y="8">${nAdditionalComments}</text>`+
+				`<use href="#table-comments" /><text x="8" y="8"></text>`+
 			`</svg>`
+			updateCommentsButton($button,hideRows,note.comments.length-1)
 			$button.addEventListener('click',commentsButtonClickListener)
 		} else {
 			$button.title=`no additional comments`
@@ -155,10 +154,14 @@ function hideNoteSectionRowsWithButton(
 
 function updateCommentsButton($button: HTMLButtonElement, hiddenRows: boolean, nAdditionalComments: number) {
 	const s=nAdditionalComments>1?`s`:``
+	const $text=$button.querySelector('text')
+	if (!$text) return
 	if (hiddenRows) {
 		$button.title=`show ${nAdditionalComments} comment${s}/action${s}`
+		$text.textContent=String(nAdditionalComments)
 	} else {
 		$button.title=`hide comment${s}/action${s}`
+		$text.textContent=`−`
 	}
 }
 
