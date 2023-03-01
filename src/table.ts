@@ -327,11 +327,12 @@ export default class NoteTable implements NoteTableUpdater {
 		this.$selectAllCheckbox.type='checkbox'
 		this.$selectAllCheckbox.title=`select all notes`
 		this.$selectAllCheckbox.addEventListener('click',this.wrappedAllNotesCheckboxClickListener)
-		const makeExpanderCell=(cssClass:string,title:string,key:string)=>{
+		const makeExpanderCell=(cssClass:string,title:string,key:string,clickListener?:()=>void)=>{
 			const $th=makeElement('th')(cssClass)()
 			const $button=this.expanders.makeButton(key)
 			if (title) $th.append(title)
 			if (title && $button) $th.append(` `)
+			if (clickListener) $button?.addEventListener('click',clickListener)
 			if ($button) $th.append($button)
 			return $th
 		}
@@ -340,9 +341,15 @@ export default class NoteTable implements NoteTableUpdater {
 				this.$selectAllCheckbox
 			),
 			makeExpanderCell('note-link',`id`,'id'),
+			makeExpanderCell('note-comments-count',``,'comments',()=>{
+				const hidden=!this.$table.classList.contains('expanded-comments')
+				for (const $tr of this.$table.querySelectorAll('tbody tr:not(:first-child)')) {
+					if ($tr instanceof HTMLTableRowElement) $tr.hidden=hidden
+				}
+			}),
 			makeExpanderCell('note-date',`date`,'date'),
 			makeExpanderCell('note-user',`user`,'username'),
-			makeExpanderCell('note-action',``,'comments'),
+			makeElement('th')('note-action')(),
 			makeExpanderCell('note-comment',`comment`,'comment-lines')
 		)
 		return $header
@@ -375,7 +382,9 @@ export default class NoteTable implements NoteTableUpdater {
 		const $commentCells=writeNoteSectionRows(
 			this.server.web,this.commentWriter,
 			$noteSection,$checkbox,
-			note,users,this.showImages,
+			note,users,
+			!this.$table.classList.contains('expanded-comments'),
+			this.showImages,
 			this.markUser,this.markText
 		)
 		for (const $commentCell of $commentCells) {

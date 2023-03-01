@@ -14,6 +14,7 @@ export default function writeNoteSectionRows(
 	$noteSection: HTMLTableSectionElement,
 	$checkbox: HTMLInputElement,
 	note: Note, users: Users,
+	hideRows: boolean,
 	showImages: boolean,
 	markUser: string|number|undefined,
 	markText: string|undefined
@@ -40,12 +41,29 @@ export default function writeNoteSectionRows(
 		$refreshWaitProgress.setAttribute('aria-hidden','true') // otherwise screen reader constantly announces changes of progress elements
 		$refreshWaitProgress.value=0
 		$cell.append(makeDiv()($a,$refreshWaitProgress))
+	}{
+		const $cell=$row.insertCell()
+		$cell.classList.add('note-comments-count')
+		if (nComments>1) $cell.rowSpan=nComments
+		const $icon=makeElement('button')('icon-comments-count')()
+		$icon.tabIndex=0
+		if (note.comments.length>1) {
+			const nAdditionalComments=note.comments.length-1
+			$icon.title=`${nAdditionalComments} additional comment${nAdditionalComments>1?`s`:``}`
+			$icon.innerHTML=`<svg>`+
+				`<use href="#table-comments" /><text x="8" y="8">${nAdditionalComments}</text>`+
+			`</svg>`
+		} else {
+			$icon.title=`no additional comments`
+		}
+		$cell.append($icon)
 	}
 	let iComment=0
 	for (const comment of note.comments) {
 		{
 			if (iComment>0) {
 				$row=$noteSection.insertRow()
+				if (hideRows) $row.hidden=true
 			}
 		}{
 			const $cell=$row.insertCell()
@@ -86,20 +104,6 @@ export default function writeNoteSectionRows(
 				$icon.innerHTML=`<svg>`+
 					`<use href="#table-note" />`+
 				`</svg>`
-				$cell.append($icon)
-			}
-			if (iComment==0) {
-				const $icon=makeElement('span')('icon-comments-count')()
-				$icon.tabIndex=0
-				if (note.comments.length>1) {
-					const nAdditionalComments=note.comments.length-1
-					$icon.title=`${nAdditionalComments} additional comment${nAdditionalComments>1?`s`:``}`
-					$icon.innerHTML=`<svg>`+
-						`<use href="#table-comments" /><text x="8" y="8">${nAdditionalComments}</text>`+
-					`</svg>`
-				} else {
-					$icon.title=`no additional comments`
-				}
 				$cell.append($icon)
 			}
 		}{

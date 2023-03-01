@@ -44,9 +44,10 @@ type SelectorSpec = [
 const selectors: SelectorSpec[] = [
 	['.note-checkbox input','.note-checkbox input'],
 	['.note-link button','.note-link a'],
+	['.note-comments-count button','.note-comments-count button'],
 	['.note-date button','.note-date time'],
 	['.note-user button','.note-user a'],
-	['.note-action button','.note-action [class|=icon]','.note-action [class|=icon-status]','.note-action .icon-comments-count'],
+	['.note-action','.note-action [class|=icon]'],
 	['.note-comment button','.note-comment']
 ]
 
@@ -66,8 +67,8 @@ const makeScopedSelector=([
 const anySelector=selectors.map(([,generalSelector])=>generalSelector).join(',')
 const anyHeadSelector=selectors.map(([headSelector])=>headSelector).join(',')
 
-const iHasCommentRows=2
-const iComment=5
+const iHasCommentRows=3
+const iComment=6
 
 const commentItemSelector='.listened:not(.image.float)'
 
