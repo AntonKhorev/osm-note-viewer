@@ -336,6 +336,8 @@ export default class NoteTable implements NoteTableUpdater {
 			if ($button) $th.append($button)
 			return $th
 		}
+		const $actionCell=makeElement('th')('note-action')()
+		$actionCell.tabIndex=0
 		$row.append(
 			makeElement('th')('note-checkbox')(
 				this.$selectAllCheckbox
@@ -349,7 +351,7 @@ export default class NoteTable implements NoteTableUpdater {
 			}),
 			makeExpanderCell('note-date',`date`,'date'),
 			makeExpanderCell('note-user',`user`,'username'),
-			makeElement('th')('note-action')(),
+			$actionCell,
 			makeExpanderCell('note-comment',`comment`,'comment-lines')
 		)
 		return $header

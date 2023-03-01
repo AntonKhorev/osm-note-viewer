@@ -10,7 +10,8 @@ export function makeNoteTableKeydownListener(): [
 		makeElement('h2')()(`Note table keyboard controls`),
 		p(`Inside the table head:`),
 		ul(
-			li(kbd(`Left`),` / `,kbd(`Right`),` — switch between controls`),
+			li(kbd(`Left`),` / `,kbd(`Right`),` — go to adjacent table controls`),
+			li(kbd(`Home`),` / `,kbd(`End`),` — go to first/last control`),
 			li(kbd(`Tab`),` — go to table body`),
 		),
 		p(`Inside the table body:`),
@@ -20,6 +21,7 @@ export function makeNoteTableKeydownListener(): [
 			li(kbd(`Ctrl`),` + `,kbd(`Home`),` / `,kbd(`End`),` — go to first/last row`),
 			li(kbd(`PageUp`),` / `,kbd(`PageDown`),` — go approximately one viewport up/down`),
 			li(kbd(`Shift`),` + any vertical navigation keys while in the checkbox column — select notes`),
+			li(kbd(`Ctrl`),` + `,kbd(`A`),` — select all notes`),
 			li(kbd(`Enter`),` while in comment column — go inside the comment cell`),
 			li(kbd(`Esc`),` while inside a comment cell — exit the cell`),
 			li(kbd(`Shift`),` + `,kbd(`Tab`),` — go to table head`),
@@ -34,6 +36,111 @@ export function makeNoteTableKeydownListener(): [
 	},$helpDialog]
 }
 
+const selectors: [headSelector:string,bodySelector:string][] = [
+	['.note-checkbox input','.note-checkbox input'],
+	['.note-link button','.note-link a'],
+	['.note-comments-count button','.note-comments-count button'],
+	['.note-date button','.note-date time'],
+	['.note-user button','.note-user a'],
+	['.note-action','.note-action [class|=icon]'],
+	['.note-comment button','.note-comment']
+]
+const HEAD=0
+const BODY=1
+
+const tabbableSelector=`a[href]:not([tabindex="-1"]), input:not([tabindex="-1"]), button:not([tabindex="-1"]), [tabindex="0"]`
+
+class KeyboardState {
+	iSection: number
+	iRow: number
+	iColumn: number
+	constructor(
+		private $table: HTMLTableElement
+	) {
+		this.iSection=Number($table.dataset.iKeyboardSection??'0')
+		this.iRow=    Number($table.dataset.iKeyboardRow??'0')
+		this.iColumn= Number($table.dataset.iKeyboardColumn??'0')
+	}
+	save() {
+		this.$table.dataset.iKeyboardSection=String(this.iSection)
+		this.$table.dataset.iKeyboardRow    =String(this.iRow)
+		this.$table.dataset.iKeyboardColumn =String(this.iColumn)
+	}
+	updateTabIndices() {
+		for (const $e of this.$table.querySelectorAll(`:is(thead, tbody) :is(${tabbableSelector})`)) {
+			if ($e instanceof HTMLElement) $e.tabIndex=-1
+		}
+		const $headSection=this.$table.tHead
+		if ($headSection) {
+			const $s=$headSection.querySelector(selectors[this.iColumn][HEAD])
+			if ($s instanceof HTMLElement) $s.tabIndex=0
+		}
+		const $section=this.$table.tBodies[this.iSection]
+		if ($section) {
+			const $row=$section.rows[this.iRow]
+			if (!$row) return
+			const $s=$section.querySelector(selectors[this.iColumn][BODY])
+			if ($s instanceof HTMLElement) $s.tabIndex=0
+		}
+	}
+	focusInHead() {
+		const $headSection=this.$table.tHead
+		if (!$headSection) return
+		const $s=$headSection.querySelector(selectors[this.iColumn][HEAD])
+		if ($s instanceof HTMLElement) $s.focus()
+	}
+	respondToKeyInHead(key: string) {
+		if (key=='ArrowLeft') {
+			if (this.iColumn>0) {
+				this.iColumn--
+				return true
+			}
+		} else if (key=='ArrowRight') {
+			if (this.iColumn<selectors.length-1) {
+				this.iColumn++
+				return true
+			}
+		} else if (key=='Home') {
+			this.iColumn=0
+			return true
+		} else if (key=='End') {
+			this.iColumn=selectors.length-1
+			return true
+		}
+		return false
+	}
+}
+
+function noteTableKeydownListener($table: HTMLTableElement, ev: KeyboardEvent): void {
+	if (ev.ctrlKey && ev.key.toLowerCase()=='a') {
+		const $allCheckbox=$table.querySelector('thead .note-checkbox input')
+		if (!($allCheckbox instanceof HTMLInputElement)) return
+		$allCheckbox.click()
+		ev.stopPropagation()
+		ev.preventDefault()
+		return
+	}
+	if (!(ev.target instanceof HTMLElement)) return
+	const $section=ev.target.closest('thead, tbody')
+	if (!($section instanceof HTMLTableSectionElement)) return
+	const keyboardState=new KeyboardState($table)
+	if ($section.tagName=='THEAD') {
+		if (keyboardState.respondToKeyInHead(ev.key)) {
+			keyboardState.save()
+			keyboardState.focusInHead()
+			keyboardState.updateTabIndices()
+			ev.stopPropagation()
+			ev.preventDefault()
+			return
+		}
+	}
+}
+
+export function noteTableCleanupRovingTabindex($table: HTMLTableElement) {
+	// TODO
+}
+
+/*
 type SelectorSpec = [
 	headSelector: string,
 	generalSelector: string,
@@ -73,14 +180,6 @@ const iComment=6
 const commentItemSelector='.listened:not(.image.float)'
 
 function noteTableKeydownListener($table: HTMLTableElement, ev: KeyboardEvent): void {
-	if (ev.ctrlKey && ev.key.toLowerCase()=='a') {
-		const $allCheckbox=$table.querySelector('thead .note-checkbox input')
-		if (!($allCheckbox instanceof HTMLInputElement)) return
-		$allCheckbox.click()
-		ev.stopPropagation()
-		ev.preventDefault()
-		return
-	}
 	const isVerticalMovementKey=(
 		ev.key=='ArrowUp' ||
 		ev.key=='ArrowDown' ||
@@ -263,8 +362,6 @@ function checkRange($es: Element[], fromIndex: number, toIndex: number): void {
 	)
 }
 
-const tabbableSelector=`a[href]:not([tabindex="-1"]), input:not([tabindex="-1"]), button:not([tabindex="-1"]), [tabindex="0"]`
-
 function roveHeadTabIndex($table: HTMLTableElement, $focused: HTMLElement, i: number) {
 	for (const $e of $table.querySelectorAll(`thead :is(${tabbableSelector})`)) {
 		if ($e instanceof HTMLElement) $e.tabIndex=-1
@@ -326,3 +423,4 @@ export function noteTableCleanupRovingTabindex($table: HTMLTableElement) {
 		roveBodyTabIndex($table,$e,0)
 	}
 }
+*/
