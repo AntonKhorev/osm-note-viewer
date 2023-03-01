@@ -45,18 +45,30 @@ export default function writeNoteSectionRows(
 		const $cell=$row.insertCell()
 		$cell.classList.add('note-comments-count')
 		if (nComments>1) $cell.rowSpan=nComments
-		const $icon=makeElement('button')('icon-comments-count')()
-		$icon.tabIndex=0
+		const $button=makeElement('button')('icon-comments-count')()
 		if (note.comments.length>1) {
 			const nAdditionalComments=note.comments.length-1
-			$icon.title=`${nAdditionalComments} additional comment${nAdditionalComments>1?`s`:``}`
-			$icon.innerHTML=`<svg>`+
+			$button.title=`${nAdditionalComments} additional comment${nAdditionalComments>1?`s`:``}`
+			$button.innerHTML=`<svg>`+
 				`<use href="#table-comments" /><text x="8" y="8">${nAdditionalComments}</text>`+
 			`</svg>`
+			$button.onclick=ev=>{
+				const [,$row2]=$noteSection.rows
+				const wasHidden=$row2?.hidden??true
+				let first=true
+				for (const $row of $noteSection.rows) {
+					if (first) {
+						first=false
+					} else {
+						$row.hidden=!wasHidden
+					}
+				}
+				ev.stopPropagation()
+			}
 		} else {
-			$icon.title=`no additional comments`
+			$button.title=`no additional comments`
 		}
-		$cell.append($icon)
+		$cell.append($button)
 	}
 	let iComment=0
 	for (const comment of note.comments) {
