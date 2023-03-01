@@ -147,6 +147,9 @@
 	padding: 0;
 	background: transparent;
 }
+.notes td.note-comments-count [class|=icon-comments-count]:not(:empty):hover {
+	outline: auto;
+}
 .notes td.note-comments-count [class|=icon-comments-count] > svg text {
 	font-family: sans-serif;
 	font-size: 10px;
