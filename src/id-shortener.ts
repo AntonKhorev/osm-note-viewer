@@ -25,7 +25,7 @@ export default class IdShortener {
 		return this.bound==0
 	}
 	split(id: string): [constantPart: string, variablePart: string] {
-		if (!this.diverse || this.bound==null) return ['',id]
+		if (!this.diverse || this.bound==null || this.bound<2) return ['',id]
 		return [id.slice(0,this.bound),id.slice(this.bound)]
 	}
 }

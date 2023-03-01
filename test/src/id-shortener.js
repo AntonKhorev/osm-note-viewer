@@ -63,4 +63,31 @@ describe("IdShortener",()=>{
 			['123','51']
 		)
 	})
+	it("doesn't shorten only one digit",()=>{
+		const shortener=new IdShortener()
+		assert.equal(
+			shortener.scan('123'),
+			false
+		)
+		assert.equal(
+			shortener.scan('145'),
+			false
+		)
+		assert.equal(
+			shortener.scan('167'),
+			false
+		)
+		assert.deepEqual(
+			shortener.split('123'),
+			['','123']
+		)
+		assert.deepEqual(
+			shortener.split('145'),
+			['','145']
+		)
+		assert.deepEqual(
+			shortener.split('167'),
+			['','167']
+		)
+	})
 })
