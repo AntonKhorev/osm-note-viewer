@@ -7,7 +7,7 @@ import Expanders from './expanders'
 import LooseParserListener from './loose-listen'
 import LooseParserPopup from './loose-popup'
 import parseLoose from './loose'
-import writeNoteSectionRows from './table-section'
+import {writeNoteSectionRows, hideNoteSectionRows} from './table-section'
 import {makeNoteTableKeydownListener, noteTableCleanupRovingTabindex} from './table-keyboard'
 import CommentWriter, {handleShowImagesUpdate} from './comment-writer'
 import type NoteFilter from './filter'
@@ -343,8 +343,8 @@ export default class NoteTable implements NoteTableUpdater {
 			makeExpanderCell('note-link',`id`,'id'),
 			makeExpanderCell('note-comments-count',``,'comments',()=>{
 				const hidden=!this.$table.classList.contains('expanded-comments')
-				for (const $tr of this.$table.querySelectorAll('tbody tr:not(:first-child)')) {
-					if ($tr instanceof HTMLTableRowElement) $tr.hidden=hidden
+				for (const $noteSection of this.$table.tBodies) {
+					hideNoteSectionRows($noteSection,hidden)
 				}
 			}),
 			makeExpanderCell('note-date',`date`,'date'),

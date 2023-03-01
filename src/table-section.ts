@@ -9,7 +9,7 @@ import {mark} from './html-shortcuts'
 /**
  * @returns comment cells
  */
-export default function writeNoteSectionRows(
+export function writeNoteSectionRows(
 	web: WebProvider, commentWriter: CommentWriter,
 	$noteSection: HTMLTableSectionElement,
 	$checkbox: HTMLInputElement,
@@ -48,23 +48,11 @@ export default function writeNoteSectionRows(
 		const $button=makeElement('button')('icon-comments-count')()
 		if (note.comments.length>1) {
 			const nAdditionalComments=note.comments.length-1
-			$button.title=`${nAdditionalComments} additional comment${nAdditionalComments>1?`s`:``}`
+			updateCommentsButton($button,hideRows,nAdditionalComments)
 			$button.innerHTML=`<svg>`+
 				`<use href="#table-comments" /><text x="8" y="8">${nAdditionalComments}</text>`+
 			`</svg>`
-			$button.onclick=ev=>{
-				const [,$row2]=$noteSection.rows
-				const wasHidden=$row2?.hidden??true
-				let first=true
-				for (const $row of $noteSection.rows) {
-					if (first) {
-						first=false
-					} else {
-						$row.hidden=!wasHidden
-					}
-				}
-				ev.stopPropagation()
-			}
+			$button.addEventListener('click',commentsButtonClickListener)
 		} else {
 			$button.title=`no additional comments`
 		}
@@ -128,6 +116,50 @@ export default function writeNoteSectionRows(
 		iComment++
 	}
 	return $commentCells
+}
+
+export function hideNoteSectionRows(
+	$noteSection: HTMLTableSectionElement,
+	hideRows: boolean
+): void {
+	const $button=$noteSection.querySelector('td.note-comments-count button')
+	if (!($button instanceof HTMLButtonElement)) return
+	hideNoteSectionRowsWithButton($noteSection,hideRows,$button)
+}
+
+function commentsButtonClickListener(this: HTMLButtonElement, ev: MouseEvent) {
+	const $button=this
+	const $noteSection=$button.closest('tbody')
+	if (!($noteSection instanceof HTMLTableSectionElement)) return
+	const [,$row2]=$noteSection.rows
+	const wasHidden=$row2?.hidden??true
+	hideNoteSectionRowsWithButton($noteSection,!wasHidden,$button)
+	ev.stopPropagation()
+}
+
+function hideNoteSectionRowsWithButton(
+	$noteSection: HTMLTableSectionElement,
+	hideRows: boolean,
+	$button: HTMLButtonElement
+): void {
+	let first=true
+	for (const $row of $noteSection.rows) {
+		if (first) {
+			first=false
+		} else {
+			$row.hidden=hideRows
+		}
+	}
+	updateCommentsButton($button,hideRows,$noteSection.rows.length-1)
+}
+
+function updateCommentsButton($button: HTMLButtonElement, hiddenRows: boolean, nAdditionalComments: number) {
+	const s=nAdditionalComments>1?`s`:``
+	if (hiddenRows) {
+		$button.title=`show ${nAdditionalComments} comment${s}/action${s}`
+	} else {
+		$button.title=`hide comment${s}/action${s}`
+	}
 }
 
 function getActionClass(action: NoteComment['action']): string {
