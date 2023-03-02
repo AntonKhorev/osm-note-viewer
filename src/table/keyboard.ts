@@ -58,13 +58,11 @@ function noteTableKeydownListener($table: HTMLTableElement, ev: KeyboardEvent): 
 	if (!($section instanceof HTMLTableSectionElement)) return
 	const keyboardState=new KeyboardState($table)
 	if ($section.tagName=='THEAD') {
-		if (!keyboardState.respondToKeyInHead(ev.key)) return
+		if (!keyboardState.respondToKeyInHead(ev)) return
 		keyboardState.save()
-		keyboardState.focusInHead()
 	} else {
-		if (!keyboardState.respondToKeyInBody(ev.key)) return
+		if (!keyboardState.respondToKeyInBody(ev)) return
 		keyboardState.save()
-		keyboardState.focusInBody()
 	}
 	keyboardState.updateTabIndices()
 	ev.stopPropagation()
@@ -253,18 +251,6 @@ function getIndexForKeyMovement(key: string, i: number, length: number): number 
 		return length-1
 	}
 	return -1
-}
-
-function focus($e: Element|null|undefined, far: boolean = false): $e is HTMLElement {
-	if (!($e instanceof HTMLElement)) return false
-	if (far) {
-		$e.focus({preventScroll:true})
-		$e.scrollIntoView({block:'nearest',behavior:'smooth'}) // TODO delay map autozoom to notes on screen in table
-	} else {
-		$e.focus()
-		$e.scrollIntoView({block:'nearest'})
-	}
-	return true
 }
 
 function checkRange($es: Element[], fromIndex: number, toIndex: number): void {

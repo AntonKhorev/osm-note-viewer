@@ -14,6 +14,14 @@ const BODY=2
 
 const tabbableSelector=`a[href]:not([tabindex="-1"]), input:not([tabindex="-1"]), button:not([tabindex="-1"]), [tabindex="0"]`
 
+type KeyEvent = {
+	key: string
+	ctrlKey: boolean
+}
+
+type KeyFocusResponse = 'nearFocus' | 'farFocus'
+type KeyResponse = 'none' | KeyFocusResponse
+
 export default class KeyboardState {
 	iSection: number
 	iRow: number
@@ -39,20 +47,28 @@ export default class KeyboardState {
 		const $bodyItem=this.getCurrentBodyItem()
 		if ($bodyItem) $bodyItem.tabIndex=0
 	}
-	focusInHead(): void {
-		const $item=this.getCurrentHeadItem()
-		$item?.focus()
+	respondToKeyInHead(ev: KeyEvent): boolean {
+		const horKeyResponse=this.respondToHorizontalMovementKey(ev)
+		if (horKeyResponse!='none') {
+			const $item=this.getCurrentHeadItem()
+			if ($item) this.focus($item,horKeyResponse)
+			return true
+		}
+		return false
 	}
-	focusInBody(): void {
-		const $item=this.getCurrentBodyItem()
-		$item?.focus()
-	}
-	respondToKeyInHead(key: string): boolean {
-		return this.respondToHorizontalMovementKey(key)
-	}
-	respondToKeyInBody(key: string): boolean {
-		if (this.respondToHorizontalMovementKey(key)) return true
-		if (this.respondToVerticalMovementKey(key)) return true
+	respondToKeyInBody(ev: KeyEvent): boolean {
+		const horKeyResponse=this.respondToHorizontalMovementKey(ev)
+		if (horKeyResponse!='none') {
+			const $item=this.getCurrentBodyItem()
+			if ($item) this.focus($item,horKeyResponse)
+			return true
+		}
+		const verKeyResponse=this.respondToVerticalMovementKey(ev)
+		if (verKeyResponse!='none') {
+			const $item=this.getCurrentBodyItem()
+			if ($item) this.focus($item,verKeyResponse)
+			return true
+		}
 		return false
 	}
 	setToNearestVisible(): void {
@@ -66,7 +82,7 @@ export default class KeyboardState {
 			const $elements=[...$elementsIterable]
 			const i=$elements.indexOf($currentElement)
 			if (i<0) return 0
-			for (let d=1;i-d>=0||i+d<$elements.length;d++) {
+			for (let d=0;i-d>=0||i+d<$elements.length;d++) {
 				if (i-d>=0 && !$elements[i-d].hidden) {
 					return i-d
 				}
@@ -88,27 +104,27 @@ export default class KeyboardState {
 			}
 		}
 	}
-	private respondToHorizontalMovementKey(key: string): boolean {
-		if (key=='ArrowLeft') {
+	private respondToHorizontalMovementKey(ev: KeyEvent): KeyResponse {
+		if (ev.key=='ArrowLeft') {
 			if (this.iColumn>0) {
 				this.iColumn--
-				return true
+				return 'nearFocus'
 			}
-		} else if (key=='ArrowRight') {
+		} else if (ev.key=='ArrowRight') {
 			if (this.iColumn<selectors.length-1) {
 				this.iColumn++
-				return true
+				return 'nearFocus'
 			}
-		} else if (key=='Home') {
+		} else if (ev.key=='Home' && !ev.ctrlKey) {
 			this.iColumn=0
-			return true
-		} else if (key=='End') {
+			return 'nearFocus'
+		} else if (ev.key=='End' && !ev.ctrlKey) {
 			this.iColumn=selectors.length-1
-			return true
+			return 'nearFocus'
 		}
-		return false
+		return 'none'
 	}
-	private respondToVerticalMovementKey(key: string): boolean {
+	private respondToVerticalMovementKey(ev: KeyEvent): KeyResponse {
 		const setSectionAndRowIndicesFromRow=($row:HTMLTableRowElement):boolean=>{
 			const $section=$row.parentElement
 			if (!($section instanceof HTMLTableSectionElement)) return false
@@ -129,50 +145,65 @@ export default class KeyboardState {
 		}
 		const moveByRow=(
 			getNextIndex: (i:number)=>number
-		):boolean=>{
+		):KeyResponse=>{
 			const $currentRow=this.getCurrentBodyRow()
-			if (!$currentRow) return false
+			if (!$currentRow) return 'none'
 			const $rows=[...this.$table.querySelectorAll('tbody tr')]
 			let i=$rows.indexOf($currentRow)
-			if (i<0) return false
+			if (i<0) return 'none'
 			for (i=getNextIndex(i);i>=0&&i<$rows.length;i=getNextIndex(i)) {
 				const $row=$rows[i]
 				if ($row instanceof HTMLTableRowElement && !$row.hidden && !$row.parentElement?.hidden) {
-					return setSectionAndRowIndicesFromRow($row)
+					return setSectionAndRowIndicesFromRow($row) ? 'nearFocus' : 'none'
 				}
 			}
-			return false
+			return 'none'
 		}
 		const moveBySection=(
 			getNextIndex: (i:number)=>number
-		):boolean=>{
+		):KeyResponse=>{
 			const $currentSection=this.getCurrentBodySection()
-			if (!$currentSection) return false
+			if (!$currentSection) return 'none'
 			const $sections=[...this.$table.tBodies]
 			let i=$sections.indexOf($currentSection)
-			if (i<0) return false
+			if (i<0) return 'none'
 			for (i=getNextIndex(i);i>=0&&i<$sections.length;i=getNextIndex(i)) {
 				const $section=$sections[i]
 				if ($section instanceof HTMLTableSectionElement && !$section.hidden) {
-					return setSectionAndRowIndicesFromSection($section)
+					return setSectionAndRowIndicesFromSection($section) ? 'nearFocus' : 'none'
 				}
 			}
-			return false
+			return 'none'
 		}
-		if (key=='ArrowUp') {
+		if (ev.key=='ArrowUp') {
 			if (selectors[this.iColumn][SPAN]) {
 				return moveBySection(i=>i-1)
 			} else {
 				return moveByRow(i=>i-1)
 			}
-		} else if (key=='ArrowDown') {
+		} else if (ev.key=='ArrowDown') {
 			if (selectors[this.iColumn][SPAN]) {
 				return moveBySection(i=>i+1)
 			} else {
 				return moveByRow(i=>i+1)
 			}
+		} else if (ev.key=='Home' && ev.ctrlKey) {
+			this.iSection=0
+			this.iRow=0
+			this.setToNearestVisible()
+			return 'farFocus'
+		} else if (ev.key=='End' && ev.ctrlKey) {
+			this.iSection=this.$table.tBodies.length-1
+			if (selectors[this.iColumn][SPAN]) {
+				this.iRow=0
+			} else {
+				const $section=this.getCurrentBodySection()
+				this.iRow=$section?$section.rows.length-1:0
+			}
+			this.setToNearestVisible()
+			return 'farFocus'
 		}
-		return false
+		return 'none'
 	}
 	private getCurrentHeadItem(): HTMLElement|null {
 		const $headSection=this.$table.tHead
@@ -193,5 +224,14 @@ export default class KeyboardState {
 		const $section=this.getCurrentBodySection()
 		if (!$section) return null
 		return $section.rows.item(this.iRow)
+	}
+	private focus($e: HTMLElement, response: KeyFocusResponse): void {
+		if (response=='farFocus') {
+			$e.focus({preventScroll:true})
+			$e.scrollIntoView({block:'nearest',behavior:'smooth'}) // TODO delay map autozoom to notes on screen in table
+		} else {
+			$e.focus()
+			$e.scrollIntoView({block:'nearest'})
+		}
 	}
 }
