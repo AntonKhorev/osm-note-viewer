@@ -143,14 +143,22 @@ export default class KeyboardState {
 		const $items=htmlElementArray(this.$table.querySelectorAll(`tbody:not([hidden]) tr:not([hidden]) ${selectors[this.iColumn][BODY]}`))
 		const i=$items.indexOf($currentItem)
 		if (i<0) return 'none'
+		let j: number|undefined
 		if (ev.key=='ArrowUp') {
-			return i>0 && setSectionAndRowIndices($items[i-1]) ? 'nearFocus' : 'none'
+			if (i>0) j=i-1
 		} else if (ev.key=='ArrowDown') {
-			return i<$items.length-1 && setSectionAndRowIndices($items[i+1]) ? 'nearFocus' : 'none'
+			if (i<$items.length-1) j=i+1
 		} else if (ev.key=='Home' && ev.ctrlKey) {
-			return setSectionAndRowIndices($items[0]) ? 'farFocus' : 'none'
+			j=0
 		} else if (ev.key=='End' && ev.ctrlKey) {
-			return setSectionAndRowIndices($items[$items.length-1]) ? 'farFocus' : 'none'
+			j=$items.length-1
+		}
+		if (j!=null && i!=j) {
+			const focusType=(ev.key=='ArrowUp' || ev.key=='ArrowDown'
+				? 'nearFocus'
+				: 'farFocus'
+			)
+			return setSectionAndRowIndices($items[j]) ? focusType : 'none'
 		}
 		return 'none'
 	}
