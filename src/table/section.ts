@@ -1,10 +1,10 @@
-import type {Note, NoteComment, Users} from './data'
-import type {WebProvider} from './server'
-import type CommentWriter from './comment-writer'
-import {makeDateOutput} from './comment-writer'
-import {toReadableDate} from './query-date'
-import {makeDiv, makeElement} from './html'
-import {mark} from './html-shortcuts'
+import type {Note, NoteComment, Users} from '../data'
+import type {WebProvider} from '../server'
+import type CommentWriter from '../comment-writer'
+import {makeDateOutput} from '../comment-writer'
+import {toReadableDate} from '../query-date'
+import {makeDiv, makeElement} from '../html'
+import {mark} from '../html-shortcuts'
 
 /**
  * @returns comment cells

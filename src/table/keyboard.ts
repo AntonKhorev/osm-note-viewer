@@ -1,6 +1,6 @@
-import makeHelpDialog from './help-dialog'
-import {makeElement} from './html'
-import {ul,li,p,kbd} from './html-shortcuts'
+import makeHelpDialog from '../help-dialog'
+import {makeElement} from '../html'
+import {ul,li,p,kbd} from '../html-shortcuts'
 
 export function makeNoteTableKeydownListener(): [
 	listener: (this: HTMLTableElement, ev: KeyboardEvent)=>void,
