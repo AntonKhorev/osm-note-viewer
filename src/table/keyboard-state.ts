@@ -143,37 +143,46 @@ export default class KeyboardState {
 			this.iSection=iSection
 			return true
 		}
-		const moveByRow=(
-			getNextIndex: (i:number)=>number
+		const move=<T>(
+			getNextIndex: (i:number)=>number,
+			$currentItem: T|null,
+			$itemsIterable: Iterable<T>,
+			isVisible: ($item:HTMLElement)=>boolean,
+			setSectionAndRowIndices: ($item:T)=>boolean
 		):KeyResponse=>{
-			const $currentRow=this.getCurrentBodyRow()
-			if (!$currentRow) return 'none'
-			const $rows=[...this.$table.querySelectorAll('tbody tr')]
-			let i=$rows.indexOf($currentRow)
+			if (!$currentItem) return 'none'
+			const $items=[...$itemsIterable]
+			let i=$items.indexOf($currentItem)
 			if (i<0) return 'none'
-			for (i=getNextIndex(i);i>=0&&i<$rows.length;i=getNextIndex(i)) {
-				const $row=$rows[i]
-				if ($row instanceof HTMLTableRowElement && !$row.hidden && !$row.parentElement?.hidden) {
-					return setSectionAndRowIndicesFromRow($row) ? 'nearFocus' : 'none'
+			for (i=getNextIndex(i);i>=0&&i<$items.length;i=getNextIndex(i)) {
+				const $item=$items[i]
+				if ($item instanceof HTMLElement && isVisible($item)) {
+					return setSectionAndRowIndices($item) ? 'nearFocus' : 'none'
 				}
 			}
 			return 'none'
 		}
+		const moveByRow=(
+			getNextIndex: (i:number)=>number
+		):KeyResponse=>{
+			return move(
+				getNextIndex,
+				this.getCurrentBodyRow(),
+				this.$table.querySelectorAll('tbody tr'),
+				$row=>!$row.hidden && !$row.parentElement?.hidden,
+				setSectionAndRowIndicesFromRow
+			)
+		}
 		const moveBySection=(
 			getNextIndex: (i:number)=>number
 		):KeyResponse=>{
-			const $currentSection=this.getCurrentBodySection()
-			if (!$currentSection) return 'none'
-			const $sections=[...this.$table.tBodies]
-			let i=$sections.indexOf($currentSection)
-			if (i<0) return 'none'
-			for (i=getNextIndex(i);i>=0&&i<$sections.length;i=getNextIndex(i)) {
-				const $section=$sections[i]
-				if ($section instanceof HTMLTableSectionElement && !$section.hidden) {
-					return setSectionAndRowIndicesFromSection($section) ? 'nearFocus' : 'none'
-				}
-			}
-			return 'none'
+			return move(
+				getNextIndex,
+				this.getCurrentBodySection(),
+				this.$table.tBodies,
+				$section=>!$section.hidden,
+				setSectionAndRowIndicesFromSection
+			)
 		}
 		if (ev.key=='ArrowUp') {
 			if (selectors[this.iColumn][SPAN]) {
