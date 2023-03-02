@@ -79,6 +79,20 @@
 .notes th {
 	padding: 2px;
 }
+.notes :is(td.note-comments-count, td.note-action) [class|=icon] {
+	position: relative;
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	vertical-align: text-top;
+}
+.notes :is(td.note-comments-count, td.note-action) [class|=icon] > svg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+
 .notes td.note-link > div {
 	position: relative;
 	display: grid;
@@ -113,35 +127,13 @@
 .notes td.note-link > div progress::-webkit-progress-value {
 	background-color: var(--refresh-color);
 }
-.notes td.note-date {
-	white-space: nowrap;
+.notes table:not(.expanded-id) td.note-link a .constant {
+	display: none;
 }
-.notes td.note-user {
-	white-space: nowrap;
-	text-overflow: ellipsis;
-	overflow: hidden;
+.notes table:not(.expanded-id) td.note-link a .constant + .variable::before {
+	content: '...';
 }
-.notes td.note-user a:not([href]) {
-	opacity: .7;
-}
-.notes td.note-user .uid {
-	opacity: .7;
-	font-size: .7em;
-	font-family: sans-serif;
-}
-.notes :is(td.note-comments-count, td.note-action) [class|=icon] {
-	position: relative;
-	display: inline-block;
-	width: 16px;
-	height: 16px;
-	vertical-align: text-top;
-}
-.notes :is(td.note-comments-count, td.note-action) [class|=icon] > svg {
-	position: absolute;
-	inset: 0;
-	width: 100%;
-	height: 100%;
-}
+
 .notes td.note-comments-count [class|=icon-comments-count] {
 	border: 0;
 	padding: 0;
@@ -156,6 +148,37 @@
 	text-anchor: middle;
 	dominant-baseline: central;
 }
+
+.notes td.note-date {
+	white-space: nowrap;
+}
+.notes table:not(.expanded-date) td.note-date time > span {
+	display: none;
+}
+
+.notes td.note-user {
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	overflow: hidden;
+}
+.notes td.note-user a:not([href]) {
+	opacity: .7;
+}
+.notes td.note-user .uid {
+	opacity: .7;
+	font-size: .7em;
+	font-family: sans-serif;
+}
+.notes table:not(.expanded-username) td.note-user {
+	max-width: 20vw;
+}
+body.flipped table:not(.expanded-username) td.note-user {
+	max-width: 10vw;
+}
+.notes table:not(.expanded-username) td.note-user .uid {
+	display: none;
+}
+
 .notes td.note-action [class|=icon-status-open] > svg {
 	--table-note-default-part-visibility: hidden;
 	--table-note-open-part-visibility: visible;
@@ -172,6 +195,7 @@
 	--table-note-default-part-visibility: hidden;
 	--table-note-hidden-part-visibility: visible;
 }
+
 .notes td.note-comment {
 	--comment-img-gap-size: 2px;
 	--comment-link-outline: solid orange var(--comment-img-gap-size);
@@ -201,24 +225,6 @@
 }
 .notes table.with-images td.note-comment a.image.float {
 	display: block;
-}
-.notes table:not(.expanded-id) td.note-link a .constant {
-	display: none;
-}
-.notes table:not(.expanded-id) td.note-link a .constant + .variable::before {
-	content: '...';
-}
-.notes table:not(.expanded-date) td.note-date time > span {
-	display: none;
-}
-.notes table:not(.expanded-username) td.note-user {
-	max-width: 20vw;
-}
-body.flipped table:not(.expanded-username) td.note-user {
-	max-width: 10vw;
-}
-.notes table:not(.expanded-username) td.note-user .uid {
-	display: none;
 }
 .notes table:not(.expanded-comment-lines) td.note-comment {
 	white-space: nowrap;
