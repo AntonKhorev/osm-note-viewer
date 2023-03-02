@@ -25,6 +25,7 @@ export default class NoteTable implements NoteTableUpdater {
 	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedAllNotesCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
+	private wrappedCleanupRovingTabindex: ()=>void
 	private expanders: Expanders
 	private noteSectionVisibilityObserver: NoteSectionVisibilityObserver
 	private looseParserListener: LooseParserListener
@@ -46,6 +47,7 @@ export default class NoteTable implements NoteTableUpdater {
 		private filter: NoteFilter,
 		private server: Server
 	) {
+		this.wrappedCleanupRovingTabindex=()=>noteTableCleanupRovingTabindex(this.$table)
 		this.expanders=new Expanders(storage,this.$table)
 		this.$table.setAttribute('role','grid')
 		const that=this
@@ -215,6 +217,7 @@ export default class NoteTable implements NoteTableUpdater {
 			}
 		}
 		this.updateCheckboxDependentsAndSendNoteChangeEvents()
+		noteTableCleanupRovingTabindex(this.$table)
 	}
 	/**
 	 * @returns number of added notes that passed through the filter
@@ -336,7 +339,8 @@ export default class NoteTable implements NoteTableUpdater {
 			$header,
 			this.$selectAllCheckbox,
 			(key,clickListener)=>this.expanders.makeButton(key,clickListener),
-			()=>this.$table.tBodies
+			()=>this.$table.tBodies,
+			this.wrappedCleanupRovingTabindex
 		)
 		return $header
 	}
@@ -372,7 +376,8 @@ export default class NoteTable implements NoteTableUpdater {
 			!this.$table.classList.contains('expanded-comments'),
 			this.showImages,
 			this.markUser,this.markText,
-			()=>this.focusOnNote($noteSection,true)
+			()=>this.focusOnNote($noteSection,true),
+			this.wrappedCleanupRovingTabindex
 		)
 		for (const $commentCell of $commentCells) {
 			this.looseParserListener.listen($commentCell)

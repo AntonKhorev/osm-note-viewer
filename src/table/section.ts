@@ -10,7 +10,8 @@ export function writeHeadSectionRow(
 	$section: HTMLTableSectionElement,
 	$checkbox: HTMLInputElement,
 	makeExpanderButton: (key:string,clickListener?:(isExpanded:boolean)=>void)=>HTMLButtonElement|undefined,
-	getNoteSections: ()=>Iterable<HTMLTableSectionElement>
+	getNoteSections: ()=>Iterable<HTMLTableSectionElement>,
+	rowVisibilityChangeCallback: ()=>void
 ) {
 	const makeExpanderCell=(cssClass:string,title:string,key:string,clickListener?:(isExpanded:boolean)=>void)=>{
 		const $th=makeElement('th')(cssClass)()
@@ -32,6 +33,7 @@ export function writeHeadSectionRow(
 			for (const $noteSection of getNoteSections()) {
 				hideNoteSectionRows($noteSection,!isExpanded)
 			}
+			rowVisibilityChangeCallback()
 		}),
 		makeExpanderCell('note-date',`date`,'date'),
 		makeExpanderCell('note-user',`user`,'username'),
@@ -53,7 +55,8 @@ export function writeNoteSectionRows(
 	showImages: boolean,
 	markUser: string|number|undefined,
 	markText: string|undefined,
-	noteMapClickListener: ()=>void
+	noteMapClickListener: ()=>void,
+	rowVisibilityChangeCallback: ()=>void
 ): HTMLTableCellElement[] {
 	const $commentCells: HTMLTableCellElement[]=[]
 	let $row=$noteSection.insertRow()
@@ -88,6 +91,7 @@ export function writeNoteSectionRows(
 			`</svg>`
 			updateCommentsButton($button,hideRows,note.comments.length-1)
 			$button.addEventListener('click',commentsButtonClickListener)
+			$button.addEventListener('click',rowVisibilityChangeCallback)
 		} else {
 			$button.title=`no additional comments`
 		}
@@ -183,6 +187,7 @@ function commentsButtonClickListener(this: HTMLButtonElement, ev: MouseEvent) {
 	const wasHidden=$row2?.hidden??true
 	hideNoteSectionRowsWithButton($noteSection,!wasHidden,$button)
 	ev.stopPropagation()
+	// TODO update tabindices
 }
 
 function hideNoteSectionRowsWithButton(
