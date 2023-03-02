@@ -3,8 +3,8 @@ import type {WebProvider} from '../server'
 import type CommentWriter from '../comment-writer'
 import {makeDateOutput} from '../comment-writer'
 import {toReadableDate} from '../query-date'
-import {makeDiv, makeElement} from '../html'
-import {mark} from '../html-shortcuts'
+import {makeDiv, makeElement, makeLink} from '../html'
+import {a,mark} from '../html-shortcuts'
 
 export function writeHeadSectionRow(
 	$section: HTMLTableSectionElement,
@@ -36,7 +36,8 @@ export function writeHeadSectionRow(
 		makeExpanderCell('note-date',`date`,'date'),
 		makeExpanderCell('note-user',`user`,'username'),
 		$actionCell,
-		makeExpanderCell('note-comment',`comment`,'comment-lines')
+		makeExpanderCell('note-comment',`comment`,'comment-lines'),
+		makeElement('th')('note-map')()
 	)
 }
 
@@ -56,15 +57,17 @@ export function writeNoteSectionRows(
 	const $commentCells: HTMLTableCellElement[]=[]
 	let $row=$noteSection.insertRow()
 	const nComments=note.comments.length
-	{
+	const makeRowSpannedCell=(className:string)=>{
 		const $cell=$row.insertCell()
-		$cell.classList.add('note-checkbox')
+		$cell.classList.add(className)
 		if (nComments>1) $cell.rowSpan=nComments
+		return $cell
+	}
+	{
+		const $cell=makeRowSpannedCell('note-checkbox')
 		$cell.append($checkbox)
 	}{
-		const $cell=$row.insertCell()
-		$cell.classList.add('note-link')
-		if (nComments>1) $cell.rowSpan=nComments
+		const $cell=makeRowSpannedCell('note-link')
 		const $a=document.createElement('a')
 		$a.href=web.getUrl(`note/`+encodeURIComponent(note.id))
 		$a.dataset.noteId=$a.textContent=`${note.id}`
@@ -76,9 +79,7 @@ export function writeNoteSectionRows(
 		$refreshWaitProgress.value=0
 		$cell.append(makeDiv()($a,$refreshWaitProgress))
 	}{
-		const $cell=$row.insertCell()
-		$cell.classList.add('note-comments-count')
-		if (nComments>1) $cell.rowSpan=nComments
+		const $cell=makeRowSpannedCell('note-comments-count')
 		const $button=makeElement('button')('icon-comments-count')()
 		if (note.comments.length>1) {
 			$button.innerHTML=`<svg>`+
@@ -145,6 +146,15 @@ export function writeNoteSectionRows(
 			$cell.tabIndex=0
 			commentWriter.writeComment($cell,comment.text,showImages,markText)
 			$commentCells.push($cell)
+		}
+		if (iComment==0) {
+			const $cell=makeRowSpannedCell('note-map')
+			const $a=a(`M`)
+			$a.href=web.getNoteLocationUrl(note.lat,note.lon)
+			$a.title=`show note on map`
+			$a.innerHTML=`<svg><use href="#tools-map" /></svg>`
+			$cell.append($a)
+			$a.onclick=ev=>ev.preventDefault() // temporary link disabler
 		}
 		iComment++
 	}

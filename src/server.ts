@@ -92,6 +92,9 @@ export class WebProvider extends OsmProvider {
 	getUrl(path:string):string {
 		return `${this.urls[0]}${path}`
 	}
+	getNoteLocationUrl(lat:number,lon:number) {
+		return this.getUrl(`#map=15/${lat.toFixed(4)}/${lon.toFixed(4)}&layers=N`)
+	}
 	makeUserLink(uid:number,username:string):HTMLAnchorElement {
 		const href=this.getUrl(`user/`+encodeURIComponent(username))
 		const $a=makeLink(username,href)
