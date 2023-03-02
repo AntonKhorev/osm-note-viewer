@@ -37,7 +37,7 @@ export function writeHeadSectionRow(
 		makeExpanderCell('note-user',`user`,'username'),
 		$actionCell,
 		makeExpanderCell('note-comment',`comment`,'comment-lines'),
-		makeElement('th')('note-map')()
+		makeExpanderCell('note-map',``,'map-link')
 	)
 }
 

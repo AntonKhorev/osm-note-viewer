@@ -13,6 +13,11 @@ const expanderDescriptions=new Map<string,ExpanderDescription>([
 		'hor-out','hor-in',
 		`show all id digits`,`show only changing id digits`
 	]],
+	['comments',[
+		true,
+		'ver-out','ver-in',
+		`show all comments/actions`,`show only first comment/action`
+	]],
 	['date',[
 		false,
 		'hor-out','hor-in',
@@ -23,16 +28,16 @@ const expanderDescriptions=new Map<string,ExpanderDescription>([
 		'hor-out','hor-in',
 		`show full usernames with ids`,`clip long usernames`
 	]],
-	['comments',[
-		true,
-		'ver-out','ver-in',
-		`show all comments/actions`,`show only first comment/action`
-	]],
 	['comment-lines',[
 		true,
 		'ver-out','hor-out',
 		`allow line breaks in comments`,`keep comments on one line`
-	]]
+	]],
+	['map-link',[
+		true,
+		'hor-out','hor-in',
+		`stretch map links`,`don't stretch map links`
+	]],
 ])
 
 export default class Expanders {

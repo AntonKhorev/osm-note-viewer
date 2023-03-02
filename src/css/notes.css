@@ -221,6 +221,9 @@ body.flipped table:not(.expanded-username) td.note-user {
 	overflow: hidden;
 }
 
+.notes th.note-map {
+	text-align: center;
+}
 .notes td.note-map {
 	position: sticky;
 	right: 0;

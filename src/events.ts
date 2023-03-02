@@ -1,8 +1,8 @@
 import {bubbleEvent, bubbleCustomEvent} from "./html"
 
 export default class GlobalEventListener {
-	constructor() {
-		document.body.addEventListener('click',ev=>{
+	constructor($root: HTMLElement) {
+		$root.addEventListener('click',ev=>{
 			if (!(ev.target instanceof HTMLElement)) return
 			const $e=ev.target.closest('a.listened, time.listened')
 			if ($e instanceof HTMLAnchorElement) {
@@ -57,8 +57,8 @@ export default class GlobalEventListener {
 					ev.stopPropagation()
 				}
 			}
-		},true) // need to capture event before it bubbles to note table sections
-		document.body.addEventListener('keydown',ev=>{
+		})
+		$root.addEventListener('keydown',ev=>{
 			if (!(ev.target instanceof HTMLElement)) return
 			if (ev.key!='Enter') return
 			const $e=ev.target.closest('time.listened')

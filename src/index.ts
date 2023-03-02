@@ -24,6 +24,7 @@ async function main() {
 		return
 	}
 
+	const $root=document.body
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
 	const serverListConfigSources:unknown[]=[serverListConfig]
@@ -34,11 +35,10 @@ async function main() {
 		}
 	} catch {}
 	const serverList=new ServerList(...serverListConfigSources)
-	new GlobalEventsListener()
+	new GlobalEventsListener($root)
 	let auth: Auth|undefined
 	const $menuButton=makeMenuButton()
 
-	const $root=document.body
 	const $navbarContainer=document.createElement('nav')
 	const $fetchContainer=makeDiv('panel','fetch')()
 	const $moreContainer=makeDiv('more')()

@@ -49,6 +49,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.expanders=new Expanders(storage,this.$table)
 		this.$table.setAttribute('role','grid')
 		const that=this
+		let $clickReadyNoteSection: HTMLTableSectionElement|undefined
 		this.wrappedNoteSectionListeners=[
 			['mouseenter',function(){
 				that.activateNote('hover',this)
@@ -57,11 +58,30 @@ export default class NoteTable implements NoteTableUpdater {
 				that.deactivateNote('hover',this)
 			}],
 			['mousemove',function(){
+				$clickReadyNoteSection=undefined
 				if (!this.classList.contains('active-click')) return
 				resetFadeAnimation(this,'active-click-fade')
 			}],
 			['animationend',function(){
 				that.deactivateNote('click',this)
+			}],
+			['mousedown',function(){
+				$clickReadyNoteSection=this
+			}],
+			['click',function(ev){
+				if (
+					that.$table.classList.contains('expanded-map-link') &&
+					$clickReadyNoteSection==this &&
+					!(
+						ev.target instanceof HTMLElement &&
+						ev.target.closest('a.listened, time.listened')
+					)
+				) {
+					that.focusOnNote(this,true)
+					ev.preventDefault()
+					ev.stopPropagation()
+				}
+				$clickReadyNoteSection=undefined
 			}]
 		]
 		this.wrappedNoteCheckboxClickListener=function(ev: MouseEvent){
