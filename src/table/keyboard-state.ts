@@ -125,7 +125,9 @@ export default class KeyboardState {
 		return 'none'
 	}
 	private respondToVerticalMovementKey(ev: KeyEvent): KeyResponse {
-		const setSectionAndRowIndicesFromRow=($row:HTMLTableRowElement):boolean=>{
+		const setSectionAndRowIndices=($item: HTMLElement):boolean=>{
+			const $row=$item.closest('tr')
+			if (!$row) return false
 			const $section=$row.parentElement
 			if (!($section instanceof HTMLTableSectionElement)) return false
 			const iRow=[...$section.rows].indexOf($row)
@@ -136,81 +138,19 @@ export default class KeyboardState {
 			this.iSection=iSection
 			return true
 		}
-		const setSectionAndRowIndicesFromSection=($section:HTMLTableSectionElement):boolean=>{
-			const iSection=[...this.$table.tBodies].indexOf($section)
-			if (iSection<0) return false
-			this.iRow=0
-			this.iSection=iSection
-			return true
-		}
-		const move=<T>(
-			getNextIndex: (i:number)=>number,
-			$currentItem: T|null,
-			$itemsIterable: Iterable<T>,
-			isVisible: ($item:HTMLElement)=>boolean,
-			setSectionAndRowIndices: ($item:T)=>boolean
-		):KeyResponse=>{
-			if (!$currentItem) return 'none'
-			const $items=[...$itemsIterable]
-			let i=$items.indexOf($currentItem)
-			if (i<0) return 'none'
-			for (i=getNextIndex(i);i>=0&&i<$items.length;i=getNextIndex(i)) {
-				const $item=$items[i]
-				if ($item instanceof HTMLElement && isVisible($item)) {
-					return setSectionAndRowIndices($item) ? 'nearFocus' : 'none'
-				}
-			}
-			return 'none'
-		}
-		const moveByRow=(
-			getNextIndex: (i:number)=>number
-		):KeyResponse=>{
-			return move(
-				getNextIndex,
-				this.getCurrentBodyRow(),
-				this.$table.querySelectorAll('tbody tr'),
-				$row=>!$row.hidden && !$row.parentElement?.hidden,
-				setSectionAndRowIndicesFromRow
-			)
-		}
-		const moveBySection=(
-			getNextIndex: (i:number)=>number
-		):KeyResponse=>{
-			return move(
-				getNextIndex,
-				this.getCurrentBodySection(),
-				this.$table.tBodies,
-				$section=>!$section.hidden,
-				setSectionAndRowIndicesFromSection
-			)
-		}
+		const $currentItem=this.getCurrentBodyItem()
+		if (!$currentItem) return 'none'
+		const $items=htmlElementArray(this.$table.querySelectorAll(`tbody:not([hidden]) tr:not([hidden]) ${selectors[this.iColumn][BODY]}`))
+		const i=$items.indexOf($currentItem)
+		if (i<0) return 'none'
 		if (ev.key=='ArrowUp') {
-			if (selectors[this.iColumn][SPAN]) {
-				return moveBySection(i=>i-1)
-			} else {
-				return moveByRow(i=>i-1)
-			}
+			return i>0 && setSectionAndRowIndices($items[i-1]) ? 'nearFocus' : 'none'
 		} else if (ev.key=='ArrowDown') {
-			if (selectors[this.iColumn][SPAN]) {
-				return moveBySection(i=>i+1)
-			} else {
-				return moveByRow(i=>i+1)
-			}
+			return i<$items.length-1 && setSectionAndRowIndices($items[i+1]) ? 'nearFocus' : 'none'
 		} else if (ev.key=='Home' && ev.ctrlKey) {
-			this.iSection=0
-			this.iRow=0
-			this.setToNearestVisible()
-			return 'farFocus'
+			return setSectionAndRowIndices($items[0]) ? 'farFocus' : 'none'
 		} else if (ev.key=='End' && ev.ctrlKey) {
-			this.iSection=this.$table.tBodies.length-1
-			if (selectors[this.iColumn][SPAN]) {
-				this.iRow=0
-			} else {
-				const $section=this.getCurrentBodySection()
-				this.iRow=$section?$section.rows.length-1:0
-			}
-			this.setToNearestVisible()
-			return 'farFocus'
+			return setSectionAndRowIndices($items[$items.length-1]) ? 'farFocus' : 'none'
 		}
 		return 'none'
 	}
@@ -243,4 +183,12 @@ export default class KeyboardState {
 			$e.scrollIntoView({block:'nearest'})
 		}
 	}
+}
+
+const htmlElementArray=($eIterable: Iterable<Element>): HTMLElement[]=>{
+	const $es: HTMLElement[] = []
+	for (const $e of $eIterable) {
+		if ($e instanceof HTMLElement) $es.push($e)
+	}
+	return $es
 }
