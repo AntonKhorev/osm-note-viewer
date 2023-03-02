@@ -222,7 +222,8 @@ body.flipped table:not(.expanded-username) td.note-user {
 }
 
 .notes td.note-map {
-	position: relative;
+	position: sticky;
+	right: 0;
 	padding: 0 1.25rem;
 }
 .notes td.note-map a {
