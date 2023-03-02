@@ -1,5 +1,5 @@
-import type NoteViewerStorage from './storage'
-import {makeElement} from './html'
+import type NoteViewerStorage from '../storage'
+import {makeElement} from '../html'
 
 type ExpanderDescription = [
 	defaultValue:boolean,
@@ -50,7 +50,7 @@ export default class Expanders {
 			if (value) this.$table.classList.add(tableClass)
 		}
 	}
-	makeButton(key:string): HTMLButtonElement|undefined {
+	makeButton(key: string, clickListener: (isExpanded:boolean)=>void = ()=>{}): HTMLButtonElement|undefined {
 		const expanderDescription=expanderDescriptions.get(key)
 		if (!expanderDescription) return
 		const [,
@@ -68,9 +68,10 @@ export default class Expanders {
 		const storageKey=`table-expanded[${key}]`
 		update(this.$table.classList.contains(tableClass))
 		$button.onclick=()=>{
-			const value=this.$table.classList.toggle(tableClass)
-			this.storage.setItem(storageKey,value?'1':'0')
-			update(value)
+			const isExpanded=this.$table.classList.toggle(tableClass)
+			this.storage.setItem(storageKey,isExpanded?'1':'0')
+			update(isExpanded)
+			clickListener(isExpanded)
 		}
 		return $button
 	}

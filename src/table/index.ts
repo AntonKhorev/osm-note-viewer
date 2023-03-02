@@ -3,11 +3,11 @@ import {getNoteUpdateDate} from '../data'
 import type NoteViewerStorage from '../storage'
 import type NoteMap from '../map'
 import NoteMarker from '../marker'
-import Expanders from '../expanders'
+import Expanders from './expanders'
 import LooseParserListener from '../loose-listen'
 import LooseParserPopup from '../loose-popup'
 import parseLoose from '../loose'
-import {writeNoteSectionRows, hideNoteSectionRows} from './section'
+import {writeHeadSectionRow, writeNoteSectionRows} from './section'
 import {makeNoteTableKeydownListener, noteTableCleanupRovingTabindex} from './keyboard'
 import CommentWriter, {handleShowImagesUpdate} from '../comment-writer'
 import type NoteFilter from '../filter'
@@ -228,7 +228,7 @@ export default class NoteTable implements NoteTableUpdater {
 		const getUsername=(uid:number)=>users[uid]
 		for (const note of noteSequence) {
 			if (this.$table.rows.length==0) {
-				const $header=this.writeTableHeader()
+				const $header=this.writeHeadSection()
 				this.noteSectionVisibilityObserver.stickyHeight=$header.offsetHeight
 				document.documentElement.style.setProperty('--table-header-height',$header.offsetHeight+'px')
 			}
@@ -321,38 +321,16 @@ export default class NoteTable implements NoteTableUpdater {
 			this.focusOnNote($noteSection)
 		}
 	}
-	private writeTableHeader(): HTMLTableSectionElement {
+	private writeHeadSection(): HTMLTableSectionElement {
 		const $header=this.$table.createTHead()
-		const $row=$header.insertRow()
 		this.$selectAllCheckbox.type='checkbox'
 		this.$selectAllCheckbox.title=`select all notes`
 		this.$selectAllCheckbox.addEventListener('click',this.wrappedAllNotesCheckboxClickListener)
-		const makeExpanderCell=(cssClass:string,title:string,key:string,clickListener?:()=>void)=>{
-			const $th=makeElement('th')(cssClass)()
-			const $button=this.expanders.makeButton(key)
-			if (title) $th.append(title)
-			if (title && $button) $th.append(` `)
-			if (clickListener) $button?.addEventListener('click',clickListener)
-			if ($button) $th.append($button)
-			return $th
-		}
-		const $actionCell=makeElement('th')('note-action')()
-		$actionCell.tabIndex=0
-		$row.append(
-			makeElement('th')('note-checkbox')(
-				this.$selectAllCheckbox
-			),
-			makeExpanderCell('note-link',`id`,'id'),
-			makeExpanderCell('note-comments-count',``,'comments',()=>{
-				const hidden=!this.$table.classList.contains('expanded-comments')
-				for (const $noteSection of this.$table.tBodies) {
-					hideNoteSectionRows($noteSection,hidden)
-				}
-			}),
-			makeExpanderCell('note-date',`date`,'date'),
-			makeExpanderCell('note-user',`user`,'username'),
-			$actionCell,
-			makeExpanderCell('note-comment',`comment`,'comment-lines')
+		writeHeadSectionRow(
+			$header,
+			this.$selectAllCheckbox,
+			(key,clickListener)=>this.expanders.makeButton(key,clickListener),
+			()=>this.$table.tBodies
 		)
 		return $header
 	}

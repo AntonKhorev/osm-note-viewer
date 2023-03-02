@@ -6,6 +6,40 @@ import {toReadableDate} from '../query-date'
 import {makeDiv, makeElement} from '../html'
 import {mark} from '../html-shortcuts'
 
+export function writeHeadSectionRow(
+	$section: HTMLTableSectionElement,
+	$checkbox: HTMLInputElement,
+	makeExpanderButton: (key:string,clickListener?:(isExpanded:boolean)=>void)=>HTMLButtonElement|undefined,
+	getNoteSections: ()=>Iterable<HTMLTableSectionElement>
+) {
+	const makeExpanderCell=(cssClass:string,title:string,key:string,clickListener?:(isExpanded:boolean)=>void)=>{
+		const $th=makeElement('th')(cssClass)()
+		const $button=makeExpanderButton(key,clickListener)
+		if (title) $th.append(title)
+		if (title && $button) $th.append(` `)
+		if ($button) $th.append($button)
+		return $th
+	}
+	const $actionCell=makeElement('th')('note-action')()
+	$actionCell.tabIndex=0
+	const $row=$section.insertRow()
+	$row.append(
+		makeElement('th')('note-checkbox')(
+			$checkbox
+		),
+		makeExpanderCell('note-link',`id`,'id'),
+		makeExpanderCell('note-comments-count',``,'comments',(isExpanded)=>{
+			for (const $noteSection of getNoteSections()) {
+				hideNoteSectionRows($noteSection,!isExpanded)
+			}
+		}),
+		makeExpanderCell('note-date',`date`,'date'),
+		makeExpanderCell('note-user',`user`,'username'),
+		$actionCell,
+		makeExpanderCell('note-comment',`comment`,'comment-lines')
+	)
+}
+
 /**
  * @returns comment cells
  */
@@ -117,7 +151,7 @@ export function writeNoteSectionRows(
 	return $commentCells
 }
 
-export function hideNoteSectionRows(
+function hideNoteSectionRows(
 	$noteSection: HTMLTableSectionElement,
 	hideRows: boolean
 ): void {
