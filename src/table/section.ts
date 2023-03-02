@@ -3,7 +3,7 @@ import type {WebProvider} from '../server'
 import type CommentWriter from '../comment-writer'
 import {makeDateOutput} from '../comment-writer'
 import {toReadableDate} from '../query-date'
-import {makeDiv, makeElement, makeLink} from '../html'
+import {makeDiv, makeElement} from '../html'
 import {a,mark} from '../html-shortcuts'
 
 export function writeHeadSectionRow(
@@ -52,7 +52,8 @@ export function writeNoteSectionRows(
 	hideRows: boolean,
 	showImages: boolean,
 	markUser: string|number|undefined,
-	markText: string|undefined
+	markText: string|undefined,
+	noteMapClickListener: ()=>void
 ): HTMLTableCellElement[] {
 	const $commentCells: HTMLTableCellElement[]=[]
 	let $row=$noteSection.insertRow()
@@ -153,8 +154,12 @@ export function writeNoteSectionRows(
 			$a.href=web.getNoteLocationUrl(note.lat,note.lon)
 			$a.title=`show note on map`
 			$a.innerHTML=`<svg><use href="#tools-map" /></svg>`
+			$a.onclick=ev=>{
+				noteMapClickListener()
+				ev.stopPropagation()
+				ev.preventDefault()
+			}
 			$cell.append($a)
-			$a.onclick=ev=>ev.preventDefault() // temporary link disabler
 		}
 		iComment++
 	}

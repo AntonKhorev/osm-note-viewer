@@ -21,7 +21,7 @@ export interface NoteTableUpdater {
 }
 
 export default class NoteTable implements NoteTableUpdater {
-	private wrappedNoteSectionListeners: Array<[event: string, listener: (this:HTMLTableSectionElement)=>void]>
+	private wrappedNoteSectionListeners: Array<[event: string, listener: (this:HTMLTableSectionElement,ev:Event)=>void]>
 	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedAllNotesCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
@@ -49,7 +49,6 @@ export default class NoteTable implements NoteTableUpdater {
 		this.expanders=new Expanders(storage,this.$table)
 		this.$table.setAttribute('role','grid')
 		const that=this
-		let $clickReadyNoteSection: HTMLTableSectionElement | undefined
 		this.wrappedNoteSectionListeners=[
 			['mouseenter',function(){
 				that.activateNote('hover',this)
@@ -58,24 +57,11 @@ export default class NoteTable implements NoteTableUpdater {
 				that.deactivateNote('hover',this)
 			}],
 			['mousemove',function(){
-				$clickReadyNoteSection=undefined // ideally should be reset by 'selectstart' event, however Chrome fires it even if no mouse drag has happened
 				if (!this.classList.contains('active-click')) return
 				resetFadeAnimation(this,'active-click-fade')
 			}],
 			['animationend',function(){
 				that.deactivateNote('click',this)
-			}],
-			['mousedown',function(){
-				$clickReadyNoteSection=this
-			}],
-			// ['selectstart',function(){
-			// 	$clickReadyNoteSection=undefined // Chrome is too eager to fire this event, have to cancel click from 'mousemove' instead
-			// }],
-			['click',function(){ // need 'click' and not 'mouseup' event because elements inside may listen to click and choose to cancel it
-				if ($clickReadyNoteSection==this) {
-					that.focusOnNote(this,true)
-				}
-				$clickReadyNoteSection=undefined
 			}]
 		]
 		this.wrappedNoteCheckboxClickListener=function(ev: MouseEvent){
@@ -365,7 +351,8 @@ export default class NoteTable implements NoteTableUpdater {
 			note,users,
 			!this.$table.classList.contains('expanded-comments'),
 			this.showImages,
-			this.markUser,this.markText
+			this.markUser,this.markText,
+			()=>this.focusOnNote($noteSection,true)
 		)
 		for (const $commentCell of $commentCells) {
 			this.looseParserListener.listen($commentCell)
