@@ -145,7 +145,7 @@ function writeBelowFetchPanel(
 		storage,map,filterPanel.noteFilter,
 		globalHistory.server
 	)
-	filterPanel.subscribe(noteFilter=>noteTable.updateFilter(noteFilter))
+	filterPanel.onFilterUpdate=noteFilter=>noteTable.updateFilter(noteFilter)
 	globalHistory.$resizeObservationTarget=$notesContainer
 
 	return noteTable

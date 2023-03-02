@@ -64,7 +64,7 @@ function term(t:string):string {
 
 export default class NoteFilterPanel {
 	noteFilter: NoteFilter
-	private callback?: (noteFilter: NoteFilter) => void
+	onFilterUpdate?: (noteFilter: NoteFilter) => void
 	constructor(
 		storage: NoteViewerStorage,
 		urlLister: ApiUrlLister&WebUrlLister,
@@ -81,16 +81,10 @@ export default class NoteFilterPanel {
 				storage.setString('filter',input)
 			},
 			()=>{
-				if (this.callback) this.callback(this.noteFilter)
+				this.onFilterUpdate?.(this.noteFilter)
 			},
 			syntaxDescription,syntaxExamples
 		)
 		$container.append($form)
-	}
-	subscribe(callback: (noteFilter: NoteFilter) => void) {
-		this.callback=callback
-	}
-	unsubscribe() {
-		this.callback=undefined
 	}
 }
