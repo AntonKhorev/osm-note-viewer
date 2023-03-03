@@ -493,6 +493,9 @@ class WebProvider extends OsmProvider {
     getUrl(path) {
         return `${this.urls[0]}${path}`;
     }
+    getNoteLocationUrl(lat, lon) {
+        return this.getUrl(`#map=15/${lat.toFixed(4)}/${lon.toFixed(4)}&layers=N`);
+    }
     makeUserLink(uid, username) {
         const href = this.getUrl(`user/` + encodeURIComponent(username));
         const $a = makeLink(username, href);
@@ -847,8 +850,8 @@ class ServerList {
 }
 
 class GlobalEventListener {
-    constructor() {
-        document.body.addEventListener('click', ev => {
+    constructor($root) {
+        $root.addEventListener('click', ev => {
             if (!(ev.target instanceof HTMLElement))
                 return;
             const $e = ev.target.closest('a.listened, time.listened');
@@ -876,7 +879,31 @@ class GlobalEventListener {
                     });
                 }
                 else if ($e.classList.contains('image')) {
-                    bubbleEvent($e, 'osmNoteViewer:imageToggle');
+                    let siblingImageSelector;
+                    if ($e.classList.contains('float')) {
+                        siblingImageSelector = 'a.listened.image.float';
+                    }
+                    else {
+                        siblingImageSelector = 'a.listened.image.inline';
+                    }
+                    const urlSet = new Set;
+                    if ($e.parentElement && siblingImageSelector) {
+                        const $siblingImageLinks = $e.parentElement.querySelectorAll('a.listened.image');
+                        for (const $siblingImageLink of $siblingImageLinks) {
+                            if (!($siblingImageLink instanceof HTMLAnchorElement))
+                                continue;
+                            if (!$siblingImageLink.href)
+                                continue;
+                            urlSet.add($siblingImageLink.href);
+                        }
+                    }
+                    const urls = [...urlSet.values()];
+                    let index = urls.indexOf($e.href);
+                    if (index < 0) {
+                        index = urls.length;
+                        urls.push($e.href);
+                    }
+                    bubbleCustomEvent($e, 'osmNoteViewer:imageToggle', { urls, index });
                 }
                 else {
                     return; // don't stop event propagation
@@ -891,8 +918,8 @@ class GlobalEventListener {
                     ev.stopPropagation();
                 }
             }
-        }, true); // need to capture event before it bubbles to note table sections
-        document.body.addEventListener('keydown', ev => {
+        });
+        $root.addEventListener('keydown', ev => {
             if (!(ev.target instanceof HTMLElement))
                 return;
             if (ev.key != 'Enter')
@@ -1183,6 +1210,7 @@ const em = (...ss) => makeElement('em')()(...ss);
 const strong = (...ss) => makeElement('strong')()(...ss);
 const sup = (...ss) => makeElement('sup')()(...ss);
 const dfn = (...ss) => makeElement('dfn')()(...ss);
+const kbd = (...ss) => makeElement('kbd')()(...ss);
 const code = (...ss) => makeElement('code')()(...ss);
 const mark = (...ss) => makeElement('mark')()(...ss);
 const a = (...ss) => makeElement('a')()(...ss);
@@ -2646,12 +2674,22 @@ class StorageSection {
     }
 }
 
+function makeHelpDialog(closeButtonLabel, content) {
+    const $helpDialog = makeElement('dialog')('help')();
+    const $closeButton = makeElement('button')()(closeButtonLabel);
+    $closeButton.onclick = () => {
+        $helpDialog.close();
+    };
+    $helpDialog.append(...content, makeDiv('major-input')($closeButton), makeDiv('notice')(`Press `, kbd(`F1`), ` again to access the default browser help; press `, kbd(`Esc`), ` to close this dialog.`));
+    return $helpDialog;
+}
+
 function makeMenuButton() {
     const $button = document.createElement('button');
     $button.classList.add('global', 'menu');
     $button.innerHTML = `<svg><use href="#menu" /></svg>`;
     $button.onclick = () => {
-        bubbleEvent($button, 'osmNoteViewer:toggleMenu');
+        bubbleEvent($button, 'osmNoteViewer:menuToggle');
     };
     return $button;
 }
@@ -2661,10 +2699,20 @@ class OverlayDialog {
         this.$menuButton = $menuButton;
         this.$menuPanel = makeElement('div')('menu')();
         this.$figureDialog = makeElement('dialog')('figure')();
-        this.fallbackMode = (window.HTMLDialogElement == null);
+        this.$figure = document.createElement('figure');
+        this.$backdrop = document.createElement('div');
+        this.$img = document.createElement('img');
+        this.$figureHelpDialog = makeHelpDialog(`Close image viewer help`, [
+            makeElement('h2')()(`Image viewer keyboard controls`),
+            ul(li(kbd(`Enter`), ` and `, kbd(`Space`), ` — toggle image zoom`), li(kbd(`Esc`), ` — close image viewer`)),
+            p(`When zoomed out:`),
+            ul(li(kbd(`Arrow keys`), ` — go to previous/next image in sequence`), li(kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last image in sequence`))
+        ]);
         this.menuHidden = !!auth;
         this.$menuButton.disabled = !auth;
         this.writeMenuPanel(storage, db, server, serverList, serverHash, auth);
+        this.writeFigureDialog();
+        $root.append(this.$figureHelpDialog);
         for (const eventType of [
             'osmNoteViewer:newNoteStream',
             'osmNoteViewer:mapMoveTrigger',
@@ -2674,99 +2722,111 @@ class OverlayDialog {
         ]) {
             $root.addEventListener(eventType, () => this.close());
         }
-        $root.addEventListener('osmNoteViewer:imageToggle', ev => {
-            if (!(ev.target instanceof HTMLAnchorElement))
-                return;
-            this.toggleImage(ev.target.href);
+        $root.addEventListener('osmNoteViewer:imageToggle', ({ detail: imageSequence }) => {
+            this.toggleImage(imageSequence);
         });
-        $root.addEventListener('osmNoteViewer:toggleMenu', () => {
-            if (this.url != null)
+        $root.addEventListener('osmNoteViewer:menuToggle', () => {
+            if (this.imageSequence != null)
                 this.close();
             this.menuHidden = !this.menuHidden;
             this.map?.hide(!this.menuHidden);
         });
     }
-    close() {
-        this.map?.hide(false);
-        this.menuHidden = true;
-        if (this.fallbackMode) {
-            return;
-        }
-        this.$figureDialog.close();
-        this.url = undefined;
-    }
-    toggleImage(url) {
-        if (this.fallbackMode) {
-            open(url, 'photo');
-            return;
-        }
-        this.menuHidden = true;
-        this.$figureDialog.innerHTML = '';
-        if (url == this.url) {
-            this.close();
-            return;
-        }
-        this.map?.hide(true);
-        const $figure = document.createElement('figure');
-        $figure.tabIndex = 0;
-        const $backdrop = document.createElement('div');
-        $backdrop.classList.add('backdrop');
-        $backdrop.style.backgroundImage = `url(${url})`;
-        const $img = document.createElement('img');
-        $img.src = url;
-        $img.alt = 'attached photo';
-        $figure.append($backdrop, $img);
+    writeFigureDialog() {
+        this.$figure.tabIndex = 0;
+        this.$backdrop.classList.add('backdrop');
+        this.$img.alt = 'attached photo';
+        this.updateImageState();
+        this.$figure.append(this.$backdrop, this.$img);
         const $closeButton = document.createElement('button');
+        $closeButton.tabIndex = -1;
         $closeButton.classList.add('global');
         $closeButton.innerHTML = `<svg><title>Close photo</title><use href="#reset" /></svg>`;
-        this.$figureDialog.append($figure, $closeButton);
-        $figure.addEventListener('keydown', (ev) => {
-            if (ev.key == 'Enter' || ev.key == ' ') {
-                ev.stopPropagation();
-                $figure.classList.toggle('zoomed');
+        this.$figureDialog.append(this.$figure, $closeButton);
+        this.$figureDialog.onkeydown = ev => {
+            if (ev.key == 'Escape') {
+                this.close();
             }
-        });
-        $figure.addEventListener('click', (ev) => {
-            if ($figure.classList.contains('zoomed')) {
-                $figure.classList.remove('zoomed');
+            else if (ev.key == 'F1') {
+                this.$figureHelpDialog.showModal();
+            }
+            else if (this.viewingZoomedOutImage) {
+                if (ev.key == 'ArrowUp' || ev.key == 'ArrowLeft') {
+                    this.switchToImageDelta(-1);
+                }
+                else if (ev.key == 'ArrowDown' || ev.key == 'ArrowRight') {
+                    this.switchToImageDelta(+1);
+                }
+                else if (ev.key == 'Home') {
+                    this.switchToImage(0);
+                }
+                else if (ev.key == 'End') {
+                    this.switchToImage(-1);
+                }
+                else {
+                    return;
+                }
+                this.updateImageState();
+            }
+            else {
+                return;
+            }
+            ev.stopPropagation();
+            ev.preventDefault();
+        };
+        this.$figureDialog.onwheel = ev => {
+            if (this.viewingZoomedOutImage) {
+                const dIndex = Math.sign(ev.deltaY);
+                if (!dIndex)
+                    return;
+                this.switchToImageDelta(dIndex);
+                this.updateImageState();
+                ev.stopPropagation();
+                ev.preventDefault();
+            }
+        };
+        this.$figure.onkeydown = ev => {
+            if (ev.key == 'Enter' || ev.key == ' ') {
+                this.$figure.classList.toggle('zoomed');
+            }
+            else {
+                return;
+            }
+            ev.stopPropagation();
+            ev.preventDefault();
+        };
+        this.$figure.onclick = ev => {
+            if (this.$figure.classList.contains('zoomed')) {
+                this.$figure.classList.remove('zoomed');
             }
             else {
                 const clamp = (num) => Math.min(Math.max(num, 0), 1);
-                let xScrollFraction = (ev.offsetX >= $figure.offsetWidth / 2 ? 1 : 0);
-                let yScrollFraction = (ev.offsetY >= $figure.offsetHeight / 2 ? 1 : 0);
-                if (ev.target == $img) {
-                    xScrollFraction = clamp(ev.offsetX / $img.offsetWidth);
-                    yScrollFraction = clamp(ev.offsetY / $img.offsetHeight);
+                let xScrollFraction = (ev.offsetX >= this.$figure.offsetWidth / 2 ? 1 : 0);
+                let yScrollFraction = (ev.offsetY >= this.$figure.offsetHeight / 2 ? 1 : 0);
+                if (ev.target == this.$img) {
+                    xScrollFraction = clamp(ev.offsetX / this.$img.offsetWidth);
+                    yScrollFraction = clamp(ev.offsetY / this.$img.offsetHeight);
                 }
-                $figure.classList.add('zoomed');
-                const xMaxScrollDistance = $figure.scrollWidth - $figure.clientWidth;
-                const yMaxScrollDistance = $figure.scrollHeight - $figure.clientHeight;
+                this.$figure.classList.add('zoomed');
+                const xMaxScrollDistance = this.$figure.scrollWidth - this.$figure.clientWidth;
+                const yMaxScrollDistance = this.$figure.scrollHeight - this.$figure.clientHeight;
                 if (xMaxScrollDistance > 0)
-                    $figure.scrollLeft = Math.round(xScrollFraction * xMaxScrollDistance);
+                    this.$figure.scrollLeft = Math.round(xScrollFraction * xMaxScrollDistance);
                 if (yMaxScrollDistance > 0)
-                    $figure.scrollTop = Math.round(yScrollFraction * yMaxScrollDistance);
+                    this.$figure.scrollTop = Math.round(yScrollFraction * yMaxScrollDistance);
             }
-        });
-        $figure.addEventListener('mousemove', (ev) => {
-            $closeButton.classList.toggle('right-position', ev.offsetX >= $figure.offsetWidth / 2);
-            $closeButton.classList.toggle('bottom-position', ev.offsetY >= $figure.offsetHeight / 2);
+        };
+        this.$figure.onmousemove = ev => {
+            $closeButton.classList.toggle('right-position', ev.offsetX >= this.$figure.offsetWidth / 2);
+            $closeButton.classList.toggle('bottom-position', ev.offsetY >= this.$figure.offsetHeight / 2);
             startOrResetFadeAnimation($closeButton, 'photo-button-fade', 'fading');
-        });
-        $closeButton.addEventListener('click', () => {
+        };
+        $closeButton.onclick = () => {
             this.close();
-        });
-        $closeButton.addEventListener('animationend', () => {
+        };
+        $closeButton.onanimationend = () => {
             $closeButton.classList.remove('fading');
-        });
-        this.$figureDialog.addEventListener('keydown', (ev) => {
-            if (ev.key == 'Escape') {
-                ev.stopPropagation();
-                this.close();
-            }
-        });
-        this.$figureDialog.show();
-        $figure.focus();
-        this.url = url;
+        };
     }
     writeMenuPanel(storage, db, server, serverList, serverHash, auth) {
         const $lead = makeDiv('lead')();
@@ -2793,6 +2853,25 @@ class OverlayDialog {
         $scrolling.append(makeExtraSubsection());
         this.$menuPanel.append($lead, $scrolling);
     }
+    close() {
+        this.map?.hide(false);
+        this.menuHidden = true;
+        this.$figureDialog.close();
+        this.imageSequence = undefined;
+        this.updateImageState();
+    }
+    toggleImage(imageSequence) {
+        this.menuHidden = true;
+        if (this.imageSequence && equalUrlSequences(imageSequence, this.imageSequence)) {
+            this.close();
+            return;
+        }
+        this.map?.hide(true);
+        this.imageSequence = imageSequence;
+        this.updateImageState();
+        this.$figureDialog.show();
+        this.$figure.focus();
+    }
     get menuHidden() {
         return this.$menuPanel.hidden;
     }
@@ -2801,9 +2880,41 @@ class OverlayDialog {
         this.$menuButton.classList.toggle('opened', !value);
         this.$menuButton.title = value ? `Open menu` : `Close menu`;
     }
+    updateImageState() {
+        this.$figure.classList.remove('zoomed');
+        if (this.imageSequence) {
+            const url = this.imageSequence.urls[this.imageSequence.index];
+            this.$backdrop.style.backgroundImage = `url(${url})`;
+            this.$img.src = url;
+        }
+        else {
+            this.$backdrop.style.removeProperty('backgroundImage');
+            this.$img.removeAttribute('src');
+        }
+    }
+    switchToImage(index) {
+        if (!this.imageSequence)
+            return;
+        this.imageSequence.index = (this.imageSequence.urls.length + index) % this.imageSequence.urls.length;
+    }
+    switchToImageDelta(dIndex) {
+        if (!this.imageSequence)
+            return;
+        this.imageSequence.index = (this.imageSequence.index + this.imageSequence.urls.length + dIndex) % this.imageSequence.urls.length;
+    }
+    get viewingZoomedOutImage() {
+        return !!this.imageSequence && !this.$figure.classList.contains('zoomed');
+    }
 }
 function makeExtraSubsection() {
     return makeElement('section')()(makeElement('h2')()(`Extra information`), p(`Notes implementation code: `, makeLink(`notes api controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/api/notes_controller.rb`), ` (db search query is build there), `, makeLink(`notes controller`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/controllers/notes_controller.rb`), ` (paginated user notes query is build there), `, makeLink(`note model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note.rb`), `, `, makeLink(`note comment model`, `https://github.com/openstreetmap/openstreetmap-website/blob/master/app/models/note_comment.rb`), ` in `, makeLink(`openstreetmap-website`, `https://wiki.openstreetmap.org/wiki/Openstreetmap-website`), ` (not implemented in `, makeLink(`CGIMap`, `https://wiki.openstreetmap.org/wiki/Cgimap`), `)`), p(`OAuth 2.0: `, makeLink(`main RFC`, `https://www.rfc-editor.org/rfc/rfc6749`), `, `, makeLink(`token revocation RFC`, `https://www.rfc-editor.org/rfc/rfc7009`), ` (logouts), `, makeLink(`proof key RFC`, `https://www.rfc-editor.org/rfc/rfc7636`), `, `, makeLink(`Doorkeeper`, `https://github.com/doorkeeper-gem/doorkeeper`), ` (OAuth implementation used in `, em(`openstreetmap-website`), `), `, makeLink(`OSM wiki`, `https://wiki.openstreetmap.org/wiki/OAuth`)), p(`Other documentation: `, makeLink(`Overpass queries`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL`), `, `, makeLink(`Puppeteer`, `https://pptr.dev/`), ` (in-browser testing)`));
+}
+function equalUrlSequences(seq1, seq2) {
+    if (seq1.index != seq2.index)
+        return false;
+    if (seq1.urls.length != seq2.urls.length)
+        return false;
+    return seq1.urls.every((_, i) => seq1.urls[i] == seq2.urls[i]);
 }
 
 const e$6 = makeEscapeTag(escapeXml);
@@ -5794,16 +5905,9 @@ class NoteFilterPanel {
             this.noteFilter = new NoteFilter(urlLister, input);
             storage.setString('filter', input);
         }, () => {
-            if (this.callback)
-                this.callback(this.noteFilter);
+            this.onFilterUpdate?.(this.noteFilter);
         }, syntaxDescription, syntaxExamples);
         $container.append($form);
-    }
-    subscribe(callback) {
-        this.callback = callback;
-    }
-    unsubscribe() {
-        this.callback = undefined;
     }
 }
 
@@ -5812,6 +5916,11 @@ const expanderDescriptions = new Map([
             true,
             'hor-out', 'hor-in',
             `show all id digits`, `show only changing id digits`
+        ]],
+    ['comments', [
+            true,
+            'ver-out', 'ver-in',
+            `show all comments/actions`, `show only first comment/action`
         ]],
     ['date', [
             false,
@@ -5823,16 +5932,16 @@ const expanderDescriptions = new Map([
             'hor-out', 'hor-in',
             `show full usernames with ids`, `clip long usernames`
         ]],
-    ['comments', [
-            true,
-            'ver-out', 'ver-in',
-            `show all comments/actions`, `show only first comment/action`
-        ]],
     ['comment-lines', [
             true,
             'ver-out', 'hor-out',
             `allow line breaks in comments`, `keep comments on one line`
-        ]]
+        ]],
+    ['map-link', [
+            true,
+            'hor-out', 'hor-in',
+            `stretch map links`, `don't stretch map links`
+        ]],
 ]);
 class Expanders {
     constructor(storage, $table) {
@@ -5851,7 +5960,7 @@ class Expanders {
                 this.$table.classList.add(tableClass);
         }
     }
-    makeButton(key) {
+    makeButton(key, clickListener = () => { }) {
         const expanderDescription = expanderDescriptions.get(key);
         if (!expanderDescription)
             return;
@@ -5867,9 +5976,10 @@ class Expanders {
         const storageKey = `table-expanded[${key}]`;
         update(this.$table.classList.contains(tableClass));
         $button.onclick = () => {
-            const value = this.$table.classList.toggle(tableClass);
-            this.storage.setItem(storageKey, value ? '1' : '0');
-            update(value);
+            const isExpanded = this.$table.classList.toggle(tableClass);
+            this.storage.setItem(storageKey, isExpanded ? '1' : '0');
+            update(isExpanded);
+            clickListener(isExpanded);
         };
         return $button;
     }
@@ -6288,25 +6398,48 @@ function imageErrorHandler() {
     this.removeAttribute('alt'); // render broken image icon
 }
 
+function writeHeadSectionRow($section, $checkbox, makeExpanderButton, getNoteSections, rowVisibilityChangeCallback) {
+    const makeExpanderCell = (cssClass, title, key, clickListener) => {
+        const $th = makeElement('th')(cssClass)();
+        const $button = makeExpanderButton(key, clickListener);
+        if (title)
+            $th.append(title);
+        if (title && $button)
+            $th.append(` `);
+        if ($button)
+            $th.append($button);
+        return $th;
+    };
+    const $actionCell = makeElement('th')('note-action')();
+    $actionCell.tabIndex = 0;
+    const $row = $section.insertRow();
+    $row.append(makeElement('th')('note-checkbox')($checkbox), makeExpanderCell('note-link', `id`, 'id'), makeExpanderCell('note-comments-count', ``, 'comments', (isExpanded) => {
+        for (const $noteSection of getNoteSections()) {
+            hideNoteSectionRows($noteSection, !isExpanded);
+        }
+        rowVisibilityChangeCallback();
+    }), makeExpanderCell('note-date', `date`, 'date'), makeExpanderCell('note-user', `user`, 'username'), $actionCell, makeExpanderCell('note-comment', `comment`, 'comment-lines'), makeExpanderCell('note-map', ``, 'map-link'));
+}
 /**
  * @returns comment cells
  */
-function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note, users, showImages, markUser, markText) {
+function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note, users, hideRows, showImages, markUser, markText, noteMapClickListener, rowVisibilityChangeCallback) {
     const $commentCells = [];
     let $row = $noteSection.insertRow();
     const nComments = note.comments.length;
-    {
+    const makeRowSpannedCell = (className) => {
         const $cell = $row.insertCell();
-        $cell.classList.add('note-checkbox');
+        $cell.classList.add(className);
         if (nComments > 1)
             $cell.rowSpan = nComments;
+        return $cell;
+    };
+    {
+        const $cell = makeRowSpannedCell('note-checkbox');
         $cell.append($checkbox);
     }
     {
-        const $cell = $row.insertCell();
-        $cell.classList.add('note-link');
-        if (nComments > 1)
-            $cell.rowSpan = nComments;
+        const $cell = makeRowSpannedCell('note-link');
         const $a = document.createElement('a');
         $a.href = web.getUrl(`note/` + encodeURIComponent(note.id));
         $a.dataset.noteId = $a.textContent = `${note.id}`;
@@ -6318,11 +6451,29 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
         $refreshWaitProgress.value = 0;
         $cell.append(makeDiv()($a, $refreshWaitProgress));
     }
+    {
+        const $cell = makeRowSpannedCell('note-comments-count');
+        const $button = makeElement('button')('icon-comments-count')();
+        if (note.comments.length > 1) {
+            $button.innerHTML = `<svg>` +
+                `<use href="#table-comments" /><text x="8" y="8"></text>` +
+                `</svg>`;
+            updateCommentsButton($button, hideRows, note.comments.length - 1);
+            $button.addEventListener('click', commentsButtonClickListener);
+            $button.addEventListener('click', rowVisibilityChangeCallback);
+        }
+        else {
+            $button.title = `no additional comments`;
+        }
+        $cell.append($button);
+    }
     let iComment = 0;
     for (const comment of note.comments) {
         {
             if (iComment > 0) {
                 $row = $noteSection.insertRow();
+                if (hideRows)
+                    $row.hidden = true;
             }
         }
         {
@@ -6370,21 +6521,6 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
                     `</svg>`;
                 $cell.append($icon);
             }
-            if (iComment == 0) {
-                const $icon = makeElement('span')('icon-comments-count')();
-                $icon.tabIndex = 0;
-                if (note.comments.length > 1) {
-                    const nAdditionalComments = note.comments.length - 1;
-                    $icon.title = `${nAdditionalComments} additional comment${nAdditionalComments > 1 ? `s` : ``}`;
-                    $icon.innerHTML = `<svg>` +
-                        `<use href="#table-comments" /><text x="8" y="8">${nAdditionalComments}</text>` +
-                        `</svg>`;
-                }
-                else {
-                    $icon.title = `no additional comments`;
-                }
-                $cell.append($icon);
-            }
         }
         {
             const $cell = $row.insertCell();
@@ -6393,9 +6529,65 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
             commentWriter.writeComment($cell, comment.text, showImages, markText);
             $commentCells.push($cell);
         }
+        if (iComment == 0) {
+            const $cell = makeRowSpannedCell('note-map');
+            const $a = a();
+            $a.href = web.getNoteLocationUrl(note.lat, note.lon);
+            $a.title = `show note on map`;
+            $a.innerHTML = `<svg><use href="#tools-map" /></svg>`;
+            $a.onclick = ev => {
+                noteMapClickListener();
+                ev.stopPropagation();
+                ev.preventDefault();
+            };
+            $cell.append($a);
+        }
         iComment++;
     }
     return $commentCells;
+}
+function hideNoteSectionRows($noteSection, hideRows) {
+    const $button = $noteSection.querySelector('td.note-comments-count button');
+    if (!($button instanceof HTMLButtonElement))
+        return;
+    hideNoteSectionRowsWithButton($noteSection, hideRows, $button);
+}
+function commentsButtonClickListener(ev) {
+    const $button = this;
+    const $noteSection = $button.closest('tbody');
+    if (!($noteSection instanceof HTMLTableSectionElement))
+        return;
+    const [, $row2] = $noteSection.rows;
+    const wasHidden = $row2?.hidden ?? true;
+    hideNoteSectionRowsWithButton($noteSection, !wasHidden, $button);
+    ev.stopPropagation();
+    // TODO update tabindices
+}
+function hideNoteSectionRowsWithButton($noteSection, hideRows, $button) {
+    let first = true;
+    for (const $row of $noteSection.rows) {
+        if (first) {
+            first = false;
+        }
+        else {
+            $row.hidden = hideRows;
+        }
+    }
+    updateCommentsButton($button, hideRows, $noteSection.rows.length - 1);
+}
+function updateCommentsButton($button, hiddenRows, nAdditionalComments) {
+    const s = nAdditionalComments > 1 ? `s` : ``;
+    const $text = $button.querySelector('text');
+    if (!$text)
+        return;
+    if (hiddenRows) {
+        $button.title = `show ${nAdditionalComments} comment${s}/action${s}`;
+        $text.textContent = String(nAdditionalComments);
+    }
+    else {
+        $button.title = `hide comment${s}/action${s}`;
+        $text.textContent = `−`;
+    }
 }
 function getActionClass(action) {
     if (action == 'opened' || action == 'reopened') {
@@ -6415,108 +6607,22 @@ function getActionClass(action) {
     }
 }
 
-const selectors = [
-    ['.note-checkbox input'],
-    ['.note-link a'],
-    ['.note-date time'],
-    ['.note-user a'],
-    ['.note-action [class|=icon]', '.note-action [class|=icon-status]', '.note-action .icon-comments-count'],
-    ['.note-comment']
-];
-const anySelector = selectors.map(([generalSelector]) => generalSelector).join(',');
-function noteTableKeydownListener(ev) {
-    const makeScopedSelector = (selector) => {
-        const [generalSelector, notOnlyFirstCommentSelector, onlyFirstCommentSelector] = selector;
-        const tbodySelectorPart = ev.shiftKey ? ' tbody' : ''; // prevent shift+movement from reaching 'select all' checkbox
-        return (`table.expanded-comments${tbodySelectorPart} ${notOnlyFirstCommentSelector ?? generalSelector}, ` +
-            `table:not(.expanded-comments)${tbodySelectorPart} tr:first-child ${onlyFirstCommentSelector ?? generalSelector}`);
-    };
-    if (ev.ctrlKey && ev.key.toLowerCase() == 'a') {
-        const $allCheckbox = this.querySelector('thead .note-checkbox input');
-        if (!($allCheckbox instanceof HTMLInputElement))
-            return;
-        $allCheckbox.click();
-        ev.stopPropagation();
-        ev.preventDefault();
-        return;
+class Pager {
+    constructor($scrollingPart) {
+        this.$scrollingPart = $scrollingPart;
     }
-    const isVerticalMovementKey = (ev.key == 'ArrowUp' ||
-        ev.key == 'ArrowDown' ||
-        ev.key == 'Home' && ev.ctrlKey ||
-        ev.key == 'End' && ev.ctrlKey ||
-        ev.key == 'PageUp' ||
-        ev.key == 'PageDown');
-    const isHorizontalMovementKey = (ev.key == 'ArrowLeft' ||
-        ev.key == 'ArrowRight' ||
-        ev.key == 'Home' && !ev.ctrlKey ||
-        ev.key == 'End' && !ev.ctrlKey);
-    if (!isVerticalMovementKey && !isHorizontalMovementKey)
-        return;
-    if (!(ev.target instanceof HTMLElement))
-        return;
-    const $e = ev.target.closest(anySelector);
-    if (!($e instanceof HTMLElement))
-        return;
-    const $section = $e.closest('thead, tbody');
-    if (!($section instanceof HTMLTableSectionElement))
-        return;
-    const $tr = $e.closest('tr');
-    if (!($tr instanceof HTMLTableRowElement))
-        return;
-    const iHasCommentRows = 2;
-    for (let i = 0; i < selectors.length; i++) {
-        const [generalSelector] = selectors[i];
-        if (!$e.matches(generalSelector))
-            continue;
-        if (isVerticalMovementKey) {
-            const $eList = this.querySelectorAll(makeScopedSelector(selectors[i]));
-            if (!moveVerticallyAmongProvidedElements(ev.key, $e, $eList, ev.shiftKey && i == 0))
-                return;
-        }
-        else if (isHorizontalMovementKey) {
-            const j = getIndexForKeyMovement(ev.key, i, selectors.length);
-            if (j < 0 || j >= selectors.length)
-                return;
-            const $e2 = (j < iHasCommentRows ? $section : $tr).querySelector(makeScopedSelector(selectors[j]));
-            if (!focus($e2))
-                return;
-        }
-        ev.stopPropagation();
-        ev.preventDefault();
+    goPageUp($items, fromIndex) {
+        return getNextPageIndex(this.$scrollingPart, $items, fromIndex, -1, 0, (scrollRect, rect) => rect.top > scrollRect.top - scrollRect.height);
+    }
+    goPageDown($items, fromIndex) {
+        return getNextPageIndex(this.$scrollingPart, $items, fromIndex, +1, $items.length - 1, (scrollRect, rect) => rect.bottom < scrollRect.bottom + scrollRect.height);
     }
 }
-function moveVerticallyAmongProvidedElements(key, $e, $eList, isSelection) {
-    const $es = [...$eList];
-    const i = $es.indexOf($e);
-    if (i < 0)
-        return false;
-    let j;
-    if (key == 'PageUp' || key == 'PageDown') {
-        const $scrollingPart = $e.closest('.scrolling');
-        if (!($scrollingPart instanceof HTMLElement))
-            return false;
-        const scrollRect = $scrollingPart.getBoundingClientRect();
-        if (key == 'PageUp') {
-            j = getNextPageIndex($es, i, -1, 0, rect => rect.top > scrollRect.top - scrollRect.height);
-        }
-        else {
-            j = getNextPageIndex($es, i, +1, $es.length - 1, rect => rect.bottom < scrollRect.bottom + scrollRect.height);
-        }
-    }
-    else {
-        j = getIndexForKeyMovement(key, i, $es.length);
-    }
-    if (i == j)
-        return false;
-    if (isSelection) {
-        checkRange($es, i, j);
-    }
-    return focus($es[j], key == 'Home' || key == 'End' || key == 'PageUp' || key == 'PageDown');
-}
-function getNextPageIndex($es, fromIndex, d, indexBound, checkRect) {
+function getNextPageIndex($scrollingPart, $es, fromIndex, d, indexBound, checkRect) {
+    const scrollRect = $scrollingPart.getBoundingClientRect();
     const checkIndexBound = (k) => k * d < indexBound * d;
     for (let j = fromIndex; checkIndexBound(j); j += d) {
-        if (checkRect($es[j].getBoundingClientRect()))
+        if (checkRect(scrollRect, $es[j].getBoundingClientRect()))
             continue;
         if (j * d > fromIndex * d) {
             return j;
@@ -6530,24 +6636,452 @@ function getNextPageIndex($es, fromIndex, d, indexBound, checkRect) {
     }
     return fromIndex;
 }
-function getIndexForKeyMovement(key, i, length) {
-    if (key == 'ArrowUp' || key == 'ArrowLeft') {
-        return i - 1;
-    }
-    else if (key == 'ArrowDown' || key == 'ArrowRight') {
-        return i + 1;
-    }
-    else if (key == 'Home') {
-        return 0;
-    }
-    else if (key == 'End') {
-        return length - 1;
-    }
-    return -1;
+
+const columnData = [
+    ['note-checkbox', 'input', 'input'],
+    ['note-link', 'button', 'a'],
+    ['note-comments-count', 'button', 'button'],
+    ['note-date', 'button', 'time'],
+    ['note-user', 'button', 'a'],
+    ['note-action', '', '[class|=icon]'],
+    ['note-comment', 'button', ''],
+    ['note-map', 'button', 'a'],
+];
+const nColumns = columnData.length;
+function getSelector(cellClass, subSelector) {
+    let selector = '.' + cellClass;
+    if (subSelector)
+        selector += ' ' + subSelector;
+    return selector;
 }
-function focus($e, far = false) {
+function getCellSelector(i) {
+    const [cellClass] = columnData[i];
+    return '.' + cellClass;
+}
+function getHeadSelector(i) {
+    const [cellClass, subSelector] = columnData[i];
+    return getSelector(cellClass, subSelector);
+}
+function getBodySelector(i) {
+    const [cellClass, , subSelector] = columnData[i];
+    return getSelector(cellClass, subSelector);
+}
+const iCheckboxColumn = 0;
+const iCommentColumn = 6;
+const focusableSelector = `a[href], input, button, [tabindex]`;
+const tabbableSelector = `a[href]:not([tabindex="-1"]), input:not([tabindex="-1"]), button:not([tabindex="-1"]), [tabindex="0"]`;
+const commentSubItemSelector = '.listened:not(.image.float)';
+class KeyboardState {
+    constructor($table) {
+        this.$table = $table;
+        this.iSection = Number($table.dataset.iKeyboardSection ?? '0');
+        this.iRow = Number($table.dataset.iKeyboardRow ?? '0');
+        this.iColumn = Number($table.dataset.iKeyboardColumn ?? '0');
+        if ($table.dataset.iKeyboardSubItem) {
+            this.iSubItem = Number($table.dataset.iKeyboardSubItem);
+        }
+    }
+    respondToKeyInHead(ev) {
+        const horKeyResponse = this.respondToHorizontalMovement(ev, true);
+        if (horKeyResponse.type != 'pass') {
+            this.save();
+        }
+        return horKeyResponse;
+    }
+    respondToKeyInBody(ev, pager) {
+        const commentKeyResponse = this.respondToMovementInsideComment(ev);
+        if (commentKeyResponse.type != 'pass') {
+            this.save();
+            return commentKeyResponse;
+        }
+        const horKeyResponse = this.respondToHorizontalMovement(ev, false);
+        if (horKeyResponse.type != 'pass') {
+            this.save();
+            return horKeyResponse;
+        }
+        const verKeyResponse = this.respondToVerticalMovement(ev, pager);
+        if (verKeyResponse.type != 'pass') {
+            this.save();
+            return verKeyResponse;
+        }
+        return { type: 'pass' };
+    }
+    setToNearestVisible() {
+        const getIndexOfNearestVisible = ($currentElement, $elementsIterable) => {
+            const $elements = [...$elementsIterable];
+            const i = $elements.indexOf($currentElement);
+            if (i < 0)
+                return 0;
+            for (let d = 0; i - d >= 0 || i + d < $elements.length; d++) {
+                if (i - d >= 0 && !$elements[i - d].hidden) {
+                    return i - d;
+                }
+                if (i + d < $elements.length && !$elements[i + d].hidden) {
+                    return i + d;
+                }
+            }
+            return 0;
+        };
+        const $currentSection = this.getCurrentBodySection();
+        if (!$currentSection) {
+            this.iSection = 0;
+            this.iRow = 0;
+            this.iSubItem = undefined;
+        }
+        else if ($currentSection.hidden) {
+            this.iRow = 0;
+            this.iSubItem = undefined;
+            this.iSection = getIndexOfNearestVisible($currentSection, this.$table.tBodies);
+        }
+        else {
+            const $currentRow = this.getCurrentBodyRow();
+            if (!$currentRow) {
+                this.iRow = 0;
+                this.iSubItem = undefined;
+            }
+            else {
+                const iRow2 = getIndexOfNearestVisible($currentRow, $currentSection.rows);
+                if (this.iRow != iRow2) {
+                    this.iRow = iRow2;
+                    this.iSubItem = undefined;
+                }
+                else if (this.iColumn == iCommentColumn && this.iSubItem != null) {
+                    const $subItems = $currentRow.querySelectorAll(`${getBodySelector(iCommentColumn)} ${commentSubItemSelector}`);
+                    if (this.iSubItem < 0 || this.iSubItem >= $subItems.length) {
+                        this.iSubItem = undefined;
+                    }
+                }
+                else {
+                    this.iSubItem = undefined;
+                }
+            }
+        }
+        this.save();
+    }
+    /**
+     * @returns element to focus if required
+     */
+    setToClicked($target) {
+        const $cell = $target.closest('td, th');
+        if (!($cell instanceof HTMLTableCellElement))
+            return;
+        const $row = $cell.parentElement;
+        if (!($row instanceof HTMLTableRowElement))
+            return;
+        const $section = $row.parentElement;
+        if (!($section instanceof HTMLTableSectionElement))
+            return;
+        for (let i = 0; i < nColumns; i++) {
+            if (!$cell.matches(getCellSelector(i)))
+                continue;
+            this.iColumn = i;
+            if ($section.tagName == 'THEAD') {
+                const [$focusElement,] = this.save();
+                if ($focusElement && $focusElement != $target.closest(focusableSelector)) {
+                    return $focusElement;
+                }
+            }
+            else {
+                const iSection = [...this.$table.tBodies].indexOf($section);
+                if (iSection < 0)
+                    return;
+                this.iSection = iSection;
+                const iRow = [...$section.rows].indexOf($row);
+                if (iRow < 0)
+                    return;
+                this.iRow = iRow;
+                this.iSubItem = undefined;
+                if (this.iColumn == iCommentColumn) {
+                    const $bodySubItem = $target.closest(commentSubItemSelector);
+                    if ($bodySubItem instanceof HTMLElement) {
+                        const iSubItem = [...$cell.querySelectorAll(commentSubItemSelector)].indexOf($bodySubItem);
+                        if (iSubItem >= 0) {
+                            this.iSubItem = iSubItem;
+                        }
+                    }
+                }
+                const [, $focusElement] = this.save();
+                if ($focusElement && $focusElement != $target.closest(focusableSelector)) {
+                    return $focusElement;
+                }
+            }
+        }
+    }
+    respondToMovementInsideComment(ev) {
+        if (this.iColumn != iCommentColumn)
+            return { type: 'pass' };
+        const $item = this.getCurrentBodyItem();
+        if (!$item)
+            return { type: 'pass' };
+        const makeFocusResponse = ($item) => ({
+            type: 'focus',
+            $item,
+            far: false
+        });
+        if (this.iSubItem == null) {
+            if (ev.key == 'Enter') {
+                const $commentSubItem = $item.querySelector(commentSubItemSelector);
+                if ($commentSubItem instanceof HTMLElement) {
+                    this.iSubItem = 0;
+                    return makeFocusResponse($commentSubItem);
+                }
+            }
+        }
+        else {
+            if (ev.key == 'Escape') {
+                this.iSubItem = undefined;
+                return makeFocusResponse($item);
+            }
+            const $commentSubItems = $item.querySelectorAll(commentSubItemSelector);
+            if (ev.key == 'ArrowLeft' || ev.key == 'ArrowUp') {
+                if (this.iSubItem > 0) {
+                    const $commentSubItem = $commentSubItems.item(this.iSubItem - 1);
+                    if ($commentSubItem instanceof HTMLElement) {
+                        this.iSubItem--;
+                        return makeFocusResponse($commentSubItem);
+                    }
+                }
+            }
+            else if (ev.key == 'ArrowRight' || ev.key == 'ArrowDown') {
+                if (this.iSubItem < $commentSubItems.length - 1) {
+                    const $commentSubItem = $commentSubItems.item(this.iSubItem + 1);
+                    if ($commentSubItem instanceof HTMLElement) {
+                        this.iSubItem++;
+                        return makeFocusResponse($commentSubItem);
+                    }
+                }
+            }
+        }
+        return { type: 'pass' };
+    }
+    respondToHorizontalMovement(ev, isInHead) {
+        const updateState = () => {
+            if (ev.key == 'ArrowLeft') {
+                if (this.iColumn > 0) {
+                    this.iColumn--;
+                    return true;
+                }
+            }
+            else if (ev.key == 'ArrowRight') {
+                if (this.iColumn < nColumns - 1) {
+                    this.iColumn++;
+                    return true;
+                }
+            }
+            else if (ev.key == 'Home' && !ev.ctrlKey) {
+                this.iColumn = 0;
+                return true;
+            }
+            else if (ev.key == 'End' && !ev.ctrlKey) {
+                this.iColumn = nColumns - 1;
+                return true;
+            }
+            return false;
+        };
+        if (!updateState())
+            return { type: 'pass' };
+        this.iSubItem = undefined;
+        const $item = isInHead ? this.getCurrentHeadItem() : this.getCurrentBodyItem();
+        if (!$item)
+            return { type: 'stop' };
+        return {
+            type: 'focus',
+            $item,
+            far: false
+        };
+    }
+    respondToVerticalMovement(ev, pager) {
+        const setSectionAndRowIndices = ($item) => {
+            const $row = $item.closest('tr');
+            if (!$row)
+                return false;
+            const $section = $row.parentElement;
+            if (!($section instanceof HTMLTableSectionElement))
+                return false;
+            const iRow = [...$section.rows].indexOf($row);
+            if (iRow < 0)
+                return false;
+            const iSection = [...this.$table.tBodies].indexOf($section);
+            if (iSection < 0)
+                return false;
+            this.iSubItem = undefined;
+            this.iRow = iRow;
+            this.iSection = iSection;
+            return true;
+        };
+        const $currentItem = this.getCurrentBodyItem();
+        if (!$currentItem)
+            return { type: 'pass' };
+        const $items = htmlElementArray(this.$table.querySelectorAll(`tbody:not([hidden]) tr:not([hidden]) ${getBodySelector(this.iColumn)}`));
+        const i = $items.indexOf($currentItem);
+        if (i < 0)
+            return { type: 'pass' };
+        let j;
+        if (ev.key == 'ArrowUp') {
+            if (i > 0)
+                j = i - 1;
+        }
+        else if (ev.key == 'ArrowDown') {
+            if (i < $items.length - 1)
+                j = i + 1;
+        }
+        else if (ev.key == 'Home' && ev.ctrlKey) {
+            j = 0;
+        }
+        else if (ev.key == 'End' && ev.ctrlKey) {
+            j = $items.length - 1;
+        }
+        else if (ev.key == 'PageUp' && pager) {
+            j = pager.goPageUp($items, i);
+        }
+        else if (ev.key == 'PageDown' && pager) {
+            j = pager.goPageDown($items, i);
+        }
+        else {
+            return { type: 'pass' };
+        }
+        const isSelection = ev.shiftKey && this.iColumn == iCheckboxColumn;
+        const bailResponse = ev.shiftKey ? { type: 'stop' } : { type: 'pass' };
+        if (j != null && i != j) {
+            const far = !(ev.key == 'ArrowUp' || ev.key == 'ArrowDown');
+            const $fromItem = $items[i];
+            const $item = $items[j];
+            if (setSectionAndRowIndices($items[j])) {
+                return { type: isSelection ? 'check' : 'focus', $fromItem, $item, far };
+            }
+        }
+        return bailResponse;
+    }
+    getCurrentHeadItem() {
+        const $headSection = this.$table.tHead;
+        if (!$headSection)
+            return null;
+        return $headSection.querySelector(getHeadSelector(this.iColumn));
+    }
+    getCurrentBodyItem() {
+        const selector = getBodySelector(this.iColumn);
+        const $section = this.$table.tBodies.item(this.iSection);
+        if (!$section)
+            return null;
+        const $row = $section.rows.item(this.iRow);
+        return $row?.querySelector(selector) ?? $section.querySelector(selector);
+    }
+    getCurrentBodySection() {
+        return this.$table.tBodies.item(this.iSection);
+    }
+    getCurrentBodyRow() {
+        const $section = this.getCurrentBodySection();
+        if (!$section)
+            return null;
+        return $section.rows.item(this.iRow);
+    }
+    save() {
+        this.$table.dataset.iKeyboardSection = String(this.iSection);
+        this.$table.dataset.iKeyboardRow = String(this.iRow);
+        this.$table.dataset.iKeyboardColumn = String(this.iColumn);
+        if (this.iSubItem != null) {
+            this.$table.dataset.iKeyboardSubItem = String(this.iSubItem);
+        }
+        else {
+            delete this.$table.dataset.iKeyboardSubItem;
+        }
+        for (const $e of this.$table.querySelectorAll(`:is(thead, tbody) :is(${tabbableSelector})`)) {
+            if ($e instanceof HTMLElement)
+                $e.tabIndex = -1;
+        }
+        const $headRecipient = this.getCurrentHeadItem();
+        let $bodyRecipient = this.getCurrentBodyItem();
+        if ($bodyRecipient && this.iColumn == iCommentColumn && this.iSubItem != null) {
+            const $bodySubItem = $bodyRecipient.querySelectorAll(commentSubItemSelector).item(this.iSubItem);
+            if ($bodySubItem instanceof HTMLElement)
+                $bodyRecipient = $bodySubItem;
+        }
+        if ($headRecipient)
+            $headRecipient.tabIndex = 0;
+        if ($bodyRecipient)
+            $bodyRecipient.tabIndex = 0;
+        return [$headRecipient, $bodyRecipient];
+    }
+}
+const htmlElementArray = ($eIterable) => {
+    const $es = [];
+    for (const $e of $eIterable) {
+        if ($e instanceof HTMLElement)
+            $es.push($e);
+    }
+    return $es;
+};
+
+function makeNoteTableKeydownListener() {
+    const $helpDialog = makeHelpDialog(`Close note table help`, [
+        makeElement('h2')()(`Note table keyboard controls`),
+        p(`Inside the table head:`),
+        ul(li(kbd(`Left`), ` / `, kbd(`Right`), ` — go to adjacent table controls`), li(kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last control`), li(kbd(`Tab`), ` — go to table body`)),
+        p(`Inside the table body:`),
+        ul(li(kbd(`Arrow keys`), ` — go to adjacent table cell`), li(kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last column`), li(kbd(`Ctrl`), ` + `, kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last row`), li(kbd(`PageUp`), ` / `, kbd(`PageDown`), ` — go approximately one viewport up/down`), li(kbd(`Shift`), ` + any vertical navigation keys while in the checkbox column — select notes`), li(kbd(`Ctrl`), ` + `, kbd(`A`), ` — select all notes`), li(kbd(`Enter`), ` while in comment column — go inside the comment cell`), li(kbd(`Esc`), ` while inside a comment cell — exit the cell`), li(kbd(`Shift`), ` + `, kbd(`Tab`), ` — go to table head`)),
+    ]);
+    return [function (ev) {
+            if (ev.key == 'F1') {
+                $helpDialog.showModal();
+            }
+            else {
+                noteTableKeydownListener(this, ev);
+            }
+        }, $helpDialog];
+}
+function noteTableCleanupRovingTabindex($table) {
+    const keyboardState = new KeyboardState($table);
+    keyboardState.setToNearestVisible();
+}
+function noteTableCaptureClickListener(ev) {
+    const $table = this;
+    const $e = ev.target;
     if (!($e instanceof HTMLElement))
-        return false;
+        return;
+    const keyboardState = new KeyboardState($table);
+    const $focusElement = keyboardState.setToClicked($e);
+    $focusElement?.focus();
+}
+function noteTableKeydownListener($table, ev) {
+    if (ev.ctrlKey && ev.key.toLowerCase() == 'a') {
+        const $allCheckbox = $table.querySelector('thead .note-checkbox input');
+        if (!($allCheckbox instanceof HTMLInputElement))
+            return;
+        $allCheckbox.click();
+        ev.stopPropagation();
+        ev.preventDefault();
+        return;
+    }
+    if (!(ev.target instanceof HTMLElement))
+        return;
+    const $section = ev.target.closest('thead, tbody');
+    if (!($section instanceof HTMLTableSectionElement))
+        return;
+    const keyboardState = new KeyboardState($table);
+    let keyResponse;
+    if ($section.tagName == 'THEAD') {
+        keyResponse = keyboardState.respondToKeyInHead(ev);
+    }
+    else {
+        let pager;
+        const $scrollingPart = $table.closest('.scrolling'); // TODO pass
+        if ($scrollingPart)
+            pager = new Pager($scrollingPart);
+        keyResponse = keyboardState.respondToKeyInBody(ev, pager);
+    }
+    if (keyResponse.type == 'check') {
+        keyResponse.$fromItem.dispatchEvent(new MouseEvent('click'));
+        keyResponse.$item.dispatchEvent(new MouseEvent('click', { shiftKey: true }));
+    }
+    if (keyResponse.type == 'focus' || keyResponse.type == 'check') {
+        focus(keyResponse.$item, keyResponse.far);
+    }
+    if (keyResponse.type != 'pass') {
+        ev.stopPropagation();
+        ev.preventDefault();
+    }
+}
+function focus($e, far) {
     if (far) {
         $e.focus({ preventScroll: true });
         $e.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); // TODO delay map autozoom to notes on screen in table
@@ -6556,11 +7090,6 @@ function focus($e, far = false) {
         $e.focus();
         $e.scrollIntoView({ block: 'nearest' });
     }
-    return true;
-}
-function checkRange($es, fromIndex, toIndex) {
-    $es[fromIndex].dispatchEvent(new MouseEvent('click'));
-    $es[toIndex].dispatchEvent(new MouseEvent('click', { shiftKey: true }));
 }
 
 class NoteSectionVisibilityObserver {
@@ -6648,7 +7177,7 @@ class IdShortener {
         return this.bound == 0;
     }
     split(id) {
-        if (!this.diverse || this.bound == null)
+        if (!this.diverse || this.bound == null || this.bound < 2)
             return ['', id];
         return [id.slice(0, this.bound), id.slice(this.bound)];
     }
@@ -6664,6 +7193,7 @@ class NoteTable {
         this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
         this.usersById = new Map();
         this.showImages = false;
+        this.wrappedCleanupRovingTabindex = () => noteTableCleanupRovingTabindex(this.$table);
         this.expanders = new Expanders(storage, this.$table);
         this.$table.setAttribute('role', 'grid');
         const that = this;
@@ -6676,7 +7206,7 @@ class NoteTable {
                     that.deactivateNote('hover', this);
                 }],
             ['mousemove', function () {
-                    $clickReadyNoteSection = undefined; // ideally should be reset by 'selectstart' event, however Chrome fires it even if no mouse drag has happened
+                    $clickReadyNoteSection = undefined;
                     if (!this.classList.contains('active-click'))
                         return;
                     resetFadeAnimation(this, 'active-click-fade');
@@ -6687,12 +7217,14 @@ class NoteTable {
             ['mousedown', function () {
                     $clickReadyNoteSection = this;
                 }],
-            // ['selectstart',function(){
-            // 	$clickReadyNoteSection=undefined // Chrome is too eager to fire this event, have to cancel click from 'mousemove' instead
-            // }],
-            ['click', function () {
-                    if ($clickReadyNoteSection == this) {
+            ['click', function (ev) {
+                    if (that.$table.classList.contains('expanded-map-link') &&
+                        $clickReadyNoteSection == this &&
+                        !(ev.target instanceof HTMLElement &&
+                            ev.target.closest('a.listened, time.listened'))) {
                         that.focusOnNote(this, true);
+                        ev.preventDefault();
+                        ev.stopPropagation();
                     }
                     $clickReadyNoteSection = undefined;
                 }]
@@ -6706,7 +7238,10 @@ class NoteTable {
         this.wrappedNoteMarkerClickListener = function () {
             that.noteMarkerClickListener(this);
         };
-        this.$table.addEventListener('keydown', noteTableKeydownListener);
+        const [keydownListener, $helpDialog] = makeNoteTableKeydownListener();
+        $root.append($helpDialog);
+        this.$table.addEventListener('keydown', keydownListener);
+        this.$table.addEventListener('click', noteTableCaptureClickListener, true);
         this.noteSectionVisibilityObserver = new NoteSectionVisibilityObserver((visibleNoteIds, isMapFittingHalted) => {
             map.showNoteTrack(visibleNoteIds);
             if (!isMapFittingHalted && this.mapFitMode == 'inViewNotes')
@@ -6841,6 +7376,7 @@ class NoteTable {
             }
         }
         this.updateCheckboxDependentsAndSendNoteChangeEvents();
+        noteTableCleanupRovingTabindex(this.$table);
     }
     /**
      * @returns number of added notes that passed through the filter
@@ -6860,7 +7396,7 @@ class NoteTable {
         const getUsername = (uid) => users[uid];
         for (const note of noteSequence) {
             if (this.$table.rows.length == 0) {
-                const $header = this.writeTableHeader();
+                const $header = this.writeHeadSection();
                 this.noteSectionVisibilityObserver.stickyHeight = $header.offsetHeight;
                 document.documentElement.style.setProperty('--table-header-height', $header.offsetHeight + 'px');
             }
@@ -6964,24 +7500,12 @@ class NoteTable {
             this.focusOnNote($noteSection);
         }
     }
-    writeTableHeader() {
+    writeHeadSection() {
         const $header = this.$table.createTHead();
-        const $row = $header.insertRow();
         this.$selectAllCheckbox.type = 'checkbox';
         this.$selectAllCheckbox.title = `select all notes`;
         this.$selectAllCheckbox.addEventListener('click', this.wrappedAllNotesCheckboxClickListener);
-        const makeExpanderCell = (title, key) => {
-            const $th = makeElement('th')()();
-            const $button = this.expanders.makeButton(key);
-            if (title)
-                $th.append(title);
-            if (title && $button)
-                $th.append(` `);
-            if ($button)
-                $th.append($button);
-            return $th;
-        };
-        $row.append(makeElement('th')('note-checkbox')(this.$selectAllCheckbox), makeExpanderCell(`id`, 'id'), makeExpanderCell(`date`, 'date'), makeExpanderCell(`user`, 'username'), makeExpanderCell(``, 'comments'), makeExpanderCell(`comment`, 'comment-lines'));
+        writeHeadSectionRow($header, this.$selectAllCheckbox, (key, clickListener) => this.expanders.makeButton(key, clickListener), () => this.$table.tBodies, this.wrappedCleanupRovingTabindex);
         return $header;
     }
     makeMarker(note, isVisible) {
@@ -7005,10 +7529,11 @@ class NoteTable {
             }
         }
         $checkbox.setAttribute('aria-label', `${note.status} note at latitude ${note.lat}, longitude ${note.lon}`);
-        const $commentCells = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, $checkbox, note, users, this.showImages, this.markUser, this.markText);
+        const $commentCells = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, $checkbox, note, users, !this.$table.classList.contains('expanded-comments'), this.showImages, this.markUser, this.markText, () => this.focusOnNote($noteSection, true), this.wrappedCleanupRovingTabindex);
         for (const $commentCell of $commentCells) {
             this.looseParserListener.listen($commentCell);
         }
+        noteTableCleanupRovingTabindex(this.$table);
     }
     updateShortenedNoteIds() {
         const shortener = new IdShortener;
@@ -9592,6 +10117,7 @@ async function main() {
     if (checkAuthRedirect()) {
         return;
     }
+    const $root = document.body;
     const storage = new NoteViewerStorage('osm-note-viewer-');
     const db = await NoteViewerDB.open();
     const serverListConfigSources = [serverListConfig];
@@ -9603,10 +10129,9 @@ async function main() {
     }
     catch { }
     const serverList = new ServerList(...serverListConfigSources);
-    new GlobalEventListener();
+    new GlobalEventListener($root);
     let auth;
     const $menuButton = makeMenuButton();
-    const $root = document.body;
     const $navbarContainer = document.createElement('nav');
     const $fetchContainer = makeDiv('panel', 'fetch')();
     const $moreContainer = makeDiv('more')();
@@ -9669,7 +10194,7 @@ function writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer
     $stickyPart.append($toolContainer);
     new ToolPanel($root, $toolContainer, storage, auth, map);
     const noteTable = new NoteTable($root, $notesContainer, storage, map, filterPanel.noteFilter, globalHistory.server);
-    filterPanel.subscribe(noteFilter => noteTable.updateFilter(noteFilter));
+    filterPanel.onFilterUpdate = noteFilter => noteTable.updateFilter(noteFilter);
     globalHistory.$resizeObservationTarget = $notesContainer;
     return noteTable;
 }

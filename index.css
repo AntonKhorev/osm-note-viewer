@@ -615,10 +615,12 @@ nav [role=tablist] [role=tab]:focus {
 }
 
 /*** css/notes.css ***/
+.notes {
+	--cell-pad: 2px;
+}
 .notes table {
 	border-collapse: collapse;
-	margin: 0 2px;
-	min-width: calc(100% - 4px);
+	min-width: 100%;
 }
 .notes caption {
 	margin: .5em;
@@ -664,15 +666,6 @@ nav [role=tablist] [role=tab]:focus {
 .notes tbody {
 	position: relative;
 }
-.notes tbody.status-open {
-	box-shadow: -2px 0px 0px 0px red, 2px 0px 0px 0px red;
-}
-.notes tbody.status-closed {
-	box-shadow: -2px 0px 0px 0px green, 2px 0px 0px 0px green;
-}
-.notes tbody.status-hidden {
-	box-shadow: -2px 0px 0px 0px black, 2px 0px 0px 0px black;
-}
 .notes tbody.active-hover::before {
 	content: '';
 	display: block;
@@ -694,8 +687,26 @@ nav [role=tablist] [role=tab]:focus {
 }
 .notes td,
 .notes th {
-	padding: 2px;
+	padding: var(--cell-pad);
 }
+.notes td:focus-visible,
+.notes th:focus-visible {
+	outline-offset: calc(0px - var(--cell-pad));
+}
+.notes :is(td.note-comments-count, td.note-action) [class|=icon] {
+	position: relative;
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	vertical-align: text-top;
+}
+.notes :is(td.note-comments-count, td.note-action) [class|=icon] > svg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+
 .notes td.note-link > div {
 	position: relative;
 	display: grid;
@@ -730,9 +741,35 @@ nav [role=tablist] [role=tab]:focus {
 .notes td.note-link > div progress::-webkit-progress-value {
 	background-color: var(--refresh-color);
 }
+.notes table:not(.expanded-id) td.note-link a .constant {
+	display: none;
+}
+.notes table:not(.expanded-id) td.note-link a .constant + .variable::before {
+	content: '...';
+}
+
+.notes td.note-comments-count [class|=icon-comments-count] {
+	border: 0;
+	padding: 0;
+	background: transparent;
+}
+.notes td.note-comments-count [class|=icon-comments-count]:not(:empty):hover {
+	outline: auto;
+}
+.notes td.note-comments-count [class|=icon-comments-count] > svg text {
+	font-family: sans-serif;
+	font-size: 10px;
+	text-anchor: middle;
+	dominant-baseline: central;
+}
+
 .notes td.note-date {
 	white-space: nowrap;
 }
+.notes table:not(.expanded-date) td.note-date time > span {
+	display: none;
+}
+
 .notes td.note-user {
 	white-space: nowrap;
 	text-overflow: ellipsis;
@@ -746,19 +783,16 @@ nav [role=tablist] [role=tab]:focus {
 	font-size: .7em;
 	font-family: sans-serif;
 }
-.notes td.note-action [class|=icon] {
-	position: relative;
-	display: inline-block;
-	width: 16px;
-	height: 16px;
-	vertical-align: text-top;
+.notes table:not(.expanded-username) td.note-user {
+	max-width: 20vw;
 }
-.notes td.note-action [class|=icon] > svg {
-	position: absolute;
-	inset: 0;
-	width: 100%;
-	height: 100%;
+body.flipped table:not(.expanded-username) td.note-user {
+	max-width: 10vw;
 }
+.notes table:not(.expanded-username) td.note-user .uid {
+	display: none;
+}
+
 .notes td.note-action [class|=icon-status-open] > svg {
 	--table-note-default-part-visibility: hidden;
 	--table-note-open-part-visibility: visible;
@@ -775,12 +809,7 @@ nav [role=tablist] [role=tab]:focus {
 	--table-note-default-part-visibility: hidden;
 	--table-note-hidden-part-visibility: visible;
 }
-.notes td.note-action [class|=icon-comments-count] > svg text {
-	font-family: sans-serif;
-	font-size: 10px;
-	text-anchor: middle;
-	dominant-baseline: central;
-}
+
 .notes td.note-comment {
 	--comment-img-gap-size: 2px;
 	--comment-link-outline: solid orange var(--comment-img-gap-size);
@@ -811,36 +840,49 @@ nav [role=tablist] [role=tab]:focus {
 .notes table.with-images td.note-comment a.image.float {
 	display: block;
 }
-.notes table:not(.expanded-id) td.note-link a .constant {
-	display: none;
-}
-.notes table:not(.expanded-id) td.note-link a .constant + .variable::before {
-	content: '...';
-}
-.notes table:not(.expanded-date) td.note-date time > span {
-	display: none;
-}
-.notes table:not(.expanded-username) td.note-user {
-	max-width: 20vw;
-}
-body.flipped table:not(.expanded-username) td.note-user {
-	max-width: 10vw;
-}
-.notes table:not(.expanded-username) td.note-user .uid {
-	display: none;
-}
-.notes table:not(.expanded-comments) tr:not(:first-child) {
-	display: none;
-}
-.notes table:not(.expanded-comments) td.note-action [class|=icon-status] {
-	display: none;
-}
-.notes table.expanded-comments td.note-action [class|=icon-comments-count] {
-	display: none;
-}
 .notes table:not(.expanded-comment-lines) td.note-comment {
 	white-space: nowrap;
 	overflow: hidden;
+}
+
+.notes th.note-map {
+	text-align: center;
+}
+.notes td.note-map {
+	position: sticky;
+	right: 0;
+	padding: 0 1.25rem;
+}
+.notes td.note-map a {
+	box-sizing: border-box;
+	position: absolute;
+	inset: 0;
+	height: 100%;
+	width: 100%;
+	padding: 0;
+	border: outset 1px #888;
+	background: #888;
+}
+.notes td.note-map a:not(:hover) {
+	filter: grayscale(50%);
+}
+.notes td.note-map a:focus-visible {
+	outline-offset: calc(0px - var(--cell-pad));
+}
+.notes tbody.status-open td.note-map a {
+	border-color: #F88;
+	background: #F88;
+}
+.notes tbody.status-closed td.note-map a {
+	border-color: #8F8;
+	background: #8F8;
+}
+.notes td.note-map a > svg {
+	position: absolute;
+	inset: 0;
+	margin: auto;
+	width: 19px;
+	height: 13px;
 }
 
 /*** css/map.css ***/
@@ -1057,5 +1099,45 @@ dialog.figure button:focus {
 	outline: auto;
 	opacity: 1;
 	animation: none;
+}
+
+dialog.help {
+	padding: 1rem;
+}
+dialog.help > h2:first-child {
+	margin-top: 0;
+}
+dialog.help .major-input {
+	margin: 1rem 0;
+}
+dialog.help .major-input button {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	padding: var(--major-button-padding);
+}
+dialog.help .notice {
+	margin-left: -1rem;
+	margin-right: -1rem;
+	padding: 1rem;
+	background: var(--notice-background-color);
+}
+dialog.help > .notice:last-child {
+	margin-bottom: -1rem;
+}
+dialog.help p,
+dialog.help ul {
+	line-height: 1.5;
+}
+dialog.help kbd {
+	display: inline-block;
+	background: var(--inset-background-color);
+	border-radius: 3px;
+	line-height: 1;
+	padding: 2px 4px;
+	white-space: nowrap;
+	font-weight: bold;
+	border: solid 1px var(--frame-color);
+	box-shadow: 0 1px 1px var(--frame-color);
 }
 
