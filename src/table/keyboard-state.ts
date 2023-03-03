@@ -167,7 +167,16 @@ export default class KeyboardState {
 				const iRow=[...$section.rows].indexOf($row)
 				if (iRow<0) return
 				this.iRow=iRow
-				// TODO comment subitem
+				this.iSubItem=undefined
+				if (this.iColumn==iCommentColumn) {
+					const $bodySubItem=$target.closest(commentSubItemSelector)
+					if ($bodySubItem instanceof HTMLElement) {
+						const iSubItem=[...$cell.querySelectorAll(commentSubItemSelector)].indexOf($bodySubItem)
+						if (iSubItem>=0) {
+							this.iSubItem=iSubItem
+						}
+					}
+				}
 				const [,$focusElement]=this.save()
 				if ($focusElement && $focusElement!=$target.closest(focusableSelector)) {
 					return $focusElement

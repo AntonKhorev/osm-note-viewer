@@ -400,39 +400,56 @@ describe("browser tests",function(){
 		assert.equal(lastError,undefined)
 	})
 	it("can enter and exit comment cell",async function(){
+		const nodeUrl=id=>this.osmServer.url+'node/'+id
+		const nodeSelector=id=>`.notes tbody .note-comment a[href="${nodeUrl(id)}"]`
 		this.osmServer.setNotes([{
 			"id": 101,
 			"comments": [{
 				"date": "2022-04-01",
 				"text": "the-first-note-comment\n"+
-					"https://westnordost.de/p/1.jpg\n"+
-					"https://westnordost.de/p/2.jpg\n"+
-					"https://westnordost.de/p/3.jpg"
+					nodeUrl(1)+"\n"+
+					nodeUrl(2)+"\n"+
+					nodeUrl(3)
 			}]
 		}])
 		const page=await this.openPage()
 		const fetchButton=await this.waitForFetchButton()
 		await fetchButton.click()
 		await page.waitForSelector('.notes tbody')
-		const commentCell=await page.$('.notes tbody .note-comment')
-		await commentCell.focus()
+		{
+			const commentCell=await page.$('.notes tbody .note-comment')
+			await commentCell.click()
+		}
 		assert.notEqual(
 			await page.$('.notes tbody .note-comment:focus'),
 			null
 		)
 		await page.keyboard.press('Enter')
 		assert.notEqual(
-			await page.$('.notes tbody .note-comment a[href="https://westnordost.de/p/1.jpg"]:focus'),
+			await page.$(nodeSelector(1)+':focus'),
 			null
 		)
 		await page.keyboard.press('ArrowDown')
 		assert.notEqual(
-			await page.$('.notes tbody .note-comment a[href="https://westnordost.de/p/2.jpg"]:focus'),
+			await page.$(nodeSelector(2)+':focus'),
 			null
 		)
 		await page.keyboard.press('Escape')
 		assert.notEqual(
 			await page.$('.notes tbody .note-comment:focus'),
+			null
+		)
+		{
+			const a=await page.$(nodeSelector(2))
+			await a.click()
+		}
+		assert.notEqual(
+			await page.$(nodeSelector(2)+':focus'),
+			null
+		)
+		await page.keyboard.press('ArrowDown')
+		assert.notEqual(
+			await page.$(nodeSelector(3)+':focus'),
 			null
 		)
 	})
