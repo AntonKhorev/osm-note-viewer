@@ -43,6 +43,15 @@ export function noteTableCleanupRovingTabindex($table: HTMLTableElement) {
 	keyboardState.setToNearestVisible()
 }
 
+export function noteTableCaptureClickListener(this: HTMLTableElement, ev: Event) {
+	const $table=this
+	const $e=ev.target
+	if (!($e instanceof HTMLElement)) return
+	const keyboardState=new KeyboardState($table)
+	const $focusElement=keyboardState.setToClicked($e)
+	$focusElement?.focus()
+}
+
 function noteTableKeydownListener($table: HTMLTableElement, ev: KeyboardEvent): void {
 	if (ev.ctrlKey && ev.key.toLowerCase()=='a') {
 		const $allCheckbox=$table.querySelector('thead .note-checkbox input')

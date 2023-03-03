@@ -1,21 +1,37 @@
 import type Pager from './pager'
 
-const selectors: [headSelector:string,bodySelector:string][] = [
-	['.note-checkbox input','.note-checkbox input'],
-	['.note-link button','.note-link a'],
-	['.note-comments-count button','.note-comments-count button'],
-	['.note-date button','.note-date time'],
-	['.note-user button','.note-user a'],
-	['.note-action','.note-action [class|=icon]'],
-	['.note-comment button','.note-comment'],
-	['.note-map button','.note-map a'],
+const columnData: [cellClass:string, headSelector:string, bodySelector:string][] = [
+	['note-checkbox','input','input'],
+	['note-link','button','a'],
+	['note-comments-count','button','button'],
+	['note-date','button','time'],
+	['note-user','button','a'],
+	['note-action','','[class|=icon]'],
+	['note-comment','button',''],
+	['note-map','button','a'],
 ]
-const HEAD=0
-const BODY=1
-
+const nColumns=columnData.length
+function getSelector(cellClass: string, subSelector: string): string {
+	let selector='.'+cellClass
+	if (subSelector) selector+=' '+subSelector
+	return selector
+}
+function getCellSelector(i: number): string {
+	const [cellClass]=columnData[i]
+	return '.'+cellClass
+}
+function getHeadSelector(i: number): string {
+	const [cellClass,subSelector]=columnData[i]
+	return getSelector(cellClass,subSelector)
+}
+function getBodySelector(i: number): string {
+	const [cellClass,,subSelector]=columnData[i]
+	return getSelector(cellClass,subSelector)
+}
 const iCheckboxColumn=0
 const iCommentColumn=6
 
+const focusableSelector=`a[href], input, button, [tabindex]`
 const tabbableSelector=`a[href]:not([tabindex="-1"]), input:not([tabindex="-1"]), button:not([tabindex="-1"]), [tabindex="0"]`
 const commentSubItemSelector='.listened:not(.image.float)'
 
@@ -115,7 +131,7 @@ export default class KeyboardState {
 					this.iRow=iRow2
 					this.iSubItem=undefined
 				} else if (this.iColumn==iCommentColumn && this.iSubItem!=null) {
-					const $subItems=$currentRow.querySelectorAll(`${selectors[BODY]} ${commentSubItemSelector}`)
+					const $subItems=$currentRow.querySelectorAll(`${getBodySelector(iCommentColumn)} ${commentSubItemSelector}`)
 					if (this.iSubItem<0 || this.iSubItem>=$subItems.length) {
 						this.iSubItem=undefined
 					}
@@ -125,6 +141,39 @@ export default class KeyboardState {
 			}
 		}
 		this.save()
+	}
+	/**
+	 * @returns element to focus if required
+	 */
+	setToClicked($target: HTMLElement): HTMLElement|undefined {
+		const $cell=$target.closest('td, th')
+		if (!($cell instanceof HTMLTableCellElement)) return
+		const $row=$cell.parentElement
+		if (!($row instanceof HTMLTableRowElement)) return
+		const $section=$row.parentElement
+		if (!($section instanceof HTMLTableSectionElement)) return
+		for (let i=0;i<nColumns;i++) {
+			if (!$cell.matches(getCellSelector(i))) continue
+			this.iColumn=i
+			if ($section.tagName=='THEAD') {
+				const [$focusElement,]=this.save()
+				if ($focusElement && $focusElement!=$target.closest(focusableSelector)) {
+					return $focusElement
+				}
+			} else {
+				const iSection=[...this.$table.tBodies].indexOf($section)
+				if (iSection<0) return
+				this.iSection=iSection
+				const iRow=[...$section.rows].indexOf($row)
+				if (iRow<0) return
+				this.iRow=iRow
+				// TODO comment subitem
+				const [,$focusElement]=this.save()
+				if ($focusElement && $focusElement!=$target.closest(focusableSelector)) {
+					return $focusElement
+				}
+			}
+		}
 	}
 	private respondToMovementInsideComment(ev: KeyEvent): KeyResponse {
 		if (this.iColumn!=iCommentColumn) return {type:'pass'}
@@ -177,7 +226,7 @@ export default class KeyboardState {
 					return true
 				}
 			} else if (ev.key=='ArrowRight') {
-				if (this.iColumn<selectors.length-1) {
+				if (this.iColumn<nColumns-1) {
 					this.iColumn++
 					return true
 				}
@@ -185,7 +234,7 @@ export default class KeyboardState {
 				this.iColumn=0
 				return true
 			} else if (ev.key=='End' && !ev.ctrlKey) {
-				this.iColumn=selectors.length-1
+				this.iColumn=nColumns-1
 				return true
 			}
 			return false
@@ -217,7 +266,7 @@ export default class KeyboardState {
 		}
 		const $currentItem=this.getCurrentBodyItem()
 		if (!$currentItem) return {type:'pass'}
-		const $items=htmlElementArray(this.$table.querySelectorAll(`tbody:not([hidden]) tr:not([hidden]) ${selectors[this.iColumn][BODY]}`))
+		const $items=htmlElementArray(this.$table.querySelectorAll(`tbody:not([hidden]) tr:not([hidden]) ${getBodySelector(this.iColumn)}`))
 		const i=$items.indexOf($currentItem)
 		if (i<0) return {type:'pass'}
 		let j: number|undefined
@@ -251,10 +300,10 @@ export default class KeyboardState {
 	private getCurrentHeadItem(): HTMLElement|null {
 		const $headSection=this.$table.tHead
 		if (!$headSection) return null
-		return $headSection.querySelector(selectors[this.iColumn][HEAD])
+		return $headSection.querySelector(getHeadSelector(this.iColumn))
 	}
 	private getCurrentBodyItem(): HTMLElement|null {
-		const selector=selectors[this.iColumn][BODY]
+		const selector=getBodySelector(this.iColumn)
 		const $section=this.$table.tBodies.item(this.iSection)
 		if (!$section) return null
 		const $row=$section.rows.item(this.iRow)
@@ -268,7 +317,10 @@ export default class KeyboardState {
 		if (!$section) return null
 		return $section.rows.item(this.iRow)
 	}
-	private save(): void {
+	private save(): [
+		$headTabIndexRecipient:HTMLElement|null,
+		$bodyTabIndexRecipient:HTMLElement|null
+	] {
 		this.$table.dataset.iKeyboardSection=String(this.iSection)
 		this.$table.dataset.iKeyboardRow    =String(this.iRow)
 		this.$table.dataset.iKeyboardColumn =String(this.iColumn)
@@ -280,17 +332,15 @@ export default class KeyboardState {
 		for (const $e of this.$table.querySelectorAll(`:is(thead, tbody) :is(${tabbableSelector})`)) {
 			if ($e instanceof HTMLElement) $e.tabIndex=-1
 		}
-		const $headItem=this.getCurrentHeadItem()
-		if ($headItem) $headItem.tabIndex=0
-		const $bodyItem=this.getCurrentBodyItem()
-		if ($bodyItem) {
-			if (this.iColumn==iCommentColumn && this.iSubItem!=null) {
-				const $subItem=$bodyItem.querySelectorAll(commentSubItemSelector).item(this.iSubItem)
-				if ($subItem instanceof HTMLElement) $subItem.tabIndex=0
-			} else {
-				$bodyItem.tabIndex=0
-			}
+		const $headRecipient=this.getCurrentHeadItem()
+		let $bodyRecipient=this.getCurrentBodyItem()
+		if ($bodyRecipient && this.iColumn==iCommentColumn && this.iSubItem!=null) {
+			const $bodySubItem=$bodyRecipient.querySelectorAll(commentSubItemSelector).item(this.iSubItem)
+			if ($bodySubItem instanceof HTMLElement) $bodyRecipient=$bodySubItem
 		}
+		if ($headRecipient) $headRecipient.tabIndex=0
+		if ($bodyRecipient) $bodyRecipient.tabIndex=0
+		return [$headRecipient,$bodyRecipient]
 	}
 }
 

@@ -379,12 +379,14 @@ describe("browser tests",function(){
 		await fetchButton.click()
 		await page.waitForSelector('.notes tbody')
 		const commentCell=await page.$('.notes tbody .note-comment')
-		await commentCell.focus()
+		await commentCell.click()
 		let lastError
 		page.on('pageerror',(error)=>{
 			lastError=error
 		})
 		await page.keyboard.press('ArrowRight')
+		await page.keyboard.press('ArrowRight')
+		await page.keyboard.press('ArrowLeft')
 		await page.keyboard.press('ArrowLeft')
 		assert.notEqual(
 			await page.$('.notes tbody .note-action:focus-within'),

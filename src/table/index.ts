@@ -8,7 +8,7 @@ import LooseParserListener from '../loose-listen'
 import LooseParserPopup from '../loose-popup'
 import parseLoose from '../loose'
 import {writeHeadSectionRow, writeNoteSectionRows} from './section'
-import {makeNoteTableKeydownListener, noteTableCleanupRovingTabindex} from './keyboard'
+import {makeNoteTableKeydownListener, noteTableCaptureClickListener, noteTableCleanupRovingTabindex} from './keyboard'
 import CommentWriter, {handleShowImagesUpdate} from '../comment-writer'
 import type NoteFilter from '../filter'
 import NoteSectionVisibilityObserver from './observer'
@@ -98,6 +98,7 @@ export default class NoteTable implements NoteTableUpdater {
 		const [keydownListener,$helpDialog]=makeNoteTableKeydownListener()
 		$root.append($helpDialog)
 		this.$table.addEventListener('keydown',keydownListener)
+		this.$table.addEventListener('click',noteTableCaptureClickListener,true)
 		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver((visibleNoteIds,isMapFittingHalted)=>{
 			map.showNoteTrack(visibleNoteIds)
 			if (!isMapFittingHalted && this.mapFitMode=='inViewNotes') map.fitNoteTrack()
