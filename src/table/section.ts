@@ -154,7 +154,7 @@ export function writeNoteSectionRows(
 		}
 		if (iComment==0) {
 			const $cell=makeRowSpannedCell('note-map')
-			const $a=a(`M`)
+			const $a=a()
 			$a.href=web.getNoteLocationUrl(note.lat,note.lon)
 			$a.title=`show note on map`
 			$a.innerHTML=`<svg><use href="#tools-map" /></svg>`

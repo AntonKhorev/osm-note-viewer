@@ -1,3 +1,6 @@
+.notes {
+	--cell-pad: 2px;
+}
 .notes table {
 	border-collapse: collapse;
 	min-width: 100%;
@@ -67,7 +70,11 @@
 }
 .notes td,
 .notes th {
-	padding: 2px;
+	padding: var(--cell-pad);
+}
+.notes td:focus-visible,
+.notes th:focus-visible {
+	outline-offset: calc(0px - var(--cell-pad));
 }
 .notes :is(td.note-comments-count, td.note-action) [class|=icon] {
 	position: relative;
@@ -241,6 +248,9 @@ body.flipped table:not(.expanded-username) td.note-user {
 }
 .notes td.note-map a:not(:hover) {
 	filter: grayscale(50%);
+}
+.notes td.note-map a:focus-visible {
+	outline-offset: calc(0px - var(--cell-pad));
 }
 .notes tbody.status-open td.note-map a {
 	border-color: #F88;
