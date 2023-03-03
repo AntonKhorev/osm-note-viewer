@@ -21,8 +21,15 @@ type KeyEvent = {
 	ctrlKey: boolean
 }
 
-type KeyFocusResponse = 'nearFocus' | 'farFocus'
-type KeyResponse = 'none' | KeyFocusResponse
+export type KeyResponse = {
+	type: 'pass'
+} | {
+	type: 'stop'
+} | {
+	type: 'focus'
+	far: boolean
+	$item: HTMLElement
+}
 
 export default class KeyboardState {
 	iSection: number
@@ -35,32 +42,25 @@ export default class KeyboardState {
 		this.iRow    =Number($table.dataset.iKeyboardRow??'0')
 		this.iColumn =Number($table.dataset.iKeyboardColumn??'0')
 	}
-	respondToKeyInHead(ev: KeyEvent): boolean {
-		const horKeyResponse=this.respondToHorizontalMovementKey(ev)
-		if (horKeyResponse!='none') {
-			const $item=this.getCurrentHeadItem()
-			if ($item) this.focus($item,horKeyResponse)
+	respondToKeyInHead(ev: KeyEvent): KeyResponse {
+		const horKeyResponse=this.respondToHorizontalMovementKey(ev,true)
+		if (horKeyResponse.type!='pass') {
 			this.save()
-			return true
 		}
-		return false
+		return horKeyResponse
 	}
-	respondToKeyInBody(ev: KeyEvent, pager?: Pager): boolean {
-		const horKeyResponse=this.respondToHorizontalMovementKey(ev)
-		if (horKeyResponse!='none') {
-			const $item=this.getCurrentBodyItem()
-			if ($item) this.focus($item,horKeyResponse)
+	respondToKeyInBody(ev: KeyEvent, pager?: Pager): KeyResponse {
+		const horKeyResponse=this.respondToHorizontalMovementKey(ev,false)
+		if (horKeyResponse.type!='pass') {
 			this.save()
-			return true
+			return horKeyResponse
 		}
 		const verKeyResponse=this.respondToVerticalMovementKey(ev,pager)
-		if (verKeyResponse!='none') {
-			const $item=this.getCurrentBodyItem()
-			if ($item) this.focus($item,verKeyResponse)
+		if (verKeyResponse.type!='pass') {
 			this.save()
-			return true
+			return verKeyResponse
 		}
-		return false
+		return {type:'pass'}
 	}
 	setToNearestVisible(): void {
 		const getIndexOfNearestVisible=($currentElement:HTMLElement,$elementsIterable:Iterable<HTMLElement>):number=>{
@@ -94,25 +94,35 @@ export default class KeyboardState {
 		}
 		this.save()
 	}
-	private respondToHorizontalMovementKey(ev: KeyEvent): KeyResponse {
-		if (ev.key=='ArrowLeft') {
-			if (this.iColumn>0) {
-				this.iColumn--
-				return 'nearFocus'
+	private respondToHorizontalMovementKey(ev: KeyEvent, isInHead: boolean): KeyResponse {
+		const updateState=():boolean=>{
+			if (ev.key=='ArrowLeft') {
+				if (this.iColumn>0) {
+					this.iColumn--
+					return true
+				}
+			} else if (ev.key=='ArrowRight') {
+				if (this.iColumn<selectors.length-1) {
+					this.iColumn++
+					return true
+				}
+			} else if (ev.key=='Home' && !ev.ctrlKey) {
+				this.iColumn=0
+				return true
+			} else if (ev.key=='End' && !ev.ctrlKey) {
+				this.iColumn=selectors.length-1
+				return true
 			}
-		} else if (ev.key=='ArrowRight') {
-			if (this.iColumn<selectors.length-1) {
-				this.iColumn++
-				return 'nearFocus'
-			}
-		} else if (ev.key=='Home' && !ev.ctrlKey) {
-			this.iColumn=0
-			return 'nearFocus'
-		} else if (ev.key=='End' && !ev.ctrlKey) {
-			this.iColumn=selectors.length-1
-			return 'nearFocus'
+			return false
 		}
-		return 'none'
+		if (!updateState()) return {type:'pass'}
+		const $item = isInHead ? this.getCurrentHeadItem() : this.getCurrentBodyItem()
+		if (!$item) return {type:'stop'}
+		return {
+			type: 'focus',
+			$item,
+			far: false
+		}
 	}
 	private respondToVerticalMovementKey(ev: KeyEvent, pager?: Pager): KeyResponse {
 		const setSectionAndRowIndices=($item: HTMLElement):boolean=>{
@@ -129,10 +139,10 @@ export default class KeyboardState {
 			return true
 		}
 		const $currentItem=this.getCurrentBodyItem()
-		if (!$currentItem) return 'none'
+		if (!$currentItem) return {type:'pass'}
 		const $items=htmlElementArray(this.$table.querySelectorAll(`tbody:not([hidden]) tr:not([hidden]) ${selectors[this.iColumn][BODY]}`))
 		const i=$items.indexOf($currentItem)
-		if (i<0) return 'none'
+		if (i<0) return {type:'pass'}
 		let j: number|undefined
 		if (ev.key=='ArrowUp') {
 			if (i>0) j=i-1
@@ -148,13 +158,14 @@ export default class KeyboardState {
 			j=pager.goPageDown($items,i)
 		}
 		if (j!=null && i!=j) {
-			const focusType=(ev.key=='ArrowUp' || ev.key=='ArrowDown'
-				? 'nearFocus'
-				: 'farFocus'
+			const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
+			const $item=$items[j]
+			return (setSectionAndRowIndices($items[j]) 
+				? {type: 'focus', $item, far}
+				: {type: 'pass'}
 			)
-			return setSectionAndRowIndices($items[j]) ? focusType : 'none'
 		}
-		return 'none'
+		return {type:'pass'}
 	}
 	private getCurrentHeadItem(): HTMLElement|null {
 		const $headSection=this.$table.tHead
@@ -175,15 +186,6 @@ export default class KeyboardState {
 		const $section=this.getCurrentBodySection()
 		if (!$section) return null
 		return $section.rows.item(this.iRow)
-	}
-	private focus($e: HTMLElement, response: KeyFocusResponse): void {
-		if (response=='farFocus') {
-			$e.focus({preventScroll:true})
-			$e.scrollIntoView({block:'nearest',behavior:'smooth'}) // TODO delay map autozoom to notes on screen in table
-		} else {
-			$e.focus()
-			$e.scrollIntoView({block:'nearest'})
-		}
 	}
 	private save(): void {
 		this.$table.dataset.iKeyboardSection=String(this.iSection)

@@ -1,5 +1,5 @@
 import Pager from './pager'
-import KeyboardState from './keyboard-state'
+import KeyboardState, {KeyResponse} from './keyboard-state'
 import makeHelpDialog from '../help-dialog'
 import {makeElement} from '../html'
 import {ul,li,p,kbd} from '../html-shortcuts'
@@ -56,17 +56,33 @@ function noteTableKeydownListener($table: HTMLTableElement, ev: KeyboardEvent): 
 	const $section=ev.target.closest('thead, tbody')
 	if (!($section instanceof HTMLTableSectionElement)) return
 	const keyboardState=new KeyboardState($table)
+	let keyResponse: KeyResponse
 	if ($section.tagName=='THEAD') {
-		if (!keyboardState.respondToKeyInHead(ev)) return
+		keyResponse=keyboardState.respondToKeyInHead(ev)
 	} else {
 		let pager: Pager|undefined
 		const $scrollingPart=$table.closest('.scrolling') // TODO pass
 		if ($scrollingPart) pager=new Pager($scrollingPart)
-		if (!keyboardState.respondToKeyInBody(ev,pager)) return
+		keyResponse=keyboardState.respondToKeyInBody(ev,pager)
 		
 	}
-	ev.stopPropagation()
-	ev.preventDefault()
+	if (keyResponse.type=='focus') {
+		focus(keyResponse.$item,keyResponse.far)
+	}
+	if (keyResponse.type!='pass') {
+		ev.stopPropagation()
+		ev.preventDefault()
+	}
+}
+
+function focus($e: HTMLElement, far: boolean): void {
+	if (far) {
+		$e.focus({preventScroll:true})
+		$e.scrollIntoView({block:'nearest',behavior:'smooth'}) // TODO delay map autozoom to notes on screen in table
+	} else {
+		$e.focus()
+		$e.scrollIntoView({block:'nearest'})
+	}
 }
 
 /*
