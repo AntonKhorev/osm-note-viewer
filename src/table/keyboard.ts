@@ -41,7 +41,6 @@ export function makeNoteTableKeydownListener(): [
 export function noteTableCleanupRovingTabindex($table: HTMLTableElement) {
 	const keyboardState=new KeyboardState($table)
 	keyboardState.setToNearestVisible()
-	keyboardState.save()
 }
 
 function noteTableKeydownListener($table: HTMLTableElement, ev: KeyboardEvent): void {
@@ -66,7 +65,6 @@ function noteTableKeydownListener($table: HTMLTableElement, ev: KeyboardEvent): 
 		if (!keyboardState.respondToKeyInBody(ev,pager)) return
 		
 	}
-	keyboardState.save()
 	ev.stopPropagation()
 	ev.preventDefault()
 }

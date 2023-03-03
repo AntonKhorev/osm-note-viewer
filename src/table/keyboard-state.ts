@@ -35,23 +35,12 @@ export default class KeyboardState {
 		this.iRow    =Number($table.dataset.iKeyboardRow??'0')
 		this.iColumn =Number($table.dataset.iKeyboardColumn??'0')
 	}
-	save(): void {
-		this.$table.dataset.iKeyboardSection=String(this.iSection)
-		this.$table.dataset.iKeyboardRow    =String(this.iRow)
-		this.$table.dataset.iKeyboardColumn =String(this.iColumn)
-		for (const $e of this.$table.querySelectorAll(`:is(thead, tbody) :is(${tabbableSelector})`)) {
-			if ($e instanceof HTMLElement) $e.tabIndex=-1
-		}
-		const $headItem=this.getCurrentHeadItem()
-		if ($headItem) $headItem.tabIndex=0
-		const $bodyItem=this.getCurrentBodyItem()
-		if ($bodyItem) $bodyItem.tabIndex=0
-	}
 	respondToKeyInHead(ev: KeyEvent): boolean {
 		const horKeyResponse=this.respondToHorizontalMovementKey(ev)
 		if (horKeyResponse!='none') {
 			const $item=this.getCurrentHeadItem()
 			if ($item) this.focus($item,horKeyResponse)
+			this.save()
 			return true
 		}
 		return false
@@ -61,23 +50,19 @@ export default class KeyboardState {
 		if (horKeyResponse!='none') {
 			const $item=this.getCurrentBodyItem()
 			if ($item) this.focus($item,horKeyResponse)
+			this.save()
 			return true
 		}
 		const verKeyResponse=this.respondToVerticalMovementKey(ev,pager)
 		if (verKeyResponse!='none') {
 			const $item=this.getCurrentBodyItem()
 			if ($item) this.focus($item,verKeyResponse)
+			this.save()
 			return true
 		}
 		return false
 	}
 	setToNearestVisible(): void {
-		const $currentSection=this.getCurrentBodySection()
-		if (!$currentSection) {
-			this.iSection=0
-			this.iRow=0
-			return
-		}
 		const getIndexOfNearestVisible=($currentElement:HTMLElement,$elementsIterable:Iterable<HTMLElement>):number=>{
 			const $elements=[...$elementsIterable]
 			const i=$elements.indexOf($currentElement)
@@ -92,7 +77,11 @@ export default class KeyboardState {
 			}
 			return 0
 		}
-		if ($currentSection.hidden) {
+		const $currentSection=this.getCurrentBodySection()
+		if (!$currentSection) {
+			this.iSection=0
+			this.iRow=0
+		} else if ($currentSection.hidden) {
 			this.iRow=0
 			this.iSection=getIndexOfNearestVisible($currentSection,this.$table.tBodies)
 		} else {
@@ -103,6 +92,7 @@ export default class KeyboardState {
 				this.iRow=getIndexOfNearestVisible($currentRow,$currentSection.rows)
 			}
 		}
+		this.save()
 	}
 	private respondToHorizontalMovementKey(ev: KeyEvent): KeyResponse {
 		if (ev.key=='ArrowLeft') {
@@ -194,6 +184,18 @@ export default class KeyboardState {
 			$e.focus()
 			$e.scrollIntoView({block:'nearest'})
 		}
+	}
+	private save(): void {
+		this.$table.dataset.iKeyboardSection=String(this.iSection)
+		this.$table.dataset.iKeyboardRow    =String(this.iRow)
+		this.$table.dataset.iKeyboardColumn =String(this.iColumn)
+		for (const $e of this.$table.querySelectorAll(`:is(thead, tbody) :is(${tabbableSelector})`)) {
+			if ($e instanceof HTMLElement) $e.tabIndex=-1
+		}
+		const $headItem=this.getCurrentHeadItem()
+		if ($headItem) $headItem.tabIndex=0
+		const $bodyItem=this.getCurrentBodyItem()
+		if ($bodyItem) $bodyItem.tabIndex=0
 	}
 }
 
