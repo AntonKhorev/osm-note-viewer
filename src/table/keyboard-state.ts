@@ -1,24 +1,26 @@
 import type Pager from './pager'
 
-const selectors: [spans:boolean,headSelector:string,bodySelector:string][] = [
-	[true,'.note-checkbox input','.note-checkbox input'],
-	[true,'.note-link button','.note-link a'],
-	[true,'.note-comments-count button','.note-comments-count button'],
-	[false,'.note-date button','.note-date time'],
-	[false,'.note-user button','.note-user a'],
-	[false,'.note-action','.note-action [class|=icon]'],
-	[false,'.note-comment button','.note-comment'],
-	[true,'.note-map button','.note-map a'],
+const selectors: [headSelector:string,bodySelector:string][] = [
+	['.note-checkbox input','.note-checkbox input'],
+	['.note-link button','.note-link a'],
+	['.note-comments-count button','.note-comments-count button'],
+	['.note-date button','.note-date time'],
+	['.note-user button','.note-user a'],
+	['.note-action','.note-action [class|=icon]'],
+	['.note-comment button','.note-comment'],
+	['.note-map button','.note-map a'],
 ]
-const SPAN=0
-const HEAD=1
-const BODY=2
+const HEAD=0
+const BODY=1
+
+const iCheckboxColumn=0
 
 const tabbableSelector=`a[href]:not([tabindex="-1"]), input:not([tabindex="-1"]), button:not([tabindex="-1"]), [tabindex="0"]`
 
 type KeyEvent = {
 	key: string
 	ctrlKey: boolean
+	shiftKey: boolean
 }
 
 export type KeyResponse = {
@@ -29,6 +31,11 @@ export type KeyResponse = {
 	type: 'focus'
 	far: boolean
 	$item: HTMLElement
+} | {
+	type: 'check'
+	far: boolean
+	$item: HTMLElement
+	$fromItem: HTMLElement
 }
 
 export default class KeyboardState {
@@ -156,16 +163,21 @@ export default class KeyboardState {
 			j=pager.goPageUp($items,i)
 		} else if (ev.key=='PageDown' && pager) {
 			j=pager.goPageDown($items,i)
+		} else {
+			return {type:'pass'}
 		}
+		const isSelection=ev.shiftKey&&this.iColumn==iCheckboxColumn
+		const bailResponse: KeyResponse = ev.shiftKey ? {type:'stop'} : {type:'pass'}
 		if (j!=null && i!=j) {
 			const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
+			const $fromItem=$items[i]
 			const $item=$items[j]
-			return (setSectionAndRowIndices($items[j]) 
-				? {type: 'focus', $item, far}
-				: {type: 'pass'}
+			return (setSectionAndRowIndices($items[j])
+				? {type: isSelection?'check':'focus', $fromItem, $item, far}
+				: bailResponse
 			)
 		}
-		return {type:'pass'}
+		return bailResponse
 	}
 	private getCurrentHeadItem(): HTMLElement|null {
 		const $headSection=this.$table.tHead
