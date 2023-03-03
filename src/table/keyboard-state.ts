@@ -32,15 +32,13 @@ export default class KeyboardState {
 		private $table: HTMLTableElement
 	) {
 		this.iSection=Number($table.dataset.iKeyboardSection??'0')
-		this.iRow=    Number($table.dataset.iKeyboardRow??'0')
-		this.iColumn= Number($table.dataset.iKeyboardColumn??'0')
+		this.iRow    =Number($table.dataset.iKeyboardRow??'0')
+		this.iColumn =Number($table.dataset.iKeyboardColumn??'0')
 	}
 	save(): void {
 		this.$table.dataset.iKeyboardSection=String(this.iSection)
 		this.$table.dataset.iKeyboardRow    =String(this.iRow)
 		this.$table.dataset.iKeyboardColumn =String(this.iColumn)
-	}
-	updateTabIndices(): void {
 		for (const $e of this.$table.querySelectorAll(`:is(thead, tbody) :is(${tabbableSelector})`)) {
 			if ($e instanceof HTMLElement) $e.tabIndex=-1
 		}

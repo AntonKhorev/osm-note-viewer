@@ -42,7 +42,6 @@ export function noteTableCleanupRovingTabindex($table: HTMLTableElement) {
 	const keyboardState=new KeyboardState($table)
 	keyboardState.setToNearestVisible()
 	keyboardState.save()
-	keyboardState.updateTabIndices()
 }
 
 function noteTableKeydownListener($table: HTMLTableElement, ev: KeyboardEvent): void {
@@ -60,15 +59,14 @@ function noteTableKeydownListener($table: HTMLTableElement, ev: KeyboardEvent): 
 	const keyboardState=new KeyboardState($table)
 	if ($section.tagName=='THEAD') {
 		if (!keyboardState.respondToKeyInHead(ev)) return
-		keyboardState.save()
 	} else {
 		let pager: Pager|undefined
 		const $scrollingPart=$table.closest('.scrolling') // TODO pass
 		if ($scrollingPart) pager=new Pager($scrollingPart)
 		if (!keyboardState.respondToKeyInBody(ev,pager)) return
-		keyboardState.save()
+		
 	}
-	keyboardState.updateTabIndices()
+	keyboardState.save()
 	ev.stopPropagation()
 	ev.preventDefault()
 }
