@@ -1,4 +1,20 @@
-export default function getNextPageIndex(
+export default class Pager {
+	constructor(
+		private $scrollingPart: Element
+	) {}
+	goPageUp($items: Element[], fromIndex: number): number {
+		return getNextPageIndex(this.$scrollingPart,$items,fromIndex,-1,0,
+			(scrollRect,rect)=>rect.top>scrollRect.top-scrollRect.height
+		)
+	}
+	goPageDown($items: Element[], fromIndex: number): number {
+		return getNextPageIndex(this.$scrollingPart,$items,fromIndex,+1,$items.length-1,
+			(scrollRect,rect)=>rect.bottom<scrollRect.bottom+scrollRect.height
+		)
+	}
+}
+
+function getNextPageIndex(
 	$scrollingPart: Element,
 	$es: Element[],
 	fromIndex: number,
