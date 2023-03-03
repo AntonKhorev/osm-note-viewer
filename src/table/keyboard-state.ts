@@ -283,7 +283,14 @@ export default class KeyboardState {
 		const $headItem=this.getCurrentHeadItem()
 		if ($headItem) $headItem.tabIndex=0
 		const $bodyItem=this.getCurrentBodyItem()
-		if ($bodyItem) $bodyItem.tabIndex=0
+		if ($bodyItem) {
+			if (this.iColumn==iCommentColumn && this.iSubItem!=null) {
+				const $subItem=$bodyItem.querySelectorAll(commentSubItemSelector).item(this.iSubItem)
+				if ($subItem instanceof HTMLElement) $subItem.tabIndex=0
+			} else {
+				$bodyItem.tabIndex=0
+			}
+		}
 	}
 }
 
