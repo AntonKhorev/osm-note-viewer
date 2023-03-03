@@ -1,3 +1,5 @@
+import getNextPageIndex from './pager'
+
 const selectors: [spans:boolean,headSelector:string,bodySelector:string][] = [
 	[true,'.note-checkbox input','.note-checkbox input'],
 	[true,'.note-link button','.note-link a'],
@@ -152,6 +154,20 @@ export default class KeyboardState {
 			j=0
 		} else if (ev.key=='End' && ev.ctrlKey) {
 			j=$items.length-1
+		} else if (ev.key=='PageUp') {
+			const $scrollingPart=this.$table.closest('.scrolling') // TODO pass to ctor
+			if ($scrollingPart instanceof Element) {
+				j=getNextPageIndex($scrollingPart,$items,i,-1,0,
+					(scrollRect,rect)=>rect.top>scrollRect.top-scrollRect.height
+				)
+			}
+		} else if (ev.key=='PageDown') {
+			const $scrollingPart=this.$table.closest('.scrolling') // TODO pass to ctor
+			if ($scrollingPart instanceof Element) {
+				j=getNextPageIndex($scrollingPart,$items,i,+1,$items.length-1,
+					(scrollRect,rect)=>rect.bottom<scrollRect.bottom+scrollRect.height
+				)
+			}
 		}
 		if (j!=null && i!=j) {
 			const focusType=(ev.key=='ArrowUp' || ev.key=='ArrowDown'

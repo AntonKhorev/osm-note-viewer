@@ -218,28 +218,6 @@ function moveVerticallyAmongProvidedElements(key: string, $e: HTMLElement, $eLis
 	return focus($e2,key=='Home'||key=='End'||key=='PageUp'||key=='PageDown') ? $e2 : null
 }
 
-function getNextPageIndex(
-	$es: Element[],
-	fromIndex: number,
-	d: number,
-	indexBound: number,
-	checkRect: (rect:DOMRect)=>boolean
-): number {
-	const checkIndexBound=(k:number)=>k*d<indexBound*d
-	for (let j=fromIndex;checkIndexBound(j);j+=d) {
-		if (checkRect($es[j].getBoundingClientRect())) continue
-		if (j*d>fromIndex*d) {
-			return j
-		} else {
-			return j+d
-		}
-	}
-	if (checkIndexBound(fromIndex)) {
-		return indexBound
-	}
-	return fromIndex
-}
-
 function getIndexForKeyMovement(key: string, i: number, length: number): number {
 	if (key=='ArrowUp' || key=='ArrowLeft') {
 		return i-1
