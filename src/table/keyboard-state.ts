@@ -1,4 +1,4 @@
-import Pager from './pager'
+import type Pager from './pager'
 
 const selectors: [spans:boolean,headSelector:string,bodySelector:string][] = [
 	[true,'.note-checkbox input','.note-checkbox input'],
@@ -58,14 +58,14 @@ export default class KeyboardState {
 		}
 		return false
 	}
-	respondToKeyInBody(ev: KeyEvent): boolean {
+	respondToKeyInBody(ev: KeyEvent, pager?: Pager): boolean {
 		const horKeyResponse=this.respondToHorizontalMovementKey(ev)
 		if (horKeyResponse!='none') {
 			const $item=this.getCurrentBodyItem()
 			if ($item) this.focus($item,horKeyResponse)
 			return true
 		}
-		const verKeyResponse=this.respondToVerticalMovementKey(ev)
+		const verKeyResponse=this.respondToVerticalMovementKey(ev,pager)
 		if (verKeyResponse!='none') {
 			const $item=this.getCurrentBodyItem()
 			if ($item) this.focus($item,verKeyResponse)
@@ -126,7 +126,7 @@ export default class KeyboardState {
 		}
 		return 'none'
 	}
-	private respondToVerticalMovementKey(ev: KeyEvent): KeyResponse {
+	private respondToVerticalMovementKey(ev: KeyEvent, pager?: Pager): KeyResponse {
 		const setSectionAndRowIndices=($item: HTMLElement):boolean=>{
 			const $row=$item.closest('tr')
 			if (!$row) return false
@@ -154,16 +154,10 @@ export default class KeyboardState {
 			j=0
 		} else if (ev.key=='End' && ev.ctrlKey) {
 			j=$items.length-1
-		} else if (ev.key=='PageUp') {
-			const $scrollingPart=this.$table.closest('.scrolling') // TODO pass to ctor
-			if ($scrollingPart instanceof Element) {
-				j=new Pager($scrollingPart).goPageUp($items,i)
-			}
-		} else if (ev.key=='PageDown') {
-			const $scrollingPart=this.$table.closest('.scrolling') // TODO pass to ctor
-			if ($scrollingPart instanceof Element) {
-				j=new Pager($scrollingPart).goPageDown($items,i)
-			}
+		} else if (ev.key=='PageUp' && pager) {
+			j=pager.goPageUp($items,i)
+		} else if (ev.key=='PageDown' && pager) {
+			j=pager.goPageDown($items,i)
 		}
 		if (j!=null && i!=j) {
 			const focusType=(ev.key=='ArrowUp' || ev.key=='ArrowDown'

@@ -1,3 +1,4 @@
+import Pager from './pager'
 import KeyboardState from './keyboard-state'
 import makeHelpDialog from '../help-dialog'
 import {makeElement} from '../html'
@@ -61,7 +62,10 @@ function noteTableKeydownListener($table: HTMLTableElement, ev: KeyboardEvent): 
 		if (!keyboardState.respondToKeyInHead(ev)) return
 		keyboardState.save()
 	} else {
-		if (!keyboardState.respondToKeyInBody(ev)) return
+		let pager: Pager|undefined
+		const $scrollingPart=$table.closest('.scrolling') // TODO pass
+		if ($scrollingPart) pager=new Pager($scrollingPart)
+		if (!keyboardState.respondToKeyInBody(ev,pager)) return
 		keyboardState.save()
 	}
 	keyboardState.updateTabIndices()
