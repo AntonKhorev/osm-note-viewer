@@ -14,8 +14,10 @@ const HEAD=0
 const BODY=1
 
 const iCheckboxColumn=0
+const iCommentColumn=6
 
 const tabbableSelector=`a[href]:not([tabindex="-1"]), input:not([tabindex="-1"]), button:not([tabindex="-1"]), [tabindex="0"]`
+const commentSubItemSelector='.listened:not(.image.float)'
 
 type KeyEvent = {
 	key: string
@@ -42,27 +44,36 @@ export default class KeyboardState {
 	iSection: number
 	iRow: number
 	iColumn: number
+	iSubItem: number|undefined
 	constructor(
 		private $table: HTMLTableElement
 	) {
 		this.iSection=Number($table.dataset.iKeyboardSection??'0')
 		this.iRow    =Number($table.dataset.iKeyboardRow??'0')
 		this.iColumn =Number($table.dataset.iKeyboardColumn??'0')
+		if ($table.dataset.iKeyboardSubItem) {
+			this.iSubItem=Number($table.dataset.iKeyboardSubItem)
+		}
 	}
 	respondToKeyInHead(ev: KeyEvent): KeyResponse {
-		const horKeyResponse=this.respondToHorizontalMovementKey(ev,true)
+		const horKeyResponse=this.respondToHorizontalMovement(ev,true)
 		if (horKeyResponse.type!='pass') {
 			this.save()
 		}
 		return horKeyResponse
 	}
 	respondToKeyInBody(ev: KeyEvent, pager?: Pager): KeyResponse {
-		const horKeyResponse=this.respondToHorizontalMovementKey(ev,false)
+		const commentKeyResponse=this.respondToMovementInsideComment(ev)
+		if (commentKeyResponse.type!='pass') {
+			this.save()
+			return commentKeyResponse
+		}
+		const horKeyResponse=this.respondToHorizontalMovement(ev,false)
 		if (horKeyResponse.type!='pass') {
 			this.save()
 			return horKeyResponse
 		}
-		const verKeyResponse=this.respondToVerticalMovementKey(ev,pager)
+		const verKeyResponse=this.respondToVerticalMovement(ev,pager)
 		if (verKeyResponse.type!='pass') {
 			this.save()
 			return verKeyResponse
@@ -88,20 +99,77 @@ export default class KeyboardState {
 		if (!$currentSection) {
 			this.iSection=0
 			this.iRow=0
+			this.iSubItem=undefined
 		} else if ($currentSection.hidden) {
 			this.iRow=0
+			this.iSubItem=undefined
 			this.iSection=getIndexOfNearestVisible($currentSection,this.$table.tBodies)
 		} else {
 			const $currentRow=this.getCurrentBodyRow()
 			if (!$currentRow) {
 				this.iRow=0
+				this.iSubItem=undefined
 			} else {
-				this.iRow=getIndexOfNearestVisible($currentRow,$currentSection.rows)
+				const iRow2=getIndexOfNearestVisible($currentRow,$currentSection.rows)
+				if (this.iRow!=iRow2) {
+					this.iRow=iRow2
+					this.iSubItem=undefined
+				} else if (this.iColumn==iCommentColumn && this.iSubItem!=null) {
+					const $subItems=$currentRow.querySelectorAll(`${selectors[BODY]} ${commentSubItemSelector}`)
+					if (this.iSubItem<0 || this.iSubItem>=$subItems.length) {
+						this.iSubItem=undefined
+					}
+				} else {
+					this.iSubItem=undefined
+				}
 			}
 		}
 		this.save()
 	}
-	private respondToHorizontalMovementKey(ev: KeyEvent, isInHead: boolean): KeyResponse {
+	private respondToMovementInsideComment(ev: KeyEvent): KeyResponse {
+		if (this.iColumn!=iCommentColumn) return {type:'pass'}
+		const $item=this.getCurrentBodyItem()
+		if (!$item) return {type:'pass'}
+		const makeFocusResponse=($item:HTMLElement):KeyResponse=>({
+			type: 'focus',
+			$item,
+			far: false
+		})
+		if (this.iSubItem==null) {
+			if (ev.key=='Enter') {
+				const $commentSubItem=$item.querySelector(commentSubItemSelector)
+				if ($commentSubItem instanceof HTMLElement) {
+					this.iSubItem=0
+					return makeFocusResponse($commentSubItem)
+				}
+			}
+		} else {
+			if (ev.key=='Escape') {
+				this.iSubItem=undefined
+				return makeFocusResponse($item)
+			}
+			const $commentSubItems=$item.querySelectorAll(commentSubItemSelector)
+			if (ev.key=='ArrowLeft' || ev.key=='ArrowUp') {
+				if (this.iSubItem>0) {
+					const $commentSubItem=$commentSubItems.item(this.iSubItem-1)
+					if ($commentSubItem instanceof HTMLElement) {
+						this.iSubItem--
+						return makeFocusResponse($commentSubItem)
+					}
+				}
+			} else if (ev.key=='ArrowRight' || ev.key=='ArrowDown') {
+				if (this.iSubItem<$commentSubItems.length-1) {
+					const $commentSubItem=$commentSubItems.item(this.iSubItem+1)
+					if ($commentSubItem instanceof HTMLElement) {
+						this.iSubItem++
+						return makeFocusResponse($commentSubItem)
+					}
+				}
+			}
+		}
+		return {type:'pass'}
+	}
+	private respondToHorizontalMovement(ev: KeyEvent, isInHead: boolean): KeyResponse {
 		const updateState=():boolean=>{
 			if (ev.key=='ArrowLeft') {
 				if (this.iColumn>0) {
@@ -123,6 +191,7 @@ export default class KeyboardState {
 			return false
 		}
 		if (!updateState()) return {type:'pass'}
+		this.iSubItem=undefined
 		const $item = isInHead ? this.getCurrentHeadItem() : this.getCurrentBodyItem()
 		if (!$item) return {type:'stop'}
 		return {
@@ -131,7 +200,7 @@ export default class KeyboardState {
 			far: false
 		}
 	}
-	private respondToVerticalMovementKey(ev: KeyEvent, pager?: Pager): KeyResponse {
+	private respondToVerticalMovement(ev: KeyEvent, pager?: Pager): KeyResponse {
 		const setSectionAndRowIndices=($item: HTMLElement):boolean=>{
 			const $row=$item.closest('tr')
 			if (!$row) return false
@@ -141,6 +210,7 @@ export default class KeyboardState {
 			if (iRow<0) return false
 			const iSection=[...this.$table.tBodies].indexOf($section)
 			if (iSection<0) return false
+			this.iSubItem=undefined
 			this.iRow=iRow
 			this.iSection=iSection
 			return true
@@ -172,10 +242,9 @@ export default class KeyboardState {
 			const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
 			const $fromItem=$items[i]
 			const $item=$items[j]
-			return (setSectionAndRowIndices($items[j])
-				? {type: isSelection?'check':'focus', $fromItem, $item, far}
-				: bailResponse
-			)
+			if (setSectionAndRowIndices($items[j])) {
+				return {type: isSelection?'check':'focus', $fromItem, $item, far}
+			}
 		}
 		return bailResponse
 	}
@@ -203,6 +272,11 @@ export default class KeyboardState {
 		this.$table.dataset.iKeyboardSection=String(this.iSection)
 		this.$table.dataset.iKeyboardRow    =String(this.iRow)
 		this.$table.dataset.iKeyboardColumn =String(this.iColumn)
+		if (this.iSubItem!=null) {
+			this.$table.dataset.iKeyboardSubItem=String(this.iSubItem)
+		} else {
+			delete this.$table.dataset.iKeyboardSubItem
+		}
 		for (const $e of this.$table.querySelectorAll(`:is(thead, tbody) :is(${tabbableSelector})`)) {
 			if ($e instanceof HTMLElement) $e.tabIndex=-1
 		}
