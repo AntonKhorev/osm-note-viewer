@@ -29,18 +29,18 @@ export default class Cursor {
 	])
 	private state: CursorState
 	constructor(
-		private readonly $table: HTMLTableElement,
+		$table: HTMLTableElement,
 		checkRange: ($fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>void
 	) {
-		this.state=new CursorState(this.$table)
-		this.$table.addEventListener('keydown',ev=>{
+		this.state=new CursorState($table)
+		$table.addEventListener('keydown',ev=>{
 			if (ev.key=='F1') {
 				this.$helpDialog.showModal()
 			} else {
 				noteTableKeydownListener($table,ev,checkRange,this.state)
 			}
 		})
-		this.$table.addEventListener('click',ev=>{
+		$table.addEventListener('click',ev=>{
 			const $e=ev.target
 			if (!($e instanceof HTMLElement)) return
 			const $focusElement=this.state.setToClicked($e)
@@ -48,8 +48,8 @@ export default class Cursor {
 		},true)
 		// TODO focusout event to reset range selection state
 	}
-	reset() {
-		this.state=new CursorState(this.$table)
+	reset($table: HTMLTableElement) {
+		this.state=new CursorState($table)
 	}
 	updateTabIndex() {
 		this.state.setToNearestVisible()

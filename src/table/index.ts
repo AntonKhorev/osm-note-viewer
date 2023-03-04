@@ -198,7 +198,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.markText=markText
 		this.notesById.clear()
 		this.usersById.clear()
-		this.cursor.reset()
+		this.cursor.reset(this.$table)
 		this.$lastClickedNoteSection=undefined
 		this.noteSectionVisibilityObserver.disconnect()
 		this.$table.replaceChildren()
