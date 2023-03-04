@@ -48,8 +48,8 @@ export type KeyResponse = {
 		far: boolean
 	}
 	check?: {
-		$fromItem: HTMLElement
-		$toItem: HTMLElement
+		$fromSection: HTMLTableSectionElement
+		$toSection: HTMLTableSectionElement
 	}
 } | null
 
@@ -299,17 +299,17 @@ export default class KeyboardState {
 		const bailResponse: KeyResponse = ev.shiftKey ? {stop:true} : null
 		if (j!=null && i!=j) {
 			const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
-			const $fromItem=$items[i]
-			const $item=$items[j]
+			const $fromSection=$items[i].closest('tbody')
+			const $toSection=$items[j].closest('tbody')
 			if (setSectionAndRowIndices($items[j])) {
 				return {
 					focus: {
-						$item,
+						$item: $items[j],
 						far
 					},
-					check: isSelection ? {
-						$fromItem,
-						$toItem: $item
+					check: isSelection && $fromSection && $toSection ? {
+						$fromSection,
+						$toSection
 					} : undefined,
 					stop: true
 				}

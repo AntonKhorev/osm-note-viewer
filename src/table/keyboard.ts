@@ -4,7 +4,9 @@ import makeHelpDialog from '../help-dialog'
 import {makeElement} from '../html'
 import {ul,li,p,kbd} from '../html-shortcuts'
 
-export function makeNoteTableKeydownListener(): [
+export function makeNoteTableKeydownListener(
+	checkRange: ($fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>void
+): [
 	listener: (this: HTMLTableElement, ev: KeyboardEvent)=>void,
 	$helpDialog: HTMLDialogElement
 ] {
@@ -33,7 +35,7 @@ export function makeNoteTableKeydownListener(): [
 		if (ev.key=='F1') {
 			$helpDialog.showModal()
 		} else {
-			noteTableKeydownListener(this,ev)
+			noteTableKeydownListener(this,ev,checkRange)
 		}
 	},$helpDialog]
 }
@@ -52,7 +54,11 @@ export function noteTableCaptureClickListener(this: HTMLTableElement, ev: Event)
 	$focusElement?.focus()
 }
 
-function noteTableKeydownListener($table: HTMLTableElement, ev: KeyboardEvent): void {
+function noteTableKeydownListener(
+	$table: HTMLTableElement,
+	ev: KeyboardEvent,
+	checkRange: ($fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>void
+): void {
 	if (ev.ctrlKey && ev.key.toLowerCase()=='a') {
 		const $allCheckbox=$table.querySelector('thead .note-checkbox input')
 		if (!($allCheckbox instanceof HTMLInputElement)) return
@@ -76,11 +82,9 @@ function noteTableKeydownListener($table: HTMLTableElement, ev: KeyboardEvent): 
 		
 	}
 	if (keyResponse?.check) {
-		keyResponse.check.$fromItem.dispatchEvent(
-			new MouseEvent('click')
-		)
-		keyResponse.check.$toItem.dispatchEvent(
-			new MouseEvent('click',{shiftKey:true})
+		checkRange(
+			keyResponse.check.$fromSection,
+			keyResponse.check.$toSection
 		)
 	}
 	if (keyResponse?.focus) {

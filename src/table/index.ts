@@ -95,7 +95,18 @@ export default class NoteTable implements NoteTableUpdater {
 		this.wrappedNoteMarkerClickListener=function(){
 			that.noteMarkerClickListener(this)
 		}
-		const [keydownListener,$helpDialog]=makeNoteTableKeydownListener()
+		const [keydownListener,$helpDialog]=makeNoteTableKeydownListener(
+			($fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>{
+				this.$lastClickedNoteSection=undefined
+				const $checkbox=getNoteSectionCheckbox($fromSection)
+				if (!$checkbox) return
+				const isSelected=!$checkbox.checked
+				for (const $inRangeNoteSection of this.listVisibleNoteSectionsInRange($fromSection,$toSection)) {
+					this.setNoteSelection($inRangeNoteSection,isSelected)
+				}
+				this.updateCheckboxDependentsAndSendNoteChangeEvents()
+			}
+		)
 		$root.append($helpDialog)
 		this.$table.addEventListener('keydown',keydownListener)
 		this.$table.addEventListener('click',noteTableCaptureClickListener,true)
@@ -267,8 +278,8 @@ export default class NoteTable implements NoteTableUpdater {
 	private replaceNote(note: Note, users: Users): void {
 		const $noteSection=this.getNoteSection(note.id)
 		if (!$noteSection) throw new Error(`note section not found during note replace`)
-		const $checkbox=$noteSection.querySelector('.note-checkbox input')
-		if (!($checkbox instanceof HTMLInputElement)) throw new Error(`note checkbox not found during note replace`)
+		const $checkbox=getNoteSectionCheckbox($noteSection)
+		if (!$checkbox) throw new Error(`note checkbox not found during note replace`)
 		const $a=$noteSection.querySelector('td.note-link a')
 		if (!($a instanceof HTMLAnchorElement)) throw new Error(`note link not found during note replace`)
 		const isNoteLinkFocused=document.activeElement==$a
@@ -305,9 +316,7 @@ export default class NoteTable implements NoteTableUpdater {
 	getSelectedNoteIds(): number[] {
 		const ids: number[] = []
 		for (const [$noteSection,id] of this.listVisibleNoteSectionsWithIds()) {
-			const $checkbox=$noteSection.querySelector('.note-checkbox input')
-			if (!($checkbox instanceof HTMLInputElement)) continue
-			if (!$checkbox.checked) continue
+			if (!isSelectedNoteSection($noteSection)) continue
 			ids.push(id)
 		}
 		return ids
@@ -432,6 +441,7 @@ export default class NoteTable implements NoteTableUpdater {
 			this.setNoteSelection($clickedNoteSection,$checkbox.checked)
 			if (ev.shiftKey && this.$lastClickedNoteSection) {
 				for (const $inRangeNoteSection of this.listVisibleNoteSectionsInRange(this.$lastClickedNoteSection,$clickedNoteSection)) {
+					if ($inRangeNoteSection==$clickedNoteSection) continue
 					this.setNoteSelection($inRangeNoteSection,$checkbox.checked)
 				}
 			}
@@ -532,8 +542,8 @@ export default class NoteTable implements NoteTableUpdater {
 				return this.map.unselectedNoteLayer
 			}
 		}
-		const $checkbox=$noteSection.querySelector('.note-checkbox input')
-		if ($checkbox instanceof HTMLInputElement) $checkbox.checked=isSelected
+		const $checkbox=getNoteSectionCheckbox($noteSection)
+		if ($checkbox) $checkbox.checked=isSelected
 		const noteId=Number($noteSection.dataset.noteId)
 		const note=this.notesById.get(noteId)
 		if (!note) return
@@ -553,10 +563,6 @@ export default class NoteTable implements NoteTableUpdater {
 			yield [$noteSection,Number(idString)]
 		}
 	}
-	/**
-	 * range including $fromSection but excluding $toSection
-	 * excludes $toSection if equals to $fromSection
-	 */
 	private *listVisibleNoteSectionsInRange(
 		$fromSection: HTMLTableSectionElement, $toSection: HTMLTableSectionElement
 	): Iterable<HTMLTableSectionElement> {
@@ -577,9 +583,7 @@ export default class NoteTable implements NoteTableUpdater {
 		if (!$guardSection) return
 		for (;i<$sections.length;i++) {
 			const $section=$sections[i]
-			if ($section!=$toSection) {
-				yield $section
-			}
+			yield $section
 			if ($section==$guardSection) {
 				return
 			}
@@ -625,9 +629,13 @@ function setUpdateLinkTitle($noteSection: HTMLTableSectionElement, $a: HTMLAncho
 	}
 }
 
-function isSelectedNoteSection($noteSection: HTMLTableSectionElement): boolean {
+function getNoteSectionCheckbox($noteSection: HTMLTableSectionElement): HTMLInputElement|null {
 	const $checkbox=$noteSection.querySelector('.note-checkbox input')
-	return $checkbox instanceof HTMLInputElement && $checkbox.checked
+	return $checkbox instanceof HTMLInputElement ? $checkbox : null
+}
+
+function isSelectedNoteSection($noteSection: HTMLTableSectionElement): boolean {
+	return getNoteSectionCheckbox($noteSection)?.checked ?? false
 }
 
 function isDefined<T>(argument: T | undefined): argument is T {
