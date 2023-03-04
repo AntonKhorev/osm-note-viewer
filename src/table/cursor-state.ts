@@ -64,34 +64,20 @@ export default class CursorState {
 		private $table: HTMLTableElement
 	) {}
 	respondToKeyInHead(ev: KeyEvent): KeyResponse {
-		const horKeyResponse=this.respondToHorizontalMovement(ev,true)
-		if (horKeyResponse) {
-			this.save()
-		}
-		return horKeyResponse
+		const keyResponse =
+			this.respondToAllSelection(ev) ??
+			this.respondToHorizontalMovement(ev,true)
+		if (keyResponse) this.save()
+		return keyResponse
 	}
 	respondToKeyInBody(ev: KeyEvent, pager?: Pager): KeyResponse {
-		const allKeyResponse=this.respondToAllSelection(ev)
-		if (allKeyResponse) {
-			this.save()
-			return allKeyResponse
-		}
-		const commentKeyResponse=this.respondToMovementInsideComment(ev)
-		if (commentKeyResponse) {
-			this.save()
-			return commentKeyResponse
-		}
-		const horKeyResponse=this.respondToHorizontalMovement(ev,false)
-		if (horKeyResponse) {
-			this.save()
-			return horKeyResponse
-		}
-		const verKeyResponse=this.respondToVerticalMovement(ev,pager)
-		if (verKeyResponse) {
-			this.save()
-			return verKeyResponse
-		}
-		return null
+		const keyResponse =
+			this.respondToAllSelection(ev) ??
+			this.respondToMovementInsideComment(ev) ??
+			this.respondToHorizontalMovement(ev,false) ??
+			this.respondToVerticalMovement(ev,pager)
+		if (keyResponse) this.save()
+		return keyResponse
 	}
 	setToNearestVisible(): void {
 		const getIndexOfNearestVisible=($currentElement:HTMLElement,$elementsIterable:Iterable<HTMLElement>):number=>{

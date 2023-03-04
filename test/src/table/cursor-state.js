@@ -34,7 +34,20 @@ describe("NoteTable / CursorState",()=>{
 			stop: true
 		})
 	})
-	it("selects all",function(){
+	it("selects all from head",function(){
+		const $table=makeTable(this.window.document,4)
+		const cursorState=new CursorState($table)
+		const keyResponse=cursorState.respondToKeyInHead({key:'A',ctrlKey:true})
+		assert.deepEqual(keyResponse,{
+			select: {
+				selected: true,
+				$fromSection: $table.tBodies[0],
+				$toSection: $table.tBodies[3]
+			},
+			stop: true
+		})
+	})
+	it("selects all from body",function(){
 		const $table=makeTable(this.window.document,4)
 		const cursorState=new CursorState($table)
 		const keyResponse=cursorState.respondToKeyInBody({key:'A',ctrlKey:true})
