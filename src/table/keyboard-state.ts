@@ -42,19 +42,16 @@ type KeyEvent = {
 }
 
 export type KeyResponse = {
-	type: 'pass'
-} | {
-	type: 'stop'
-} | {
-	type: 'focus'
-	far: boolean
-	$item: HTMLElement
-} | {
-	type: 'check'
-	far: boolean
-	$item: HTMLElement
-	$fromItem: HTMLElement
-}
+	stop?: boolean
+	focus?: {
+		$item: HTMLElement
+		far: boolean
+	}
+	check?: {
+		$fromItem: HTMLElement
+		$toItem: HTMLElement
+	}
+} | null
 
 export default class KeyboardState {
 	iSection: number
@@ -73,28 +70,28 @@ export default class KeyboardState {
 	}
 	respondToKeyInHead(ev: KeyEvent): KeyResponse {
 		const horKeyResponse=this.respondToHorizontalMovement(ev,true)
-		if (horKeyResponse.type!='pass') {
+		if (horKeyResponse) {
 			this.save()
 		}
 		return horKeyResponse
 	}
 	respondToKeyInBody(ev: KeyEvent, pager?: Pager): KeyResponse {
 		const commentKeyResponse=this.respondToMovementInsideComment(ev)
-		if (commentKeyResponse.type!='pass') {
+		if (commentKeyResponse) {
 			this.save()
 			return commentKeyResponse
 		}
 		const horKeyResponse=this.respondToHorizontalMovement(ev,false)
-		if (horKeyResponse.type!='pass') {
+		if (horKeyResponse) {
 			this.save()
 			return horKeyResponse
 		}
 		const verKeyResponse=this.respondToVerticalMovement(ev,pager)
-		if (verKeyResponse.type!='pass') {
+		if (verKeyResponse) {
 			this.save()
 			return verKeyResponse
 		}
-		return {type:'pass'}
+		return null
 	}
 	setToNearestVisible(): void {
 		const getIndexOfNearestVisible=($currentElement:HTMLElement,$elementsIterable:Iterable<HTMLElement>):number=>{
@@ -185,13 +182,15 @@ export default class KeyboardState {
 		}
 	}
 	private respondToMovementInsideComment(ev: KeyEvent): KeyResponse {
-		if (this.iColumn!=iCommentColumn) return {type:'pass'}
+		if (this.iColumn!=iCommentColumn) return null
 		const $item=this.getCurrentBodyItem()
-		if (!$item) return {type:'pass'}
+		if (!$item) return null
 		const makeFocusResponse=($item:HTMLElement):KeyResponse=>({
-			type: 'focus',
-			$item,
-			far: false
+			focus: {
+				$item,
+				far: false
+			},
+			stop: true
 		})
 		if (this.iSubItem==null) {
 			if (ev.key=='Enter') {
@@ -225,7 +224,7 @@ export default class KeyboardState {
 				}
 			}
 		}
-		return {type:'pass'}
+		return null
 	}
 	private respondToHorizontalMovement(ev: KeyEvent, isInHead: boolean): KeyResponse {
 		const updateState=():boolean=>{
@@ -248,14 +247,16 @@ export default class KeyboardState {
 			}
 			return false
 		}
-		if (!updateState()) return {type:'pass'}
+		if (!updateState()) return null
 		this.iSubItem=undefined
 		const $item = isInHead ? this.getCurrentHeadItem() : this.getCurrentBodyItem()
-		if (!$item) return {type:'stop'}
+		if (!$item) return {stop:true}
 		return {
-			type: 'focus',
-			$item,
-			far: false
+			focus: {
+				$item,
+				far: false
+			},
+			stop: true
 		}
 	}
 	private respondToVerticalMovement(ev: KeyEvent, pager?: Pager): KeyResponse {
@@ -274,10 +275,10 @@ export default class KeyboardState {
 			return true
 		}
 		const $currentItem=this.getCurrentBodyItem()
-		if (!$currentItem) return {type:'pass'}
+		if (!$currentItem) return null
 		const $items=htmlElementArray(this.$table.querySelectorAll(`tbody:not([hidden]) tr:not([hidden]) ${getBodySelector(this.iColumn)}`))
 		const i=$items.indexOf($currentItem)
-		if (i<0) return {type:'pass'}
+		if (i<0) return null
 		let j: number|undefined
 		if (ev.key=='ArrowUp') {
 			if (i>0) j=i-1
@@ -292,16 +293,26 @@ export default class KeyboardState {
 		} else if (ev.key=='PageDown' && pager) {
 			j=pager.goPageDown($items,i)
 		} else {
-			return {type:'pass'}
+			return null
 		}
 		const isSelection=ev.shiftKey&&this.iColumn==iCheckboxColumn
-		const bailResponse: KeyResponse = ev.shiftKey ? {type:'stop'} : {type:'pass'}
+		const bailResponse: KeyResponse = ev.shiftKey ? {stop:true} : null
 		if (j!=null && i!=j) {
 			const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
 			const $fromItem=$items[i]
 			const $item=$items[j]
 			if (setSectionAndRowIndices($items[j])) {
-				return {type: isSelection?'check':'focus', $fromItem, $item, far}
+				return {
+					focus: {
+						$item,
+						far
+					},
+					check: isSelection ? {
+						$fromItem,
+						$toItem: $item
+					} : undefined,
+					stop: true
+				}
 			}
 		}
 		return bailResponse

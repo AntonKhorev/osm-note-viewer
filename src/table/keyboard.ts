@@ -75,18 +75,18 @@ function noteTableKeydownListener($table: HTMLTableElement, ev: KeyboardEvent): 
 		keyResponse=keyboardState.respondToKeyInBody(ev,pager)
 		
 	}
-	if (keyResponse.type=='check') {
-		keyResponse.$fromItem.dispatchEvent(
+	if (keyResponse?.check) {
+		keyResponse.check.$fromItem.dispatchEvent(
 			new MouseEvent('click')
 		)
-		keyResponse.$item.dispatchEvent(
+		keyResponse.check.$toItem.dispatchEvent(
 			new MouseEvent('click',{shiftKey:true})
 		)
 	}
-	if (keyResponse.type=='focus' || keyResponse.type=='check') {
-		focus(keyResponse.$item,keyResponse.far)
+	if (keyResponse?.focus) {
+		focus(keyResponse.focus.$item,keyResponse.focus.far)
 	}
-	if (keyResponse.type!='pass') {
+	if (keyResponse?.stop) {
 		ev.stopPropagation()
 		ev.preventDefault()
 	}
