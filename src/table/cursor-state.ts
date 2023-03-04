@@ -54,20 +54,13 @@ export type KeyResponse = {
 } | null
 
 export default class CursorState {
-	iSection: number
-	iRow: number
-	iColumn: number
+	iSection=0
+	iRow=0
+	iColumn=0
 	iSubItem: number|undefined
 	constructor(
 		private $table: HTMLTableElement
-	) {
-		this.iSection=Number($table.dataset.iKeyboardSection??'0')
-		this.iRow    =Number($table.dataset.iKeyboardRow??'0')
-		this.iColumn =Number($table.dataset.iKeyboardColumn??'0')
-		if ($table.dataset.iKeyboardSubItem) {
-			this.iSubItem=Number($table.dataset.iKeyboardSubItem)
-		}
-	}
+	) {}
 	respondToKeyInHead(ev: KeyEvent): KeyResponse {
 		const horKeyResponse=this.respondToHorizontalMovement(ev,true)
 		if (horKeyResponse) {
@@ -341,14 +334,6 @@ export default class CursorState {
 		$headTabIndexRecipient:HTMLElement|null,
 		$bodyTabIndexRecipient:HTMLElement|null
 	] {
-		this.$table.dataset.iKeyboardSection=String(this.iSection)
-		this.$table.dataset.iKeyboardRow    =String(this.iRow)
-		this.$table.dataset.iKeyboardColumn =String(this.iColumn)
-		if (this.iSubItem!=null) {
-			this.$table.dataset.iKeyboardSubItem=String(this.iSubItem)
-		} else {
-			delete this.$table.dataset.iKeyboardSubItem
-		}
 		for (const $e of this.$table.querySelectorAll(`:is(thead, tbody) :is(${tabbableSelector})`)) {
 			if ($e instanceof HTMLElement) $e.tabIndex=-1
 		}

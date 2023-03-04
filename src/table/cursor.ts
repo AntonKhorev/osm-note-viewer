@@ -1,5 +1,6 @@
 import Pager from './pager'
-import CursorState, {KeyResponse} from './cursor-state'
+import type {KeyResponse} from './cursor-state'
+import CursorState from './cursor-state'
 import makeHelpDialog from '../help-dialog'
 import {makeElement} from '../html'
 import {ul,li,p,kbd} from '../html-shortcuts'
@@ -26,39 +27,40 @@ export default class Cursor {
 			li(kbd(`Shift`),` + `,kbd(`Tab`),` — go to table head`),
 		),
 	])
+	private state: CursorState
 	constructor(
 		private readonly $table: HTMLTableElement,
 		checkRange: ($fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>void
 	) {
+		this.state=new CursorState(this.$table)
 		this.$table.addEventListener('keydown',ev=>{
 			if (ev.key=='F1') {
 				this.$helpDialog.showModal()
 			} else {
-				noteTableKeydownListener($table,ev,checkRange)
+				noteTableKeydownListener($table,ev,checkRange,this.state)
 			}
 		})
 		this.$table.addEventListener('click',ev=>{
 			const $e=ev.target
 			if (!($e instanceof HTMLElement)) return
-			const cursorState=new CursorState(this.$table)
-			const $focusElement=cursorState.setToClicked($e)
+			const $focusElement=this.state.setToClicked($e)
 			$focusElement?.focus()
 		},true)
 		// TODO focusout event to reset range selection state
 	}
 	reset() {
-		// TODO new CursorState
+		this.state=new CursorState(this.$table)
 	}
 	updateTabIndex() {
-		const cursorState=new CursorState(this.$table)
-		cursorState.setToNearestVisible()
+		this.state.setToNearestVisible()
 	}
 }
 
 function noteTableKeydownListener(
 	$table: HTMLTableElement,
 	ev: KeyboardEvent,
-	checkRange: ($fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>void
+	checkRange: ($fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>void,
+	state: CursorState
 ): void {
 	if (ev.ctrlKey && ev.key.toLowerCase()=='a') {
 		const $allCheckbox=$table.querySelector('thead .note-checkbox input')
@@ -71,15 +73,14 @@ function noteTableKeydownListener(
 	if (!(ev.target instanceof HTMLElement)) return
 	const $section=ev.target.closest('thead, tbody')
 	if (!($section instanceof HTMLTableSectionElement)) return
-	const cursorState=new CursorState($table)
 	let keyResponse: KeyResponse
 	if ($section.tagName=='THEAD') {
-		keyResponse=cursorState.respondToKeyInHead(ev)
+		keyResponse=state.respondToKeyInHead(ev)
 	} else {
 		let pager: Pager|undefined
 		const $scrollingPart=$table.closest('.scrolling') // TODO pass
 		if ($scrollingPart) pager=new Pager($scrollingPart)
-		keyResponse=cursorState.respondToKeyInBody(ev,pager)
+		keyResponse=state.respondToKeyInBody(ev,pager)
 		
 	}
 	if (keyResponse?.check) {
