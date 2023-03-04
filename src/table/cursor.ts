@@ -1,5 +1,5 @@
 import Pager from './pager'
-import KeyboardState, {KeyResponse} from './keyboard-state'
+import CursorState, {KeyResponse} from './cursor-state'
 import makeHelpDialog from '../help-dialog'
 import {makeElement} from '../html'
 import {ul,li,p,kbd} from '../html-shortcuts'
@@ -41,16 +41,16 @@ export function makeNoteTableKeydownListener(
 }
 
 export function noteTableCleanupRovingTabindex($table: HTMLTableElement) {
-	const keyboardState=new KeyboardState($table)
-	keyboardState.setToNearestVisible()
+	const cursorState=new CursorState($table)
+	cursorState.setToNearestVisible()
 }
 
 export function noteTableCaptureClickListener(this: HTMLTableElement, ev: Event) {
 	const $table=this
 	const $e=ev.target
 	if (!($e instanceof HTMLElement)) return
-	const keyboardState=new KeyboardState($table)
-	const $focusElement=keyboardState.setToClicked($e)
+	const cursorState=new CursorState($table)
+	const $focusElement=cursorState.setToClicked($e)
 	$focusElement?.focus()
 }
 
@@ -70,15 +70,15 @@ function noteTableKeydownListener(
 	if (!(ev.target instanceof HTMLElement)) return
 	const $section=ev.target.closest('thead, tbody')
 	if (!($section instanceof HTMLTableSectionElement)) return
-	const keyboardState=new KeyboardState($table)
+	const cursorState=new CursorState($table)
 	let keyResponse: KeyResponse
 	if ($section.tagName=='THEAD') {
-		keyResponse=keyboardState.respondToKeyInHead(ev)
+		keyResponse=cursorState.respondToKeyInHead(ev)
 	} else {
 		let pager: Pager|undefined
 		const $scrollingPart=$table.closest('.scrolling') // TODO pass
 		if ($scrollingPart) pager=new Pager($scrollingPart)
-		keyResponse=keyboardState.respondToKeyInBody(ev,pager)
+		keyResponse=cursorState.respondToKeyInBody(ev,pager)
 		
 	}
 	if (keyResponse?.check) {

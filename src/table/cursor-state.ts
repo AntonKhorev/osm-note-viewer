@@ -53,7 +53,7 @@ export type KeyResponse = {
 	}
 } | null
 
-export default class KeyboardState {
+export default class CursorState {
 	iSection: number
 	iRow: number
 	iColumn: number
