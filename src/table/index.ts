@@ -96,11 +96,8 @@ export default class NoteTable implements NoteTableUpdater {
 		}
 		this.cursor=new Cursor(
 			this.$table,
-			($fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>{
+			(isSelected:boolean,$fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>{
 				this.$lastClickedNoteSection=undefined
-				const $checkbox=getNoteSectionCheckbox($fromSection)
-				if (!$checkbox) return
-				const isSelected=!$checkbox.checked
 				for (const $inRangeNoteSection of this.listVisibleNoteSectionsInRange($fromSection,$toSection)) {
 					this.setNoteSelection($inRangeNoteSection,isSelected)
 				}
@@ -340,18 +337,18 @@ export default class NoteTable implements NoteTableUpdater {
 		}
 	}
 	private writeHeadSection(): HTMLTableSectionElement {
-		const $header=this.$table.createTHead()
+		const $headSection=this.$table.createTHead()
 		this.$selectAllCheckbox.type='checkbox'
 		this.$selectAllCheckbox.title=`select all notes`
 		this.$selectAllCheckbox.addEventListener('click',this.wrappedAllNotesCheckboxClickListener)
 		writeHeadSectionRow(
-			$header,
+			$headSection,
 			this.$selectAllCheckbox,
 			(key,clickListener)=>this.expanders.makeButton(key,clickListener),
 			()=>this.$table.tBodies,
 			()=>this.cursor.updateTabIndex()
 		)
-		return $header
+		return $headSection
 	}
 	private makeMarker(note: Note, isVisible: boolean): NoteMarker {
 		const marker=new NoteMarker(note)

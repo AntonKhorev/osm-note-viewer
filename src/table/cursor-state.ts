@@ -32,7 +32,7 @@ const iCheckboxColumn=0
 const iCommentColumn=6
 
 const focusableSelector=`a[href], input, button, [tabindex]`
-const tabbableSelector=`a[href]:not([tabindex="-1"]), input:not([tabindex="-1"]), button:not([tabindex="-1"]), [tabindex="0"]`
+const tabbableSelector=`:is(${focusableSelector}):not([tabindex="-1"])`
 const commentSubItemSelector='.listened:not(.image.float)'
 
 type KeyEvent = {
@@ -47,7 +47,8 @@ export type KeyResponse = {
 		$item: HTMLElement
 		far: boolean
 	}
-	check?: {
+	select?: {
+		selected: boolean,
 		$fromSection: HTMLTableSectionElement
 		$toSection: HTMLTableSectionElement
 	}
@@ -58,6 +59,7 @@ export default class CursorState {
 	iRow=0
 	iColumn=0
 	iSubItem: number|undefined
+	iSelectStartRow: number|undefined
 	constructor(
 		private $table: HTMLTableElement
 	) {}
@@ -69,6 +71,11 @@ export default class CursorState {
 		return horKeyResponse
 	}
 	respondToKeyInBody(ev: KeyEvent, pager?: Pager): KeyResponse {
+		const allKeyResponse=this.respondToAllSelection(ev)
+		if (allKeyResponse) {
+			this.save()
+			return allKeyResponse
+		}
 		const commentKeyResponse=this.respondToMovementInsideComment(ev)
 		if (commentKeyResponse) {
 			this.save()
@@ -173,6 +180,30 @@ export default class CursorState {
 				}
 			}
 		}
+	}
+	private respondToAllSelection(ev: KeyEvent): KeyResponse {
+		if (ev.ctrlKey && ev.key.toLowerCase()=='a') {
+			const $allCheckbox=this.$table.querySelector('thead .note-checkbox input')
+			if (!($allCheckbox instanceof HTMLInputElement)) return null
+			const $sections=this.$table.querySelectorAll(`tbody:not([hidden])`)
+			if ($sections.length==0) return {stop:true}
+			const $fromSection=$sections.item(0)
+			const $toSection=$sections.item($sections.length-1)
+			if (
+				$fromSection instanceof HTMLTableSectionElement &&
+				$toSection instanceof HTMLTableSectionElement
+			) {
+				return {
+					select: {
+						selected: !$allCheckbox.checked,
+						$fromSection, $toSection
+					},
+					stop: true
+				}
+			}
+			return {stop:true}
+		}
+		return null
 	}
 	private respondToMovementInsideComment(ev: KeyEvent): KeyResponse {
 		if (this.iColumn!=iCommentColumn) return null
@@ -294,13 +325,16 @@ export default class CursorState {
 			const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
 			const $fromSection=$items[i].closest('tbody')
 			const $toSection=$items[j].closest('tbody')
+			const $startingCheckbox=$fromSection?.querySelector(getBodySelector(iCheckboxColumn))
+			const startingSelected=($startingCheckbox instanceof HTMLInputElement) && $startingCheckbox.checked
 			if (setSectionAndRowIndices($items[j])) {
 				return {
 					focus: {
 						$item: $items[j],
 						far
 					},
-					check: isSelection && $fromSection && $toSection ? {
+					select: isSelection && $fromSection && $toSection ? {
+						selected: !startingSelected,
 						$fromSection,
 						$toSection
 					} : undefined,
@@ -334,7 +368,7 @@ export default class CursorState {
 		$headTabIndexRecipient:HTMLElement|null,
 		$bodyTabIndexRecipient:HTMLElement|null
 	] {
-		for (const $e of this.$table.querySelectorAll(`:is(thead, tbody) :is(${tabbableSelector})`)) {
+		for (const $e of this.$table.querySelectorAll(`:is(thead, tbody) ${tabbableSelector}`)) {
 			if ($e instanceof HTMLElement) $e.tabIndex=-1
 		}
 		const $headRecipient=this.getCurrentHeadItem()

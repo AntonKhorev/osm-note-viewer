@@ -30,7 +30,7 @@ export default class Cursor {
 	private state: CursorState
 	constructor(
 		$table: HTMLTableElement,
-		checkRange: ($fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>void
+		checkRange: (selected:boolean,$fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>void
 	) {
 		this.state=new CursorState($table)
 		$table.addEventListener('keydown',ev=>{
@@ -59,17 +59,9 @@ export default class Cursor {
 function noteTableKeydownListener(
 	$table: HTMLTableElement,
 	ev: KeyboardEvent,
-	checkRange: ($fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>void,
+	checkRange: (selected:boolean,$fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>void,
 	state: CursorState
 ): void {
-	if (ev.ctrlKey && ev.key.toLowerCase()=='a') {
-		const $allCheckbox=$table.querySelector('thead .note-checkbox input')
-		if (!($allCheckbox instanceof HTMLInputElement)) return
-		$allCheckbox.click()
-		ev.stopPropagation()
-		ev.preventDefault()
-		return
-	}
 	if (!(ev.target instanceof HTMLElement)) return
 	const $section=ev.target.closest('thead, tbody')
 	if (!($section instanceof HTMLTableSectionElement)) return
@@ -83,10 +75,11 @@ function noteTableKeydownListener(
 		keyResponse=state.respondToKeyInBody(ev,pager)
 		
 	}
-	if (keyResponse?.check) {
+	if (keyResponse?.select) {
 		checkRange(
-			keyResponse.check.$fromSection,
-			keyResponse.check.$toSection
+			keyResponse.select.selected,
+			keyResponse.select.$fromSection,
+			keyResponse.select.$toSection
 		)
 	}
 	if (keyResponse?.focus) {

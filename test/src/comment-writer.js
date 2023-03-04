@@ -9,6 +9,9 @@ describe("CommentWriter",()=>{
 		this.window=jsdom.window
 		global.document=jsdom.window.document
 	})
+	afterEach(function(){
+		delete global.document
+	})
 	it("writes links",function(){
 		const commentWriter=new CommentWriter({
 			web: {
