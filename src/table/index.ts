@@ -8,7 +8,7 @@ import LooseParserListener from '../loose-listen'
 import LooseParserPopup from '../loose-popup'
 import parseLoose from '../loose'
 import {writeHeadSectionRow, writeNoteSectionRows} from './section'
-import {makeNoteTableKeydownListener, noteTableCaptureClickListener, noteTableCleanupRovingTabindex} from './cursor'
+import Cursor from './cursor'
 import CommentWriter, {handleShowImagesUpdate} from '../comment-writer'
 import type NoteFilter from '../filter'
 import NoteSectionVisibilityObserver from './observer'
@@ -25,7 +25,7 @@ export default class NoteTable implements NoteTableUpdater {
 	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedAllNotesCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
-	private wrappedCleanupRovingTabindex: ()=>void
+	private cursor: Cursor
 	private expanders: Expanders
 	private noteSectionVisibilityObserver: NoteSectionVisibilityObserver
 	private looseParserListener: LooseParserListener
@@ -47,7 +47,6 @@ export default class NoteTable implements NoteTableUpdater {
 		private filter: NoteFilter,
 		private server: Server
 	) {
-		this.wrappedCleanupRovingTabindex=()=>noteTableCleanupRovingTabindex(this.$table)
 		this.expanders=new Expanders(storage,this.$table)
 		this.$table.setAttribute('role','grid')
 		const that=this
@@ -95,7 +94,8 @@ export default class NoteTable implements NoteTableUpdater {
 		this.wrappedNoteMarkerClickListener=function(){
 			that.noteMarkerClickListener(this)
 		}
-		const [keydownListener,$helpDialog]=makeNoteTableKeydownListener(
+		this.cursor=new Cursor(
+			this.$table,
 			($fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>{
 				this.$lastClickedNoteSection=undefined
 				const $checkbox=getNoteSectionCheckbox($fromSection)
@@ -107,9 +107,7 @@ export default class NoteTable implements NoteTableUpdater {
 				this.updateCheckboxDependentsAndSendNoteChangeEvents()
 			}
 		)
-		$root.append($helpDialog)
-		this.$table.addEventListener('keydown',keydownListener)
-		this.$table.addEventListener('click',noteTableCaptureClickListener,true)
+		$root.append(this.cursor.$helpDialog)
 		this.noteSectionVisibilityObserver=new NoteSectionVisibilityObserver((visibleNoteIds,isMapFittingHalted)=>{
 			map.showNoteTrack(visibleNoteIds)
 			if (!isMapFittingHalted && this.mapFitMode=='inViewNotes') map.fitNoteTrack()
@@ -200,6 +198,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.markText=markText
 		this.notesById.clear()
 		this.usersById.clear()
+		this.cursor.reset()
 		this.$lastClickedNoteSection=undefined
 		this.noteSectionVisibilityObserver.disconnect()
 		this.$table.replaceChildren()
@@ -229,7 +228,7 @@ export default class NoteTable implements NoteTableUpdater {
 			}
 		}
 		this.updateCheckboxDependentsAndSendNoteChangeEvents()
-		noteTableCleanupRovingTabindex(this.$table)
+		this.cursor.updateTabIndex()
 	}
 	/**
 	 * @returns number of added notes that passed through the filter
@@ -350,7 +349,7 @@ export default class NoteTable implements NoteTableUpdater {
 			this.$selectAllCheckbox,
 			(key,clickListener)=>this.expanders.makeButton(key,clickListener),
 			()=>this.$table.tBodies,
-			this.wrappedCleanupRovingTabindex
+			()=>this.cursor.updateTabIndex()
 		)
 		return $header
 	}
@@ -387,12 +386,12 @@ export default class NoteTable implements NoteTableUpdater {
 			this.showImages,
 			this.markUser,this.markText,
 			()=>this.focusOnNote($noteSection,true),
-			this.wrappedCleanupRovingTabindex
+			()=>this.cursor.updateTabIndex()
 		)
 		for (const $commentCell of $commentCells) {
 			this.looseParserListener.listen($commentCell)
 		}
-		noteTableCleanupRovingTabindex(this.$table)
+		this.cursor.updateTabIndex()
 	}
 	private updateShortenedNoteIds() {
 		const shortener=new IdShortener

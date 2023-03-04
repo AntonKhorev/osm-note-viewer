@@ -4,13 +4,8 @@ import makeHelpDialog from '../help-dialog'
 import {makeElement} from '../html'
 import {ul,li,p,kbd} from '../html-shortcuts'
 
-export function makeNoteTableKeydownListener(
-	checkRange: ($fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>void
-): [
-	listener: (this: HTMLTableElement, ev: KeyboardEvent)=>void,
-	$helpDialog: HTMLDialogElement
-] {
-	const $helpDialog=makeHelpDialog(`Close note table help`,[
+export default class Cursor {
+	$helpDialog=makeHelpDialog(`Close note table help`,[
 		makeElement('h2')()(`Note table keyboard controls`),
 		p(`Inside the table head:`),
 		ul(
@@ -31,27 +26,33 @@ export function makeNoteTableKeydownListener(
 			li(kbd(`Shift`),` + `,kbd(`Tab`),` — go to table head`),
 		),
 	])
-	return [function(this: HTMLTableElement, ev: KeyboardEvent) {
-		if (ev.key=='F1') {
-			$helpDialog.showModal()
-		} else {
-			noteTableKeydownListener(this,ev,checkRange)
-		}
-	},$helpDialog]
-}
-
-export function noteTableCleanupRovingTabindex($table: HTMLTableElement) {
-	const cursorState=new CursorState($table)
-	cursorState.setToNearestVisible()
-}
-
-export function noteTableCaptureClickListener(this: HTMLTableElement, ev: Event) {
-	const $table=this
-	const $e=ev.target
-	if (!($e instanceof HTMLElement)) return
-	const cursorState=new CursorState($table)
-	const $focusElement=cursorState.setToClicked($e)
-	$focusElement?.focus()
+	constructor(
+		private readonly $table: HTMLTableElement,
+		checkRange: ($fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>void
+	) {
+		this.$table.addEventListener('keydown',ev=>{
+			if (ev.key=='F1') {
+				this.$helpDialog.showModal()
+			} else {
+				noteTableKeydownListener($table,ev,checkRange)
+			}
+		})
+		this.$table.addEventListener('click',ev=>{
+			const $e=ev.target
+			if (!($e instanceof HTMLElement)) return
+			const cursorState=new CursorState(this.$table)
+			const $focusElement=cursorState.setToClicked($e)
+			$focusElement?.focus()
+		},true)
+		// TODO focusout event to reset range selection state
+	}
+	reset() {
+		// TODO new CursorState
+	}
+	updateTabIndex() {
+		const cursorState=new CursorState(this.$table)
+		cursorState.setToNearestVisible()
+	}
 }
 
 function noteTableKeydownListener(
