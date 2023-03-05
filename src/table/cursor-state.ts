@@ -47,11 +47,7 @@ export type KeyResponse = {
 		$item: HTMLElement
 		far: boolean
 	}
-	select?: {
-		selected: boolean,
-		$fromSection: HTMLTableSectionElement
-		$toSection: HTMLTableSectionElement
-	}
+	select?: [iSection:number,selected:boolean][]
 } | null
 
 type Select = {
@@ -179,23 +175,12 @@ export default class CursorState {
 		if (ev.ctrlKey && ev.key.toLowerCase()=='a') {
 			const $allCheckbox=this.$table.querySelector('thead .note-checkbox input')
 			if (!($allCheckbox instanceof HTMLInputElement)) return null
-			const $sections=this.$table.querySelectorAll(`tbody:not([hidden])`)
-			if ($sections.length==0) return {stop:true}
-			const $fromSection=$sections.item(0)
-			const $toSection=$sections.item($sections.length-1)
-			if (
-				$fromSection instanceof HTMLTableSectionElement &&
-				$toSection instanceof HTMLTableSectionElement
-			) {
-				return {
-					select: {
-						selected: !$allCheckbox.checked,
-						$fromSection, $toSection
-					},
-					stop: true
-				}
+			const selected=!$allCheckbox.checked
+			const select=[...this.$table.tBodies].flatMap(($section,i)=>$section.hidden?[]:[[i,selected] as [number,boolean]])
+			return {
+				select,
+				stop: true
 			}
-			return {stop:true}
 		}
 		return null
 	}
@@ -346,11 +331,14 @@ export default class CursorState {
 					const d0=Math.sign(i-this.select.iStartRow)
 					if (!(d0==0 || d0==Math.sign(j-i))) selected=!selected
 				}
-				if ($fromSection && $toSection) response.select={
-					selected,
-					$fromSection,
-					$toSection
+				const select=[] as [number,boolean][]
+				for (let inside=0,k=0;k<this.$table.tBodies.length;k++) {
+					const $section=this.$table.tBodies[k]
+					inside^=+($section==$fromSection)
+					if (inside) select.push([k,selected])
+					inside^=+($section==$toSection)
 				}
+				if ($fromSection && $toSection) response.select=select
 				return response
 			}
 			return bailResponse

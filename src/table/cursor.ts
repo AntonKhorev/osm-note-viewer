@@ -31,14 +31,14 @@ export default class Cursor {
 	private state: CursorState
 	constructor(
 		$table: HTMLTableElement,
-		checkRange: (selected:boolean,$fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>void
+		selectSections: (select: [iSection:number,selected:boolean][])=>void
 	) {
 		this.state=new CursorState($table)
 		$table.addEventListener('keydown',ev=>{
 			if (ev.key=='F1') {
 				this.$helpDialog.showModal()
 			} else {
-				noteTableKeydownListener($table,ev,checkRange,this.state)
+				noteTableKeydownListener($table,ev,selectSections,this.state)
 			}
 		})
 		$table.addEventListener('click',ev=>{
@@ -60,7 +60,7 @@ export default class Cursor {
 function noteTableKeydownListener(
 	$table: HTMLTableElement,
 	ev: KeyboardEvent,
-	checkRange: (selected:boolean,$fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>void,
+	selectSections: (select: [iSection:number,selected:boolean][])=>void,
 	state: CursorState
 ): void {
 	if (!(ev.target instanceof HTMLElement)) return
@@ -77,11 +77,7 @@ function noteTableKeydownListener(
 		
 	}
 	if (keyResponse?.select) {
-		checkRange(
-			keyResponse.select.selected,
-			keyResponse.select.$fromSection,
-			keyResponse.select.$toSection
-		)
+		selectSections(keyResponse.select)
 	}
 	if (keyResponse?.focus) {
 		focus(keyResponse.focus.$item,keyResponse.focus.far)

@@ -96,10 +96,11 @@ export default class NoteTable implements NoteTableUpdater {
 		}
 		this.cursor=new Cursor(
 			this.$table,
-			(isSelected:boolean,$fromSection:HTMLTableSectionElement,$toSection:HTMLTableSectionElement)=>{
+			(select)=>{
 				this.$lastClickedNoteSection=undefined
-				for (const $inRangeNoteSection of this.listVisibleNoteSectionsInRange($fromSection,$toSection)) {
-					this.setNoteSelection($inRangeNoteSection,isSelected)
+				for (const [iSection,selected] of select) {
+					const $section=this.$table.tBodies.item(iSection)
+					if ($section) this.setNoteSelection($section,selected)
 				}
 				this.updateCheckboxDependentsAndSendNoteChangeEvents()
 			}
