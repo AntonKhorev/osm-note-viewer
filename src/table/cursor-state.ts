@@ -54,12 +54,18 @@ export type KeyResponse = {
 	}
 } | null
 
+// type Select = {
+// 	iStartRow: number
+// 	selected: boolean
+// }
+
 export default class CursorState {
-	iSection=0
-	iRow=0
-	iColumn=0
-	iSubItem: number|undefined
-	iSelectStartRow: number|undefined
+	private iSection=0
+	private iRow=0
+	private iColumn=0
+	private iSubItem: number|undefined
+	// private select: Select|undefined
+	private isSelection: boolean|undefined
 	constructor(
 		private $table: HTMLTableElement
 	) {}
@@ -124,6 +130,10 @@ export default class CursorState {
 			}
 		}
 		this.save()
+	}
+	resetSelect(): void {
+		// this.select=undefined
+		this.isSelection=undefined
 	}
 	/**
 	 * @returns element to focus if required
@@ -290,45 +300,66 @@ export default class CursorState {
 		const i=$items.indexOf($currentItem)
 		if (i<0) return null
 		let j: number|undefined
+		let d: number
 		if (ev.key=='ArrowUp') {
-			if (i>0) j=i-1
+			d=-1
+			j=Math.max(0,i-1)
 		} else if (ev.key=='ArrowDown') {
-			if (i<$items.length-1) j=i+1
+			d=+1
+			j=Math.min($items.length-1,i+1)
 		} else if (ev.key=='Home' && ev.ctrlKey) {
+			d=-1
 			j=0
 		} else if (ev.key=='End' && ev.ctrlKey) {
+			d=+1
 			j=$items.length-1
 		} else if (ev.key=='PageUp' && pager) {
+			d=-1
 			j=pager.goPageUp($items,i)
 		} else if (ev.key=='PageDown' && pager) {
+			d=+1
 			j=pager.goPageDown($items,i)
 		} else {
 			return null
 		}
-		const isSelection=ev.shiftKey&&this.iColumn==iCheckboxColumn
 		const bailResponse: KeyResponse = ev.shiftKey ? {stop:true} : null
-		if (j!=null && i!=j) {
-			const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
+		if (j==null) return bailResponse
+		if (ev.shiftKey) {
+			if (this.iColumn!=iCheckboxColumn) return bailResponse
 			const $fromSection=$items[i].closest('tbody')
-			const $toSection=$items[j].closest('tbody')
-			const $startingCheckbox=$fromSection?.querySelector(getBodySelector(iCheckboxColumn))
-			const startingSelected=($startingCheckbox instanceof HTMLInputElement) && $startingCheckbox.checked
-			if (setSectionAndRowIndices($items[j])) {
-				return {
-					focus: {
-						$item: $items[j],
-						far
-					},
-					select: isSelection && $fromSection && $toSection ? {
-						selected: !startingSelected,
-						$fromSection,
-						$toSection
-					} : undefined,
-					stop: true
-				}
+			if (this.isSelection==null) {
+				const $startingCheckbox=$fromSection?.querySelector(getBodySelector(iCheckboxColumn))
+				const startingChecked=($startingCheckbox instanceof HTMLInputElement) && $startingCheckbox.checked
+				this.isSelection=!startingChecked
 			}
+			const $toSection=$items[i==j || $items.length==0 ? j : j-d].closest('tbody')
+			const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
+			if (setSectionAndRowIndices($items[j])) {
+				const response:KeyResponse={stop: true}
+				if (i!=j) response.focus={
+					$item: $items[j],
+					far
+				}
+				if ($fromSection && $toSection) response.select={
+					selected: this.isSelection,
+					$fromSection,
+					$toSection
+				}
+				return response
+			}
+			return bailResponse
+		} else {
+			if (i==j) return bailResponse
+			const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
+			if (setSectionAndRowIndices($items[j])) return {
+				focus: {
+					$item: $items[j],
+					far
+				},
+				stop: true
+			}
+			return bailResponse
 		}
-		return bailResponse
 	}
 	private getCurrentHeadItem(): HTMLElement|null {
 		const $headSection=this.$table.tHead
