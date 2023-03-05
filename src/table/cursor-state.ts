@@ -54,18 +54,17 @@ export type KeyResponse = {
 	}
 } | null
 
-// type Select = {
-// 	iStartRow: number
-// 	selected: boolean
-// }
+type Select = {
+	iStartRow: number
+	isSelection: boolean
+}
 
 export default class CursorState {
 	private iSection=0
 	private iRow=0
 	private iColumn=0
 	private iSubItem: number|undefined
-	// private select: Select|undefined
-	private isSelection: boolean|undefined
+	private select: Select|undefined
 	constructor(
 		private $table: HTMLTableElement
 	) {}
@@ -132,8 +131,7 @@ export default class CursorState {
 		this.save()
 	}
 	resetSelect(): void {
-		// this.select=undefined
-		this.isSelection=undefined
+		this.select=undefined
 	}
 	/**
 	 * @returns element to focus if required
@@ -327,21 +325,29 @@ export default class CursorState {
 		if (ev.shiftKey) {
 			if (this.iColumn!=iCheckboxColumn) return bailResponse
 			const $fromSection=$items[i].closest('tbody')
-			if (this.isSelection==null) {
+			if (this.select==null) {
 				const $startingCheckbox=$fromSection?.querySelector(getBodySelector(iCheckboxColumn))
 				const startingChecked=($startingCheckbox instanceof HTMLInputElement) && $startingCheckbox.checked
-				this.isSelection=!startingChecked
+				this.select={
+					iStartRow: i,
+					isSelection: !startingChecked
+				}
 			}
 			const $toSection=$items[i==j || $items.length==0 ? j : j-d].closest('tbody')
 			const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
 			if (setSectionAndRowIndices($items[j])) {
 				const response:KeyResponse={stop: true}
-				if (i!=j) response.focus={
-					$item: $items[j],
-					far
+				let selected=this.select.isSelection
+				if (i!=j) {
+					response.focus={
+						$item: $items[j],
+						far
+					}
+					const d0=Math.sign(i-this.select.iStartRow)
+					if (!(d0==0 || d0==Math.sign(j-i))) selected=!selected
 				}
 				if ($fromSection && $toSection) response.select={
-					selected: this.isSelection,
+					selected,
 					$fromSection,
 					$toSection
 				}

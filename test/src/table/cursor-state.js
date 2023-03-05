@@ -60,44 +60,20 @@ describe("NoteTable / CursorState",()=>{
 	it("selects with shift+move",function(){
 		const $table=makeTable(this.window.document,[1,2,3,1])
 		const cursorState=new CursorState($table)
-		assert.deepEqual(cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),{
-			select: {
-				selected: true,
-				$fromSection: $table.tBodies[0],
-				$toSection: $table.tBodies[0],
-			},
-			focus: {
-				$item: $table.tBodies[1].querySelector('.note-checkbox input'),
-				far: false,
-			},
-			stop: true
-		})
+		assert.deepEqual(
+			cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),
+			makeSelectFocusResponse($table,true,0,1)
+		)
 		$table.tBodies[0].querySelector('.note-checkbox input').checked=true
-		assert.deepEqual(cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),{
-			select: {
-				selected: true,
-				$fromSection: $table.tBodies[1],
-				$toSection: $table.tBodies[1],
-			},
-			focus: {
-				$item: $table.tBodies[2].querySelector('.note-checkbox input'),
-				far: false,
-			},
-			stop: true
-		})
+		assert.deepEqual(
+			cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),
+			makeSelectFocusResponse($table,true,1,2)
+		)
 		$table.tBodies[1].querySelector('.note-checkbox input').checked=true
-		assert.deepEqual(cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),{
-			select: {
-				selected: true,
-				$fromSection: $table.tBodies[2],
-				$toSection: $table.tBodies[2],
-			},
-			focus: {
-				$item: $table.tBodies[3].querySelector('.note-checkbox input'),
-				far: false,
-			},
-			stop: true
-		})
+		assert.deepEqual(
+			cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),
+			makeSelectFocusResponse($table,true,2,3)
+		)
 	})
 	it("deselects with shift+move",function(){
 		const $table=makeTable(this.window.document,[1,2,3,1])
@@ -105,117 +81,70 @@ describe("NoteTable / CursorState",()=>{
 			$checkbox.checked=true
 		}
 		const cursorState=new CursorState($table)
-		assert.deepEqual(cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),{
-			select: {
-				selected: false,
-				$fromSection: $table.tBodies[0],
-				$toSection: $table.tBodies[0],
-			},
-			focus: {
-				$item: $table.tBodies[1].querySelector('.note-checkbox input'),
-				far: false,
-			},
-			stop: true
-		})
+		assert.deepEqual(
+			cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),
+			makeSelectFocusResponse($table,false,0,1)
+		)
 		$table.tBodies[0].querySelector('.note-checkbox input').checked=false
-		assert.deepEqual(cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),{
-			select: {
-				selected: false,
-				$fromSection: $table.tBodies[1],
-				$toSection: $table.tBodies[1],
-			},
-			focus: {
-				$item: $table.tBodies[2].querySelector('.note-checkbox input'),
-				far: false,
-			},
-			stop: true
-		})
+		assert.deepEqual(
+			cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),
+			makeSelectFocusResponse($table,false,1,2)
+		)
 		$table.tBodies[1].querySelector('.note-checkbox input').checked=false
-		assert.deepEqual(cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),{
-			select: {
-				selected: false,
-				$fromSection: $table.tBodies[2],
-				$toSection: $table.tBodies[2],
-			},
-			focus: {
-				$item: $table.tBodies[3].querySelector('.note-checkbox input'),
-				far: false,
-			},
-			stop: true
-		})
+		assert.deepEqual(
+			cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),
+			makeSelectFocusResponse($table,false,2,3)
+		)
 	})
 	it("selects with shift+move over partially selected",function(){
 		const $table=makeTable(this.window.document,[1,2,3,1])
 		$table.tBodies[1].querySelector('.note-checkbox input').checked=true
 		const cursorState=new CursorState($table)
-		assert.deepEqual(cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),{
-			select: {
-				selected: true,
-				$fromSection: $table.tBodies[0],
-				$toSection: $table.tBodies[0],
-			},
-			focus: {
-				$item: $table.tBodies[1].querySelector('.note-checkbox input'),
-				far: false,
-			},
-			stop: true
-		})
+		assert.deepEqual(
+			cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),
+			makeSelectFocusResponse($table,true,0,1)
+		)
 		$table.tBodies[0].querySelector('.note-checkbox input').checked=true
-		assert.deepEqual(cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),{
-			select: {
-				selected: true,
-				$fromSection: $table.tBodies[1],
-				$toSection: $table.tBodies[1],
-			},
-			focus: {
-				$item: $table.tBodies[2].querySelector('.note-checkbox input'),
-				far: false,
-			},
-			stop: true
-		})
+		assert.deepEqual(
+			cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),
+			makeSelectFocusResponse($table,true,1,2)
+		)
 	})
 	it("selects and deselects with shift+move over partially selected and interruption",function(){
 		const $table=makeTable(this.window.document,[1,2,3,1])
 		$table.tBodies[1].querySelector('.note-checkbox input').checked=true
 		const cursorState=new CursorState($table)
-		assert.deepEqual(cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),{
-			select: {
-				selected: true,
-				$fromSection: $table.tBodies[0],
-				$toSection: $table.tBodies[0],
-			},
-			focus: {
-				$item: $table.tBodies[1].querySelector('.note-checkbox input'),
-				far: false,
-			},
-			stop: true
-		})
+		assert.deepEqual(
+			cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),
+			makeSelectFocusResponse($table,true,0,1)
+		)
 		$table.tBodies[0].querySelector('.note-checkbox input').checked=true
 		cursorState.resetSelect()
-		assert.deepEqual(cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),{
-			select: {
-				selected: false,
-				$fromSection: $table.tBodies[1],
-				$toSection: $table.tBodies[1],
-			},
-			focus: {
-				$item: $table.tBodies[2].querySelector('.note-checkbox input'),
-				far: false,
-			},
-			stop: true
-		})
+		assert.deepEqual(
+			cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),
+			makeSelectFocusResponse($table,false,1,2)
+		)
+	})
+	it("selects with shift+down then deselects with shift+up",function(){
+		const $table=makeTable(this.window.document,[1,2,3,1])
+		const cursorState=new CursorState($table)
+		assert.deepEqual(
+			cursorState.respondToKeyInBody({key:'ArrowDown',shiftKey:true}),
+			makeSelectFocusResponse($table,true,0,1)
+		)
+		$table.tBodies[0].querySelector('.note-checkbox input').checked=true
+		assert.deepEqual(
+			cursorState.respondToKeyInBody({key:'ArrowUp',shiftKey:true}),
+			makeSelectFocusResponse($table,false,1,0)
+		)
 	})
 	it("selects with shift+move against the first row",function(){
 		const $table=makeTable(this.window.document,[1,2,3,1])
 		const cursorState=new CursorState($table)
-		assert.deepEqual(cursorState.respondToKeyInBody({key:'ArrowUp',shiftKey:true}),{
-			select: {
-				selected: true,
-				$fromSection: $table.tBodies[0],
-				$toSection: $table.tBodies[0],
-			},
-			stop: true
-		})
+		assert.deepEqual(
+			cursorState.respondToKeyInBody({key:'ArrowUp',shiftKey:true}),
+			makeSelectFocusResponse($table,true,0)
+		)
 	})
 })
 
@@ -258,4 +187,22 @@ function makeTable(document,nOfCommentsPerNote) {
 	}
 	document.body.append($table)
 	return $table
+}
+
+function makeSelectFocusResponse($table,selected,iSelect,iFocus) {
+	const response={
+		select: {
+			selected,
+			$fromSection: $table.tBodies[iSelect],
+			$toSection: $table.tBodies[iSelect],
+		},
+		stop: true
+	}
+	if (iFocus!=null) {
+		response.focus={
+			$item: $table.tBodies[iFocus].querySelector('.note-checkbox input'),
+			far: false,
+		}
+	}
+	return response
 }
