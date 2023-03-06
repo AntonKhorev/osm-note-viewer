@@ -277,25 +277,42 @@ export default class CursorState {
 			this.iSection=iSection
 			return true
 		}
+		const getOrSetSelectStart=(i:number):[$selectStartSection:HTMLTableSectionElement|null,isSelection:boolean]=>{
+			if (this.select==null) {
+				const $selectStartSection=$items[i].closest('tbody')
+				if (!$selectStartSection) return [null,true]
+				const $startingCheckbox=$selectStartSection.querySelector(getBodySelector(iCheckboxColumn))
+				const startingChecked=($startingCheckbox instanceof HTMLInputElement) && $startingCheckbox.checked
+				this.select={
+					iStartRow: i,
+					isSelection: !startingChecked
+				}
+				return [$selectStartSection,this.select.isSelection]
+			} else {
+				const $selectStartSection=$items[this.select.iStartRow].closest('tbody')
+				if (!$selectStartSection) return [null,true]
+				return [$selectStartSection,this.select.isSelection]
+			}
+		}
 		const $currentItem=this.getCurrentBodyItem()
 		if (!$currentItem) return null
 		const $items=htmlElementArray(this.$table.querySelectorAll(`tbody:not([hidden]) tr:not([hidden]) ${getBodySelector(this.iColumn)}`))
 		const i=$items.indexOf($currentItem)
 		if (i<0) return null
-		let j: number|undefined
+		let j: number
 		let d: number
 		if (ev.key=='ArrowUp') {
 			d=-1
-			j=Math.max(0,i-1)
+			j=i-1
 		} else if (ev.key=='ArrowDown') {
 			d=+1
-			j=Math.min($items.length-1,i+1)
+			j=i+1
 		} else if (ev.key=='Home' && ev.ctrlKey) {
 			d=-1
-			j=0
+			j=-1
 		} else if (ev.key=='End' && ev.ctrlKey) {
 			d=+1
-			j=$items.length-1
+			j=$items.length
 		} else if (ev.key=='PageUp' && pager) {
 			d=-1
 			j=pager.goPageUp($items,i)
@@ -305,49 +322,52 @@ export default class CursorState {
 		} else {
 			return null
 		}
+		const jSafe=Math.max(0,Math.min($items.length-1,j))
 		const bailResponse: KeyResponse = ev.shiftKey ? {stop:true} : null
-		if (j==null) return bailResponse
 		if (ev.shiftKey) {
 			if (this.iColumn!=iCheckboxColumn) return bailResponse
+			const [$selectStartSection,isSelection]=getOrSetSelectStart(i)
 			const $fromSection=$items[i].closest('tbody')
-			if (this.select==null) {
-				const $startingCheckbox=$fromSection?.querySelector(getBodySelector(iCheckboxColumn))
-				const startingChecked=($startingCheckbox instanceof HTMLInputElement) && $startingCheckbox.checked
-				this.select={
-					iStartRow: i,
-					isSelection: !startingChecked
-				}
-			}
-			const $toSection=$items[i==j || $items.length==0 ? j : j-d].closest('tbody')
+			const $toSection=$items[j]?.closest('tbody')
 			const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
-			if (setSectionAndRowIndices($items[j])) {
+			if ($selectStartSection && setSectionAndRowIndices($items[jSafe])) {
 				const response:KeyResponse={stop: true}
-				let selected=this.select.isSelection
-				if (i!=j) {
+				if (i!=jSafe) {
 					response.focus={
-						$item: $items[j],
+						$item: $items[jSafe],
 						far
 					}
-					const d0=Math.sign(i-this.select.iStartRow)
-					if (!(d0==0 || d0==Math.sign(j-i))) selected=!selected
 				}
 				const select=[] as [number,boolean][]
-				for (let inside=0,k=0;k<this.$table.tBodies.length;k++) {
+				for (
+					let inNegative=0,inPositive=-1,k=d>0?0:this.$table.tBodies.length-1;
+					k>=0 && k<this.$table.tBodies.length;
+					k+=d
+				) {
 					const $section=this.$table.tBodies[k]
-					inside^=+($section==$fromSection)
-					if (inside) select.push([k,selected])
-					inside^=+($section==$toSection)
+					inPositive+=+($section==$selectStartSection)
+					inPositive+=+($section==$fromSection)
+					inPositive-=+($section==$toSection)
+					if (inPositive>0) {
+						select.push([k,isSelection])
+					} else if (inNegative>0) {
+						select.push([k,!isSelection])
+					}
+					inNegative-=+($section==$selectStartSection)
+					inNegative+=+($section==$fromSection)
+					inNegative-=+($section==$toSection)
 				}
-				if ($fromSection && $toSection) response.select=select
+				response.select=select
 				return response
 			}
 			return bailResponse
 		} else {
+			this.resetSelect()
 			if (i==j) return bailResponse
 			const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
-			if (setSectionAndRowIndices($items[j])) return {
+			if (setSectionAndRowIndices($items[jSafe])) return {
 				focus: {
-					$item: $items[j],
+					$item: $items[jSafe],
 					far
 				},
 				stop: true
