@@ -97,11 +97,6 @@ describe("NoteTable / CursorState",()=>{
 		assertShiftSelection(cursorState,'ArrowDown',$table,+0,1)
 		assertShiftSelection(cursorState,'ArrowDown',$table,+1,2)
 	})
-	it("selects with shift+up against the first row",function(){
-		const $table=makeTable(this.window.document,[1,2,3,1])
-		const cursorState=new CursorState($table)
-		assertShiftSelection(cursorState,'ArrowUp',$table,+0)
-	})
 	it("selects with shift+pagedown",function(){
 		const pager=makePager(3)
 		const $table=makeTable(this.window.document,[1,1,1,1,1,1])
@@ -144,6 +139,14 @@ describe("NoteTable / CursorState",()=>{
 			assertShiftSelection(cursorState,'ArrowDown',$table,-1,2)
 		})
 	}
+	it("selects/deselects with shift+up/down by bumping against the first row",function(){
+		const $table=makeTable(this.window.document,[1,2,3,1])
+		const cursorState=new CursorState($table)
+		cursorState.respondToKeyInBody({key:'ArrowDown'})
+		assertShiftSelection(cursorState,'ArrowUp',$table,+1,0)
+		assertShiftSelection(cursorState,'ArrowUp',$table,+0)
+		assertShiftSelection(cursorState,'ArrowDown',$table,[-0,-1],1)
+	})
 })
 
 function makeTable(document,nOfCommentsPerNote) {

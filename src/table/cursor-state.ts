@@ -53,6 +53,7 @@ export type KeyResponse = {
 type Select = {
 	iStartRow: number
 	isSelection: boolean
+	bumpAgainstEdge?: -1|1
 }
 
 export default class CursorState {
@@ -278,97 +279,120 @@ export default class CursorState {
 			this.iSection=iSection
 			return true
 		}
-		const getOrSetSelectStart=(i:number):[$selectStartSection:HTMLTableSectionElement|null,isSelection:boolean]=>{
+		const getOrSetSelectStart=( // TODO refactor into select response fn
+			$items:HTMLElement[],
+			iStartItem:number,iEndItem:number,iSafeEndItem:number,
+			d:-1|1
+		):[
+			$fromSection:HTMLTableSectionElement|null,$toSection:HTMLTableSectionElement|null,
+			$selectStartSection:HTMLTableSectionElement|null,isSelection:boolean
+		]=>{
+			let $toSection=$items[iEndItem]?.closest('tbody')
+			let $fromSection=$items[iStartItem]?.closest('tbody')
+			let $selectStartSection: HTMLTableSectionElement|null
 			if (this.select==null) {
-				const $selectStartSection=$items[i].closest('tbody')
-				if (!$selectStartSection) return [null,true]
+				$selectStartSection=$fromSection
+				if (!$selectStartSection) return [null,null,null,true]
 				const $startingCheckbox=$selectStartSection.querySelector(getBodySelector(iCheckboxColumn))
 				const startingChecked=($startingCheckbox instanceof HTMLInputElement) && $startingCheckbox.checked
 				this.select={
-					iStartRow: i,
+					iStartRow: iStartItem,
 					isSelection: !startingChecked
 				}
-				return [$selectStartSection,this.select.isSelection]
 			} else {
-				const $selectStartSection=$items[this.select.iStartRow].closest('tbody')
-				if (!$selectStartSection) return [null,true]
-				return [$selectStartSection,this.select.isSelection]
+				$selectStartSection=$items[this.select.iStartRow].closest('tbody')
+				if (!$selectStartSection) return [null,null,null,true]
 			}
+			if (this.select.bumpAgainstEdge==-d) {
+				$fromSection=null
+			}
+			if (iEndItem!=iSafeEndItem) {
+				this.select.bumpAgainstEdge=d
+			} else {
+				delete this.select.bumpAgainstEdge
+			}
+			return [
+				$fromSection,$toSection,
+				$selectStartSection,this.select.isSelection
+			]
 		}
 		const $currentItem=this.getCurrentBodyItem()
 		if (!$currentItem) return null
 		const $items=htmlElementArray(this.$table.querySelectorAll(`tbody:not([hidden]) tr:not([hidden]) ${getBodySelector(this.iColumn)}`))
-		const i=$items.indexOf($currentItem)
-		if (i<0) return null
-		let j: number
-		let d: number
+		const iStartItem=$items.indexOf($currentItem)
+		if (iStartItem<0) return null
+		let iEndItem: number
+		let d: -1|1
 		if (ev.key=='ArrowUp') {
 			d=-1
-			j=i-1
+			iEndItem=iStartItem-1
 		} else if (ev.key=='ArrowDown') {
 			d=+1
-			j=i+1
+			iEndItem=iStartItem+1
 		} else if (ev.key=='Home' && ev.ctrlKey) {
 			d=-1
-			j=-1
+			iEndItem=-1
 		} else if (ev.key=='End' && ev.ctrlKey) {
 			d=+1
-			j=$items.length
+			iEndItem=$items.length
 		} else if (ev.key=='PageUp' && pager) {
 			d=-1
-			j=pager.goPageUp($items,i)
+			iEndItem=pager.goPageUp($items,iStartItem)
 		} else if (ev.key=='PageDown' && pager) {
 			d=+1
-			j=pager.goPageDown($items,i)
+			iEndItem=pager.goPageDown($items,iStartItem)
 		} else {
 			return null
 		}
-		const jSafe=Math.max(0,Math.min($items.length-1,j))
+		const iSafeEndItem=Math.max(0,Math.min($items.length-1,iEndItem))
 		const bailResponse: KeyResponse = ev.shiftKey ? {stop:true} : null
 		if (ev.shiftKey) {
 			if (this.iColumn!=iCheckboxColumn) return bailResponse
-			const [$selectStartSection,isSelection]=getOrSetSelectStart(i)
-			const $fromSection=$items[i].closest('tbody')
-			const $toSection=$items[j]?.closest('tbody')
+			const [$fromSection,$toSection,$selectStartSection,isSelection]=getOrSetSelectStart($items,iStartItem,iEndItem,iSafeEndItem,d)
 			const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
-			if ($selectStartSection && setSectionAndRowIndices($items[jSafe])) {
-				const response:KeyResponse={stop: true}
-				if (i!=jSafe) {
-					response.focus={
-						$item: $items[jSafe],
-						far
-					}
+			if (!$selectStartSection) return bailResponse
+			if (!setSectionAndRowIndices($items[iSafeEndItem])) return bailResponse
+			const response:KeyResponse={stop: true}
+			if (iStartItem!=iSafeEndItem) {
+				response.focus={
+					$item: $items[iSafeEndItem],
+					far
 				}
-				const select=[] as [number,boolean][]
-				for (
-					let inNegative=0,inPositive=-1,k=d>0?0:this.$table.tBodies.length-1;
-					k>=0 && k<this.$table.tBodies.length;
-					k+=d
-				) {
-					const $section=this.$table.tBodies[k]
-					inPositive+=+($section==$selectStartSection)
-					inPositive+=+($section==$fromSection)
-					inPositive-=+($section==$toSection)
-					if (inPositive>0) {
-						select.push([k,isSelection])
-					} else if (inNegative>0) {
-						select.push([k,!isSelection])
-					}
-					inNegative-=+($section==$selectStartSection)
-					inNegative+=+($section==$fromSection)
-					inNegative-=+($section==$toSection)
-				}
-				response.select=select
-				return response
 			}
-			return bailResponse
+			const select=[] as [number,boolean][]
+			let inNegative=0
+			let inPositive=-1
+			if (!$fromSection) {
+				inNegative++
+				inPositive++
+			}
+			for (
+				let k=d>0?0:this.$table.tBodies.length-1;
+				k>=0 && k<this.$table.tBodies.length;
+				k+=d
+			) {
+				const $section=this.$table.tBodies[k]
+				inPositive+=+($section==$selectStartSection)
+				inPositive+=+($section==$fromSection)
+				inPositive-=+($section==$toSection)
+				if (inPositive>0) {
+					select.push([k,isSelection])
+				} else if (inNegative>0) {
+					select.push([k,!isSelection])
+				}
+				inNegative-=+($section==$selectStartSection)
+				inNegative+=+($section==$fromSection)
+				inNegative-=+($section==$toSection)
+			}
+			response.select=select
+			return response
 		} else {
 			this.select=undefined
-			if (i==jSafe) return bailResponse
+			if (iStartItem==iSafeEndItem) return bailResponse
 			const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
-			if (setSectionAndRowIndices($items[jSafe])) return {
+			if (setSectionAndRowIndices($items[iSafeEndItem])) return {
 				focus: {
-					$item: $items[jSafe],
+					$item: $items[iSafeEndItem],
 					far
 				},
 				stop: true
