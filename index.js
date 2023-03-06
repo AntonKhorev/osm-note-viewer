@@ -6669,42 +6669,30 @@ function getBodySelector(i) {
 const iCheckboxColumn = 0;
 const iCommentColumn = 6;
 const focusableSelector = `a[href], input, button, [tabindex]`;
-const tabbableSelector = `a[href]:not([tabindex="-1"]), input:not([tabindex="-1"]), button:not([tabindex="-1"]), [tabindex="0"]`;
+const tabbableSelector = `:is(${focusableSelector}):not([tabindex="-1"])`;
 const commentSubItemSelector = '.listened:not(.image.float)';
-class KeyboardState {
+class CursorState {
     constructor($table) {
         this.$table = $table;
-        this.iSection = Number($table.dataset.iKeyboardSection ?? '0');
-        this.iRow = Number($table.dataset.iKeyboardRow ?? '0');
-        this.iColumn = Number($table.dataset.iKeyboardColumn ?? '0');
-        if ($table.dataset.iKeyboardSubItem) {
-            this.iSubItem = Number($table.dataset.iKeyboardSubItem);
-        }
+        this.iSection = 0;
+        this.iRow = 0;
+        this.iColumn = 0;
     }
     respondToKeyInHead(ev) {
-        const horKeyResponse = this.respondToHorizontalMovement(ev, true);
-        if (horKeyResponse.type != 'pass') {
+        const keyResponse = this.respondToAllSelection(ev) ??
+            this.respondToHorizontalMovement(ev, true);
+        if (keyResponse)
             this.save();
-        }
-        return horKeyResponse;
+        return keyResponse;
     }
     respondToKeyInBody(ev, pager) {
-        const commentKeyResponse = this.respondToMovementInsideComment(ev);
-        if (commentKeyResponse.type != 'pass') {
+        const keyResponse = this.respondToAllSelection(ev) ??
+            this.respondToMovementInsideComment(ev) ??
+            this.respondToHorizontalMovement(ev, false) ??
+            this.respondToVerticalMovement(ev, pager);
+        if (keyResponse)
             this.save();
-            return commentKeyResponse;
-        }
-        const horKeyResponse = this.respondToHorizontalMovement(ev, false);
-        if (horKeyResponse.type != 'pass') {
-            this.save();
-            return horKeyResponse;
-        }
-        const verKeyResponse = this.respondToVerticalMovement(ev, pager);
-        if (verKeyResponse.type != 'pass') {
-            this.save();
-            return verKeyResponse;
-        }
-        return { type: 'pass' };
+        return keyResponse;
     }
     setToNearestVisible() {
         const getIndexOfNearestVisible = ($currentElement, $elementsIterable) => {
@@ -6758,10 +6746,14 @@ class KeyboardState {
         }
         this.save();
     }
+    loseFocus() {
+        this.select = undefined;
+    }
     /**
      * @returns element to focus if required
      */
     setToClicked($target) {
+        this.select = undefined;
         const $cell = $target.closest('td, th');
         if (!($cell instanceof HTMLTableCellElement))
             return;
@@ -6807,16 +6799,32 @@ class KeyboardState {
             }
         }
     }
+    respondToAllSelection(ev) {
+        if (ev.ctrlKey && ev.key.toLowerCase() == 'a') {
+            const $allCheckbox = this.$table.querySelector('thead .note-checkbox input');
+            if (!($allCheckbox instanceof HTMLInputElement))
+                return null;
+            const selected = !$allCheckbox.checked;
+            const select = [...this.$table.tBodies].flatMap(($section, i) => $section.hidden ? [] : [[i, selected]]);
+            return {
+                select,
+                stop: true
+            };
+        }
+        return null;
+    }
     respondToMovementInsideComment(ev) {
         if (this.iColumn != iCommentColumn)
-            return { type: 'pass' };
+            return null;
         const $item = this.getCurrentBodyItem();
         if (!$item)
-            return { type: 'pass' };
+            return null;
         const makeFocusResponse = ($item) => ({
-            type: 'focus',
-            $item,
-            far: false
+            focus: {
+                $item,
+                far: false
+            },
+            stop: true
         });
         if (this.iSubItem == null) {
             if (ev.key == 'Enter') {
@@ -6852,7 +6860,7 @@ class KeyboardState {
                 }
             }
         }
-        return { type: 'pass' };
+        return null;
     }
     respondToHorizontalMovement(ev, isInHead) {
         const updateState = () => {
@@ -6879,78 +6887,151 @@ class KeyboardState {
             return false;
         };
         if (!updateState())
-            return { type: 'pass' };
+            return null;
         this.iSubItem = undefined;
         const $item = isInHead ? this.getCurrentHeadItem() : this.getCurrentBodyItem();
         if (!$item)
-            return { type: 'stop' };
+            return { stop: true };
         return {
-            type: 'focus',
-            $item,
-            far: false
+            focus: {
+                $item,
+                far: false
+            },
+            stop: true
         };
     }
     respondToVerticalMovement(ev, pager) {
-        const setSectionAndRowIndices = ($item) => {
-            const $row = $item.closest('tr');
-            if (!$row)
-                return false;
-            const $section = $row.parentElement;
-            if (!($section instanceof HTMLTableSectionElement))
-                return false;
-            const iRow = [...$section.rows].indexOf($row);
-            if (iRow < 0)
-                return false;
-            const iSection = [...this.$table.tBodies].indexOf($section);
-            if (iSection < 0)
-                return false;
-            this.iSubItem = undefined;
-            this.iRow = iRow;
-            this.iSection = iSection;
-            return true;
-        };
         const $currentItem = this.getCurrentBodyItem();
         if (!$currentItem)
-            return { type: 'pass' };
+            return null;
         const $items = htmlElementArray(this.$table.querySelectorAll(`tbody:not([hidden]) tr:not([hidden]) ${getBodySelector(this.iColumn)}`));
-        const i = $items.indexOf($currentItem);
-        if (i < 0)
-            return { type: 'pass' };
-        let j;
+        const iStartItem = $items.indexOf($currentItem);
+        if (iStartItem < 0)
+            return null;
+        let iEndItem;
+        let d;
         if (ev.key == 'ArrowUp') {
-            if (i > 0)
-                j = i - 1;
+            d = -1;
+            iEndItem = iStartItem - 1;
         }
         else if (ev.key == 'ArrowDown') {
-            if (i < $items.length - 1)
-                j = i + 1;
+            d = +1;
+            iEndItem = iStartItem + 1;
         }
         else if (ev.key == 'Home' && ev.ctrlKey) {
-            j = 0;
+            d = -1;
+            iEndItem = -1;
         }
         else if (ev.key == 'End' && ev.ctrlKey) {
-            j = $items.length - 1;
+            d = +1;
+            iEndItem = $items.length;
         }
         else if (ev.key == 'PageUp' && pager) {
-            j = pager.goPageUp($items, i);
+            d = -1;
+            iEndItem = pager.goPageUp($items, iStartItem);
         }
         else if (ev.key == 'PageDown' && pager) {
-            j = pager.goPageDown($items, i);
+            d = +1;
+            iEndItem = pager.goPageDown($items, iStartItem);
         }
         else {
-            return { type: 'pass' };
+            return null;
         }
-        const isSelection = ev.shiftKey && this.iColumn == iCheckboxColumn;
-        const bailResponse = ev.shiftKey ? { type: 'stop' } : { type: 'pass' };
-        if (j != null && i != j) {
-            const far = !(ev.key == 'ArrowUp' || ev.key == 'ArrowDown');
-            const $fromItem = $items[i];
-            const $item = $items[j];
-            if (setSectionAndRowIndices($items[j])) {
-                return { type: isSelection ? 'check' : 'focus', $fromItem, $item, far };
+        const iSafeEndItem = Math.max(0, Math.min($items.length - 1, iEndItem));
+        const far = !(ev.key == 'ArrowUp' || ev.key == 'ArrowDown');
+        if (ev.shiftKey) {
+            if (this.iColumn != iCheckboxColumn)
+                return { stop: true };
+            const response = { stop: true };
+            const focus = this.respondToVerticalMovementByFocusing($items, iStartItem, iSafeEndItem, far);
+            if (focus)
+                response.focus = focus;
+            const select = this.respondToVerticalMovementBySelecting($items, iStartItem, iEndItem, iSafeEndItem, d);
+            if (select)
+                response.select = select;
+            return response;
+        }
+        else {
+            this.select = undefined;
+            const focus = this.respondToVerticalMovementByFocusing($items, iStartItem, iSafeEndItem, far);
+            if (!focus)
+                return null;
+            return { focus, stop: true };
+        }
+    }
+    respondToVerticalMovementByFocusing($items, iStartItem, iSafeEndItem, far) {
+        if (iStartItem == iSafeEndItem)
+            return;
+        const $item = $items[iSafeEndItem];
+        const $row = $item.closest('tr');
+        if (!$row)
+            return;
+        const $section = $row.parentElement;
+        if (!($section instanceof HTMLTableSectionElement))
+            return;
+        const iRow = [...$section.rows].indexOf($row);
+        if (iRow < 0)
+            return;
+        const iSection = [...this.$table.tBodies].indexOf($section);
+        if (iSection < 0)
+            return;
+        this.iSubItem = undefined;
+        this.iRow = iRow;
+        this.iSection = iSection;
+        return { $item, far };
+    }
+    respondToVerticalMovementBySelecting($items, iStartItem, iEndItem, iSafeEndItem, d) {
+        let $toSection = $items[iEndItem]?.closest('tbody');
+        let $fromSection = $items[iStartItem]?.closest('tbody');
+        let $selectStartSection;
+        if (this.select == null) {
+            $selectStartSection = $fromSection;
+            if (!$selectStartSection)
+                return;
+            const $startingCheckbox = $selectStartSection.querySelector(getBodySelector(iCheckboxColumn));
+            const startingChecked = ($startingCheckbox instanceof HTMLInputElement) && $startingCheckbox.checked;
+            this.select = {
+                iStartRow: iStartItem,
+                isSelection: !startingChecked
+            };
+        }
+        else {
+            $selectStartSection = $items[this.select.iStartRow].closest('tbody');
+            if (!$selectStartSection)
+                return;
+        }
+        if (this.select.bumpAgainstEdge == -d) {
+            $fromSection = null;
+        }
+        if (iEndItem != iSafeEndItem) {
+            this.select.bumpAgainstEdge = d;
+        }
+        else {
+            delete this.select.bumpAgainstEdge;
+        }
+        const select = [];
+        let inNegative = 0;
+        let inPositive = -1;
+        if (!$fromSection) {
+            inNegative++;
+            inPositive++;
+        }
+        for (let k = d > 0 ? 0 : this.$table.tBodies.length - 1; k >= 0 && k < this.$table.tBodies.length; k += d) {
+            const $section = this.$table.tBodies[k];
+            inPositive += +($section == $selectStartSection);
+            inPositive += +($section == $fromSection);
+            inPositive -= +($section == $toSection);
+            if (inPositive > 0) {
+                select.push([k, this.select.isSelection]);
             }
+            else if (inNegative > 0) {
+                select.push([k, !this.select.isSelection]);
+            }
+            inNegative -= +($section == $selectStartSection);
+            inNegative += +($section == $fromSection);
+            inNegative -= +($section == $toSection);
         }
-        return bailResponse;
+        return select;
     }
     getCurrentHeadItem() {
         const $headSection = this.$table.tHead;
@@ -6976,16 +7057,7 @@ class KeyboardState {
         return $section.rows.item(this.iRow);
     }
     save() {
-        this.$table.dataset.iKeyboardSection = String(this.iSection);
-        this.$table.dataset.iKeyboardRow = String(this.iRow);
-        this.$table.dataset.iKeyboardColumn = String(this.iColumn);
-        if (this.iSubItem != null) {
-            this.$table.dataset.iKeyboardSubItem = String(this.iSubItem);
-        }
-        else {
-            delete this.$table.dataset.iKeyboardSubItem;
-        }
-        for (const $e of this.$table.querySelectorAll(`:is(thead, tbody) :is(${tabbableSelector})`)) {
+        for (const $e of this.$table.querySelectorAll(`:is(thead, tbody) ${tabbableSelector}`)) {
             if ($e instanceof HTMLElement)
                 $e.tabIndex = -1;
         }
@@ -7012,71 +7084,71 @@ const htmlElementArray = ($eIterable) => {
     return $es;
 };
 
-function makeNoteTableKeydownListener() {
-    const $helpDialog = makeHelpDialog(`Close note table help`, [
-        makeElement('h2')()(`Note table keyboard controls`),
-        p(`Inside the table head:`),
-        ul(li(kbd(`Left`), ` / `, kbd(`Right`), ` — go to adjacent table controls`), li(kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last control`), li(kbd(`Tab`), ` — go to table body`)),
-        p(`Inside the table body:`),
-        ul(li(kbd(`Arrow keys`), ` — go to adjacent table cell`), li(kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last column`), li(kbd(`Ctrl`), ` + `, kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last row`), li(kbd(`PageUp`), ` / `, kbd(`PageDown`), ` — go approximately one viewport up/down`), li(kbd(`Shift`), ` + any vertical navigation keys while in the checkbox column — select notes`), li(kbd(`Ctrl`), ` + `, kbd(`A`), ` — select all notes`), li(kbd(`Enter`), ` while in comment column — go inside the comment cell`), li(kbd(`Esc`), ` while inside a comment cell — exit the cell`), li(kbd(`Shift`), ` + `, kbd(`Tab`), ` — go to table head`)),
-    ]);
-    return [function (ev) {
+class Cursor {
+    constructor($table, selectSections) {
+        this.$helpDialog = makeHelpDialog(`Close note table help`, [
+            makeElement('h2')()(`Note table keyboard controls`),
+            ul(li(kbd(`Tab`), ` and `, kbd(`Shift`), ` + `, kbd(`Tab`), ` — switch between table head and body`)),
+            p(`Anywhere inside the table:`),
+            ul(li(kbd(`Arrow keys`), ` — go to adjacent table cell`), li(kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last column`), li(kbd(`Ctrl`), ` + `, kbd(`A`), ` — select all notes`)),
+            p(`Inside the table body:`),
+            ul(li(kbd(`Ctrl`), ` + `, kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last row`), li(kbd(`PageUp`), ` / `, kbd(`PageDown`), ` — go approximately one viewport up/down`), li(kbd(`Shift`), ` + any vertical navigation keys while in the checkbox column — select notes`), li(kbd(`Enter`), ` while in comment column — go inside the comment cell`), li(kbd(`Esc`), ` while inside a comment cell — exit the cell`)),
+        ]);
+        this.state = new CursorState($table);
+        $table.addEventListener('keydown', ev => {
             if (ev.key == 'F1') {
-                $helpDialog.showModal();
+                this.$helpDialog.showModal();
             }
             else {
-                noteTableKeydownListener(this, ev);
+                noteTableKeydownListener($table, ev, selectSections, this.state);
             }
-        }, $helpDialog];
-}
-function noteTableCleanupRovingTabindex($table) {
-    const keyboardState = new KeyboardState($table);
-    keyboardState.setToNearestVisible();
-}
-function noteTableCaptureClickListener(ev) {
-    const $table = this;
-    const $e = ev.target;
-    if (!($e instanceof HTMLElement))
-        return;
-    const keyboardState = new KeyboardState($table);
-    const $focusElement = keyboardState.setToClicked($e);
-    $focusElement?.focus();
-}
-function noteTableKeydownListener($table, ev) {
-    if (ev.ctrlKey && ev.key.toLowerCase() == 'a') {
-        const $allCheckbox = $table.querySelector('thead .note-checkbox input');
-        if (!($allCheckbox instanceof HTMLInputElement))
-            return;
-        $allCheckbox.click();
-        ev.stopPropagation();
-        ev.preventDefault();
-        return;
+        });
+        $table.addEventListener('click', ev => {
+            const $e = ev.target;
+            if (!($e instanceof HTMLElement))
+                return;
+            const $focusElement = this.state.setToClicked($e);
+            $focusElement?.focus();
+        }, true);
+        $table.addEventListener('focusout', ev => {
+            const $e = ev.relatedTarget;
+            if (!($e instanceof Element)
+                || !$table.contains($e)) {
+                this.state.loseFocus();
+            }
+        });
     }
+    reset($table) {
+        this.state = new CursorState($table);
+    }
+    updateTabIndex() {
+        this.state.setToNearestVisible();
+    }
+}
+function noteTableKeydownListener($table, ev, selectSections, state) {
     if (!(ev.target instanceof HTMLElement))
         return;
     const $section = ev.target.closest('thead, tbody');
     if (!($section instanceof HTMLTableSectionElement))
         return;
-    const keyboardState = new KeyboardState($table);
     let keyResponse;
     if ($section.tagName == 'THEAD') {
-        keyResponse = keyboardState.respondToKeyInHead(ev);
+        keyResponse = state.respondToKeyInHead(ev);
     }
     else {
         let pager;
         const $scrollingPart = $table.closest('.scrolling'); // TODO pass
         if ($scrollingPart)
             pager = new Pager($scrollingPart);
-        keyResponse = keyboardState.respondToKeyInBody(ev, pager);
+        keyResponse = state.respondToKeyInBody(ev, pager);
     }
-    if (keyResponse.type == 'check') {
-        keyResponse.$fromItem.dispatchEvent(new MouseEvent('click'));
-        keyResponse.$item.dispatchEvent(new MouseEvent('click', { shiftKey: true }));
+    if (keyResponse?.select) {
+        selectSections(keyResponse.select);
     }
-    if (keyResponse.type == 'focus' || keyResponse.type == 'check') {
-        focus(keyResponse.$item, keyResponse.far);
+    if (keyResponse?.focus) {
+        focus(keyResponse.focus.$item, keyResponse.focus.far);
     }
-    if (keyResponse.type != 'pass') {
+    if (keyResponse?.stop) {
         ev.stopPropagation();
         ev.preventDefault();
     }
@@ -7193,7 +7265,6 @@ class NoteTable {
         this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
         this.usersById = new Map();
         this.showImages = false;
-        this.wrappedCleanupRovingTabindex = () => noteTableCleanupRovingTabindex(this.$table);
         this.expanders = new Expanders(storage, this.$table);
         this.$table.setAttribute('role', 'grid');
         const that = this;
@@ -7238,10 +7309,16 @@ class NoteTable {
         this.wrappedNoteMarkerClickListener = function () {
             that.noteMarkerClickListener(this);
         };
-        const [keydownListener, $helpDialog] = makeNoteTableKeydownListener();
-        $root.append($helpDialog);
-        this.$table.addEventListener('keydown', keydownListener);
-        this.$table.addEventListener('click', noteTableCaptureClickListener, true);
+        this.cursor = new Cursor(this.$table, (select) => {
+            this.$lastClickedNoteSection = undefined;
+            for (const [iSection, selected] of select) {
+                const $section = this.$table.tBodies.item(iSection);
+                if ($section)
+                    this.setNoteSelection($section, selected);
+            }
+            this.updateCheckboxDependentsAndSendNoteChangeEvents();
+        });
+        $root.append(this.cursor.$helpDialog);
         this.noteSectionVisibilityObserver = new NoteSectionVisibilityObserver((visibleNoteIds, isMapFittingHalted) => {
             map.showNoteTrack(visibleNoteIds);
             if (!isMapFittingHalted && this.mapFitMode == 'inViewNotes')
@@ -7344,6 +7421,7 @@ class NoteTable {
         this.markText = markText;
         this.notesById.clear();
         this.usersById.clear();
+        this.cursor.reset(this.$table);
         this.$lastClickedNoteSection = undefined;
         this.noteSectionVisibilityObserver.disconnect();
         this.$table.replaceChildren();
@@ -7376,7 +7454,7 @@ class NoteTable {
             }
         }
         this.updateCheckboxDependentsAndSendNoteChangeEvents();
-        noteTableCleanupRovingTabindex(this.$table);
+        this.cursor.updateTabIndex();
     }
     /**
      * @returns number of added notes that passed through the filter
@@ -7428,8 +7506,8 @@ class NoteTable {
         const $noteSection = this.getNoteSection(note.id);
         if (!$noteSection)
             throw new Error(`note section not found during note replace`);
-        const $checkbox = $noteSection.querySelector('.note-checkbox input');
-        if (!($checkbox instanceof HTMLInputElement))
+        const $checkbox = getNoteSectionCheckbox($noteSection);
+        if (!$checkbox)
             throw new Error(`note checkbox not found during note replace`);
         const $a = $noteSection.querySelector('td.note-link a');
         if (!($a instanceof HTMLAnchorElement))
@@ -7470,10 +7548,7 @@ class NoteTable {
     getSelectedNoteIds() {
         const ids = [];
         for (const [$noteSection, id] of this.listVisibleNoteSectionsWithIds()) {
-            const $checkbox = $noteSection.querySelector('.note-checkbox input');
-            if (!($checkbox instanceof HTMLInputElement))
-                continue;
-            if (!$checkbox.checked)
+            if (!isSelectedNoteSection($noteSection))
                 continue;
             ids.push(id);
         }
@@ -7501,12 +7576,12 @@ class NoteTable {
         }
     }
     writeHeadSection() {
-        const $header = this.$table.createTHead();
+        const $headSection = this.$table.createTHead();
         this.$selectAllCheckbox.type = 'checkbox';
         this.$selectAllCheckbox.title = `select all notes`;
         this.$selectAllCheckbox.addEventListener('click', this.wrappedAllNotesCheckboxClickListener);
-        writeHeadSectionRow($header, this.$selectAllCheckbox, (key, clickListener) => this.expanders.makeButton(key, clickListener), () => this.$table.tBodies, this.wrappedCleanupRovingTabindex);
-        return $header;
+        writeHeadSectionRow($headSection, this.$selectAllCheckbox, (key, clickListener) => this.expanders.makeButton(key, clickListener), () => this.$table.tBodies, () => this.cursor.updateTabIndex());
+        return $headSection;
     }
     makeMarker(note, isVisible) {
         const marker = new NoteMarker(note);
@@ -7529,11 +7604,11 @@ class NoteTable {
             }
         }
         $checkbox.setAttribute('aria-label', `${note.status} note at latitude ${note.lat}, longitude ${note.lon}`);
-        const $commentCells = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, $checkbox, note, users, !this.$table.classList.contains('expanded-comments'), this.showImages, this.markUser, this.markText, () => this.focusOnNote($noteSection, true), this.wrappedCleanupRovingTabindex);
+        const $commentCells = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, $checkbox, note, users, !this.$table.classList.contains('expanded-comments'), this.showImages, this.markUser, this.markText, () => this.focusOnNote($noteSection, true), () => this.cursor.updateTabIndex());
         for (const $commentCell of $commentCells) {
             this.looseParserListener.listen($commentCell);
         }
-        noteTableCleanupRovingTabindex(this.$table);
+        this.cursor.updateTabIndex();
     }
     updateShortenedNoteIds() {
         const shortener = new IdShortener;
@@ -7591,6 +7666,8 @@ class NoteTable {
             this.setNoteSelection($clickedNoteSection, $checkbox.checked);
             if (ev.shiftKey && this.$lastClickedNoteSection) {
                 for (const $inRangeNoteSection of this.listVisibleNoteSectionsInRange(this.$lastClickedNoteSection, $clickedNoteSection)) {
+                    if ($inRangeNoteSection == $clickedNoteSection)
+                        continue;
                     this.setNoteSelection($inRangeNoteSection, $checkbox.checked);
                 }
             }
@@ -7700,8 +7777,8 @@ class NoteTable {
                 return this.map.unselectedNoteLayer;
             }
         };
-        const $checkbox = $noteSection.querySelector('.note-checkbox input');
-        if ($checkbox instanceof HTMLInputElement)
+        const $checkbox = getNoteSectionCheckbox($noteSection);
+        if ($checkbox)
             $checkbox.checked = isSelected;
         const noteId = Number($noteSection.dataset.noteId);
         const note = this.notesById.get(noteId);
@@ -7725,10 +7802,6 @@ class NoteTable {
             yield [$noteSection, Number(idString)];
         }
     }
-    /**
-     * range including $fromSection but excluding $toSection
-     * excludes $toSection if equals to $fromSection
-     */
     *listVisibleNoteSectionsInRange($fromSection, $toSection) {
         const $sections = this.listVisibleNoteSections();
         let i = 0;
@@ -7748,9 +7821,7 @@ class NoteTable {
             return;
         for (; i < $sections.length; i++) {
             const $section = $sections[i];
-            if ($section != $toSection) {
-                yield $section;
-            }
+            yield $section;
             if ($section == $guardSection) {
                 return;
             }
@@ -7800,9 +7871,12 @@ function setUpdateLinkTitle($noteSection, $a) {
         $a.title = `reloaded manually ${nManualUpdates} times, reload ${noteReference} again`;
     }
 }
-function isSelectedNoteSection($noteSection) {
+function getNoteSectionCheckbox($noteSection) {
     const $checkbox = $noteSection.querySelector('.note-checkbox input');
-    return $checkbox instanceof HTMLInputElement && $checkbox.checked;
+    return $checkbox instanceof HTMLInputElement ? $checkbox : null;
+}
+function isSelectedNoteSection($noteSection) {
+    return getNoteSectionCheckbox($noteSection)?.checked ?? false;
 }
 function isDefined(argument) {
     return argument !== undefined;
