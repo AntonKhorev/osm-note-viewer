@@ -265,57 +265,6 @@ export default class CursorState {
 		}
 	}
 	private respondToVerticalMovement(ev: KeyEvent, pager?: Pager): KeyResponse {
-		const setSectionAndRowIndices=($item: HTMLElement):boolean=>{
-			const $row=$item.closest('tr')
-			if (!$row) return false
-			const $section=$row.parentElement
-			if (!($section instanceof HTMLTableSectionElement)) return false
-			const iRow=[...$section.rows].indexOf($row)
-			if (iRow<0) return false
-			const iSection=[...this.$table.tBodies].indexOf($section)
-			if (iSection<0) return false
-			this.iSubItem=undefined
-			this.iRow=iRow
-			this.iSection=iSection
-			return true
-		}
-		const getOrSetSelectStart=( // TODO refactor into select response fn
-			$items:HTMLElement[],
-			iStartItem:number,iEndItem:number,iSafeEndItem:number,
-			d:-1|1
-		):[
-			$fromSection:HTMLTableSectionElement|null,$toSection:HTMLTableSectionElement|null,
-			$selectStartSection:HTMLTableSectionElement|null,isSelection:boolean
-		]=>{
-			let $toSection=$items[iEndItem]?.closest('tbody')
-			let $fromSection=$items[iStartItem]?.closest('tbody')
-			let $selectStartSection: HTMLTableSectionElement|null
-			if (this.select==null) {
-				$selectStartSection=$fromSection
-				if (!$selectStartSection) return [null,null,null,true]
-				const $startingCheckbox=$selectStartSection.querySelector(getBodySelector(iCheckboxColumn))
-				const startingChecked=($startingCheckbox instanceof HTMLInputElement) && $startingCheckbox.checked
-				this.select={
-					iStartRow: iStartItem,
-					isSelection: !startingChecked
-				}
-			} else {
-				$selectStartSection=$items[this.select.iStartRow].closest('tbody')
-				if (!$selectStartSection) return [null,null,null,true]
-			}
-			if (this.select.bumpAgainstEdge==-d) {
-				$fromSection=null
-			}
-			if (iEndItem!=iSafeEndItem) {
-				this.select.bumpAgainstEdge=d
-			} else {
-				delete this.select.bumpAgainstEdge
-			}
-			return [
-				$fromSection,$toSection,
-				$selectStartSection,this.select.isSelection
-			]
-		}
 		const $currentItem=this.getCurrentBodyItem()
 		if (!$currentItem) return null
 		const $items=htmlElementArray(this.$table.querySelectorAll(`tbody:not([hidden]) tr:not([hidden]) ${getBodySelector(this.iColumn)}`))
@@ -345,60 +294,97 @@ export default class CursorState {
 			return null
 		}
 		const iSafeEndItem=Math.max(0,Math.min($items.length-1,iEndItem))
-		const bailResponse: KeyResponse = ev.shiftKey ? {stop:true} : null
+		const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
 		if (ev.shiftKey) {
-			if (this.iColumn!=iCheckboxColumn) return bailResponse
-			const [$fromSection,$toSection,$selectStartSection,isSelection]=getOrSetSelectStart($items,iStartItem,iEndItem,iSafeEndItem,d)
-			const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
-			if (!$selectStartSection) return bailResponse
-			if (!setSectionAndRowIndices($items[iSafeEndItem])) return bailResponse
-			const response:KeyResponse={stop: true}
-			if (iStartItem!=iSafeEndItem) {
-				response.focus={
-					$item: $items[iSafeEndItem],
-					far
-				}
-			}
-			const select=[] as [number,boolean][]
-			let inNegative=0
-			let inPositive=-1
-			if (!$fromSection) {
-				inNegative++
-				inPositive++
-			}
-			for (
-				let k=d>0?0:this.$table.tBodies.length-1;
-				k>=0 && k<this.$table.tBodies.length;
-				k+=d
-			) {
-				const $section=this.$table.tBodies[k]
-				inPositive+=+($section==$selectStartSection)
-				inPositive+=+($section==$fromSection)
-				inPositive-=+($section==$toSection)
-				if (inPositive>0) {
-					select.push([k,isSelection])
-				} else if (inNegative>0) {
-					select.push([k,!isSelection])
-				}
-				inNegative-=+($section==$selectStartSection)
-				inNegative+=+($section==$fromSection)
-				inNegative-=+($section==$toSection)
-			}
-			response.select=select
+			if (this.iColumn!=iCheckboxColumn) return {stop:true}
+			const response: KeyResponse = {stop:true}
+			const focus=this.respondToVerticalMovementByFocusing($items,iStartItem,iSafeEndItem,far)
+			if (focus) response.focus=focus
+			const select=this.respondToVerticalMovementBySelecting($items,iStartItem,iEndItem,iSafeEndItem,d)
+			if (select) response.select=select
 			return response
 		} else {
 			this.select=undefined
-			if (iStartItem==iSafeEndItem) return bailResponse
-			const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
-			if (setSectionAndRowIndices($items[iSafeEndItem])) return {
-				focus: {
-					$item: $items[iSafeEndItem],
-					far
-				},
-				stop: true
-			}
-			return bailResponse
+			const focus=this.respondToVerticalMovementByFocusing($items,iStartItem,iSafeEndItem,far)
+			if (!focus) return null
+			return {focus,stop:true}
 		}
+	}
+	private respondToVerticalMovementByFocusing(
+		$items: HTMLElement[],
+		iStartItem: number, iSafeEndItem: number,
+		far: boolean
+	): Exclude<KeyResponse,null>['focus'] {
+		if (iStartItem==iSafeEndItem) return
+		const $item=$items[iSafeEndItem]
+		const $row=$item.closest('tr')
+		if (!$row) return
+		const $section=$row.parentElement
+		if (!($section instanceof HTMLTableSectionElement)) return
+		const iRow=[...$section.rows].indexOf($row)
+		if (iRow<0) return
+		const iSection=[...this.$table.tBodies].indexOf($section)
+		if (iSection<0) return
+		this.iSubItem=undefined
+		this.iRow=iRow
+		this.iSection=iSection
+		return {$item,far}
+	}
+	private respondToVerticalMovementBySelecting(
+		$items: HTMLElement[],
+		iStartItem: number, iEndItem: number, iSafeEndItem: number,
+		d:-1|1
+	): Exclude<KeyResponse,null>['select'] {
+		let $toSection=$items[iEndItem]?.closest('tbody')
+		let $fromSection=$items[iStartItem]?.closest('tbody')
+		let $selectStartSection: HTMLTableSectionElement|null
+		if (this.select==null) {
+			$selectStartSection=$fromSection
+			if (!$selectStartSection) return
+			const $startingCheckbox=$selectStartSection.querySelector(getBodySelector(iCheckboxColumn))
+			const startingChecked=($startingCheckbox instanceof HTMLInputElement) && $startingCheckbox.checked
+			this.select={
+				iStartRow: iStartItem,
+				isSelection: !startingChecked
+			}
+		} else {
+			$selectStartSection=$items[this.select.iStartRow].closest('tbody')
+			if (!$selectStartSection) return
+		}
+		if (this.select.bumpAgainstEdge==-d) {
+			$fromSection=null
+		}
+		if (iEndItem!=iSafeEndItem) {
+			this.select.bumpAgainstEdge=d
+		} else {
+			delete this.select.bumpAgainstEdge
+		}
+		const select=[] as [number,boolean][]
+		let inNegative=0
+		let inPositive=-1
+		if (!$fromSection) {
+			inNegative++
+			inPositive++
+		}
+		for (
+			let k=d>0?0:this.$table.tBodies.length-1;
+			k>=0 && k<this.$table.tBodies.length;
+			k+=d
+		) {
+			const $section=this.$table.tBodies[k]
+			inPositive+=+($section==$selectStartSection)
+			inPositive+=+($section==$fromSection)
+			inPositive-=+($section==$toSection)
+			if (inPositive>0) {
+				select.push([k,this.select.isSelection])
+			} else if (inNegative>0) {
+				select.push([k,!this.select.isSelection])
+			}
+			inNegative-=+($section==$selectStartSection)
+			inNegative+=+($section==$fromSection)
+			inNegative-=+($section==$toSection)
+		}
+		return select
 	}
 	private getCurrentHeadItem(): HTMLElement|null {
 		const $headSection=this.$table.tHead
