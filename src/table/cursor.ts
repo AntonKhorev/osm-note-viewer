@@ -7,7 +7,7 @@ import {ul,li,p,kbd} from '../html-shortcuts'
 
 export default class Cursor {
 	$helpDialog=makeHelpDialog(`Close note table help`,[
-		makeElement('h2')()(`Note table keyboard controls`),
+		makeElement('h2')()(`Note table controls`),
 		ul(
 			li(kbd(`Tab`),` and `,kbd(`Shift`),` + `,kbd(`Tab`),` — switch between table head and body`),
 		),
@@ -20,7 +20,7 @@ export default class Cursor {
 		p(`Inside the table body:`),
 		ul(
 			li(kbd(`Ctrl`),` + `,kbd(`Home`),` / `,kbd(`End`),` — go to first/last row`),
-			li(kbd(`PageUp`),` / `,kbd(`PageDown`),` — go approximately one viewport up/down`),
+			li(kbd(`Shift`),` + left click while in the checkbox column — select a range of notes starting from the previous click`),
 			li(kbd(`Shift`),` + any vertical navigation keys while in the checkbox column — select notes`),
 			li(kbd(`Enter`),` while in comment column — go inside the comment cell`),
 			li(kbd(`Esc`),` while inside a comment cell — exit the cell`),
