@@ -132,7 +132,7 @@ describe("NoteTable / CursorState",()=>{
 		assertShiftSelection(cursorState,['PageUp',pager],$table,[-4,+3],2,true)
 	})
 	for (const [interruptionTitle,interrupt] of [
-		[`reset`,($table,cursorState)=>cursorState.resetSelect()],
+		[`lose focus`,($table,cursorState)=>cursorState.loseFocus()],
 		[`click`,($table,cursorState)=>cursorState.setToClicked($table.tBodies[1].querySelector('.note-checkbox'))]
 	]) {
 		it(`selects and deselects with shift+down over partially selected and ${interruptionTitle} interruption`,function(){

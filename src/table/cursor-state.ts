@@ -126,14 +126,14 @@ export default class CursorState {
 		}
 		this.save()
 	}
-	resetSelect(): void {
+	loseFocus(): void {
 		this.select=undefined
 	}
 	/**
 	 * @returns element to focus if required
 	 */
 	setToClicked($target: HTMLElement): HTMLElement|undefined {
-		this.resetSelect()
+		this.select=undefined
 		const $cell=$target.closest('td, th')
 		if (!($cell instanceof HTMLTableCellElement)) return
 		const $row=$cell.parentElement
@@ -363,7 +363,7 @@ export default class CursorState {
 			}
 			return bailResponse
 		} else {
-			this.resetSelect()
+			this.select=undefined
 			if (i==jSafe) return bailResponse
 			const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
 			if (setSectionAndRowIndices($items[jSafe])) return {

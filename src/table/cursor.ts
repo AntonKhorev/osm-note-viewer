@@ -47,7 +47,15 @@ export default class Cursor {
 			const $focusElement=this.state.setToClicked($e)
 			$focusElement?.focus()
 		},true)
-		// TODO focusout event to reset range selection state
+		$table.addEventListener('focusout',ev=>{
+			const $e=ev.relatedTarget
+			if (
+				!($e instanceof Element)
+				|| !$table.contains($e)
+			) {
+				this.state.loseFocus()
+			}
+		})
 	}
 	reset($table: HTMLTableElement) {
 		this.state=new CursorState($table)
