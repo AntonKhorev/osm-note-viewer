@@ -363,7 +363,7 @@ export default class CursorState {
 			return bailResponse
 		} else {
 			this.resetSelect()
-			if (i==j) return bailResponse
+			if (i==jSafe) return bailResponse
 			const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
 			if (setSectionAndRowIndices($items[jSafe])) return {
 				focus: {

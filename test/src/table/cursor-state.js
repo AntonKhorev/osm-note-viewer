@@ -22,6 +22,14 @@ describe("NoteTable / CursorState",()=>{
 			delete global[property]
 		}
 	})
+	it("passes when moving outside of table",function(){
+		const $table=makeTable(this.window.document,[1,1])
+		const cursorState=new CursorState($table)
+		assert.deepEqual(
+			cursorState.respondToKeyInBody({key:'ArrowUp'}),
+			null
+		)
+	})
 	it("moves cursor in head",function(){
 		const $table=makeTable(this.window.document,[1])
 		const cursorState=new CursorState($table)
