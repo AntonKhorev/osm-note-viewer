@@ -6,7 +6,9 @@ import CursorState from '../../../test-build/table/cursor-state.js'
 const globalProperties=[
 	'HTMLElement',
 	'HTMLInputElement',
-	'HTMLTableSectionElement'
+	'HTMLTableSectionElement',
+	'HTMLTableRowElement',
+	'HTMLTableCellElement',
 ]
 
 describe("NoteTable / CursorState",()=>{
@@ -95,14 +97,6 @@ describe("NoteTable / CursorState",()=>{
 		assertShiftSelection(cursorState,'ArrowDown',$table,+0,1)
 		assertShiftSelection(cursorState,'ArrowDown',$table,+1,2)
 	})
-	it("selects and deselects with shift+down over partially selected and interruption",function(){
-		const $table=makeTable(this.window.document,[1,2,3,1])
-		$table.tBodies[1].querySelector('.note-checkbox input').checked=true
-		const cursorState=new CursorState($table)
-		assertShiftSelection(cursorState,'ArrowDown',$table,+0,1)
-		cursorState.resetSelect()
-		assertShiftSelection(cursorState,'ArrowDown',$table,-1,2)
-	})
 	it("selects with shift+up against the first row",function(){
 		const $table=makeTable(this.window.document,[1,2,3,1])
 		const cursorState=new CursorState($table)
@@ -137,6 +131,19 @@ describe("NoteTable / CursorState",()=>{
 		assertShiftSelection(cursorState,'ArrowDown',$table,+4,5)
 		assertShiftSelection(cursorState,['PageUp',pager],$table,[-4,+3],2,true)
 	})
+	for (const [interruptionTitle,interrupt] of [
+		[`reset`,($table,cursorState)=>cursorState.resetSelect()],
+		[`click`,($table,cursorState)=>cursorState.setToClicked($table.tBodies[1].querySelector('.note-checkbox'))]
+	]) {
+		it(`selects and deselects with shift+down over partially selected and ${interruptionTitle} interruption`,function(){
+			const $table=makeTable(this.window.document,[1,2,3,1])
+			$table.tBodies[1].querySelector('.note-checkbox input').checked=true
+			const cursorState=new CursorState($table)
+			assertShiftSelection(cursorState,'ArrowDown',$table,+0,1)
+			interrupt($table,cursorState)
+			assertShiftSelection(cursorState,'ArrowDown',$table,-1,2)
+		})
+	}
 })
 
 function makeTable(document,nOfCommentsPerNote) {

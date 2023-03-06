@@ -133,6 +133,7 @@ export default class CursorState {
 	 * @returns element to focus if required
 	 */
 	setToClicked($target: HTMLElement): HTMLElement|undefined {
+		this.resetSelect()
 		const $cell=$target.closest('td, th')
 		if (!($cell instanceof HTMLTableCellElement)) return
 		const $row=$cell.parentElement
