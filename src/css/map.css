@@ -50,17 +50,17 @@
 	font-weight: bold;
 }
 .map .osm-element-popup-contents figure table {
-	border: solid 1px var(--frame-color);
+	border: var(--frame-line);
 	border-spacing: 0;
 	border-radius: .25rem;
 	width: 100%;
 }
 .map .osm-element-popup-contents figure tr:not(:first-child) td {
-	border-top: solid 1px var(--frame-color);
+	border-top: var(--frame-line);
 }
 .map .osm-element-popup-contents figure tr td:first-child {
 	background: var(--tag-key-background-color);
-	border-right: solid 1px var(--frame-color);
+	border-right: var(--frame-line);
 }
 .map .osm-element-popup-contents figure tr td:not(:first-child),
 .map .osm-element-popup-contents figure tr td.long { /* can't select all key cells because they will get wrapped at the expense of long value cells */

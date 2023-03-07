@@ -85,6 +85,8 @@ dialog.figure button {
 	top: var(--position-offset);
 	left: var(--position-offset);
 	opacity: 0;
+	background: #AAA8;
+	color: #FFF;
 }
 dialog.figure button.right-position {
 	left: unset;

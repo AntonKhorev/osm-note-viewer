@@ -5,8 +5,8 @@
 .panel {
 	position: relative;
 	padding: .5rem;
-	border-top: solid 1px var(--frame-color);
-	border-bottom: solid 1px var(--frame-color);
+	border-top: var(--frame-line);
+	border-bottom: var(--frame-line);
 }
 .panel + .panel {
 	border-top: none;
@@ -68,7 +68,7 @@
 	border-collapse: collapse;
 }
 .panel.fetch .advanced-hint td {
-	border-top: solid 1px var(--frame-color);
+	border-top: var(--frame-line);
 	padding: 4px 0 4px 8px;
 }
 .panel.fetch .advanced-hint td:first-child {

@@ -13,14 +13,14 @@ nav button.reset:hover,
 nav button.flip:hover {
 	outline: auto;
 }
-nav button.reset {
-	border-radius: 50%;
-	right: .5rem;
-}
 nav button.flip {
 	border-radius: 3px;
 	left: .5rem;
 	--flip-ver-part-visibility: visible;
+}
+nav button.reset {
+	border-radius: 50%;
+	right: .5rem;
 }
 body.flipped nav button.flip {
 	--flip-ver-part-visibility: hidden;
@@ -36,9 +36,9 @@ nav [role=tablist] [role=tab] {
 	position: relative;
 	display: block;
 	padding: 0 1rem;
-	border-left: solid 1px #CCC;
-	border-right: solid 1px #CCC;
-	border-top: solid 1px #CCC;
+	border-left: var(--frame-line);
+	border-right: var(--frame-line);
+	border-top: var(--frame-line);
 	border-top-left-radius: 8px;
 	border-top-right-radius: 8px;
 	border-bottom: none;

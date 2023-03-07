@@ -16,6 +16,8 @@
 	--tag-key-background-color: #F8F8FF;
 	--popup-item-background: #F8F8F8;
 	--popup-main-item-background: #FFF;
+
+	--frame-line: solid 1px var(--frame-color);
 }
 @media (prefers-color-scheme: dark) {
 	:root {
@@ -125,7 +127,7 @@ button.global > svg {
 	list-style: none;
 	margin: 0;
 	padding: 0;
-	border: solid 1px var(--frame-color);
+	border: var(--frame-line);
 	font-size: .9em;
 	opacity: .9;
 }
@@ -143,8 +145,8 @@ button.global > svg {
 }
 .loose-parser-popup li.main a {
 	padding: 10px 0 10px 5px;
-	border-top: solid 1px var(--frame-color);
-	border-bottom: solid 1px var(--frame-color);
+	border-top: var(--frame-line);
+	border-bottom: var(--frame-line);
 	background: var(--popup-main-item-background);
 }
 .loose-parser-popup a:link:hover {
