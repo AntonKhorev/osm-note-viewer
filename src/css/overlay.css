@@ -12,7 +12,7 @@
 .graphic-side button.menu:not([disabled]):hover > svg {
 	background: var(--hover-color);
 }
-.graphic-side button.menu.opened {
+.graphic-side button.menu[aria-expanded=true] {
 	--menu-cross-part-visibility: visible;
 }
 

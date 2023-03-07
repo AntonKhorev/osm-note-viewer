@@ -213,6 +213,7 @@ export default class OverlayDialog {
 	private set menuHidden(value: boolean) {
 		this.$menuPanel.hidden=value
 		this.$menuButton.classList.toggle('opened',!value)
+		this.$menuButton.setAttribute('aria-expanded',String(!value))
 		this.$menuButton.title=value?`Open menu`:`Close menu`
 	}
 	private updateImageState() {
