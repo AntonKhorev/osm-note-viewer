@@ -6,11 +6,11 @@
 	border: 2px solid rgba(0,0,0,0.2);
 	border-radius: 5px;
 }
-.graphic-side button.menu:not([disabled]):hover {
-	outline: auto;
-}
 .graphic-side button.menu > svg {
 	background: canvas;
+}
+.graphic-side button.menu:not([disabled]):hover > svg {
+	background: var(--hover-color);
 }
 .graphic-side button.menu.opened {
 	--menu-cross-part-visibility: visible;
@@ -106,9 +106,11 @@ dialog.figure button.fading {
 }
 dialog.figure button:hover,
 dialog.figure button:focus {
-	outline: auto;
 	opacity: 1;
 	animation: none;
+}
+dialog.figure button:hover {
+	background: #246;
 }
 
 dialog.help {
@@ -160,6 +162,9 @@ dialog.help button.close {
 	background: none;
 	overflow: hidden;
 	border-radius: 50%;
+}
+dialog.help button.close:hover {
+	background: var(--hover-color);
 }
 dialog.help button.close > svg {
 	width: 100%;

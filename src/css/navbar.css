@@ -11,7 +11,7 @@ nav button.flip {
 }
 nav button.reset:hover,
 nav button.flip:hover {
-	outline: auto;
+	background: var(--hover-color);
 }
 nav button.flip {
 	border-radius: 3px;
