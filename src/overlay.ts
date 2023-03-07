@@ -28,6 +28,7 @@ export default class OverlayDialog {
 	private $figure=document.createElement('figure')
 	private $backdrop=document.createElement('div')
 	private $img=document.createElement('img')
+	private $figureCaption=makeElement('figcaption')()()
 	private $figureHelpDialog=makeHelpDialog(`Close image viewer help`,[
 		makeElement('h2')()(`Image viewer keyboard controls`),
 		ul(
@@ -77,10 +78,9 @@ export default class OverlayDialog {
 		this.$backdrop.classList.add('backdrop')
 		this.$img.alt='attached photo'
 		this.updateImageState()
-		this.$figure.append(this.$backdrop,this.$img)
-		const $closeButton=document.createElement('button')
+		this.$figure.append(this.$backdrop,this.$img,this.$figureCaption)
+		const $closeButton=makeElement('button')('global')()
 		$closeButton.tabIndex=-1
-		$closeButton.classList.add('global')
 		$closeButton.innerHTML=`<svg><title>Close photo</title><use href="#reset" /></svg>`
 		this.$figureDialog.append(this.$figure,$closeButton)
 
@@ -148,13 +148,17 @@ export default class OverlayDialog {
 		this.$figure.onmousemove=ev=>{
 			$closeButton.classList.toggle('right-position',ev.offsetX>=this.$figure.offsetWidth/2)
 			$closeButton.classList.toggle('bottom-position',ev.offsetY>=this.$figure.offsetHeight/2)
-			startOrResetFadeAnimation($closeButton,'photo-button-fade','fading')
+			startOrResetFadeAnimation($closeButton,'photo-control-fade','fading')
+			startOrResetFadeAnimation(this.$figureCaption,'photo-control-fade','fading')
 		}
 		$closeButton.onclick=()=>{
 			this.close()
 		}
 		$closeButton.onanimationend=()=>{
 			$closeButton.classList.remove('fading')
+		}
+		this.$figureCaption.onanimationend=()=>{
+			this.$figureCaption.classList.remove('fading')
 		}
 	}
 	private writeMenuPanel(
@@ -222,6 +226,8 @@ export default class OverlayDialog {
 			const url=this.imageSequence.urls[this.imageSequence.index]
 			this.$backdrop.style.backgroundImage=`url(${url})`
 			this.$img.src=url
+			this.$figureCaption.textContent=url
+			startOrResetFadeAnimation(this.$figureCaption,'photo-control-fade','fading')
 		} else {
 			this.$backdrop.style.removeProperty('backgroundImage')
 			this.$img.removeAttribute('src')
