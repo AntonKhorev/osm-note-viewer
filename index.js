@@ -2676,11 +2676,13 @@ class StorageSection {
 
 function makeHelpDialog(closeButtonLabel, content) {
     const $helpDialog = makeElement('dialog')('help')();
-    const $closeButton = makeElement('button')()(closeButtonLabel);
+    const $closeButton = makeElement('button')('close')();
+    $closeButton.title = closeButtonLabel;
+    $closeButton.innerHTML = `<svg><use href="#reset" /></svg>`;
     $closeButton.onclick = () => {
         $helpDialog.close();
     };
-    $helpDialog.append(...content, makeDiv('major-input')($closeButton), makeDiv('notice')(`Press `, kbd(`F1`), ` again to access the default browser help; press `, kbd(`Esc`), ` to close this dialog.`));
+    $helpDialog.append($closeButton, ...content, makeDiv('notice')(`Press `, kbd(`F1`), ` again to access the default browser help; press `, kbd(`Esc`), ` to close this dialog.`));
     return $helpDialog;
 }
 
@@ -2878,6 +2880,7 @@ class OverlayDialog {
     set menuHidden(value) {
         this.$menuPanel.hidden = value;
         this.$menuButton.classList.toggle('opened', !value);
+        this.$menuButton.setAttribute('aria-expanded', String(!value));
         this.$menuButton.title = value ? `Open menu` : `Close menu`;
     }
     updateImageState() {
@@ -7087,12 +7090,12 @@ const htmlElementArray = ($eIterable) => {
 class Cursor {
     constructor($table, selectSections) {
         this.$helpDialog = makeHelpDialog(`Close note table help`, [
-            makeElement('h2')()(`Note table keyboard controls`),
+            makeElement('h2')()(`Note table controls`),
             ul(li(kbd(`Tab`), ` and `, kbd(`Shift`), ` + `, kbd(`Tab`), ` — switch between table head and body`)),
             p(`Anywhere inside the table:`),
             ul(li(kbd(`Arrow keys`), ` — go to adjacent table cell`), li(kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last column`), li(kbd(`Ctrl`), ` + `, kbd(`A`), ` — select all notes`)),
             p(`Inside the table body:`),
-            ul(li(kbd(`Ctrl`), ` + `, kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last row`), li(kbd(`PageUp`), ` / `, kbd(`PageDown`), ` — go approximately one viewport up/down`), li(kbd(`Shift`), ` + any vertical navigation keys while in the checkbox column — select notes`), li(kbd(`Enter`), ` while in comment column — go inside the comment cell`), li(kbd(`Esc`), ` while inside a comment cell — exit the cell`)),
+            ul(li(kbd(`Ctrl`), ` + `, kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last row`), li(kbd(`Shift`), ` + left click while in the checkbox column — select a range of notes starting from the previous click`), li(kbd(`Shift`), ` + any vertical navigation keys while in the checkbox column — select notes`), li(kbd(`Enter`), ` while in comment column — go inside the comment cell`), li(kbd(`Esc`), ` while inside a comment cell — exit the cell`)),
         ]);
         this.state = new CursorState($table);
         $table.addEventListener('keydown', ev => {

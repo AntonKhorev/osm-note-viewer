@@ -17,6 +17,8 @@
 	--tag-key-background-color: #F8F8FF;
 	--popup-item-background: #F8F8F8;
 	--popup-main-item-background: #FFF;
+
+	--frame-line: solid 1px var(--frame-color);
 }
 @media (prefers-color-scheme: dark) {
 	:root {
@@ -117,6 +119,12 @@ button.global > svg {
 	width: 100%;
 	height: 100%;
 }
+button.global:not([disabled]):hover {
+	cursor: pointer;
+}
+button.global:not([disabled]):hover > svg { /* > svg background only required for leaflet border style, otherwise could set background on button directly */
+	background: var(--hover-color);
+}
 
 .loose-parser-popup {
 	--item-width: 90px;
@@ -126,7 +134,7 @@ button.global > svg {
 	list-style: none;
 	margin: 0;
 	padding: 0;
-	border: solid 1px var(--frame-color);
+	border: var(--frame-line);
 	font-size: .9em;
 	opacity: .9;
 }
@@ -144,8 +152,8 @@ button.global > svg {
 }
 .loose-parser-popup li.main a {
 	padding: 10px 0 10px 5px;
-	border-top: solid 1px var(--frame-color);
-	border-bottom: solid 1px var(--frame-color);
+	border-top: var(--frame-line);
+	border-bottom: var(--frame-line);
 	background: var(--popup-main-item-background);
 }
 .loose-parser-popup a:link:hover {
@@ -164,18 +172,14 @@ nav button.flip {
 	top: .5rem;
 	z-index: 2;
 }
-nav button.reset:hover,
-nav button.flip:hover {
-	outline: auto;
-}
-nav button.reset {
-	border-radius: 50%;
-	right: .5rem;
-}
 nav button.flip {
 	border-radius: 3px;
 	left: .5rem;
 	--flip-ver-part-visibility: visible;
+}
+nav button.reset {
+	border-radius: 50%;
+	right: .5rem;
 }
 body.flipped nav button.flip {
 	--flip-ver-part-visibility: hidden;
@@ -191,9 +195,9 @@ nav [role=tablist] [role=tab] {
 	position: relative;
 	display: block;
 	padding: 0 1rem;
-	border-left: solid 1px #CCC;
-	border-right: solid 1px #CCC;
-	border-top: solid 1px #CCC;
+	border-left: var(--frame-line);
+	border-right: var(--frame-line);
+	border-top: var(--frame-line);
 	border-top-left-radius: 8px;
 	border-top-right-radius: 8px;
 	border-bottom: none;
@@ -224,8 +228,8 @@ nav [role=tablist] [role=tab]:focus {
 .panel {
 	position: relative;
 	padding: .5rem;
-	border-top: solid 1px var(--frame-color);
-	border-bottom: solid 1px var(--frame-color);
+	border-top: var(--frame-line);
+	border-bottom: var(--frame-line);
 }
 .panel + .panel {
 	border-top: none;
@@ -287,7 +291,7 @@ nav [role=tablist] [role=tab]:focus {
 	border-collapse: collapse;
 }
 .panel.fetch .advanced-hint td {
-	border-top: solid 1px var(--frame-color);
+	border-top: var(--frame-line);
 	padding: 4px 0 4px 8px;
 }
 .panel.fetch .advanced-hint td:first-child {
@@ -644,6 +648,7 @@ nav [role=tablist] [role=tab]:focus {
 	width: 17px;
 	height: 17px;
 	vertical-align: text-top;
+	cursor: pointer;
 }
 .notes thead th button.expander > svg {
 	position: absolute;
@@ -754,7 +759,8 @@ nav [role=tablist] [role=tab]:focus {
 	background: transparent;
 }
 .notes td.note-comments-count [class|=icon-comments-count]:not(:empty):hover {
-	outline: auto;
+	--table-comments-icon-background: #DEF;
+	cursor: pointer;
 }
 .notes td.note-comments-count [class|=icon-comments-count] > svg text {
 	font-family: sans-serif;
@@ -938,17 +944,17 @@ body.flipped table:not(.expanded-username) td.note-user {
 	font-weight: bold;
 }
 .map .osm-element-popup-contents figure table {
-	border: solid 1px var(--frame-color);
+	border: var(--frame-line);
 	border-spacing: 0;
 	border-radius: .25rem;
 	width: 100%;
 }
 .map .osm-element-popup-contents figure tr:not(:first-child) td {
-	border-top: solid 1px var(--frame-color);
+	border-top: var(--frame-line);
 }
 .map .osm-element-popup-contents figure tr td:first-child {
 	background: var(--tag-key-background-color);
-	border-right: solid 1px var(--frame-color);
+	border-right: var(--frame-line);
 }
 .map .osm-element-popup-contents figure tr td:not(:first-child),
 .map .osm-element-popup-contents figure tr td.long { /* can't select all key cells because they will get wrapped at the expense of long value cells */
@@ -977,9 +983,6 @@ body.flipped table:not(.expanded-username) td.note-user {
 		background: #222 !important;
 		color: #CCC !important;
 	}
-	.leaflet-bar a:hover {
-		background: var(--hover-color) !important;
-	}
 	/* dark mode filter:
 		https://github.com/openstreetmap/openstreetmap-website/issues/2332
 		https://github.com/pkrasicki/issviewer/blob/master/public/css/dark-theme.css
@@ -987,6 +990,9 @@ body.flipped table:not(.expanded-username) td.note-user {
 	.map img.leaflet-tile {
 		filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
 	}
+}
+.leaflet-bar a:hover {
+	background: var(--hover-color) !important;
 }
 
 /*** css/overlay.css ***/
@@ -998,13 +1004,10 @@ body.flipped table:not(.expanded-username) td.note-user {
 	border: 2px solid rgba(0,0,0,0.2);
 	border-radius: 5px;
 }
-.graphic-side button.menu:not([disabled]):hover {
-	outline: auto;
-}
-.graphic-side button.menu > svg {
+.graphic-side button.menu:not(:hover) > svg {
 	background: canvas;
 }
-.graphic-side button.menu.opened {
+.graphic-side button.menu[aria-expanded=true] {
 	--menu-cross-part-visibility: visible;
 }
 
@@ -1077,6 +1080,8 @@ dialog.figure button {
 	top: var(--position-offset);
 	left: var(--position-offset);
 	opacity: 0;
+	background: #AAA8;
+	color: #FFF;
 }
 dialog.figure button.right-position {
 	left: unset;
@@ -1096,15 +1101,38 @@ dialog.figure button.fading {
 }
 dialog.figure button:hover,
 dialog.figure button:focus {
-	outline: auto;
 	opacity: 1;
 	animation: none;
+}
+dialog.figure button:not([disabled]):hover > svg {
+	background: #246;
 }
 
 dialog.help {
 	padding: 1rem;
 }
-dialog.help > h2:first-child {
+dialog.help button.close {
+	float: right;
+	width: 2rem;
+	height: 2rem;
+	box-sizing: border-box;
+	border: none;
+	padding: 0;
+	margin: -2px;
+	background: none;
+	overflow: hidden;
+	border-radius: 50%;
+	cursor: pointer;
+}
+dialog.help button.close:hover {
+	background: var(--hover-color);
+}
+dialog.help button.close > svg {
+	width: 100%;
+	height: 100%;
+}
+dialog.help > h2:first-child,
+dialog.help > button.close:first-child + h2 {
 	margin-top: 0;
 }
 dialog.help .major-input {
