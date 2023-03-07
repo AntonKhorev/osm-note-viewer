@@ -118,7 +118,10 @@ button.global > svg {
 	width: 100%;
 	height: 100%;
 }
-button.global:not([disabled]):hover > svg {
+button.global:not([disabled]):hover {
+	cursor: pointer;
+}
+button.global:not([disabled]):hover > svg { /* > svg background only required for leaflet border style, otherwise could set background on button directly */
 	background: var(--hover-color);
 }
 

@@ -106,7 +106,7 @@ dialog.figure button:focus {
 	opacity: 1;
 	animation: none;
 }
-dialog.figure button:hover > svg {
+dialog.figure button:not([disabled]):hover > svg {
 	background: #246;
 }
 
@@ -124,6 +124,7 @@ dialog.help button.close {
 	background: none;
 	overflow: hidden;
 	border-radius: 50%;
+	cursor: pointer;
 }
 dialog.help button.close:hover {
 	background: var(--hover-color);

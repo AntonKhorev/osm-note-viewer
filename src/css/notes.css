@@ -27,6 +27,7 @@
 	width: 17px;
 	height: 17px;
 	vertical-align: text-top;
+	cursor: pointer;
 }
 .notes thead th button.expander > svg {
 	position: absolute;
@@ -138,6 +139,7 @@
 }
 .notes td.note-comments-count [class|=icon-comments-count]:not(:empty):hover {
 	--table-comments-icon-background: #DEF;
+	cursor: pointer;
 }
 .notes td.note-comments-count [class|=icon-comments-count] > svg text {
 	font-family: sans-serif;
