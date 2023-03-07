@@ -87,18 +87,32 @@ dialog.figure figcaption {
 	opacity: 0;
 }
 dialog.figure button {
-	border-radius: 50%;
 	--position-offset: .5rem;
+	border-radius: 50%;
+}
+dialog.figure button.close {
 	top: var(--position-offset);
 	left: var(--position-offset);
 }
-dialog.figure button.right-position {
+dialog.figure button.close.right-position {
 	left: unset;
 	right: var(--position-offset);
 }
-dialog.figure button.bottom-position {
+dialog.figure button.close.bottom-position {
 	top: unset;
 	bottom: var(--position-offset);
+}
+dialog.figure button.prev,
+dialog.figure button.next {
+	top: 0;
+	bottom: 0;
+	margin: auto 0;
+}
+dialog.figure button.prev {
+	left: var(--position-offset);
+}
+dialog.figure button.next {
+	right: var(--position-offset);
 }
 dialog.figure button:not([disabled]):hover > svg {
 	background: #246;

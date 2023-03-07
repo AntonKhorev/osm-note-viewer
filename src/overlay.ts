@@ -29,6 +29,8 @@ export default class OverlayDialog {
 	private $backdrop=document.createElement('div')
 	private $img=document.createElement('img')
 	private $figureCaption=makeElement('figcaption')()()
+	private $prevImageButton=makeElement('button')('global','prev')()
+	private $nextImageButton=makeElement('button')('global','next')()
 	private $figureHelpDialog=makeHelpDialog(`Close image viewer help`,[
 		makeElement('h2')()(`Image viewer keyboard controls`),
 		ul(
@@ -79,10 +81,19 @@ export default class OverlayDialog {
 		this.$img.alt='attached photo'
 		this.updateImageState()
 		this.$figure.append(this.$backdrop,this.$img,this.$figureCaption)
-		const $closeButton=makeElement('button')('global')()
-		$closeButton.tabIndex=-1
-		$closeButton.innerHTML=`<svg><title>Close photo</title><use href="#reset" /></svg>`
-		this.$figureDialog.append(this.$figure,$closeButton)
+		this.$figureDialog.append(this.$figure)
+		const $closeButton=makeElement('button')('global','close')()
+		const buttons: [$button:HTMLButtonElement,href:string,title:string][] = [
+			[$closeButton,'reset',`Close photo`],
+			[this.$prevImageButton,'image-prev',`Previous photo`],
+			[this.$nextImageButton,'image-next',`Next photo`]
+		]
+		for (const [$button,href,title] of buttons) {
+			$button.tabIndex=-1
+			$button.title=title
+			$button.innerHTML=`<svg><use href="#${href}" /></svg>`
+			this.$figureDialog.append($button)
+		}
 
 		this.$figureDialog.onkeydown=ev=>{
 			if (ev.key=='Escape') {
@@ -118,6 +129,14 @@ export default class OverlayDialog {
 				ev.preventDefault()
 			}
 		}
+		this.$prevImageButton.onclick=()=>{
+			this.switchToImageDelta(-1)
+			this.updateImageState()
+		}
+		this.$nextImageButton.onclick=()=>{
+			this.switchToImageDelta(+1)
+			this.updateImageState()
+		}
 		this.$figure.onkeydown=ev=>{
 			if (ev.key=='Enter' || ev.key==' ') {
 				this.$figure.classList.toggle('zoomed')
@@ -148,13 +167,17 @@ export default class OverlayDialog {
 		this.$figure.onmousemove=ev=>{
 			$closeButton.classList.toggle('right-position',ev.offsetX>=this.$figure.offsetWidth/2)
 			$closeButton.classList.toggle('bottom-position',ev.offsetY>=this.$figure.offsetHeight/2)
-			startAnimation($closeButton,'figure-control-fade','3s')
+			for (const [$button] of buttons) {
+				startAnimation($button,'figure-control-fade','3s')
+			}
 			startAnimation(this.$figureCaption,'figure-control-fade','3s')
 		}
 		$closeButton.onclick=()=>{
 			this.close()
 		}
-		cleanupAnimationOnEnd($closeButton)
+		for (const [$button] of buttons) {
+			cleanupAnimationOnEnd($button)
+		}
 		cleanupAnimationOnEnd(this.$figureCaption)
 	}
 	private writeMenuPanel(
@@ -223,6 +246,7 @@ export default class OverlayDialog {
 			this.$backdrop.style.backgroundImage=`url(${url})`
 			this.$img.src=url
 			this.$figureCaption.textContent=url
+			this.$prevImageButton.hidden=this.$nextImageButton.hidden=this.imageSequence.urls.length<=1
 			startAnimation(this.$figureCaption,'figure-control-fade','3s')
 		} else {
 			this.$backdrop.style.removeProperty('backgroundImage')
