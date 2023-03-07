@@ -148,8 +148,8 @@ export default class OverlayDialog {
 		this.$figure.onmousemove=ev=>{
 			$closeButton.classList.toggle('right-position',ev.offsetX>=this.$figure.offsetWidth/2)
 			$closeButton.classList.toggle('bottom-position',ev.offsetY>=this.$figure.offsetHeight/2)
-			startAnimation($closeButton,'photo-control-fade','3s')
-			startAnimation(this.$figureCaption,'photo-control-fade','3s')
+			startAnimation($closeButton,'figure-control-fade','3s')
+			startAnimation(this.$figureCaption,'figure-control-fade','3s')
 		}
 		$closeButton.onclick=()=>{
 			this.close()
@@ -223,7 +223,7 @@ export default class OverlayDialog {
 			this.$backdrop.style.backgroundImage=`url(${url})`
 			this.$img.src=url
 			this.$figureCaption.textContent=url
-			startAnimation(this.$figureCaption,'photo-control-fade','3s')
+			startAnimation(this.$figureCaption,'figure-control-fade','3s')
 		} else {
 			this.$backdrop.style.removeProperty('backgroundImage')
 			this.$img.removeAttribute('src')
