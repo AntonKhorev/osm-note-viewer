@@ -14,7 +14,7 @@ import type NoteFilter from '../filter'
 import NoteSectionVisibilityObserver from './observer'
 import IdShortener from '../id-shortener'
 import type Server from '../server'
-import {makeElement, resetFadeAnimation, bubbleCustomEvent} from '../html'
+import {makeElement, resetAnimation, bubbleCustomEvent} from '../html'
 
 export interface NoteTableUpdater {
 	addNotes(notes: Iterable<Note>, users: Users): number
@@ -61,7 +61,7 @@ export default class NoteTable implements NoteTableUpdater {
 			['mousemove',function(){
 				$clickReadyNoteSection=undefined
 				if (!this.classList.contains('active-click')) return
-				resetFadeAnimation(this,'active-click-fade')
+				resetAnimation(this,'active-click-fade')
 			}],
 			['animationend',function(){
 				that.deactivateNote('click',this)
@@ -483,7 +483,7 @@ export default class NoteTable implements NoteTableUpdater {
 			if (!($otherNoteSection instanceof HTMLTableSectionElement)) continue
 			if ($otherNoteSection==$noteSection) {
 				alreadyActive=true
-				if (type=='click') resetFadeAnimation($noteSection,'active-click-fade')
+				if (type=='click') resetAnimation($noteSection,'active-click-fade')
 			} else {
 				this.deactivateNote(type,$otherNoteSection)
 			}

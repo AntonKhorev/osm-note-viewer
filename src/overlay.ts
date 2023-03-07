@@ -7,7 +7,7 @@ import type ServerList from './server-list'
 import type Auth from './auth'
 import type NoteMap from './map'
 import makeHelpDialog from './help-dialog'
-import {makeElement, makeDiv, makeLink, bubbleEvent, startOrResetFadeAnimation} from './html'
+import {makeElement, makeDiv, makeLink, bubbleEvent, startAnimation, cleanupAnimationOnEnd} from './html'
 import {ul,li,p,em,kbd} from './html-shortcuts'
 
 export function makeMenuButton(): HTMLButtonElement {
@@ -148,18 +148,14 @@ export default class OverlayDialog {
 		this.$figure.onmousemove=ev=>{
 			$closeButton.classList.toggle('right-position',ev.offsetX>=this.$figure.offsetWidth/2)
 			$closeButton.classList.toggle('bottom-position',ev.offsetY>=this.$figure.offsetHeight/2)
-			startOrResetFadeAnimation($closeButton,'photo-control-fade','fading')
-			startOrResetFadeAnimation(this.$figureCaption,'photo-control-fade','fading')
+			startAnimation($closeButton,'photo-control-fade','3s')
+			startAnimation(this.$figureCaption,'photo-control-fade','3s')
 		}
 		$closeButton.onclick=()=>{
 			this.close()
 		}
-		$closeButton.onanimationend=()=>{
-			$closeButton.classList.remove('fading')
-		}
-		this.$figureCaption.onanimationend=()=>{
-			this.$figureCaption.classList.remove('fading')
-		}
+		cleanupAnimationOnEnd($closeButton)
+		cleanupAnimationOnEnd(this.$figureCaption)
 	}
 	private writeMenuPanel(
 		storage: NoteViewerStorage, db: NoteViewerDB,
@@ -227,7 +223,7 @@ export default class OverlayDialog {
 			this.$backdrop.style.backgroundImage=`url(${url})`
 			this.$img.src=url
 			this.$figureCaption.textContent=url
-			startOrResetFadeAnimation(this.$figureCaption,'photo-control-fade','fading')
+			startAnimation(this.$figureCaption,'photo-control-fade','3s')
 		} else {
 			this.$backdrop.style.removeProperty('backgroundImage')
 			this.$img.removeAttribute('src')

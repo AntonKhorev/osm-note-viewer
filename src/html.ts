@@ -18,19 +18,25 @@ export function makeElement<K extends keyof HTMLElementTagNameMap>(tag: K): ((..
 export const makeDiv=makeElement('div')
 export const makeLabel=makeElement('label')
 
-export function startOrResetFadeAnimation($element: HTMLElement, animationName: string, animationClass: string): void {
-	if ($element.classList.contains(animationClass)) {
-		resetFadeAnimation($element,animationName)
-	} else {
-		$element.classList.add(animationClass)
-	}
+export function startAnimation($element: HTMLElement, animationName: string, animationDuration: string): void {
+	if (resetAnimation($element,animationName)) return
+	$element.style.animationName=animationName
+	$element.style.animationDuration=animationDuration
 }
-export function resetFadeAnimation($element: HTMLElement, animationName: string): void {
-	const animation=getFadeAnimation($element,animationName)
-	if (!animation) return
+export function resetAnimation($element: HTMLElement, animationName: string): boolean {
+	const animation=getAnimation($element,animationName)
+	if (!animation) return false
 	animation.currentTime=0
+	return true
 }
-function getFadeAnimation($element: HTMLElement, animationName: string): CSSAnimation | undefined {
+export function cleanupAnimationOnEnd($element: HTMLElement): void {
+	$element.addEventListener('animationend',animationEndListener)
+}
+function animationEndListener(this: HTMLElement): void {
+	this.style.removeProperty('animation-name')
+	this.style.removeProperty('animation-duration')
+}
+function getAnimation($element: HTMLElement, animationName: string): CSSAnimation | undefined {
 	if (typeof CSSAnimation == 'undefined') return // experimental technology, implemented in latest browser versions
 	for (const animation of $element.getAnimations()) {
 		if (!(animation instanceof CSSAnimation)) continue

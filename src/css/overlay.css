@@ -97,10 +97,6 @@ dialog.figure button.bottom-position {
 	from { opacity: 1; }
 	to { opacity: 0; }
 }
-dialog.figure button.fading {
-	animation-name: photo-control-fade;
-	animation-duration: 3s;
-}
 dialog.figure button:hover,
 dialog.figure button:focus {
 	opacity: 1;
@@ -118,10 +114,6 @@ dialog.figure figcaption {
 	background: #AAA8;
 	color: #FFF;
 	opacity: 0;
-}
-dialog.figure figcaption.fading {
-	animation-name: photo-control-fade;
-	animation-duration: 3s;
 }
 dialog.figure figcaption:hover {
 	opacity: 1;

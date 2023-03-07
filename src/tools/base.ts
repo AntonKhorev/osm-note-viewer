@@ -2,7 +2,7 @@ import type {Note} from '../data'
 import type NoteViewerStorage from '../storage'
 import type Auth from '../auth'
 import type NoteMap from '../map'
-import {makeElement, startOrResetFadeAnimation} from '../html'
+import {makeElement, startAnimation, cleanupAnimationOnEnd} from '../html'
 
 export type ToolElements = Array<string|HTMLElement>
 
@@ -32,7 +32,7 @@ export abstract class Tool {
 			storage.setBoolean(storageKey,$tool.open)
 		})
 		$tool.append($toolSummary,...this.getTool($root,$tool,map))
-		$tool.addEventListener('animationend',toolAnimationEndListener)
+		cleanupAnimationOnEnd($tool)
 		const infoElements=this.getInfo()
 		if (infoElements) {
 			const $info=document.createElement('details')
@@ -94,7 +94,7 @@ export abstract class Tool {
 		return $button
 	}
 	protected ping($tool: HTMLElement) {
-		startOrResetFadeAnimation($tool,'tool-ping-fade','ping')
+		startAnimation($tool,'tool-ping-fade','1s')
 	}
 }
 
@@ -146,8 +146,4 @@ export function makeNoteStatusIcon(status: Note['status'], number = 1): HTMLElem
 		const yf=y.toFixed(2)
 		return `M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z`
 	}
-}
-
-function toolAnimationEndListener(this: HTMLElement) {
-	this.classList.remove('ping')
 }

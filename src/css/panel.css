@@ -100,15 +100,12 @@
 @keyframes tool-ping-fade {
 	from {
 		outline-color: var(--click-color);
+		outline-style: solid;
 	}
 	to {
 		outline-color: transparent;
+		outline-style: solid;
 	}
-}
-.panel.command details.tool.ping {
-	animation-name: tool-ping-fade;
-	animation-duration: 1s;
-	outline-style: solid;
 }
 .panel.command details.tool summary {
 	display: inline;
