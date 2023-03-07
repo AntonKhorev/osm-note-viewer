@@ -399,7 +399,7 @@ describe("browser tests",function(){
 		await page.keyboard.up('Shift')
 		assert.equal(lastError,undefined)
 	})
-	it("can enter and exit comment cell",async function(){
+	it("enters and exits comment cell",async function(){
 		const nodeUrl=id=>this.osmServer.url+'node/'+id
 		const nodeSelector=id=>`.notes tbody .note-comment a[href="${nodeUrl(id)}"]`
 		this.osmServer.setNotes([{
@@ -450,6 +450,35 @@ describe("browser tests",function(){
 		await page.keyboard.press('ArrowDown')
 		assert.notEqual(
 			await page.$(nodeSelector(3)+':focus'),
+			null
+		)
+	})
+	it("focuses on comment button when svg element clicked",async function(){
+		this.osmServer.setNotes([{
+			"id": 101,
+			"comments": [{
+				"date": "2022-04-01",
+				"text": "the-first-note-comment"
+			},{
+				"date": "2022-04-02",
+				"text": "the-second-note-comment"
+			}]
+		}])
+		const page=await this.openPage()
+		const fetchButton=await this.waitForFetchButton()
+		await fetchButton.click()
+		await page.waitForSelector('.notes tbody')
+		{
+			const textSvgElement=await page.$('.notes tbody td.note-comments-count button svg text')
+			await textSvgElement.click()
+		}
+		assert.notEqual(
+			await page.$('.notes tbody td.note-comments-count button:focus'),
+			null
+		)
+		await page.keyboard.press('ArrowRight')
+		assert.notEqual(
+			await page.$('.notes tbody td.note-date time:focus'),
 			null
 		)
 	})

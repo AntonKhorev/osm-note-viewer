@@ -41,7 +41,7 @@ export default class Cursor {
 		})
 		$table.addEventListener('click',ev=>{
 			const $e=ev.target
-			if (!($e instanceof HTMLElement)) return
+			if (!($e instanceof Element)) return
 			const $focusElement=this.state.setToClicked($e)
 			$focusElement?.focus()
 		},true)
