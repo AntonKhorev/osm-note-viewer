@@ -118,6 +118,9 @@ button.global > svg {
 	width: 100%;
 	height: 100%;
 }
+button.global:not([disabled]):hover > svg {
+	background: var(--hover-color);
+}
 
 .loose-parser-popup {
 	--item-width: 90px;

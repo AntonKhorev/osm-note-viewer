@@ -9,10 +9,6 @@ nav button.flip {
 	top: .5rem;
 	z-index: 2;
 }
-nav button.reset:hover,
-nav button.flip:hover {
-	background: var(--hover-color);
-}
 nav button.flip {
 	border-radius: 3px;
 	left: .5rem;

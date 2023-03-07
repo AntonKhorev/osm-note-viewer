@@ -6,11 +6,8 @@
 	border: 2px solid rgba(0,0,0,0.2);
 	border-radius: 5px;
 }
-.graphic-side button.menu > svg {
+.graphic-side button.menu:not(:hover) > svg {
 	background: canvas;
-}
-.graphic-side button.menu:not([disabled]):hover > svg {
-	background: var(--hover-color);
 }
 .graphic-side button.menu[aria-expanded=true] {
 	--menu-cross-part-visibility: visible;
@@ -109,7 +106,7 @@ dialog.figure button:focus {
 	opacity: 1;
 	animation: none;
 }
-dialog.figure button:hover {
+dialog.figure button:hover > svg {
 	background: #246;
 }
 
