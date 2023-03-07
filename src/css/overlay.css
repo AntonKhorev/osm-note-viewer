@@ -116,7 +116,27 @@ dialog.figure button:hover {
 dialog.help {
 	padding: 1rem;
 }
-dialog.help > h2:first-child {
+dialog.help button.close {
+	float: right;
+	width: 2rem;
+	height: 2rem;
+	box-sizing: border-box;
+	border: none;
+	padding: 0;
+	margin: -2px;
+	background: none;
+	overflow: hidden;
+	border-radius: 50%;
+}
+dialog.help button.close:hover {
+	background: var(--hover-color);
+}
+dialog.help button.close > svg {
+	width: 100%;
+	height: 100%;
+}
+dialog.help > h2:first-child,
+dialog.help > button.close:first-child + h2 {
 	margin-top: 0;
 }
 dialog.help .major-input {
@@ -151,22 +171,4 @@ dialog.help kbd {
 	font-weight: bold;
 	border: solid 1px var(--frame-color);
 	box-shadow: 0 1px 1px var(--frame-color);
-}
-dialog.help button.close {
-	float: right;
-	width: 2rem;
-	height: 2rem;
-	box-sizing: border-box;
-	border: none;
-	padding: 0;
-	background: none;
-	overflow: hidden;
-	border-radius: 50%;
-}
-dialog.help button.close:hover {
-	background: var(--hover-color);
-}
-dialog.help button.close > svg {
-	width: 100%;
-	height: 100%;
 }
