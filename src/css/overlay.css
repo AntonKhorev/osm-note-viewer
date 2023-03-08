@@ -39,7 +39,7 @@ dialog.figure {
 	border: 0;
 	width: 100%;
 	height: 100%;
-	--control-position-offset: 2rem;
+	--control-position-offset: .5rem;
 }
 dialog.figure figure {
 	width: 100%;
@@ -48,6 +48,18 @@ dialog.figure figure {
 	margin: 0;
 	padding: 0;
 	cursor: zoom-in;
+	scrollbar-width: thin;
+}
+dialog.figure figure::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+dialog.figure figure::-webkit-scrollbar-track,
+dialog.figure figure::-webkit-scrollbar-corner {
+	background: var(--inset-background-color);
+}
+dialog.figure figure::-webkit-scrollbar-thumb {
+	background: var(--frame-color);
 }
 dialog.figure figure:not(.zoomed) {
 	display: flex;
