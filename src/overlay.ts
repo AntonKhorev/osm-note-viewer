@@ -165,8 +165,9 @@ export default class OverlayDialog {
 			}
 		}
 		this.$figure.onmousemove=ev=>{
-			$closeButton.classList.toggle('right-position',ev.offsetX>=this.$figure.offsetWidth/2)
-			$closeButton.classList.toggle('bottom-position',ev.offsetY>=this.$figure.offsetHeight/2)
+			const rect=this.$figure.getBoundingClientRect()
+			$closeButton.classList.toggle('right-position',ev.clientX-rect.left>=rect.width/2)
+			$closeButton.classList.toggle('bottom-position',ev.clientY-rect.top>=rect.height/2)
 			for (const [$button] of buttons) {
 				startAnimation($button,'figure-control-fade','3s')
 			}
