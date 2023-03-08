@@ -326,21 +326,27 @@ function makeElement(tag) {
 }
 const makeDiv = makeElement('div');
 const makeLabel = makeElement('label');
-function startOrResetFadeAnimation($element, animationName, animationClass) {
-    if ($element.classList.contains(animationClass)) {
-        resetFadeAnimation($element, animationName);
-    }
-    else {
-        $element.classList.add(animationClass);
-    }
-}
-function resetFadeAnimation($element, animationName) {
-    const animation = getFadeAnimation($element, animationName);
-    if (!animation)
+function startAnimation($element, animationName, animationDuration) {
+    if (resetAnimation($element, animationName))
         return;
-    animation.currentTime = 0;
+    $element.style.animationName = animationName;
+    $element.style.animationDuration = animationDuration;
 }
-function getFadeAnimation($element, animationName) {
+function resetAnimation($element, animationName) {
+    const animation = getAnimation($element, animationName);
+    if (!animation)
+        return false;
+    animation.currentTime = 0;
+    return true;
+}
+function cleanupAnimationOnEnd($element) {
+    $element.addEventListener('animationend', animationEndListener);
+}
+function animationEndListener() {
+    this.style.removeProperty('animation-name');
+    this.style.removeProperty('animation-duration');
+}
+function getAnimation($element, animationName) {
     if (typeof CSSAnimation == 'undefined')
         return; // experimental technology, implemented in latest browser versions
     for (const animation of $element.getAnimations()) {
@@ -2704,6 +2710,9 @@ class OverlayDialog {
         this.$figure = document.createElement('figure');
         this.$backdrop = document.createElement('div');
         this.$img = document.createElement('img');
+        this.$figureCaption = makeElement('figcaption')()();
+        this.$prevImageButton = makeElement('button')('global', 'prev')();
+        this.$nextImageButton = makeElement('button')('global', 'next')();
         this.$figureHelpDialog = makeHelpDialog(`Close image viewer help`, [
             makeElement('h2')()(`Image viewer keyboard controls`),
             ul(li(kbd(`Enter`), ` and `, kbd(`Space`), ` — toggle image zoom`), li(kbd(`Esc`), ` — close image viewer`)),
@@ -2739,12 +2748,20 @@ class OverlayDialog {
         this.$backdrop.classList.add('backdrop');
         this.$img.alt = 'attached photo';
         this.updateImageState();
-        this.$figure.append(this.$backdrop, this.$img);
-        const $closeButton = document.createElement('button');
-        $closeButton.tabIndex = -1;
-        $closeButton.classList.add('global');
-        $closeButton.innerHTML = `<svg><title>Close photo</title><use href="#reset" /></svg>`;
-        this.$figureDialog.append(this.$figure, $closeButton);
+        this.$figure.append(this.$backdrop, this.$img, this.$figureCaption);
+        this.$figureDialog.append(this.$figure);
+        const $closeButton = makeElement('button')('global', 'close')();
+        const buttons = [
+            [$closeButton, 'reset', `Close photo`],
+            [this.$prevImageButton, 'image-prev', `Previous photo`],
+            [this.$nextImageButton, 'image-next', `Next photo`]
+        ];
+        for (const [$button, href, title] of buttons) {
+            $button.tabIndex = -1;
+            $button.title = title;
+            $button.innerHTML = `<svg><use href="#${href}" /></svg>`;
+            this.$figureDialog.append($button);
+        }
         this.$figureDialog.onkeydown = ev => {
             if (ev.key == 'Escape') {
                 this.close();
@@ -2787,6 +2804,14 @@ class OverlayDialog {
                 ev.preventDefault();
             }
         };
+        this.$prevImageButton.onclick = () => {
+            this.switchToImageDelta(-1);
+            this.updateImageState();
+        };
+        this.$nextImageButton.onclick = () => {
+            this.switchToImageDelta(+1);
+            this.updateImageState();
+        };
         this.$figure.onkeydown = ev => {
             if (ev.key == 'Enter' || ev.key == ' ') {
                 this.$figure.classList.toggle('zoomed');
@@ -2819,16 +2844,21 @@ class OverlayDialog {
             }
         };
         this.$figure.onmousemove = ev => {
-            $closeButton.classList.toggle('right-position', ev.offsetX >= this.$figure.offsetWidth / 2);
-            $closeButton.classList.toggle('bottom-position', ev.offsetY >= this.$figure.offsetHeight / 2);
-            startOrResetFadeAnimation($closeButton, 'photo-button-fade', 'fading');
+            const rect = this.$figure.getBoundingClientRect();
+            $closeButton.classList.toggle('right-position', ev.clientX - rect.left >= rect.width / 2);
+            $closeButton.classList.toggle('bottom-position', ev.clientY - rect.top >= rect.height / 2);
+            for (const [$button] of buttons) {
+                startAnimation($button, 'figure-control-fade', '3s');
+            }
+            startAnimation(this.$figureCaption, 'figure-control-fade', '3s');
         };
         $closeButton.onclick = () => {
             this.close();
         };
-        $closeButton.onanimationend = () => {
-            $closeButton.classList.remove('fading');
-        };
+        for (const [$button] of buttons) {
+            cleanupAnimationOnEnd($button);
+        }
+        cleanupAnimationOnEnd(this.$figureCaption);
     }
     writeMenuPanel(storage, db, server, serverList, serverHash, auth) {
         const $lead = makeDiv('lead')();
@@ -2889,6 +2919,9 @@ class OverlayDialog {
             const url = this.imageSequence.urls[this.imageSequence.index];
             this.$backdrop.style.backgroundImage = `url(${url})`;
             this.$img.src = url;
+            this.$figureCaption.textContent = url;
+            this.$prevImageButton.hidden = this.$nextImageButton.hidden = this.imageSequence.urls.length <= 1;
+            startAnimation(this.$figureCaption, 'figure-control-fade', '3s');
         }
         else {
             this.$backdrop.style.removeProperty('backgroundImage');
@@ -7283,7 +7316,7 @@ class NoteTable {
                     $clickReadyNoteSection = undefined;
                     if (!this.classList.contains('active-click'))
                         return;
-                    resetFadeAnimation(this, 'active-click-fade');
+                    resetAnimation(this, 'active-click-fade');
                 }],
             ['animationend', function () {
                     that.deactivateNote('click', this);
@@ -7720,7 +7753,7 @@ class NoteTable {
             if ($otherNoteSection == $noteSection) {
                 alreadyActive = true;
                 if (type == 'click')
-                    resetFadeAnimation($noteSection, 'active-click-fade');
+                    resetAnimation($noteSection, 'active-click-fade');
             }
             else {
                 this.deactivateNote(type, $otherNoteSection);
@@ -7907,7 +7940,7 @@ class Tool {
             storage.setBoolean(storageKey, $tool.open);
         });
         $tool.append($toolSummary, ...this.getTool($root, $tool, map));
-        $tool.addEventListener('animationend', toolAnimationEndListener);
+        cleanupAnimationOnEnd($tool);
         const infoElements = this.getInfo();
         if (infoElements) {
             const $info = document.createElement('details');
@@ -7969,7 +8002,7 @@ class Tool {
         return $button;
     }
     ping($tool) {
-        startOrResetFadeAnimation($tool, 'tool-ping-fade', 'ping');
+        startAnimation($tool, 'tool-ping-fade', '1s');
     }
 }
 function makeMapIcon(type) {
@@ -8019,9 +8052,6 @@ function makeNoteStatusIcon(status, number = 1) {
         const yf = y.toFixed(2);
         return `M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z`;
     }
-}
-function toolAnimationEndListener() {
-    this.classList.remove('ping');
 }
 
 class AutozoomTool extends Tool {
