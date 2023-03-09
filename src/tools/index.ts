@@ -4,6 +4,7 @@ import {InteractTool} from './interact'
 import {ReportTool} from './report'
 import {RefreshTool} from './refresh'
 import {ParseTool} from './parse'
+import {ChangesetTool} from './changeset'
 import {OverpassTurboTool, OverpassTool} from './overpass'
 import * as EditorTools from './editor'
 import * as ExportTools from './export'
@@ -15,7 +16,7 @@ export {Tool}
 export const toolMakerSequence: Array<(auth:Auth)=>Tool> = [
 	InteractTool, ReportTool, RefreshTool,
 	UtilTools.AutozoomTool, UtilTools.TimestampTool, ParseTool,
-	OverpassTurboTool, OverpassTool,
+	ChangesetTool, OverpassTurboTool, OverpassTool,
 	EditorTools.RcTool, EditorTools.IdTool,
 	ExportTools.GpxTool, ExportTools.GeoJsonTool,
 	YandexPanoramasTool, MapillaryTool,

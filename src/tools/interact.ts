@@ -230,8 +230,7 @@ export class InteractTool extends Tool {
 			this.updateButtons()
 			this.ping($tool)
 		})
-		$root.addEventListener('osmNoteViewer:notesInput',ev=>{
-			const [inputNotes]=ev.detail
+		$root.addEventListener('osmNoteViewer:notesInput',({detail:[inputNotes]})=>{
 			for (const status of noteStatuses) {
 				const ids=this.stagedNoteIds.get(status)
 				if (ids) ids.length=0
