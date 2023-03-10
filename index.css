@@ -93,6 +93,9 @@ a.listened.absent {
 a.other-note.absent:active {
 	cursor: not-allowed;
 }
+button[role=progressbar] {
+	cursor: progress;
+}
 
 kbd.copy {
 	text-decoration: underline dotted 1px;
