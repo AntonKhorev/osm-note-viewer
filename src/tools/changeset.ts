@@ -21,8 +21,8 @@ export class ChangesetTool extends Tool {
 		}
 		const $output=makeElement('code')()(getChangesetLink())
 		let closingScope: {
-			// lat: number
-			// lon: number
+			lat: number
+			lon: number
 			uid: number
 			date: number
 		} | undefined
@@ -45,9 +45,12 @@ export class ChangesetTool extends Tool {
 			$findClosingButton.title=`loading`
 			updateClosingButton()
 			try {
+				const coordDelta=0.001
 				const day=60*60*24
 				const response=await this.auth.server.api.fetch(e`changesets.json`+
-					`?user=${closingScope.uid}`+
+					`?bbox=${closingScope.lon-coordDelta},${closingScope.lat-coordDelta}`+
+					     `,${closingScope.lon+coordDelta},${closingScope.lat+coordDelta}`+
+					`&user=${closingScope.uid}`+
 					`&time=${toUrlDate(closingScope.date-day)},${toUrlDate(closingScope.date+day)}`+
 					`&closed=true`
 				)
@@ -71,8 +74,8 @@ export class ChangesetTool extends Tool {
 				for (const comment of note.comments) {
 					if (comment.action!='closed' || comment.uid==null) continue
 					closingScope={
-						// lat: note.lat,
-						// lon: note.lon,
+						lat: note.lat,
+						lon: note.lon,
 						uid: comment.uid,
 						date: comment.date,
 					}
