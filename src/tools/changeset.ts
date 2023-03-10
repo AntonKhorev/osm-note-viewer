@@ -3,6 +3,7 @@ import {findClosingChangesetId} from './changeset-find'
 import {toUrlDate} from '../query-date'
 import {getChangesetsFromOsmApiResponse} from '../osm'
 import {makeElement, makeLink} from '../html'
+import {p,ul,li} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 
 const e=makeEscapeTag(encodeURIComponent)
@@ -11,6 +12,30 @@ export class ChangesetTool extends Tool {
 	id='changeset'
 	name=`Changeset`
 	title=`Find changesets related to notes`
+	protected getInfo() {return[p(
+		`Try to find a changeset that contains map changes that lead to the note being closed. `,
+		`Works when exactly one note is selected (which you can do by just clicking the note; you don't have to use checkboxes) and it has a closing action performed. `,
+		`Only the first closing action is considered (most of notes don't have more than one). `,
+		`The success is not guaranteed because the contents of changesets is not examined. `,
+		`The current changeset selection rules are:`,
+	),ul(
+		li(
+			`first a collection of changesets is retrieved by `,makeLink(`the changeset query`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Query:_GET_/api/0.6/changesets`),` OSM API call matching the following: `,
+			ul(
+				li(`changeset belongs to the same user who performed the first closing action on the note`),
+				li(`changeset bounding box is within ±0.001° of lat/lon coordinates of the note`),
+				li(`changeset was open within ±24 hours of the closing action`),
+				li(`changeset is closed`),
+			)
+		),
+		li(
+			`among these changesets the one closest in time is selected:`,
+			ul(
+				li(`the time difference considered is the one between the changeset closing time and the note closing action`),
+				li(`time after the closing action is weighted 3× so the changesets closed before the action are favored`)
+			)
+		),
+	)]}
 	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
 		const getChangesetLink=(changesetId?: number):string|HTMLElement=>{
 			if (changesetId==null) return `none`
