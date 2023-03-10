@@ -92,7 +92,7 @@ function isOsmRelationElement(e: any): e is OsmRelationElement {
 	return true
 }
 
-interface OsmChangeset extends OsmBase {
+export interface OsmChangeset extends OsmBase {
 	created_at: string
 	closed_at?: string
 	minlat?: number
@@ -231,10 +231,18 @@ function getChangesetFromOsmApiResponse(data: any): OsmChangeset {
 	if (!data) throw new TypeError(`OSM API error: invalid response data`)
 	const changesetArray=data.elements
 	if (!Array.isArray(changesetArray)) throw new TypeError(`OSM API error: invalid response data`)
-	if (changesetArray.length!=1) throw new TypeError(`OSM API error: invalid response data`)
+	if (changesetArray.length!=1) throw new TypeError(`OSM API error: invalid number of changesets in response data`)
 	const changeset=changesetArray[0]
 	if (!isOsmChangeset(changeset)) throw new TypeError(`OSM API error: invalid changeset in response data`)
 	return changeset
+}
+
+export function getChangesetsFromOsmApiResponse(data: any): OsmChangeset[] {
+	if (!data) throw new TypeError(`OSM API error: invalid response data`)
+	const changesetArray=data.changesets
+	if (!Array.isArray(changesetArray)) throw new TypeError(`OSM API error: invalid response data`)
+	if (!changesetArray.every(isOsmChangeset)) throw new TypeError(`OSM API error: invalid changeset in response data`)
+	return changesetArray
 }
 
 function getElementsFromOsmApiResponse(data: any): OsmElementMap {

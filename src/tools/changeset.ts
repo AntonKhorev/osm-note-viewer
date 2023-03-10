@@ -1,8 +1,9 @@
 import {Tool, ToolElements, makeNotesIcon} from './base'
+import {findClosingChangesetId} from './changeset-find'
 import {toUrlDate} from '../query-date'
+import {getChangesetsFromOsmApiResponse} from '../osm'
 import {makeElement, makeLink} from '../html'
 import {makeEscapeTag} from '../escape'
-import {isArray} from '../types'
 
 const e=makeEscapeTag(encodeURIComponent)
 
@@ -11,9 +12,8 @@ export class ChangesetTool extends Tool {
 	name=`Changeset`
 	title=`Find changesets related to notes`
 	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
-		const getChangesetLink=(data?: unknown):string|HTMLElement=>{
-			if (data==null) return `none`
-			const changesetId=getLatestChangesetId(data)
+		const getChangesetLink=(changesetId?: number):string|HTMLElement=>{
+			if (changesetId==null) return `none`
 			const $a=makeLink(`link`,this.auth.server.web.getUrl(e`changeset/${changesetId}`))
 			$a.classList.add('listened')
 			$a.dataset.changesetId=String(changesetId)
@@ -45,12 +45,16 @@ export class ChangesetTool extends Tool {
 			$findClosingButton.title=`loading`
 			updateClosingButton()
 			try {
+				const day=60*60*24
 				const response=await this.auth.server.api.fetch(e`changesets.json`+
 					`?user=${closingScope.uid}`+
-					`&time=2001-01-01,${toUrlDate(closingScope.date)}`
+					`&time=${toUrlDate(closingScope.date-day)},${toUrlDate(closingScope.date+day)}`+
+					`&closed=true`
 				)
-				const data=await response.json()
-				$output.replaceChildren(getChangesetLink(data))
+				const data:unknown=await response.json()
+				const changesets=getChangesetsFromOsmApiResponse(data)
+				const changesetId=findClosingChangesetId(closingScope.date,changesets)
+				$output.replaceChildren(getChangesetLink(changesetId))
 				$findClosingButton.title=``
 			} catch (ex) {
 				$findClosingButton.classList.add('error')
@@ -82,21 +86,4 @@ export class ChangesetTool extends Tool {
 			$findClosingButton,` → `,$output
 		]
 	}
-}
-
-// TODO copypaste from interact.ts
-function getLatestChangesetId(data: unknown): number {
-	if (
-		!data || typeof data !='object' ||
-		!('changesets' in data) ||
-		!isArray(data.changesets)
-	) throw new TypeError(`Invalid changesets data`)
-	const latestChangesetData=data.changesets[0]
-	if (!latestChangesetData) throw new TypeError(`No changesets found`)
-	if (
-		typeof latestChangesetData !='object' ||
-		!('id' in latestChangesetData) ||
-		typeof latestChangesetData.id != 'number'
-	) throw new TypeError(`Invalid latest changeset data`)
-	return latestChangesetData.id
 }
