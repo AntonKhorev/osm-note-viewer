@@ -102,8 +102,11 @@ export default class NoteMap {
 		})
 	}
 	hide(hidden: boolean) {
-		this.$container.hidden=hidden
-		if (!hidden) this.invalidateSize()
+		if (hidden) {
+			this.$container.style.visibility='hidden'
+		} else {
+			this.$container.style.removeProperty('visibility')
+		}
 	}
 	getNoteMarker(noteId: number): NoteMarker | undefined {
 		for (const layer of [this.unselectedNoteLayer,this.selectedNoteLayer,this.filteredNoteLayer]) {
