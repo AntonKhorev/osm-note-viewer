@@ -1,5 +1,6 @@
-import type {TileProvider} from './server'
+import type Server from './server'
 import NoteMarker from './marker'
+import {renderOsmChangeset, renderOsmElement} from './osm-render'
 import {bubbleCustomEvent, makeDiv} from './html'
 import {escapeXml, makeEscapeTag} from './escape'
 
@@ -38,7 +39,7 @@ class NoteLayer extends L.FeatureGroup {
 
 export default class NoteMap {
 	private leafletMap: L.Map
-	elementLayer: L.FeatureGroup
+	private dataLayer: L.FeatureGroup
 	unselectedNoteLayer: NoteLayer
 	selectedNoteLayer: NoteLayer
 	filteredNoteLayer: NoteLayer
@@ -49,15 +50,7 @@ export default class NoteMap {
 	constructor(
 		$root: HTMLElement,
 		private $container: HTMLElement,
-		tile: TileProvider,
-		downloadAndShowChangeset: (changesetId: string) => Promise<[
-			geometry: L.Layer,
-			popupContents: HTMLElement[]
-		]>,
-		downloadAndShowElement: (elementType: 'node'|'way'|'relation', elementId: string) => Promise<[
-			geometry: L.Layer,
-			popupContents: HTMLElement[]
-		]>
+		server: Server
 	) {
 		this.leafletMap=L.map($container,{
 			worldCopyJump: true,
@@ -67,19 +60,19 @@ export default class NoteMap {
 		})).addControl(L.control.scale({
 			position: 'bottomleft'
 		})).addLayer(L.tileLayer(
-			tile.urlTemplate,{
-				attribution: e`© <a href="${tile.attributionUrl}">${tile.attributionText}</a>`,
-				maxZoom: tile.maxZoom
+			server.tile.urlTemplate,{
+				attribution: e`© <a href="${server.tile.attributionUrl}">${server.tile.attributionText}</a>`,
+				maxZoom: server.tile.maxZoom
 			}
 		)).fitWorld()
-		this.elementLayer=L.featureGroup().addTo(this.leafletMap)
+		this.dataLayer=L.featureGroup().addTo(this.leafletMap)
 		this.unselectedNoteLayer=new NoteLayer().addTo(this.leafletMap)
 		this.selectedNoteLayer=new NoteLayer().addTo(this.leafletMap)
 		this.filteredNoteLayer=new NoteLayer()
 		this.trackLayer=L.featureGroup().addTo(this.leafletMap)
 		const crosshairLayer=new CrosshairLayer().addTo(this.leafletMap)
 		const layersControl=L.control.layers()
-		layersControl.addOverlay(this.elementLayer,`OSM elements`)
+		layersControl.addOverlay(this.dataLayer,`OSM elements`)
 		layersControl.addOverlay(this.unselectedNoteLayer,`Unselected notes`)
 		layersControl.addOverlay(this.selectedNoteLayer,`Selected notes`)
 		layersControl.addOverlay(this.filteredNoteLayer,`Filtered notes`)
@@ -96,7 +89,7 @@ export default class NoteMap {
 			if (!this.queuedPopup) return
 			const [layerId,popupWriter]=this.queuedPopup
 			this.queuedPopup=undefined
-			const geometry=this.elementLayer.getLayer(layerId)
+			const geometry=this.dataLayer.getLayer(layerId)
 			if (geometry) {
 				const popup=L.popup({autoPan:false})
 					.setLatLng(this.leafletMap.getCenter()) // need to tell the popup this exact place after map stops moving, otherwise is sometimes gets opened off-screen
@@ -108,54 +101,18 @@ export default class NoteMap {
 		$root.addEventListener('osmNoteViewer:mapMoveTrigger',({detail:{zoom,lat,lon}})=>{
 			this.panAndZoomTo([Number(lat),Number(lon)],Number(zoom))
 		})
-		const handleOsmDownloadAndLink=async(
-			$a: HTMLAnchorElement,
-			download:()=>Promise<[
-				geometry: L.Layer,
-				popupContents: HTMLElement[]
-			]>
-		)=>{
-			$a.classList.add('loading')
-			try {
-				// TODO cancel already running response
-				const [geometry,popupContents]=await download()
-				$a.classList.remove('absent')
-				$a.title=''
-				this.addOsmElement(geometry,popupContents)
-			} catch (ex) {
-				this.elementLayer.clearLayers()
-				$a.classList.add('absent')
-				if (ex instanceof TypeError) {
-					$a.title=ex.message
-				} else {
-					$a.title=`unknown error ${ex}`
-				}
-			} finally {
-				$a.classList.remove('loading')
-			}
-		}
-		$root.addEventListener('osmNoteViewer:changesetLinkClick',ev=>{
-			const $a=ev.target
-			if (!($a instanceof HTMLAnchorElement)) return
-			const changesetId=$a.dataset.changesetId
-			if (!changesetId) return
-			handleOsmDownloadAndLink(
-				$a,
-				()=>downloadAndShowChangeset(changesetId)
+		$root.addEventListener('osmNoteViewer:changesetRender',({detail:changeset})=>{
+			this.addOsmData(
+				...renderOsmChangeset(server,changeset)
 			)
 		})
-		$root.addEventListener('osmNoteViewer:elementLinkClick',ev=>{
-			const $a=ev.target
-			if (!($a instanceof HTMLAnchorElement)) return
-			const elementType=$a.dataset.elementType
-			if (elementType!='node' && elementType!='way' && elementType!='relation') return false
-			const elementId=$a.dataset.elementId
-			if (!elementId) return
-			handleOsmDownloadAndLink(
-				$a,
-				()=>downloadAndShowElement(elementType,elementId)
+		$root.addEventListener('osmNoteViewer:elementRender',({detail:[element,elements]})=>{
+			this.addOsmData(
+				...renderOsmElement(server,element,elements)
 			)
 		})
+		// TODO maybe have :dataClear event
+			// this.elementLayer.clearLayers()
 		$root.addEventListener('osmNoteViewer:noteFocus',ev=>{
 			const noteId=ev.detail
 			const marker=this.getNoteMarker(noteId)
@@ -201,7 +158,7 @@ export default class NoteMap {
 		this.leafletMap.invalidateSize()
 	}
 	clearNotes(): void {
-		this.elementLayer.clearLayers()
+		this.dataLayer.clearLayers()
 		this.unselectedNoteLayer.clearLayers()
 		this.selectedNoteLayer.clearLayers()
 		this.filteredNoteLayer.clearLayers()
@@ -260,21 +217,21 @@ export default class NoteMap {
 		const bounds=this.trackLayer.getBounds() // invalid if track is empty; track is empty when no notes are in table view
 		if (bounds.isValid()) this.fitBoundsIfNotFrozen(bounds)
 	}
-	private addOsmElement(geometry: L.Layer, popupContents: HTMLElement[]): void {
+	private addOsmData(geometry: L.Layer, popupContents: HTMLElement[]): void {
 		const popupWriter=()=>{
 			const $removeButton=document.createElement('button')
 			$removeButton.textContent=`Remove from map view`
 			$removeButton.onclick=()=>{
-				this.elementLayer.clearLayers()
+				this.dataLayer.clearLayers()
 			}
 			return makeDiv('osm-element-popup-contents')(
 				...popupContents,$removeButton
 			)
 		}
 		// TODO zoom on second click, like with notes
-		this.elementLayer.clearLayers()
-		this.elementLayer.addLayer(geometry)
-		const layerId=this.elementLayer.getLayerId(geometry)
+		this.dataLayer.clearLayers()
+		this.dataLayer.addLayer(geometry)
+		const layerId=this.dataLayer.getLayerId(geometry)
 		// geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
 		if (this.freezeMode=='full') {
 			const popup=L.popup({autoPan:false}).setContent(popupWriter)
@@ -316,7 +273,7 @@ export default class NoteMap {
 				this.panToIfNotFrozen(geometry.getLatLng())
 			}
 		} else {
-			const bounds=this.elementLayer.getBounds()
+			const bounds=this.dataLayer.getBounds()
 			if (bounds.isValid()) {
 				this.queuedPopup=[layerId,popupWriter]
 				this.fitBoundsIfNotFrozen(bounds)

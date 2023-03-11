@@ -60,8 +60,8 @@ export default class OverlayDialog {
 		for (const eventType of [
 			'osmNoteViewer:newNoteStream',
 			'osmNoteViewer:mapMoveTrigger',
-			'osmNoteViewer:elementLinkClick',
-			'osmNoteViewer:changesetLinkClick',
+			'osmNoteViewer:elementRender',
+			'osmNoteViewer:changesetRender',
 			'osmNoteViewer:noteFocus'
 		]) {
 			$root.addEventListener(eventType,()=>this.close())

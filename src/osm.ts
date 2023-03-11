@@ -1,8 +1,7 @@
 import type Server from './server'
-import {makeLink, makeElement} from './html'
 import {makeEscapeTag} from './escape'
 
-interface OsmBase {
+export interface OsmBase {
 	id: number
 	user?: string
 	uid: number
@@ -15,18 +14,18 @@ interface OsmElementBase extends OsmBase { // visible osm element
 	changeset: number
 }
 
-interface OsmNodeElement extends OsmElementBase {
+export interface OsmNodeElement extends OsmElementBase {
 	type: 'node'
 	lat: number // must have lat and lon because visible
 	lon: number
 }
 
-interface OsmWayElement extends OsmElementBase {
+export interface OsmWayElement extends OsmElementBase {
 	type: 'way'
 	nodes: number[]
 }
 
-interface OsmRelationElement extends OsmElementBase {
+export interface OsmRelationElement extends OsmElementBase {
 	type: 'relation'
 	members: {
 		type: OsmElement['type'],
@@ -35,9 +34,9 @@ interface OsmRelationElement extends OsmElementBase {
 	}[]
 }
 
-type OsmElement = OsmNodeElement | OsmWayElement | OsmRelationElement
+export type OsmElement = OsmNodeElement | OsmWayElement | OsmRelationElement
 
-type OsmElementMap = {
+export type OsmElementMap = {
 	node: {[id:string]: OsmNodeElement},
 	way: {[id:string]: OsmWayElement},
 	relation: {[id:string]: OsmRelationElement}
@@ -122,13 +121,10 @@ function isOsmChangeset(c: any): c is OsmChangeset {
 
 const e=makeEscapeTag(encodeURIComponent)
 
-export async function downloadAndShowChangeset(
+export async function downloadOsmChangeset(
 	server: Server,
 	changesetId: string
-): Promise<[
-	geometry: L.Layer,
-	popupContents: HTMLElement[]
-]> {
+): Promise<OsmChangeset> {
 	const response=await server.api.fetch(e`changeset/${changesetId}.json`)
 	if (!response.ok) {
 		if (response.status==404) {
@@ -138,32 +134,13 @@ export async function downloadAndShowChangeset(
 		}
 	}
 	const data=await response.json()
-	const changeset=getChangesetFromOsmApiResponse(data)
-	return [
-		makeChangesetGeometry(changeset),
-		makeChangesetPopupContents(server,changeset)
-	]
-	function makeChangesetGeometry(changeset: OsmChangeset): L.Layer {
-		if (
-			changeset.minlat==null || changeset.minlon==null ||
-			changeset.maxlat==null || changeset.maxlon==null
-		) {
-			throw new TypeError(`changeset is empty`)
-		}
-		return L.rectangle([
-			[changeset.minlat,changeset.minlon],
-			[changeset.maxlat,changeset.maxlon]
-		])
-	}
+	return getChangesetFromOsmApiResponse(data)
 }
 
-export async function downloadAndShowElement(
+export async function downloadOsmElement(
 	server: Server,
 	elementType: OsmElement['type'], elementId: string
-): Promise<[
-	geometry: L.Layer,
-	popupContents: HTMLElement[]
-]> {
+): Promise<[OsmElement,OsmElementMap]> {
 	const fullBit=(elementType=='node' ? '' : '/full')
 	const response=await server.api.fetch(e`${elementType}/${elementId}`+`${fullBit}.json`)
 	if (!response.ok) {
@@ -179,52 +156,7 @@ export async function downloadAndShowElement(
 	const elements=getElementsFromOsmApiResponse(data)
 	const element=elements[elementType][elementId]
 	if (!element) throw new TypeError(`OSM API error: requested element not found in response data`)
-	if (isOsmNodeElement(element)) {
-		return [
-			makeNodeGeometry(element),
-			makeElementPopupContents(server,element)
-		]
-	} else if (isOsmWayElement(element)) {
-		return [
-			makeWayGeometry(element,elements),
-			makeElementPopupContents(server,element)
-		]
-	} else if (isOsmRelationElement(element)) {
-		return [
-			makeRelationGeometry(element,elements),
-			makeElementPopupContents(server,element)
-		]
-	} else {
-		throw new TypeError(`OSM API error: requested element has unknown type`) // shouldn't happen
-	}
-	function makeNodeGeometry(node: OsmNodeElement): L.Layer {
-		return L.circleMarker([node.lat,node.lon])
-	}
-	function makeWayGeometry(way: OsmWayElement, elements: OsmElementMap): L.Layer {
-		const coords: L.LatLngExpression[] = []
-		for (const id of way.nodes) {
-			const node=elements.node[id]
-			if (!node) throw new TypeError(`OSM API error: referenced element not found in response data`)
-			coords.push([node.lat,node.lon])
-		}
-		return L.polyline(coords)
-	}
-	function makeRelationGeometry(relation: OsmRelationElement, elements: OsmElementMap): L.Layer {
-		const geometry=L.featureGroup()
-		for (const member of relation.members) {
-			if (member.type=='node') {
-				const node=elements.node[member.ref]
-				if (!node) throw new TypeError(`OSM API error: referenced element not found in response data`)
-				geometry.addLayer(makeNodeGeometry(node))
-			} else if (member.type=='way') {
-				const way=elements.way[member.ref]
-				if (!way) throw new TypeError(`OSM API error: referenced element not found in response data`)
-				geometry.addLayer(makeWayGeometry(way,elements))
-			}
-			// TODO indicate that there might be relations, their data may be incomplete
-		}
-		return geometry
-	}
+	return [element,elements]
 }
 
 function getChangesetFromOsmApiResponse(data: any): OsmChangeset {
@@ -264,143 +196,4 @@ function getElementsFromOsmApiResponse(data: any): OsmElementMap {
 		}
 	}
 	return {node,way,relation}
-}
-
-function makeChangesetPopupContents(server: Server, changeset: OsmChangeset): HTMLElement[] {
-	const contents: HTMLElement[] = []
-	const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
-	const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
-	const c=(...s: Array<string|HTMLElement>)=>p(makeElement('em')()(...s))
-	const changesetHref=server.web.getUrl(e`changeset/${changeset.id}`)
-	contents.push(
-		h(`Changeset: `,makeLink(String(changeset.id),changesetHref))
-	)
-	if (changeset.tags?.comment) contents.push(
-		c(changeset.tags.comment)
-	)
-	const $p=p()
-	if (changeset.closed_at) {$p.append(
-		`Closed on `,getDate(changeset.closed_at)
-	)} else {$p.append(
-		`Created on `,getDate(changeset.created_at)
-	)}
-	$p.append(
-		` by `,getUser(server,changeset)
-	)
-	contents.push($p)
-	const $tags=getTags(changeset.tags,'comment')
-	if ($tags) contents.push($tags)
-	return contents
-}
-
-function makeElementPopupContents(server: Server, element: OsmElement): HTMLElement[] {
-	const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
-	const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
-	const elementPath=e`${element.type}/${element.id}`
-	const contents: HTMLElement[] = [
-		h(capitalize(element.type)+`: `,makeLink(getElementName(element),server.web.getUrl(elementPath))),
-		h(
-			`Version #${element.version} · `,
-			makeLink(`View History`,server.web.getUrl(elementPath+'/history')),` · `,
-			makeLink(`Edit`,server.web.getUrl(e`edit?${element.type}=${element.id}`))
-		),
-		p(
-			`Edited on `,getDate(element.timestamp),
-			` by `,getUser(server,element),
-			` · Changeset #`,getChangeset(server,element.changeset)
-		)
-	]
-	const $tags=getTags(element.tags)
-	if ($tags) contents.push($tags)
-	return contents
-}
-
-function capitalize(s: string): string {
-	return s[0].toUpperCase()+s.slice(1)
-}
-
-function getDate(timestamp: string): HTMLElement {
-	const readableDate=timestamp.replace('T',' ').replace('Z','')
-	const $time=document.createElement('time')
-	$time.classList.add('listened')
-	$time.textContent=readableDate
-	$time.dateTime=timestamp
-	return $time
-}
-
-function getUser(server: Server, data: OsmBase): HTMLElement {
-	const $a=makeUserLink(server,data.uid,data.user)
-	$a.classList.add('listened')
-	$a.dataset.userName=data.user
-	$a.dataset.userId=String(data.uid)
-	return $a
-}
-
-function getChangeset(server: Server, changesetId: number): HTMLElement {
-	const cid=String(changesetId)
-	const $a=makeLink(cid,server.web.getUrl(e`changeset/${cid}`))
-	$a.classList.add('listened')
-	$a.dataset.changesetId=cid
-	return $a
-}
-
-function getTags(tags: {[key:string]:string}|undefined, skipKey?: string): HTMLElement|null {
-	if (!tags) return null
-	const tagBatchSize=10
-	const tagList=Object.entries(tags).filter(([k,v])=>k!=skipKey)
-	if (tagList.length<=0) return null
-	let i=0
-	let $button: HTMLButtonElement|undefined
-	const $figure=document.createElement('figure')
-	const $figcaption=document.createElement('figcaption')
-	$figcaption.textContent=`Tags`
-	const $table=document.createElement('table')
-	$figure.append($figcaption,$table)
-	writeTagBatch()
-	return $figure
-	function writeTagBatch() {
-		for (let j=0;i<tagList.length&&j<tagBatchSize;i++,j++) {
-			const [k,v]=tagList[i]
-			const $row=$table.insertRow()
-			const $keyCell=$row.insertCell()
-			$keyCell.textContent=k
-			if (k.length>30) $keyCell.classList.add('long')
-			$row.insertCell().textContent=v
-		}
-		if (i<tagList.length) {
-			if (!$button) {
-				$button=document.createElement('button')
-				$figure.append($button)
-				$button.onclick=writeTagBatch
-			}
-			const nTagsLeft=tagList.length-i
-			const nTagsToShowNext=Math.min(nTagsLeft,tagBatchSize)
-			$button.textContent=`Show ${nTagsToShowNext} / ${nTagsLeft} more tags`
-		} else {
-			$button?.remove()
-		}
-	}
-}
-
-function getElementName(element: OsmElement): string {
-	if (element.tags?.name) {
-		return `${element.tags.name} (${element.id})`
-	} else {
-		return String(element.id)
-	}
-}
-
-function makeUserLink(server: Server, uid: number, username?: string): HTMLElement {
-	if (username) return makeUserNameLink(server,username)
-	return makeUserIdLink(server,uid)
-}
-
-function makeUserNameLink(server: Server, username: string): HTMLAnchorElement {
-	const fromName=(name: string)=>server.web.getUrl(e`user/${name}`)
-	return makeLink(username,fromName(username))
-}
-
-function makeUserIdLink(server: Server, uid: number): HTMLAnchorElement {
-	const fromId=(id: number)=>server.api.getUrl(e`user/${id}`)
-	return makeLink('#'+uid,fromId(uid))
 }
