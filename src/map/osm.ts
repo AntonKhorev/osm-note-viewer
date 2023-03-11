@@ -1,12 +1,10 @@
-// TODO move to map directory
-
-import type Server from './server'
+import type Server from '../server'
 import type {
 	OsmBase, OsmChangeset, OsmElement, OsmElementMap,
 	OsmNodeElement, OsmWayElement, OsmRelationElement
-} from './osm'
-import {makeLink, makeElement} from './html'
-import {makeEscapeTag} from './escape'
+} from '../osm'
+import {makeLink, makeElement} from '../html'
+import {makeEscapeTag} from '../escape'
 
 const e=makeEscapeTag(encodeURIComponent)
 

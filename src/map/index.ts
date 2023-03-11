@@ -1,41 +1,14 @@
-import type Server from './server'
+import type Server from '../server'
 import NoteMarker from './marker'
-import {renderOsmChangeset, renderOsmElement} from './osm-render'
-import {bubbleCustomEvent, makeDiv} from './html'
-import {escapeXml, makeEscapeTag} from './escape'
+import NoteMapBounds from './bounds'
+import {NoteLayer, CrosshairLayer} from './layers'
+import {renderOsmChangeset, renderOsmElement} from './osm'
+import {bubbleCustomEvent, makeDiv} from '../html'
+import {escapeXml, makeEscapeTag} from '../escape'
 
-const e=makeEscapeTag(escapeXml)
+export {NoteMarker, NoteMapBounds}
 
 export type NoteMapFreezeMode = 'no' | 'initial' | 'full'
-
-export class NoteMapBounds {
-	w:string
-	s:string
-	e:string
-	n:string
-	constructor(bounds:L.LatLngBounds,precision:number) {
-		this.w=bounds.getWest() .toFixed(precision)
-		this.s=bounds.getSouth().toFixed(precision)
-		this.e=bounds.getEast() .toFixed(precision)
-		this.n=bounds.getNorth().toFixed(precision)
-	}
-	get wsen(): [w:string,s:string,e:string,n:string] {
-		return [this.w,this.s,this.e,this.n]
-	}
-	get swne(): [s:string,w:string,n:string,e:string] {
-		return [this.s,this.w,this.n,this.e]
-	}
-}
-
-class NoteLayer extends L.FeatureGroup {
-	getLayerId(marker: L.Layer): number {
-		if (marker instanceof NoteMarker) {
-			return marker.noteId
-		} else {
-			throw new RangeError(`invalid feature in note layer`)
-		}
-	}
-}
 
 export default class NoteMap {
 	private leafletMap: L.Map
@@ -52,6 +25,7 @@ export default class NoteMap {
 		private $container: HTMLElement,
 		server: Server
 	) {
+		const e=makeEscapeTag(escapeXml)
 		this.leafletMap=L.map($container,{
 			worldCopyJump: true,
 			zoomControl: false
@@ -328,24 +302,6 @@ export default class NoteMap {
 	}
 	private get precision(): number {
 		return Math.max(0,Math.ceil(Math.log2(this.zoom)))
-	}
-}
-
-class CrosshairLayer extends L.Layer {
-	$overlay?: HTMLDivElement
-	onAdd(map: L.Map): this {
-		// https://stackoverflow.com/questions/49184531/leafletjs-how-to-make-layer-not-movable
-		this.$overlay?.remove()
-		this.$overlay=document.createElement('div')
-		this.$overlay.classList.add('crosshair-overlay')
-		this.$overlay.innerHTML=`<svg class="crosshair"><use href="#map-crosshair" /></svg>`
-		map.getContainer().append(this.$overlay)
-		return this
-	}
-	onRemove(map: L.Map): this {
-		this.$overlay?.remove()
-		this.$overlay=undefined
-		return this
 	}
 }
 

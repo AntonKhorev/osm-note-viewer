@@ -1,5 +1,5 @@
-import type {Note, NoteComment} from './data'
-import {escapeXml, makeEscapeTag} from './escape'
+import type {Note, NoteComment} from '../data'
+import {escapeXml, makeEscapeTag} from '../escape'
 
 const e=makeEscapeTag(escapeXml)
 
