@@ -224,7 +224,7 @@ function makeSelectFocusResponse($table,iSelect,iFocus,focusFar) {
 
 function makePager(stepSize) {
 	return {
-		goPageUp  :($items,fromIndex)=>Math.max(fromIndex-stepSize,0),
-		goPageDown:($items,fromIndex)=>Math.min(fromIndex+stepSize,$items.length-1),
+		goPageUp  :($items,$fromItem,fromIndex)=>Math.max(fromIndex-stepSize,0),
+		goPageDown:($items,$fromItem,fromIndex)=>Math.min(fromIndex+stepSize,$items.length-1),
 	}
 }

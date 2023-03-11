@@ -20,8 +20,8 @@ export default class Cursor {
 		p(`Inside the table body:`),
 		ul(
 			li(kbd(`Ctrl`),` + `,kbd(`Home`),` / `,kbd(`End`),` — go to first/last row`),
-			li(kbd(`Shift`),` + left click while in the checkbox column — select a range of notes starting from the previous click`),
-			li(kbd(`Shift`),` + any vertical navigation keys while in the checkbox column — select notes`),
+			li(kbd(`Shift`),` + left click on a checkbox — select a range of notes starting from the previous click`),
+			li(kbd(`Shift`),` + any vertical navigation keys — select notes`),
 			li(kbd(`Enter`),` while in comment column — go inside the comment cell`),
 			li(kbd(`Esc`),` while inside a comment cell — exit the cell`),
 		),

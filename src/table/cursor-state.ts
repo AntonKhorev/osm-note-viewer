@@ -265,10 +265,24 @@ export default class CursorState {
 		}
 	}
 	private respondToVerticalMovement(ev: KeyEvent, pager?: Pager): KeyResponse {
-		const $currentItem=this.getCurrentBodyItem()
-		if (!$currentItem) return null
-		const $items=htmlElementArray(this.$table.querySelectorAll(`tbody:not([hidden]) tr:not([hidden]) ${getBodySelector(this.iColumn)}`))
-		const iStartItem=$items.indexOf($currentItem)
+		let $startItem: HTMLElement
+		let $startSearchItem: HTMLElement
+		let trPseudoClass: string
+		{
+			const [$currentSectionLeadingItem,$currentItem]=this.getSectionLeadingAndCurrentBodyItems()
+			if (!$currentItem) return null
+			$startItem=$currentItem
+			if (ev.shiftKey) {
+				trPseudoClass=`first-child`
+				if (!$currentSectionLeadingItem) return null
+				$startSearchItem=$currentSectionLeadingItem
+			} else {
+				trPseudoClass=`not([hidden])`
+				$startSearchItem=$currentItem
+			}
+		}
+		const $items=htmlElementArray(this.$table.querySelectorAll(`tbody:not([hidden]) tr:${trPseudoClass} ${getBodySelector(this.iColumn)}`))
+		const iStartItem=$items.indexOf($startSearchItem)
 		if (iStartItem<0) return null
 		let iEndItem: number
 		let d: -1|1
@@ -286,17 +300,16 @@ export default class CursorState {
 			iEndItem=$items.length
 		} else if (ev.key=='PageUp' && pager) {
 			d=-1
-			iEndItem=pager.goPageUp($items,iStartItem)
+			iEndItem=pager.goPageUp($items,$startItem,iStartItem)
 		} else if (ev.key=='PageDown' && pager) {
 			d=+1
-			iEndItem=pager.goPageDown($items,iStartItem)
+			iEndItem=pager.goPageDown($items,$startItem,iStartItem)
 		} else {
 			return null
 		}
 		const iSafeEndItem=Math.max(0,Math.min($items.length-1,iEndItem))
 		const far=!(ev.key=='ArrowUp' || ev.key=='ArrowDown')
 		if (ev.shiftKey) {
-			if (this.iColumn!=iCheckboxColumn) return {stop:true}
 			const response: KeyResponse = {stop:true}
 			const focus=this.respondToVerticalMovementByFocusing($items,iStartItem,iSafeEndItem,far)
 			if (focus) response.focus=focus
@@ -397,6 +410,16 @@ export default class CursorState {
 		if (!$section) return null
 		const $row=$section.rows.item(this.iRow)
 		return $row?.querySelector(selector) ?? $section.querySelector(selector)
+	}
+	private getSectionLeadingAndCurrentBodyItems(): [HTMLElement|null,HTMLElement|null] {
+		const selector=getBodySelector(this.iColumn)
+		const $section=this.$table.tBodies.item(this.iSection)
+		if (!$section) return [null,null]
+		const $row=$section.rows.item(this.iRow)
+		const toHtmlElement=($e:Element|null|undefined)=>($e instanceof HTMLElement)?$e:null
+		const $sectionLeadingItem=toHtmlElement($section.querySelector(selector))
+		const $currentItem=toHtmlElement($row?.querySelector(selector))
+		return [$sectionLeadingItem,$currentItem??$sectionLeadingItem]
 	}
 	private getCurrentBodySection(): HTMLTableSectionElement|null {
 		return this.$table.tBodies.item(this.iSection)

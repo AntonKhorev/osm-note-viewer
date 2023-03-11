@@ -2,29 +2,30 @@ export default class Pager {
 	constructor(
 		private $scrollingPart: Element
 	) {}
-	goPageUp($items: Element[], fromIndex: number): number {
-		return getNextPageIndex(this.$scrollingPart,$items,fromIndex,-1,-1)
+	goPageUp($items: Element[], $fromItem: Element, fromIndex: number): number {
+		return getNextPageIndex(this.$scrollingPart,$items,$fromItem,fromIndex,-1,-1)
 	}
-	goPageDown($items: Element[], fromIndex: number): number {
-		return getNextPageIndex(this.$scrollingPart,$items,fromIndex,+1,$items.length)
+	goPageDown($items: Element[], $fromItem: Element, fromIndex: number): number {
+		return getNextPageIndex(this.$scrollingPart,$items,$fromItem,fromIndex,+1,$items.length)
 	}
 }
 
 function getNextPageIndex(
 	$scrollingPart: Element,
 	$items: Element[],
+	$fromItem: Element, // possibly not in $items but needed for y calculation
 	fromIndex: number,
 	d: number,
 	indexBound: number
 ): number {
-	const getY=(i:number)=>$items[i].getBoundingClientRect().y
+	const getY=($e:Element)=>$e.getBoundingClientRect().y
 	const scrollByY=$scrollingPart.clientHeight
-	const fromY=getY(fromIndex)
+	const fromY=getY($fromItem)
 	const checkIndexBound=(k:number)=>k*d<indexBound*d
-	let j=fromIndex
-	for (;checkIndexBound(j);j+=d) {
-		if ((getY(j)-fromY)*d>=scrollByY) break
+	let i=fromIndex
+	for (;checkIndexBound(i);i+=d) {
+		if ((getY($items[i])-fromY)*d>=scrollByY) break
 	}
-	if (j==fromIndex) return j+d // go ahead by at least one position
-	return j
+	if (i==fromIndex) return i+d // go ahead by at least one position
+	return i
 }
