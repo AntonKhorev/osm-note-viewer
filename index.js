@@ -6647,30 +6647,27 @@ class Pager {
     constructor($scrollingPart) {
         this.$scrollingPart = $scrollingPart;
     }
-    goPageUp($items, fromIndex) {
-        return getNextPageIndex(this.$scrollingPart, $items, fromIndex, -1, 0, (scrollRect, rect) => rect.top > scrollRect.top - scrollRect.height);
+    goPageUp($items, $fromItem, fromIndex) {
+        return getNextPageIndex(this.$scrollingPart, $items, $fromItem, fromIndex, -1, -1);
     }
-    goPageDown($items, fromIndex) {
-        return getNextPageIndex(this.$scrollingPart, $items, fromIndex, +1, $items.length - 1, (scrollRect, rect) => rect.bottom < scrollRect.bottom + scrollRect.height);
+    goPageDown($items, $fromItem, fromIndex) {
+        return getNextPageIndex(this.$scrollingPart, $items, $fromItem, fromIndex, +1, $items.length);
     }
 }
-function getNextPageIndex($scrollingPart, $es, fromIndex, d, indexBound, checkRect) {
-    const scrollRect = $scrollingPart.getBoundingClientRect();
+function getNextPageIndex($scrollingPart, $items, $fromItem, // possibly not in $items but needed for y calculation
+fromIndex, d, indexBound) {
+    const getY = ($e) => $e.getBoundingClientRect().y;
+    const scrollByY = $scrollingPart.clientHeight;
+    const fromY = getY($fromItem);
     const checkIndexBound = (k) => k * d < indexBound * d;
-    for (let j = fromIndex; checkIndexBound(j); j += d) {
-        if (checkRect(scrollRect, $es[j].getBoundingClientRect()))
-            continue;
-        if (j * d > fromIndex * d) {
-            return j;
-        }
-        else {
-            return j + d;
-        }
+    let i = fromIndex;
+    for (; checkIndexBound(i); i += d) {
+        if ((getY($items[i]) - fromY) * d >= scrollByY)
+            break;
     }
-    if (checkIndexBound(fromIndex)) {
-        return indexBound;
-    }
-    return fromIndex;
+    if (i == fromIndex)
+        return i + d; // go ahead by at least one position
+    return i;
 }
 
 const columnData = [
@@ -6937,11 +6934,27 @@ class CursorState {
         };
     }
     respondToVerticalMovement(ev, pager) {
-        const $currentItem = this.getCurrentBodyItem();
-        if (!$currentItem)
-            return null;
-        const $items = htmlElementArray(this.$table.querySelectorAll(`tbody:not([hidden]) tr:not([hidden]) ${getBodySelector(this.iColumn)}`));
-        const iStartItem = $items.indexOf($currentItem);
+        let $startItem;
+        let $startSearchItem;
+        let trPseudoClass;
+        {
+            const [$currentSectionLeadingItem, $currentItem] = this.getSectionLeadingAndCurrentBodyItems();
+            if (!$currentItem)
+                return null;
+            $startItem = $currentItem;
+            if (ev.shiftKey) {
+                trPseudoClass = `first-child`;
+                if (!$currentSectionLeadingItem)
+                    return null;
+                $startSearchItem = $currentSectionLeadingItem;
+            }
+            else {
+                trPseudoClass = `not([hidden])`;
+                $startSearchItem = $currentItem;
+            }
+        }
+        const $items = htmlElementArray(this.$table.querySelectorAll(`tbody:not([hidden]) tr:${trPseudoClass} ${getBodySelector(this.iColumn)}`));
+        const iStartItem = $items.indexOf($startSearchItem);
         if (iStartItem < 0)
             return null;
         let iEndItem;
@@ -6964,11 +6977,11 @@ class CursorState {
         }
         else if (ev.key == 'PageUp' && pager) {
             d = -1;
-            iEndItem = pager.goPageUp($items, iStartItem);
+            iEndItem = pager.goPageUp($items, $startItem, iStartItem);
         }
         else if (ev.key == 'PageDown' && pager) {
             d = +1;
-            iEndItem = pager.goPageDown($items, iStartItem);
+            iEndItem = pager.goPageDown($items, $startItem, iStartItem);
         }
         else {
             return null;
@@ -6976,8 +6989,6 @@ class CursorState {
         const iSafeEndItem = Math.max(0, Math.min($items.length - 1, iEndItem));
         const far = !(ev.key == 'ArrowUp' || ev.key == 'ArrowDown');
         if (ev.shiftKey) {
-            if (this.iColumn != iCheckboxColumn)
-                return { stop: true };
             const response = { stop: true };
             const focus = this.respondToVerticalMovementByFocusing($items, iStartItem, iSafeEndItem, far);
             if (focus)
@@ -7083,6 +7094,17 @@ class CursorState {
         const $row = $section.rows.item(this.iRow);
         return $row?.querySelector(selector) ?? $section.querySelector(selector);
     }
+    getSectionLeadingAndCurrentBodyItems() {
+        const selector = getBodySelector(this.iColumn);
+        const $section = this.$table.tBodies.item(this.iSection);
+        if (!$section)
+            return [null, null];
+        const $row = $section.rows.item(this.iRow);
+        const toHtmlElement = ($e) => ($e instanceof HTMLElement) ? $e : null;
+        const $sectionLeadingItem = toHtmlElement($section.querySelector(selector));
+        const $currentItem = toHtmlElement($row?.querySelector(selector));
+        return [$sectionLeadingItem, $currentItem ?? $sectionLeadingItem];
+    }
     getCurrentBodySection() {
         return this.$table.tBodies.item(this.iSection);
     }
@@ -7128,7 +7150,7 @@ class Cursor {
             p(`Anywhere inside the table:`),
             ul(li(kbd(`Arrow keys`), ` — go to adjacent table cell`), li(kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last column`), li(kbd(`Ctrl`), ` + `, kbd(`A`), ` — select all notes`)),
             p(`Inside the table body:`),
-            ul(li(kbd(`Ctrl`), ` + `, kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last row`), li(kbd(`Shift`), ` + left click while in the checkbox column — select a range of notes starting from the previous click`), li(kbd(`Shift`), ` + any vertical navigation keys while in the checkbox column — select notes`), li(kbd(`Enter`), ` while in comment column — go inside the comment cell`), li(kbd(`Esc`), ` while inside a comment cell — exit the cell`)),
+            ul(li(kbd(`Ctrl`), ` + `, kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last row`), li(kbd(`Shift`), ` + left click on a checkbox — select a range of notes starting from the previous click`), li(kbd(`Shift`), ` + any vertical navigation keys — select notes`), li(kbd(`Enter`), ` while in comment column — go inside the comment cell`), li(kbd(`Esc`), ` while inside a comment cell — exit the cell`)),
         ]);
         this.state = new CursorState($table);
         $table.addEventListener('keydown', ev => {
