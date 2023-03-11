@@ -3,12 +3,12 @@ export default class Pager {
 		private $scrollingPart: Element
 	) {}
 	goPageUp($items: Element[], fromIndex: number): number {
-		return getNextPageIndex(this.$scrollingPart,$items,fromIndex,-1,0,
+		return getNextPageIndex(this.$scrollingPart,$items,fromIndex,-1,-1,
 			(scrollRect,rect)=>rect.top>scrollRect.top-scrollRect.height
 		)
 	}
 	goPageDown($items: Element[], fromIndex: number): number {
-		return getNextPageIndex(this.$scrollingPart,$items,fromIndex,+1,$items.length-1,
+		return getNextPageIndex(this.$scrollingPart,$items,fromIndex,+1,$items.length,
 			(scrollRect,rect)=>rect.bottom<scrollRect.bottom+scrollRect.height
 		)
 	}
@@ -24,16 +24,10 @@ function getNextPageIndex(
 ): number {
 	const scrollRect=$scrollingPart.getBoundingClientRect()
 	const checkIndexBound=(k:number)=>k*d<indexBound*d
-	for (let j=fromIndex;checkIndexBound(j);j+=d) {
-		if (checkRect(scrollRect,$es[j].getBoundingClientRect())) continue
-		if (j*d>fromIndex*d) {
-			return j
-		} else {
-			return j+d
-		}
+	let j=fromIndex
+	for (;checkIndexBound(j);j+=d) {
+		if (!checkRect(scrollRect,$es[j].getBoundingClientRect())) break
 	}
-	if (checkIndexBound(fromIndex)) {
-		return indexBound
-	}
-	return fromIndex
+	if (j==fromIndex) return j+d
+	return j
 }
