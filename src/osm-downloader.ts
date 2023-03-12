@@ -7,18 +7,35 @@ const e=makeEscapeTag(encodeURIComponent)
 
 export default class OsmDownloader {
 	constructor($root: HTMLElement, api: ApiProvider) {
+		let abortController: AbortController|undefined
 		const handleOsmDownloadAndLink=async(
 			$a: HTMLAnchorElement,
-			download:()=>Promise<void>
-		)=>{
-			$a.classList.add('loading')
+			path: string,
+			type: string,
+			handleResponse: (response: Response)=>Promise<void>
+		): Promise<void>=>{
+			$a.classList.add('loading') // TODO aria
+			if (abortController) abortController.abort()
+			abortController=new AbortController()
 			try {
-				// TODO cancel already running response
-				await download()
+				const response=await api.fetch(path,{signal:abortController.signal})
+				if (!response.ok) {
+					if (response.status==404) {
+						throw new TypeError(`${type} doesn't exist`)
+					} else if (response.status==410) {
+						throw new TypeError(`${type} was deleted`)
+					} else {
+						throw new TypeError(`OSM API error: unsuccessful response`)
+					}
+				}
+				await handleResponse(response)
 				$a.classList.remove('absent')
 				$a.title=''
 			} catch (ex) {
 				// TODO maybe fail or clear event
+				if (ex instanceof DOMException && ex.name=='AbortError') {
+					return
+				}
 				$a.classList.add('absent')
 				if (ex instanceof TypeError) {
 					$a.title=ex.message
@@ -34,15 +51,7 @@ export default class OsmDownloader {
 			if (!($a instanceof HTMLAnchorElement)) return
 			const changesetId=$a.dataset.changesetId
 			if (!changesetId) return
-			handleOsmDownloadAndLink($a,async()=>{
-				const response=await api.fetch(e`changeset/${changesetId}.json`)
-				if (!response.ok) {
-					if (response.status==404) {
-						throw new TypeError(`changeset doesn't exist`)
-					} else {
-						throw new TypeError(`OSM API error: unsuccessful response`)
-					}
-				}
+			await handleOsmDownloadAndLink($a,e`changeset/${changesetId}.json`,`changeset`,async(response)=>{
 				const data=await response.json()
 				const changeset=getChangesetFromOsmApiResponse(data)
 				bubbleCustomEvent($root,'osmNoteViewer:changesetRender',changeset)
@@ -55,18 +64,8 @@ export default class OsmDownloader {
 			if (elementType!='node' && elementType!='way' && elementType!='relation') return false
 			const elementId=$a.dataset.elementId
 			if (!elementId) return
-			handleOsmDownloadAndLink($a,async()=>{
-				const fullBit=(elementType=='node' ? '' : '/full')
-				const response=await api.fetch(e`${elementType}/${elementId}`+`${fullBit}.json`)
-				if (!response.ok) {
-					if (response.status==404) {
-						throw new TypeError(`element doesn't exist`)
-					} else if (response.status==410) {
-						throw new TypeError(`element was deleted`)
-					} else {
-						throw new TypeError(`OSM API error: unsuccessful response`)
-					}
-				}
+			const fullBit=(elementType=='node' ? '' : '/full')
+			handleOsmDownloadAndLink($a,e`${elementType}/${elementId}`+`${fullBit}.json`,`element`,async(response)=>{
 				const data=await response.json()
 				const elements=getElementsFromOsmApiResponse(data)
 				const element=elements[elementType][elementId]
