@@ -1,6 +1,3 @@
-import type Server from './server'
-import {makeEscapeTag} from './escape'
-
 export interface OsmBase {
 	id: number
 	user?: string
@@ -119,47 +116,7 @@ function isOsmChangeset(c: any): c is OsmChangeset {
 	}
 }
 
-const e=makeEscapeTag(encodeURIComponent)
-
-export async function downloadOsmChangeset(
-	server: Server,
-	changesetId: string
-): Promise<OsmChangeset> {
-	const response=await server.api.fetch(e`changeset/${changesetId}.json`)
-	if (!response.ok) {
-		if (response.status==404) {
-			throw new TypeError(`changeset doesn't exist`)
-		} else {
-			throw new TypeError(`OSM API error: unsuccessful response`)
-		}
-	}
-	const data=await response.json()
-	return getChangesetFromOsmApiResponse(data)
-}
-
-export async function downloadOsmElement(
-	server: Server,
-	elementType: OsmElement['type'], elementId: string
-): Promise<[OsmElement,OsmElementMap]> {
-	const fullBit=(elementType=='node' ? '' : '/full')
-	const response=await server.api.fetch(e`${elementType}/${elementId}`+`${fullBit}.json`)
-	if (!response.ok) {
-		if (response.status==404) {
-			throw new TypeError(`element doesn't exist`)
-		} else if (response.status==410) {
-			throw new TypeError(`element was deleted`)
-		} else {
-			throw new TypeError(`OSM API error: unsuccessful response`)
-		}
-	}
-	const data=await response.json()
-	const elements=getElementsFromOsmApiResponse(data)
-	const element=elements[elementType][elementId]
-	if (!element) throw new TypeError(`OSM API error: requested element not found in response data`)
-	return [element,elements]
-}
-
-function getChangesetFromOsmApiResponse(data: any): OsmChangeset {
+export function getChangesetFromOsmApiResponse(data: any): OsmChangeset {
 	if (!data) throw new TypeError(`OSM API error: invalid response data`)
 	const changesetArray=data.elements
 	if (!Array.isArray(changesetArray)) throw new TypeError(`OSM API error: invalid response data`)
@@ -177,7 +134,7 @@ export function getChangesetsFromOsmApiResponse(data: any): OsmChangeset[] {
 	return changesetArray
 }
 
-function getElementsFromOsmApiResponse(data: any): OsmElementMap {
+export function getElementsFromOsmApiResponse(data: any): OsmElementMap {
 	const node: {[id:string]: OsmNodeElement} = {}
 	const way: {[id:string]: OsmWayElement} = {}
 	const relation: {[id:string]: OsmRelationElement} = {}

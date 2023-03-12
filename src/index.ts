@@ -13,7 +13,7 @@ import NoteFilterPanel from './filter-panel'
 import NoteTable from './table'
 import ToolPanel from './tool-panel'
 import fetchTableNote, {getFetchTableNoteErrorMessage} from './fetch-note'
-import {downloadOsmChangeset, downloadOsmElement} from './osm'
+import OsmDownloader from './osm-downloader'
 import {bubbleCustomEvent, makeDiv} from './html'
 import serverListConfig from './server-list-config'
 
@@ -105,50 +105,7 @@ async function main() {
 			bubbleCustomEvent($a,'osmNoteViewer:noteFetch',[note,users,'manual'])
 			bubbleCustomEvent($a,'osmNoteViewer:noteUpdatePush',[note,users])
 		})
-		const handleOsmDownloadAndLink=async(
-			$a: HTMLAnchorElement,
-			download:()=>Promise<void>
-		)=>{
-			$a.classList.add('loading')
-			try {
-				// TODO cancel already running response
-				await download()
-				$a.classList.remove('absent')
-				$a.title=''
-			} catch (ex) {
-				// TODO maybe fail or clear event
-				$a.classList.add('absent')
-				if (ex instanceof TypeError) {
-					$a.title=ex.message
-				} else {
-					$a.title=`unknown error ${ex}`
-				}
-			} finally {
-				$a.classList.remove('loading')
-			}
-		}
-		$root.addEventListener('osmNoteViewer:changesetLinkClick',async(ev)=>{
-			const $a=ev.target
-			if (!($a instanceof HTMLAnchorElement)) return
-			const changesetId=$a.dataset.changesetId
-			if (!changesetId) return
-			handleOsmDownloadAndLink($a,async()=>{
-				const changeset=await downloadOsmChangeset(globalHistory.server,changesetId)
-				bubbleCustomEvent($root,'osmNoteViewer:changesetRender',changeset)
-			})
-		})
-		$root.addEventListener('osmNoteViewer:elementLinkClick',async(ev)=>{
-			const $a=ev.target
-			if (!($a instanceof HTMLAnchorElement)) return
-			const elementType=$a.dataset.elementType
-			if (elementType!='node' && elementType!='way' && elementType!='relation') return false
-			const elementId=$a.dataset.elementId
-			if (!elementId) return
-			handleOsmDownloadAndLink($a,async()=>{
-				const elementData=await downloadOsmElement(globalHistory.server,elementType,elementId)
-				bubbleCustomEvent($root,'osmNoteViewer:elementRender',elementData)
-			})
-		})
+		new OsmDownloader($root,globalHistory.server.api)
 		globalHistory.restoreScrollPosition()
 	}
 }
