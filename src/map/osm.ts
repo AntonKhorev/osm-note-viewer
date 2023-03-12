@@ -4,6 +4,7 @@ import type {
 	OsmNodeElement, OsmWayElement, OsmRelationElement
 } from '../osm'
 import {makeLink, makeElement} from '../html'
+import {p,strong} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 
 const e=makeEscapeTag(encodeURIComponent)
@@ -35,9 +36,10 @@ export function renderOsmElement(
 			makeOsmElementPopupContents(server,element)
 		]
 	} else if (element.type=='relation') {
+		const [geometry,subRelationIds]=makeOsmRelationGeometry(element,elements)
 		return [
-			makeOsmRelationGeometry(element,elements),
-			makeOsmElementPopupContents(server,element)
+			geometry,
+			makeOsmElementPopupContents(server,element,subRelationIds)
 		]
 	} else {
 		throw new TypeError(`OSM API error: requested element has unknown type`) // shouldn't happen
@@ -71,21 +73,29 @@ function makeOsmWayGeometry(way: OsmWayElement, elements: OsmElementMap): L.Laye
 	}
 	return L.polyline(coords)
 }
-function makeOsmRelationGeometry(relation: OsmRelationElement, elements: OsmElementMap): L.Layer {
+function makeOsmRelationGeometry(relation: OsmRelationElement, elements: OsmElementMap): [geometry:L.Layer,subRelationIds:Set<number>] {
+	let isEmpty=true
 	const geometry=L.featureGroup()
+	const subRelationIds=new Set<number>()
 	for (const member of relation.members) {
 		if (member.type=='node') {
 			const node=elements.node[member.ref]
 			if (!node) throw new TypeError(`OSM API error: referenced element not found in response data`)
 			geometry.addLayer(makeOsmNodeGeometry(node))
+			isEmpty=false
 		} else if (member.type=='way') {
 			const way=elements.way[member.ref]
 			if (!way) throw new TypeError(`OSM API error: referenced element not found in response data`)
 			geometry.addLayer(makeOsmWayGeometry(way,elements))
+			isEmpty=false
+		} else if (member.type=='relation') {
+			subRelationIds.add(member.ref)
 		}
-		// TODO indicate that there might be relations, their data may be incomplete
 	}
-	return geometry
+	if (isEmpty) {
+		geometry.addLayer(L.circleMarker([0,0]))
+	}
+	return [geometry,subRelationIds]
 }
 
 // popups
@@ -117,9 +127,8 @@ function makeOsmChangesetPopupContents(server: Server, changeset: OsmChangeset):
 	return contents
 }
 
-function makeOsmElementPopupContents(server: Server, element: OsmElement): HTMLElement[] {
-	const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
-	const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
+function makeOsmElementPopupContents(server: Server, element: OsmElement, subRelationIds?: Set<number>): HTMLElement[] {
+	const h=(...s: Array<string|HTMLElement>)=>p(strong(...s))
 	const elementPath=e`${element.type}/${element.id}`
 	const contents: HTMLElement[] = [
 		h(capitalize(element.type)+`: `,makeLink(getElementName(element),server.web.getUrl(elementPath))),
@@ -136,6 +145,12 @@ function makeOsmElementPopupContents(server: Server, element: OsmElement): HTMLE
 	]
 	const $tags=getTags(element.tags)
 	if ($tags) contents.push($tags)
+	if (subRelationIds?.size) contents.push(
+		p(`Contains subrelations `,...[...subRelationIds].flatMap((subRelationId,i)=>{
+			const $a=getRelation(server,subRelationId)
+			return i?[`, `,$a]:[$a]
+		}))
+	)
 	return contents
 }
 
@@ -167,6 +182,16 @@ function getChangeset(server: Server, changesetId: number): HTMLElement {
 	const $a=makeLink(cid,server.web.getUrl(e`changeset/${cid}`))
 	$a.classList.add('listened')
 	$a.dataset.changesetId=cid
+	return $a
+}
+
+function getRelation(server: Server, relationId: number): HTMLElement {
+	const rid=String(relationId)
+	const relationPath=e`relation/${rid}`
+	const $a=makeLink(rid,server.web.getUrl(relationPath))
+	$a.classList.add('listened')
+	$a.dataset.elementType='relation'
+	$a.dataset.elementId=rid
 	return $a
 }
 
