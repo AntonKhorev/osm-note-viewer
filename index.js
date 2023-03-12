@@ -1827,7 +1827,6 @@ function* noteCommentsToStatuses(comments) {
     }
 }
 
-const e$8 = makeEscapeTag(escapeXml);
 class NoteMapBounds {
     constructor(bounds, precision) {
         this.w = bounds.getWest().toFixed(precision);
@@ -1842,6 +1841,7 @@ class NoteMapBounds {
         return [this.s, this.w, this.n, this.e];
     }
 }
+
 class NoteLayer extends L.FeatureGroup {
     getLayerId(marker) {
         if (marker instanceof NoteMarker) {
@@ -1852,11 +1852,261 @@ class NoteLayer extends L.FeatureGroup {
         }
     }
 }
+class CrosshairLayer extends L.Layer {
+    onAdd(map) {
+        // https://stackoverflow.com/questions/49184531/leafletjs-how-to-make-layer-not-movable
+        this.$overlay?.remove();
+        this.$overlay = document.createElement('div');
+        this.$overlay.classList.add('crosshair-overlay');
+        this.$overlay.innerHTML = `<svg class="crosshair"><use href="#map-crosshair" /></svg>`;
+        map.getContainer().append(this.$overlay);
+        return this;
+    }
+    onRemove(map) {
+        this.$overlay?.remove();
+        this.$overlay = undefined;
+        return this;
+    }
+}
+
+const e$8 = makeEscapeTag(encodeURIComponent);
+function renderOsmChangeset(server, changeset) {
+    return [
+        makeOsmChangesetGeometry(changeset),
+        makeOsmChangesetPopupContents(server, changeset)
+    ];
+}
+function renderOsmElement(server, element, elements) {
+    if (element.type == 'node') {
+        return [
+            makeOsmNodeGeometry(element),
+            makeOsmElementPopupContents(server, element)
+        ];
+    }
+    else if (element.type == 'way') {
+        return [
+            makeOsmWayGeometry(element, elements),
+            makeOsmElementPopupContents(server, element)
+        ];
+    }
+    else if (element.type == 'relation') {
+        let isFakeGeometry = false;
+        let [geometry, subRelationIds] = makeOsmRelationGeometry(element, elements);
+        if (!geometry) {
+            isFakeGeometry = true;
+            geometry = L.circleMarker([0, 0]);
+        }
+        return [
+            geometry,
+            makeOsmElementPopupContents(server, element, isFakeGeometry, subRelationIds)
+        ];
+    }
+    else {
+        throw new TypeError(`OSM API error: requested element has unknown type`); // shouldn't happen
+    }
+}
+// geometries
+function makeOsmChangesetGeometry(changeset) {
+    if (changeset.minlat == null || changeset.minlon == null ||
+        changeset.maxlat == null || changeset.maxlon == null) {
+        throw new TypeError(`changeset is empty`);
+    }
+    return L.rectangle([
+        [changeset.minlat, changeset.minlon],
+        [changeset.maxlat, changeset.maxlon]
+    ]);
+}
+function makeOsmNodeGeometry(node) {
+    return L.circleMarker([node.lat, node.lon]);
+}
+function makeOsmWayGeometry(way, elements) {
+    const coords = [];
+    for (const id of way.nodes) {
+        const node = elements.node[id];
+        if (!node)
+            throw new TypeError(`OSM API error: referenced element not found in response data`);
+        coords.push([node.lat, node.lon]);
+    }
+    return L.polyline(coords);
+}
+function makeOsmRelationGeometry(relation, elements) {
+    let isEmpty = true;
+    const geometry = L.featureGroup();
+    const subRelationIds = new Set();
+    for (const member of relation.members) {
+        if (member.type == 'node') {
+            const node = elements.node[member.ref];
+            if (!node)
+                throw new TypeError(`OSM API error: referenced element not found in response data`);
+            geometry.addLayer(makeOsmNodeGeometry(node));
+            isEmpty = false;
+        }
+        else if (member.type == 'way') {
+            const way = elements.way[member.ref];
+            if (!way)
+                throw new TypeError(`OSM API error: referenced element not found in response data`);
+            geometry.addLayer(makeOsmWayGeometry(way, elements));
+            isEmpty = false;
+        }
+        else if (member.type == 'relation') {
+            subRelationIds.add(member.ref);
+        }
+    }
+    return [isEmpty ? null : geometry, subRelationIds];
+}
+// popups
+function makeOsmChangesetPopupContents(server, changeset) {
+    const contents = [];
+    const p = (...s) => makeElement('p')()(...s);
+    const h = (...s) => p(makeElement('strong')()(...s));
+    const c = (...s) => p(makeElement('em')()(...s));
+    const changesetHref = server.web.getUrl(e$8 `changeset/${changeset.id}`);
+    contents.push(h(`Changeset: `, makeLink(String(changeset.id), changesetHref)));
+    if (changeset.tags?.comment)
+        contents.push(c(changeset.tags.comment));
+    const $p = p();
+    if (changeset.closed_at) {
+        $p.append(`Closed on `, getDate(changeset.closed_at));
+    }
+    else {
+        $p.append(`Created on `, getDate(changeset.created_at));
+    }
+    $p.append(` by `, getUser(server, changeset));
+    contents.push($p);
+    const $tags = getTags(changeset.tags, 'comment');
+    if ($tags)
+        contents.push($tags);
+    return contents;
+}
+function makeOsmElementPopupContents(server, element, isFakeGeometry = false, subRelationIds) {
+    const h = (...s) => p(strong(...s));
+    const elementPath = e$8 `${element.type}/${element.id}`;
+    const contents = [
+        h(capitalize(element.type) + `: `, makeLink(getElementName(element), server.web.getUrl(elementPath))),
+        h(`Version #${element.version} · `, makeLink(`View History`, server.web.getUrl(elementPath + '/history')), ` · `, makeLink(`Edit`, server.web.getUrl(e$8 `edit?${element.type}=${element.id}`))),
+        p(`Edited on `, getDate(element.timestamp), ` by `, getUser(server, element), ` · Changeset #`, getChangeset(server, element.changeset))
+    ];
+    const $tags = getTags(element.tags);
+    if ($tags)
+        contents.push($tags);
+    if (subRelationIds?.size) {
+        const type = subRelationIds.size > 1 ? `relations` : `relation`;
+        const $details = makeElement('details')()(makeElement('summary')()(`${subRelationIds.size} member ${type}`), ...[...subRelationIds].flatMap((subRelationId, i) => {
+            const $a = getRelation(server, subRelationId);
+            return i ? [`, `, $a] : [$a];
+        }));
+        if (subRelationIds.size <= 7)
+            $details.open = true;
+        contents.push($details);
+    }
+    if (isFakeGeometry)
+        contents.push(h(`Warning: displayed geometry is incorrect because the relation has no direct node/way members`));
+    return contents;
+}
+// utils
+function capitalize(s) {
+    return s[0].toUpperCase() + s.slice(1);
+}
+function getDate(timestamp) {
+    const readableDate = timestamp.replace('T', ' ').replace('Z', '');
+    const $time = document.createElement('time');
+    $time.classList.add('listened');
+    $time.textContent = readableDate;
+    $time.dateTime = timestamp;
+    return $time;
+}
+function getUser(server, data) {
+    const $a = makeUserLink(server, data.uid, data.user);
+    $a.classList.add('listened');
+    $a.dataset.userName = data.user;
+    $a.dataset.userId = String(data.uid);
+    return $a;
+}
+function getChangeset(server, changesetId) {
+    const cid = String(changesetId);
+    const $a = makeLink(cid, server.web.getUrl(e$8 `changeset/${cid}`));
+    $a.classList.add('listened');
+    $a.dataset.changesetId = cid;
+    return $a;
+}
+function getRelation(server, relationId) {
+    const rid = String(relationId);
+    const relationPath = e$8 `relation/${rid}`;
+    const $a = makeLink(rid, server.web.getUrl(relationPath));
+    $a.classList.add('listened');
+    $a.dataset.elementType = 'relation';
+    $a.dataset.elementId = rid;
+    return $a;
+}
+function getTags(tags, skipKey) {
+    if (!tags)
+        return null;
+    const tagBatchSize = 10;
+    const tagList = Object.entries(tags).filter(([k, v]) => k != skipKey);
+    if (tagList.length <= 0)
+        return null;
+    let i = 0;
+    let $button;
+    const $figure = document.createElement('figure');
+    const $figcaption = document.createElement('figcaption');
+    $figcaption.textContent = `Tags`;
+    const $table = document.createElement('table');
+    $figure.append($figcaption, $table);
+    writeTagBatch();
+    return $figure;
+    function writeTagBatch() {
+        for (let j = 0; i < tagList.length && j < tagBatchSize; i++, j++) {
+            const [k, v] = tagList[i];
+            const $row = $table.insertRow();
+            const $keyCell = $row.insertCell();
+            $keyCell.textContent = k;
+            if (k.length > 30)
+                $keyCell.classList.add('long');
+            $row.insertCell().textContent = v;
+        }
+        if (i < tagList.length) {
+            if (!$button) {
+                $button = document.createElement('button');
+                $figure.append($button);
+                $button.onclick = writeTagBatch;
+            }
+            const nTagsLeft = tagList.length - i;
+            const nTagsToShowNext = Math.min(nTagsLeft, tagBatchSize);
+            $button.textContent = `Show ${nTagsToShowNext} / ${nTagsLeft} more tags`;
+        }
+        else {
+            $button?.remove();
+        }
+    }
+}
+function getElementName(element) {
+    if (element.tags?.name) {
+        return `${element.tags.name} (${element.id})`;
+    }
+    else {
+        return String(element.id);
+    }
+}
+function makeUserLink(server, uid, username) {
+    if (username)
+        return makeUserNameLink(server, username);
+    return makeUserIdLink(server, uid);
+}
+function makeUserNameLink(server, username) {
+    const fromName = (name) => server.web.getUrl(e$8 `user/${name}`);
+    return makeLink(username, fromName(username));
+}
+function makeUserIdLink(server, uid) {
+    const fromId = (id) => server.api.getUrl(e$8 `user/${id}`);
+    return makeLink('#' + uid, fromId(uid));
+}
+
 class NoteMap {
-    constructor($root, $container, tile, downloadAndShowChangeset, downloadAndShowElement) {
+    constructor($root, $container, server) {
         this.$container = $container;
         this.needToFitNotes = false;
         this.freezeMode = 'no';
+        const e = makeEscapeTag(escapeXml);
         this.leafletMap = L.map($container, {
             worldCopyJump: true,
             zoomControl: false
@@ -1864,18 +2114,18 @@ class NoteMap {
             position: 'bottomright'
         })).addControl(L.control.scale({
             position: 'bottomleft'
-        })).addLayer(L.tileLayer(tile.urlTemplate, {
-            attribution: e$8 `© <a href="${tile.attributionUrl}">${tile.attributionText}</a>`,
-            maxZoom: tile.maxZoom
+        })).addLayer(L.tileLayer(server.tile.urlTemplate, {
+            attribution: e `© <a href="${server.tile.attributionUrl}">${server.tile.attributionText}</a>`,
+            maxZoom: server.tile.maxZoom
         })).fitWorld();
-        this.elementLayer = L.featureGroup().addTo(this.leafletMap);
+        this.dataLayer = L.featureGroup().addTo(this.leafletMap);
         this.unselectedNoteLayer = new NoteLayer().addTo(this.leafletMap);
         this.selectedNoteLayer = new NoteLayer().addTo(this.leafletMap);
         this.filteredNoteLayer = new NoteLayer();
         this.trackLayer = L.featureGroup().addTo(this.leafletMap);
         const crosshairLayer = new CrosshairLayer().addTo(this.leafletMap);
         const layersControl = L.control.layers();
-        layersControl.addOverlay(this.elementLayer, `OSM elements`);
+        layersControl.addOverlay(this.dataLayer, `OSM elements`);
         layersControl.addOverlay(this.unselectedNoteLayer, `Unselected notes`);
         layersControl.addOverlay(this.selectedNoteLayer, `Selected notes`);
         layersControl.addOverlay(this.filteredNoteLayer, `Filtered notes`);
@@ -1893,7 +2143,7 @@ class NoteMap {
                 return;
             const [layerId, popupWriter] = this.queuedPopup;
             this.queuedPopup = undefined;
-            const geometry = this.elementLayer.getLayer(layerId);
+            const geometry = this.dataLayer.getLayer(layerId);
             if (geometry) {
                 const popup = L.popup({ autoPan: false })
                     .setLatLng(this.leafletMap.getCenter()) // need to tell the popup this exact place after map stops moving, otherwise is sometimes gets opened off-screen
@@ -1905,50 +2155,14 @@ class NoteMap {
         $root.addEventListener('osmNoteViewer:mapMoveTrigger', ({ detail: { zoom, lat, lon } }) => {
             this.panAndZoomTo([Number(lat), Number(lon)], Number(zoom));
         });
-        const handleOsmDownloadAndLink = async ($a, download) => {
-            $a.classList.add('loading');
-            try {
-                // TODO cancel already running response
-                const [geometry, popupContents] = await download();
-                $a.classList.remove('absent');
-                $a.title = '';
-                this.addOsmElement(geometry, popupContents);
-            }
-            catch (ex) {
-                this.elementLayer.clearLayers();
-                $a.classList.add('absent');
-                if (ex instanceof TypeError) {
-                    $a.title = ex.message;
-                }
-                else {
-                    $a.title = `unknown error ${ex}`;
-                }
-            }
-            finally {
-                $a.classList.remove('loading');
-            }
-        };
-        $root.addEventListener('osmNoteViewer:changesetLinkClick', ev => {
-            const $a = ev.target;
-            if (!($a instanceof HTMLAnchorElement))
-                return;
-            const changesetId = $a.dataset.changesetId;
-            if (!changesetId)
-                return;
-            handleOsmDownloadAndLink($a, () => downloadAndShowChangeset(changesetId));
+        $root.addEventListener('osmNoteViewer:changesetRender', ({ detail: changeset }) => {
+            this.addOsmData(...renderOsmChangeset(server, changeset));
         });
-        $root.addEventListener('osmNoteViewer:elementLinkClick', ev => {
-            const $a = ev.target;
-            if (!($a instanceof HTMLAnchorElement))
-                return;
-            const elementType = $a.dataset.elementType;
-            if (elementType != 'node' && elementType != 'way' && elementType != 'relation')
-                return false;
-            const elementId = $a.dataset.elementId;
-            if (!elementId)
-                return;
-            handleOsmDownloadAndLink($a, () => downloadAndShowElement(elementType, elementId));
+        $root.addEventListener('osmNoteViewer:elementRender', ({ detail: [element, elements] }) => {
+            this.addOsmData(...renderOsmElement(server, element, elements));
         });
+        // TODO maybe have :dataClear event
+        // this.elementLayer.clearLayers()
         $root.addEventListener('osmNoteViewer:noteFocus', ev => {
             const noteId = ev.detail;
             const marker = this.getNoteMarker(noteId);
@@ -1966,9 +2180,12 @@ class NoteMap {
         });
     }
     hide(hidden) {
-        this.$container.hidden = hidden;
-        if (!hidden)
-            this.invalidateSize();
+        if (hidden) {
+            this.$container.style.visibility = 'hidden';
+        }
+        else {
+            this.$container.style.removeProperty('visibility');
+        }
     }
     getNoteMarker(noteId) {
         for (const layer of [this.unselectedNoteLayer, this.selectedNoteLayer, this.filteredNoteLayer]) {
@@ -1997,7 +2214,7 @@ class NoteMap {
         this.leafletMap.invalidateSize();
     }
     clearNotes() {
-        this.elementLayer.clearLayers();
+        this.dataLayer.clearLayers();
         this.unselectedNoteLayer.clearLayers();
         this.selectedNoteLayer.clearLayers();
         this.filteredNoteLayer.clearLayers();
@@ -2061,19 +2278,19 @@ class NoteMap {
         if (bounds.isValid())
             this.fitBoundsIfNotFrozen(bounds);
     }
-    addOsmElement(geometry, popupContents) {
+    addOsmData(geometry, popupContents) {
         const popupWriter = () => {
             const $removeButton = document.createElement('button');
             $removeButton.textContent = `Remove from map view`;
             $removeButton.onclick = () => {
-                this.elementLayer.clearLayers();
+                this.dataLayer.clearLayers();
             };
             return makeDiv('osm-element-popup-contents')(...popupContents, $removeButton);
         };
         // TODO zoom on second click, like with notes
-        this.elementLayer.clearLayers();
-        this.elementLayer.addLayer(geometry);
-        const layerId = this.elementLayer.getLayerId(geometry);
+        this.dataLayer.clearLayers();
+        this.dataLayer.addLayer(geometry);
+        const layerId = this.dataLayer.getLayerId(geometry);
         // geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
         if (this.freezeMode == 'full') {
             const popup = L.popup({ autoPan: false }).setContent(popupWriter);
@@ -2120,7 +2337,7 @@ class NoteMap {
             }
         }
         else {
-            const bounds = this.elementLayer.getBounds();
+            const bounds = this.dataLayer.getBounds();
             if (bounds.isValid()) {
                 this.queuedPopup = [layerId, popupWriter];
                 this.fitBoundsIfNotFrozen(bounds);
@@ -2179,22 +2396,6 @@ class NoteMap {
     }
     get precision() {
         return Math.max(0, Math.ceil(Math.log2(this.zoom)));
-    }
-}
-class CrosshairLayer extends L.Layer {
-    onAdd(map) {
-        // https://stackoverflow.com/questions/49184531/leafletjs-how-to-make-layer-not-movable
-        this.$overlay?.remove();
-        this.$overlay = document.createElement('div');
-        this.$overlay.classList.add('crosshair-overlay');
-        this.$overlay.innerHTML = `<svg class="crosshair"><use href="#map-crosshair" /></svg>`;
-        map.getContainer().append(this.$overlay);
-        return this;
-    }
-    onRemove(map) {
-        this.$overlay?.remove();
-        this.$overlay = undefined;
-        return this;
     }
 }
 function hidePopupTip($popupContainer) {
@@ -2727,8 +2928,8 @@ class OverlayDialog {
         for (const eventType of [
             'osmNoteViewer:newNoteStream',
             'osmNoteViewer:mapMoveTrigger',
-            'osmNoteViewer:elementLinkClick',
-            'osmNoteViewer:changesetLinkClick',
+            'osmNoteViewer:elementRender',
+            'osmNoteViewer:changesetRender',
             'osmNoteViewer:noteFocus'
         ]) {
             $root.addEventListener(eventType, () => this.close());
@@ -9319,107 +9520,6 @@ function isOsmChangeset(c) {
         return false;
     }
 }
-const e$2 = makeEscapeTag(encodeURIComponent);
-async function downloadAndShowChangeset(server, changesetId) {
-    const response = await server.api.fetch(e$2 `changeset/${changesetId}.json`);
-    if (!response.ok) {
-        if (response.status == 404) {
-            throw new TypeError(`changeset doesn't exist`);
-        }
-        else {
-            throw new TypeError(`OSM API error: unsuccessful response`);
-        }
-    }
-    const data = await response.json();
-    const changeset = getChangesetFromOsmApiResponse(data);
-    return [
-        makeChangesetGeometry(changeset),
-        makeChangesetPopupContents(server, changeset)
-    ];
-    function makeChangesetGeometry(changeset) {
-        if (changeset.minlat == null || changeset.minlon == null ||
-            changeset.maxlat == null || changeset.maxlon == null) {
-            throw new TypeError(`changeset is empty`);
-        }
-        return L.rectangle([
-            [changeset.minlat, changeset.minlon],
-            [changeset.maxlat, changeset.maxlon]
-        ]);
-    }
-}
-async function downloadAndShowElement(server, elementType, elementId) {
-    const fullBit = (elementType == 'node' ? '' : '/full');
-    const response = await server.api.fetch(e$2 `${elementType}/${elementId}` + `${fullBit}.json`);
-    if (!response.ok) {
-        if (response.status == 404) {
-            throw new TypeError(`element doesn't exist`);
-        }
-        else if (response.status == 410) {
-            throw new TypeError(`element was deleted`);
-        }
-        else {
-            throw new TypeError(`OSM API error: unsuccessful response`);
-        }
-    }
-    const data = await response.json();
-    const elements = getElementsFromOsmApiResponse(data);
-    const element = elements[elementType][elementId];
-    if (!element)
-        throw new TypeError(`OSM API error: requested element not found in response data`);
-    if (isOsmNodeElement(element)) {
-        return [
-            makeNodeGeometry(element),
-            makeElementPopupContents(server, element)
-        ];
-    }
-    else if (isOsmWayElement(element)) {
-        return [
-            makeWayGeometry(element, elements),
-            makeElementPopupContents(server, element)
-        ];
-    }
-    else if (isOsmRelationElement(element)) {
-        return [
-            makeRelationGeometry(element, elements),
-            makeElementPopupContents(server, element)
-        ];
-    }
-    else {
-        throw new TypeError(`OSM API error: requested element has unknown type`); // shouldn't happen
-    }
-    function makeNodeGeometry(node) {
-        return L.circleMarker([node.lat, node.lon]);
-    }
-    function makeWayGeometry(way, elements) {
-        const coords = [];
-        for (const id of way.nodes) {
-            const node = elements.node[id];
-            if (!node)
-                throw new TypeError(`OSM API error: referenced element not found in response data`);
-            coords.push([node.lat, node.lon]);
-        }
-        return L.polyline(coords);
-    }
-    function makeRelationGeometry(relation, elements) {
-        const geometry = L.featureGroup();
-        for (const member of relation.members) {
-            if (member.type == 'node') {
-                const node = elements.node[member.ref];
-                if (!node)
-                    throw new TypeError(`OSM API error: referenced element not found in response data`);
-                geometry.addLayer(makeNodeGeometry(node));
-            }
-            else if (member.type == 'way') {
-                const way = elements.way[member.ref];
-                if (!way)
-                    throw new TypeError(`OSM API error: referenced element not found in response data`);
-                geometry.addLayer(makeWayGeometry(way, elements));
-            }
-            // TODO indicate that there might be relations, their data may be incomplete
-        }
-        return geometry;
-    }
-}
 function getChangesetFromOsmApiResponse(data) {
     if (!data)
         throw new TypeError(`OSM API error: invalid response data`);
@@ -9468,132 +9568,8 @@ function getElementsFromOsmApiResponse(data) {
     }
     return { node, way, relation };
 }
-function makeChangesetPopupContents(server, changeset) {
-    const contents = [];
-    const p = (...s) => makeElement('p')()(...s);
-    const h = (...s) => p(makeElement('strong')()(...s));
-    const c = (...s) => p(makeElement('em')()(...s));
-    const changesetHref = server.web.getUrl(e$2 `changeset/${changeset.id}`);
-    contents.push(h(`Changeset: `, makeLink(String(changeset.id), changesetHref)));
-    if (changeset.tags?.comment)
-        contents.push(c(changeset.tags.comment));
-    const $p = p();
-    if (changeset.closed_at) {
-        $p.append(`Closed on `, getDate(changeset.closed_at));
-    }
-    else {
-        $p.append(`Created on `, getDate(changeset.created_at));
-    }
-    $p.append(` by `, getUser(server, changeset));
-    contents.push($p);
-    const $tags = getTags(changeset.tags, 'comment');
-    if ($tags)
-        contents.push($tags);
-    return contents;
-}
-function makeElementPopupContents(server, element) {
-    const p = (...s) => makeElement('p')()(...s);
-    const h = (...s) => p(makeElement('strong')()(...s));
-    const elementPath = e$2 `${element.type}/${element.id}`;
-    const contents = [
-        h(capitalize(element.type) + `: `, makeLink(getElementName(element), server.web.getUrl(elementPath))),
-        h(`Version #${element.version} · `, makeLink(`View History`, server.web.getUrl(elementPath + '/history')), ` · `, makeLink(`Edit`, server.web.getUrl(e$2 `edit?${element.type}=${element.id}`))),
-        p(`Edited on `, getDate(element.timestamp), ` by `, getUser(server, element), ` · Changeset #`, getChangeset(server, element.changeset))
-    ];
-    const $tags = getTags(element.tags);
-    if ($tags)
-        contents.push($tags);
-    return contents;
-}
-function capitalize(s) {
-    return s[0].toUpperCase() + s.slice(1);
-}
-function getDate(timestamp) {
-    const readableDate = timestamp.replace('T', ' ').replace('Z', '');
-    const $time = document.createElement('time');
-    $time.classList.add('listened');
-    $time.textContent = readableDate;
-    $time.dateTime = timestamp;
-    return $time;
-}
-function getUser(server, data) {
-    const $a = makeUserLink(server, data.uid, data.user);
-    $a.classList.add('listened');
-    $a.dataset.userName = data.user;
-    $a.dataset.userId = String(data.uid);
-    return $a;
-}
-function getChangeset(server, changesetId) {
-    const cid = String(changesetId);
-    const $a = makeLink(cid, server.web.getUrl(e$2 `changeset/${cid}`));
-    $a.classList.add('listened');
-    $a.dataset.changesetId = cid;
-    return $a;
-}
-function getTags(tags, skipKey) {
-    if (!tags)
-        return null;
-    const tagBatchSize = 10;
-    const tagList = Object.entries(tags).filter(([k, v]) => k != skipKey);
-    if (tagList.length <= 0)
-        return null;
-    let i = 0;
-    let $button;
-    const $figure = document.createElement('figure');
-    const $figcaption = document.createElement('figcaption');
-    $figcaption.textContent = `Tags`;
-    const $table = document.createElement('table');
-    $figure.append($figcaption, $table);
-    writeTagBatch();
-    return $figure;
-    function writeTagBatch() {
-        for (let j = 0; i < tagList.length && j < tagBatchSize; i++, j++) {
-            const [k, v] = tagList[i];
-            const $row = $table.insertRow();
-            const $keyCell = $row.insertCell();
-            $keyCell.textContent = k;
-            if (k.length > 30)
-                $keyCell.classList.add('long');
-            $row.insertCell().textContent = v;
-        }
-        if (i < tagList.length) {
-            if (!$button) {
-                $button = document.createElement('button');
-                $figure.append($button);
-                $button.onclick = writeTagBatch;
-            }
-            const nTagsLeft = tagList.length - i;
-            const nTagsToShowNext = Math.min(nTagsLeft, tagBatchSize);
-            $button.textContent = `Show ${nTagsToShowNext} / ${nTagsLeft} more tags`;
-        }
-        else {
-            $button?.remove();
-        }
-    }
-}
-function getElementName(element) {
-    if (element.tags?.name) {
-        return `${element.tags.name} (${element.id})`;
-    }
-    else {
-        return String(element.id);
-    }
-}
-function makeUserLink(server, uid, username) {
-    if (username)
-        return makeUserNameLink(server, username);
-    return makeUserIdLink(server, uid);
-}
-function makeUserNameLink(server, username) {
-    const fromName = (name) => server.web.getUrl(e$2 `user/${name}`);
-    return makeLink(username, fromName(username));
-}
-function makeUserIdLink(server, uid) {
-    const fromId = (id) => server.api.getUrl(e$2 `user/${id}`);
-    return makeLink('#' + uid, fromId(uid));
-}
 
-const e$1 = makeEscapeTag(encodeURIComponent);
+const e$2 = makeEscapeTag(encodeURIComponent);
 class ChangesetTool extends Tool {
     constructor() {
         super(...arguments);
@@ -9608,7 +9584,7 @@ class ChangesetTool extends Tool {
         const getChangesetLink = (changesetId) => {
             if (changesetId == null)
                 return `none`;
-            const $a = makeLink(`link`, this.auth.server.web.getUrl(e$1 `changeset/${changesetId}`));
+            const $a = makeLink(`link`, this.auth.server.web.getUrl(e$2 `changeset/${changesetId}`));
             $a.classList.add('listened');
             $a.dataset.changesetId = String(changesetId);
             return $a;
@@ -9638,7 +9614,7 @@ class ChangesetTool extends Tool {
             try {
                 const coordDelta = 0.001;
                 const day = 60 * 60 * 24;
-                const response = await this.auth.server.api.fetch(e$1 `changesets.json` +
+                const response = await this.auth.server.api.fetch(e$2 `changesets.json` +
                     `?bbox=${closingScope.lon - coordDelta},${closingScope.lat - coordDelta}` +
                     `,${closingScope.lon + coordDelta},${closingScope.lat + coordDelta}` +
                     `&user=${closingScope.uid}` +
@@ -9833,7 +9809,7 @@ function getClosestNodeId(doc, centerLat, centerLon) {
     return closestNodeId;
 }
 
-const e = makeEscapeTag(encodeURIComponent);
+const e$1 = makeEscapeTag(encodeURIComponent);
 class EditorTool extends Tool {
     constructor() {
         super(...arguments);
@@ -9880,8 +9856,8 @@ class RcTool extends EditorTool {
         $loadNotesButton.append(`Load `, makeNotesIcon('selected'));
         $loadNotesButton.onclick = async () => {
             for (const { id } of inputNotes) {
-                const noteUrl = this.auth.server.web.getUrl(e `note/${id}`);
-                const rcPath = e `import?url=${noteUrl}`;
+                const noteUrl = this.auth.server.web.getUrl(e$1 `note/${id}`);
+                const rcPath = e$1 `import?url=${noteUrl}`;
                 const success = await openRcPath($loadNotesButton, rcPath);
                 if (!success)
                     break;
@@ -9891,7 +9867,7 @@ class RcTool extends EditorTool {
         $loadMapButton.append(`Load `, makeMapIcon('area'));
         $loadMapButton.onclick = () => {
             const bounds = map.bounds;
-            let rcPath = e `load_and_zoom` +
+            let rcPath = e$1 `load_and_zoom` +
                 `?left=${bounds.getWest()}&right=${bounds.getEast()}` +
                 `&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`;
             if (inputNotes.length >= 1) {
@@ -9908,7 +9884,7 @@ class RcTool extends EditorTool {
         return [$loadNotesButton, ` `, $loadMapButton];
     }
     doElementAction() {
-        const rcPath = e `load_object?objects=${this.inputElement}`;
+        const rcPath = e$1 `load_object?objects=${this.inputElement}`;
         openRcPath(this.$actOnElementButton, rcPath);
     }
 }
@@ -9930,13 +9906,13 @@ class IdTool extends EditorTool {
         const $zoomButton = document.createElement('button');
         $zoomButton.append(`Open `, makeMapIcon('center'));
         $zoomButton.onclick = () => {
-            const url = this.auth.server.web.getUrl(e `id#map=${map.zoom}/${map.lat}/${map.lon}`);
+            const url = this.auth.server.web.getUrl(e$1 `id#map=${map.zoom}/${map.lat}/${map.lon}`);
             open(url, 'id');
         };
         return [$zoomButton];
     }
     doElementAction(map) {
-        const url = this.auth.server.web.getUrl(e `id#id=${this.inputElement}&map=${map.zoom}/${map.lat}/${map.lon}`);
+        const url = this.auth.server.web.getUrl(e$1 `id#id=${this.inputElement}&map=${map.zoom}/${map.lat}/${map.lon}`);
         open(url, 'id');
     }
 }
@@ -10359,6 +10335,85 @@ class ToolPanel {
     }
 }
 
+const e = makeEscapeTag(encodeURIComponent);
+class OsmDownloader {
+    constructor($root, api) {
+        let abortController;
+        const handleOsmDownloadAndLink = async ($a, path, type, handleResponse) => {
+            $a.classList.add('loading'); // TODO aria
+            if (abortController)
+                abortController.abort();
+            abortController = new AbortController();
+            try {
+                const response = await api.fetch(path, { signal: abortController.signal });
+                if (!response.ok) {
+                    if (response.status == 404) {
+                        throw new TypeError(`${type} doesn't exist`);
+                    }
+                    else if (response.status == 410) {
+                        throw new TypeError(`${type} was deleted`);
+                    }
+                    else {
+                        throw new TypeError(`OSM API error: unsuccessful response`);
+                    }
+                }
+                await handleResponse(response);
+                $a.classList.remove('absent');
+                $a.title = '';
+            }
+            catch (ex) {
+                // TODO maybe fail or clear event
+                if (ex instanceof DOMException && ex.name == 'AbortError') {
+                    return;
+                }
+                $a.classList.add('absent');
+                if (ex instanceof TypeError) {
+                    $a.title = ex.message;
+                }
+                else {
+                    $a.title = `unknown error ${ex}`;
+                }
+            }
+            finally {
+                $a.classList.remove('loading');
+            }
+        };
+        $root.addEventListener('osmNoteViewer:changesetLinkClick', async (ev) => {
+            const $a = ev.target;
+            if (!($a instanceof HTMLAnchorElement))
+                return;
+            const changesetId = $a.dataset.changesetId;
+            if (!changesetId)
+                return;
+            await handleOsmDownloadAndLink($a, e `changeset/${changesetId}.json`, `changeset`, async (response) => {
+                const data = await response.json();
+                const changeset = getChangesetFromOsmApiResponse(data);
+                bubbleCustomEvent($root, 'osmNoteViewer:changesetRender', changeset);
+            });
+        });
+        $root.addEventListener('osmNoteViewer:elementLinkClick', async (ev) => {
+            const $a = ev.target;
+            if (!($a instanceof HTMLAnchorElement))
+                return;
+            const elementType = $a.dataset.elementType;
+            if (elementType != 'node' && elementType != 'way' && elementType != 'relation')
+                return false;
+            const elementId = $a.dataset.elementId;
+            if (!elementId)
+                return;
+            const fullBit = (elementType == 'node' ? '' : '/full');
+            handleOsmDownloadAndLink($a, e `${elementType}/${elementId}` + `${fullBit}.json`, `element`, async (response) => {
+                const data = await response.json();
+                const elements = getElementsFromOsmApiResponse(data);
+                const element = elements[elementType][elementId];
+                if (!element)
+                    throw new TypeError(`OSM API error: requested element not found in response data`);
+                bubbleCustomEvent($root, 'osmNoteViewer:elementRender', [element, elements]);
+            });
+        });
+    }
+}
+
 main();
 async function main() {
     if (checkAuthRedirect()) {
@@ -10424,11 +10479,12 @@ async function main() {
             bubbleCustomEvent($a, 'osmNoteViewer:noteFetch', [note, users, 'manual']);
             bubbleCustomEvent($a, 'osmNoteViewer:noteUpdatePush', [note, users]);
         });
+        new OsmDownloader($root, globalHistory.server.api);
         globalHistory.restoreScrollPosition();
     }
 }
 function writeMap($root, $mapContainer, globalHistory) {
-    const map = new NoteMap($root, $mapContainer, globalHistory.server.tile, (changesetId) => downloadAndShowChangeset(globalHistory.server, changesetId), (elementType, elementId) => downloadAndShowElement(globalHistory.server, elementType, elementId));
+    const map = new NoteMap($root, $mapContainer, globalHistory.server);
     globalHistory.triggerInitialMapHashChange();
     return map;
 }
