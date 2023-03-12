@@ -2,7 +2,7 @@ import type Server from '../server'
 import NoteMarker from './marker'
 import NoteMapBounds from './bounds'
 import {NoteLayer, CrosshairLayer} from './layers'
-import {renderOsmChangeset, renderOsmElement} from './osm'
+import {renderOsmElement, renderOsmChangeset, renderOsmChangesetAdiff} from './osm'
 import {bubbleCustomEvent, makeDiv} from '../html'
 import {escapeXml, makeEscapeTag} from '../escape'
 
@@ -75,14 +75,19 @@ export default class NoteMap {
 		$root.addEventListener('osmNoteViewer:mapMoveTrigger',({detail:{zoom,lat,lon}})=>{
 			this.panAndZoomTo([Number(lat),Number(lon)],Number(zoom))
 		})
+		$root.addEventListener('osmNoteViewer:elementRender',({detail:[element,elements]})=>{
+			this.addOsmData(
+				...renderOsmElement(server,element,elements)
+			)
+		})
 		$root.addEventListener('osmNoteViewer:changesetRender',({detail:changeset})=>{
 			this.addOsmData(
 				...renderOsmChangeset(server,changeset)
 			)
 		})
-		$root.addEventListener('osmNoteViewer:elementRender',({detail:[element,elements]})=>{
+		$root.addEventListener('osmNoteViewer:changesetAdiffRender',({detail:[changeset,doc]})=>{
 			this.addOsmData(
-				...renderOsmElement(server,element,elements)
+				...renderOsmChangesetAdiff(server,changeset,doc)
 			)
 		})
 		// TODO maybe have :dataClear event

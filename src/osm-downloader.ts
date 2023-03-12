@@ -62,9 +62,8 @@ export default class OsmDownloader {
 					const query=makeAdiffQueryPreamble(changeset)+
 						`(node(changed);way(changed););\n`+
 						`out meta geom;`
-					const doc=await server.overpass.fetch(query)
-					bubbleCustomEvent($root,'osmNoteViewer:changesetRender',changeset) // TODO render adiff instead
-					// bubbleCustomEvent($root,'osmNoteViewer:changesetAdiffRender',doc)
+					const doc=await server.overpass.fetch(query) // TODO also pump through handleOsmDownloadAndLink()
+					bubbleCustomEvent($root,'osmNoteViewer:changesetAdiffRender',[changeset,doc])
 				} else {
 					bubbleCustomEvent($root,'osmNoteViewer:changesetRender',changeset)
 				}

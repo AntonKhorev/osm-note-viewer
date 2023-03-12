@@ -3,22 +3,12 @@ import type {
 	OsmBase, OsmChangeset, OsmElement, OsmElementMap,
 	OsmNodeElement, OsmWayElement, OsmRelationElement
 } from '../osm'
+import {hasBbox} from '../osm'
 import {makeLink, makeElement} from '../html'
 import {p,strong} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 
 const e=makeEscapeTag(encodeURIComponent)
-
-export function renderOsmChangeset(
-	server: Server, changeset: OsmChangeset
-): [
-	geometry: L.Layer, popupContents: HTMLElement[]
-] {
-	return [
-		makeOsmChangesetGeometry(changeset),
-		makeOsmChangesetPopupContents(server,changeset)
-	]
-}
 
 export function renderOsmElement(
 	server: Server, element: OsmElement, elements: OsmElementMap
@@ -36,35 +26,55 @@ export function renderOsmElement(
 			makeOsmElementPopupContents(server,element)
 		]
 	} else if (element.type=='relation') {
-		let isFakeGeometry=false
-		let [geometry,subRelationIds]=makeOsmRelationGeometry(element,elements)
-		if (!geometry) {
-			isFakeGeometry=true
-			geometry=L.circleMarker([0,0])
-		}
-		return [
+		const [geometry,subRelationIds]=makeOsmRelationGeometry(element,elements)
+		return makeRenderReturnValues(
 			geometry,
-			makeOsmElementPopupContents(server,element,isFakeGeometry,subRelationIds)
-		]
+			makeOsmElementPopupContents(server,element,subRelationIds),
+			`the relation has no direct node/way members`
+		)
 	} else {
 		throw new TypeError(`OSM API error: requested element has unknown type`) // shouldn't happen
 	}
 }
 
-// geometries
-
-function makeOsmChangesetGeometry(changeset: OsmChangeset): L.Layer {
-	if (
-		changeset.minlat==null || changeset.minlon==null ||
-		changeset.maxlat==null || changeset.maxlon==null
-	) {
-		throw new TypeError(`changeset is empty`)
-	}
-	return L.rectangle([
-		[changeset.minlat,changeset.minlon],
-		[changeset.maxlat,changeset.maxlon]
-	])
+export function renderOsmChangeset(
+	server: Server, changeset: OsmChangeset
+): [
+	geometry: L.Layer, popupContents: HTMLElement[]
+] {
+	return makeRenderReturnValues(
+		makeOsmChangesetGeometry(changeset),
+		makeOsmChangesetPopupContents(server,changeset),
+		`the changeset is empty`
+	)
 }
+export function renderOsmChangesetAdiff(
+	server: Server, changeset: OsmChangeset, doc: Document
+): [
+	geometry: L.Layer, popupContents: HTMLElement[]
+] {
+	return makeRenderReturnValues(
+		makeOsmChangesetAdiffGeometry(changeset,doc),
+		makeOsmChangesetAdiffPopupContents(server,changeset),
+		`the changeset is empty`
+	)
+}
+
+function makeRenderReturnValues(
+	geometry: L.Layer|null, popupContents: HTMLElement[], reasonOfFakeGeometry: string
+): [
+	geometry: L.Layer, popupContents: HTMLElement[]
+] {
+	if (geometry) {
+		return [geometry,popupContents]
+	} else {
+		geometry=L.circleMarker([0,0])
+		popupContents.push(p(strong(`Warning`),`: displayed geometry is incorrect because ${reasonOfFakeGeometry}`))
+		return [geometry,popupContents]
+	}
+}
+
+// geometries
 
 function makeOsmNodeGeometry(node: OsmNodeElement): L.Layer {
 	return L.circleMarker([node.lat,node.lon])
@@ -100,16 +110,54 @@ function makeOsmRelationGeometry(relation: OsmRelationElement, elements: OsmElem
 	return [isEmpty?null:geometry,subRelationIds]
 }
 
+function makeOsmChangesetGeometry(changeset: OsmChangeset): L.Layer|null {
+	if (!hasBbox(changeset)) return null
+	return L.rectangle([
+		[changeset.minlat,changeset.minlon],
+		[changeset.maxlat,changeset.maxlon]
+	],{fill:false})
+}
+function makeOsmChangesetAdiffGeometry(changeset: OsmChangeset, doc: Document): L.Layer|null {
+	const bboxGeometry=makeOsmChangesetGeometry(changeset)
+	if (!bboxGeometry) return null
+	const geometry=L.featureGroup()
+	geometry.addLayer(bboxGeometry)
+	for (const action of doc.querySelectorAll('action')) {
+		const actionType=action.getAttribute('type')
+		if (actionType=='create') {
+			const osmElement=action.firstElementChild
+			if (!osmElement) continue
+			if (osmElement.tagName=='node') {
+				const lat=osmElement.getAttribute('lat')
+				const lon=osmElement.getAttribute('lon')
+				if (lat==null || lon==null) continue
+				geometry.addLayer(L.circleMarker([Number(lat),Number(lon)]))
+			}
+		}
+	}
+	return geometry
+}
+
 // popups
 
 function makeOsmChangesetPopupContents(server: Server, changeset: OsmChangeset): HTMLElement[] {
+	const contents=makeCommonOsmChangesetPopupContents(server,changeset,!!server.overpass)
+	const $tags=getTags(changeset.tags,'comment')
+	if ($tags) contents.push($tags)
+	return contents
+}
+
+function makeOsmChangesetAdiffPopupContents(server: Server, changeset: OsmChangeset): HTMLElement[] {
+	return makeCommonOsmChangesetPopupContents(server,changeset,false)
+}
+
+function makeCommonOsmChangesetPopupContents(server: Server, changeset: OsmChangeset, withAdiffLink: boolean): HTMLElement[] {
 	const contents: HTMLElement[] = []
-	const p=(...s: Array<string|HTMLElement>)=>makeElement('p')()(...s)
 	const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
 	const c=(...s: Array<string|HTMLElement>)=>p(makeElement('em')()(...s))
 	const changesetHref=server.web.getUrl(e`changeset/${changeset.id}`)
 	const $header=h(`Changeset: `,makeLink(String(changeset.id),changesetHref))
-	if (server.overpass) $header.append(` (`,getChangesetAdiff(server,changeset.id),`)`)
+	if (withAdiffLink) $header.append(` (`,getChangesetAdiff(server,changeset.id),`)`)
 	contents.push($header)
 	if (changeset.tags?.comment) contents.push(
 		c(changeset.tags.comment)
@@ -124,12 +172,10 @@ function makeOsmChangesetPopupContents(server: Server, changeset: OsmChangeset):
 		` by `,getUser(server,changeset)
 	)
 	contents.push($p)
-	const $tags=getTags(changeset.tags,'comment')
-	if ($tags) contents.push($tags)
 	return contents
 }
 
-function makeOsmElementPopupContents(server: Server, element: OsmElement, isFakeGeometry=false, subRelationIds?: Set<number>): HTMLElement[] {
+function makeOsmElementPopupContents(server: Server, element: OsmElement, subRelationIds?: Set<number>): HTMLElement[] {
 	const h=(...s: Array<string|HTMLElement>)=>p(strong(...s))
 	const elementPath=e`${element.type}/${element.id}`
 	const contents: HTMLElement[] = [
@@ -159,7 +205,6 @@ function makeOsmElementPopupContents(server: Server, element: OsmElement, isFake
 		if (subRelationIds.size<=7) $details.open=true
 		contents.push($details)
 	}
-	if (isFakeGeometry) contents.push(h(`Warning: displayed geometry is incorrect because the relation has no direct node/way members`))
 	return contents
 }
 

@@ -21,8 +21,9 @@ declare global {
 		'osmNoteViewer:noteRender': CustomEvent<Note>
 		'osmNoteViewer:noteRefreshWaitProgress': CustomEvent<readonly [id: number, progress: number]>
 		'osmNoteViewer:notesInViewportChange': CustomEvent<readonly Note[]>
-		'osmNoteViewer:changesetRender': CustomEvent<OsmChangeset>
 		'osmNoteViewer:elementRender': CustomEvent<readonly [OsmElement, OsmElementMap]>
+		'osmNoteViewer:changesetRender': CustomEvent<OsmChangeset>
+		'osmNoteViewer:changesetAdiffRender': CustomEvent<readonly [OsmChangeset, Document]>
 	}
 }
 export {}
