@@ -36,10 +36,15 @@ export function renderOsmElement(
 			makeOsmElementPopupContents(server,element)
 		]
 	} else if (element.type=='relation') {
-		const [geometry,subRelationIds]=makeOsmRelationGeometry(element,elements)
+		let isFakeGeometry=false
+		let [geometry,subRelationIds]=makeOsmRelationGeometry(element,elements)
+		if (!geometry) {
+			isFakeGeometry=true
+			geometry=L.circleMarker([0,0])
+		}
 		return [
 			geometry,
-			makeOsmElementPopupContents(server,element,subRelationIds)
+			makeOsmElementPopupContents(server,element,isFakeGeometry,subRelationIds)
 		]
 	} else {
 		throw new TypeError(`OSM API error: requested element has unknown type`) // shouldn't happen
@@ -73,7 +78,7 @@ function makeOsmWayGeometry(way: OsmWayElement, elements: OsmElementMap): L.Laye
 	}
 	return L.polyline(coords)
 }
-function makeOsmRelationGeometry(relation: OsmRelationElement, elements: OsmElementMap): [geometry:L.Layer,subRelationIds:Set<number>] {
+function makeOsmRelationGeometry(relation: OsmRelationElement, elements: OsmElementMap): [geometry:L.Layer|null,subRelationIds:Set<number>] {
 	let isEmpty=true
 	const geometry=L.featureGroup()
 	const subRelationIds=new Set<number>()
@@ -92,10 +97,7 @@ function makeOsmRelationGeometry(relation: OsmRelationElement, elements: OsmElem
 			subRelationIds.add(member.ref)
 		}
 	}
-	if (isEmpty) {
-		geometry.addLayer(L.circleMarker([0,0]))
-	}
-	return [geometry,subRelationIds]
+	return [isEmpty?null:geometry,subRelationIds]
 }
 
 // popups
@@ -127,7 +129,7 @@ function makeOsmChangesetPopupContents(server: Server, changeset: OsmChangeset):
 	return contents
 }
 
-function makeOsmElementPopupContents(server: Server, element: OsmElement, subRelationIds?: Set<number>): HTMLElement[] {
+function makeOsmElementPopupContents(server: Server, element: OsmElement, isFakeGeometry=false, subRelationIds?: Set<number>): HTMLElement[] {
 	const h=(...s: Array<string|HTMLElement>)=>p(strong(...s))
 	const elementPath=e`${element.type}/${element.id}`
 	const contents: HTMLElement[] = [
@@ -157,6 +159,7 @@ function makeOsmElementPopupContents(server: Server, element: OsmElement, subRel
 		if (subRelationIds.size<=7) $details.open=true
 		contents.push($details)
 	}
+	if (isFakeGeometry) contents.push(h(`Warning: displayed geometry is incorrect because the relation has no direct node/way members`))
 	return contents
 }
 
