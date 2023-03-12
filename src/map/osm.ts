@@ -108,9 +108,9 @@ function makeOsmChangesetPopupContents(server: Server, changeset: OsmChangeset):
 	const h=(...s: Array<string|HTMLElement>)=>p(makeElement('strong')()(...s))
 	const c=(...s: Array<string|HTMLElement>)=>p(makeElement('em')()(...s))
 	const changesetHref=server.web.getUrl(e`changeset/${changeset.id}`)
-	contents.push(
-		h(`Changeset: `,makeLink(String(changeset.id),changesetHref))
-	)
+	const $header=h(`Changeset: `,makeLink(String(changeset.id),changesetHref))
+	if (server.overpass) $header.append(` (`,getChangesetAdiff(server,changeset.id),`)`)
+	contents.push($header)
 	if (changeset.tags?.comment) contents.push(
 		c(changeset.tags.comment)
 	)
@@ -191,6 +191,13 @@ function getChangeset(server: Server, changesetId: number): HTMLElement {
 	const $a=makeLink(cid,server.web.getUrl(e`changeset/${cid}`))
 	$a.classList.add('listened')
 	$a.dataset.changesetId=cid
+	return $a
+}
+
+function getChangesetAdiff(server: Server, changesetId: number): HTMLElement {
+	const $a=getChangeset(server,changesetId)
+	$a.innerText=`adiff`
+	$a.dataset.adiff='true'
 	return $a
 }
 

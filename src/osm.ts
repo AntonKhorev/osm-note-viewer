@@ -116,6 +116,20 @@ function isOsmChangeset(c: any): c is OsmChangeset {
 	}
 }
 
+export interface OsmChangesetWithBbox extends OsmChangeset {
+	minlat: number
+	minlon: number
+	maxlat: number
+	maxlon: number
+}
+
+export function hasBbox(changeset: OsmChangeset): changeset is OsmChangesetWithBbox {
+	return (
+		changeset.minlat!=null && changeset.minlon!=null &&
+		changeset.maxlat!=null && changeset.maxlon!=null
+	)
+}
+
 export function getChangesetFromOsmApiResponse(data: any): OsmChangeset {
 	if (!data) throw new TypeError(`OSM API error: invalid response data`)
 	const changesetArray=data.elements

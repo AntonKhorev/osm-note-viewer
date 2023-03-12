@@ -40,16 +40,16 @@ function toShortOrFullReadableDate(date: number|undefined, full: boolean): strin
 	return dateString
 }
 
-export function toUrlDate(date: number): string {
+export function toUrlDate(date: number, separator=''): string {
 	const pad=(n: number): string => ('0'+n).slice(-2)
 	const dateObject=new Date(date*1000)
 	const dateString=
-		dateObject.getUTCFullYear()+
-		pad(dateObject.getUTCMonth()+1)+
+		dateObject.getUTCFullYear()+separator+
+		pad(dateObject.getUTCMonth()+1)+separator+
 		pad(dateObject.getUTCDate())+
 		'T'+
-		pad(dateObject.getUTCHours())+
-		pad(dateObject.getUTCMinutes())+
+		pad(dateObject.getUTCHours())+separator+
+		pad(dateObject.getUTCMinutes())+separator+
 		pad(dateObject.getUTCSeconds())+
 		'Z'
 	return dateString

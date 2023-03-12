@@ -105,7 +105,7 @@ async function main() {
 			bubbleCustomEvent($a,'osmNoteViewer:noteFetch',[note,users,'manual'])
 			bubbleCustomEvent($a,'osmNoteViewer:noteUpdatePush',[note,users])
 		})
-		new OsmDownloader($root,globalHistory.server.api)
+		new OsmDownloader($root,globalHistory.server)
 		globalHistory.restoreScrollPosition()
 	}
 }
