@@ -3,7 +3,6 @@ import {QueryError} from '../server'
 import type NoteMap from '../map'
 import {makeLink, wrapFetchForButton} from '../html'
 import {p} from '../html-shortcuts'
-import {makeEscapeTag} from '../escape'
 
 abstract class OverpassBaseTool extends Tool {
 	protected timestamp: string = ''
@@ -39,7 +38,6 @@ export class OverpassTurboTool extends OverpassBaseTool {
 		this.installTimestampListener($root,$tool)
 		const $overpassButtons: HTMLButtonElement[] = []
 		const buttonClickListener=(withRelations: boolean, onlyAround: boolean)=>{
-			const e=makeEscapeTag(encodeURIComponent)
 			let query=this.getOverpassQueryPreamble(map)
 			if (withRelations) {
 				query+=`nwr`
