@@ -115,7 +115,7 @@ function makeOsmChangesetGeometry(changeset: OsmChangeset): L.Layer|null {
 	return L.rectangle([
 		[changeset.minlat,changeset.minlon],
 		[changeset.maxlat,changeset.maxlon]
-	],{fill:false})
+	],{color:'#000'})
 }
 function makeOsmChangesetAdiffGeometry(changeset: OsmChangeset, doc: Document): L.Layer|null {
 	const colorAdded='#39dbc0' // color values from OSMCha
