@@ -145,12 +145,17 @@ function makeOsmElementPopupContents(server: Server, element: OsmElement, subRel
 	]
 	const $tags=getTags(element.tags)
 	if ($tags) contents.push($tags)
-	if (subRelationIds?.size) contents.push(
-		p(`Contains subrelations `,...[...subRelationIds].flatMap((subRelationId,i)=>{
-			const $a=getRelation(server,subRelationId)
-			return i?[`, `,$a]:[$a]
-		}))
-	)
+	if (subRelationIds?.size) {
+		const $details=makeElement('details')()(
+			makeElement('summary')()(`Member relations`),
+			...[...subRelationIds].flatMap((subRelationId,i)=>{
+				const $a=getRelation(server,subRelationId)
+				return i?[`, `,$a]:[$a]
+			})
+		)
+		if (subRelationIds.size<=7) $details.open=true
+		contents.push($details)
+	}
 	return contents
 }
 
