@@ -146,8 +146,9 @@ function makeOsmElementPopupContents(server: Server, element: OsmElement, subRel
 	const $tags=getTags(element.tags)
 	if ($tags) contents.push($tags)
 	if (subRelationIds?.size) {
+		const type=subRelationIds.size>1?`relations`:`relation`
 		const $details=makeElement('details')()(
-			makeElement('summary')()(`Member relations`),
+			makeElement('summary')()(`${subRelationIds.size} member ${type}`),
 			...[...subRelationIds].flatMap((subRelationId,i)=>{
 				const $a=getRelation(server,subRelationId)
 				return i?[`, `,$a]:[$a]
