@@ -118,6 +118,10 @@ function makeOsmChangesetGeometry(changeset: OsmChangeset): L.Layer|null {
 	],{fill:false})
 }
 function makeOsmChangesetAdiffGeometry(changeset: OsmChangeset, doc: Document): L.Layer|null {
+	const colorAdded='#39dbc0' // color values from OSMCha
+	const colorModifiedOld='#db950a'
+	const colorModifiedNew='#e8e845'
+	const colorDeleted='#cc2c47'
 	const bboxGeometry=makeOsmChangesetGeometry(changeset)
 	if (!bboxGeometry) return null
 	const geometry=L.featureGroup()
@@ -125,17 +129,37 @@ function makeOsmChangesetAdiffGeometry(changeset: OsmChangeset, doc: Document): 
 	for (const action of doc.querySelectorAll('action')) {
 		const actionType=action.getAttribute('type')
 		if (actionType=='create') {
-			const osmElement=action.firstElementChild
-			if (!osmElement) continue
-			if (osmElement.tagName=='node') {
-				const lat=osmElement.getAttribute('lat')
-				const lon=osmElement.getAttribute('lon')
-				if (lat==null || lon==null) continue
-				geometry.addLayer(L.circleMarker([Number(lat),Number(lon)]))
+			addOsmAdiffNodeToGeometry(geometry,action,colorAdded)
+		} else if (actionType=='modify') {
+			for (const oldOrNew of action.children) {
+				if (oldOrNew.tagName=='old') {
+					addOsmAdiffNodeToGeometry(geometry,oldOrNew,colorModifiedOld)
+				} else if (oldOrNew.tagName=='new') {
+					addOsmAdiffNodeToGeometry(geometry,oldOrNew,colorModifiedNew)
+				}
+			}
+		} else if (actionType=='delete') {
+			for (const oldOrNew of action.children) {
+				if (oldOrNew.tagName=='old') {
+					addOsmAdiffNodeToGeometry(geometry,oldOrNew,colorDeleted)
+				}
 			}
 		}
 	}
 	return geometry
+}
+function addOsmAdiffNodeToGeometry(geometry: L.FeatureGroup, container: Element, color: string): void {
+	const osmElement=container.firstElementChild
+	if (!osmElement) return
+	if (osmElement.tagName=='node') {
+		const lat=osmElement.getAttribute('lat')
+		const lon=osmElement.getAttribute('lon')
+		if (lat==null || lon==null) return
+		geometry.addLayer(L.circleMarker(
+			[Number(lat),Number(lon)],
+			{radius:3,color,opacity:.2,fillOpacity:1}
+		))
+	}
 }
 
 // popups
