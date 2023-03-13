@@ -129,26 +129,26 @@ function makeOsmChangesetAdiffGeometry(changeset: OsmChangeset, doc: Document): 
 	for (const action of doc.querySelectorAll('action')) {
 		const actionType=action.getAttribute('type')
 		if (actionType=='create') {
-			addOsmAdiffNodeToGeometry(geometry,action,colorAdded)
+			addOsmAdiffElementToGeometry(geometry,action,colorAdded)
 		} else if (actionType=='modify') {
 			for (const oldOrNew of action.children) {
 				if (oldOrNew.tagName=='old') {
-					addOsmAdiffNodeToGeometry(geometry,oldOrNew,colorModifiedOld)
+					addOsmAdiffElementToGeometry(geometry,oldOrNew,colorModifiedOld)
 				} else if (oldOrNew.tagName=='new') {
-					addOsmAdiffNodeToGeometry(geometry,oldOrNew,colorModifiedNew)
+					addOsmAdiffElementToGeometry(geometry,oldOrNew,colorModifiedNew)
 				}
 			}
 		} else if (actionType=='delete') {
 			for (const oldOrNew of action.children) {
 				if (oldOrNew.tagName=='old') {
-					addOsmAdiffNodeToGeometry(geometry,oldOrNew,colorDeleted)
+					addOsmAdiffElementToGeometry(geometry,oldOrNew,colorDeleted)
 				}
 			}
 		}
 	}
 	return geometry
 }
-function addOsmAdiffNodeToGeometry(geometry: L.FeatureGroup, container: Element, color: string): void {
+function addOsmAdiffElementToGeometry(geometry: L.FeatureGroup, container: Element, color: string): void {
 	const osmElement=container.firstElementChild
 	if (!osmElement) return
 	if (osmElement.tagName=='node') {
@@ -159,7 +159,17 @@ function addOsmAdiffNodeToGeometry(geometry: L.FeatureGroup, container: Element,
 			[Number(lat),Number(lon)],
 			{radius:3,color,opacity:.2,fillOpacity:1}
 		))
+	} else if (osmElement.tagName=='way') {
+		const coords: L.LatLngExpression[] = []
+		for (const osmNodeRef of osmElement.querySelectorAll('nd')) {
+			const lat=osmNodeRef.getAttribute('lat')
+			const lon=osmNodeRef.getAttribute('lon')
+			if (lat==null || lon==null) continue
+			coords.push([Number(lat),Number(lon)])
+		}
+		geometry.addLayer(L.polyline(coords,{weight:2,color}))
 	}
+	// TODO report skipped relations
 }
 
 // popups
