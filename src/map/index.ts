@@ -1,7 +1,8 @@
 import type Server from '../server'
 import NoteMarker from './marker'
 import NoteMapBounds from './bounds'
-import {NoteLayer, CrosshairLayer} from './layers'
+import {OsmDataLayers, NoteLayer, CrosshairLayer} from './layers'
+import type {GeometryData} from './osm'
 import {renderOsmElement, renderOsmChangeset, renderOsmChangesetAdiff} from './osm'
 import {bubbleCustomEvent, makeDiv} from '../html'
 import {escapeXml, makeEscapeTag} from '../escape'
@@ -12,7 +13,7 @@ export type NoteMapFreezeMode = 'no' | 'initial' | 'full'
 
 export default class NoteMap {
 	private leafletMap: L.Map
-	private dataLayer: L.FeatureGroup
+	private dataLayers= new OsmDataLayers()
 	unselectedNoteLayer: NoteLayer
 	selectedNoteLayer: NoteLayer
 	filteredNoteLayer: NoteLayer
@@ -39,18 +40,18 @@ export default class NoteMap {
 				maxZoom: server.tile.maxZoom
 			}
 		)).fitWorld()
-		this.dataLayer=L.featureGroup().addTo(this.leafletMap)
+		this.dataLayers.addToMap(this.leafletMap)
 		this.unselectedNoteLayer=new NoteLayer().addTo(this.leafletMap)
 		this.selectedNoteLayer=new NoteLayer().addTo(this.leafletMap)
 		this.filteredNoteLayer=new NoteLayer()
 		this.trackLayer=L.featureGroup().addTo(this.leafletMap)
 		const crosshairLayer=new CrosshairLayer().addTo(this.leafletMap)
 		const layersControl=L.control.layers()
-		layersControl.addOverlay(this.dataLayer,`OSM elements`)
 		layersControl.addOverlay(this.unselectedNoteLayer,`Unselected notes`)
 		layersControl.addOverlay(this.selectedNoteLayer,`Selected notes`)
 		layersControl.addOverlay(this.filteredNoteLayer,`Filtered notes`)
 		layersControl.addOverlay(this.trackLayer,`Track between notes`)
+		this.dataLayers.addToLayersControl(layersControl)
 		layersControl.addOverlay(crosshairLayer,`Crosshair`)
 		layersControl.addTo(this.leafletMap)
 		this.leafletMap.on('moveend',()=>{
@@ -63,29 +64,35 @@ export default class NoteMap {
 			if (!this.queuedPopup) return
 			const [layerId,popupWriter]=this.queuedPopup
 			this.queuedPopup=undefined
-			const geometry=this.dataLayer.getLayer(layerId)
-			if (geometry) {
+			const baseGeometry=this.dataLayers.baseDataLayer.getLayer(layerId)
+			if (baseGeometry) {
 				const popup=L.popup({autoPan:false})
 					.setLatLng(this.leafletMap.getCenter()) // need to tell the popup this exact place after map stops moving, otherwise is sometimes gets opened off-screen
 					.setContent(popupWriter)
 					.openOn(this.leafletMap)
-				geometry.bindPopup(popup)
+				baseGeometry.bindPopup(popup)
 			}
 		})
 		$root.addEventListener('osmNoteViewer:mapMoveTrigger',({detail:{zoom,lat,lon}})=>{
 			this.panAndZoomTo([Number(lat),Number(lon)],Number(zoom))
 		})
 		$root.addEventListener('osmNoteViewer:elementRender',({detail:[element,elements]})=>{
+			// TODO zoom on second click, like with notes
+			this.dataLayers.clearLayers()
 			this.addOsmData(
 				...renderOsmElement(server,element,elements)
 			)
 		})
 		$root.addEventListener('osmNoteViewer:changesetRender',({detail:changeset})=>{
+			// TODO zoom on second click, like with notes
+			this.dataLayers.clearLayers()
 			this.addOsmData(
 				...renderOsmChangeset(server,changeset)
 			)
 		})
 		$root.addEventListener('osmNoteViewer:changesetAdiffRender',({detail:[changeset,doc]})=>{
+			// TODO zoom on second click, like with notes
+			this.dataLayers.clearLayers()
 			this.addOsmData(
 				...renderOsmChangesetAdiff(server,changeset,doc)
 			)
@@ -140,7 +147,7 @@ export default class NoteMap {
 		this.leafletMap.invalidateSize()
 	}
 	clearNotes(): void {
-		this.dataLayer.clearLayers()
+		this.dataLayers.clearLayers()
 		this.unselectedNoteLayer.clearLayers()
 		this.selectedNoteLayer.clearLayers()
 		this.filteredNoteLayer.clearLayers()
@@ -199,21 +206,19 @@ export default class NoteMap {
 		const bounds=this.trackLayer.getBounds() // invalid if track is empty; track is empty when no notes are in table view
 		if (bounds.isValid()) this.fitBoundsIfNotFrozen(bounds)
 	}
-	private addOsmData(geometry: L.Layer, popupContents: HTMLElement[]): void {
+	private addOsmData(geometryData: GeometryData, popupContents: HTMLElement[]): void {
 		const popupWriter=()=>{
 			const $removeButton=document.createElement('button')
 			$removeButton.textContent=`Remove from map view`
 			$removeButton.onclick=()=>{
-				this.dataLayer.clearLayers()
+				this.dataLayers.clearLayers()
 			}
 			return makeDiv('osm-element-popup-contents')(
 				...popupContents,$removeButton
 			)
 		}
-		// TODO zoom on second click, like with notes
-		this.dataLayer.clearLayers()
-		this.dataLayer.addLayer(geometry)
-		const layerId=this.dataLayer.getLayerId(geometry)
+		const baseGeometry=this.dataLayers.addGeometryAndGetBaseGeometry(geometryData)
+		const layerId=this.dataLayers.baseDataLayer.getLayerId(baseGeometry)
 		// geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
 		if (this.freezeMode=='full') {
 			const popup=L.popup({autoPan:false}).setContent(popupWriter)
@@ -235,7 +240,7 @@ export default class NoteMap {
 				}
 			}
 			const onClosePopup=()=>{
-				geometry.bindPopup(popup,{offset:[0,0]})
+				baseGeometry.bindPopup(popup,{offset:[0,0]})
 				const $popupContainer=popup.getElement()
 				if (!$popupContainer) return
 				const fadeoutTransitionTime=200
@@ -244,23 +249,23 @@ export default class NoteMap {
 					restorePopupTip($popupContainer)
 				},fadeoutTransitionTime)
 			}
-			geometry.on('popupopen',onOpenPopup).on('popupclose',onClosePopup)
-			geometry.bindPopup(popup).openPopup()
-		} else if (geometry instanceof L.CircleMarker) {
+			baseGeometry.on('popupopen',onOpenPopup).on('popupclose',onClosePopup)
+			baseGeometry.bindPopup(popup).openPopup()
+		} else if (baseGeometry instanceof L.CircleMarker) {
 			this.queuedPopup=[layerId,popupWriter]
 			const minZoomForNode=10
 			if (this.zoom<minZoomForNode) {
-				this.flyToIfNotFrozen(geometry.getLatLng(),minZoomForNode,{duration:.5})
+				this.flyToIfNotFrozen(baseGeometry.getLatLng(),minZoomForNode,{duration:.5})
 			} else {
-				this.panToIfNotFrozen(geometry.getLatLng())
+				this.panToIfNotFrozen(baseGeometry.getLatLng())
 			}
 		} else {
-			const bounds=this.dataLayer.getBounds()
+			const bounds=this.dataLayers.baseDataLayer.getBounds()
 			if (bounds.isValid()) {
 				this.queuedPopup=[layerId,popupWriter]
 				this.fitBoundsIfNotFrozen(bounds)
 			} else {
-				geometry.bindPopup(popupWriter).openPopup()
+				baseGeometry.bindPopup(popupWriter).openPopup()
 			}
 		}
 	}
