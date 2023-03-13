@@ -25,22 +25,10 @@ class GroupedGeometryData implements GeometryData {
 	deletedGeometry?: L.FeatureGroup
 	skippedRelationIds?: Set<number>
 	include(that: GeometryData) {
-		if (that.baseGeometry) {
-			if (!this.baseGeometry) this.baseGeometry=L.featureGroup()
-			this.baseGeometry.addLayer(that.baseGeometry)
-		}
-		if (that.createdGeometry) {
-			if (!this.createdGeometry) this.createdGeometry=L.featureGroup()
-			this.createdGeometry.addLayer(that.createdGeometry)
-		}
-		if (that.modifiedGeometry) {
-			if (!this.modifiedGeometry) this.modifiedGeometry=L.featureGroup()
-			this.modifiedGeometry.addLayer(that.modifiedGeometry)
-		}
-		if (that.deletedGeometry) {
-			if (!this.deletedGeometry) this.deletedGeometry=L.featureGroup()
-			this.deletedGeometry.addLayer(that.deletedGeometry)
-		}
+		this.addBaseGeometry(that.baseGeometry)
+		this.addCreatedGeometry(that.createdGeometry)
+		this.addModifiedGeometry(that.modifiedGeometry)
+		this.addDeletedGeometry(that.deletedGeometry)
 		if (that.skippedRelationIds) {
 			if (!this.skippedRelationIds) {
 				this.skippedRelationIds=that.skippedRelationIds
@@ -58,15 +46,32 @@ class GroupedGeometryData implements GeometryData {
 	}
 	addAdiffGeometry(actionType: 'create'|'modify'|'delete', geometry: L.Layer) {
 		if (actionType=='create') {
-			if (!this.createdGeometry) this.createdGeometry=L.featureGroup()
-			this.createdGeometry.addLayer(geometry)
+			this.addCreatedGeometry(geometry)
 		} else if (actionType=='modify') {
-			if (!this.modifiedGeometry) this.modifiedGeometry=L.featureGroup()
-			this.modifiedGeometry.addLayer(geometry)
+			this.addModifiedGeometry(geometry)
 		} else if (actionType=='delete') {
-			if (!this.deletedGeometry) this.deletedGeometry=L.featureGroup()
-			this.deletedGeometry.addLayer(geometry)
+			this.addDeletedGeometry(geometry)
 		}
+	}
+	private addBaseGeometry(geometry?: L.Layer): void {
+		if (!geometry) return
+		if (!this.baseGeometry) this.baseGeometry=L.featureGroup()
+		this.baseGeometry.addLayer(geometry)
+	}
+	private addCreatedGeometry(geometry?: L.Layer): void {
+		if (!geometry) return
+		if (!this.createdGeometry) this.createdGeometry=L.featureGroup()
+		this.createdGeometry.addLayer(geometry)
+	}
+	private addModifiedGeometry(geometry?: L.Layer): void {
+		if (!geometry) return
+		if (!this.modifiedGeometry) this.modifiedGeometry=L.featureGroup()
+		this.modifiedGeometry.addLayer(geometry)
+	}
+	private addDeletedGeometry(geometry?: L.Layer): void {
+		if (!geometry) return
+		if (!this.deletedGeometry) this.deletedGeometry=L.featureGroup()
+		this.deletedGeometry.addLayer(geometry)
 	}
 }
 
