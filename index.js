@@ -1868,56 +1868,296 @@ class CrosshairLayer extends L.Layer {
         return this;
     }
 }
+class OsmDataLayers {
+    constructor() {
+        this.baseDataLayer = L.featureGroup();
+        this.createdDataLayer = L.featureGroup();
+        this.modifiedDataLayer = L.featureGroup();
+        this.deletedDataLayer = L.featureGroup();
+    }
+    addToMap(leafletMap) {
+        this.baseDataLayer.addTo(leafletMap);
+        this.createdDataLayer.addTo(leafletMap);
+        this.modifiedDataLayer.addTo(leafletMap);
+        this.deletedDataLayer.addTo(leafletMap);
+    }
+    addToLayersControl(layersControl) {
+        layersControl.addOverlay(this.baseDataLayer, `Base OSM data`);
+        layersControl.addOverlay(this.createdDataLayer, `Created OSM data`);
+        layersControl.addOverlay(this.modifiedDataLayer, `Modidied OSM data`);
+        layersControl.addOverlay(this.deletedDataLayer, `Deleted OSM data`);
+    }
+    clearLayers() {
+        this.baseDataLayer.clearLayers();
+        this.createdDataLayer.clearLayers();
+        this.modifiedDataLayer.clearLayers();
+        this.deletedDataLayer.clearLayers();
+    }
+    addGeometryAndGetBaseGeometry(geometryData) {
+        let baseGeometry;
+        if (geometryData.baseGeometry) {
+            baseGeometry = geometryData.baseGeometry;
+        }
+        else {
+            baseGeometry = L.circleMarker([0, 0]);
+        }
+        this.baseDataLayer.addLayer(baseGeometry);
+        if (geometryData.createdGeometry) {
+            this.createdDataLayer.addLayer(geometryData.createdGeometry);
+        }
+        if (geometryData.modifiedGeometry) {
+            this.modifiedDataLayer.addLayer(geometryData.modifiedGeometry);
+        }
+        if (geometryData.deletedGeometry) {
+            this.deletedDataLayer.addLayer(geometryData.deletedGeometry);
+        }
+        return baseGeometry;
+    }
+}
+
+function isOsmBase(d) {
+    if (!d)
+        return false;
+    if (!Number.isInteger(d.id))
+        return false;
+    if (d.user != null && (typeof d.user != 'string'))
+        return false;
+    if (!Number.isInteger(d.uid))
+        return false;
+    if (d.tags != null && (typeof d.tags != 'object'))
+        return false;
+    return true;
+}
+function isOsmElementBase(e) {
+    if (!isOsmBase(e))
+        return false;
+    if (e.type != 'node' && e.type != 'way' && e.type != 'relation')
+        return false;
+    if (typeof e.timestamp != 'string')
+        return false;
+    if (!Number.isInteger(e.version))
+        return false;
+    if (!Number.isInteger(e.changeset))
+        return false;
+    return true;
+}
+function isOsmNodeElement(e) {
+    if (!isOsmElementBase(e))
+        return false;
+    if (e.type != 'node')
+        return false;
+    if (typeof e.lat != 'number')
+        return false;
+    if (typeof e.lon != 'number')
+        return false;
+    return true;
+}
+function isOsmWayElement(e) {
+    if (!isOsmElementBase(e))
+        return false;
+    if (e.type != 'way')
+        return false;
+    const nodes = e.nodes;
+    if (!Array.isArray(nodes))
+        return false;
+    if (!nodes.every(v => Number.isInteger(v)))
+        return false;
+    return true;
+}
+function isOsmRelationElement(e) {
+    if (!isOsmElementBase(e))
+        return false;
+    if (e.type != 'relation')
+        return false;
+    const members = e.members;
+    if (!Array.isArray(members))
+        return false;
+    if (!members.every(m => (m &&
+        (m.type == 'node' || m.type == 'way' || m.type == 'relation') &&
+        Number.isInteger(m.ref) &&
+        (typeof m.role == 'string'))))
+        return false;
+    return true;
+}
+function isOsmChangeset(c) {
+    if (!isOsmBase(c))
+        return false;
+    if (typeof c.created_at != 'string')
+        return false;
+    if (c.closed_at != null && (typeof c.closed_at != 'string'))
+        return false;
+    if (c.minlat == null && c.minlon == null &&
+        c.maxlat == null && c.maxlon == null) {
+        return true;
+    }
+    else if (Number.isFinite(c.minlat) && Number.isFinite(c.minlon) &&
+        Number.isFinite(c.maxlat) && Number.isFinite(c.maxlon)) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+function hasBbox(changeset) {
+    return (changeset.minlat != null && changeset.minlon != null &&
+        changeset.maxlat != null && changeset.maxlon != null);
+}
+function getChangesetFromOsmApiResponse(data) {
+    if (!data)
+        throw new TypeError(`OSM API error: invalid response data`);
+    const changesetArray = data.elements;
+    if (!Array.isArray(changesetArray))
+        throw new TypeError(`OSM API error: invalid response data`);
+    if (changesetArray.length != 1)
+        throw new TypeError(`OSM API error: invalid number of changesets in response data`);
+    const changeset = changesetArray[0];
+    if (!isOsmChangeset(changeset))
+        throw new TypeError(`OSM API error: invalid changeset in response data`);
+    return changeset;
+}
+function getChangesetsFromOsmApiResponse(data) {
+    if (!data)
+        throw new TypeError(`OSM API error: invalid response data`);
+    const changesetArray = data.changesets;
+    if (!Array.isArray(changesetArray))
+        throw new TypeError(`OSM API error: invalid response data`);
+    if (!changesetArray.every(isOsmChangeset))
+        throw new TypeError(`OSM API error: invalid changeset in response data`);
+    return changesetArray;
+}
+function getElementsFromOsmApiResponse(data) {
+    const node = {};
+    const way = {};
+    const relation = {};
+    if (!data)
+        throw new TypeError(`OSM API error: invalid response data`);
+    const elementArray = data.elements;
+    if (!Array.isArray(elementArray))
+        throw new TypeError(`OSM API error: invalid response data`);
+    for (const element of elementArray) {
+        if (isOsmNodeElement(element)) {
+            node[element.id] = element;
+        }
+        else if (isOsmWayElement(element)) {
+            way[element.id] = element;
+        }
+        else if (isOsmRelationElement(element)) {
+            relation[element.id] = element;
+        }
+        else {
+            throw new TypeError(`OSM API error: invalid element in response data`);
+        }
+    }
+    return { node, way, relation };
+}
 
 const e$8 = makeEscapeTag(encodeURIComponent);
-function renderOsmChangeset(server, changeset) {
-    return [
-        makeOsmChangesetGeometry(changeset),
-        makeOsmChangesetPopupContents(server, changeset)
-    ];
+class GroupedGeometryData {
+    include(that) {
+        this.addBaseGeometry(that.baseGeometry);
+        this.addCreatedGeometry(that.createdGeometry);
+        this.addModifiedGeometry(that.modifiedGeometry);
+        this.addDeletedGeometry(that.deletedGeometry);
+        if (that.skippedRelationIds) {
+            if (!this.skippedRelationIds) {
+                this.skippedRelationIds = that.skippedRelationIds;
+            }
+            else {
+                this.skippedRelationIds = new Set([...this.skippedRelationIds, ...that.skippedRelationIds]);
+            }
+        }
+    }
+    addSkippedRelationId(id) {
+        if (!this.skippedRelationIds) {
+            this.skippedRelationIds = new Set([id]);
+        }
+        else {
+            this.skippedRelationIds.add(id);
+        }
+    }
+    addAdiffGeometry(actionType, geometry) {
+        if (actionType == 'create') {
+            this.addCreatedGeometry(geometry);
+        }
+        else if (actionType == 'modify') {
+            this.addModifiedGeometry(geometry);
+        }
+        else if (actionType == 'delete') {
+            this.addDeletedGeometry(geometry);
+        }
+    }
+    addBaseGeometry(geometry) {
+        if (!geometry)
+            return;
+        if (!this.baseGeometry)
+            this.baseGeometry = L.featureGroup();
+        this.baseGeometry.addLayer(geometry);
+    }
+    addCreatedGeometry(geometry) {
+        if (!geometry)
+            return;
+        if (!this.createdGeometry)
+            this.createdGeometry = L.featureGroup();
+        this.createdGeometry.addLayer(geometry);
+    }
+    addModifiedGeometry(geometry) {
+        if (!geometry)
+            return;
+        if (!this.modifiedGeometry)
+            this.modifiedGeometry = L.featureGroup();
+        this.modifiedGeometry.addLayer(geometry);
+    }
+    addDeletedGeometry(geometry) {
+        if (!geometry)
+            return;
+        if (!this.deletedGeometry)
+            this.deletedGeometry = L.featureGroup();
+        this.deletedGeometry.addLayer(geometry);
+    }
 }
 function renderOsmElement(server, element, elements) {
     if (element.type == 'node') {
-        return [
-            makeOsmNodeGeometry(element),
-            makeOsmElementPopupContents(server, element)
-        ];
+        return makeRenderReturnValues(server, makeOsmNodeGeometry(element), makeOsmElementPopupContents(server, element));
     }
     else if (element.type == 'way') {
-        return [
-            makeOsmWayGeometry(element, elements),
-            makeOsmElementPopupContents(server, element)
-        ];
+        return makeRenderReturnValues(server, makeOsmWayGeometry(element, elements), makeOsmElementPopupContents(server, element));
     }
     else if (element.type == 'relation') {
-        let isFakeGeometry = false;
-        let [geometry, subRelationIds] = makeOsmRelationGeometry(element, elements);
-        if (!geometry) {
-            isFakeGeometry = true;
-            geometry = L.circleMarker([0, 0]);
-        }
-        return [
-            geometry,
-            makeOsmElementPopupContents(server, element, isFakeGeometry, subRelationIds)
-        ];
+        return makeRenderReturnValues(server, makeOsmRelationGeometry(element, elements), makeOsmElementPopupContents(server, element), `the relation has no direct node/way members`);
     }
     else {
         throw new TypeError(`OSM API error: requested element has unknown type`); // shouldn't happen
     }
 }
-// geometries
-function makeOsmChangesetGeometry(changeset) {
-    if (changeset.minlat == null || changeset.minlon == null ||
-        changeset.maxlat == null || changeset.maxlon == null) {
-        throw new TypeError(`changeset is empty`);
-    }
-    return L.rectangle([
-        [changeset.minlat, changeset.minlon],
-        [changeset.maxlat, changeset.maxlon]
-    ]);
+function renderOsmChangeset(server, changeset) {
+    return makeRenderReturnValues(server, makeOsmChangesetGeometry(changeset), makeOsmChangesetPopupContents(server, changeset), `the changeset is empty`);
 }
+function renderOsmChangesetAdiff(server, changeset, doc) {
+    return makeRenderReturnValues(server, makeOsmChangesetAdiffGeometry(changeset, doc), makeOsmChangesetAdiffPopupContents(server, changeset), `the changeset is empty`);
+}
+function makeRenderReturnValues(server, geometryData, popupContents, reasonOfFakeGeometry) {
+    if (geometryData.skippedRelationIds?.size) {
+        const type = geometryData.skippedRelationIds.size > 1 ? `relations` : `relation`;
+        const $details = makeElement('details')()(makeElement('summary')()(`${geometryData.skippedRelationIds.size} member ${type}`), ...[...geometryData.skippedRelationIds].flatMap((subRelationId, i) => {
+            const $a = getRelation(server, subRelationId);
+            return i ? [`, `, $a] : [$a];
+        }));
+        if (geometryData.skippedRelationIds.size <= 7)
+            $details.open = true;
+        popupContents.push($details);
+    }
+    if (!geometryData.baseGeometry) {
+        if (reasonOfFakeGeometry) {
+            popupContents.push(p(strong(`Warning`), `: displayed geometry is incorrect because ${reasonOfFakeGeometry}`));
+        }
+    }
+    return [geometryData, popupContents];
+}
+// geometries
 function makeOsmNodeGeometry(node) {
-    return L.circleMarker([node.lat, node.lon]);
+    return {
+        baseGeometry: L.circleMarker([node.lat, node.lon])
+    };
 }
 function makeOsmWayGeometry(way, elements) {
     const coords = [];
@@ -1927,41 +2167,165 @@ function makeOsmWayGeometry(way, elements) {
             throw new TypeError(`OSM API error: referenced element not found in response data`);
         coords.push([node.lat, node.lon]);
     }
-    return L.polyline(coords);
+    return {
+        baseGeometry: L.polyline(coords)
+    };
 }
 function makeOsmRelationGeometry(relation, elements) {
-    let isEmpty = true;
-    const geometry = L.featureGroup();
-    const subRelationIds = new Set();
+    const geometryData = new GroupedGeometryData();
     for (const member of relation.members) {
         if (member.type == 'node') {
             const node = elements.node[member.ref];
             if (!node)
                 throw new TypeError(`OSM API error: referenced element not found in response data`);
-            geometry.addLayer(makeOsmNodeGeometry(node));
-            isEmpty = false;
+            geometryData.include(makeOsmNodeGeometry(node));
         }
         else if (member.type == 'way') {
             const way = elements.way[member.ref];
             if (!way)
                 throw new TypeError(`OSM API error: referenced element not found in response data`);
-            geometry.addLayer(makeOsmWayGeometry(way, elements));
-            isEmpty = false;
+            geometryData.include(makeOsmWayGeometry(way, elements));
         }
         else if (member.type == 'relation') {
-            subRelationIds.add(member.ref);
+            geometryData.addSkippedRelationId(member.ref);
         }
     }
-    return [isEmpty ? null : geometry, subRelationIds];
+    return geometryData;
+}
+function makeOsmChangesetGeometry(changeset) {
+    if (!hasBbox(changeset))
+        return {};
+    return {
+        baseGeometry: L.rectangle([
+            [changeset.minlat, changeset.minlon],
+            [changeset.maxlat, changeset.maxlon]
+        ], { color: '#000' })
+    };
+}
+function makeOsmChangesetAdiffGeometry(changeset, doc) {
+    const colorAdded = '#39dbc0'; // color values from OSMCha
+    const colorModifiedOld = '#db950a';
+    const colorModifiedNew = '#e8e845';
+    const colorDeleted = '#cc2c47';
+    const changedNodeIds = new Set();
+    const geometryData = new GroupedGeometryData();
+    geometryData.include(makeOsmChangesetGeometry(changeset));
+    for (const action of doc.querySelectorAll('action')) {
+        const actionType = action.getAttribute('type');
+        if (actionType == 'create') {
+            doIfElementMatchesChangeset(changeset, changedNodeIds, action, (element) => {
+                addOsmAdiffElementGeometry(geometryData, actionType, element, colorAdded);
+            });
+        }
+        else if (actionType == 'modify') {
+            doIfNewElementMatchesChangeset(changeset, changedNodeIds, action, (oldElement, newElement) => {
+                addOsmAdiffElementGeometry(geometryData, actionType, oldElement, colorModifiedOld);
+                addOsmAdiffElementGeometry(geometryData, actionType, newElement, colorModifiedNew);
+            });
+        }
+        else if (actionType == 'delete') {
+            doIfNewElementMatchesChangeset(changeset, changedNodeIds, action, (oldElement, newElement) => {
+                addOsmAdiffElementGeometry(geometryData, actionType, oldElement, colorDeleted);
+            });
+        }
+    }
+    return geometryData;
+}
+function doIfElementMatchesChangeset(changeset, changedNodeIds, parent, doWithElement) {
+    const element = parent.firstElementChild;
+    if (!element)
+        return;
+    if (!isElementMatchesChangeset(changeset, changedNodeIds, element))
+        return;
+    doWithElement(element);
+}
+function doIfNewElementMatchesChangeset(changeset, changedNodeIds, parent, doWithElements) {
+    const [oldChild, newChild] = getOldAndNewChildren(parent);
+    if (!oldChild || !newChild)
+        return;
+    const oldElement = oldChild.firstElementChild;
+    const newElement = newChild.firstElementChild;
+    if (!oldElement || !newElement)
+        return;
+    if (!isElementMatchesChangeset(changeset, changedNodeIds, newElement))
+        return;
+    doWithElements(oldElement, newElement);
+}
+function isElementMatchesChangeset(changeset, changedNodeIds, element) {
+    const changesetId = element.getAttribute('changeset');
+    const changesetIdMatched = !!changesetId && Number(changesetId) == changeset.id;
+    if (element.tagName == 'node') {
+        if (changesetIdMatched) {
+            const nodeId = element.getAttribute('id');
+            if (nodeId)
+                changedNodeIds.add(Number(nodeId));
+        }
+    }
+    else if (element.tagName == 'way') {
+        if (!changesetIdMatched) {
+            for (const osmNodeRef of element.querySelectorAll('nd')) {
+                const nodeRef = osmNodeRef.getAttribute('ref');
+                if (nodeRef && changedNodeIds.has(Number(nodeRef)))
+                    return true;
+            }
+        }
+    }
+    return changesetIdMatched;
+}
+function getOldAndNewChildren(parent) {
+    let oldChild;
+    let newChild;
+    for (const oldOrNewChild of parent.children) {
+        if (oldOrNewChild.tagName == 'old') {
+            oldChild = oldOrNewChild;
+        }
+        else if (oldOrNewChild.tagName == 'new') {
+            newChild = oldOrNewChild;
+        }
+    }
+    return [oldChild, newChild];
+}
+function addOsmAdiffElementGeometry(geometryData, actionType, osmElement, color) {
+    if (osmElement.tagName == 'node') {
+        const lat = osmElement.getAttribute('lat');
+        const lon = osmElement.getAttribute('lon');
+        if (lat == null || lon == null)
+            return;
+        geometryData.addAdiffGeometry(actionType, L.circleMarker([Number(lat), Number(lon)], { radius: 3, color, opacity: .2, fillOpacity: 1 }));
+    }
+    else if (osmElement.tagName == 'way') {
+        const coords = [];
+        for (const osmNodeRef of osmElement.querySelectorAll('nd')) {
+            const lat = osmNodeRef.getAttribute('lat');
+            const lon = osmNodeRef.getAttribute('lon');
+            if (lat == null || lon == null)
+                continue;
+            coords.push([Number(lat), Number(lon)]);
+        }
+        geometryData.addAdiffGeometry(actionType, L.polyline(coords, { weight: 2, color }));
+    }
+    else if (osmElement.tagName == 'relation') ;
 }
 // popups
 function makeOsmChangesetPopupContents(server, changeset) {
+    const contents = makeCommonOsmChangesetPopupContents(server, changeset, !!server.overpass);
+    const $tags = getTags(changeset.tags, 'comment');
+    if ($tags)
+        contents.push($tags);
+    return contents;
+}
+function makeOsmChangesetAdiffPopupContents(server, changeset) {
+    return makeCommonOsmChangesetPopupContents(server, changeset, false);
+}
+function makeCommonOsmChangesetPopupContents(server, changeset, withAdiffLink) {
     const contents = [];
-    const p = (...s) => makeElement('p')()(...s);
     const h = (...s) => p(makeElement('strong')()(...s));
     const c = (...s) => p(makeElement('em')()(...s));
     const changesetHref = server.web.getUrl(e$8 `changeset/${changeset.id}`);
-    contents.push(h(`Changeset: `, makeLink(String(changeset.id), changesetHref)));
+    const $header = h(`Changeset: `, makeLink(String(changeset.id), changesetHref));
+    if (withAdiffLink)
+        $header.append(` (`, getChangesetAdiff(server, changeset.id), `)`);
+    contents.push($header);
     if (changeset.tags?.comment)
         contents.push(c(changeset.tags.comment));
     const $p = p();
@@ -1973,12 +2337,9 @@ function makeOsmChangesetPopupContents(server, changeset) {
     }
     $p.append(` by `, getUser(server, changeset));
     contents.push($p);
-    const $tags = getTags(changeset.tags, 'comment');
-    if ($tags)
-        contents.push($tags);
     return contents;
 }
-function makeOsmElementPopupContents(server, element, isFakeGeometry = false, subRelationIds) {
+function makeOsmElementPopupContents(server, element, subRelationIds) {
     const h = (...s) => p(strong(...s));
     const elementPath = e$8 `${element.type}/${element.id}`;
     const contents = [
@@ -1989,18 +2350,6 @@ function makeOsmElementPopupContents(server, element, isFakeGeometry = false, su
     const $tags = getTags(element.tags);
     if ($tags)
         contents.push($tags);
-    if (subRelationIds?.size) {
-        const type = subRelationIds.size > 1 ? `relations` : `relation`;
-        const $details = makeElement('details')()(makeElement('summary')()(`${subRelationIds.size} member ${type}`), ...[...subRelationIds].flatMap((subRelationId, i) => {
-            const $a = getRelation(server, subRelationId);
-            return i ? [`, `, $a] : [$a];
-        }));
-        if (subRelationIds.size <= 7)
-            $details.open = true;
-        contents.push($details);
-    }
-    if (isFakeGeometry)
-        contents.push(h(`Warning: displayed geometry is incorrect because the relation has no direct node/way members`));
     return contents;
 }
 // utils
@@ -2027,6 +2376,12 @@ function getChangeset(server, changesetId) {
     const $a = makeLink(cid, server.web.getUrl(e$8 `changeset/${cid}`));
     $a.classList.add('listened');
     $a.dataset.changesetId = cid;
+    return $a;
+}
+function getChangesetAdiff(server, changesetId) {
+    const $a = getChangeset(server, changesetId);
+    $a.innerText = `adiff`;
+    $a.dataset.adiff = 'true';
     return $a;
 }
 function getRelation(server, relationId) {
@@ -2104,6 +2459,7 @@ function makeUserIdLink(server, uid) {
 class NoteMap {
     constructor($root, $container, server) {
         this.$container = $container;
+        this.dataLayers = new OsmDataLayers();
         this.needToFitNotes = false;
         this.freezeMode = 'no';
         const e = makeEscapeTag(escapeXml);
@@ -2118,18 +2474,18 @@ class NoteMap {
             attribution: e `© <a href="${server.tile.attributionUrl}">${server.tile.attributionText}</a>`,
             maxZoom: server.tile.maxZoom
         })).fitWorld();
-        this.dataLayer = L.featureGroup().addTo(this.leafletMap);
+        this.dataLayers.addToMap(this.leafletMap);
         this.unselectedNoteLayer = new NoteLayer().addTo(this.leafletMap);
         this.selectedNoteLayer = new NoteLayer().addTo(this.leafletMap);
         this.filteredNoteLayer = new NoteLayer();
         this.trackLayer = L.featureGroup().addTo(this.leafletMap);
         const crosshairLayer = new CrosshairLayer().addTo(this.leafletMap);
         const layersControl = L.control.layers();
-        layersControl.addOverlay(this.dataLayer, `OSM elements`);
         layersControl.addOverlay(this.unselectedNoteLayer, `Unselected notes`);
         layersControl.addOverlay(this.selectedNoteLayer, `Selected notes`);
         layersControl.addOverlay(this.filteredNoteLayer, `Filtered notes`);
         layersControl.addOverlay(this.trackLayer, `Track between notes`);
+        this.dataLayers.addToLayersControl(layersControl);
         layersControl.addOverlay(crosshairLayer, `Crosshair`);
         layersControl.addTo(this.leafletMap);
         this.leafletMap.on('moveend', () => {
@@ -2143,23 +2499,32 @@ class NoteMap {
                 return;
             const [layerId, popupWriter] = this.queuedPopup;
             this.queuedPopup = undefined;
-            const geometry = this.dataLayer.getLayer(layerId);
-            if (geometry) {
+            const baseGeometry = this.dataLayers.baseDataLayer.getLayer(layerId);
+            if (baseGeometry) {
                 const popup = L.popup({ autoPan: false })
                     .setLatLng(this.leafletMap.getCenter()) // need to tell the popup this exact place after map stops moving, otherwise is sometimes gets opened off-screen
                     .setContent(popupWriter)
                     .openOn(this.leafletMap);
-                geometry.bindPopup(popup);
+                baseGeometry.bindPopup(popup);
             }
         });
         $root.addEventListener('osmNoteViewer:mapMoveTrigger', ({ detail: { zoom, lat, lon } }) => {
             this.panAndZoomTo([Number(lat), Number(lon)], Number(zoom));
         });
+        $root.addEventListener('osmNoteViewer:elementRender', ({ detail: [element, elements] }) => {
+            // TODO zoom on second click, like with notes
+            this.dataLayers.clearLayers();
+            this.addOsmData(...renderOsmElement(server, element, elements));
+        });
         $root.addEventListener('osmNoteViewer:changesetRender', ({ detail: changeset }) => {
+            // TODO zoom on second click, like with notes
+            this.dataLayers.clearLayers();
             this.addOsmData(...renderOsmChangeset(server, changeset));
         });
-        $root.addEventListener('osmNoteViewer:elementRender', ({ detail: [element, elements] }) => {
-            this.addOsmData(...renderOsmElement(server, element, elements));
+        $root.addEventListener('osmNoteViewer:changesetAdiffRender', ({ detail: [changeset, doc] }) => {
+            // TODO zoom on second click, like with notes
+            this.dataLayers.clearLayers();
+            this.addOsmData(...renderOsmChangesetAdiff(server, changeset, doc));
         });
         // TODO maybe have :dataClear event
         // this.elementLayer.clearLayers()
@@ -2214,7 +2579,7 @@ class NoteMap {
         this.leafletMap.invalidateSize();
     }
     clearNotes() {
-        this.dataLayer.clearLayers();
+        this.dataLayers.clearLayers();
         this.unselectedNoteLayer.clearLayers();
         this.selectedNoteLayer.clearLayers();
         this.filteredNoteLayer.clearLayers();
@@ -2278,19 +2643,17 @@ class NoteMap {
         if (bounds.isValid())
             this.fitBoundsIfNotFrozen(bounds);
     }
-    addOsmData(geometry, popupContents) {
+    addOsmData(geometryData, popupContents) {
         const popupWriter = () => {
             const $removeButton = document.createElement('button');
             $removeButton.textContent = `Remove from map view`;
             $removeButton.onclick = () => {
-                this.dataLayer.clearLayers();
+                this.dataLayers.clearLayers();
             };
             return makeDiv('osm-element-popup-contents')(...popupContents, $removeButton);
         };
-        // TODO zoom on second click, like with notes
-        this.dataLayer.clearLayers();
-        this.dataLayer.addLayer(geometry);
-        const layerId = this.dataLayer.getLayerId(geometry);
+        const baseGeometry = this.dataLayers.addGeometryAndGetBaseGeometry(geometryData);
+        const layerId = this.dataLayers.baseDataLayer.getLayerId(baseGeometry);
         // geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
         if (this.freezeMode == 'full') {
             const popup = L.popup({ autoPan: false }).setContent(popupWriter);
@@ -2313,7 +2676,7 @@ class NoteMap {
                 }
             };
             const onClosePopup = () => {
-                geometry.bindPopup(popup, { offset: [0, 0] });
+                baseGeometry.bindPopup(popup, { offset: [0, 0] });
                 const $popupContainer = popup.getElement();
                 if (!$popupContainer)
                     return;
@@ -2323,27 +2686,27 @@ class NoteMap {
                     restorePopupTip($popupContainer);
                 }, fadeoutTransitionTime);
             };
-            geometry.on('popupopen', onOpenPopup).on('popupclose', onClosePopup);
-            geometry.bindPopup(popup).openPopup();
+            baseGeometry.on('popupopen', onOpenPopup).on('popupclose', onClosePopup);
+            baseGeometry.bindPopup(popup).openPopup();
         }
-        else if (geometry instanceof L.CircleMarker) {
+        else if (baseGeometry instanceof L.CircleMarker) {
             this.queuedPopup = [layerId, popupWriter];
             const minZoomForNode = 10;
             if (this.zoom < minZoomForNode) {
-                this.flyToIfNotFrozen(geometry.getLatLng(), minZoomForNode, { duration: .5 });
+                this.flyToIfNotFrozen(baseGeometry.getLatLng(), minZoomForNode, { duration: .5 });
             }
             else {
-                this.panToIfNotFrozen(geometry.getLatLng());
+                this.panToIfNotFrozen(baseGeometry.getLatLng());
             }
         }
         else {
-            const bounds = this.dataLayer.getBounds();
+            const bounds = this.dataLayers.baseDataLayer.getBounds();
             if (bounds.isValid()) {
                 this.queuedPopup = [layerId, popupWriter];
                 this.fitBoundsIfNotFrozen(bounds);
             }
             else {
-                geometry.bindPopup(popupWriter).openPopup();
+                baseGeometry.bindPopup(popupWriter).openPopup();
             }
         }
     }
@@ -3427,15 +3790,15 @@ function toShortOrFullReadableDate(date, full) {
     }
     return dateString;
 }
-function toUrlDate(date) {
+function toUrlDate(date, separator = '') {
     const pad = (n) => ('0' + n).slice(-2);
     const dateObject = new Date(date * 1000);
-    const dateString = dateObject.getUTCFullYear() +
-        pad(dateObject.getUTCMonth() + 1) +
+    const dateString = dateObject.getUTCFullYear() + separator +
+        pad(dateObject.getUTCMonth() + 1) + separator +
         pad(dateObject.getUTCDate()) +
         'T' +
-        pad(dateObject.getUTCHours()) +
-        pad(dateObject.getUTCMinutes()) +
+        pad(dateObject.getUTCHours()) + separator +
+        pad(dateObject.getUTCMinutes()) + separator +
         pad(dateObject.getUTCSeconds()) +
         'Z';
     return dateString;
@@ -9437,138 +9800,6 @@ function findClosingChangesetId(targetTimestamp, changesets) {
     return id;
 }
 
-function isOsmBase(d) {
-    if (!d)
-        return false;
-    if (!Number.isInteger(d.id))
-        return false;
-    if (d.user != null && (typeof d.user != 'string'))
-        return false;
-    if (!Number.isInteger(d.uid))
-        return false;
-    if (d.tags != null && (typeof d.tags != 'object'))
-        return false;
-    return true;
-}
-function isOsmElementBase(e) {
-    if (!isOsmBase(e))
-        return false;
-    if (e.type != 'node' && e.type != 'way' && e.type != 'relation')
-        return false;
-    if (typeof e.timestamp != 'string')
-        return false;
-    if (!Number.isInteger(e.version))
-        return false;
-    if (!Number.isInteger(e.changeset))
-        return false;
-    return true;
-}
-function isOsmNodeElement(e) {
-    if (!isOsmElementBase(e))
-        return false;
-    if (e.type != 'node')
-        return false;
-    if (typeof e.lat != 'number')
-        return false;
-    if (typeof e.lon != 'number')
-        return false;
-    return true;
-}
-function isOsmWayElement(e) {
-    if (!isOsmElementBase(e))
-        return false;
-    if (e.type != 'way')
-        return false;
-    const nodes = e.nodes;
-    if (!Array.isArray(nodes))
-        return false;
-    if (!nodes.every(v => Number.isInteger(v)))
-        return false;
-    return true;
-}
-function isOsmRelationElement(e) {
-    if (!isOsmElementBase(e))
-        return false;
-    if (e.type != 'relation')
-        return false;
-    const members = e.members;
-    if (!Array.isArray(members))
-        return false;
-    if (!members.every(m => (m &&
-        (m.type == 'node' || m.type == 'way' || m.type == 'relation') &&
-        Number.isInteger(m.ref) &&
-        (typeof m.role == 'string'))))
-        return false;
-    return true;
-}
-function isOsmChangeset(c) {
-    if (!isOsmBase(c))
-        return false;
-    if (typeof c.created_at != 'string')
-        return false;
-    if (c.closed_at != null && (typeof c.closed_at != 'string'))
-        return false;
-    if (c.minlat == null && c.minlon == null &&
-        c.maxlat == null && c.maxlon == null) {
-        return true;
-    }
-    else if (Number.isFinite(c.minlat) && Number.isFinite(c.minlon) &&
-        Number.isFinite(c.maxlat) && Number.isFinite(c.maxlon)) {
-        return true;
-    }
-    else {
-        return false;
-    }
-}
-function getChangesetFromOsmApiResponse(data) {
-    if (!data)
-        throw new TypeError(`OSM API error: invalid response data`);
-    const changesetArray = data.elements;
-    if (!Array.isArray(changesetArray))
-        throw new TypeError(`OSM API error: invalid response data`);
-    if (changesetArray.length != 1)
-        throw new TypeError(`OSM API error: invalid number of changesets in response data`);
-    const changeset = changesetArray[0];
-    if (!isOsmChangeset(changeset))
-        throw new TypeError(`OSM API error: invalid changeset in response data`);
-    return changeset;
-}
-function getChangesetsFromOsmApiResponse(data) {
-    if (!data)
-        throw new TypeError(`OSM API error: invalid response data`);
-    const changesetArray = data.changesets;
-    if (!Array.isArray(changesetArray))
-        throw new TypeError(`OSM API error: invalid response data`);
-    if (!changesetArray.every(isOsmChangeset))
-        throw new TypeError(`OSM API error: invalid changeset in response data`);
-    return changesetArray;
-}
-function getElementsFromOsmApiResponse(data) {
-    const node = {};
-    const way = {};
-    const relation = {};
-    if (!data)
-        throw new TypeError(`OSM API error: invalid response data`);
-    const elementArray = data.elements;
-    if (!Array.isArray(elementArray))
-        throw new TypeError(`OSM API error: invalid response data`);
-    for (const element of elementArray) {
-        if (isOsmNodeElement(element)) {
-            node[element.id] = element;
-        }
-        else if (isOsmWayElement(element)) {
-            way[element.id] = element;
-        }
-        else if (isOsmRelationElement(element)) {
-            relation[element.id] = element;
-        }
-        else {
-            throw new TypeError(`OSM API error: invalid element in response data`);
-        }
-    }
-    return { node, way, relation };
-}
-
 const e$2 = makeEscapeTag(encodeURIComponent);
 class ChangesetTool extends Tool {
     constructor() {
@@ -10337,7 +10568,7 @@ class ToolPanel {
 
 const e = makeEscapeTag(encodeURIComponent);
 class OsmDownloader {
-    constructor($root, api) {
+    constructor($root, server) {
         let abortController;
         const handleOsmDownloadAndLink = async ($a, path, type, handleResponse) => {
             $a.classList.add('loading'); // TODO aria
@@ -10345,7 +10576,7 @@ class OsmDownloader {
                 abortController.abort();
             abortController = new AbortController();
             try {
-                const response = await api.fetch(path, { signal: abortController.signal });
+                const response = await server.api.fetch(path, { signal: abortController.signal });
                 if (!response.ok) {
                     if (response.status == 404) {
                         throw new TypeError(`${type} doesn't exist`);
@@ -10388,7 +10619,20 @@ class OsmDownloader {
             await handleOsmDownloadAndLink($a, e `changeset/${changesetId}.json`, `changeset`, async (response) => {
                 const data = await response.json();
                 const changeset = getChangesetFromOsmApiResponse(data);
-                bubbleCustomEvent($root, 'osmNoteViewer:changesetRender', changeset);
+                if (!hasBbox(changeset))
+                    throw new TypeError(`changeset is empty`);
+                if ($a.dataset.adiff) {
+                    if (!server.overpass)
+                        throw new TypeError(`no overpass provider`);
+                    const query = makeAdiffQueryPreamble(changeset) +
+                        `(node(changed);way(changed););\n` +
+                        `out meta geom;`;
+                    const doc = await server.overpass.fetch(query); // TODO also pump through handleOsmDownloadAndLink()
+                    bubbleCustomEvent($root, 'osmNoteViewer:changesetAdiffRender', [changeset, doc]);
+                }
+                else {
+                    bubbleCustomEvent($root, 'osmNoteViewer:changesetRender', changeset);
+                }
             });
         });
         $root.addEventListener('osmNoteViewer:elementLinkClick', async (ev) => {
@@ -10412,6 +10656,21 @@ class OsmDownloader {
             });
         });
     }
+}
+/**
+ * Make augmented diff overpass query preamble for changeset.
+ *
+ * Time range is (created_at - 1 second) .. (closed_at if closed).
+ * Similar to what achavi does, see https://github.com/nrenner/achavi/blob/9934871777b6e744d21bb2f22b112d386bcd9d30/js/map.js#L261
+ */
+function makeAdiffQueryPreamble(changeset) {
+    const startDate = toUrlDate(Date.parse(changeset.created_at) / 1000 - 1, '-');
+    const endPart = changeset.closed_at != null ? `,"${changeset.closed_at}"` : ``;
+    const swneBounds = (changeset.minlat + ',' + changeset.minlon + ',' +
+        changeset.maxlat + ',' + changeset.maxlon);
+    return (`[adiff:"${startDate}"${endPart}]\n` +
+        `[bbox:${swneBounds}]\n` +
+        `;\n`);
 }
 
 main();
@@ -10479,7 +10738,7 @@ async function main() {
             bubbleCustomEvent($a, 'osmNoteViewer:noteFetch', [note, users, 'manual']);
             bubbleCustomEvent($a, 'osmNoteViewer:noteUpdatePush', [note, users]);
         });
-        new OsmDownloader($root, globalHistory.server.api);
+        new OsmDownloader($root, globalHistory.server);
         globalHistory.restoreScrollPosition();
     }
 }
