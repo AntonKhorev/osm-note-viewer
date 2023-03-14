@@ -203,21 +203,22 @@ function makeOsmChangesetAdiffGeometry(changeset: OsmChangeset, doc: Document): 
 	const colorModifiedOld='#db950a'
 	const colorModifiedNew='#e8e845'
 	const colorDeleted='#cc2c47'
+	const changedNodeIds=new Set<number>()
 	const geometryData=new GroupedGeometryData()
 	geometryData.include(makeOsmChangesetGeometry(changeset))
 	for (const action of doc.querySelectorAll('action')) {
 		const actionType=action.getAttribute('type')
 		if (actionType=='create') {
-			doIfElementMatchesChangeset(changeset,action,(element)=>{
+			doIfElementMatchesChangeset(changeset,changedNodeIds,action,(element)=>{
 				addOsmAdiffElementGeometry(geometryData,actionType,element,colorAdded)
 			})
 		} else if (actionType=='modify') {
-			doIfNewElementMatchesChangeset(changeset,action,(oldElement,newElement)=>{
+			doIfNewElementMatchesChangeset(changeset,changedNodeIds,action,(oldElement,newElement)=>{
 				addOsmAdiffElementGeometry(geometryData,actionType,oldElement,colorModifiedOld)
 				addOsmAdiffElementGeometry(geometryData,actionType,newElement,colorModifiedNew)
 			})
 		} else if (actionType=='delete') {
-			doIfNewElementMatchesChangeset(changeset,action,(oldElement,newElement)=>{
+			doIfNewElementMatchesChangeset(changeset,changedNodeIds,action,(oldElement,newElement)=>{
 				addOsmAdiffElementGeometry(geometryData,actionType,oldElement,colorDeleted)
 			})
 		}
@@ -225,16 +226,16 @@ function makeOsmChangesetAdiffGeometry(changeset: OsmChangeset, doc: Document): 
 	return geometryData
 }
 function doIfElementMatchesChangeset(
-	changeset: OsmChangeset, parent: Element,
+	changeset: OsmChangeset, changedNodeIds: Set<number>, parent: Element,
 	doWithElement: (element:Element)=>void
 ): void {
 	const element=parent.firstElementChild
 	if (!element) return
-	if (!isElementMatchesChangeset(changeset,element)) return
+	if (!isElementMatchesChangeset(changeset,changedNodeIds,element)) return
 	doWithElement(element)
 }
 function doIfNewElementMatchesChangeset(
-	changeset: OsmChangeset, parent: Element,
+	changeset: OsmChangeset, changedNodeIds: Set<number>, parent: Element,
 	doWithElements: (oldChild:Element,newChild:Element)=>void
 ): void {
 	const [oldChild,newChild]=getOldAndNewChildren(parent)
@@ -242,12 +243,26 @@ function doIfNewElementMatchesChangeset(
 	const oldElement=oldChild.firstElementChild
 	const newElement=newChild.firstElementChild
 	if (!oldElement || !newElement) return
-	if (!isElementMatchesChangeset(changeset,newElement)) return
+	if (!isElementMatchesChangeset(changeset,changedNodeIds,newElement)) return
 	doWithElements(oldElement,newElement)
 }
-function isElementMatchesChangeset(changeset: OsmChangeset, element: Element): boolean {
+function isElementMatchesChangeset(changeset: OsmChangeset, changedNodeIds: Set<number>, element: Element): boolean {
 	const changesetId=element.getAttribute('changeset')
-	return !!changesetId && Number(changesetId)==changeset.id
+	const changesetIdMatched=!!changesetId && Number(changesetId)==changeset.id
+	if (element.tagName=='node') {
+		if (changesetIdMatched) {
+			const nodeId=element.getAttribute('id')
+			if (nodeId) changedNodeIds.add(Number(nodeId))
+		}
+	} else if (element.tagName=='way') {
+		if (!changesetIdMatched) {
+			for (const osmNodeRef of element.querySelectorAll('nd')) {
+				const nodeRef=osmNodeRef.getAttribute('ref')
+				if (nodeRef && changedNodeIds.has(Number(nodeRef))) return true
+			}
+		}
+	}
+	return changesetIdMatched
 }
 function getOldAndNewChildren(parent: Element): [oldChild: Element|undefined, newChild: Element|undefined] {
 	let oldChild: Element|undefined
