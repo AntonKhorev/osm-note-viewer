@@ -208,31 +208,63 @@ function makeOsmChangesetAdiffGeometry(changeset: OsmChangeset, doc: Document): 
 	for (const action of doc.querySelectorAll('action')) {
 		const actionType=action.getAttribute('type')
 		if (actionType=='create') {
-			addOsmAdiffElementGeometry(geometryData,actionType,action,colorAdded)
+			doIfElementMatchesChangeset(changeset,action,(element)=>{
+				addOsmAdiffElementGeometry(geometryData,actionType,element,colorAdded)
+			})
 		} else if (actionType=='modify') {
-			for (const oldOrNew of action.children) {
-				if (oldOrNew.tagName=='old') {
-					addOsmAdiffElementGeometry(geometryData,actionType,oldOrNew,colorModifiedOld)
-				} else if (oldOrNew.tagName=='new') {
-					addOsmAdiffElementGeometry(geometryData,actionType,oldOrNew,colorModifiedNew)
-				}
-			}
+			doIfNewElementMatchesChangeset(changeset,action,(oldElement,newElement)=>{
+				addOsmAdiffElementGeometry(geometryData,actionType,oldElement,colorModifiedOld)
+				addOsmAdiffElementGeometry(geometryData,actionType,newElement,colorModifiedNew)
+			})
 		} else if (actionType=='delete') {
-			for (const oldOrNew of action.children) {
-				if (oldOrNew.tagName=='old') {
-					addOsmAdiffElementGeometry(geometryData,actionType,oldOrNew,colorDeleted)
-				}
-			}
+			doIfNewElementMatchesChangeset(changeset,action,(oldElement,newElement)=>{
+				addOsmAdiffElementGeometry(geometryData,actionType,oldElement,colorDeleted)
+			})
 		}
 	}
 	return geometryData
 }
+function doIfElementMatchesChangeset(
+	changeset: OsmChangeset, parent: Element,
+	doWithElement: (element:Element)=>void
+): void {
+	const element=parent.firstElementChild
+	if (!element) return
+	if (!isElementMatchesChangeset(changeset,element)) return
+	doWithElement(element)
+}
+function doIfNewElementMatchesChangeset(
+	changeset: OsmChangeset, parent: Element,
+	doWithElements: (oldChild:Element,newChild:Element)=>void
+): void {
+	const [oldChild,newChild]=getOldAndNewChildren(parent)
+	if (!oldChild || !newChild) return
+	const oldElement=oldChild.firstElementChild
+	const newElement=newChild.firstElementChild
+	if (!oldElement || !newElement) return
+	if (!isElementMatchesChangeset(changeset,newElement)) return
+	doWithElements(oldElement,newElement)
+}
+function isElementMatchesChangeset(changeset: OsmChangeset, element: Element): boolean {
+	const changesetId=element.getAttribute('changeset')
+	return !!changesetId && Number(changesetId)==changeset.id
+}
+function getOldAndNewChildren(parent: Element): [oldChild: Element|undefined, newChild: Element|undefined] {
+	let oldChild: Element|undefined
+	let newChild: Element|undefined
+	for (const oldOrNewChild of parent.children) {
+		if (oldOrNewChild.tagName=='old') {
+			oldChild=oldOrNewChild
+		} else if (oldOrNewChild.tagName=='new') {
+			newChild=oldOrNewChild
+		}
+	}
+	return [oldChild,newChild]
+}
 function addOsmAdiffElementGeometry(
 	geometryData: GroupedGeometryData, actionType: 'create'|'modify'|'delete',
-	container: Element, color: string
+	osmElement: Element, color: string
 ): void {
-	const osmElement=container.firstElementChild
-	if (!osmElement) return
 	if (osmElement.tagName=='node') {
 		const lat=osmElement.getAttribute('lat')
 		const lon=osmElement.getAttribute('lon')
