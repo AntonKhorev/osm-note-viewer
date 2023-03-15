@@ -1,5 +1,5 @@
 import type {Note, Users} from '../src/data'
-import type {OsmChangeset, OsmElement, OsmElementMap} from '../src/osm'
+import type {OsmChangeset, OsmElement, OsmElementMap, OsmAdiff} from '../src/osm'
 
 declare global {
 	interface HTMLElementEventMap {
@@ -23,7 +23,7 @@ declare global {
 		'osmNoteViewer:notesInViewportChange': CustomEvent<readonly Note[]>
 		'osmNoteViewer:elementRender': CustomEvent<readonly [OsmElement, OsmElementMap]>
 		'osmNoteViewer:changesetRender': CustomEvent<OsmChangeset>
-		'osmNoteViewer:changesetAdiffRender': CustomEvent<readonly [OsmChangeset, Document]>
+		'osmNoteViewer:changesetAdiffRender': CustomEvent<readonly [OsmChangeset, OsmAdiff]>
 	}
 }
 export {}

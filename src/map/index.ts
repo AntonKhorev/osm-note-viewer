@@ -4,7 +4,8 @@ import NoteMapBounds from './bounds'
 import {OsmDataLayers, NoteLayer, CrosshairLayer} from './layers'
 import type {GeometryData} from './osm'
 import {renderOsmElement, renderOsmChangeset, renderOsmChangesetAdiff} from './osm'
-import {bubbleCustomEvent, makeDiv} from '../html'
+import {makePopupWriter} from './popup'
+import {bubbleCustomEvent} from '../html'
 import {escapeXml, makeEscapeTag} from '../escape'
 
 export {NoteMarker, NoteMapBounds}
@@ -20,7 +21,7 @@ export default class NoteMap {
 	trackLayer: L.FeatureGroup
 	needToFitNotes: boolean = false
 	freezeMode: NoteMapFreezeMode = 'no'
-	private queuedPopup: [layerId: number, writer: ()=>HTMLElement] | undefined
+	private queuedPopup: [layerId: number, writer: (layer:L.Layer)=>HTMLElement] | undefined
 	constructor(
 		$root: HTMLElement,
 		private $container: HTMLElement,
@@ -90,11 +91,11 @@ export default class NoteMap {
 				...renderOsmChangeset(server,changeset)
 			)
 		})
-		$root.addEventListener('osmNoteViewer:changesetAdiffRender',({detail:[changeset,doc]})=>{
+		$root.addEventListener('osmNoteViewer:changesetAdiffRender',({detail:[changeset,adiff]})=>{
 			// TODO zoom on second click, like with notes
 			this.dataLayers.clearLayers()
 			this.addOsmData(
-				...renderOsmChangesetAdiff(server,changeset,doc)
+				...renderOsmChangesetAdiff(server,changeset,adiff)
 			)
 		})
 		// TODO maybe have :dataClear event
@@ -207,16 +208,7 @@ export default class NoteMap {
 		if (bounds.isValid()) this.fitBoundsIfNotFrozen(bounds)
 	}
 	private addOsmData(geometryData: GeometryData, popupContents: HTMLElement[]): void {
-		const popupWriter=()=>{
-			const $removeButton=document.createElement('button')
-			$removeButton.textContent=`Remove from map view`
-			$removeButton.onclick=()=>{
-				this.dataLayers.clearLayers()
-			}
-			return makeDiv('osm-element-popup-contents')(
-				...popupContents,$removeButton
-			)
-		}
+		const popupWriter=makePopupWriter(popupContents,()=>this.dataLayers.clearLayers())
 		const baseGeometry=this.dataLayers.addGeometryAndGetBaseGeometry(geometryData)
 		const layerId=this.dataLayers.baseDataLayer.getLayerId(baseGeometry)
 		// geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished

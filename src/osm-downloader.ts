@@ -1,6 +1,6 @@
 import type Server from './server'
 import type {OsmChangesetWithBbox} from './osm'
-import {hasBbox, getChangesetFromOsmApiResponse, getElementsFromOsmApiResponse} from './osm'
+import {hasBbox, getChangesetFromOsmApiResponse, getElementsFromOsmApiResponse, getAdiffFromDocument} from './osm'
 import {toUrlDate} from './query-date'
 import {bubbleCustomEvent} from './html'
 import {makeEscapeTag} from './escape'
@@ -63,7 +63,8 @@ export default class OsmDownloader {
 						`(node(changed);way(changed););\n`+
 						`out meta geom;`
 					const doc=await server.overpass.fetch(query) // TODO also pump through handleOsmDownloadAndLink()
-					bubbleCustomEvent($root,'osmNoteViewer:changesetAdiffRender',[changeset,doc])
+					const adiff=getAdiffFromDocument(changeset,doc)
+					bubbleCustomEvent($root,'osmNoteViewer:changesetAdiffRender',[changeset,adiff])
 				} else {
 					bubbleCustomEvent($root,'osmNoteViewer:changesetRender',changeset)
 				}
