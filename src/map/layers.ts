@@ -1,5 +1,5 @@
 import NoteMarker from './marker'
-import type {GeometryData} from './osm'
+import type {GeometryData, LayerBoundOsmData} from './osm'
 
 export class NoteLayer extends L.FeatureGroup {
 	getLayerId(marker: L.Layer): number {
@@ -52,25 +52,33 @@ export class OsmDataLayers {
 		this.modifiedDataLayer.clearLayers()
 		this.deletedDataLayer.clearLayers()
 	}
-	addGeometryAndGetBaseLayer(geometryData: GeometryData): L.Layer {
-		let [baseLayer]=geometryData.baseGeometry
-		if (!baseLayer) baseLayer=L.circleMarker([0,0])
-		this.baseDataLayer.addLayer(baseLayer)
-		if (geometryData.createdGeometry) {
-			for (const layer of geometryData.createdGeometry) {
-				this.createdDataLayer.addLayer(layer)
+	addGeometryAndGetLayerDataMap(geometryData: GeometryData): [
+		baseLayer:L.Layer,baseLayerId:number,
+		//layerDataMap:Map<number,LayerBoundOsmData>
+		baseData:LayerBoundOsmData
+	] {
+		const layerDataMap=new Map<number,LayerBoundOsmData>()
+		let [baseLayer,baseData]=geometryData.baseGeometry
+		if (!baseLayer) {
+			baseLayer=L.circleMarker([0,0])
+		}
+		const addLayerWithData=(group:L.FeatureGroup,layer:L.Layer,data:LayerBoundOsmData):number=>{
+			group.addLayer(layer)
+			const layerId=group.getLayerId(layer)
+			layerDataMap.set(layerId,data)
+			return layerId
+		}
+		const baseLayerId=addLayerWithData(this.baseDataLayer,baseLayer,baseData)
+		const addLayersWithData=(group:L.FeatureGroup,layersWithData:[layer:L.Layer,data:LayerBoundOsmData][]|undefined)=>{
+			if (!layersWithData) return
+			for (const [layer,data] of layersWithData) {
+				addLayerWithData(group,layer,data)
 			}
 		}
-		if (geometryData.modifiedGeometry) {
-			for (const layer of geometryData.modifiedGeometry) {
-				this.modifiedDataLayer.addLayer(layer)
-			}
-		}
-		if (geometryData.deletedGeometry) {
-			for (const layer of geometryData.deletedGeometry) {
-				this.deletedDataLayer.addLayer(layer)
-			}
-		}
-		return baseLayer
+		addLayersWithData(this.createdDataLayer,geometryData.createdGeometry)
+		addLayersWithData(this.modifiedDataLayer,geometryData.modifiedGeometry)
+		addLayersWithData(this.deletedDataLayer,geometryData.deletedGeometry)
+		// return [baseLayer,baseLayerId,layerDataMap]
+		return [baseLayer,baseLayerId,baseData]
 	}
 }

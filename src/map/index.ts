@@ -21,7 +21,7 @@ export default class NoteMap {
 	trackLayer: L.FeatureGroup
 	needToFitNotes: boolean = false
 	freezeMode: NoteMapFreezeMode = 'no'
-	private queuedPopup: [layerId: number, writer: (layer:L.Layer)=>HTMLElement] | undefined
+	private queuedPopup: [baseLayerId: number, writer: (layer:L.Layer)=>HTMLElement] | undefined
 	constructor(
 		$root: HTMLElement,
 		private $container: HTMLElement,
@@ -63,15 +63,15 @@ export default class NoteMap {
 				lon: this.lon.toFixed(precision),
 			})
 			if (!this.queuedPopup) return
-			const [layerId,popupWriter]=this.queuedPopup
+			const [baseLayerId,popupWriter]=this.queuedPopup
 			this.queuedPopup=undefined
-			const baseGeometry=this.dataLayers.baseDataLayer.getLayer(layerId)
-			if (baseGeometry) {
+			const baseLayer=this.dataLayers.baseDataLayer.getLayer(baseLayerId)
+			if (baseLayer) {
 				const popup=L.popup({autoPan:false})
 					.setLatLng(this.leafletMap.getCenter()) // need to tell the popup this exact place after map stops moving, otherwise is sometimes gets opened off-screen
 					.setContent(popupWriter)
 					.openOn(this.leafletMap)
-				baseGeometry.bindPopup(popup)
+				baseLayer.bindPopup(popup)
 			}
 		})
 		$root.addEventListener('osmNoteViewer:mapMoveTrigger',({detail:{zoom,lat,lon}})=>{
@@ -80,22 +80,22 @@ export default class NoteMap {
 		$root.addEventListener('osmNoteViewer:elementRender',({detail:[element,elements]})=>{
 			// TODO zoom on second click, like with notes
 			this.dataLayers.clearLayers()
-			this.addOsmData(
-				renderOsmElement(server,element,elements)
+			this.addOsmData(server,
+				renderOsmElement(element,elements)
 			)
 		})
 		$root.addEventListener('osmNoteViewer:changesetRender',({detail:changeset})=>{
 			// TODO zoom on second click, like with notes
 			this.dataLayers.clearLayers()
-			this.addOsmData(
-				renderOsmChangeset(server,changeset)
+			this.addOsmData(server,
+				renderOsmChangeset(changeset)
 			)
 		})
 		$root.addEventListener('osmNoteViewer:changesetAdiffRender',({detail:[changeset,adiff]})=>{
 			// TODO zoom on second click, like with notes
 			this.dataLayers.clearLayers()
-			this.addOsmData(
-				renderOsmChangesetAdiff(server,changeset,adiff)
+			this.addOsmData(server,
+				renderOsmChangesetAdiff(changeset,adiff)
 			)
 		})
 		// TODO maybe have :dataClear event
@@ -207,11 +207,11 @@ export default class NoteMap {
 		const bounds=this.trackLayer.getBounds() // invalid if track is empty; track is empty when no notes are in table view
 		if (bounds.isValid()) this.fitBoundsIfNotFrozen(bounds)
 	}
-	private addOsmData(geometryData: GeometryData): void {
-		const [,popupContents]=geometryData.baseGeometry
-		const popupWriter=makePopupWriter(popupContents,()=>this.dataLayers.clearLayers())
-		const baseLayer=this.dataLayers.addGeometryAndGetBaseLayer(geometryData)
-		const baseLayerId=this.dataLayers.baseDataLayer.getLayerId(baseLayer)
+	private addOsmData(server: Server, geometryData: GeometryData): void {
+		// const [baseLayer,baseLayerId,layerDataMap]=this.dataLayers.addGeometryAndGetLayerDataMap(geometryData) // TODO
+		// const popupWriter=makePopupWriter(layerDataMap,()=>this.dataLayers.clearLayers()) // TODO
+		const [baseLayer,baseLayerId,baseData]=this.dataLayers.addGeometryAndGetLayerDataMap(geometryData)
+		const popupWriter=makePopupWriter(server,baseData,()=>this.dataLayers.clearLayers())
 		// geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
 		if (this.freezeMode=='full') {
 			const popup=L.popup({autoPan:false}).setContent(popupWriter)
