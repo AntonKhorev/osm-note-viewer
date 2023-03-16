@@ -171,14 +171,24 @@ export function getElementsFromOsmApiResponse(data: any): OsmElementMap {
 
 export type OsmAdiffNodeElement = OsmElementBase & {
 	type: 'node'
-	lat: number // must have lat and lon because visible
+} & ({
+	visible: false
+}|{
+	visible: true
+	lat: number
 	lon: number
-}
+})
+
+type OsmAdiffWayNodeRef = [ref:number,lat:number,lon:number]
 
 export type OsmAdiffWayElement = OsmElementBase & {
 	type: 'way'
-	nodeRefs: [ref:number,lat:number,lon:number][]
-}
+} & ({
+	visible: false
+}|{
+	visible: true
+	nodeRefs: OsmAdiffWayNodeRef[]
+})
 
 export type OsmAdiffElement = OsmAdiffNodeElement | OsmAdiffWayElement
 
@@ -202,12 +212,11 @@ export type OsmAdiff = {
 export function getAdiffFromDocument(changeset: OsmChangeset, doc: Document): OsmAdiff {
 	const node: {[id:number]: OsmAdiffAction<OsmAdiffNodeElement>} = {}
 	const way: {[id:number]: OsmAdiffAction<OsmAdiffWayElement>} = {}
-	// const addElement
 	const changedNodeIds=new Set<number>()
-	for (const action of doc.querySelectorAll('action')) {
-		const actionType=action.getAttribute('type')
+	for (const actionDocElement of doc.querySelectorAll('action')) {
+		const actionType=actionDocElement.getAttribute('type')
 		if (actionType=='create') {
-			const element=doesElementMatchChangeset(changeset,changedNodeIds,action)
+			const element=doesElementMatchChangeset(changeset,changedNodeIds,actionDocElement)
 			if (element) {
 				if (element.type=='node') {
 					node[element.id]={
@@ -222,7 +231,7 @@ export function getAdiffFromDocument(changeset: OsmChangeset, doc: Document): Os
 				}
 			}
 		} else if (actionType=='modify') {
-			const elements=doesNewElementMatchChangeset(changeset,changedNodeIds,action)
+			const elements=doesNewElementMatchChangeset(changeset,changedNodeIds,actionDocElement)
 			if (elements) {
 				const [oldElement,newElement]=elements
 				if (oldElement.type=='node' && newElement.type=='node') {
@@ -238,7 +247,7 @@ export function getAdiffFromDocument(changeset: OsmChangeset, doc: Document): Os
 				}
 			}
 		} else if (actionType=='delete') {
-			const elements=doesNewElementMatchChangeset(changeset,changedNodeIds,action)
+			const elements=doesNewElementMatchChangeset(changeset,changedNodeIds,actionDocElement)
 			if (elements) {
 				const [oldElement,newElement]=elements
 				if (oldElement.type=='node' && newElement.type=='node') {
@@ -303,7 +312,7 @@ function isElementMatchesChangeset(changeset: OsmChangeset, changedNodeIds: Set<
 		if (changesetIdMatched) {
 			changedNodeIds.add(element.id)
 		}
-	} else if (element.type=='way') {
+	} else if (element.type=='way' && element.visible) {
 		if (!changesetIdMatched) {
 			for (const [ref] of element.nodeRefs) {
 				if (changedNodeIds.has(ref)) return true
@@ -329,28 +338,35 @@ function readAdiffElement(docElement: Element): OsmAdiffElement {
 	const changeset=readNumberAttribute('changeset')
 	const uid=readNumberAttribute('uid')
 	const user=readAttribute('user')
-	if (docElement.tagName=='node') {
-		const lat=readNumberAttribute('lat')
-		const lon=readNumberAttribute('lon')
-		return {
-			type: 'node',
-			id,version,timestamp,changeset,uid,user,
-			lat,lon
-		}
-	} else if (docElement.tagName=='way') {
-		const nodeRefs: OsmAdiffWayElement['nodeRefs'] = []
-		for (const nodeRefDocElement of docElement.querySelectorAll('nd')) {
-			const ref=readNumberAttribute('ref',nodeRefDocElement)
-			const lat=readNumberAttribute('lat',nodeRefDocElement)
-			const lon=readNumberAttribute('lon',nodeRefDocElement)
-			nodeRefs.push([ref,lat,lon])
-		}
-		return {
-			type: 'way',
-			id,version,timestamp,changeset,uid,user,
-			nodeRefs
+	const type=docElement.tagName
+	const visible=docElement.getAttribute('visible')!='false'
+	if (!visible) {
+		if (type=='node' || type=='way') {
+			return {
+				type,id,version,timestamp,changeset,uid,user,visible
+			}
 		}
 	} else {
-		throw new TypeError(`Overpass error: unexpected element type "${docElement.tagName}"`)
+		if (type=='node') {
+			const lat=readNumberAttribute('lat')
+			const lon=readNumberAttribute('lon')
+			return {
+				type,id,version,timestamp,changeset,uid,user,visible,
+				lat,lon
+			}
+		} else if (type=='way') {
+			const nodeRefs: OsmAdiffWayNodeRef[] = []
+			for (const nodeRefDocElement of docElement.querySelectorAll('nd')) {
+				const ref=readNumberAttribute('ref',nodeRefDocElement)
+				const lat=readNumberAttribute('lat',nodeRefDocElement)
+				const lon=readNumberAttribute('lon',nodeRefDocElement)
+				nodeRefs.push([ref,lat,lon])
+			}
+			return {
+				type,id,version,timestamp,changeset,uid,user,visible,
+				nodeRefs
+			}
+		}
 	}
+	throw new TypeError(`Overpass error: unexpected element type "${docElement.tagName}"`)
 }

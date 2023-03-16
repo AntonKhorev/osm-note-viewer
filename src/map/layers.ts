@@ -52,23 +52,25 @@ export class OsmDataLayers {
 		this.modifiedDataLayer.clearLayers()
 		this.deletedDataLayer.clearLayers()
 	}
-	addGeometryAndGetBaseGeometry(geometryData: GeometryData): L.Layer {
-		let baseGeometry: L.Layer
-		if (geometryData.baseGeometry) {
-			baseGeometry=geometryData.baseGeometry
-		} else {
-			baseGeometry=L.circleMarker([0,0])
-		}
-		this.baseDataLayer.addLayer(baseGeometry)
+	addGeometryAndGetBaseLayer(geometryData: GeometryData): L.Layer {
+		let [baseLayer]=geometryData.baseGeometry
+		if (!baseLayer) baseLayer=L.circleMarker([0,0])
+		this.baseDataLayer.addLayer(baseLayer)
 		if (geometryData.createdGeometry) {
-			this.createdDataLayer.addLayer(geometryData.createdGeometry)
+			for (const layer of geometryData.createdGeometry) {
+				this.createdDataLayer.addLayer(layer)
+			}
 		}
 		if (geometryData.modifiedGeometry) {
-			this.modifiedDataLayer.addLayer(geometryData.modifiedGeometry)
+			for (const layer of geometryData.modifiedGeometry) {
+				this.modifiedDataLayer.addLayer(layer)
+			}
 		}
 		if (geometryData.deletedGeometry) {
-			this.deletedDataLayer.addLayer(geometryData.deletedGeometry)
+			for (const layer of geometryData.deletedGeometry) {
+				this.deletedDataLayer.addLayer(layer)
+			}
 		}
-		return baseGeometry
+		return baseLayer
 	}
 }

@@ -11,92 +11,28 @@ import {makeEscapeTag} from '../escape'
 
 const e=makeEscapeTag(encodeURIComponent)
 
-export interface GeometryData {
-	baseGeometry?: L.Layer
-	createdGeometry?: L.Layer
-	modifiedGeometry?: L.Layer
-	deletedGeometry?: L.Layer
-	skippedRelationIds?: Set<number>
-}
-
-class GroupedGeometryData implements GeometryData {
-	baseGeometry?: L.FeatureGroup
-	createdGeometry?: L.FeatureGroup
-	modifiedGeometry?: L.FeatureGroup
-	deletedGeometry?: L.FeatureGroup
-	skippedRelationIds?: Set<number>
-	include(that: GeometryData) {
-		this.addBaseGeometry(that.baseGeometry)
-		this.addCreatedGeometry(that.createdGeometry)
-		this.addModifiedGeometry(that.modifiedGeometry)
-		this.addDeletedGeometry(that.deletedGeometry)
-		if (that.skippedRelationIds) {
-			if (!this.skippedRelationIds) {
-				this.skippedRelationIds=that.skippedRelationIds
-			} else {
-				this.skippedRelationIds=new Set([...this.skippedRelationIds,...that.skippedRelationIds])
-			}
-		}
-	}
-	addSkippedRelationId(id: number) {
-		if (!this.skippedRelationIds) {
-			this.skippedRelationIds=new Set([id])
-		} else {
-			this.skippedRelationIds.add(id)
-		}
-	}
-	addAdiffGeometry(actionType: 'create'|'modify'|'delete', geometry: L.Layer) {
-		if (actionType=='create') {
-			this.addCreatedGeometry(geometry)
-		} else if (actionType=='modify') {
-			this.addModifiedGeometry(geometry)
-		} else if (actionType=='delete') {
-			this.addDeletedGeometry(geometry)
-		}
-	}
-	private addBaseGeometry(geometry?: L.Layer): void {
-		if (!geometry) return
-		if (!this.baseGeometry) this.baseGeometry=L.featureGroup()
-		this.baseGeometry.addLayer(geometry)
-	}
-	private addCreatedGeometry(geometry?: L.Layer): void {
-		if (!geometry) return
-		if (!this.createdGeometry) this.createdGeometry=L.featureGroup()
-		this.createdGeometry.addLayer(geometry)
-	}
-	private addModifiedGeometry(geometry?: L.Layer): void {
-		if (!geometry) return
-		if (!this.modifiedGeometry) this.modifiedGeometry=L.featureGroup()
-		this.modifiedGeometry.addLayer(geometry)
-	}
-	private addDeletedGeometry(geometry?: L.Layer): void {
-		if (!geometry) return
-		if (!this.deletedGeometry) this.deletedGeometry=L.featureGroup()
-		this.deletedGeometry.addLayer(geometry)
-	}
+export type GeometryData = {
+	baseGeometry: [layer:L.Layer|null,popup:HTMLElement[]]
+	createdGeometry?: L.Layer[]
+	modifiedGeometry?: L.Layer[]
+	deletedGeometry?: L.Layer[]
 }
 
 export function renderOsmElement(
 	server: Server, element: OsmElement, elements: OsmElementMap
-): [
-	geometryData: GeometryData, popupContents: HTMLElement[]
-] {
+): GeometryData {
 	if (element.type=='node') {
-		return makeRenderReturnValues(server,
-			makeOsmNodeGeometry(element),
-			makeOsmElementPopupContents(server,element)
-		)
+		const layer=makeOsmNodeLayer(element)
+		const popupContents=makeOsmElementPopupContents(server,element)
+		return {baseGeometry:[layer,popupContents]}
 	} else if (element.type=='way') {
-		return makeRenderReturnValues(server,
-			makeOsmWayGeometry(element,elements),
-			makeOsmElementPopupContents(server,element)
-		)
+		const layer=makeOsmWayLayer(element,elements)
+		const popupContents=makeOsmElementPopupContents(server,element)
+		return {baseGeometry:[layer,popupContents]}
 	} else if (element.type=='relation') {
-		return makeRenderReturnValues(server,
-			makeOsmRelationGeometry(element,elements),
-			makeOsmElementPopupContents(server,element),
-			`the relation has no direct node/way members`
-		)
+		const [layer,skippedRelationIds]=makeOsmRelationLayerAndSkippedRelations(element,elements)
+		const popupContents=makeOsmElementPopupContents(server,element)
+		return {baseGeometry:amendBaseGeometry(server,layer,popupContents,skippedRelationIds,`the relation has no direct node/way members`)}
 	} else {
 		throw new TypeError(`OSM API error: requested element has unknown type`) // shouldn't happen
 	}
@@ -104,148 +40,156 @@ export function renderOsmElement(
 
 export function renderOsmChangeset(
 	server: Server, changeset: OsmChangeset
-): [
-	geometryData: GeometryData, popupContents: HTMLElement[]
-] {
-	return makeRenderReturnValues(server,
-		makeOsmChangesetGeometry(changeset),
-		makeOsmChangesetPopupContents(server,changeset),
-		`the changeset is empty`
-	)
+): GeometryData {
+	const layer=makeOsmChangesetLayer(changeset)
+	const popupContents=makeOsmChangesetPopupContents(server,changeset)
+	return {baseGeometry:amendBaseGeometry(server,layer,popupContents,null,`the changeset is empty`)}
 }
 export function renderOsmChangesetAdiff(
 	server: Server, changeset: OsmChangeset, adiff: OsmAdiff
-): [
-	geometryData: GeometryData, popupContents: HTMLElement[]
-] {
-	return makeRenderReturnValues(server,
-		makeOsmChangesetAdiffGeometry(changeset,adiff),
-		makeOsmChangesetAdiffPopupContents(server,changeset),
-		`the changeset is empty`
-	)
+): GeometryData {
+	const [
+		baseLayer,createdLayers,modifiedLayers,deletedLayers
+	]=makeOsmChangesetAdiffLayers(changeset,adiff)
+	const popupContents=makeOsmChangesetAdiffPopupContents(server,changeset)
+	return {
+		baseGeometry: amendBaseGeometry(server,baseLayer,popupContents,null,`the changeset is empty`),
+		createdGeometry: createdLayers,
+		modifiedGeometry: modifiedLayers,
+		deletedGeometry: deletedLayers
+	}
 }
 
-function makeRenderReturnValues(
+function amendBaseGeometry(
 	server: Server,
-	geometryData: GeometryData,
+	layer: L.Layer|null,
 	popupContents: HTMLElement[],
+	skippedRelationIds: Set<number>|null,
 	reasonOfFakeGeometry?: string
 ): [
-	geometryData: GeometryData, popupContents: HTMLElement[]
+	layer: L.Layer|null, popupContents: HTMLElement[]
 ] {
-	if (geometryData.skippedRelationIds?.size) {
-		const type=geometryData.skippedRelationIds.size>1?`relations`:`relation`
+	if (skippedRelationIds?.size) {
+		const type=skippedRelationIds.size>1?`relations`:`relation`
 		const $details=makeElement('details')()(
-			makeElement('summary')()(`${geometryData.skippedRelationIds.size} member ${type}`),
-			...[...geometryData.skippedRelationIds].flatMap((subRelationId,i)=>{
+			makeElement('summary')()(`${skippedRelationIds.size} member ${type}`),
+			...[...skippedRelationIds].flatMap((subRelationId,i)=>{
 				const $a=getRelation(server,subRelationId)
 				return i?[`, `,$a]:[$a]
 			})
 		)
-		if (geometryData.skippedRelationIds.size<=7) $details.open=true
+		if (skippedRelationIds.size<=7) $details.open=true
 		popupContents.push($details)
 	}
-	if (!geometryData.baseGeometry) {
+	if (!layer) {
 		if (reasonOfFakeGeometry) {
 			popupContents.push(p(strong(`Warning`),`: displayed geometry is incorrect because ${reasonOfFakeGeometry}`))
 		}
 	}
-	return [geometryData,popupContents]
+	return [layer,popupContents]
 }
 
 // geometries
 
-function makeOsmNodeGeometry(node: OsmNodeElement): GeometryData {
-	return {
-		baseGeometry: L.circleMarker([node.lat,node.lon])
-	}
+function makeOsmNodeLayer(node: OsmNodeElement): L.Layer {
+	return L.circleMarker([node.lat,node.lon])
 }
-function makeOsmWayGeometry(way: OsmWayElement, elements: OsmElementMap): GeometryData {
+function makeOsmWayLayer(way: OsmWayElement, elements: OsmElementMap): L.Layer {
 	const coords: L.LatLngExpression[] = []
 	for (const id of way.nodes) {
 		const node=elements.node[id]
 		if (!node) throw new TypeError(`OSM API error: referenced element not found in response data`)
 		coords.push([node.lat,node.lon])
 	}
-	return {
-		baseGeometry: L.polyline(coords)
-	}
+	return L.polyline(coords)
 }
-function makeOsmRelationGeometry(relation: OsmRelationElement, elements: OsmElementMap): GeometryData {
-	const geometryData=new GroupedGeometryData()
+function makeOsmRelationLayerAndSkippedRelations(relation: OsmRelationElement, elements: OsmElementMap): [
+	layer:L.Layer|null,skippedRelationIds:Set<number>
+] {
+	let layer:L.FeatureGroup|null=null
+	const skippedRelationIds=new Set<number>
 	for (const member of relation.members) {
 		if (member.type=='node') {
 			const node=elements.node[member.ref]
 			if (!node) throw new TypeError(`OSM API error: referenced element not found in response data`)
-			geometryData.include(makeOsmNodeGeometry(node))
+			if (!layer) layer=L.featureGroup()
+			layer.addLayer(makeOsmNodeLayer(node))
 		} else if (member.type=='way') {
 			const way=elements.way[member.ref]
 			if (!way) throw new TypeError(`OSM API error: referenced element not found in response data`)
-			geometryData.include(makeOsmWayGeometry(way,elements))
+			if (!layer) layer=L.featureGroup()
+			layer.addLayer(makeOsmWayLayer(way,elements))
 		} else if (member.type=='relation') {
-			geometryData.addSkippedRelationId(member.ref)
+			skippedRelationIds.add(member.ref)
 		}
 	}
-	return geometryData
+	return [layer,skippedRelationIds]
 }
 
-function makeOsmChangesetGeometry(changeset: OsmChangeset): GeometryData {
-	if (!hasBbox(changeset)) return {}
-	return {
-		baseGeometry:  L.rectangle([
-			[changeset.minlat,changeset.minlon],
-			[changeset.maxlat,changeset.maxlon]
-		],{color:'#000'})
-	}
+function makeOsmChangesetLayer(changeset: OsmChangeset): L.Layer|null {
+	if (!hasBbox(changeset)) return null
+	return L.rectangle([
+		[changeset.minlat,changeset.minlon],
+		[changeset.maxlat,changeset.maxlon]
+	],{color:'#000'})
 }
 
-function makeOsmChangesetAdiffGeometry(changeset: OsmChangeset, adiff: OsmAdiff): GeometryData {
+function makeOsmChangesetAdiffLayers(changeset: OsmChangeset, adiff: OsmAdiff): [
+	baseLayer: L.Layer|null,
+	createdLayers: L.Layer[],
+	modifiedLayers: L.Layer[],
+	deletedLayers: L.Layer[]
+] {
 	const colorAdded='#39dbc0' // color values from OSMCha
 	const colorModifiedOld='#db950a'
 	const colorModifiedNew='#e8e845'
 	const colorDeleted='#cc2c47'
-	const geometryData=new GroupedGeometryData()
-	const addOsmElementGeometry=<T>(
+	const baseLayer=makeOsmChangesetLayer(changeset)
+	const createdLayers: L.Layer[] = []
+	const modifiedLayers: L.Layer[] = []
+	const deletedLayers: L.Layer[] = []
+	const addOsmElementLayer=<T>(
 		adiffElement: OsmAdiffAction<T>,
-		geometryAdder: (geometryData: GroupedGeometryData, actionType: 'create'|'modify'|'delete', color: string, element: T)=>void
+		makeLayer: (element:T,color:string)=>L.Layer
 	)=>{
 		if (adiffElement.action=='create') {
-			geometryAdder(geometryData,adiffElement.action,colorAdded,adiffElement.newElement)
+			createdLayers.push(
+				makeLayer(adiffElement.newElement,colorAdded)
+			)
 		} else if (adiffElement.action=='modify') {
-			geometryAdder(geometryData,adiffElement.action,colorModifiedOld,adiffElement.oldElement)
-			geometryAdder(geometryData,adiffElement.action,colorModifiedNew,adiffElement.newElement)
+			const modifyLayer=L.layerGroup()
+			modifyLayer.addLayer(
+				makeLayer(adiffElement.oldElement,colorModifiedOld)
+			)
+			modifyLayer.addLayer(
+				makeLayer(adiffElement.newElement,colorModifiedNew)
+			)
+			modifiedLayers.push(modifyLayer)
 		} else if (adiffElement.action=='delete') {
-			geometryAdder(geometryData,adiffElement.action,colorDeleted,adiffElement.oldElement)
+			deletedLayers.push(
+				makeLayer(adiffElement.oldElement,colorDeleted)
+			)
 		}
 	}
-	geometryData.include(makeOsmChangesetGeometry(changeset))
 	for (const adiffElement of Object.values(adiff.way)) {
-		addOsmElementGeometry(adiffElement,addOsmAdiffWayGeometry)
+		addOsmElementLayer(adiffElement,makeAdiffWayLayer)
 	}
 	for (const adiffElement of Object.values(adiff.node)) {
-		addOsmElementGeometry(adiffElement,addOsmAdiffNodeGeometry)
+		addOsmElementLayer(adiffElement,makeAdiffNodeLayer)
 	}
-	return geometryData
+	return [baseLayer,createdLayers,modifiedLayers,deletedLayers]
 }
-function addOsmAdiffNodeGeometry(
-	geometryData: GroupedGeometryData, actionType: 'create'|'modify'|'delete', color: string, node: OsmAdiffNodeElement
-): void {
-	geometryData.addAdiffGeometry(
-		actionType,
-		L.circleMarker(
-			[node.lat,node.lon],
-			{radius:3,color,opacity:.2,fillOpacity:1}
-		)
+function makeAdiffNodeLayer(node: OsmAdiffNodeElement, color: string): L.Layer {
+	if (!node.visible) throw new TypeError(`unexpected deleted node`)
+	return L.circleMarker(
+		[node.lat,node.lon],
+		{radius:3,color,opacity:.2,fillOpacity:1}
 	)
 }
-function addOsmAdiffWayGeometry(
-	geometryData: GroupedGeometryData, actionType: 'create'|'modify'|'delete', color: string, way: OsmAdiffWayElement
-): void {
+function makeAdiffWayLayer(way: OsmAdiffWayElement, color: string): L.Layer {
+	if (!way.visible) throw new TypeError(`unexpected deleted way`)
 	const coords: L.LatLngExpression[] = way.nodeRefs.map(([,lat,lon])=>[lat,lon])
-	geometryData.addAdiffGeometry(
-		actionType,
-		L.polyline(coords,{weight:2,color})
-	)
+	return L.polyline(coords,{weight:2,color})
 }
 
 // popups

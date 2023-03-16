@@ -81,21 +81,21 @@ export default class NoteMap {
 			// TODO zoom on second click, like with notes
 			this.dataLayers.clearLayers()
 			this.addOsmData(
-				...renderOsmElement(server,element,elements)
+				renderOsmElement(server,element,elements)
 			)
 		})
 		$root.addEventListener('osmNoteViewer:changesetRender',({detail:changeset})=>{
 			// TODO zoom on second click, like with notes
 			this.dataLayers.clearLayers()
 			this.addOsmData(
-				...renderOsmChangeset(server,changeset)
+				renderOsmChangeset(server,changeset)
 			)
 		})
 		$root.addEventListener('osmNoteViewer:changesetAdiffRender',({detail:[changeset,adiff]})=>{
 			// TODO zoom on second click, like with notes
 			this.dataLayers.clearLayers()
 			this.addOsmData(
-				...renderOsmChangesetAdiff(server,changeset,adiff)
+				renderOsmChangesetAdiff(server,changeset,adiff)
 			)
 		})
 		// TODO maybe have :dataClear event
@@ -207,10 +207,11 @@ export default class NoteMap {
 		const bounds=this.trackLayer.getBounds() // invalid if track is empty; track is empty when no notes are in table view
 		if (bounds.isValid()) this.fitBoundsIfNotFrozen(bounds)
 	}
-	private addOsmData(geometryData: GeometryData, popupContents: HTMLElement[]): void {
+	private addOsmData(geometryData: GeometryData): void {
+		const [,popupContents]=geometryData.baseGeometry
 		const popupWriter=makePopupWriter(popupContents,()=>this.dataLayers.clearLayers())
-		const baseGeometry=this.dataLayers.addGeometryAndGetBaseGeometry(geometryData)
-		const layerId=this.dataLayers.baseDataLayer.getLayerId(baseGeometry)
+		const baseLayer=this.dataLayers.addGeometryAndGetBaseLayer(geometryData)
+		const baseLayerId=this.dataLayers.baseDataLayer.getLayerId(baseLayer)
 		// geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
 		if (this.freezeMode=='full') {
 			const popup=L.popup({autoPan:false}).setContent(popupWriter)
@@ -232,7 +233,7 @@ export default class NoteMap {
 				}
 			}
 			const onClosePopup=()=>{
-				baseGeometry.bindPopup(popup,{offset:[0,0]})
+				baseLayer.bindPopup(popup,{offset:[0,0]})
 				const $popupContainer=popup.getElement()
 				if (!$popupContainer) return
 				const fadeoutTransitionTime=200
@@ -241,23 +242,23 @@ export default class NoteMap {
 					restorePopupTip($popupContainer)
 				},fadeoutTransitionTime)
 			}
-			baseGeometry.on('popupopen',onOpenPopup).on('popupclose',onClosePopup)
-			baseGeometry.bindPopup(popup).openPopup()
-		} else if (baseGeometry instanceof L.CircleMarker) {
-			this.queuedPopup=[layerId,popupWriter]
+			baseLayer.on('popupopen',onOpenPopup).on('popupclose',onClosePopup)
+			baseLayer.bindPopup(popup).openPopup()
+		} else if (baseLayer instanceof L.CircleMarker) {
+			this.queuedPopup=[baseLayerId,popupWriter]
 			const minZoomForNode=10
 			if (this.zoom<minZoomForNode) {
-				this.flyToIfNotFrozen(baseGeometry.getLatLng(),minZoomForNode,{duration:.5})
+				this.flyToIfNotFrozen(baseLayer.getLatLng(),minZoomForNode,{duration:.5})
 			} else {
-				this.panToIfNotFrozen(baseGeometry.getLatLng())
+				this.panToIfNotFrozen(baseLayer.getLatLng())
 			}
 		} else {
 			const bounds=this.dataLayers.baseDataLayer.getBounds()
 			if (bounds.isValid()) {
-				this.queuedPopup=[layerId,popupWriter]
+				this.queuedPopup=[baseLayerId,popupWriter]
 				this.fitBoundsIfNotFrozen(bounds)
 			} else {
-				baseGeometry.bindPopup(popupWriter).openPopup()
+				baseLayer.bindPopup(popupWriter).openPopup()
 			}
 		}
 	}
