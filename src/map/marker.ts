@@ -42,6 +42,8 @@ function getNoteMarkerIcon(web: WebProvider, note: Note, isSelected: boolean): L
 	$a.title=`${note.status} note #${note.id}`
 	$a.classList.add('listened','other-note')
 	$a.dataset.noteId=String(note.id)
+	$a.style.width=widthWithAura+'px'
+	$a.style.height=heightWithAura+'px'
 	return L.divIcon({
 		html:$a,
 		className: 'note-marker',

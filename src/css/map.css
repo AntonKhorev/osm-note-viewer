@@ -24,8 +24,6 @@
 }
 .map .note-marker a {
 	display: inline-block;
-	width: 33px;
-	height: 44px;
 }
 .map .note-track {
 	vector-effect: non-scaling-stroke;
