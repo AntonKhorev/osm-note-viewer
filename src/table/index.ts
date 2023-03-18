@@ -24,7 +24,6 @@ export default class NoteTable implements NoteTableUpdater {
 	private wrappedNoteSectionListeners: Array<[event: string, listener: (this:HTMLTableSectionElement,ev:Event)=>void]>
 	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedAllNotesCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
-	private wrappedNoteMarkerClickListener: (this: NoteMarker) => void
 	private cursor: Cursor
 	private expanders: Expanders
 	private noteSectionVisibilityObserver: NoteSectionVisibilityObserver
@@ -90,9 +89,6 @@ export default class NoteTable implements NoteTableUpdater {
 		}
 		this.wrappedAllNotesCheckboxClickListener=function(ev: MouseEvent){
 			that.allNotesCheckboxClickListener(this,ev)
-		}
-		this.wrappedNoteMarkerClickListener=function(){
-			that.noteMarkerClickListener(this)
 		}
 		this.cursor=new Cursor(
 			this.$table,
@@ -352,9 +348,8 @@ export default class NoteTable implements NoteTableUpdater {
 		return $headSection
 	}
 	private makeMarker(note: Note, isVisible: boolean): NoteMarker {
-		const marker=new NoteMarker(note)
+		const marker=new NoteMarker(this.server.web,note)
 		marker.addTo(isVisible ? this.map.unselectedNoteLayer : this.map.filteredNoteLayer)
-		marker.on('click',this.wrappedNoteMarkerClickListener)
 		return marker
 	}
 	private writeNoteSection(
@@ -426,10 +421,6 @@ export default class NoteTable implements NoteTableUpdater {
 			if (isSelectedNoteSection($noteSection)) nSelected++
 		}
 		bubbleCustomEvent(this.$table,'osmNoteViewer:noteCountsChange',[nFetched,nVisible,nSelected])
-	}
-	private noteMarkerClickListener(marker: NoteMarker): void {
-		const $noteSection=this.getNoteSection(marker.noteId)
-		if ($noteSection) this.focusOnNote($noteSection)
 	}
 	private noteCheckboxClickListener($checkbox: HTMLInputElement, ev: MouseEvent): void { // need 'click' handler rather than 'change' to stop click propagation
 		ev.stopPropagation()
@@ -546,7 +537,7 @@ export default class NoteTable implements NoteTableUpdater {
 		if (!note) return
 		const marker=this.map.moveNoteMarkerToLayer(noteId,getTargetLayer())
 		if (!marker) return
-		marker.updateIcon(note,isSelected)
+		marker.updateIcon(this.server.web,note,isSelected)
 		const activeClasses=['hover','click'].map(type=>'active-'+type).filter(cls=>$noteSection.classList.contains(cls))
 		marker.getElement()?.classList.add(...activeClasses)
 	}

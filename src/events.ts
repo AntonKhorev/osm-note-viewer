@@ -3,7 +3,7 @@ import {bubbleEvent, bubbleCustomEvent} from './html'
 export default class GlobalEventListener {
 	constructor($root: HTMLElement) {
 		$root.addEventListener('click',ev=>{
-			if (!(ev.target instanceof HTMLElement)) return
+			if (!(ev.target instanceof Element)) return
 			const $e=ev.target.closest('a.listened, time.listened')
 			if ($e instanceof HTMLAnchorElement) {
 				if ($e.dataset.noteId && $e.dataset.self) {

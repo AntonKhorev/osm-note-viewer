@@ -1,22 +1,23 @@
 import type {Note, NoteComment} from '../data'
+import type {WebProvider} from '../server'
 import {escapeXml, makeEscapeTag} from '../escape'
 
 const e=makeEscapeTag(escapeXml)
 
 export default class NoteMarker extends L.Marker {
 	noteId: number
-	constructor(note: Note) {
-		const icon=getNoteMarkerIcon(note,false)
+	constructor(web: WebProvider, note: Note) {
+		const icon=getNoteMarkerIcon(web,note,false)
 		super([note.lat,note.lon],{icon})
 		this.noteId=note.id
 	}
-	updateIcon(note: Note, isSelected: boolean) {
-		const icon=getNoteMarkerIcon(note,isSelected)
+	updateIcon(web: WebProvider, note: Note, isSelected: boolean) {
+		const icon=getNoteMarkerIcon(web,note,isSelected)
 		this.setIcon(icon)
 	}
 }
 
-function getNoteMarkerIcon(note: Note, isSelected: boolean): L.DivIcon {
+function getNoteMarkerIcon(web: WebProvider, note: Note, isSelected: boolean): L.DivIcon {
 	const width=25
 	const height=40
 	const auraThickness=4
@@ -27,7 +28,6 @@ function getNoteMarkerIcon(note: Note, isSelected: boolean): L.DivIcon {
 	const nInnerCircles=4
 	let html=``
 	html+=e`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`
-	html+=e`<title>${note.status} note #${note.id}</title>`,
 	html+=e`<path d="${computeMarkerOutlinePath(heightWithAura-.5,rWithAura-.5)}" class="aura" fill="none" />`
 	html+=e`<path d="${computeMarkerOutlinePath(height,r)}" fill="${getStatusColor(note.status)}" />`
 	const statuses=[...noteCommentsToStatuses(note.comments)]
@@ -36,8 +36,14 @@ function getNoteMarkerIcon(note: Note, isSelected: boolean): L.DivIcon {
 		html+=drawCheckMark()
 	}
 	html+=e`</svg>`
+	const $a=document.createElement('a')
+	$a.innerHTML=html
+	$a.href=web.getUrl(`note/`+encodeURIComponent(note.id))
+	$a.title=`${note.status} note #${note.id}`
+	$a.classList.add('listened','other-note')
+	$a.dataset.noteId=String(note.id)
 	return L.divIcon({
-		html,
+		html:$a,
 		className: 'note-marker',
 		iconSize: [widthWithAura,heightWithAura],
 		iconAnchor: [(widthWithAura-1)/2,heightWithAura],

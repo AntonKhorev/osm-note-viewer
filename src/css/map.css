@@ -22,6 +22,11 @@
 .map .note-marker.active-click .aura {
 	fill: #FC0;
 }
+.map .note-marker a {
+	display: inline-block;
+	width: 33px;
+	height: 44px;
+}
 .map .note-track {
 	vector-effect: non-scaling-stroke;
 }
