@@ -1,5 +1,5 @@
 import Server from '../server'
-import type {OsmBase, OsmElementBase} from '../osm'
+import type {OsmBase, OsmElementBase, OsmAdiffElement} from '../osm'
 import type {LayerBoundOsmData} from './osm'
 import {makeElement, makeDiv, makeLink} from '../html'
 import {p,strong,em} from '../html-shortcuts'
@@ -67,8 +67,7 @@ export function makePopupWriter(
 				const headerContents=makeElementHeaderContents(server,newElement,newElement.type)
 				$popup.append(
 					h(...headerContents),
-					...makeElementContents(server,oldElement,oldElement.visible,`Old version`),
-					...makeElementContents(server,newElement,newElement.visible,`New version`)
+					makeElementAdiffTable(server,oldElement,newElement)
 				)
 			}
 		}
@@ -122,28 +121,90 @@ function makeElementContents(server: Server, element: OsmElementBase, visisble=t
 	return content
 }
 
+function makeElementAdiffTable(server: Server, oldElement: OsmAdiffElement, newElement: OsmAdiffElement): HTMLElement {
+	const $figure=document.createElement('figure')
+	const $table=document.createElement('table')
+	$figure.append($table)
+	$table.insertRow().append(
+		makeElement('th')()(`timestamp`),
+		makeElement('td')()(makeDate(oldElement.timestamp,true)),
+		makeElement('td')()(makeDate(newElement.timestamp,true))
+	)
+	$table.insertRow().append(
+		makeElement('th')()(`user`),
+		makeElement('td')()(makeUserLink(server,oldElement)),
+		makeElement('td')()(makeUserLink(server,newElement)),
+	)
+	$table.insertRow().append(
+		makeElement('th')()(`version`),
+		makeElement('td')()(String(oldElement.version)),
+		makeElement('td')()(String(newElement.version)),
+	)
+	$table.insertRow().append(
+		makeElement('th')()(`changeset`),
+		makeElement('td')()(makeChangesetLink(server,oldElement.changeset)),
+		makeElement('td')()(makeChangesetLink(server,newElement.changeset)),
+	)
+	const allKeys=new Set<string>()
+	if (oldElement.tags) {
+		for (const k of Object.keys(oldElement.tags)) {
+			allKeys.add(k)
+		}
+	}
+	if (newElement.tags) {
+		for (const k of Object.keys(newElement.tags)) {
+			allKeys.add(k)
+		}
+	}
+	if (allKeys.size==0) return $figure
+	const sortedAllKeys=[...allKeys.values()].sort()
+	const changedKeys=[] as string[]
+	const unchangedKeys=[] as string[]
+	for (const k of sortedAllKeys) {
+		((oldElement.tags?.[k]==newElement.tags?.[k])?unchangedKeys:changedKeys).push(k)
+	}
+	$table.insertRow().append(
+		makeElement('th')()(`tags`),
+		makeElement('td')()(),
+		makeElement('td')()(),
+	)
+	const tagList=[...changedKeys,...unchangedKeys].map(k=>[
+		k,
+		oldElement.tags?.[k]??'',
+		newElement.tags?.[k]??''
+	] as [k:string,...vs:string[]])
+	startWritingTags($figure,$table,tagList)
+	return $figure
+}
+
 function makeTagsFigure(tags: {[key:string]:string}|undefined, skipKey?: string): HTMLElement|null {
 	if (!tags) return null
-	const tagBatchSize=10
-	const tagList=Object.entries(tags).filter(([k,v])=>k!=skipKey)
+	const tagList=Object.entries(tags).filter(([k])=>k!=skipKey)
 	if (tagList.length<=0) return null
-	let i=0
-	let $button: HTMLButtonElement|undefined
 	const $figure=document.createElement('figure')
 	const $figcaption=document.createElement('figcaption')
 	$figcaption.textContent=`Tags`
 	const $table=document.createElement('table')
 	$figure.append($figcaption,$table)
-	writeTagBatch()
+	startWritingTags($figure,$table,tagList)
 	return $figure
+}
+
+function startWritingTags($figure: HTMLElement, $table: HTMLTableElement, tagList: [k:string,...vs:string[]][]): void {
+	const tagBatchSize=10
+	let $button: HTMLButtonElement|undefined
+	let i=0
+	writeTagBatch()
 	function writeTagBatch() {
 		for (let j=0;i<tagList.length&&j<tagBatchSize;i++,j++) {
-			const [k,v]=tagList[i]
+			const [k,...vs]=tagList[i]
 			const $row=$table.insertRow()
 			const $keyCell=$row.insertCell()
 			$keyCell.textContent=k
 			if (k.length>30) $keyCell.classList.add('long')
-			$row.insertCell().textContent=v
+			for (const v of vs) {
+				$row.insertCell().textContent=v
+			}
 		}
 		if (i<tagList.length) {
 			if (!$button) {
@@ -185,11 +246,16 @@ function makeRelationLink(server: Server, relationId: number): HTMLElement {
 	return $a
 }
 
-function makeDate(timestamp: string): HTMLElement {
+function makeDate(timestamp: string, short=false): HTMLElement {
 	const readableDate=timestamp.replace('T',' ').replace('Z','')
 	const $time=document.createElement('time')
 	$time.classList.add('listened')
-	$time.textContent=readableDate
+	if (short) {
+		$time.title=readableDate+` UTC`
+		;[$time.textContent]=readableDate.split(' ',1)
+	} else {
+		$time.textContent=readableDate
+	}
 	$time.dateTime=timestamp
 	return $time
 }
