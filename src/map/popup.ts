@@ -163,11 +163,9 @@ function makeElementAdiffTable(server: Server, oldElement: OsmAdiffElement, newE
 	for (const k of sortedAllKeys) {
 		((oldElement.tags?.[k]==newElement.tags?.[k])?unchangedKeys:changedKeys).push(k)
 	}
-	$table.insertRow().append(
-		makeElement('th')()(`tags`),
-		makeElement('td')()(),
-		makeElement('td')()(),
-	)
+	const $tagsTh=makeElement('th')()(`tags`)
+	$tagsTh.colSpan=3
+	$table.insertRow().append($tagsTh)
 	const tagList=[...changedKeys,...unchangedKeys].map(k=>[
 		k,
 		oldElement.tags?.[k]??'',
@@ -202,8 +200,16 @@ function startWritingTags($figure: HTMLElement, $table: HTMLTableElement, tagLis
 			const $keyCell=$row.insertCell()
 			$keyCell.textContent=k
 			if (k.length>30) $keyCell.classList.add('long')
+			let lastV: string|undefined
+			let $lastTd: HTMLTableCellElement|undefined
 			for (const v of vs) {
-				$row.insertCell().textContent=v
+				if ($lastTd && lastV==v) {
+					$lastTd.colSpan++
+				} else {
+					$lastTd=$row.insertCell()
+					lastV=v
+				}
+				$lastTd.textContent=v
 			}
 		}
 		if (i<tagList.length) {
