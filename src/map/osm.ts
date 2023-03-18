@@ -25,6 +25,7 @@ export type LayerBoundOsmData = ({
 
 export type GeometryData = {
 	baseGeometry:      [layer:L.Layer|null,data:LayerBoundOsmData]
+	extraBaseLayer?: L.Layer
 	createdGeometry?:  [layer:L.Layer,data:LayerBoundOsmData][]
 	modifiedGeometry?: [layer:L.Layer,data:LayerBoundOsmData][]
 	deletedGeometry?:  [layer:L.Layer,data:LayerBoundOsmData][]
@@ -69,7 +70,8 @@ export function renderOsmChangesetAdiff(changeset: OsmChangeset, adiff: OsmAdiff
 	const colorModifiedOld='#db950a'
 	const colorModifiedNew='#e8e845'
 	const colorDeleted='#cc2c47'
-	const baseLayer=makeOsmChangesetLayer(changeset)
+	const baseLayer=makeOsmChangesetLayer(changeset,{color:'#000',fill:false})
+	const extraBaseLayer=makeOsmChangesetLayer(changeset,{color:'#000',stroke:false,interactive:false})
 	const geometryData: GeometryData = {
 		baseGeometry:[
 			baseLayer,{
@@ -81,6 +83,7 @@ export function renderOsmChangesetAdiff(changeset: OsmChangeset, adiff: OsmAdiff
 		modifiedGeometry:[],
 		deletedGeometry:[]
 	}
+	if (extraBaseLayer) geometryData.extraBaseLayer=extraBaseLayer
 	const addOsmElementLayer=<T extends OsmAdiffElement>(
 		adiffAction: OsmAdiffAction<T>,
 		makeLayer: (element:T,color:string)=>L.Layer
@@ -155,12 +158,12 @@ function makeOsmRelationLayerAndSkippedRelations(relation: OsmRelationElement, e
 	return [layer,skippedRelationIds]
 }
 
-function makeOsmChangesetLayer(changeset: OsmChangeset): L.Layer|null {
+function makeOsmChangesetLayer(changeset: OsmChangeset, options: L.PolylineOptions = {color:'#000'}): L.Layer|null {
 	if (!hasBbox(changeset)) return null
 	return L.rectangle([
 		[changeset.minlat,changeset.minlon],
 		[changeset.maxlat,changeset.maxlon]
-	],{color:'#000'})
+	],options)
 }
 
 function makeAdiffNodeLayer(node: OsmAdiffNodeElement, color: string): L.Layer {

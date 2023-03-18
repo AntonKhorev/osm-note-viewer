@@ -209,6 +209,9 @@ export default class NoteMap {
 	}
 	private addOsmData(server: Server, geometryData: GeometryData): void {
 		const clear=()=>this.dataLayers.clearLayers()
+		if (geometryData.extraBaseLayer) {
+			this.dataLayers.baseDataLayer.addLayer(geometryData.extraBaseLayer)
+		}
 		let [baseLayerIfDefined,baseData]=geometryData.baseGeometry
 		const baseLayer=baseLayerIfDefined??L.circleMarker([0,0])
 		this.dataLayers.baseDataLayer.addLayer(baseLayer)
