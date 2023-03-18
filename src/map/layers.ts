@@ -54,7 +54,6 @@ export class OsmDataLayers {
 	}
 	addGeometryAndGetLayerDataMap(geometryData: GeometryData): [
 		baseLayer:L.Layer,baseLayerId:number,
-		//layerDataMap:Map<number,LayerBoundOsmData>
 		baseData:LayerBoundOsmData
 	] {
 		const layerDataMap=new Map<number,LayerBoundOsmData>()

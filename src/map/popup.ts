@@ -1,5 +1,5 @@
 import Server from '../server'
-import type {OsmBase, OsmElement} from '../osm'
+import type {OsmBase, OsmElementBase} from '../osm'
 import type {LayerBoundOsmData} from './osm'
 import {makeElement, makeDiv, makeLink} from '../html'
 import {p,strong,em} from '../html-shortcuts'
@@ -11,19 +11,20 @@ const c=(...s: Array<string|HTMLElement>)=>p(em(...s))
 
 export function makePopupWriter(
 	server: Server,
-	// layerDataMap: Map<number,LayerBoundOsmData>, // TODO
-	layerData: LayerBoundOsmData, // TODO remove
+	layerData: LayerBoundOsmData,
 	clear: ()=>void
 ) {
-	return (layer: L.Layer)=>{ // TODO read data from layer
+	return ()=>{
 		const $popup=makeDiv('osm-element-popup-contents')()
 		if (layerData.type=='changeset') {
 			const changeset=layerData.item
-			const changesetHref=server.web.getUrl(e`changeset/${changeset.id}`)
-			const $header=h(`Changeset: `,makeLink(String(changeset.id),changesetHref))
-			const withAdiffLink=!layerData.adiff && !!server.overpass
-			if (withAdiffLink) $header.append(` (`,makeChangesetAdiffLink(server,changeset.id),`)`)
-			$popup.append($header)
+			const headerContents: (string|HTMLElement)[] = [
+				`Changeset: `,makeChangesetLink(server,changeset.id)
+			]
+			if (server.overpass) headerContents.push(
+				` · `,makeChangesetAdiffLink(server,changeset.id)
+			)
+			$popup.append(h(...headerContents))
 			if (changeset.tags?.comment) $popup.append(
 				c(changeset.tags.comment)
 			)
@@ -43,22 +44,28 @@ export function makePopupWriter(
 			}
 		} else if (layerData.type=='element' && !layerData.adiff) {
 			const element=layerData.item
-			const elementPath=e`${element.type}/${element.id}`
+			const headerContents=makeElementHeaderContents(server,element,element.type)
 			$popup.append(
-				h(capitalize(element.type)+`: `,makeLink(getElementName(element),server.web.getUrl(elementPath))),
-				h(
-					`Version #${element.version} · `,
-					makeLink(`View History`,server.web.getUrl(elementPath+'/history')),` · `,
-					makeLink(`Edit`,server.web.getUrl(e`edit?${element.type}=${element.id}`))
-				),
-				p(
-					`Edited on `,makeDate(element.timestamp),
-					` by `,makeUserLink(server,element),
-					` · Changeset #`,makeChangesetLink(server,element.changeset)
-				)
+				h(...headerContents),
+				...makeElementContents(server,element)
 			)
-			const $tags=makeTagsFigure(element.tags)
-			if ($tags) $popup.append($tags)
+		} else if (layerData.type=='element' && layerData.adiff) {
+			if (layerData.item.action=='create') {
+				const {newElement}=layerData.item
+				const headerContents=makeElementHeaderContents(server,newElement,newElement.type)
+				$popup.append(
+					h(...headerContents),
+					...makeElementContents(server,newElement,newElement.visible,`New version`)
+				)
+			} else if (layerData.item.action=='modify' || layerData.item.action=='delete') {
+				const {oldElement,newElement}=layerData.item
+				const headerContents=makeElementHeaderContents(server,newElement,newElement.type)
+				$popup.append(
+					h(...headerContents),
+					...makeElementContents(server,oldElement,oldElement.visible,`Old version`),
+					...makeElementContents(server,newElement,newElement.visible,`New version`)
+				)
+			}
 		}
 		if (layerData.skippedRelationIds?.size) {
 			const type=layerData.skippedRelationIds.size>1?`relations`:`relation`
@@ -83,6 +90,31 @@ export function makePopupWriter(
 		}
 		return $popup
 	}
+}
+
+function makeElementHeaderContents(server: Server, element: OsmElementBase, elementType: string): (string|HTMLElement)[] {
+	const elementPath=e`${elementType}/${element.id}`
+	const headerContents: (string|HTMLElement)[] = [
+		capitalize(elementType)+`: `,
+		makeLink(getElementName(element),server.web.getUrl(elementPath)),
+		` · `,makeLink(`View History`,server.web.getUrl(elementPath+'/history')),
+		` · `,makeLink(`Edit`,server.web.getUrl(e`edit?${elementType}=${element.id}`))
+	]
+	return headerContents
+}
+
+function makeElementContents(server: Server, element: OsmElementBase, visisble=true, versionTitle=`Version`): HTMLElement[] {
+	const content: HTMLElement[] = []
+	content.push(h(
+		`${versionTitle} #${element.version}`,visisble?``:` · DELETED`
+	),p(
+		`Edited on `,makeDate(element.timestamp),
+		` by `,makeUserLink(server,element),
+		` · Changeset #`,makeChangesetLink(server,element.changeset)
+	))
+	const $tags=makeTagsFigure(element.tags)
+	if ($tags) content.push($tags)
+	return content
 }
 
 function makeTagsFigure(tags: {[key:string]:string}|undefined, skipKey?: string): HTMLElement|null {
@@ -125,7 +157,7 @@ function makeTagsFigure(tags: {[key:string]:string}|undefined, skipKey?: string)
 
 function makeChangesetAdiffLink(server: Server, changesetId: number): HTMLElement {
 	const $a=makeChangesetLink(server,changesetId)
-	$a.innerText=`adiff`
+	$a.innerText=`Adiff`
 	$a.dataset.adiff='true'
 	return $a
 }
@@ -178,7 +210,7 @@ function makeUserIdLink(server: Server, uid: number): HTMLAnchorElement {
 	return makeLink('#'+uid,fromId(uid))
 }
 
-function getElementName(element: OsmElement): string {
+function getElementName(element: OsmElementBase): string {
 	if (element.tags?.name) {
 		return `${element.tags.name} (${element.id})`
 	} else {

@@ -5,7 +5,7 @@ export type OsmBase = {
 	tags?: {[key:string]:string}
 }
 
-type OsmElementBase = OsmBase & { // visible osm element
+export type OsmElementBase = OsmBase & { // visible osm element
 	timestamp: string
 	version: number
 	changeset: number
@@ -202,6 +202,7 @@ export type OsmAdiffAction<T> = {
 } | {
 	action: 'delete'
 	oldElement: T
+	newElement: T
 }
 
 export type OsmAdiff = {
@@ -253,12 +254,12 @@ export function getAdiffFromDocument(changeset: OsmChangeset, doc: Document): Os
 				if (oldElement.type=='node' && newElement.type=='node') {
 					node[newElement.id]={
 						action: actionType,
-						oldElement
+						oldElement,newElement
 					}
 				} else if (oldElement.type=='way' && newElement.type=='way') {
 					way[newElement.id]={
 						action: actionType,
-						oldElement
+						oldElement,newElement
 					}
 				}
 			}
@@ -347,11 +348,18 @@ function readAdiffElement(docElement: Element): OsmAdiffElement {
 			}
 		}
 	} else {
+		let tags: {[key:string]:string}|undefined
+		for (const tagDocElement of docElement.querySelectorAll('tag')) {
+			if (!tags) tags={}
+			const k=readAttribute('k',tagDocElement)
+			const v=readAttribute('v',tagDocElement)
+			tags[k]=v
+		}
 		if (type=='node') {
 			const lat=readNumberAttribute('lat')
 			const lon=readNumberAttribute('lon')
 			return {
-				type,id,version,timestamp,changeset,uid,user,visible,
+				type,id,version,timestamp,changeset,uid,user,visible,tags,
 				lat,lon
 			}
 		} else if (type=='way') {
@@ -363,7 +371,7 @@ function readAdiffElement(docElement: Element): OsmAdiffElement {
 				nodeRefs.push([ref,lat,lon])
 			}
 			return {
-				type,id,version,timestamp,changeset,uid,user,visible,
+				type,id,version,timestamp,changeset,uid,user,visible,tags,
 				nodeRefs
 			}
 		}

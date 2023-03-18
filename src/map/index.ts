@@ -2,7 +2,7 @@ import type Server from '../server'
 import NoteMarker from './marker'
 import NoteMapBounds from './bounds'
 import {OsmDataLayers, NoteLayer, CrosshairLayer} from './layers'
-import type {GeometryData} from './osm'
+import type {GeometryData, LayerBoundOsmData} from './osm'
 import {renderOsmElement, renderOsmChangeset, renderOsmChangesetAdiff} from './osm'
 import {makePopupWriter} from './popup'
 import {bubbleCustomEvent} from '../html'
@@ -208,10 +208,22 @@ export default class NoteMap {
 		if (bounds.isValid()) this.fitBoundsIfNotFrozen(bounds)
 	}
 	private addOsmData(server: Server, geometryData: GeometryData): void {
-		// const [baseLayer,baseLayerId,layerDataMap]=this.dataLayers.addGeometryAndGetLayerDataMap(geometryData) // TODO
-		// const popupWriter=makePopupWriter(layerDataMap,()=>this.dataLayers.clearLayers()) // TODO
-		const [baseLayer,baseLayerId,baseData]=this.dataLayers.addGeometryAndGetLayerDataMap(geometryData)
-		const popupWriter=makePopupWriter(server,baseData,()=>this.dataLayers.clearLayers())
+		const clear=()=>this.dataLayers.clearLayers()
+		let [baseLayerIfDefined,baseData]=geometryData.baseGeometry
+		const baseLayer=baseLayerIfDefined??L.circleMarker([0,0])
+		this.dataLayers.baseDataLayer.addLayer(baseLayer)
+		const baseLayerId=this.dataLayers.baseDataLayer.getLayerId(baseLayer)
+		const addLayersWithData=(group:L.FeatureGroup,layersWithData:[layer:L.Layer,data:LayerBoundOsmData][]|undefined)=>{
+			if (!layersWithData) return
+			for (const [layer,data] of layersWithData) {
+				group.addLayer(layer)
+				layer.bindPopup(makePopupWriter(server,data,clear))
+			}
+		}
+		addLayersWithData(this.dataLayers.createdDataLayer ,geometryData.createdGeometry)
+		addLayersWithData(this.dataLayers.modifiedDataLayer,geometryData.modifiedGeometry)
+		addLayersWithData(this.dataLayers.deletedDataLayer ,geometryData.deletedGeometry)
+		const popupWriter=makePopupWriter(server,baseData,clear)
 		// geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
 		if (this.freezeMode=='full') {
 			const popup=L.popup({autoPan:false}).setContent(popupWriter)

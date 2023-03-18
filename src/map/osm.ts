@@ -22,17 +22,12 @@ export type LayerBoundOsmData = ({
 	skippedRelationIds?: Set<number>
 	emptyReason?: string
 }
-// TODO:
-// export type LayerOsmData = {
-// 	osmData: LayerBoundOsmData
-// }
 
 export type GeometryData = {
 	baseGeometry:      [layer:L.Layer|null,data:LayerBoundOsmData]
 	createdGeometry?:  [layer:L.Layer,data:LayerBoundOsmData][]
 	modifiedGeometry?: [layer:L.Layer,data:LayerBoundOsmData][]
 	deletedGeometry?:  [layer:L.Layer,data:LayerBoundOsmData][]
-	// deletedGeometry?:  (L.Layer&LayerOsmData)[]
 }
 
 export function renderOsmElement(element: OsmElement, elements: OsmElementMap): GeometryData {
@@ -96,7 +91,7 @@ export function renderOsmChangesetAdiff(changeset: OsmChangeset, adiff: OsmAdiff
 				{type:'element',adiff:true,item:adiffAction}
 			])
 		} else if (adiffAction.action=='modify') {
-			const modifyLayer=L.layerGroup()
+			const modifyLayer=L.featureGroup()
 			modifyLayer.addLayer(
 				makeLayer(adiffAction.oldElement,colorModifiedOld)
 			)
