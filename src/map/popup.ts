@@ -18,12 +18,19 @@ export function makePopupWriter(
 		const $popup=makeDiv('osm-element-popup-contents')()
 		if (layerData.type=='changeset') {
 			const changeset=layerData.item
+			const changesetHref=server.web.getUrl(e`changeset/${changeset.id}`)
 			const headerContents: (string|HTMLElement)[] = [
-				`Changeset: `,makeChangesetLink(server,changeset.id)
+				`Changeset: `,makeLink(String(changeset.id),changesetHref)
 			]
-			if (server.overpass) headerContents.push(
-				` · `,makeChangesetAdiffLink(server,changeset.id)
-			)
+			if (layerData.adiff) {
+				headerContents.push(
+					` · `,makeChangesetLink(server,changeset.id,`Hide adiff`)
+				)
+			} else {
+				if (server.overpass) headerContents.push(
+					` · `,makeChangesetAdiffLink(server,changeset.id,`Show adiff`)
+				)
+			}
 			$popup.append(h(...headerContents))
 			if (changeset.tags?.comment) $popup.append(
 				c(changeset.tags.comment)
@@ -38,10 +45,8 @@ export function makePopupWriter(
 				` by `,makeUserLink(server,changeset)
 			)
 			$popup.append($p)
-			if (!layerData.adiff) {
-				const $tags=makeTagsFigure(changeset.tags,'comment')
-				if ($tags) $popup.append($tags)
-			}
+			const $tags=makeTagsFigure(changeset.tags,'comment')
+			if ($tags) $popup.append($tags)
 		} else if (layerData.type=='element' && !layerData.adiff) {
 			const element=layerData.item
 			const headerContents=makeElementHeaderContents(server,element,element.type)
@@ -155,16 +160,16 @@ function makeTagsFigure(tags: {[key:string]:string}|undefined, skipKey?: string)
 	}
 }
 
-function makeChangesetAdiffLink(server: Server, changesetId: number): HTMLElement {
+function makeChangesetAdiffLink(server: Server, changesetId: number, text: string): HTMLElement {
 	const $a=makeChangesetLink(server,changesetId)
-	$a.innerText=`Adiff`
+	$a.innerText=text
 	$a.dataset.adiff='true'
 	return $a
 }
 
-function makeChangesetLink(server: Server, changesetId: number): HTMLElement {
+function makeChangesetLink(server: Server, changesetId: number, text?: string): HTMLElement {
 	const cid=String(changesetId)
-	const $a=makeLink(cid,server.web.getUrl(e`changeset/${cid}`))
+	const $a=makeLink(text??cid,server.web.getUrl(e`changeset/${cid}`))
 	$a.classList.add('listened')
 	$a.dataset.changesetId=cid
 	return $a
