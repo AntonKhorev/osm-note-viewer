@@ -1893,25 +1893,31 @@ class OsmDataLayers {
         this.modifiedDataLayer.clearLayers();
         this.deletedDataLayer.clearLayers();
     }
-    addGeometryAndGetBaseGeometry(geometryData) {
-        let baseGeometry;
-        if (geometryData.baseGeometry) {
-            baseGeometry = geometryData.baseGeometry;
+    addGeometryAndGetLayerDataMap(geometryData) {
+        const layerDataMap = new Map();
+        let [baseLayer, baseData] = geometryData.baseGeometry;
+        if (!baseLayer) {
+            baseLayer = L.circleMarker([0, 0]);
         }
-        else {
-            baseGeometry = L.circleMarker([0, 0]);
-        }
-        this.baseDataLayer.addLayer(baseGeometry);
-        if (geometryData.createdGeometry) {
-            this.createdDataLayer.addLayer(geometryData.createdGeometry);
-        }
-        if (geometryData.modifiedGeometry) {
-            this.modifiedDataLayer.addLayer(geometryData.modifiedGeometry);
-        }
-        if (geometryData.deletedGeometry) {
-            this.deletedDataLayer.addLayer(geometryData.deletedGeometry);
-        }
-        return baseGeometry;
+        const addLayerWithData = (group, layer, data) => {
+            group.addLayer(layer);
+            const layerId = group.getLayerId(layer);
+            layerDataMap.set(layerId, data);
+            return layerId;
+        };
+        const baseLayerId = addLayerWithData(this.baseDataLayer, baseLayer, baseData);
+        const addLayersWithData = (group, layersWithData) => {
+            if (!layersWithData)
+                return;
+            for (const [layer, data] of layersWithData) {
+                addLayerWithData(group, layer, data);
+            }
+        };
+        addLayersWithData(this.createdDataLayer, geometryData.createdGeometry);
+        addLayersWithData(this.modifiedDataLayer, geometryData.modifiedGeometry);
+        addLayersWithData(this.deletedDataLayer, geometryData.deletedGeometry);
+        // return [baseLayer,baseLayerId,layerDataMap]
+        return [baseLayer, baseLayerId, baseData];
     }
 }
 
@@ -2050,227 +2056,98 @@ function getElementsFromOsmApiResponse(data) {
     }
     return { node, way, relation };
 }
-
-const e$8 = makeEscapeTag(encodeURIComponent);
-class GroupedGeometryData {
-    include(that) {
-        this.addBaseGeometry(that.baseGeometry);
-        this.addCreatedGeometry(that.createdGeometry);
-        this.addModifiedGeometry(that.modifiedGeometry);
-        this.addDeletedGeometry(that.deletedGeometry);
-        if (that.skippedRelationIds) {
-            if (!this.skippedRelationIds) {
-                this.skippedRelationIds = that.skippedRelationIds;
-            }
-            else {
-                this.skippedRelationIds = new Set([...this.skippedRelationIds, ...that.skippedRelationIds]);
-            }
-        }
-    }
-    addSkippedRelationId(id) {
-        if (!this.skippedRelationIds) {
-            this.skippedRelationIds = new Set([id]);
-        }
-        else {
-            this.skippedRelationIds.add(id);
-        }
-    }
-    addAdiffGeometry(actionType, geometry) {
-        if (actionType == 'create') {
-            this.addCreatedGeometry(geometry);
-        }
-        else if (actionType == 'modify') {
-            this.addModifiedGeometry(geometry);
-        }
-        else if (actionType == 'delete') {
-            this.addDeletedGeometry(geometry);
-        }
-    }
-    addBaseGeometry(geometry) {
-        if (!geometry)
-            return;
-        if (!this.baseGeometry)
-            this.baseGeometry = L.featureGroup();
-        this.baseGeometry.addLayer(geometry);
-    }
-    addCreatedGeometry(geometry) {
-        if (!geometry)
-            return;
-        if (!this.createdGeometry)
-            this.createdGeometry = L.featureGroup();
-        this.createdGeometry.addLayer(geometry);
-    }
-    addModifiedGeometry(geometry) {
-        if (!geometry)
-            return;
-        if (!this.modifiedGeometry)
-            this.modifiedGeometry = L.featureGroup();
-        this.modifiedGeometry.addLayer(geometry);
-    }
-    addDeletedGeometry(geometry) {
-        if (!geometry)
-            return;
-        if (!this.deletedGeometry)
-            this.deletedGeometry = L.featureGroup();
-        this.deletedGeometry.addLayer(geometry);
-    }
-}
-function renderOsmElement(server, element, elements) {
-    if (element.type == 'node') {
-        return makeRenderReturnValues(server, makeOsmNodeGeometry(element), makeOsmElementPopupContents(server, element));
-    }
-    else if (element.type == 'way') {
-        return makeRenderReturnValues(server, makeOsmWayGeometry(element, elements), makeOsmElementPopupContents(server, element));
-    }
-    else if (element.type == 'relation') {
-        return makeRenderReturnValues(server, makeOsmRelationGeometry(element, elements), makeOsmElementPopupContents(server, element), `the relation has no direct node/way members`);
-    }
-    else {
-        throw new TypeError(`OSM API error: requested element has unknown type`); // shouldn't happen
-    }
-}
-function renderOsmChangeset(server, changeset) {
-    return makeRenderReturnValues(server, makeOsmChangesetGeometry(changeset), makeOsmChangesetPopupContents(server, changeset), `the changeset is empty`);
-}
-function renderOsmChangesetAdiff(server, changeset, doc) {
-    return makeRenderReturnValues(server, makeOsmChangesetAdiffGeometry(changeset, doc), makeOsmChangesetAdiffPopupContents(server, changeset), `the changeset is empty`);
-}
-function makeRenderReturnValues(server, geometryData, popupContents, reasonOfFakeGeometry) {
-    if (geometryData.skippedRelationIds?.size) {
-        const type = geometryData.skippedRelationIds.size > 1 ? `relations` : `relation`;
-        const $details = makeElement('details')()(makeElement('summary')()(`${geometryData.skippedRelationIds.size} member ${type}`), ...[...geometryData.skippedRelationIds].flatMap((subRelationId, i) => {
-            const $a = getRelation(server, subRelationId);
-            return i ? [`, `, $a] : [$a];
-        }));
-        if (geometryData.skippedRelationIds.size <= 7)
-            $details.open = true;
-        popupContents.push($details);
-    }
-    if (!geometryData.baseGeometry) {
-        if (reasonOfFakeGeometry) {
-            popupContents.push(p(strong(`Warning`), `: displayed geometry is incorrect because ${reasonOfFakeGeometry}`));
-        }
-    }
-    return [geometryData, popupContents];
-}
-// geometries
-function makeOsmNodeGeometry(node) {
-    return {
-        baseGeometry: L.circleMarker([node.lat, node.lon])
-    };
-}
-function makeOsmWayGeometry(way, elements) {
-    const coords = [];
-    for (const id of way.nodes) {
-        const node = elements.node[id];
-        if (!node)
-            throw new TypeError(`OSM API error: referenced element not found in response data`);
-        coords.push([node.lat, node.lon]);
-    }
-    return {
-        baseGeometry: L.polyline(coords)
-    };
-}
-function makeOsmRelationGeometry(relation, elements) {
-    const geometryData = new GroupedGeometryData();
-    for (const member of relation.members) {
-        if (member.type == 'node') {
-            const node = elements.node[member.ref];
-            if (!node)
-                throw new TypeError(`OSM API error: referenced element not found in response data`);
-            geometryData.include(makeOsmNodeGeometry(node));
-        }
-        else if (member.type == 'way') {
-            const way = elements.way[member.ref];
-            if (!way)
-                throw new TypeError(`OSM API error: referenced element not found in response data`);
-            geometryData.include(makeOsmWayGeometry(way, elements));
-        }
-        else if (member.type == 'relation') {
-            geometryData.addSkippedRelationId(member.ref);
-        }
-    }
-    return geometryData;
-}
-function makeOsmChangesetGeometry(changeset) {
-    if (!hasBbox(changeset))
-        return {};
-    return {
-        baseGeometry: L.rectangle([
-            [changeset.minlat, changeset.minlon],
-            [changeset.maxlat, changeset.maxlon]
-        ], { color: '#000' })
-    };
-}
-function makeOsmChangesetAdiffGeometry(changeset, doc) {
-    const colorAdded = '#39dbc0'; // color values from OSMCha
-    const colorModifiedOld = '#db950a';
-    const colorModifiedNew = '#e8e845';
-    const colorDeleted = '#cc2c47';
+function getAdiffFromDocument(changeset, doc) {
+    const node = {};
+    const way = {};
     const changedNodeIds = new Set();
-    const geometryData = new GroupedGeometryData();
-    geometryData.include(makeOsmChangesetGeometry(changeset));
-    for (const action of doc.querySelectorAll('action')) {
-        const actionType = action.getAttribute('type');
+    for (const actionDocElement of doc.querySelectorAll('action')) {
+        const actionType = actionDocElement.getAttribute('type');
         if (actionType == 'create') {
-            doIfElementMatchesChangeset(changeset, changedNodeIds, action, (element) => {
-                addOsmAdiffElementGeometry(geometryData, actionType, element, colorAdded);
-            });
+            const element = doesElementMatchChangeset(changeset, changedNodeIds, actionDocElement);
+            if (element) {
+                if (element.type == 'node') {
+                    node[element.id] = {
+                        action: actionType,
+                        newElement: element
+                    };
+                }
+                else if (element.type == 'way') {
+                    way[element.id] = {
+                        action: actionType,
+                        newElement: element
+                    };
+                }
+            }
         }
         else if (actionType == 'modify') {
-            doIfNewElementMatchesChangeset(changeset, changedNodeIds, action, (oldElement, newElement) => {
-                addOsmAdiffElementGeometry(geometryData, actionType, oldElement, colorModifiedOld);
-                addOsmAdiffElementGeometry(geometryData, actionType, newElement, colorModifiedNew);
-            });
+            const elements = doesNewElementMatchChangeset(changeset, changedNodeIds, actionDocElement);
+            if (elements) {
+                const [oldElement, newElement] = elements;
+                if (oldElement.type == 'node' && newElement.type == 'node') {
+                    node[newElement.id] = {
+                        action: actionType,
+                        oldElement, newElement
+                    };
+                }
+                else if (oldElement.type == 'way' && newElement.type == 'way') {
+                    way[newElement.id] = {
+                        action: actionType,
+                        oldElement, newElement
+                    };
+                }
+            }
         }
         else if (actionType == 'delete') {
-            doIfNewElementMatchesChangeset(changeset, changedNodeIds, action, (oldElement, newElement) => {
-                addOsmAdiffElementGeometry(geometryData, actionType, oldElement, colorDeleted);
-            });
+            const elements = doesNewElementMatchChangeset(changeset, changedNodeIds, actionDocElement);
+            if (elements) {
+                const [oldElement, newElement] = elements;
+                if (oldElement.type == 'node' && newElement.type == 'node') {
+                    node[newElement.id] = {
+                        action: actionType,
+                        oldElement, newElement
+                    };
+                }
+                else if (oldElement.type == 'way' && newElement.type == 'way') {
+                    way[newElement.id] = {
+                        action: actionType,
+                        oldElement, newElement
+                    };
+                }
+            }
         }
     }
-    return geometryData;
+    return { node, way };
 }
-function doIfElementMatchesChangeset(changeset, changedNodeIds, parent, doWithElement) {
-    const element = parent.firstElementChild;
-    if (!element)
-        return;
+function doesElementMatchChangeset(changeset, changedNodeIds, parent) {
+    const docElement = parent.firstElementChild;
+    if (!docElement)
+        throw new TypeError(`Overpass error: missing element`);
+    const element = readAdiffElement(docElement);
     if (!isElementMatchesChangeset(changeset, changedNodeIds, element))
-        return;
-    doWithElement(element);
+        return null;
+    return element;
 }
-function doIfNewElementMatchesChangeset(changeset, changedNodeIds, parent, doWithElements) {
+function doesNewElementMatchChangeset(changeset, changedNodeIds, parent) {
     const [oldChild, newChild] = getOldAndNewChildren(parent);
     if (!oldChild || !newChild)
-        return;
-    const oldElement = oldChild.firstElementChild;
-    const newElement = newChild.firstElementChild;
-    if (!oldElement || !newElement)
-        return;
+        throw new TypeError(`Overpass error: missing element`);
+    const oldDocElement = oldChild.firstElementChild;
+    const newDocElement = newChild.firstElementChild;
+    if (!oldDocElement || !newDocElement)
+        throw new TypeError(`Overpass error: missing element`);
+    const oldElement = readAdiffElement(oldDocElement);
+    const newElement = readAdiffElement(newDocElement);
     if (!isElementMatchesChangeset(changeset, changedNodeIds, newElement))
-        return;
-    doWithElements(oldElement, newElement);
-}
-function isElementMatchesChangeset(changeset, changedNodeIds, element) {
-    const changesetId = element.getAttribute('changeset');
-    const changesetIdMatched = !!changesetId && Number(changesetId) == changeset.id;
-    if (element.tagName == 'node') {
-        if (changesetIdMatched) {
-            const nodeId = element.getAttribute('id');
-            if (nodeId)
-                changedNodeIds.add(Number(nodeId));
-        }
+        return null;
+    if (oldElement.type == 'node' && newElement.type == 'node') {
+        return [oldElement, newElement];
     }
-    else if (element.tagName == 'way') {
-        if (!changesetIdMatched) {
-            for (const osmNodeRef of element.querySelectorAll('nd')) {
-                const nodeRef = osmNodeRef.getAttribute('ref');
-                if (nodeRef && changedNodeIds.has(Number(nodeRef)))
-                    return true;
-            }
-        }
+    else if (oldElement.type == 'way' && newElement.type == 'way') {
+        return [oldElement, newElement];
     }
-    return changesetIdMatched;
+    else {
+        throw new TypeError(`Overpass error: unexpected element type change`);
+    }
 }
 function getOldAndNewChildren(parent) {
     let oldChild;
@@ -2285,139 +2162,388 @@ function getOldAndNewChildren(parent) {
     }
     return [oldChild, newChild];
 }
-function addOsmAdiffElementGeometry(geometryData, actionType, osmElement, color) {
-    if (osmElement.tagName == 'node') {
-        const lat = osmElement.getAttribute('lat');
-        const lon = osmElement.getAttribute('lon');
-        if (lat == null || lon == null)
-            return;
-        geometryData.addAdiffGeometry(actionType, L.circleMarker([Number(lat), Number(lon)], { radius: 3, color, opacity: .2, fillOpacity: 1 }));
-    }
-    else if (osmElement.tagName == 'way') {
-        const coords = [];
-        for (const osmNodeRef of osmElement.querySelectorAll('nd')) {
-            const lat = osmNodeRef.getAttribute('lat');
-            const lon = osmNodeRef.getAttribute('lon');
-            if (lat == null || lon == null)
-                continue;
-            coords.push([Number(lat), Number(lon)]);
+function isElementMatchesChangeset(changeset, changedNodeIds, element) {
+    const changesetIdMatched = element.changeset == changeset.id;
+    if (element.type == 'node') {
+        if (changesetIdMatched) {
+            changedNodeIds.add(element.id);
         }
-        geometryData.addAdiffGeometry(actionType, L.polyline(coords, { weight: 2, color }));
     }
-    else if (osmElement.tagName == 'relation') ;
+    else if (element.type == 'way' && element.visible) {
+        if (!changesetIdMatched) {
+            for (const [ref] of element.nodeRefs) {
+                if (changedNodeIds.has(ref))
+                    return true;
+            }
+        }
+    }
+    return changesetIdMatched;
 }
-// popups
-function makeOsmChangesetPopupContents(server, changeset) {
-    const contents = makeCommonOsmChangesetPopupContents(server, changeset, !!server.overpass);
-    const $tags = getTags(changeset.tags, 'comment');
-    if ($tags)
-        contents.push($tags);
-    return contents;
-}
-function makeOsmChangesetAdiffPopupContents(server, changeset) {
-    return makeCommonOsmChangesetPopupContents(server, changeset, false);
-}
-function makeCommonOsmChangesetPopupContents(server, changeset, withAdiffLink) {
-    const contents = [];
-    const h = (...s) => p(makeElement('strong')()(...s));
-    const c = (...s) => p(makeElement('em')()(...s));
-    const changesetHref = server.web.getUrl(e$8 `changeset/${changeset.id}`);
-    const $header = h(`Changeset: `, makeLink(String(changeset.id), changesetHref));
-    if (withAdiffLink)
-        $header.append(` (`, getChangesetAdiff(server, changeset.id), `)`);
-    contents.push($header);
-    if (changeset.tags?.comment)
-        contents.push(c(changeset.tags.comment));
-    const $p = p();
-    if (changeset.closed_at) {
-        $p.append(`Closed on `, getDate(changeset.closed_at));
+function readAdiffElement(docElement) {
+    const readAttribute = (k, e = docElement) => {
+        const v = e.getAttribute(k);
+        if (v == null)
+            throw new TypeError(`Overpass error: missing element ${k}`);
+        return v;
+    };
+    const readNumberAttribute = (k, e = docElement) => {
+        const v = Number(readAttribute(k, e));
+        if (isNaN(v))
+            throw new TypeError(`Overpass error: invalid element ${k}`);
+        return v;
+    };
+    const id = readNumberAttribute('id');
+    const version = readNumberAttribute('version');
+    const timestamp = readAttribute('timestamp');
+    const changeset = readNumberAttribute('changeset');
+    const uid = readNumberAttribute('uid');
+    const user = readAttribute('user');
+    const type = docElement.tagName;
+    const visible = docElement.getAttribute('visible') != 'false';
+    if (!visible) {
+        if (type == 'node' || type == 'way') {
+            return {
+                type, id, version, timestamp, changeset, uid, user, visible
+            };
+        }
     }
     else {
-        $p.append(`Created on `, getDate(changeset.created_at));
+        let tags;
+        for (const tagDocElement of docElement.querySelectorAll('tag')) {
+            if (!tags)
+                tags = {};
+            const k = readAttribute('k', tagDocElement);
+            const v = readAttribute('v', tagDocElement);
+            tags[k] = v;
+        }
+        if (type == 'node') {
+            const lat = readNumberAttribute('lat');
+            const lon = readNumberAttribute('lon');
+            return {
+                type, id, version, timestamp, changeset, uid, user, visible, tags,
+                lat, lon
+            };
+        }
+        else if (type == 'way') {
+            const nodeRefs = [];
+            for (const nodeRefDocElement of docElement.querySelectorAll('nd')) {
+                const ref = readNumberAttribute('ref', nodeRefDocElement);
+                const lat = readNumberAttribute('lat', nodeRefDocElement);
+                const lon = readNumberAttribute('lon', nodeRefDocElement);
+                nodeRefs.push([ref, lat, lon]);
+            }
+            return {
+                type, id, version, timestamp, changeset, uid, user, visible, tags,
+                nodeRefs
+            };
+        }
     }
-    $p.append(` by `, getUser(server, changeset));
-    contents.push($p);
-    return contents;
+    throw new TypeError(`Overpass error: unexpected element type "${docElement.tagName}"`);
 }
-function makeOsmElementPopupContents(server, element, subRelationIds) {
-    const h = (...s) => p(strong(...s));
-    const elementPath = e$8 `${element.type}/${element.id}`;
-    const contents = [
-        h(capitalize(element.type) + `: `, makeLink(getElementName(element), server.web.getUrl(elementPath))),
-        h(`Version #${element.version} · `, makeLink(`View History`, server.web.getUrl(elementPath + '/history')), ` · `, makeLink(`Edit`, server.web.getUrl(e$8 `edit?${element.type}=${element.id}`))),
-        p(`Edited on `, getDate(element.timestamp), ` by `, getUser(server, element), ` · Changeset #`, getChangeset(server, element.changeset))
+
+function renderOsmElement(element, elements) {
+    if (element.type == 'node') {
+        const layer = makeOsmNodeLayer(element);
+        return { baseGeometry: [
+                layer, { type: 'element', adiff: false, item: element }
+            ] };
+    }
+    else if (element.type == 'way') {
+        const layer = makeOsmWayLayer(element, elements);
+        return { baseGeometry: [
+                layer, { type: 'element', adiff: false, item: element }
+            ] };
+    }
+    else if (element.type == 'relation') {
+        const [layer, skippedRelationIds] = makeOsmRelationLayerAndSkippedRelations(element, elements);
+        return { baseGeometry: [
+                layer, {
+                    type: 'element', adiff: false, item: element, skippedRelationIds,
+                    emptyReason: layer ? undefined : `the relation has no direct node/way members`
+                }
+            ] };
+    }
+    else {
+        throw new TypeError(`OSM API error: requested element has unknown type`); // shouldn't happen
+    }
+}
+function renderOsmChangeset(changeset) {
+    const baseLayer = makeOsmChangesetLayer(changeset);
+    return { baseGeometry: [
+            baseLayer, {
+                type: 'changeset', adiff: false, item: changeset,
+                emptyReason: baseLayer ? undefined : `the changeset is empty`
+            }
+        ] };
+}
+function renderOsmChangesetAdiff(changeset, adiff) {
+    const colorAdded = '#39dbc0'; // color values from OSMCha
+    const colorModifiedOld = '#db950a';
+    const colorModifiedNew = '#e8e845';
+    const colorDeleted = '#cc2c47';
+    const baseLayer = makeOsmChangesetLayer(changeset, { color: '#000', fill: false });
+    const extraBaseLayer = makeOsmChangesetLayer(changeset, { color: '#000', stroke: false, interactive: false });
+    const geometryData = {
+        baseGeometry: [
+            baseLayer, {
+                type: 'changeset', adiff: true, item: changeset,
+                emptyReason: baseLayer ? undefined : `the changeset is empty`
+            }
+        ],
+        createdGeometry: [],
+        modifiedGeometry: [],
+        deletedGeometry: []
+    };
+    if (extraBaseLayer)
+        geometryData.extraBaseLayer = extraBaseLayer;
+    const addOsmElementLayer = (adiffAction, makeLayer) => {
+        if (adiffAction.action == 'create') {
+            geometryData.createdGeometry.push([
+                makeLayer(adiffAction.newElement, colorAdded),
+                { type: 'element', adiff: true, item: adiffAction }
+            ]);
+        }
+        else if (adiffAction.action == 'modify') {
+            const modifyLayer = L.featureGroup();
+            modifyLayer.addLayer(makeLayer(adiffAction.oldElement, colorModifiedOld));
+            modifyLayer.addLayer(makeLayer(adiffAction.newElement, colorModifiedNew));
+            geometryData.modifiedGeometry.push([
+                modifyLayer,
+                { type: 'element', adiff: true, item: adiffAction }
+            ]);
+        }
+        else if (adiffAction.action == 'delete') {
+            geometryData.deletedGeometry.push([
+                makeLayer(adiffAction.oldElement, colorDeleted),
+                { type: 'element', adiff: true, item: adiffAction }
+            ]);
+        }
+    };
+    for (const adiffElement of Object.values(adiff.way)) {
+        addOsmElementLayer(adiffElement, makeAdiffWayLayer);
+    }
+    for (const adiffElement of Object.values(adiff.node)) {
+        addOsmElementLayer(adiffElement, makeAdiffNodeLayer);
+    }
+    return geometryData;
+}
+function makeOsmNodeLayer(node) {
+    return L.circleMarker([node.lat, node.lon]);
+}
+function makeOsmWayLayer(way, elements) {
+    const coords = [];
+    for (const id of way.nodes) {
+        const node = elements.node[id];
+        if (!node)
+            throw new TypeError(`OSM API error: referenced element not found in response data`);
+        coords.push([node.lat, node.lon]);
+    }
+    return L.polyline(coords);
+}
+function makeOsmRelationLayerAndSkippedRelations(relation, elements) {
+    let layer = null;
+    const skippedRelationIds = new Set;
+    for (const member of relation.members) {
+        if (member.type == 'node') {
+            const node = elements.node[member.ref];
+            if (!node)
+                throw new TypeError(`OSM API error: referenced element not found in response data`);
+            if (!layer)
+                layer = L.featureGroup();
+            layer.addLayer(makeOsmNodeLayer(node));
+        }
+        else if (member.type == 'way') {
+            const way = elements.way[member.ref];
+            if (!way)
+                throw new TypeError(`OSM API error: referenced element not found in response data`);
+            if (!layer)
+                layer = L.featureGroup();
+            layer.addLayer(makeOsmWayLayer(way, elements));
+        }
+        else if (member.type == 'relation') {
+            skippedRelationIds.add(member.ref);
+        }
+    }
+    return [layer, skippedRelationIds];
+}
+function makeOsmChangesetLayer(changeset, options = { color: '#000' }) {
+    if (!hasBbox(changeset))
+        return null;
+    return L.rectangle([
+        [changeset.minlat, changeset.minlon],
+        [changeset.maxlat, changeset.maxlon]
+    ], options);
+}
+function makeAdiffNodeLayer(node, color) {
+    if (!node.visible)
+        throw new TypeError(`unexpected deleted node`);
+    return L.circleMarker([node.lat, node.lon], { radius: 3, color, opacity: .2, fillOpacity: 1 });
+}
+function makeAdiffWayLayer(way, color) {
+    if (!way.visible)
+        throw new TypeError(`unexpected deleted way`);
+    const coords = way.nodeRefs.map(([, lat, lon]) => [lat, lon]);
+    return L.polyline(coords, { weight: 2, color });
+}
+
+const e$8 = makeEscapeTag(encodeURIComponent);
+const h = (...s) => p(strong(...s));
+const c = (...s) => p(em(...s));
+function makePopupWriter(server, layerData, clear) {
+    return () => {
+        const $popup = makeDiv('osm-element-popup-contents')();
+        if (layerData.type == 'changeset') {
+            const changeset = layerData.item;
+            const changesetHref = server.web.getUrl(e$8 `changeset/${changeset.id}`);
+            const headerContents = [
+                `Changeset: `, makeLink(String(changeset.id), changesetHref)
+            ];
+            if (layerData.adiff) {
+                headerContents.push(` · `, makeChangesetLink(server, changeset.id, `Hide adiff`));
+            }
+            else {
+                if (server.overpass)
+                    headerContents.push(` · `, makeChangesetAdiffLink(server, changeset.id, `Show adiff`));
+            }
+            $popup.append(h(...headerContents));
+            if (changeset.tags?.comment)
+                $popup.append(c(changeset.tags.comment));
+            const $p = p();
+            if (changeset.closed_at) {
+                $p.append(`Closed on `, makeDate(changeset.closed_at));
+            }
+            else {
+                $p.append(`Created on `, makeDate(changeset.created_at));
+            }
+            $p.append(` by `, makeUserLink(server, changeset));
+            $popup.append($p);
+            const $tags = makeTagsFigure(changeset.tags, 'comment');
+            if ($tags)
+                $popup.append($tags);
+        }
+        else if (layerData.type == 'element' && !layerData.adiff) {
+            const element = layerData.item;
+            const headerContents = makeElementHeaderContents(server, element, element.type);
+            $popup.append(h(...headerContents), ...makeElementContents(server, element));
+        }
+        else if (layerData.type == 'element' && layerData.adiff) {
+            if (layerData.item.action == 'create') {
+                const { newElement } = layerData.item;
+                const headerContents = makeElementHeaderContents(server, newElement, newElement.type);
+                $popup.append(h(...headerContents), ...makeElementContents(server, newElement, newElement.visible, `New version`));
+            }
+            else if (layerData.item.action == 'modify' || layerData.item.action == 'delete') {
+                const { oldElement, newElement } = layerData.item;
+                const headerContents = makeElementHeaderContents(server, newElement, newElement.type);
+                $popup.append(h(...headerContents), makeElementAdiffTable(server, oldElement, newElement));
+            }
+        }
+        if (layerData.skippedRelationIds?.size) {
+            const type = layerData.skippedRelationIds.size > 1 ? `relations` : `relation`;
+            const $details = makeElement('details')()(makeElement('summary')()(`${layerData.skippedRelationIds.size} member ${type}`), ...[...layerData.skippedRelationIds].flatMap((subRelationId, i) => {
+                const $a = makeRelationLink(server, subRelationId);
+                return i ? [`, `, $a] : [$a];
+            }));
+            if (layerData.skippedRelationIds.size <= 7)
+                $details.open = true;
+            $popup.append($details);
+        }
+        if (layerData.emptyReason) {
+            $popup.append(p(strong(`Warning`), `: displayed geometry is incorrect because ${layerData.emptyReason}`));
+        }
+        {
+            const $removeButton = document.createElement('button');
+            $removeButton.textContent = `Remove from map view`;
+            $removeButton.onclick = clear;
+            $popup.append($removeButton);
+        }
+        return $popup;
+    };
+}
+function makeElementHeaderContents(server, element, elementType) {
+    const elementPath = e$8 `${elementType}/${element.id}`;
+    const headerContents = [
+        capitalize(elementType) + `: `,
+        makeLink(getElementName(element), server.web.getUrl(elementPath)),
+        ` · `, makeLink(`View History`, server.web.getUrl(elementPath + '/history')),
+        ` · `, makeLink(`Edit`, server.web.getUrl(e$8 `edit?${elementType}=${element.id}`))
     ];
-    const $tags = getTags(element.tags);
+    return headerContents;
+}
+function makeElementContents(server, element, visisble = true, versionTitle = `Version`) {
+    const content = [];
+    content.push(h(`${versionTitle} #${element.version}`, visisble ? `` : ` · DELETED`), p(`Edited on `, makeDate(element.timestamp), ` by `, makeUserLink(server, element), ` · Changeset #`, makeChangesetLink(server, element.changeset)));
+    const $tags = makeTagsFigure(element.tags);
     if ($tags)
-        contents.push($tags);
-    return contents;
+        content.push($tags);
+    return content;
 }
-// utils
-function capitalize(s) {
-    return s[0].toUpperCase() + s.slice(1);
+function makeElementAdiffTable(server, oldElement, newElement) {
+    const $figure = document.createElement('figure');
+    const $table = document.createElement('table');
+    $figure.append($table);
+    $table.insertRow().append(makeElement('th')()(`timestamp`), makeElement('td')()(makeDate(oldElement.timestamp, true)), makeElement('td')()(makeDate(newElement.timestamp, true)));
+    $table.insertRow().append(makeElement('th')()(`user`), makeElement('td')()(makeUserLink(server, oldElement)), makeElement('td')()(makeUserLink(server, newElement)));
+    $table.insertRow().append(makeElement('th')()(`version`), makeElement('td')()(String(oldElement.version)), makeElement('td')()(String(newElement.version)));
+    $table.insertRow().append(makeElement('th')()(`changeset`), makeElement('td')()(makeChangesetLink(server, oldElement.changeset)), makeElement('td')()(makeChangesetLink(server, newElement.changeset)));
+    const allKeys = new Set();
+    if (oldElement.tags) {
+        for (const k of Object.keys(oldElement.tags)) {
+            allKeys.add(k);
+        }
+    }
+    if (newElement.tags) {
+        for (const k of Object.keys(newElement.tags)) {
+            allKeys.add(k);
+        }
+    }
+    if (allKeys.size == 0)
+        return $figure;
+    const sortedAllKeys = [...allKeys.values()].sort();
+    const changedKeys = [];
+    const unchangedKeys = [];
+    for (const k of sortedAllKeys) {
+        ((oldElement.tags?.[k] == newElement.tags?.[k]) ? unchangedKeys : changedKeys).push(k);
+    }
+    $table.insertRow().append(makeElement('th')()(`tags`), makeElement('td')()(), makeElement('td')()());
+    const tagList = [...changedKeys, ...unchangedKeys].map(k => [
+        k,
+        oldElement.tags?.[k] ?? '',
+        newElement.tags?.[k] ?? ''
+    ]);
+    startWritingTags($figure, $table, tagList);
+    return $figure;
 }
-function getDate(timestamp) {
-    const readableDate = timestamp.replace('T', ' ').replace('Z', '');
-    const $time = document.createElement('time');
-    $time.classList.add('listened');
-    $time.textContent = readableDate;
-    $time.dateTime = timestamp;
-    return $time;
-}
-function getUser(server, data) {
-    const $a = makeUserLink(server, data.uid, data.user);
-    $a.classList.add('listened');
-    $a.dataset.userName = data.user;
-    $a.dataset.userId = String(data.uid);
-    return $a;
-}
-function getChangeset(server, changesetId) {
-    const cid = String(changesetId);
-    const $a = makeLink(cid, server.web.getUrl(e$8 `changeset/${cid}`));
-    $a.classList.add('listened');
-    $a.dataset.changesetId = cid;
-    return $a;
-}
-function getChangesetAdiff(server, changesetId) {
-    const $a = getChangeset(server, changesetId);
-    $a.innerText = `adiff`;
-    $a.dataset.adiff = 'true';
-    return $a;
-}
-function getRelation(server, relationId) {
-    const rid = String(relationId);
-    const relationPath = e$8 `relation/${rid}`;
-    const $a = makeLink(rid, server.web.getUrl(relationPath));
-    $a.classList.add('listened');
-    $a.dataset.elementType = 'relation';
-    $a.dataset.elementId = rid;
-    return $a;
-}
-function getTags(tags, skipKey) {
+function makeTagsFigure(tags, skipKey) {
     if (!tags)
         return null;
-    const tagBatchSize = 10;
-    const tagList = Object.entries(tags).filter(([k, v]) => k != skipKey);
+    const tagList = Object.entries(tags).filter(([k]) => k != skipKey);
     if (tagList.length <= 0)
         return null;
-    let i = 0;
-    let $button;
     const $figure = document.createElement('figure');
     const $figcaption = document.createElement('figcaption');
     $figcaption.textContent = `Tags`;
     const $table = document.createElement('table');
     $figure.append($figcaption, $table);
-    writeTagBatch();
+    startWritingTags($figure, $table, tagList);
     return $figure;
+}
+function startWritingTags($figure, $table, tagList) {
+    const tagBatchSize = 10;
+    let $button;
+    let i = 0;
+    writeTagBatch();
     function writeTagBatch() {
         for (let j = 0; i < tagList.length && j < tagBatchSize; i++, j++) {
-            const [k, v] = tagList[i];
+            const [k, ...vs] = tagList[i];
             const $row = $table.insertRow();
             const $keyCell = $row.insertCell();
             $keyCell.textContent = k;
             if (k.length > 30)
                 $keyCell.classList.add('long');
-            $row.insertCell().textContent = v;
+            for (const v of vs) {
+                $row.insertCell().textContent = v;
+            }
         }
         if (i < tagList.length) {
             if (!$button) {
@@ -2434,18 +2560,50 @@ function getTags(tags, skipKey) {
         }
     }
 }
-function getElementName(element) {
-    if (element.tags?.name) {
-        return `${element.tags.name} (${element.id})`;
+function makeChangesetAdiffLink(server, changesetId, text) {
+    const $a = makeChangesetLink(server, changesetId);
+    $a.innerText = text;
+    $a.dataset.adiff = 'true';
+    return $a;
+}
+function makeChangesetLink(server, changesetId, text) {
+    const cid = String(changesetId);
+    const $a = makeLink(text ?? cid, server.web.getUrl(e$8 `changeset/${cid}`));
+    $a.classList.add('listened');
+    $a.dataset.changesetId = cid;
+    return $a;
+}
+function makeRelationLink(server, relationId) {
+    const rid = String(relationId);
+    const relationPath = e$8 `relation/${rid}`;
+    const $a = makeLink(rid, server.web.getUrl(relationPath));
+    $a.classList.add('listened');
+    $a.dataset.elementType = 'relation';
+    $a.dataset.elementId = rid;
+    return $a;
+}
+function makeDate(timestamp, short = false) {
+    const readableDate = timestamp.replace('T', ' ').replace('Z', '');
+    const $time = document.createElement('time');
+    $time.classList.add('listened');
+    if (short) {
+        $time.title = readableDate + ` UTC`;
+        [$time.textContent] = readableDate.split(' ', 1);
     }
     else {
-        return String(element.id);
+        $time.textContent = readableDate;
     }
+    $time.dateTime = timestamp;
+    return $time;
 }
-function makeUserLink(server, uid, username) {
-    if (username)
-        return makeUserNameLink(server, username);
-    return makeUserIdLink(server, uid);
+function makeUserLink(server, data) {
+    const $a = (data.user
+        ? makeUserNameLink(server, data.user)
+        : makeUserIdLink(server, data.uid));
+    $a.classList.add('listened');
+    $a.dataset.userName = data.user;
+    $a.dataset.userId = String(data.uid);
+    return $a;
 }
 function makeUserNameLink(server, username) {
     const fromName = (name) => server.web.getUrl(e$8 `user/${name}`);
@@ -2454,6 +2612,17 @@ function makeUserNameLink(server, username) {
 function makeUserIdLink(server, uid) {
     const fromId = (id) => server.api.getUrl(e$8 `user/${id}`);
     return makeLink('#' + uid, fromId(uid));
+}
+function getElementName(element) {
+    if (element.tags?.name) {
+        return `${element.tags.name} (${element.id})`;
+    }
+    else {
+        return String(element.id);
+    }
+}
+function capitalize(s) {
+    return s[0].toUpperCase() + s.slice(1);
 }
 
 class NoteMap {
@@ -2497,15 +2666,15 @@ class NoteMap {
             });
             if (!this.queuedPopup)
                 return;
-            const [layerId, popupWriter] = this.queuedPopup;
+            const [baseLayerId, popupWriter] = this.queuedPopup;
             this.queuedPopup = undefined;
-            const baseGeometry = this.dataLayers.baseDataLayer.getLayer(layerId);
-            if (baseGeometry) {
+            const baseLayer = this.dataLayers.baseDataLayer.getLayer(baseLayerId);
+            if (baseLayer) {
                 const popup = L.popup({ autoPan: false })
                     .setLatLng(this.leafletMap.getCenter()) // need to tell the popup this exact place after map stops moving, otherwise is sometimes gets opened off-screen
                     .setContent(popupWriter)
                     .openOn(this.leafletMap);
-                baseGeometry.bindPopup(popup);
+                baseLayer.bindPopup(popup);
             }
         });
         $root.addEventListener('osmNoteViewer:mapMoveTrigger', ({ detail: { zoom, lat, lon } }) => {
@@ -2514,17 +2683,17 @@ class NoteMap {
         $root.addEventListener('osmNoteViewer:elementRender', ({ detail: [element, elements] }) => {
             // TODO zoom on second click, like with notes
             this.dataLayers.clearLayers();
-            this.addOsmData(...renderOsmElement(server, element, elements));
+            this.addOsmData(server, renderOsmElement(element, elements));
         });
         $root.addEventListener('osmNoteViewer:changesetRender', ({ detail: changeset }) => {
             // TODO zoom on second click, like with notes
             this.dataLayers.clearLayers();
-            this.addOsmData(...renderOsmChangeset(server, changeset));
+            this.addOsmData(server, renderOsmChangeset(changeset));
         });
-        $root.addEventListener('osmNoteViewer:changesetAdiffRender', ({ detail: [changeset, doc] }) => {
+        $root.addEventListener('osmNoteViewer:changesetAdiffRender', ({ detail: [changeset, adiff] }) => {
             // TODO zoom on second click, like with notes
             this.dataLayers.clearLayers();
-            this.addOsmData(...renderOsmChangesetAdiff(server, changeset, doc));
+            this.addOsmData(server, renderOsmChangesetAdiff(changeset, adiff));
         });
         // TODO maybe have :dataClear event
         // this.elementLayer.clearLayers()
@@ -2643,17 +2812,27 @@ class NoteMap {
         if (bounds.isValid())
             this.fitBoundsIfNotFrozen(bounds);
     }
-    addOsmData(geometryData, popupContents) {
-        const popupWriter = () => {
-            const $removeButton = document.createElement('button');
-            $removeButton.textContent = `Remove from map view`;
-            $removeButton.onclick = () => {
-                this.dataLayers.clearLayers();
-            };
-            return makeDiv('osm-element-popup-contents')(...popupContents, $removeButton);
+    addOsmData(server, geometryData) {
+        const clear = () => this.dataLayers.clearLayers();
+        if (geometryData.extraBaseLayer) {
+            this.dataLayers.baseDataLayer.addLayer(geometryData.extraBaseLayer);
+        }
+        let [baseLayerIfDefined, baseData] = geometryData.baseGeometry;
+        const baseLayer = baseLayerIfDefined ?? L.circleMarker([0, 0]);
+        this.dataLayers.baseDataLayer.addLayer(baseLayer);
+        const baseLayerId = this.dataLayers.baseDataLayer.getLayerId(baseLayer);
+        const addLayersWithData = (group, layersWithData) => {
+            if (!layersWithData)
+                return;
+            for (const [layer, data] of layersWithData) {
+                group.addLayer(layer);
+                layer.bindPopup(makePopupWriter(server, data, clear));
+            }
         };
-        const baseGeometry = this.dataLayers.addGeometryAndGetBaseGeometry(geometryData);
-        const layerId = this.dataLayers.baseDataLayer.getLayerId(baseGeometry);
+        addLayersWithData(this.dataLayers.createdDataLayer, geometryData.createdGeometry);
+        addLayersWithData(this.dataLayers.modifiedDataLayer, geometryData.modifiedGeometry);
+        addLayersWithData(this.dataLayers.deletedDataLayer, geometryData.deletedGeometry);
+        const popupWriter = makePopupWriter(server, baseData, clear);
         // geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
         if (this.freezeMode == 'full') {
             const popup = L.popup({ autoPan: false }).setContent(popupWriter);
@@ -2676,7 +2855,7 @@ class NoteMap {
                 }
             };
             const onClosePopup = () => {
-                baseGeometry.bindPopup(popup, { offset: [0, 0] });
+                baseLayer.bindPopup(popup, { offset: [0, 0] });
                 const $popupContainer = popup.getElement();
                 if (!$popupContainer)
                     return;
@@ -2686,27 +2865,27 @@ class NoteMap {
                     restorePopupTip($popupContainer);
                 }, fadeoutTransitionTime);
             };
-            baseGeometry.on('popupopen', onOpenPopup).on('popupclose', onClosePopup);
-            baseGeometry.bindPopup(popup).openPopup();
+            baseLayer.on('popupopen', onOpenPopup).on('popupclose', onClosePopup);
+            baseLayer.bindPopup(popup).openPopup();
         }
-        else if (baseGeometry instanceof L.CircleMarker) {
-            this.queuedPopup = [layerId, popupWriter];
+        else if (baseLayer instanceof L.CircleMarker) {
+            this.queuedPopup = [baseLayerId, popupWriter];
             const minZoomForNode = 10;
             if (this.zoom < minZoomForNode) {
-                this.flyToIfNotFrozen(baseGeometry.getLatLng(), minZoomForNode, { duration: .5 });
+                this.flyToIfNotFrozen(baseLayer.getLatLng(), minZoomForNode, { duration: .5 });
             }
             else {
-                this.panToIfNotFrozen(baseGeometry.getLatLng());
+                this.panToIfNotFrozen(baseLayer.getLatLng());
             }
         }
         else {
             const bounds = this.dataLayers.baseDataLayer.getBounds();
             if (bounds.isValid()) {
-                this.queuedPopup = [layerId, popupWriter];
+                this.queuedPopup = [baseLayerId, popupWriter];
                 this.fitBoundsIfNotFrozen(bounds);
             }
             else {
-                baseGeometry.bindPopup(popupWriter).openPopup();
+                baseLayer.bindPopup(popupWriter).openPopup();
             }
         }
     }
@@ -10628,7 +10807,8 @@ class OsmDownloader {
                         `(node(changed);way(changed););\n` +
                         `out meta geom;`;
                     const doc = await server.overpass.fetch(query); // TODO also pump through handleOsmDownloadAndLink()
-                    bubbleCustomEvent($root, 'osmNoteViewer:changesetAdiffRender', [changeset, doc]);
+                    const adiff = getAdiffFromDocument(changeset, doc);
+                    bubbleCustomEvent($root, 'osmNoteViewer:changesetAdiffRender', [changeset, adiff]);
                 }
                 else {
                     bubbleCustomEvent($root, 'osmNoteViewer:changesetRender', changeset);
