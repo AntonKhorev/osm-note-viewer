@@ -1,6 +1,7 @@
 import Server from '../server'
 import type {OsmBase, OsmElementBase, OsmAdiffElement} from '../osm'
 import type {LayerBoundOsmData} from './osm'
+import compareKeys from './popup-key-compare'
 import {makeElement, makeDiv, makeLink} from '../html'
 import {p,strong,em} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
@@ -157,7 +158,7 @@ function makeElementAdiffTable(server: Server, oldElement: OsmAdiffElement, newE
 		}
 	}
 	if (allKeys.size==0) return $figure
-	const sortedAllKeys=[...allKeys.values()].sort()
+	const sortedAllKeys=[...allKeys.values()].sort(compareKeys)
 	const changedKeys=[] as string[]
 	const unchangedKeys=[] as string[]
 	for (const k of sortedAllKeys) {
