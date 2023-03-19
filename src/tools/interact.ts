@@ -1,4 +1,4 @@
-import {Tool, ToolElements, makeNoteStatusIcon, makeActionIcon} from './base'
+import {Tool, ToolElements, makeActionIcon} from './base'
 import type Auth from '../auth'
 import type {Note} from '../data'
 import {noteStatuses} from '../data'
@@ -10,6 +10,7 @@ import {makeElement, makeDiv, makeLabel, makeLink, bubbleEvent, bubbleCustomEven
 import {p,ul,li,code,em} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 import {isArray} from '../types'
+import {getMultipleNoteIndicators, getNoteIndicator, getButtonNoteIcon} from './interact-indicator'
 
 const e=makeEscapeTag(encodeURIComponent)
 
@@ -317,7 +318,7 @@ export class InteractTool extends Tool {
 		}
 	}
 	private updateWithOutput(): void {
-		const multipleNoteIndicators=this.getMultipleNoteIndicators(this.stagedNoteIds,5)
+		const multipleNoteIndicators=getMultipleNoteIndicators(this.auth.server.web,this.stagedNoteIds,5)
 		if (multipleNoteIndicators.length>0) {
 			this.$withOutput.replaceChildren(`with `,...multipleNoteIndicators)
 		} else {
@@ -330,19 +331,6 @@ export class InteractTool extends Tool {
 		this.$copyIdsButton.title=''
 		this.$copyIdsButton.classList.remove('error')
 		// buttons below comment
-		const buttonNoteIcon=(ids:readonly number[],inputStatus:Note['status'],outputStatus:Note['status']): (string|HTMLElement)[]=>{
-			const outputIcon=[]
-			if (outputStatus!=inputStatus) {
-				outputIcon.push(` → `,makeNoteStatusIcon(outputStatus,ids.length))
-			}
-			if (ids.length==0) {
-				return [makeNoteStatusIcon(inputStatus,ids.length),...outputIcon]
-			} else if (ids.length==1) {
-				return [makeNoteStatusIcon(inputStatus),` ${ids[0]}`,...outputIcon]
-			} else {
-				return [`${ids.length} × `,makeNoteStatusIcon(inputStatus,ids.length),...outputIcon,`...`]
-			}
-		}
 		for (const interactionDescription of this.interactionDescriptions) {
 			const inputNoteIds=this.stagedNoteIds.get(interactionDescription.inputNoteStatus)??[]
 			const {$button}=interactionDescription
@@ -360,7 +348,9 @@ export class InteractTool extends Tool {
 				$button.replaceChildren(`Cancel`)
 			} else {
 				$button.replaceChildren(
-					`${interactionDescription.label} `,...buttonNoteIcon(inputNoteIds,interactionDescription.inputNoteStatus,interactionDescription.outputNoteStatus)
+					`${interactionDescription.label} `,...getButtonNoteIcon(
+						inputNoteIds,interactionDescription.inputNoteStatus,interactionDescription.outputNoteStatus
+					)
 				)
 			}
 			$button.hidden=interactionDescription.forModerator && !this.auth.isModerator
@@ -394,7 +384,7 @@ export class InteractTool extends Tool {
 		this.$runOutput.replaceChildren(
 			this.run.interactionDescription.runningLabel,` `
 		)
-		const inputNoteIndicators=this.getMultipleNoteIndicators([[
+		const inputNoteIndicators=getMultipleNoteIndicators(this.auth.server.web,[[
 			this.run.interactionDescription.inputNoteStatus,this.run.inputNoteIds
 		]],0)
 		if (inputNoteIndicators.length>0) {
@@ -407,7 +397,9 @@ export class InteractTool extends Tool {
 			)
 		}
 		if (this.run.currentNoteId!=null) {
-			const $a=this.getNoteIndicator(this.run.interactionDescription.inputNoteStatus,this.run.currentNoteId)
+			const $a=getNoteIndicator(this.auth.server.web,
+				this.run.interactionDescription.inputNoteStatus,this.run.currentNoteId
+			)
 			if (this.run.currentNoteError) {
 				$a.classList.add('error')
 				$a.title=this.run.currentNoteError
@@ -420,7 +412,7 @@ export class InteractTool extends Tool {
 				)
 			}
 		}
-		const outputNoteIndicators=this.getMultipleNoteIndicators([[
+		const outputNoteIndicators=getMultipleNoteIndicators(this.auth.server.web,[[
 			this.run.interactionDescription.outputNoteStatus,this.run.outputNoteIds
 		]],0)
 		if (outputNoteIndicators.length>0) {
@@ -532,56 +524,6 @@ export class InteractTool extends Tool {
 			runTimeoutId=setTimeout(wrappedRunNextNote)
 		}
 		return scheduleRunNextNote
-	}
-	private getMultipleNoteIndicators(
-		statusAndIds: Iterable<[status:Note['status'],ids:readonly number[]]>,
-		maxIndividualNotes: number
-	): (string|HTMLElement)[] {
-		const output: (string|HTMLElement)[] = []
-		let first=true
-		const writeSingleNote=(id:number,status:Note['status'])=>{
-			if (!first) output.push(`, `)
-			first=false
-			output.push(this.getNoteIndicator(status,id))
-		}
-		const writeOneOrManyNotes=(ids:readonly number[],status:Note['status'])=>{
-			if (ids.length==0) {
-				return
-			}
-			if (ids.length==1) {
-				writeSingleNote(ids[0],status)
-				return
-			}
-			if (!first) output.push(`, `)
-			first=false
-			output.push(`${ids.length} × `,makeNoteStatusIcon(status,ids.length))
-		}
-		const statusAndIdsCopy=[...statusAndIds]
-		const nNotes=statusAndIdsCopy.reduce(
-			(n:number,[,ids])=>n+ids.length,0
-		)
-		if (nNotes==0) {
-		} else if (nNotes<=maxIndividualNotes) {
-			for (const [status,ids] of statusAndIdsCopy) {
-				for (const id of ids) {
-					writeSingleNote(id,status)
-				}
-			}
-		} else {
-			for (const [status,ids] of statusAndIdsCopy) {
-				writeOneOrManyNotes(ids,status)
-			}
-		}
-		return output
-	}
-	private getNoteIndicator(status: Note['status'], id: number): HTMLAnchorElement {
-		const href=this.auth.server.web.getUrl(e`note/${id}`)
-		const $a=document.createElement('a')
-		$a.href=href
-		$a.classList.add('listened')
-		$a.dataset.noteId=String(id)
-		$a.append(makeNoteStatusIcon(status),` ${id}`)
-		return $a
 	}
 }
 
