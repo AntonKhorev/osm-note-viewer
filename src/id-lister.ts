@@ -1,8 +1,17 @@
-export default function listNoteIds(inputIds: readonly number[]): string {
+import type {WebProvider} from './server'
+import {makeEscapeTag,escapeXml} from './escape'
+
+type Item = [text:string,id?:number]
+
+export function listDecoratedNoteIds(inputIds: readonly number[]): Item[] {
 	const ids=[...inputIds].sort((a,b)=>a-b)
-	if (ids.length==0) return ''
-	if (ids.length==1) return 'note '+ids[0]
-	let result='notes '
+	if (ids.length==0) return []
+	const ref=(id:number)=>[String(id),id] as Item
+	if (ids.length==1) {
+		const [id]=ids
+		return [['note '],ref(id)]
+	}
+	const result=[['notes ']] as Item[]
 	let first=true
 	let rangeStart: number|undefined
 	let rangeEnd: number|undefined
@@ -11,14 +20,14 @@ export default function listNoteIds(inputIds: readonly number[]): string {
 		if (first) {
 			first=false
 		} else {
-			result+=','
+			result.push([','])
 		}
 		if (rangeEnd==rangeStart) {
-			result+=rangeStart
+			result.push(ref(rangeStart))
 		} else if (rangeEnd==rangeStart+1) {
-			result+=rangeStart+','+rangeEnd
+			result.push(ref(rangeStart),[','],ref(rangeEnd))
 		} else {
-			result+=rangeStart+'-'+rangeEnd
+			result.push(ref(rangeStart),['-'],ref(rangeEnd))
 		}
 	}
 	for (const id of ids) {
@@ -31,4 +40,22 @@ export default function listNoteIds(inputIds: readonly number[]): string {
 	}
 	appendRange()
 	return result
+}
+
+export function convertDecoratedNoteIdsToPlainText(decoratedIds: [text:string,id?:number][]): string {
+	return decoratedIds.map(([text])=>text).join('')
+}
+
+const escU=makeEscapeTag(encodeURIComponent)
+const escX=makeEscapeTag(escapeXml)
+
+export function convertDecoratedNoteIdsToHtmlText(decoratedIds: [text:string,id?:number][], web: WebProvider): string {
+	return decoratedIds.map(([text,id])=>{
+		if (id==null) {
+			return text
+		} else {
+			const href=web.getUrl(escU`note/${id}`)
+			return escX`<a href="${href}">${text}</a>`
+		}
+	}).join('')
 }

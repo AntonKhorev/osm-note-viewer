@@ -5,7 +5,7 @@ import {noteStatuses} from '../data'
 import {readNoteResponse, NoteDataError} from '../fetch-note'
 import {makeHrefWithCurrentHost} from '../hash'
 import TextControl from '../text-control'
-import listNoteIds from '../id-lister'
+import {listDecoratedNoteIds, convertDecoratedNoteIdsToPlainText, convertDecoratedNoteIdsToHtmlText} from '../id-lister'
 import {makeElement, makeDiv, makeLabel, makeLink, bubbleEvent, bubbleCustomEvent} from '../html'
 import {p,ul,li,code,em} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
@@ -177,12 +177,35 @@ export class InteractTool extends Tool {
 			()=>[makeElement('span')()(`undo append`)],
 			()=>[makeElement('span')()(`append last changeset`)]
 		)
-		this.$copyIdsButton.onclick=()=>{
+		this.$copyIdsButton.onclick=async()=>{
+			this.$copyIdsButton.title=''
+			this.$copyIdsButton.classList.remove('error')
 			const ids: number[] = []
 			for (const statusIds of this.stagedNoteIds.values()) {
 				ids.push(...statusIds)
 			}
-			navigator.clipboard.writeText(listNoteIds(ids))
+			const decoratedIds=listDecoratedNoteIds(ids)
+			const plainText=convertDecoratedNoteIdsToPlainText(decoratedIds)
+			try {
+				if (navigator.clipboard.write && window.ClipboardItem) {
+					const plainBlob=new Blob([plainText],{type:'text/plain'})
+					const htmlText=convertDecoratedNoteIdsToHtmlText(decoratedIds,this.auth.server.web)
+					const htmlBlob=new Blob([htmlText],{type:'text/html'})
+					await navigator.clipboard.write([
+						new ClipboardItem({
+							[plainBlob.type]:plainBlob,
+							[htmlBlob.type]:htmlBlob,
+						})
+					])
+					this.$copyIdsButton.title=`Copied html ids`
+				} else {
+					await navigator.clipboard.writeText(plainText)
+					this.$copyIdsButton.title=`Copied plaintext ids`
+				}
+			} catch {
+				this.$copyIdsButton.title=`Copy ids failed`
+				this.$copyIdsButton.classList.add('error')
+			}
 		}
 		this.$commentText.oninput=()=>{
 			this.updateButtons()
@@ -300,6 +323,8 @@ export class InteractTool extends Tool {
 	private updateButtons(): void {
 		// button next to with-output
 		this.$copyIdsButton.disabled=[...this.stagedNoteIds.values()].every(ids=>ids.length==0)
+		this.$copyIdsButton.title=''
+		this.$copyIdsButton.classList.remove('error')
 		// buttons below comment
 		const buttonNoteIcon=(ids:readonly number[],inputStatus:Note['status'],outputStatus:Note['status']): (string|HTMLElement)[]=>{
 			const outputIcon=[]

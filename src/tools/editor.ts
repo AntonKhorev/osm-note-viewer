@@ -1,7 +1,7 @@
 import {Tool, ToolElements, makeNotesIcon, makeMapIcon} from './base'
 import type {Note} from '../data'
 import type NoteMap from '../map'
-import listNoteIds from '../id-lister'
+import {listDecoratedNoteIds, convertDecoratedNoteIdsToPlainText} from '../id-lister'
 import {makeLink} from '../html'
 import {p,em,ul,li,code} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
@@ -71,7 +71,9 @@ export class RcTool extends EditorTool {
 				`?left=${bounds.getWest()}&right=${bounds.getEast()}`+
 				`&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`
 			if (inputNotes.length>=1) {
-				const changesetComment=listNoteIds(inputNotes.map(note=>note.id))
+				const changesetComment=convertDecoratedNoteIdsToPlainText(
+					listDecoratedNoteIds(inputNotes.map(note=>note.id))
+				)
 				const changesetTags=`comment=${changesetComment}`
 				rcPath+=`&changeset_tags=${changesetTags}`
 			}
