@@ -916,6 +916,9 @@ body.flipped table:not(.expanded-username) td.note-user {
 .map .note-marker.active-click .aura {
 	fill: #FC0;
 }
+.map .note-marker a {
+	display: inline-block;
+}
 .map .note-track {
 	vector-effect: non-scaling-stroke;
 }

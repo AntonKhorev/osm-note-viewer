@@ -858,7 +858,7 @@ class ServerList {
 class GlobalEventListener {
     constructor($root) {
         $root.addEventListener('click', ev => {
-            if (!(ev.target instanceof HTMLElement))
+            if (!(ev.target instanceof Element))
                 return;
             const $e = ev.target.closest('a.listened, time.listened');
             if ($e instanceof HTMLAnchorElement) {
@@ -1732,17 +1732,17 @@ class Auth {
 
 const e$9 = makeEscapeTag(escapeXml);
 class NoteMarker extends L.Marker {
-    constructor(note) {
-        const icon = getNoteMarkerIcon(note, false);
+    constructor(web, note) {
+        const icon = getNoteMarkerIcon(web, note, false);
         super([note.lat, note.lon], { icon });
         this.noteId = note.id;
     }
-    updateIcon(note, isSelected) {
-        const icon = getNoteMarkerIcon(note, isSelected);
+    updateIcon(web, note, isSelected) {
+        const icon = getNoteMarkerIcon(web, note, isSelected);
         this.setIcon(icon);
     }
 }
-function getNoteMarkerIcon(note, isSelected) {
+function getNoteMarkerIcon(web, note, isSelected) {
     const width = 25;
     const height = 40;
     const auraThickness = 4;
@@ -1753,8 +1753,7 @@ function getNoteMarkerIcon(note, isSelected) {
     const nInnerCircles = 4;
     let html = ``;
     html += e$9 `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`;
-    html += e$9 `<title>${note.status} note #${note.id}</title>`,
-        html += e$9 `<path d="${computeMarkerOutlinePath(heightWithAura - .5, rWithAura - .5)}" class="aura" fill="none" />`;
+    html += e$9 `<path d="${computeMarkerOutlinePath(heightWithAura - .5, rWithAura - .5)}" class="aura" fill="none" />`;
     html += e$9 `<path d="${computeMarkerOutlinePath(height, r)}" fill="${getStatusColor(note.status)}" />`;
     const statuses = [...noteCommentsToStatuses(note.comments)];
     html += drawStateCircles(r, nInnerCircles, statuses.slice(-nInnerCircles, -1));
@@ -1762,8 +1761,16 @@ function getNoteMarkerIcon(note, isSelected) {
         html += drawCheckMark();
     }
     html += e$9 `</svg>`;
+    const $a = document.createElement('a');
+    $a.innerHTML = html;
+    $a.href = web.getUrl(`note/` + encodeURIComponent(note.id));
+    $a.title = `${note.status} note #${note.id}`;
+    $a.classList.add('listened', 'other-note');
+    $a.dataset.noteId = String(note.id);
+    $a.style.width = widthWithAura + 'px';
+    $a.style.height = heightWithAura + 'px';
     return L.divIcon({
-        html,
+        html: $a,
         className: 'note-marker',
         iconSize: [widthWithAura, heightWithAura],
         iconAnchor: [(widthWithAura - 1) / 2, heightWithAura],
@@ -2386,6 +2393,39 @@ function makeAdiffWayLayer(way, color) {
     return L.polyline(coords, { weight: 2, color });
 }
 
+/**
+ * Common lifetime prefixes from https://wiki.openstreetmap.org/wiki/Lifecycle_prefix#Common_prefixes
+ */
+const lifetimePrefixes = [
+    'proposed',
+    'planned',
+    'construction',
+    'disused',
+    'abandoned',
+    'ruins',
+    'demolished',
+    'removed',
+    'razed',
+    'destroyed',
+    'was',
+];
+const lifetimePrefixRegexp = new RegExp('^(' + lifetimePrefixes.join('|') + '):(.*)');
+function compareKeys(k1, k2) {
+    let prefix1 = '', rest1 = k1;
+    let prefix2 = '', rest2 = k2;
+    let match1 = k1.match(lifetimePrefixRegexp);
+    let match2 = k2.match(lifetimePrefixRegexp);
+    if (match1)
+        [, prefix1, rest1] = match1;
+    if (match2)
+        [, prefix2, rest2] = match2;
+    return strcmp(rest1, rest2) || strcmp(prefix1, prefix2);
+}
+function strcmp(k1, k2) {
+    // return k1 < k2 ? -1 : +(k1 > k2)
+    return +(k1 > k2) - +(k1 < k2);
+}
+
 const e$8 = makeEscapeTag(encodeURIComponent);
 const h = (...s) => p(strong(...s));
 const c = (...s) => p(em(...s));
@@ -2499,13 +2539,15 @@ function makeElementAdiffTable(server, oldElement, newElement) {
     }
     if (allKeys.size == 0)
         return $figure;
-    const sortedAllKeys = [...allKeys.values()].sort();
+    const sortedAllKeys = [...allKeys.values()].sort(compareKeys);
     const changedKeys = [];
     const unchangedKeys = [];
     for (const k of sortedAllKeys) {
         ((oldElement.tags?.[k] == newElement.tags?.[k]) ? unchangedKeys : changedKeys).push(k);
     }
-    $table.insertRow().append(makeElement('th')()(`tags`), makeElement('td')()(), makeElement('td')()());
+    const $tagsTh = makeElement('th')()(`tags`);
+    $tagsTh.colSpan = 3;
+    $table.insertRow().append($tagsTh);
     const tagList = [...changedKeys, ...unchangedKeys].map(k => [
         k,
         oldElement.tags?.[k] ?? '',
@@ -2541,8 +2583,17 @@ function startWritingTags($figure, $table, tagList) {
             $keyCell.textContent = k;
             if (k.length > 30)
                 $keyCell.classList.add('long');
+            let lastV;
+            let $lastTd;
             for (const v of vs) {
-                $row.insertCell().textContent = v;
+                if ($lastTd && lastV == v) {
+                    $lastTd.colSpan++;
+                }
+                else {
+                    $lastTd = $row.insertCell();
+                    lastV = v;
+                }
+                $lastTd.textContent = v;
             }
         }
         if (i < tagList.length) {
@@ -8107,9 +8158,6 @@ class NoteTable {
         this.wrappedAllNotesCheckboxClickListener = function (ev) {
             that.allNotesCheckboxClickListener(this, ev);
         };
-        this.wrappedNoteMarkerClickListener = function () {
-            that.noteMarkerClickListener(this);
-        };
         this.cursor = new Cursor(this.$table, (select) => {
             this.$lastClickedNoteSection = undefined;
             for (const [iSection, selected] of select) {
@@ -8385,9 +8433,8 @@ class NoteTable {
         return $headSection;
     }
     makeMarker(note, isVisible) {
-        const marker = new NoteMarker(note);
+        const marker = new NoteMarker(this.server.web, note);
         marker.addTo(isVisible ? this.map.unselectedNoteLayer : this.map.filteredNoteLayer);
-        marker.on('click', this.wrappedNoteMarkerClickListener);
         return marker;
     }
     writeNoteSection($noteSection, $checkbox, note, users, isVisible) {
@@ -8454,11 +8501,6 @@ class NoteTable {
                 nSelected++;
         }
         bubbleCustomEvent(this.$table, 'osmNoteViewer:noteCountsChange', [nFetched, nVisible, nSelected]);
-    }
-    noteMarkerClickListener(marker) {
-        const $noteSection = this.getNoteSection(marker.noteId);
-        if ($noteSection)
-            this.focusOnNote($noteSection);
     }
     noteCheckboxClickListener($checkbox, ev) {
         ev.stopPropagation();
@@ -8588,7 +8630,7 @@ class NoteTable {
         const marker = this.map.moveNoteMarkerToLayer(noteId, getTargetLayer());
         if (!marker)
             return;
-        marker.updateIcon(note, isSelected);
+        marker.updateIcon(this.server.web, note, isSelected);
         const activeClasses = ['hover', 'click'].map(type => 'active-' + type).filter(cls => $noteSection.classList.contains(cls));
         marker.getElement()?.classList.add(...activeClasses);
     }
@@ -8967,13 +9009,16 @@ async function readNoteResponse(noteId, response) {
     return [newNote, newUsers];
 }
 
-function listNoteIds(inputIds) {
+function listDecoratedNoteIds(inputIds) {
     const ids = [...inputIds].sort((a, b) => a - b);
     if (ids.length == 0)
-        return '';
-    if (ids.length == 1)
-        return 'note ' + ids[0];
-    let result = 'notes ';
+        return [];
+    const ref = (id) => [String(id), id];
+    if (ids.length == 1) {
+        const [id] = ids;
+        return [['note '], ref(id)];
+    }
+    const result = [['notes ']];
     let first = true;
     let rangeStart;
     let rangeEnd;
@@ -8984,16 +9029,16 @@ function listNoteIds(inputIds) {
             first = false;
         }
         else {
-            result += ',';
+            result.push([',']);
         }
         if (rangeEnd == rangeStart) {
-            result += rangeStart;
+            result.push(ref(rangeStart));
         }
         else if (rangeEnd == rangeStart + 1) {
-            result += rangeStart + ',' + rangeEnd;
+            result.push(ref(rangeStart), [','], ref(rangeEnd));
         }
         else {
-            result += rangeStart + '-' + rangeEnd;
+            result.push(ref(rangeStart), ['-'], ref(rangeEnd));
         }
     };
     for (const id of ids) {
@@ -9007,6 +9052,22 @@ function listNoteIds(inputIds) {
     }
     appendRange();
     return result;
+}
+function convertDecoratedNoteIdsToPlainText(decoratedIds) {
+    return decoratedIds.map(([text]) => text).join('');
+}
+const escU = makeEscapeTag(encodeURIComponent);
+const escX = makeEscapeTag(escapeXml);
+function convertDecoratedNoteIdsToHtmlText(decoratedIds, web) {
+    return decoratedIds.map(([text, id]) => {
+        if (id == null) {
+            return text;
+        }
+        else {
+            const href = web.getUrl(escU `note/${id}`);
+            return escX `<a href="${href}">${text}</a>`;
+        }
+    }).join('');
 }
 
 const e$3 = makeEscapeTag(encodeURIComponent);
@@ -9113,12 +9174,37 @@ class InteractTool extends Tool {
             bubbleEvent($a, 'osmNoteViewer:changesetLinkClick');
             return append;
         }, () => [makeElement('span')()(`undo append`)], () => [makeElement('span')()(`append last changeset`)]);
-        this.$copyIdsButton.onclick = () => {
+        this.$copyIdsButton.onclick = async () => {
+            this.$copyIdsButton.title = '';
+            this.$copyIdsButton.classList.remove('error');
             const ids = [];
             for (const statusIds of this.stagedNoteIds.values()) {
                 ids.push(...statusIds);
             }
-            navigator.clipboard.writeText(listNoteIds(ids));
+            const decoratedIds = listDecoratedNoteIds(ids);
+            const plainText = convertDecoratedNoteIdsToPlainText(decoratedIds);
+            try {
+                if (navigator.clipboard.write && window.ClipboardItem) {
+                    const plainBlob = new Blob([plainText], { type: 'text/plain' });
+                    const htmlText = convertDecoratedNoteIdsToHtmlText(decoratedIds, this.auth.server.web);
+                    const htmlBlob = new Blob([htmlText], { type: 'text/html' });
+                    await navigator.clipboard.write([
+                        new ClipboardItem({
+                            [plainBlob.type]: plainBlob,
+                            [htmlBlob.type]: htmlBlob,
+                        })
+                    ]);
+                    this.$copyIdsButton.title = `Copied html ids`;
+                }
+                else {
+                    await navigator.clipboard.writeText(plainText);
+                    this.$copyIdsButton.title = `Copied plaintext ids`;
+                }
+            }
+            catch {
+                this.$copyIdsButton.title = `Copy ids failed`;
+                this.$copyIdsButton.classList.add('error');
+            }
         };
         this.$commentText.oninput = () => {
             this.updateButtons();
@@ -9236,6 +9322,8 @@ class InteractTool extends Tool {
     updateButtons() {
         // button next to with-output
         this.$copyIdsButton.disabled = [...this.stagedNoteIds.values()].every(ids => ids.length == 0);
+        this.$copyIdsButton.title = '';
+        this.$copyIdsButton.classList.remove('error');
         // buttons below comment
         const buttonNoteIcon = (ids, inputStatus, outputStatus) => {
             const outputIcon = [];
@@ -10281,7 +10369,7 @@ class RcTool extends EditorTool {
                 `?left=${bounds.getWest()}&right=${bounds.getEast()}` +
                 `&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`;
             if (inputNotes.length >= 1) {
-                const changesetComment = listNoteIds(inputNotes.map(note => note.id));
+                const changesetComment = convertDecoratedNoteIdsToPlainText(listDecoratedNoteIds(inputNotes.map(note => note.id)));
                 const changesetTags = `comment=${changesetComment}`;
                 rcPath += `&changeset_tags=${changesetTags}`;
             }
