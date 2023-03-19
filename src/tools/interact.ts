@@ -148,6 +148,10 @@ export class InteractTool extends Tool {
 		`It copies to the clipboard the same note list that you'd get by using the `,em(`Load map area`),` remote control command. `,
 		em(`Load map area`),` sets the changeset comment tag to selected notes as a side effect. `,
 		`If you're not using remote control but want to get the note list for a comment, you can press `,em(`Copy ids`),` instead.`
+	),p(
+		em(`Copy ids`),` has the ability to copy note ids as html links if your browser `,makeLink(`supports it`,`https://developer.mozilla.org/en-US/docs/Web/API/Clipboard#clipboard_availability`),`. `,
+		`It should work out of the box on Chrome. `,
+		`On Firefox as of v111 it requires enabling the `,code(`dom.events.asyncClipboard.clipboardItem`),` setting in `,makeLink(`about:config`,`about:config`),` and reloading the `,em(`note-viewer`),`.`
 	)]}
 	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
 		const appendLastChangeset=new TextControl(
@@ -200,7 +204,7 @@ export class InteractTool extends Tool {
 					this.$copyIdsButton.title=`Copied html ids`
 				} else {
 					await navigator.clipboard.writeText(plainText)
-					this.$copyIdsButton.title=`Copied plaintext ids`
+					this.$copyIdsButton.title=`Copied plaintext ids (see tool info if you're using Firefox)`
 				}
 			} catch {
 				this.$copyIdsButton.title=`Copy ids failed`
