@@ -1,7 +1,7 @@
 import type {WebProvider} from './server'
-import {makeEscapeTag,escapeXml} from './escape'
+import {makeEscapeTag, escapeXml} from './escape'
 
-type Item = [text:string,id?:number]
+type Item = [text: string, id?: number]
 
 export function listDecoratedNoteIds(inputIds: readonly number[]): Item[] {
 	const ids=[...inputIds].sort((a,b)=>a-b)

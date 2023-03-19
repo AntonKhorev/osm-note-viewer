@@ -27,6 +27,5 @@ export default function compareKeys(k1: string, k2: string): number {
 }
 
 function strcmp(k1: string, k2: string): number {
-	// return k1 < k2 ? -1 : +(k1 > k2)
 	return +(k1>k2)-+(k1<k2)
 }
