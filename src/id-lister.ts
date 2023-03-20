@@ -3,7 +3,7 @@ import {makeEscapeTag, escapeXml} from './escape'
 
 type Item = [text: string, id?: number]
 
-export function listDecoratedNoteIds(inputIds: readonly number[]): Item[] {
+export function listDecoratedNoteIds(inputIds: Iterable<number>): Item[] {
 	const ids=[...inputIds].sort((a,b)=>a-b)
 	if (ids.length==0) return []
 	const ref=(id:number)=>[String(id),id] as Item

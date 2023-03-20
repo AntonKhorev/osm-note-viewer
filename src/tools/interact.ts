@@ -1,7 +1,6 @@
 import {Tool, ToolElements, makeActionIcon} from './base'
 import type Auth from '../auth'
 import type {Note} from '../data'
-import {noteStatuses} from '../data'
 import {readNoteResponse, NoteDataError} from '../fetch-note'
 import {makeHrefWithCurrentHost} from '../hash'
 import TextControl from '../text-control'
@@ -59,7 +58,7 @@ export class InteractTool extends Tool {
 	private $reactivateButton=document.createElement('button')
 	private $runButton=makeElement('button')('only-with-icon')()
 	private $runOutput=document.createElement('output')
-	private readonly stagedNoteIds: Map<Note['status'],number[]> = new Map(noteStatuses.map(status=>[status,[]]))
+	private stagedNoteIds= new Map<number,Note['status']>()
 	private run?: InteractionRun
 	private interactionDescriptions: InteractionDescription[]=[{
 		verb: 'POST',
@@ -185,11 +184,7 @@ export class InteractTool extends Tool {
 		this.$copyIdsButton.onclick=async()=>{
 			this.$copyIdsButton.title=''
 			this.$copyIdsButton.classList.remove('error')
-			const ids: number[] = []
-			for (const statusIds of this.stagedNoteIds.values()) {
-				ids.push(...statusIds)
-			}
-			const decoratedIds=listDecoratedNoteIds(ids)
+			const decoratedIds=listDecoratedNoteIds(this.stagedNoteIds.keys())
 			const plainText=convertDecoratedNoteIdsToPlainText(decoratedIds)
 			try {
 				if (navigator.clipboard.write && window.ClipboardItem) {
@@ -224,14 +219,14 @@ export class InteractTool extends Tool {
 					this.updateRunButton()
 					this.updateRunOutput()
 				} else {
-					const matchingNoteIds=this.stagedNoteIds.get(interactionDescription.inputNoteStatus)
-					if (!matchingNoteIds) return
-					const runImmediately=matchingNoteIds.length<=1
+					const inputNoteIds=this.getStagedNoteIdsByStatus().get(interactionDescription.inputNoteStatus)
+					if (!inputNoteIds) return
+					const runImmediately=inputNoteIds.length<=1
 					this.run={
 						interactionDescription,
 						status: 'paused',
 						requestedStatus: runImmediately?'running':'paused',
-						inputNoteIds: [...matchingNoteIds],
+						inputNoteIds,
 						outputNoteIds: []
 					}
 					if (runImmediately) scheduleRunNextNote()
@@ -259,14 +254,7 @@ export class InteractTool extends Tool {
 			this.ping($tool)
 		})
 		$root.addEventListener('osmNoteViewer:notesInput',({detail:[inputNotes]})=>{
-			for (const status of noteStatuses) {
-				const ids=this.stagedNoteIds.get(status)
-				if (ids) ids.length=0
-			}
-			for (const inputNote of inputNotes) {
-				const ids=this.stagedNoteIds.get(inputNote.status)
-				ids?.push(inputNote.id)
-			}
+			this.stagedNoteIds=new Map(inputNotes.map(note=>[note.id,note.status]))
 			if (this.run?.status=='running') return
 			this.updateWithOutput()
 			this.updateButtons()
@@ -331,8 +319,9 @@ export class InteractTool extends Tool {
 		this.$copyIdsButton.title=''
 		this.$copyIdsButton.classList.remove('error')
 		// buttons below comment
+		const stagedNoteIdsByStatus=this.getStagedNoteIdsByStatus()
 		for (const interactionDescription of this.interactionDescriptions) {
-			const inputNoteIds=this.stagedNoteIds.get(interactionDescription.inputNoteStatus)??[]
+			const inputNoteIds=stagedNoteIdsByStatus.get(interactionDescription.inputNoteStatus)??[]
 			const {$button}=interactionDescription
 			let cancelCondition=false
 			if (this.run && this.run.status!='finished') {
@@ -366,6 +355,9 @@ export class InteractTool extends Tool {
 		this.$runButton.disabled=!this.run || this.run.status!=this.run.requestedStatus
 	}
 	private updateRunOutput(): void {
+		const getNoteIndicators=(ids:number[],status:Note['status'])=>getMultipleNoteIndicators(
+			this.auth.server.web,ids.map(id=>[id,status]),0
+		)
 		let firstFragment=true
 		const outputFragment=(...content:(string|HTMLElement)[])=>{
 			if (firstFragment) {
@@ -384,9 +376,7 @@ export class InteractTool extends Tool {
 		this.$runOutput.replaceChildren(
 			this.run.interactionDescription.runningLabel,` `
 		)
-		const inputNoteIndicators=getMultipleNoteIndicators(this.auth.server.web,[[
-			this.run.interactionDescription.inputNoteStatus,this.run.inputNoteIds
-		]],0)
+		const inputNoteIndicators=getNoteIndicators(this.run.inputNoteIds,this.run.interactionDescription.inputNoteStatus)
 		if (inputNoteIndicators.length>0) {
 			outputFragment(
 				`queued `,...inputNoteIndicators
@@ -398,7 +388,7 @@ export class InteractTool extends Tool {
 		}
 		if (this.run.currentNoteId!=null) {
 			const $a=getNoteIndicator(this.auth.server.web,
-				this.run.interactionDescription.inputNoteStatus,this.run.currentNoteId
+				this.run.currentNoteId,this.run.interactionDescription.inputNoteStatus
 			)
 			if (this.run.currentNoteError) {
 				$a.classList.add('error')
@@ -412,9 +402,7 @@ export class InteractTool extends Tool {
 				)
 			}
 		}
-		const outputNoteIndicators=getMultipleNoteIndicators(this.auth.server.web,[[
-			this.run.interactionDescription.outputNoteStatus,this.run.outputNoteIds
-		]],0)
+		const outputNoteIndicators=getNoteIndicators(this.run.outputNoteIds,this.run.interactionDescription.outputNoteStatus)
 		if (outputNoteIndicators.length>0) {
 			outputFragment(
 				`completed `,...outputNoteIndicators
@@ -524,6 +512,15 @@ export class InteractTool extends Tool {
 			runTimeoutId=setTimeout(wrappedRunNextNote)
 		}
 		return scheduleRunNextNote
+	}
+	private getStagedNoteIdsByStatus(): Map<Note['status'],number[]> {
+		const stagedNoteIdsByStatus=new Map<Note['status'],number[]>()
+		for (const [id,status] of this.stagedNoteIds) {
+			const ids=stagedNoteIdsByStatus.get(status)??[]
+			ids.push(id)
+			stagedNoteIdsByStatus.set(status,ids)
+		}
+		return stagedNoteIdsByStatus
 	}
 }
 

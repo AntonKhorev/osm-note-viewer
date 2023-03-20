@@ -4,48 +4,45 @@ import type {WebProvider} from '../server'
 
 export function getMultipleNoteIndicators(
 	web: WebProvider,
-	statusAndIds: Iterable<[status:Note['status'],ids:readonly number[]]>,
+	idsAndStatusesIterable: Iterable<[id:number,status:Note['status']]>,
 	maxIndividualNotes: number
 ): (string|HTMLElement)[] {
 	const output: (string|HTMLElement)[] = []
-	let first=true
-	const writeSingleNote=(id:number,status:Note['status'])=>{
-		if (!first) output.push(`, `)
-		first=false
-		output.push(getNoteIndicator(web,status,id))
-	}
-	const writeOneOrManyNotes=(ids:readonly number[],status:Note['status'])=>{
-		if (ids.length==0) {
-			return
-		}
-		if (ids.length==1) {
-			writeSingleNote(ids[0],status)
-			return
-		}
-		if (!first) output.push(`, `)
-		first=false
-		output.push(`${ids.length} × `,makeNoteStatusIcon(status,ids.length))
-	}
-	const statusAndIdsCopy=[...statusAndIds]
-	const nNotes=statusAndIdsCopy.reduce(
-		(n:number,[,ids])=>n+ids.length,0
-	)
-	if (nNotes==0) {
-	} else if (nNotes<=maxIndividualNotes) {
-		for (const [status,ids] of statusAndIdsCopy) {
-			for (const id of ids) {
-				writeSingleNote(id,status)
-			}
+	const idsAndStatuses=[...idsAndStatusesIterable]
+	if (idsAndStatuses.length==0) {
+	} else if (idsAndStatuses.length<=maxIndividualNotes) {
+		for (const [i,[id,status]] of idsAndStatuses.entries()) {
+			if (i) output.push(`, `)
+			output.push(
+				getNoteIndicator(web,id,status)
+			)
 		}
 	} else {
-		for (const [status,ids] of statusAndIdsCopy) {
-			writeOneOrManyNotes(ids,status)
+		const countsByStatus=new Map<Note['status'],number>()
+		for (const [i,[,status]] of idsAndStatuses.entries()) {
+			if (i==0 || i==idsAndStatuses.length-1) continue
+			countsByStatus.set(status,
+				(countsByStatus.get(status)??0)+1
+			)
 		}
+		output.push(
+			getNoteIndicator(web,...idsAndStatuses[0]),
+			` ...`
+		)
+		for (const [status,count] of countsByStatus) {
+			output.push(
+				` + ${count} × `,makeNoteStatusIcon(status,count)
+			)
+		}
+		output.push(
+			` ... `,
+			getNoteIndicator(web,...idsAndStatuses[idsAndStatuses.length-1])
+		)
 	}
 	return output
 }
 
-export function getNoteIndicator(web: WebProvider, status: Note['status'], id: number): HTMLAnchorElement {
+export function getNoteIndicator(web: WebProvider, id: number, status: Note['status']): HTMLAnchorElement {
 	const href=web.getUrl(`note/`+encodeURIComponent(id))
 	const $a=document.createElement('a')
 	$a.href=href
