@@ -48,7 +48,7 @@ export class RcTool extends EditorTool {
 		li(`Notes are loaded by `,makeRcCommandLink(`import`),` RC command `,
 		`with note webpage the OSM website as the `,code(`url`),` parameter.`),
 		li(`Map area is loaded by `,makeRcCommandLink(`load_and_zoom`),` RC command. `,
-		`Area loading is also used as an opportunity to set the default changeset comment containing note ids using the `,code(`changeset_tags`),` parameter.`),
+		`Area loading is also used as an opportunity to set the default changeset source and comment containing note ids using the `,code(`changeset_tags`),` parameter.`),
 		li(`OSM elements are loaded by `,makeRcCommandLink(`load_object`),` RC command. The button is enabled after the element link is clicked in some note comment.`)
 	)]}
 	protected getSpecificControls($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements {
@@ -74,8 +74,8 @@ export class RcTool extends EditorTool {
 				const changesetComment=convertDecoratedNoteIdsToPlainText(
 					listDecoratedNoteIds(inputNotes.map(note=>note.id))
 				)
-				const changesetTags=`comment=${changesetComment}`
-				rcPath+=`&changeset_tags=${changesetTags}`
+				const changesetTags=`source=notes|comment=${changesetComment}`
+				rcPath+=e`&changeset_tags=${changesetTags}`
 			}
 			openRcPath($loadMapButton,rcPath)
 		}
