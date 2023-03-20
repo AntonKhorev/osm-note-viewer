@@ -2422,7 +2422,6 @@ function compareKeys(k1, k2) {
     return strcmp(rest1, rest2) || strcmp(prefix1, prefix2);
 }
 function strcmp(k1, k2) {
-    // return k1 < k2 ? -1 : +(k1 > k2)
     return +(k1 > k2) - +(k1 < k2);
 }
 
@@ -4337,7 +4336,6 @@ function getNextFetchDetails(query, requestedLimit, lastNote, prevLastNote, last
     }
 }
 
-const noteStatuses = ['open', 'closed', 'hidden'];
 function isNoteFeatureCollection(data) {
     return data.type == "FeatureCollection";
 }
@@ -9070,6 +9068,62 @@ function convertDecoratedNoteIdsToHtmlText(decoratedIds, web) {
     }).join('');
 }
 
+function getMultipleNoteIndicators(web, idsAndStatusesIterable, maxIndividualNotes) {
+    const output = [];
+    const idsAndStatuses = [...idsAndStatusesIterable];
+    if (idsAndStatuses.length == 0) ;
+    else if (idsAndStatuses.length <= maxIndividualNotes) {
+        for (const [i, [id, status]] of idsAndStatuses.entries()) {
+            if (i)
+                output.push(`, `);
+            output.push(getNoteIndicator(web, id, status));
+        }
+    }
+    else {
+        const countsByStatus = new Map();
+        for (const [i, [, status]] of idsAndStatuses.entries()) {
+            if (i == 0 || i == idsAndStatuses.length - 1)
+                continue;
+            countsByStatus.set(status, (countsByStatus.get(status) ?? 0) + 1);
+        }
+        output.push(getNoteIndicator(web, ...idsAndStatuses[0]), ` ...(`);
+        for (const [i, [status, count]] of [...countsByStatus].entries()) {
+            if (i)
+                output.push(`, `);
+            output.push(...getNoteCountIndicator(count, status));
+        }
+        output.push(`)... `, getNoteIndicator(web, ...idsAndStatuses[idsAndStatuses.length - 1]));
+    }
+    return output;
+}
+function getNoteIndicator(web, id, status) {
+    const href = web.getUrl(`note/` + encodeURIComponent(id));
+    const $a = document.createElement('a');
+    $a.href = href;
+    $a.classList.add('listened');
+    $a.dataset.noteId = String(id);
+    $a.append(makeNoteStatusIcon(status), ` ${id}`);
+    return $a;
+}
+function getNoteCountIndicator(count, status) {
+    return [`${count} × `, makeNoteStatusIcon(status, count)];
+}
+function getButtonNoteIcon(ids, inputStatus, outputStatus) {
+    const outputIcon = [];
+    if (outputStatus != inputStatus) {
+        outputIcon.push(` → `, makeNoteStatusIcon(outputStatus, ids.length));
+    }
+    if (ids.length == 0) {
+        return [makeNoteStatusIcon(inputStatus, ids.length), ...outputIcon];
+    }
+    else if (ids.length == 1) {
+        return [makeNoteStatusIcon(inputStatus), ` ${ids[0]}`, ...outputIcon];
+    }
+    else {
+        return [...getNoteCountIndicator(ids.length, inputStatus), ...outputIcon, `...`];
+    }
+}
+
 const e$3 = makeEscapeTag(encodeURIComponent);
 class InteractionError extends TypeError {
 }
@@ -9094,7 +9148,7 @@ class InteractTool extends Tool {
         this.$reactivateButton = document.createElement('button');
         this.$runButton = makeElement('button')('only-with-icon')();
         this.$runOutput = document.createElement('output');
-        this.stagedNoteIds = new Map(noteStatuses.map(status => [status, []]));
+        this.stagedNoteIds = new Map();
         this.interactionDescriptions = [{
                 verb: 'POST',
                 endpoint: 'comment',
@@ -9155,7 +9209,7 @@ class InteractTool extends Tool {
         this.updateRunOutput();
     }
     getInfo() {
-        return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again ("reactivates" it). `, `This means that a hidden note can only be restored to an open state, even if it had been closed before being hidden. `, `If you want the note to be closed again, you have to close it yourself after reactivating. `, `Also, unlike the OSM website, you can reactivate a note and add a comment in one action. `, `The OSM website currently doesn't provide a comment input for note reactivation.`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, em(`Plaintext`), ` mode will show hidden notes to moderators, but it requires knowing the note ids. `, `If you've hidden a note and want to see it but don't know its id, look for the note at `, this.$yourNotesWeb, ` on the OSM website.`), p(`The `, em(`Copy ids`), ` button on top is useful for making changeset comments. `, `It copies to the clipboard the same note list that you'd get by using the `, em(`Load map area`), ` remote control command. `, em(`Load map area`), ` sets the changeset comment tag to selected notes as a side effect. `, `If you're not using remote control but want to get the note list for a comment, you can press `, em(`Copy ids`), ` instead.`)];
+        return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again ("reactivates" it). `, `This means that a hidden note can only be restored to an open state, even if it had been closed before being hidden. `, `If you want the note to be closed again, you have to close it yourself after reactivating. `, `Also, unlike the OSM website, you can reactivate a note and add a comment in one action. `, `The OSM website currently doesn't provide a comment input for note reactivation.`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, em(`Plaintext`), ` mode will show hidden notes to moderators, but it requires knowing the note ids. `, `If you've hidden a note and want to see it but don't know its id, look for the note at `, this.$yourNotesWeb, ` on the OSM website.`), p(`The `, em(`Copy ids`), ` button on top is useful for making changeset comments. `, `It copies to the clipboard the same note list that you'd get by using the `, em(`Load map area`), ` remote control command. `, em(`Load map area`), ` sets the changeset comment tag to selected notes as a side effect. `, `If you're not using remote control but want to get the note list for a comment, you can press `, em(`Copy ids`), ` instead.`), p(em(`Copy ids`), ` has the ability to copy note ids as html links if your browser `, makeLink(`supports it`, `https://developer.mozilla.org/en-US/docs/Web/API/Clipboard#clipboard_availability`), `. `, `It should work out of the box on Chrome. `, `On Firefox as of v111 it requires enabling the `, code(`dom.events.asyncClipboard.clipboardItem`), ` setting in `, makeLink(`about:config`, `about:config`), ` and reloading the `, em(`note-viewer`), `.`)];
     }
     getTool($root, $tool) {
         const appendLastChangeset = new TextControl(this.$commentText, () => this.auth.uid != null, () => true, (append) => !this.$commentText.value.endsWith(append), (append) => {
@@ -9177,11 +9231,7 @@ class InteractTool extends Tool {
         this.$copyIdsButton.onclick = async () => {
             this.$copyIdsButton.title = '';
             this.$copyIdsButton.classList.remove('error');
-            const ids = [];
-            for (const statusIds of this.stagedNoteIds.values()) {
-                ids.push(...statusIds);
-            }
-            const decoratedIds = listDecoratedNoteIds(ids);
+            const decoratedIds = listDecoratedNoteIds(this.stagedNoteIds.keys());
             const plainText = convertDecoratedNoteIdsToPlainText(decoratedIds);
             try {
                 if (navigator.clipboard.write && window.ClipboardItem) {
@@ -9198,7 +9248,7 @@ class InteractTool extends Tool {
                 }
                 else {
                     await navigator.clipboard.writeText(plainText);
-                    this.$copyIdsButton.title = `Copied plaintext ids`;
+                    this.$copyIdsButton.title = `Copied plaintext ids (see tool info if you're using Firefox)`;
                 }
             }
             catch {
@@ -9219,15 +9269,15 @@ class InteractTool extends Tool {
                     this.updateRunOutput();
                 }
                 else {
-                    const matchingNoteIds = this.stagedNoteIds.get(interactionDescription.inputNoteStatus);
-                    if (!matchingNoteIds)
+                    const inputNoteIds = this.getStagedNoteIdsByStatus().get(interactionDescription.inputNoteStatus);
+                    if (!inputNoteIds)
                         return;
-                    const runImmediately = matchingNoteIds.length <= 1;
+                    const runImmediately = inputNoteIds.length <= 1;
                     this.run = {
                         interactionDescription,
                         status: 'paused',
                         requestedStatus: runImmediately ? 'running' : 'paused',
-                        inputNoteIds: [...matchingNoteIds],
+                        inputNoteIds,
                         outputNoteIds: []
                     };
                     if (runImmediately)
@@ -9258,15 +9308,7 @@ class InteractTool extends Tool {
             this.ping($tool);
         });
         $root.addEventListener('osmNoteViewer:notesInput', ({ detail: [inputNotes] }) => {
-            for (const status of noteStatuses) {
-                const ids = this.stagedNoteIds.get(status);
-                if (ids)
-                    ids.length = 0;
-            }
-            for (const inputNote of inputNotes) {
-                const ids = this.stagedNoteIds.get(inputNote.status);
-                ids?.push(inputNote.id);
-            }
+            this.stagedNoteIds = new Map(inputNotes.map(note => [note.id, note.status]));
             if (this.run?.status == 'running')
                 return;
             this.updateWithOutput();
@@ -9311,7 +9353,7 @@ class InteractTool extends Tool {
         }
     }
     updateWithOutput() {
-        const multipleNoteIndicators = this.getMultipleNoteIndicators(this.stagedNoteIds, 5);
+        const multipleNoteIndicators = getMultipleNoteIndicators(this.auth.server.web, this.stagedNoteIds, 5);
         if (multipleNoteIndicators.length > 0) {
             this.$withOutput.replaceChildren(`with `, ...multipleNoteIndicators);
         }
@@ -9325,23 +9367,9 @@ class InteractTool extends Tool {
         this.$copyIdsButton.title = '';
         this.$copyIdsButton.classList.remove('error');
         // buttons below comment
-        const buttonNoteIcon = (ids, inputStatus, outputStatus) => {
-            const outputIcon = [];
-            if (outputStatus != inputStatus) {
-                outputIcon.push(` → `, makeNoteStatusIcon(outputStatus, ids.length));
-            }
-            if (ids.length == 0) {
-                return [makeNoteStatusIcon(inputStatus, ids.length), ...outputIcon];
-            }
-            else if (ids.length == 1) {
-                return [makeNoteStatusIcon(inputStatus), ` ${ids[0]}`, ...outputIcon];
-            }
-            else {
-                return [`${ids.length} × `, makeNoteStatusIcon(inputStatus, ids.length), ...outputIcon, `...`];
-            }
-        };
+        const stagedNoteIdsByStatus = this.getStagedNoteIdsByStatus();
         for (const interactionDescription of this.interactionDescriptions) {
-            const inputNoteIds = this.stagedNoteIds.get(interactionDescription.inputNoteStatus) ?? [];
+            const inputNoteIds = stagedNoteIdsByStatus.get(interactionDescription.inputNoteStatus) ?? [];
             const { $button } = interactionDescription;
             let cancelCondition = false;
             if (this.run && this.run.status != 'finished') {
@@ -9356,7 +9384,7 @@ class InteractTool extends Tool {
                 $button.replaceChildren(`Cancel`);
             }
             else {
-                $button.replaceChildren(`${interactionDescription.label} `, ...buttonNoteIcon(inputNoteIds, interactionDescription.inputNoteStatus, interactionDescription.outputNoteStatus));
+                $button.replaceChildren(`${interactionDescription.label} `, ...getButtonNoteIcon(inputNoteIds, interactionDescription.inputNoteStatus, interactionDescription.outputNoteStatus));
             }
             $button.hidden = interactionDescription.forModerator && !this.auth.isModerator;
         }
@@ -9386,17 +9414,14 @@ class InteractTool extends Tool {
             return;
         }
         this.$runOutput.replaceChildren(this.run.interactionDescription.runningLabel, ` `);
-        const inputNoteIndicators = this.getMultipleNoteIndicators([[
-                this.run.interactionDescription.inputNoteStatus, this.run.inputNoteIds
-            ]], 0);
-        if (inputNoteIndicators.length > 0) {
-            outputFragment(`queued `, ...inputNoteIndicators);
+        if (this.run.inputNoteIds.length > 0) {
+            outputFragment(`queued `, ...getNoteCountIndicator(this.run.inputNoteIds.length, this.run.interactionDescription.inputNoteStatus));
         }
         else if (this.run.currentNoteId != null) {
             outputFragment(`queue emptied`);
         }
         if (this.run.currentNoteId != null) {
-            const $a = this.getNoteIndicator(this.run.interactionDescription.inputNoteStatus, this.run.currentNoteId);
+            const $a = getNoteIndicator(this.auth.server.web, this.run.currentNoteId, this.run.interactionDescription.inputNoteStatus);
             if (this.run.currentNoteError) {
                 $a.classList.add('error');
                 $a.title = this.run.currentNoteError;
@@ -9406,11 +9431,8 @@ class InteractTool extends Tool {
                 outputFragment(`current `, $a);
             }
         }
-        const outputNoteIndicators = this.getMultipleNoteIndicators([[
-                this.run.interactionDescription.outputNoteStatus, this.run.outputNoteIds
-            ]], 0);
-        if (outputNoteIndicators.length > 0) {
-            outputFragment(`completed `, ...outputNoteIndicators);
+        if (this.run.outputNoteIds.length > 0) {
+            outputFragment(`completed `, ...getNoteCountIndicator(this.run.outputNoteIds.length, this.run.interactionDescription.outputNoteStatus));
         }
     }
     makeRunScheduler($tool) {
@@ -9529,53 +9551,14 @@ class InteractTool extends Tool {
         };
         return scheduleRunNextNote;
     }
-    getMultipleNoteIndicators(statusAndIds, maxIndividualNotes) {
-        const output = [];
-        let first = true;
-        const writeSingleNote = (id, status) => {
-            if (!first)
-                output.push(`, `);
-            first = false;
-            output.push(this.getNoteIndicator(status, id));
-        };
-        const writeOneOrManyNotes = (ids, status) => {
-            if (ids.length == 0) {
-                return;
-            }
-            if (ids.length == 1) {
-                writeSingleNote(ids[0], status);
-                return;
-            }
-            if (!first)
-                output.push(`, `);
-            first = false;
-            output.push(`${ids.length} × `, makeNoteStatusIcon(status, ids.length));
-        };
-        const statusAndIdsCopy = [...statusAndIds];
-        const nNotes = statusAndIdsCopy.reduce((n, [, ids]) => n + ids.length, 0);
-        if (nNotes == 0) ;
-        else if (nNotes <= maxIndividualNotes) {
-            for (const [status, ids] of statusAndIdsCopy) {
-                for (const id of ids) {
-                    writeSingleNote(id, status);
-                }
-            }
+    getStagedNoteIdsByStatus() {
+        const stagedNoteIdsByStatus = new Map();
+        for (const [id, status] of this.stagedNoteIds) {
+            const ids = stagedNoteIdsByStatus.get(status) ?? [];
+            ids.push(id);
+            stagedNoteIdsByStatus.set(status, ids);
         }
-        else {
-            for (const [status, ids] of statusAndIdsCopy) {
-                writeOneOrManyNotes(ids, status);
-            }
-        }
-        return output;
-    }
-    getNoteIndicator(status, id) {
-        const href = this.auth.server.web.getUrl(e$3 `note/${id}`);
-        const $a = document.createElement('a');
-        $a.href = href;
-        $a.classList.add('listened');
-        $a.dataset.noteId = String(id);
-        $a.append(makeNoteStatusIcon(status), ` ${id}`);
-        return $a;
+        return stagedNoteIdsByStatus;
     }
 }
 function getLatestChangesetId(data) {
@@ -10941,6 +10924,41 @@ function makeAdiffQueryPreamble(changeset) {
         `;\n`);
 }
 
+const units = [
+    [1, 'second'],
+    [60, 'minute'],
+    [60 * 60, 'hour'],
+    [60 * 60 * 24, 'day'],
+    [60 * 60 * 24 * 7, 'week'],
+    [60 * 60 * 24 * 30, 'month'],
+    [60 * 60 * 24 * 365, 'year'],
+];
+const relativeTimeFormat = new Intl.RelativeTimeFormat('en');
+function listener(ev) {
+    if (!(ev.target instanceof HTMLTimeElement))
+        return;
+    const $time = ev.target;
+    if (!$time.dateTime)
+        return;
+    const readableTime = $time.dateTime.replace('T', ' ').replace('Z', ' UTC');
+    const t1ms = Date.parse($time.dateTime);
+    const t2ms = Date.now();
+    let relativeTime = 'just now';
+    for (const [duration, name] of units) {
+        if (t2ms - t1ms < duration * 1500)
+            break;
+        const timeDifferenceInUnits = Math.round((t1ms - t2ms) / (duration * 1000));
+        relativeTime = relativeTimeFormat.format(timeDifferenceInUnits, name);
+    }
+    $time.title = `${readableTime}, ${relativeTime}`;
+}
+class TimeTitleUpdater {
+    constructor($root) {
+        $root.addEventListener('mouseover', listener);
+        $root.addEventListener('focusin', listener);
+    }
+}
+
 main();
 async function main() {
     if (checkAuthRedirect()) {
@@ -11009,6 +11027,7 @@ async function main() {
         new OsmDownloader($root, globalHistory.server);
         globalHistory.restoreScrollPosition();
     }
+    new TimeTitleUpdater($root);
 }
 function writeMap($root, $mapContainer, globalHistory) {
     const map = new NoteMap($root, $mapContainer, globalHistory.server);
