@@ -93,8 +93,7 @@ dialog.figure figure:not(.zoomed) img {
 	from { opacity: 1; }
 	to { opacity: 0; }
 }
-dialog.figure button,
-dialog.figure figcaption {
+dialog.figure :is(button,figcaption) {
 	background: #AAA8;
 	color: #FFF;
 	opacity: 0;
@@ -114,8 +113,7 @@ dialog.figure button.close.bottom-position {
 	top: unset;
 	bottom: var(--control-position-offset);
 }
-dialog.figure button.prev,
-dialog.figure button.next {
+dialog.figure button:is(.prev,.next) {
 	top: 0;
 	bottom: 0;
 	margin: auto 0;
@@ -136,8 +134,7 @@ dialog.figure figcaption {
 	right: calc(2.5rem + var(--control-position-offset));
 	padding: .25rem .5rem;
 }
-dialog.figure button:hover,
-dialog.figure button:focus,
+dialog.figure button:is(:hover,:focus),
 dialog.figure figcaption:hover {
 	opacity: 1;
 	animation: none !important;
@@ -188,8 +185,7 @@ dialog.help .notice {
 dialog.help > .notice:last-child {
 	margin-bottom: -1rem;
 }
-dialog.help p,
-dialog.help ul {
+dialog.help :is(p,ul) {
 	line-height: 1.5;
 }
 dialog.help kbd {

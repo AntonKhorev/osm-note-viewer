@@ -4,8 +4,7 @@ nav {
 	padding: 1rem 3rem 0 3rem;
 	z-index: 1;
 }
-nav button.reset,
-nav button.flip {
+nav button.global {
 	top: .5rem;
 	z-index: 2;
 }

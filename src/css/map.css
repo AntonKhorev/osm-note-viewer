@@ -45,8 +45,7 @@
 .map .osm-element-popup-contents {
 	--block-gap: .5em;
 }
-.map .osm-element-popup-contents p,
-.map .osm-element-popup-contents figure {
+.map .osm-element-popup-contents :is(p,figure) {
 	margin: var(--block-gap) 0;
 }
 .map .osm-element-popup-contents figure figcaption {
@@ -67,8 +66,7 @@
 .map .osm-element-popup-contents figure tr td:not(:first-child) {
 	border-left: var(--frame-line);
 }
-.map .osm-element-popup-contents figure tr td:not(:first-child),
-.map .osm-element-popup-contents figure tr td.long { /* can't select all key cells because they will get wrapped at the expense of long value cells */
+.map .osm-element-popup-contents figure tr td:is(:not(:first-child),.long) { /* can't select all key cells because they will get wrapped at the expense of long value cells */
 	word-wrap: anywhere;
 }
 .map .osm-element-popup-contents button {

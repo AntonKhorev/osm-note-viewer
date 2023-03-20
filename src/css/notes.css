@@ -69,12 +69,10 @@
 .notes td {
 	vertical-align: top;
 }
-.notes td,
-.notes th {
+.notes :is(td,th) {
 	padding: var(--cell-pad);
 }
-.notes td:focus-visible,
-.notes th:focus-visible {
+.notes :is(td,th):focus-visible {
 	outline-offset: calc(0px - var(--cell-pad));
 }
 .notes :is(td.note-comments-count, td.note-action) [class|=icon] {
@@ -206,8 +204,7 @@ body.flipped table:not(.expanded-username) td.note-user {
 	content: "no comment";
 	color: gray;
 }
-.notes td.note-comment a.image:hover,
-.notes td.note-comment a.image.active {
+.notes td.note-comment a.image:is(:hover,.active) {
 	outline: var(--comment-link-outline)
 }
 .notes td.note-comment a.image.float {

@@ -38,21 +38,17 @@
 	background: var(--error-background-color);
 }
 
-.panel.fetch .advanced-hint,
-.more .advanced-hint {
+:is(.panel.fetch, .more) .advanced-hint {
 	opacity: .7;
 	font-size: .9em;
 }
-.panel.fetch a.request,
-.more a.request {
+:is(.panel.fetch, .more) a.request {
 	word-wrap: anywhere;
 }
-.panel.fetch:not(.advanced-mode) .advanced-hint,
-.more:not(.advanced-mode) .advanced-hint {
+:is(.panel.fetch, .more):not(.advanced-mode) .advanced-hint {
 	display: none;
 }
-.panel.fetch .advanced-hint p,
-.more .advanced-hint p {
+:is(.panel.fetch, .more) .advanced-hint p {
 	margin: .5em 0;
 }
 .panel.fetch:not(.advanced-mode) .advanced-input-group {
@@ -110,9 +106,7 @@
 .panel.command details.tool summary {
 	display: inline;
 }
-.panel.command details.tool summary::before,
-.panel.command details.tool button.open-all-tools::before,
-.panel.command details.tool button.close-all-tools::before {
+.panel.command details.tool :is(summary, button.open-all-tools, button.close-all-tools)::before {
 	--size: 11px;
 	content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-5.5 -5.5 11 11' fill='none' stroke='gray'><rect width='10' height='10' x='-5' y='-5' opacity='.3' /><line x1='-3' x2='3' /><line y1='-3' y2='3' /></svg>");
 	display: inline-block;
@@ -250,14 +244,11 @@
 	align-self: end;
 }
 
-.panel input:invalid:not(.no-invalid-indication),
-.panel textarea:invalid:not(.no-invalid-indication) {
+.panel :is(input,textarea):invalid:not(.no-invalid-indication) {
 	border: solid 2px var(--error-color);
 	border-radius: 3px;
 }
-.panel .major-input-group input[type=text],
-.panel .major-input-group textarea,
-.panel .major-input-group button:not([hidden]) {
+.panel .major-input-group :is(input[type=text], textarea, button):not([hidden]) {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
