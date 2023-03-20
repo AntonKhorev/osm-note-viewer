@@ -58,6 +58,7 @@ export class InteractTool extends Tool {
 	private $reactivateButton=document.createElement('button')
 	private $runButton=makeElement('button')('only-with-icon')()
 	private $runOutput=document.createElement('output')
+	private $run=makeDiv('interaction-run')(this.$runButton,this.$runOutput)
 	private stagedNoteIds= new Map<number,Note['status']>()
 	private run?: InteractionRun
 	private interactionDescriptions: InteractionDescription[]=[{
@@ -153,6 +154,9 @@ export class InteractTool extends Tool {
 		`It should work out of the box on Chrome. `,
 		`On Firefox as of v111 it requires enabling the `,code(`dom.events.asyncClipboard.clipboardItem`),` setting in `,makeLink(`about:config`,`about:config`),` and reloading the `,em(`note-viewer`),`.`
 	)]}
+	protected getInfoButtonContainer() {
+		return this.$run
+	}
 	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
 		const appendLastChangeset=new TextControl(
 			this.$commentText,
@@ -270,7 +274,7 @@ export class InteractTool extends Tool {
 				)
 			),
 			makeDiv('gridded-input')(...this.interactionDescriptions.map(({$button})=>$button)),
-			this.$runButton,` `,this.$runOutput
+			this.$run
 		]
 	}
 	private updateLoginDependents(): void {

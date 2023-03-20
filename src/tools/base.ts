@@ -55,7 +55,12 @@ export abstract class Tool {
 				if ($tool.open) return
 				$info.open=false
 			})
-			$tool.append(` `,$infoButton)
+			const $infoButtonContainer=this.getInfoButtonContainer()
+			if ($infoButtonContainer) {
+				$infoButtonContainer.append($infoButton)
+			} else {
+				$tool.append(` `,$infoButton)
+			}
 			$container.append($info)
 		}
 		$root.addEventListener('osmNoteViewer:toolsToggle',ev=>{
@@ -82,6 +87,7 @@ export abstract class Tool {
 		map: NoteMap
 	): ToolElements
 	protected getInfo(): ToolElements|undefined { return undefined }
+	protected getInfoButtonContainer(): HTMLElement|undefined { return undefined }
 	protected makeRequiringSelectedNotesButton(): HTMLButtonElement {
 		const $button=document.createElement('button')
 		$button.disabled=true

@@ -191,7 +191,7 @@
 .panel.command details.info summary {
 	display: none;
 }
-.panel.command details.tool .major-input {
+.panel.command details.tool :is(.major-input, .gridded-input) {
 	margin: .2em 0;
 }
 .panel.command [class|=icon] > svg {
@@ -235,6 +235,19 @@
 }
 .panel.command input[type=number] {
 	width: 7ch;
+}
+.panel.command .interaction-run {
+	display: flex;
+	gap: .2em;
+}
+.panel.command .interaction-run > output {
+	flex-grow: 1;
+}
+.panel.command .interaction-run > button {
+	flex-shrink: 0;
+}
+.panel.command .interaction-run > button.info {
+	align-self: end;
 }
 
 .panel input:invalid:not(.no-invalid-indication),
