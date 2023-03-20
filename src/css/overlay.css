@@ -170,10 +170,10 @@ dialog.help > h2:first-child,
 dialog.help > button.close:first-child + h2 {
 	margin-top: 0;
 }
-dialog.help .major-input {
+dialog.help .major-input-group {
 	margin: 1rem 0;
 }
-dialog.help .major-input button {
+dialog.help .major-input-group button {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;

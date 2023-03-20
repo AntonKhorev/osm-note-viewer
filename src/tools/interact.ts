@@ -266,14 +266,14 @@ export class InteractTool extends Tool {
 		})
 		return [
 			this.$asOutput,` `,this.$withOutput,` `,this.$copyIdsButton,
-			makeDiv('major-input')(
+			makeDiv('major-input-group')(
 				appendLastChangeset.$controls,
 				makeLabel()(
 					`Comment `,
 					this.$commentText
 				)
 			),
-			makeDiv('gridded-input')(...this.interactionDescriptions.map(({$button})=>$button)),
+			makeDiv('gridded-input-group')(...this.interactionDescriptions.map(({$button})=>$button)),
 			this.$run
 		]
 	}

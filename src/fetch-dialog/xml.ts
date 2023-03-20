@@ -46,7 +46,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 	protected makeFetchControlDiv(): HTMLDivElement {
 		this.$fileInput.name='xml'
 		this.$fileInput.type='file'
-		return makeDiv('major-input')(makeLabel('file-reader')(
+		return makeDiv('major-input-group')(makeLabel('file-reader')(
 			makeElement('span')('over')(`Read XML file`),` `,
 			this.$fileInput
 		))
@@ -95,7 +95,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 				...neisCountries.map(c=>new Option(c))
 			)
 			this.$neisCountryInput.setAttribute('list','neis-countries-list')
-			$fieldset.append(makeDiv('major-input')(makeLabel()(
+			$fieldset.append(makeDiv('major-input-group')(makeLabel()(
 				`Country `,this.$neisCountryInput,$datalist
 			)))
 		}{
@@ -106,7 +106,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 				new Option(`last updated 500`,'custom'),
 				new Option(`last open 10000`,'custom-open'),
 			)
-			$fieldset.append(makeDiv('regular-input')(
+			$fieldset.append(makeDiv('regular-input-group')(
 				makeLabel()(
 					`Get `,this.$neisStatusSelect,` notes`
 				),` for this country`
@@ -114,7 +114,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 		}{
 			this.$neisButton.textContent='Download feed file and populate XML fields below'
 			this.$neisButton.setAttribute('form','neis-form')
-			$fieldset.append(makeDiv('major-input')(
+			$fieldset.append(makeDiv('major-input-group')(
 				this.$neisButton
 			))
 		}
@@ -132,13 +132,13 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 			this.$selectorInput.type='text'
 			this.$selectorInput.name='selector'
 			this.$selectorInput.required=true
-			$fieldset.append(makeDiv('major-input')(makeLabel()(
+			$fieldset.append(makeDiv('major-input-group')(makeLabel()(
 				`CSS selector matching XML elements with note ids `,this.$selectorInput
 			)))
 		}{
 			this.$attributeInput.type='text'
 			this.$attributeInput.name='attribute'
-			$fieldset.append(makeDiv('major-input')(makeLabel()(
+			$fieldset.append(makeDiv('major-input-group')(makeLabel()(
 				`Attribute of matched XML elements containing note id (leave blank if note id is in text content) `,this.$attributeInput
 			)))
 		}

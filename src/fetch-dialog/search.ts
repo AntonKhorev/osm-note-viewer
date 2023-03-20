@@ -97,7 +97,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 				()=>[makeElement('span')()(`undo set to`)],
 				()=>[makeElement('span')()(`set to`),` `,em(String(this.auth.username))]
 			)
-			$fieldset.append(makeDiv('major-input')(userInputControl.$controls,makeLabel()(
+			$fieldset.append(makeDiv('major-input-group')(userInputControl.$controls,makeLabel()(
 				`OSM username, URL or #id`,rq2('display_name','user'),` `,this.$userInput
 			)))
 			this.$root.addEventListener('osmNoteViewer:loginChange',()=>{
@@ -106,7 +106,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 		}{
 			this.$textInput.type='text'
 			this.$textInput.name='text'
-			$fieldset.append(makeDiv('major-input')(makeLabel()(
+			$fieldset.append(makeDiv('major-input-group')(makeLabel()(
 				`Comment text search query`,rq('q'),` `,this.$textInput
 			)))
 		}{
@@ -116,7 +116,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 			this.$toInput.type='text'
 			this.$toInput.size=20
 			this.$toInput.name='to'
-			$fieldset.append(makeDiv('regular-input')(
+			$fieldset.append(makeDiv('regular-input-group')(
 				makeLabel()(`From date`,rq('from'),` `,this.$fromInput),` `,
 				makeLabel()(`to date`,rq('to'),` `,this.$toInput)
 			))
@@ -147,7 +147,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 		{
 			this.$autoLoadCheckbox.type='checkbox'
 			this.$autoLoadCheckbox.checked=true
-			$fieldset.append(makeDiv('regular-input')(makeLabel()(
+			$fieldset.append(makeDiv('regular-input-group')(makeLabel()(
 				this.$autoLoadCheckbox,` Automatically load more notes when scrolled to the end of the table`
 			)))
 		}

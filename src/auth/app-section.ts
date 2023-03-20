@@ -215,12 +215,12 @@ export default class AuthAppSection {
 					)
 				)
 			),
-			makeDiv('major-input')(
+			makeDiv('major-input-group')(
 				makeLabel()(
 					`Client ID `,$clientIdInput
 				)
 			),
-			makeDiv('major-input')(
+			makeDiv('major-input-group')(
 				makeLabel()(
 					$manualCodeEntryCheckbox,` `+manualCodeEntryLabel
 				),

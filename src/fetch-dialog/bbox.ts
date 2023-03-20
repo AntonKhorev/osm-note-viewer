@@ -85,7 +85,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 				new Option(`Update bounding box input`,'bbox',true,true),
 				new Option(`Fetch notes`,'fetch'),
 			)
-			$fieldset.append(makeDiv('regular-input')(
+			$fieldset.append(makeDiv('regular-input-group')(
 				makeLabel('inline')(this.$trackMapSelect,` on map view changes`),` `,
 				this.$trackMapZoomNotice
 			))
@@ -93,7 +93,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 			this.$bboxInput.type='text'
 			this.$bboxInput.name='bbox'
 			this.$bboxInput.required=true // otherwise could submit empty bbox without entering anything
-			$fieldset.append(makeDiv('major-input')(makeLabel()(
+			$fieldset.append(makeDiv('major-input-group')(makeLabel()(
 				`Bounding box (`,
 				tip(`left`,`western-most (min) longitude`),`, `,
 				tip(`bottom`,`southern-most (min) latitude`),`, `,

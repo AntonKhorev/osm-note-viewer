@@ -21,7 +21,7 @@
 .panel section[role=tabpanel] h2 {
 	margin-top: .3rem;
 }
-.panel [class$="-input"] {
+.panel [class$="-input-group"] {
 	margin: .5rem 0;
 }
 .panel div.notice:not(:empty) {
@@ -55,10 +55,10 @@
 .more .advanced-hint p {
 	margin: .5em 0;
 }
-.panel.fetch:not(.advanced-mode) .advanced-input {
+.panel.fetch:not(.advanced-mode) .advanced-input-group {
 	display: none;
 }
-.panel.fetch.advanced-mode .non-advanced-input {
+.panel.fetch.advanced-mode .non-advanced-input-group {
 	display: none;
 }
 .panel.fetch input[type=number] {
@@ -191,7 +191,7 @@
 .panel.command details.info summary {
 	display: none;
 }
-.panel.command details.tool :is(.major-input, .gridded-input) {
+.panel.command details.tool :is(.major-input-group, .gridded-input-group) {
 	margin: .2em 0;
 }
 .panel.command [class|=icon] > svg {
@@ -255,50 +255,50 @@
 	border: solid 2px var(--error-color);
 	border-radius: 3px;
 }
-.panel .major-input input[type=text],
-.panel .major-input textarea,
-.panel .major-input button:not([hidden]) {
+.panel .major-input-group input[type=text],
+.panel .major-input-group textarea,
+.panel .major-input-group button:not([hidden]) {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
 	margin: .2em 0;
 }
-.panel .major-input textarea {
+.panel .major-input-group textarea {
 	resize: vertical;
 }
-.panel .major-input button {
+.panel .major-input-group button {
 	padding: var(--major-button-padding);
 }
-.panel .major-input .text-controls {
+.panel .major-input-group .text-controls {
 	float: right;
 }
-.panel .major-input .text-controls a span {
+.panel .major-input-group .text-controls a span {
 	opacity: .7;
 }
-.panel .major-input .text-controls a em {
+.panel .major-input-group .text-controls a em {
 	font-style: inherit;
 }
-.panel .text-button-input {
+.panel .text-button-input-group {
 	display: flex;
 	gap: .5em;
 	align-items: end;
 }
-.panel .text-button-input > label {
+.panel .text-button-input-group > label {
 	flex-grow: 1;
 }
-.panel .text-button-input > label input[type=text] {
+.panel .text-button-input-group > label input[type=text] {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
 }
-.panel .text-button-input button {
+.panel .text-button-input-group button {
 	width: 4.5rem;
 }
-.panel .checkbox-button-input {
+.panel .checkbox-button-input-group {
 	display: flex;
 	gap: .5em;
 }
-.panel .checkbox-button-input > button {
+.panel .checkbox-button-input-group > button {
 	flex-grow: 1;
 	padding: var(--major-button-padding);
 }
@@ -310,14 +310,14 @@
 	margin-left: 0;
 	margin-right: 0;
 }
-.panel .major-input label.file-reader {
+.panel .major-input-group label.file-reader {
 	--file-reader-border-width: 2px;
 }
-.panel .major-input label.file-reader {
+.panel .major-input-group label.file-reader {
 	display: grid;
 	align-content: center;
 }
-.panel .major-input label.file-reader .over {
+.panel .major-input-group label.file-reader .over {
 	margin: 2px;
 	grid-row: 1;
 	grid-column: 1;
@@ -327,10 +327,10 @@
 	display: grid;
 	place-items: center;
 }
-.panel .major-input label.file-reader:focus-within .over {
+.panel .major-input-group label.file-reader:focus-within .over {
 	z-index: -1;
 }
-.panel .major-input label.file-reader input {
+.panel .major-input-group label.file-reader input {
 	display: block;
 	padding: 3rem;
 	background: var(--file-reader-background-color);
@@ -340,15 +340,15 @@
 	border: dashed var(--file-reader-border-width) var(--file-reader-passive-border-color);
 	border-radius: 2px;
 }
-.panel .major-input label.file-reader input.active {
+.panel .major-input-group label.file-reader input.active {
 	border: dashed var(--file-reader-border-width) var(--file-reader-active-border-color);
 }
-.panel .gridded-input {
+.panel .gridded-input-group {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(20ch, 1fr));
 	gap: .2em;
 }
-.panel .gridded-input > button {
+.panel .gridded-input-group > button {
 	padding: var(--major-button-padding);
 }
 

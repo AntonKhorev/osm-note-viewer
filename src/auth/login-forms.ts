@@ -48,14 +48,14 @@ export default class AuthLoginForms {
 		const app=()=>em(`osm-note-viewer`)
 		this.$manualCodeForm.append(
 			p(`If the manual code copying method was used to register `,app(),`, copy the code into the input below.`),
-			makeDiv('major-input')(
+			makeDiv('major-input-group')(
 				makeLabel()(`Authorization code `,this.$manualCodeInput)
-			),makeDiv('major-input')(
+			),makeDiv('major-input-group')(
 				this.$manualCodeButton
 			)
 		)
 		$container.append(
-			makeDiv('major-input')(
+			makeDiv('major-input-group')(
 				this.$loginButton,
 				this.$cancelLoginButton
 			),

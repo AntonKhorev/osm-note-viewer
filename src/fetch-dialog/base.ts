@@ -146,12 +146,12 @@ export abstract class NoteFetchDialog extends NavDialog {
 			this.$limitInput.min='1'
 			this.$limitInput.max='10000'
 			this.$limitInput.value=String(this.limitDefaultValue)
-			$fieldset.append(makeDiv('non-advanced-input')(
+			$fieldset.append(makeDiv('non-advanced-input-group')(
 				this.limitLeadText,
 				makeLabel()(
 					this.limitLabelBeforeText,this.$limitSelect,this.limitLabelAfterText
 				)
-			),makeDiv('advanced-input')(
+			),makeDiv('advanced-input-group')(
 				this.limitLeadText,
 				makeLabel()(
 					this.limitLabelBeforeText,this.$limitInput,this.limitLabelAfterText,
@@ -166,12 +166,12 @@ export abstract class NoteFetchDialog extends NavDialog {
 		const $showImagesCheckbox=document.createElement('input')
 		$showImagesCheckbox.type='checkbox'
 		this.$sharedCheckboxes.showImages.push($showImagesCheckbox)
-		$fieldset.append(makeDiv('regular-input')(makeLabel()(
+		$fieldset.append(makeDiv('regular-input-group')(makeLabel()(
 			$showImagesCheckbox,` Load and show images from StreetComplete`
 		)))
 		this.$advancedModeCheckbox.type='checkbox'
 		this.$sharedCheckboxes.advancedMode.push(this.$advancedModeCheckbox)
-		$fieldset.append(makeDiv('regular-input')(makeLabel()(
+		$fieldset.append(makeDiv('regular-input-group')(makeLabel()(
 			this.$advancedModeCheckbox,` Advanced mode`
 		)))
 		return $fieldset
@@ -254,7 +254,7 @@ export function mixinWithFetchButton<T extends abstract new (...args: any[]) => 
 		protected makeFetchControlDiv(): HTMLDivElement {
 			this.$fetchButton.textContent=`Fetch notes`
 			this.$fetchButton.type='submit'
-			return makeDiv('major-input')(this.$fetchButton)
+			return makeDiv('major-input-group')(this.$fetchButton)
 		}
 		disableFetchControl(disabled: boolean): void {
 			this.$fetchButton.disabled=disabled
@@ -323,13 +323,13 @@ export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetc
 				new Option(`open and recently closed`,'7'),
 				new Option(`only open`,'0'),
 			)
-			const $closedLine=makeDiv('regular-input')(
+			const $closedLine=makeDiv('regular-input-group')(
 				`Fetch `,
-				makeElement('span')('non-advanced-input')(
+				makeElement('span')('non-advanced-input-group')(
 					this.$closedSelect
 				),
 				` matching notes `,
-				makeLabel('advanced-input')(
+				makeLabel('advanced-input-group')(
 					`closed no more than `,
 					this.$closedInput,
 					makeElement('span')('advanced-hint')(` (`,code('closed'),` parameter)`),
@@ -412,7 +412,7 @@ export abstract class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteF
 		{
 			this.$autoLoadCheckbox.type='checkbox'
 			this.$autoLoadCheckbox.checked=true
-			$fieldset.append(makeDiv('regular-input')(makeLabel()(
+			$fieldset.append(makeDiv('regular-input-group')(makeLabel()(
 				this.$autoLoadCheckbox,` Automatically load more notes when scrolled to the end of the table`
 			)))
 		}

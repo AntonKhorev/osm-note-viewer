@@ -27,7 +27,7 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 			this.$copySelectedCheckbox.type='checkbox'
 			this.$copyButton.type='button'
 			this.$copyButton.textContent=`Copy note ids from table below`
-			$fieldset.append(makeDiv('checkbox-button-input')(
+			$fieldset.append(makeDiv('checkbox-button-input-group')(
 				this.$copySelectedCheckbox,' ',
 				this.$copyButton
 			))
@@ -35,7 +35,7 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 			this.$idsTextarea.name='ids'
 			this.$idsTextarea.required=true
 			this.$idsTextarea.rows=10
-			$fieldset.append(makeDiv('major-input')(makeLabel()(
+			$fieldset.append(makeDiv('major-input-group')(makeLabel()(
 				`Note ids separated by anything `,this.$idsTextarea
 			)))
 		}
