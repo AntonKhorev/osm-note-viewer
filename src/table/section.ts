@@ -211,10 +211,10 @@ function updateCommentsButton($button: HTMLButtonElement, hiddenRows: boolean, n
 	const $text=$button.querySelector('text')
 	if (!$text) return
 	if (hiddenRows) {
-		$button.title=`show ${nAdditionalComments} comment${s}/action${s}`
+		$button.title=`show ${nAdditionalComments} following comment${s}/action${s}`
 		$text.textContent=String(nAdditionalComments)
 	} else {
-		$button.title=`hide comment${s}/action${s}`
+		$button.title=`hide ${nAdditionalComments} following comment${s}/action${s}`
 		$text.textContent=`−`
 	}
 }
