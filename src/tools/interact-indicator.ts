@@ -27,15 +27,16 @@ export function getMultipleNoteIndicators(
 		}
 		output.push(
 			getNoteIndicator(web,...idsAndStatuses[0]),
-			` ...`
+			` ...(`
 		)
-		for (const [status,count] of countsByStatus) {
+		for (const [i,[status,count]] of [...countsByStatus].entries()) {
+			if (i) output.push(`, `)
 			output.push(
-				` +`,...getNoteCountIndicator(count,status)
+				...getNoteCountIndicator(count,status)
 			)
 		}
 		output.push(
-			` ... `,
+			`)... `,
 			getNoteIndicator(web,...idsAndStatuses[idsAndStatuses.length-1])
 		)
 	}
