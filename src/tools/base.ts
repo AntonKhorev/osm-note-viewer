@@ -21,47 +21,42 @@ export abstract class Tool {
 	) {
 		if (!this.isActiveWithCurrentServerConfiguration()) return
 		const storageKey='commands-'+this.id
-		const $tool=document.createElement('details')
-		$tool.classList.add('tool')
+		const $tool=makeElement('details')('tool')()
 		$tool.classList.toggle('full-width',this.isFullWidth)
 		$tool.open=storage.getBoolean(storageKey)
-		const $toolSummary=document.createElement('summary')
-		$toolSummary.textContent=this.name
+		const $toolSummary=makeElement('summary')()(this.name)
 		if (this.title) $toolSummary.title=this.title
 		$tool.addEventListener('toggle',()=>{
 			storage.setBoolean(storageKey,$tool.open)
 		})
 		$tool.append($toolSummary,...this.getTool($root,$tool,map))
 		cleanupAnimationOnEnd($tool)
+		$container.append($tool)
 		const infoElements=this.getInfo()
 		if (infoElements) {
-			const $info=document.createElement('details')
-			$info.classList.add('info')
-			const $infoSummary=document.createElement('summary')
-			$infoSummary.textContent=`${this.name} info`
-			$info.append($infoSummary,...infoElements)
-			const $infoButton=document.createElement('button')
-			$infoButton.classList.add('info')
+			const $info=makeElement('details')('info')(
+				makeElement('summary')()(`${this.name} info`),
+				...infoElements
+			)
+			const $infoButton=makeElement('button')('info')()
 			$infoButton.innerHTML=`<svg><use href="#tools-info" /></svg>`
 			const updateInfoButton=()=>{
 				$infoButton.title=($info.open?`Close`:`Open`)+` tool info`
 				$infoButton.setAttribute('aria-expanded',String($info.open))
 			}
 			updateInfoButton()
-			$infoButton.addEventListener('click',()=>{
+			$infoButton.onclick=()=>{
 				$info.open=!$info.open
-			})
-			$info.addEventListener('toggle',()=>{
+			}
+			$info.ontoggle=()=>{
 				updateInfoButton()
-			})
+			}
 			$tool.addEventListener('toggle',()=>{
 				if ($tool.open) return
 				$info.open=false
 			})
 			$tool.append(` `,$infoButton)
-			$container.append($tool,$info)
-		} else {
-			$container.append($tool)
+			$container.append($info)
 		}
 		$root.addEventListener('osmNoteViewer:toolsToggle',ev=>{
 			if (ev.target==$tool) return
