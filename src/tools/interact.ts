@@ -9,7 +9,7 @@ import {makeElement, makeDiv, makeLabel, makeLink, bubbleEvent, bubbleCustomEven
 import {p,ul,li,code,em} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 import {isArray} from '../types'
-import {getMultipleNoteIndicators, getNoteIndicator, getButtonNoteIcon} from './interact-indicator'
+import {getMultipleNoteIndicators, getNoteIndicator, getNoteCountIndicator, getButtonNoteIcon} from './interact-indicator'
 
 const e=makeEscapeTag(encodeURIComponent)
 
@@ -355,9 +355,6 @@ export class InteractTool extends Tool {
 		this.$runButton.disabled=!this.run || this.run.status!=this.run.requestedStatus
 	}
 	private updateRunOutput(): void {
-		const getNoteIndicators=(ids:number[],status:Note['status'])=>getMultipleNoteIndicators(
-			this.auth.server.web,ids.map(id=>[id,status]),0
-		)
 		let firstFragment=true
 		const outputFragment=(...content:(string|HTMLElement)[])=>{
 			if (firstFragment) {
@@ -376,15 +373,12 @@ export class InteractTool extends Tool {
 		this.$runOutput.replaceChildren(
 			this.run.interactionDescription.runningLabel,` `
 		)
-		const inputNoteIndicators=getNoteIndicators(this.run.inputNoteIds,this.run.interactionDescription.inputNoteStatus)
-		if (inputNoteIndicators.length>0) {
-			outputFragment(
-				`queued `,...inputNoteIndicators
-			)
+		if (this.run.inputNoteIds.length>0) {
+			outputFragment(`queued `,...getNoteCountIndicator(
+				this.run.inputNoteIds.length,this.run.interactionDescription.inputNoteStatus
+			))
 		} else if (this.run.currentNoteId!=null) {
-			outputFragment(
-				`queue emptied`
-			)
+			outputFragment(`queue emptied`)
 		}
 		if (this.run.currentNoteId!=null) {
 			const $a=getNoteIndicator(this.auth.server.web,
@@ -393,20 +387,15 @@ export class InteractTool extends Tool {
 			if (this.run.currentNoteError) {
 				$a.classList.add('error')
 				$a.title=this.run.currentNoteError
-				outputFragment(
-					`error on `,$a
-				)
+				outputFragment(`error on `,$a)
 			} else {
-				outputFragment(
-					`current `,$a
-				)
+				outputFragment(`current `,$a)
 			}
 		}
-		const outputNoteIndicators=getNoteIndicators(this.run.outputNoteIds,this.run.interactionDescription.outputNoteStatus)
-		if (outputNoteIndicators.length>0) {
-			outputFragment(
-				`completed `,...outputNoteIndicators
-			)
+		if (this.run.outputNoteIds.length>0) {
+			outputFragment(`completed `,...getNoteCountIndicator(
+				this.run.outputNoteIds.length,this.run.interactionDescription.outputNoteStatus
+			))
 		}
 	}
 	private makeRunScheduler($tool: HTMLElement): ()=>void {

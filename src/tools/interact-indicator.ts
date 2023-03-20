@@ -31,7 +31,7 @@ export function getMultipleNoteIndicators(
 		)
 		for (const [status,count] of countsByStatus) {
 			output.push(
-				` + ${count} × `,makeNoteStatusIcon(status,count)
+				` +`,...getNoteCountIndicator(count,status)
 			)
 		}
 		output.push(
@@ -52,7 +52,11 @@ export function getNoteIndicator(web: WebProvider, id: number, status: Note['sta
 	return $a
 }
 
-export function getButtonNoteIcon(ids:readonly number[],inputStatus:Note['status'],outputStatus:Note['status']): (string|HTMLElement)[] {
+export function getNoteCountIndicator(count: number, status: Note['status']): (string|HTMLElement)[] {
+	return [`${count} × `,makeNoteStatusIcon(status,count)]
+}
+
+export function getButtonNoteIcon(ids: readonly number[], inputStatus: Note['status'], outputStatus: Note['status']): (string|HTMLElement)[] {
 	const outputIcon=[]
 	if (outputStatus!=inputStatus) {
 		outputIcon.push(` → `,makeNoteStatusIcon(outputStatus,ids.length))
@@ -62,6 +66,6 @@ export function getButtonNoteIcon(ids:readonly number[],inputStatus:Note['status
 	} else if (ids.length==1) {
 		return [makeNoteStatusIcon(inputStatus),` ${ids[0]}`,...outputIcon]
 	} else {
-		return [`${ids.length} × `,makeNoteStatusIcon(inputStatus,ids.length),...outputIcon,`...`]
+		return [...getNoteCountIndicator(ids.length,inputStatus),...outputIcon,`...`]
 	}
 }
