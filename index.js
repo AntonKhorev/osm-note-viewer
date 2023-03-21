@@ -326,6 +326,22 @@ function makeElement(tag) {
 }
 const makeDiv = makeElement('div');
 const makeLabel = makeElement('label');
+function makeSemiLink(...classes) {
+    const makeWithItems = makeElement('a')(...classes);
+    return (...items) => {
+        const $a = makeWithItems(...items);
+        $a.setAttribute('tabindex', '0');
+        $a.addEventListener('keydown', semiLinkKeydownListener);
+        return $a;
+    };
+}
+function semiLinkKeydownListener(ev) {
+    if (ev.key != 'Enter')
+        return;
+    this.click();
+    ev.preventDefault();
+    ev.stopPropagation();
+}
 function startAnimation($element, animationName, animationDuration) {
     if (resetAnimation($element, animationName))
         return;
@@ -1337,7 +1353,7 @@ class AuthAppSection {
                     strong(`This doesn't seem to be the case with your install.`), ` `,
                     `You may still use this method but the one described before gives a simpler login workflow.`
                 ]))
-        ]), makeElement('details')()(makeElement('summary')()(`Additional instructions for building your own copy of `, app(), ` with a registration included`), ol(li(`Register an OAuth 2 app with one of the methods described above.`), li(`Open `, code(`servers.json`), ` in `, app(), `'s source code. `, `The format of this file is described here in `, em(`Custom server configuration syntax`), `.`), li(`If you're using a custom server specified on this page, copy its configuration to `, code(`servers.json`), `.`), li(`Find the `, code(`oauth`), ` property corresponding to the server you're using or add one if it doesn't exist.`), li(`Copy the `, em(`Client ID`), ` to the `, code(`id`), ` property inside `, code(`oauth`), `.`), li(`If you're not using manual authorization code entry, copy `, app(), `'s install location (`, value(authStorage.installUri), `) to the `, code(`url`), ` property inside `, code(`oauth`), `.`), li(`Rebuild `, app(), `.`))), makeDiv('major-input')(makeLabel()(`Client ID `, $clientIdInput)), makeDiv('major-input')(makeLabel()($manualCodeEntryCheckbox, ` ` + manualCodeEntryLabel), ` (for non-https/non-secure install locations)`), $registrationNotice);
+        ]), makeElement('details')()(makeElement('summary')()(`Additional instructions for building your own copy of `, app(), ` with a registration included`), ol(li(`Register an OAuth 2 app with one of the methods described above.`), li(`Open `, code(`servers.json`), ` in `, app(), `'s source code. `, `The format of this file is described here in `, em(`Custom server configuration syntax`), `.`), li(`If you're using a custom server specified on this page, copy its configuration to `, code(`servers.json`), `.`), li(`Find the `, code(`oauth`), ` property corresponding to the server you're using or add one if it doesn't exist.`), li(`Copy the `, em(`Client ID`), ` to the `, code(`id`), ` property inside `, code(`oauth`), `.`), li(`If you're not using manual authorization code entry, copy `, app(), `'s install location (`, value(authStorage.installUri), `) to the `, code(`url`), ` property inside `, code(`oauth`), `.`), li(`Rebuild `, app(), `.`))), makeDiv('major-input-group')(makeLabel()(`Client ID `, $clientIdInput)), makeDiv('major-input-group')(makeLabel()($manualCodeEntryCheckbox, ` ` + manualCodeEntryLabel), ` (for non-https/non-secure install locations)`), $registrationNotice);
     }
 }
 
@@ -1375,8 +1391,8 @@ class AuthLoginForms {
         // TODO write that you may not get a confirmation page if you are already logged in - in this case logout first
         //	^ to do this, need to check if anything user-visible appears in the popup at all with auto-code registrations
         const app = () => em(`osm-note-viewer`);
-        this.$manualCodeForm.append(p(`If the manual code copying method was used to register `, app(), `, copy the code into the input below.`), makeDiv('major-input')(makeLabel()(`Authorization code `, this.$manualCodeInput)), makeDiv('major-input')(this.$manualCodeButton));
-        $container.append(makeDiv('major-input')(this.$loginButton, this.$cancelLoginButton), this.$manualCodeForm, this.$error);
+        this.$manualCodeForm.append(p(`If the manual code copying method was used to register `, app(), `, copy the code into the input below.`), makeDiv('major-input-group')(makeLabel()(`Authorization code `, this.$manualCodeInput)), makeDiv('major-input-group')(this.$manualCodeButton));
+        $container.append(makeDiv('major-input-group')(this.$loginButton, this.$cancelLoginButton), this.$manualCodeForm, this.$error);
     }
     respondToAppRegistration(isManualCodeEntry) {
         this.isManualCodeEntry = isManualCodeEntry;
@@ -1527,6 +1543,7 @@ function makeLogin(scope, userData) {
 }
 class AuthLoginSection {
     constructor($section, authStorage, server) {
+        this.$section = $section;
         this.authStorage = authStorage;
         this.$clientIdRequired = makeDiv('notice')(`Please register the app and enter the `, em(`client id`), ` below to be able to login.`);
         this.$loginForms = makeDiv()();
@@ -1669,6 +1686,12 @@ class AuthLoginSection {
         this.loginForms.respondToAppRegistration(this.authStorage.isManualCodeEntry);
         this.updateVisibility();
     }
+    focusOnLogin() {
+        this.$section.scrollIntoView();
+        if (!this.$loginForms.hidden && !this.loginForms.$loginButton.hidden) {
+            this.loginForms.$loginButton.focus();
+        }
+    }
     updateVisibility() {
         const canLogin = !!this.authStorage.clientId;
         this.$clientIdRequired.hidden = canLogin;
@@ -1715,6 +1738,7 @@ class Auth {
         const loginSection = new AuthLoginSection($loginSection, this.authStorage, this.server);
         appSection.onRegistrationUpdate = () => loginSection.respondToAppRegistration();
         $container.append($loginSection, $appSection);
+        return loginSection;
     }
     get token() {
         return this.authStorage.token;
@@ -3098,14 +3122,14 @@ function makeCodeForm(initialValue, stashedValue, summary, textareaLabel, applyB
     }
     {
         $textarea.rows = 5;
-        $form.append(makeDiv('major-input')(makeLabel()(textareaLabel, ` `, $textarea)));
+        $form.append(makeDiv('major-input-group')(makeLabel()(textareaLabel, ` `, $textarea)));
     }
     {
         $applyButton.textContent = applyButtonLabel;
         $clearButton.textContent = `Clear`;
         $undoClearButton.textContent = `Restore previous`;
         $undoClearButton.type = $clearButton.type = 'button';
-        $form.append(makeDiv('gridded-input')($applyButton, $clearButton, $undoClearButton));
+        $form.append(makeDiv('gridded-input-group')($applyButton, $clearButton, $undoClearButton));
     }
     $textarea.oninput = reactToChanges;
     $clearButton.onclick = () => {
@@ -3393,7 +3417,7 @@ class StorageSection {
         $section.append(makeElement('h2')()(`Storage`));
         const $updateFetchesButton = document.createElement('button');
         $updateFetchesButton.textContent = `Update stored fetch list`;
-        $section.append(makeDiv('major-input')($updateFetchesButton));
+        $section.append(makeDiv('major-input-group')($updateFetchesButton));
         const $fetchesContainer = makeDiv()(p(`Click Update button above to see stored fetches.`));
         $section.append($fetchesContainer);
         $updateFetchesButton.addEventListener('click', async () => {
@@ -3468,7 +3492,7 @@ class StorageSection {
             const $cancelButton = makeElement('button')()(`Cancel clear settings`);
             const $confirmButton = makeElement('button')()(`Confirm clear settings`);
             new ConfirmedButtonListener($clearButton, $cancelButton, $confirmButton, async () => storage.clear());
-            $section.append(makeDiv('major-input')($clearButton, $cancelButton, $confirmButton));
+            $section.append(makeDiv('major-input-group')($clearButton, $cancelButton, $confirmButton));
         }
     }
 }
@@ -3514,7 +3538,7 @@ class OverlayDialog {
         ]);
         this.menuHidden = !!auth;
         this.$menuButton.disabled = !auth;
-        this.writeMenuPanel(storage, db, server, serverList, serverHash, auth);
+        const loginSection = this.writeMenuPanel(storage, db, server, serverList, serverHash, auth);
         this.writeFigureDialog();
         $root.append(this.$figureHelpDialog);
         for (const eventType of [
@@ -3529,10 +3553,16 @@ class OverlayDialog {
         $root.addEventListener('osmNoteViewer:imageToggle', ({ detail: imageSequence }) => {
             this.toggleImage(imageSequence);
         });
-        $root.addEventListener('osmNoteViewer:menuToggle', () => {
+        $root.addEventListener('osmNoteViewer:menuToggle', ({ detail }) => {
             if (this.imageSequence != null)
                 this.close();
-            this.menuHidden = !this.menuHidden;
+            if (detail == 'login') {
+                this.menuHidden = false;
+                loginSection?.focusOnLogin();
+            }
+            else {
+                this.menuHidden = !this.menuHidden;
+            }
             this.map?.hide(!this.menuHidden);
         });
     }
@@ -3664,7 +3694,7 @@ class OverlayDialog {
             $lead.append($about);
         }
         const $scrolling = makeDiv('panel', 'scrolling')();
-        auth?.writeMenuSections($scrolling);
+        const loginSection = auth?.writeMenuSections($scrolling);
         {
             const $subsection = makeElement('section')()();
             new ServerListSection($subsection, storage, server, serverList, serverHash);
@@ -3677,6 +3707,7 @@ class OverlayDialog {
         }
         $scrolling.append(makeExtraSubsection());
         this.$menuPanel.append($lead, $scrolling);
+        return loginSection;
     }
     close() {
         this.map?.hide(false);
@@ -4942,7 +4973,7 @@ class NoteFetchDialog extends NavDialog {
             this.$limitInput.min = '1';
             this.$limitInput.max = '10000';
             this.$limitInput.value = String(this.limitDefaultValue);
-            $fieldset.append(makeDiv('non-advanced-input')(this.limitLeadText, makeLabel()(this.limitLabelBeforeText, this.$limitSelect, this.limitLabelAfterText)), makeDiv('advanced-input')(this.limitLeadText, makeLabel()(this.limitLabelBeforeText, this.$limitInput, this.limitLabelAfterText, (this.limitIsParameter
+            $fieldset.append(makeDiv('non-advanced-input-group')(this.limitLeadText, makeLabel()(this.limitLabelBeforeText, this.$limitSelect, this.limitLabelAfterText)), makeDiv('advanced-input-group')(this.limitLeadText, makeLabel()(this.limitLabelBeforeText, this.$limitInput, this.limitLabelAfterText, (this.limitIsParameter
                 ? makeElement('span')('advanced-hint')(` (`, code('limit'), ` parameter)`)
                 : makeElement('span')('advanced-hint')(` (will make this many API requests each time it downloads more notes)`)))));
         }
@@ -4950,10 +4981,10 @@ class NoteFetchDialog extends NavDialog {
         const $showImagesCheckbox = document.createElement('input');
         $showImagesCheckbox.type = 'checkbox';
         this.$sharedCheckboxes.showImages.push($showImagesCheckbox);
-        $fieldset.append(makeDiv('regular-input')(makeLabel()($showImagesCheckbox, ` Load and show images from StreetComplete`)));
+        $fieldset.append(makeDiv('regular-input-group')(makeLabel()($showImagesCheckbox, ` Load and show images from StreetComplete`)));
         this.$advancedModeCheckbox.type = 'checkbox';
         this.$sharedCheckboxes.advancedMode.push(this.$advancedModeCheckbox);
-        $fieldset.append(makeDiv('regular-input')(makeLabel()(this.$advancedModeCheckbox, ` Advanced mode`)));
+        $fieldset.append(makeDiv('regular-input-group')(makeLabel()(this.$advancedModeCheckbox, ` Advanced mode`)));
         return $fieldset;
     }
     makeRequestDiv() {
@@ -5032,7 +5063,7 @@ function mixinWithFetchButton(c) {
         makeFetchControlDiv() {
             this.$fetchButton.textContent = `Fetch notes`;
             this.$fetchButton.type = 'submit';
-            return makeDiv('major-input')(this.$fetchButton);
+            return makeDiv('major-input-group')(this.$fetchButton);
         }
         disableFetchControl(disabled) {
             this.$fetchButton.disabled = disabled;
@@ -5085,7 +5116,7 @@ class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
             this.$closedInput.min = '-1';
             this.$closedInput.value = '-1';
             this.$closedSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
-            const $closedLine = makeDiv('regular-input')(`Fetch `, makeElement('span')('non-advanced-input')(this.$closedSelect), ` matching notes `, makeLabel('advanced-input')(`closed no more than `, this.$closedInput, makeElement('span')('advanced-hint')(` (`, code('closed'), ` parameter)`), ` days ago`));
+            const $closedLine = makeDiv('regular-input-group')(`Fetch `, makeElement('span')('non-advanced-input-group')(this.$closedSelect), ` matching notes `, makeLabel('advanced-input-group')(`closed no more than `, this.$closedInput, makeElement('span')('advanced-hint')(` (`, code('closed'), ` parameter)`), ` days ago`));
             this.appendToClosedLine($closedLine);
             $fieldset.append($closedLine);
         }
@@ -5162,7 +5193,7 @@ class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
         {
             this.$autoLoadCheckbox.type = 'checkbox';
             this.$autoLoadCheckbox.checked = true;
-            $fieldset.append(makeDiv('regular-input')(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
+            $fieldset.append(makeDiv('regular-input-group')(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
         }
     }
 }
@@ -5190,7 +5221,7 @@ class TextControl {
             this.updateControl();
         });
         inputMutationObserver.observe(this.$input, { attributes: true, attributeFilter: ['disabled'] });
-        this.$a = makeElement('a')('input-link')();
+        this.$a = makeSemiLink('input-link')();
         this.$a.onclick = async () => {
             if (this.$input.disabled)
                 return;
@@ -5209,13 +5240,6 @@ class TextControl {
                     this.$a.classList.remove('loading');
                 }
             }
-        };
-        this.$a.onkeydown = ev => {
-            if (ev.key != 'Enter')
-                return;
-            this.$a.click();
-            ev.preventDefault();
-            ev.stopPropagation();
         };
         this.$input.addEventListener('input', () => {
             if (this.$controls.hidden)
@@ -5342,7 +5366,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
                 this.$userInput.value = this.auth.username;
                 return oldUsername;
             }, () => [makeElement('span')()(`undo set to`)], () => [makeElement('span')()(`set to`), ` `, em(String(this.auth.username))]);
-            $fieldset.append(makeDiv('major-input')(userInputControl.$controls, makeLabel()(`OSM username, URL or #id`, rq2('display_name', 'user'), ` `, this.$userInput)));
+            $fieldset.append(makeDiv('major-input-group')(userInputControl.$controls, makeLabel()(`OSM username, URL or #id`, rq2('display_name', 'user'), ` `, this.$userInput)));
             this.$root.addEventListener('osmNoteViewer:loginChange', () => {
                 userInputControl.update();
             });
@@ -5350,7 +5374,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         {
             this.$textInput.type = 'text';
             this.$textInput.name = 'text';
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`Comment text search query`, rq$1('q'), ` `, this.$textInput)));
+            $fieldset.append(makeDiv('major-input-group')(makeLabel()(`Comment text search query`, rq$1('q'), ` `, this.$textInput)));
         }
         {
             this.$fromInput.type = 'text';
@@ -5359,7 +5383,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
             this.$toInput.type = 'text';
             this.$toInput.size = 20;
             this.$toInput.name = 'to';
-            $fieldset.append(makeDiv('regular-input')(makeLabel()(`From date`, rq$1('from'), ` `, this.$fromInput), ` `, makeLabel()(`to date`, rq$1('to'), ` `, this.$toInput)));
+            $fieldset.append(makeDiv('regular-input-group')(makeLabel()(`From date`, rq$1('from'), ` `, this.$fromInput), ` `, makeLabel()(`to date`, rq$1('to'), ` `, this.$toInput)));
         }
     }
     appendToClosedLine($div) {
@@ -5371,7 +5395,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         {
             this.$autoLoadCheckbox.type = 'checkbox';
             this.$autoLoadCheckbox.checked = true;
-            $fieldset.append(makeDiv('regular-input')(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
+            $fieldset.append(makeDiv('regular-input-group')(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
         }
     }
     populateInputsWithoutUpdatingRequestExceptForClosedInput(query) {
@@ -5524,7 +5548,7 @@ class NominatimSubForm {
         this.$input.setAttribute('form', 'nominatim-form');
         this.$button.textContent = 'Get';
         this.$button.setAttribute('form', 'nominatim-form');
-        $fieldset.append(makeDiv('text-button-input')(makeLabel()(`Or get bounding box by place name from Nominatim`, spanRequest$1(` (`, code('q'), ` Nominatim parameter)`), ` `, this.$input), this.$button));
+        $fieldset.append(makeDiv('text-button-input-group')(makeLabel()(`Or get bounding box by place name from Nominatim`, spanRequest$1(` (`, code('q'), ` Nominatim parameter)`), ` `, this.$input), this.$button));
         $fieldset.append(makeDiv('advanced-hint')(`Resulting Nominatim request: `, this.$requestOutput));
     }
     updateRequest() {
@@ -5614,13 +5638,13 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
     writeScopeAndOrderFieldsetBeforeClosedLine($fieldset) {
         {
             this.$trackMapSelect.append(new Option(`Do nothing`, 'nothing'), new Option(`Update bounding box input`, 'bbox', true, true), new Option(`Fetch notes`, 'fetch'));
-            $fieldset.append(makeDiv('regular-input')(makeLabel('inline')(this.$trackMapSelect, ` on map view changes`), ` `, this.$trackMapZoomNotice));
+            $fieldset.append(makeDiv('regular-input-group')(makeLabel('inline')(this.$trackMapSelect, ` on map view changes`), ` `, this.$trackMapZoomNotice));
         }
         {
             this.$bboxInput.type = 'text';
             this.$bboxInput.name = 'bbox';
             this.$bboxInput.required = true; // otherwise could submit empty bbox without entering anything
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`Bounding box (`, tip(`left`, `western-most (min) longitude`), `, `, tip(`bottom`, `southern-most (min) latitude`), `, `, tip(`right`, `eastern-most (max) longitude`), `, `, tip(`top`, `northern-most (max) latitude`), `)`, rq('bbox'), spanRequest(` (also `, code('west'), `, `, code('south'), `, `, code('east'), `, `, code('north'), ` Nominatim parameters)`), ` `, this.$bboxInput)));
+            $fieldset.append(makeDiv('major-input-group')(makeLabel()(`Bounding box (`, tip(`left`, `western-most (min) longitude`), `, `, tip(`bottom`, `southern-most (min) latitude`), `, `, tip(`right`, `eastern-most (max) longitude`), `, `, tip(`top`, `northern-most (max) latitude`), `)`, rq('bbox'), spanRequest(` (also `, code('west'), `, `, code('south'), `, `, code('east'), `, `, code('north'), ` Nominatim parameters)`), ` `, this.$bboxInput)));
             function tip(text, title) {
                 const $span = document.createElement('span');
                 $span.textContent = text;
@@ -5794,7 +5818,7 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
     makeFetchControlDiv() {
         this.$fileInput.name = 'xml';
         this.$fileInput.type = 'file';
-        return makeDiv('major-input')(makeLabel('file-reader')(makeElement('span')('over')(`Read XML file`), ` `, this.$fileInput));
+        return makeDiv('major-input-group')(makeLabel('file-reader')(makeElement('span')('over')(`Read XML file`), ` `, this.$fileInput));
     }
     disableFetchControl(disabled) {
         this.$fileInput.disabled = disabled;
@@ -5812,18 +5836,18 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
             $datalist.id = 'neis-countries-list';
             $datalist.append(...neisCountries.map(c => new Option(c)));
             this.$neisCountryInput.setAttribute('list', 'neis-countries-list');
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`Country `, this.$neisCountryInput, $datalist)));
+            $fieldset.append(makeDiv('major-input-group')(makeLabel()(`Country `, this.$neisCountryInput, $datalist)));
         }
         {
             this.$neisStatusSelect.name = 'status';
             this.$neisStatusSelect.setAttribute('form', 'neis-form');
             this.$neisStatusSelect.append(...neisFeedStatuses.map(status => new Option(`${status} (up to a week old)`, status)), new Option(`last updated 500`, 'custom'), new Option(`last open 10000`, 'custom-open'));
-            $fieldset.append(makeDiv('regular-input')(makeLabel()(`Get `, this.$neisStatusSelect, ` notes`), ` for this country`));
+            $fieldset.append(makeDiv('regular-input-group')(makeLabel()(`Get `, this.$neisStatusSelect, ` notes`), ` for this country`));
         }
         {
             this.$neisButton.textContent = 'Download feed file and populate XML fields below';
             this.$neisButton.setAttribute('form', 'neis-form');
-            $fieldset.append(makeDiv('major-input')(this.$neisButton));
+            $fieldset.append(makeDiv('major-input-group')(this.$neisButton));
         }
     }
     writeScopeAndOrderFieldset($fieldset, $legend) {
@@ -5835,12 +5859,12 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
             this.$selectorInput.type = 'text';
             this.$selectorInput.name = 'selector';
             this.$selectorInput.required = true;
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`CSS selector matching XML elements with note ids `, this.$selectorInput)));
+            $fieldset.append(makeDiv('major-input-group')(makeLabel()(`CSS selector matching XML elements with note ids `, this.$selectorInput)));
         }
         {
             this.$attributeInput.type = 'text';
             this.$attributeInput.name = 'attribute';
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`Attribute of matched XML elements containing note id (leave blank if note id is in text content) `, this.$attributeInput)));
+            $fieldset.append(makeDiv('major-input-group')(makeLabel()(`Attribute of matched XML elements containing note id (leave blank if note id is in text content) `, this.$attributeInput)));
         }
     }
     populateInputsWithoutUpdatingRequest(query) {
@@ -6215,13 +6239,13 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
             this.$copySelectedCheckbox.type = 'checkbox';
             this.$copyButton.type = 'button';
             this.$copyButton.textContent = `Copy note ids from table below`;
-            $fieldset.append(makeDiv('checkbox-button-input')(this.$copySelectedCheckbox, ' ', this.$copyButton));
+            $fieldset.append(makeDiv('checkbox-button-input-group')(this.$copySelectedCheckbox, ' ', this.$copyButton));
         }
         {
             this.$idsTextarea.name = 'ids';
             this.$idsTextarea.required = true;
             this.$idsTextarea.rows = 10;
-            $fieldset.append(makeDiv('major-input')(makeLabel()(`Note ids separated by anything `, this.$idsTextarea)));
+            $fieldset.append(makeDiv('major-input-group')(makeLabel()(`Note ids separated by anything `, this.$idsTextarea)));
         }
     }
     addEventListeners() {
@@ -7409,11 +7433,11 @@ function updateCommentsButton($button, hiddenRows, nAdditionalComments) {
     if (!$text)
         return;
     if (hiddenRows) {
-        $button.title = `show ${nAdditionalComments} comment${s}/action${s}`;
+        $button.title = `show ${nAdditionalComments} following comment${s}/action${s}`;
         $text.textContent = String(nAdditionalComments);
     }
     else {
-        $button.title = `hide comment${s}/action${s}`;
+        $button.title = `hide ${nAdditionalComments} following comment${s}/action${s}`;
         $text.textContent = `−`;
     }
 }
@@ -8733,12 +8757,10 @@ class Tool {
         if (!this.isActiveWithCurrentServerConfiguration())
             return;
         const storageKey = 'commands-' + this.id;
-        const $tool = document.createElement('details');
-        $tool.classList.add('tool');
+        const $tool = makeElement('details')('tool')();
         $tool.classList.toggle('full-width', this.isFullWidth);
         $tool.open = storage.getBoolean(storageKey);
-        const $toolSummary = document.createElement('summary');
-        $toolSummary.textContent = this.name;
+        const $toolSummary = makeElement('summary')()(this.name);
         if (this.title)
             $toolSummary.title = this.title;
         $tool.addEventListener('toggle', () => {
@@ -8746,37 +8768,36 @@ class Tool {
         });
         $tool.append($toolSummary, ...this.getTool($root, $tool, map));
         cleanupAnimationOnEnd($tool);
+        $container.append($tool);
         const infoElements = this.getInfo();
         if (infoElements) {
-            const $info = document.createElement('details');
-            $info.classList.add('info');
-            const $infoSummary = document.createElement('summary');
-            $infoSummary.textContent = `${this.name} info`;
-            $info.append($infoSummary, ...infoElements);
-            const $infoButton = document.createElement('button');
-            $infoButton.classList.add('info');
+            const $info = makeElement('details')('info')(makeElement('summary')()(`${this.name} info`), ...infoElements);
+            const $infoButton = makeElement('button')('info')();
             $infoButton.innerHTML = `<svg><use href="#tools-info" /></svg>`;
             const updateInfoButton = () => {
                 $infoButton.title = ($info.open ? `Close` : `Open`) + ` tool info`;
                 $infoButton.setAttribute('aria-expanded', String($info.open));
             };
             updateInfoButton();
-            $infoButton.addEventListener('click', () => {
+            $infoButton.onclick = () => {
                 $info.open = !$info.open;
-            });
-            $info.addEventListener('toggle', () => {
+            };
+            $info.ontoggle = () => {
                 updateInfoButton();
-            });
+            };
             $tool.addEventListener('toggle', () => {
                 if ($tool.open)
                     return;
                 $info.open = false;
             });
-            $tool.append(` `, $infoButton);
-            $container.append($tool, $info);
-        }
-        else {
-            $container.append($tool);
+            const $infoButtonContainer = this.getInfoButtonContainer();
+            if ($infoButtonContainer) {
+                $infoButtonContainer.append($infoButton);
+            }
+            else {
+                $tool.append(` `, $infoButton);
+            }
+            $container.append($info);
         }
         $root.addEventListener('osmNoteViewer:toolsToggle', ev => {
             if (ev.target == $tool)
@@ -8800,6 +8821,7 @@ class Tool {
     }
     isActiveWithCurrentServerConfiguration() { return true; }
     getInfo() { return undefined; }
+    getInfoButtonContainer() { return undefined; }
     makeRequiringSelectedNotesButton() {
         const $button = document.createElement('button');
         $button.disabled = true;
@@ -9148,6 +9170,8 @@ class InteractTool extends Tool {
         this.$reactivateButton = document.createElement('button');
         this.$runButton = makeElement('button')('only-with-icon')();
         this.$runOutput = document.createElement('output');
+        this.$run = makeDiv('interaction-run')(this.$runButton, this.$runOutput);
+        this.$loginLink = makeSemiLink('input-link')('login');
         this.stagedNoteIds = new Map();
         this.interactionDescriptions = [{
                 verb: 'POST',
@@ -9211,6 +9235,9 @@ class InteractTool extends Tool {
     getInfo() {
         return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again ("reactivates" it). `, `This means that a hidden note can only be restored to an open state, even if it had been closed before being hidden. `, `If you want the note to be closed again, you have to close it yourself after reactivating. `, `Also, unlike the OSM website, you can reactivate a note and add a comment in one action. `, `The OSM website currently doesn't provide a comment input for note reactivation.`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, em(`Plaintext`), ` mode will show hidden notes to moderators, but it requires knowing the note ids. `, `If you've hidden a note and want to see it but don't know its id, look for the note at `, this.$yourNotesWeb, ` on the OSM website.`), p(`The `, em(`Copy ids`), ` button on top is useful for making changeset comments. `, `It copies to the clipboard the same note list that you'd get by using the `, em(`Load map area`), ` remote control command. `, em(`Load map area`), ` sets the changeset comment tag to selected notes as a side effect. `, `If you're not using remote control but want to get the note list for a comment, you can press `, em(`Copy ids`), ` instead.`), p(em(`Copy ids`), ` has the ability to copy note ids as html links if your browser `, makeLink(`supports it`, `https://developer.mozilla.org/en-US/docs/Web/API/Clipboard#clipboard_availability`), `. `, `It should work out of the box on Chrome. `, `On Firefox as of v111 it requires enabling the `, code(`dom.events.asyncClipboard.clipboardItem`), ` setting in `, makeLink(`about:config`, `about:config`), ` and reloading the `, em(`note-viewer`), `.`)];
     }
+    getInfoButtonContainer() {
+        return this.$run;
+    }
     getTool($root, $tool) {
         const appendLastChangeset = new TextControl(this.$commentText, () => this.auth.uid != null, () => true, (append) => !this.$commentText.value.endsWith(append), (append) => {
             this.$commentText.value = this.$commentText.value.slice(0, -append.length);
@@ -9228,6 +9255,9 @@ class InteractTool extends Tool {
             bubbleEvent($a, 'osmNoteViewer:changesetLinkClick');
             return append;
         }, () => [makeElement('span')()(`undo append`)], () => [makeElement('span')()(`append last changeset`)]);
+        this.$loginLink.onclick = () => {
+            bubbleCustomEvent($root, 'osmNoteViewer:menuToggle', 'login');
+        };
         this.$copyIdsButton.onclick = async () => {
             this.$copyIdsButton.title = '';
             this.$copyIdsButton.classList.remove('error');
@@ -9317,9 +9347,9 @@ class InteractTool extends Tool {
         });
         return [
             this.$asOutput, ` `, this.$withOutput, ` `, this.$copyIdsButton,
-            makeDiv('major-input')(appendLastChangeset.$controls, makeLabel()(`Comment `, this.$commentText)),
-            makeDiv('gridded-input')(...this.interactionDescriptions.map(({ $button }) => $button)),
-            this.$runButton, ` `, this.$runOutput
+            makeDiv('major-input-group')(appendLastChangeset.$controls, makeLabel()(`Comment `, this.$commentText)),
+            makeDiv('gridded-input-group')(...this.interactionDescriptions.map(({ $button }) => $button)),
+            this.$run
         ];
     }
     updateLoginDependents() {
@@ -9346,7 +9376,7 @@ class InteractTool extends Tool {
     }
     updateAsOutput() {
         if (this.auth.username == null || this.auth.uid == null) {
-            this.$asOutput.replaceChildren(`anonymously`);
+            this.$asOutput.replaceChildren(this.$loginLink, ` to interact`);
         }
         else {
             this.$asOutput.replaceChildren(`as `, this.auth.server.web.makeUserLink(this.auth.uid, this.auth.username));
@@ -9378,7 +9408,7 @@ class InteractTool extends Tool {
                     this.run.status == 'paused' && this.run.interactionDescription != interactionDescription);
             }
             else {
-                $button.disabled = inputNoteIds.length == 0;
+                $button.disabled = !this.auth.token || inputNoteIds.length == 0;
             }
             if (cancelCondition) {
                 $button.replaceChildren(`Cancel`);
@@ -10329,7 +10359,7 @@ class RcTool extends EditorTool {
         this.elementAction = `Load`;
     }
     getInfo() {
-        return [p(`Load note/map data to an editor with `, makeLink(`remote control`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl'), `.`), ul(li(`Notes are loaded by `, makeRcCommandLink(`import`), ` RC command `, `with note webpage the OSM website as the `, code(`url`), ` parameter.`), li(`Map area is loaded by `, makeRcCommandLink(`load_and_zoom`), ` RC command. `, `Area loading is also used as an opportunity to set the default changeset comment containing note ids using the `, code(`changeset_tags`), ` parameter.`), li(`OSM elements are loaded by `, makeRcCommandLink(`load_object`), ` RC command. The button is enabled after the element link is clicked in some note comment.`))];
+        return [p(`Load note/map data to an editor with `, makeLink(`remote control`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl'), `.`), ul(li(`Notes are loaded by `, makeRcCommandLink(`import`), ` RC command `, `with note webpage the OSM website as the `, code(`url`), ` parameter.`), li(`Map area is loaded by `, makeRcCommandLink(`load_and_zoom`), ` RC command. `, `Area loading is also used as an opportunity to set the default changeset source and comment containing note ids using the `, code(`changeset_tags`), ` parameter.`), li(`OSM elements are loaded by `, makeRcCommandLink(`load_object`), ` RC command. The button is enabled after the element link is clicked in some note comment.`))];
     }
     getSpecificControls($root, $tool, map) {
         let inputNotes = [];
@@ -10353,8 +10383,8 @@ class RcTool extends EditorTool {
                 `&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`;
             if (inputNotes.length >= 1) {
                 const changesetComment = convertDecoratedNoteIdsToPlainText(listDecoratedNoteIds(inputNotes.map(note => note.id)));
-                const changesetTags = `comment=${changesetComment}`;
-                rcPath += `&changeset_tags=${changesetTags}`;
+                const changesetTags = `source=notes|comment=${changesetComment}`;
+                rcPath += e$1 `&changeset_tags=${changesetTags}`;
             }
             openRcPath($loadMapButton, rcPath);
         };

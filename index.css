@@ -170,8 +170,7 @@ nav {
 	padding: 1rem 3rem 0 3rem;
 	z-index: 1;
 }
-nav button.reset,
-nav button.flip {
+nav button.global {
 	top: .5rem;
 	z-index: 2;
 }
@@ -247,7 +246,7 @@ nav [role=tablist] [role=tab]:focus {
 .panel section[role=tabpanel] h2 {
 	margin-top: .3rem;
 }
-.panel [class$="-input"] {
+.panel [class$="-input-group"] {
 	margin: .5rem 0;
 }
 .panel div.notice:not(:empty) {
@@ -264,27 +263,23 @@ nav [role=tablist] [role=tab]:focus {
 	background: var(--error-background-color);
 }
 
-.panel.fetch .advanced-hint,
-.more .advanced-hint {
+:is(.panel.fetch, .more) .advanced-hint {
 	opacity: .7;
 	font-size: .9em;
 }
-.panel.fetch a.request,
-.more a.request {
+:is(.panel.fetch, .more) a.request {
 	word-wrap: anywhere;
 }
-.panel.fetch:not(.advanced-mode) .advanced-hint,
-.more:not(.advanced-mode) .advanced-hint {
+:is(.panel.fetch, .more):not(.advanced-mode) .advanced-hint {
 	display: none;
 }
-.panel.fetch .advanced-hint p,
-.more .advanced-hint p {
+:is(.panel.fetch, .more) .advanced-hint p {
 	margin: .5em 0;
 }
-.panel.fetch:not(.advanced-mode) .advanced-input {
+.panel.fetch:not(.advanced-mode) .advanced-input-group {
 	display: none;
 }
-.panel.fetch.advanced-mode .non-advanced-input {
+.panel.fetch.advanced-mode .non-advanced-input-group {
 	display: none;
 }
 .panel.fetch input[type=number] {
@@ -336,9 +331,7 @@ nav [role=tablist] [role=tab]:focus {
 .panel.command details.tool summary {
 	display: inline;
 }
-.panel.command details.tool summary::before,
-.panel.command details.tool button.open-all-tools::before,
-.panel.command details.tool button.close-all-tools::before {
+.panel.command details.tool :is(summary, button.open-all-tools, button.close-all-tools)::before {
 	--size: 11px;
 	content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-5.5 -5.5 11 11' fill='none' stroke='gray'><rect width='10' height='10' x='-5' y='-5' opacity='.3' /><line x1='-3' x2='3' /><line y1='-3' y2='3' /></svg>");
 	display: inline-block;
@@ -417,7 +410,7 @@ nav [role=tablist] [role=tab]:focus {
 .panel.command details.info summary {
 	display: none;
 }
-.panel.command details.tool .major-input {
+.panel.command details.tool :is(.major-input-group, .gridded-input-group) {
 	margin: .2em 0;
 }
 .panel.command [class|=icon] > svg {
@@ -462,56 +455,66 @@ nav [role=tablist] [role=tab]:focus {
 .panel.command input[type=number] {
 	width: 7ch;
 }
+.panel.command .interaction-run {
+	display: flex;
+	gap: .2em;
+}
+.panel.command .interaction-run > output {
+	flex-grow: 1;
+}
+.panel.command .interaction-run > button {
+	flex-shrink: 0;
+}
+.panel.command .interaction-run > button.info {
+	align-self: end;
+}
 
-.panel input:invalid:not(.no-invalid-indication),
-.panel textarea:invalid:not(.no-invalid-indication) {
+.panel :is(input,textarea):invalid:not(.no-invalid-indication) {
 	border: solid 2px var(--error-color);
 	border-radius: 3px;
 }
-.panel .major-input input[type=text],
-.panel .major-input textarea,
-.panel .major-input button:not([hidden]) {
+.panel .major-input-group :is(input[type=text], textarea, button):not([hidden]) {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
 	margin: .2em 0;
 }
-.panel .major-input textarea {
+.panel .major-input-group textarea {
 	resize: vertical;
 }
-.panel .major-input button {
+.panel .major-input-group button {
 	padding: var(--major-button-padding);
 }
-.panel .major-input .text-controls {
+.panel .major-input-group .text-controls {
 	float: right;
 }
-.panel .major-input .text-controls a span {
+.panel .major-input-group .text-controls a span {
 	opacity: .7;
 }
-.panel .major-input .text-controls a em {
+.panel .major-input-group .text-controls a em {
 	font-style: inherit;
 }
-.panel .text-button-input {
+.panel .text-button-input-group {
 	display: flex;
 	gap: .5em;
 	align-items: end;
 }
-.panel .text-button-input > label {
+.panel .text-button-input-group > label {
 	flex-grow: 1;
 }
-.panel .text-button-input > label input[type=text] {
+.panel .text-button-input-group > label input[type=text] {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
 }
-.panel .text-button-input button {
+.panel .text-button-input-group button {
 	width: 4.5rem;
 }
-.panel .checkbox-button-input {
+.panel .checkbox-button-input-group {
 	display: flex;
 	gap: .5em;
 }
-.panel .checkbox-button-input > button {
+.panel .checkbox-button-input-group > button {
 	flex-grow: 1;
 	padding: var(--major-button-padding);
 }
@@ -523,14 +526,14 @@ nav [role=tablist] [role=tab]:focus {
 	margin-left: 0;
 	margin-right: 0;
 }
-.panel .major-input label.file-reader {
+.panel .major-input-group label.file-reader {
 	--file-reader-border-width: 2px;
 }
-.panel .major-input label.file-reader {
+.panel .major-input-group label.file-reader {
 	display: grid;
 	align-content: center;
 }
-.panel .major-input label.file-reader .over {
+.panel .major-input-group label.file-reader .over {
 	margin: 2px;
 	grid-row: 1;
 	grid-column: 1;
@@ -540,10 +543,10 @@ nav [role=tablist] [role=tab]:focus {
 	display: grid;
 	place-items: center;
 }
-.panel .major-input label.file-reader:focus-within .over {
+.panel .major-input-group label.file-reader:focus-within .over {
 	z-index: -1;
 }
-.panel .major-input label.file-reader input {
+.panel .major-input-group label.file-reader input {
 	display: block;
 	padding: 3rem;
 	background: var(--file-reader-background-color);
@@ -553,15 +556,15 @@ nav [role=tablist] [role=tab]:focus {
 	border: dashed var(--file-reader-border-width) var(--file-reader-passive-border-color);
 	border-radius: 2px;
 }
-.panel .major-input label.file-reader input.active {
+.panel .major-input-group label.file-reader input.active {
 	border: dashed var(--file-reader-border-width) var(--file-reader-active-border-color);
 }
-.panel .gridded-input {
+.panel .gridded-input-group {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(20ch, 1fr));
 	gap: .2em;
 }
-.panel .gridded-input > button {
+.panel .gridded-input-group > button {
 	padding: var(--major-button-padding);
 }
 
@@ -690,12 +693,10 @@ nav [role=tablist] [role=tab]:focus {
 .notes td {
 	vertical-align: top;
 }
-.notes td,
-.notes th {
+.notes :is(td,th) {
 	padding: var(--cell-pad);
 }
-.notes td:focus-visible,
-.notes th:focus-visible {
+.notes :is(td,th):focus-visible {
 	outline-offset: calc(0px - var(--cell-pad));
 }
 .notes :is(td.note-comments-count, td.note-action) [class|=icon] {
@@ -827,8 +828,7 @@ body.flipped table:not(.expanded-username) td.note-user {
 	content: "no comment";
 	color: gray;
 }
-.notes td.note-comment a.image:hover,
-.notes td.note-comment a.image.active {
+.notes td.note-comment a.image:is(:hover,.active) {
 	outline: var(--comment-link-outline)
 }
 .notes td.note-comment a.image.float {
@@ -939,8 +939,7 @@ body.flipped table:not(.expanded-username) td.note-user {
 .map .osm-element-popup-contents {
 	--block-gap: .5em;
 }
-.map .osm-element-popup-contents p,
-.map .osm-element-popup-contents figure {
+.map .osm-element-popup-contents :is(p,figure) {
 	margin: var(--block-gap) 0;
 }
 .map .osm-element-popup-contents figure figcaption {
@@ -961,8 +960,7 @@ body.flipped table:not(.expanded-username) td.note-user {
 .map .osm-element-popup-contents figure tr td:not(:first-child) {
 	border-left: var(--frame-line);
 }
-.map .osm-element-popup-contents figure tr td:not(:first-child),
-.map .osm-element-popup-contents figure tr td.long { /* can't select all key cells because they will get wrapped at the expense of long value cells */
+.map .osm-element-popup-contents figure tr td:is(:not(:first-child),.long) { /* can't select all key cells because they will get wrapped at the expense of long value cells */
 	word-wrap: anywhere;
 }
 .map .osm-element-popup-contents button {
@@ -1096,8 +1094,7 @@ dialog.figure figure:not(.zoomed) img {
 	from { opacity: 1; }
 	to { opacity: 0; }
 }
-dialog.figure button,
-dialog.figure figcaption {
+dialog.figure :is(button,figcaption) {
 	background: #AAA8;
 	color: #FFF;
 	opacity: 0;
@@ -1117,8 +1114,7 @@ dialog.figure button.close.bottom-position {
 	top: unset;
 	bottom: var(--control-position-offset);
 }
-dialog.figure button.prev,
-dialog.figure button.next {
+dialog.figure button:is(.prev,.next) {
 	top: 0;
 	bottom: 0;
 	margin: auto 0;
@@ -1139,8 +1135,7 @@ dialog.figure figcaption {
 	right: calc(2.5rem + var(--control-position-offset));
 	padding: .25rem .5rem;
 }
-dialog.figure button:hover,
-dialog.figure button:focus,
+dialog.figure button:is(:hover,:focus),
 dialog.figure figcaption:hover {
 	opacity: 1;
 	animation: none !important;
@@ -1173,10 +1168,10 @@ dialog.help > h2:first-child,
 dialog.help > button.close:first-child + h2 {
 	margin-top: 0;
 }
-dialog.help .major-input {
+dialog.help .major-input-group {
 	margin: 1rem 0;
 }
-dialog.help .major-input button {
+dialog.help .major-input-group button {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
@@ -1191,8 +1186,7 @@ dialog.help .notice {
 dialog.help > .notice:last-child {
 	margin-bottom: -1rem;
 }
-dialog.help p,
-dialog.help ul {
+dialog.help :is(p,ul) {
 	line-height: 1.5;
 }
 dialog.help kbd {
