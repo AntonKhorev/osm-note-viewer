@@ -1,4 +1,4 @@
-import {makeElement, makeDiv} from './html'
+import {makeDiv, makeSemiLink} from './html'
 
 export default class TextControl {
 	$controls: HTMLDivElement
@@ -18,7 +18,7 @@ export default class TextControl {
 			this.updateControl()
 		})
 		inputMutationObserver.observe(this.$input,{attributes:true,attributeFilter:['disabled']})
-		this.$a=makeElement('a')('input-link')()
+		this.$a=makeSemiLink('input-link')()
 		this.$a.onclick=async()=>{
 			if (this.$input.disabled) return
 			if (this.canUndo(this.textState)) {
@@ -34,12 +34,6 @@ export default class TextControl {
 					this.$a.classList.remove('loading')
 				}
 			}
-		}
-		this.$a.onkeydown=ev=>{
-			if (ev.key!='Enter') return
-			this.$a.click()
-			ev.preventDefault()
-			ev.stopPropagation()
 		}
 		this.$input.addEventListener('input',()=>{
 			if (this.$controls.hidden) return

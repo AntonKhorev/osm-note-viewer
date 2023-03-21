@@ -5,6 +5,7 @@ import type NoteViewerDB from './db'
 import type Server from './server'
 import type ServerList from './server-list'
 import type Auth from './auth'
+import type {AuthLoginSection} from './auth'
 import type NoteMap from './map'
 import makeHelpDialog from './help-dialog'
 import {makeElement, makeDiv, makeLink, bubbleEvent, startAnimation, cleanupAnimationOnEnd} from './html'
@@ -54,7 +55,7 @@ export default class OverlayDialog {
 	) {
 		this.menuHidden=!!auth
 		this.$menuButton.disabled=!auth
-		this.writeMenuPanel(storage,db,server,serverList,serverHash,auth)
+		const loginSection=this.writeMenuPanel(storage,db,server,serverList,serverHash,auth)
 		this.writeFigureDialog()
 		$root.append(this.$figureHelpDialog)
 		for (const eventType of [
@@ -69,9 +70,14 @@ export default class OverlayDialog {
 		$root.addEventListener('osmNoteViewer:imageToggle',({detail:imageSequence})=>{
 			this.toggleImage(imageSequence)
 		})
-		$root.addEventListener('osmNoteViewer:menuToggle',()=>{
+		$root.addEventListener('osmNoteViewer:menuToggle',({detail})=>{
 			if (this.imageSequence!=null) this.close()
-			this.menuHidden=!this.menuHidden
+			if (detail=='login') {
+				this.menuHidden=false
+				loginSection?.focusOnLogin()
+			} else {
+				this.menuHidden=!this.menuHidden
+			}
 			this.map?.hide(!this.menuHidden)
 		})
 	}
@@ -185,7 +191,7 @@ export default class OverlayDialog {
 		storage: NoteViewerStorage, db: NoteViewerDB,
 		server: Server|undefined, serverList: ServerList, serverHash: string,
 		auth: Auth|undefined
-	) {
+	): AuthLoginSection|undefined {
 		const $lead=makeDiv('lead')()
 		{
 			const $about=makeDiv()(
@@ -199,7 +205,7 @@ export default class OverlayDialog {
 			$lead.append($about)
 		}
 		const $scrolling=makeDiv('panel','scrolling')()
-		auth?.writeMenuSections($scrolling)
+		const loginSection=auth?.writeMenuSections($scrolling)
 		{
 			const $subsection=makeElement('section')()()
 			new ServerListSection($subsection,storage,server,serverList,serverHash)
@@ -211,6 +217,7 @@ export default class OverlayDialog {
 		}
 		$scrolling.append(makeExtraSubsection())
 		this.$menuPanel.append($lead,$scrolling)
+		return loginSection
 	}
 	private close(): void {
 		this.map?.hide(false)

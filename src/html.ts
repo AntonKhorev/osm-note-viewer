@@ -18,6 +18,22 @@ export function makeElement<K extends keyof HTMLElementTagNameMap>(tag: K): ((..
 export const makeDiv=makeElement('div')
 export const makeLabel=makeElement('label')
 
+export function makeSemiLink(...classes: string[]): (...items: Array<string|HTMLElement>)=>HTMLAnchorElement {
+	const makeWithItems=makeElement('a')(...classes)
+	return (...items)=>{
+		const $a=makeWithItems(...items)
+		$a.setAttribute('tabindex','0')
+		$a.addEventListener('keydown',semiLinkKeydownListener)
+		return $a
+	}
+}
+function semiLinkKeydownListener(this: HTMLAnchorElement, ev: KeyboardEvent): void {
+	if (ev.key!='Enter') return
+	this.click()
+	ev.preventDefault()
+	ev.stopPropagation()
+}
+
 export function startAnimation($element: HTMLElement, animationName: string, animationDuration: string): void {
 	if (resetAnimation($element,animationName)) return
 	$element.style.animationName=animationName

@@ -75,7 +75,7 @@ export default class AuthLoginSection {
 	private readonly loginForms: AuthLoginForms
 	private readonly $logins=makeDiv()()
 	constructor(
-		$section: HTMLElement,
+		private readonly $section: HTMLElement,
 		private readonly authStorage: AuthStorage,
 		server: Server
 	) {
@@ -218,6 +218,12 @@ export default class AuthLoginSection {
 	respondToAppRegistration(): void {
 		this.loginForms.respondToAppRegistration(this.authStorage.isManualCodeEntry)
 		this.updateVisibility()
+	}
+	focusOnLogin(): void {
+		this.$section.scrollIntoView()
+		if (!this.$loginForms.hidden && !this.loginForms.$loginButton.hidden) {
+			this.loginForms.$loginButton.focus()
+		}
 	}
 	private updateVisibility(): void {
 		const canLogin=!!this.authStorage.clientId

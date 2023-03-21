@@ -6,6 +6,8 @@ import AuthAppSection from './app-section'
 import AuthLoginSection from './login-section'
 import {makeElement, makeDiv, makeLink} from '../html'
 
+export {AuthLoginSection}
+
 interface AuthOpener {
 	receiveOsmNoteViewerAuthCode(code:unknown):unknown
 	receiveOsmNoteViewerAuthDenial(errorDescription:unknown):unknown
@@ -52,13 +54,14 @@ export default class Auth {
 	}
 	writeMenuSections(
 		$container: HTMLElement
-	):void {
+	):AuthLoginSection {
 		const $appSection=makeElement('section')()()
 		const $loginSection=makeElement('section')()()
 		const appSection=new AuthAppSection($appSection,this.authStorage,this.server,this.serverList)
 		const loginSection=new AuthLoginSection($loginSection,this.authStorage,this.server)
 		appSection.onRegistrationUpdate=()=>loginSection.respondToAppRegistration()
 		$container.append($loginSection,$appSection)
+		return loginSection
 	}
 	get token(): string {
 		return this.authStorage.token

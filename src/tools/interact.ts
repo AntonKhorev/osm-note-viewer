@@ -5,7 +5,7 @@ import {readNoteResponse, NoteDataError} from '../fetch-note'
 import {makeHrefWithCurrentHost} from '../hash'
 import TextControl from '../text-control'
 import {listDecoratedNoteIds, convertDecoratedNoteIdsToPlainText, convertDecoratedNoteIdsToHtmlText} from '../id-lister'
-import {makeElement, makeDiv, makeLabel, makeLink, bubbleEvent, bubbleCustomEvent} from '../html'
+import {makeElement, makeDiv, makeLabel, makeLink, makeSemiLink, bubbleEvent, bubbleCustomEvent} from '../html'
 import {p,ul,li,code,em} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 import {isArray} from '../types'
@@ -59,6 +59,7 @@ export class InteractTool extends Tool {
 	private $runButton=makeElement('button')('only-with-icon')()
 	private $runOutput=document.createElement('output')
 	private $run=makeDiv('interaction-run')(this.$runButton,this.$runOutput)
+	private $loginLink=makeSemiLink('input-link')('login')
 	private stagedNoteIds= new Map<number,Note['status']>()
 	private run?: InteractionRun
 	private interactionDescriptions: InteractionDescription[]=[{
@@ -185,6 +186,9 @@ export class InteractTool extends Tool {
 			()=>[makeElement('span')()(`undo append`)],
 			()=>[makeElement('span')()(`append last changeset`)]
 		)
+		this.$loginLink.onclick=()=>{
+			bubbleCustomEvent($root,'osmNoteViewer:menuToggle','login')
+		}
 		this.$copyIdsButton.onclick=async()=>{
 			this.$copyIdsButton.title=''
 			this.$copyIdsButton.classList.remove('error')
@@ -301,7 +305,7 @@ export class InteractTool extends Tool {
 	private updateAsOutput(): void {
 		if (this.auth.username==null || this.auth.uid==null) {
 			this.$asOutput.replaceChildren(
-				`login to interact`
+				this.$loginLink,` to interact`
 			)
 		} else {
 			this.$asOutput.replaceChildren(

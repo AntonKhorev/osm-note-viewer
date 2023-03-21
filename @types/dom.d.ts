@@ -3,6 +3,7 @@ import type {OsmChangeset, OsmElement, OsmElementMap, OsmAdiff} from '../src/osm
 
 declare global {
 	interface HTMLElementEventMap {
+		'osmNoteViewer:menuToggle': CustomEvent<undefined|'login'>
 		'osmNoteViewer:timestampChange': CustomEvent<string>
 		'osmNoteViewer:noteFocus': CustomEvent<number>
 		'osmNoteViewer:mapFitModeChange': CustomEvent<string>
