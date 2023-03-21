@@ -301,7 +301,7 @@ export class InteractTool extends Tool {
 	private updateAsOutput(): void {
 		if (this.auth.username==null || this.auth.uid==null) {
 			this.$asOutput.replaceChildren(
-				`anonymously`
+				`login to interact`
 			)
 		} else {
 			this.$asOutput.replaceChildren(
@@ -335,7 +335,7 @@ export class InteractTool extends Tool {
 					this.run.status=='paused' && this.run.interactionDescription!=interactionDescription
 				)
 			} else {
-				$button.disabled=inputNoteIds.length==0
+				$button.disabled=!this.auth.token || inputNoteIds.length==0
 			}
 			if (cancelCondition) {
 				$button.replaceChildren(`Cancel`)
