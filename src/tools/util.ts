@@ -29,7 +29,7 @@ export class AutozoomTool extends Tool {
 
 export class TimestampTool extends Tool {
 	id='timestamp'
-	name=`Timestamp for historic queries`
+	name=`Timestamp`
 	title=`Set timestamp for queries run by Overpass`
 	protected getInfo() {return[p(
 		`Allows to select a timestamp for use with `,em(`Overpass`),` and `,em(`Overpass turbo`),` commands. `,
