@@ -48,7 +48,7 @@ body > .symbols {
 .ui {
 	--min-hor-side-size: 40px;
 	--min-ver-side-size: 40px;
-	height: 100vh;
+	height: 100dvh;
 	display: grid;
 	grid-template-columns: var(--min-hor-side-size) var(--extra-left-size-size,1fr) 1fr var(--extra-right-size-size,1fr) var(--min-hor-side-size);
 	grid-template-rows: var(--min-ver-side-size) var(--extra-top-size-size,1fr) 1fr var(--extra-bottom-size-size,1fr) var(--min-ver-side-size);
