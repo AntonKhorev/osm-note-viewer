@@ -10965,9 +10965,18 @@ const units = [
 ];
 const relativeTimeFormat = new Intl.RelativeTimeFormat('en');
 function listener(ev) {
-    if (!(ev.target instanceof HTMLTimeElement))
+    if (!(ev.target instanceof Element))
         return;
-    const $time = ev.target;
+    let $time;
+    if (ev.target instanceof HTMLTimeElement) {
+        $time = ev.target;
+    }
+    else if (ev.target.parentElement instanceof HTMLTimeElement) { // target is <span> inside <time>
+        $time = ev.target.parentElement;
+    }
+    else {
+        return;
+    }
     if (!$time.dateTime)
         return;
     const readableTime = $time.dateTime.replace('T', ' ').replace('Z', ' UTC');
