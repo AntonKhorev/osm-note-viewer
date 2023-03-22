@@ -17,7 +17,7 @@ nav button.reset {
 	border-radius: 50%;
 	right: .5rem;
 }
-body.flipped nav button.flip {
+.ui.flipped nav button.flip {
 	--flip-ver-part-visibility: hidden;
 	--flip-hor-part-visibility: visible;
 }

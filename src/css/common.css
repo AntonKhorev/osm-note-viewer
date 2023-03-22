@@ -37,36 +37,49 @@
 	}
 }
 
+body {
+	padding: 0;
+	margin: 0;
+}
 body > .symbols {
 	display: none;
 }
 
-.text-side,
-.text-side + .graphic-side {
-	position: fixed;
-	height: 50%;
-	width: 100%;
+.ui {
+	--min-hor-side-size: 40px;
+	--min-ver-side-size: 40px;
+	height: 100vh;
+	display: grid;
+	grid-template-columns: var(--min-hor-side-size) var(--extra-left-size-size,1fr) 1fr var(--extra-right-size-size,1fr) var(--min-hor-side-size);
+	grid-template-rows: var(--min-ver-side-size) var(--extra-top-size-size,1fr) 1fr var(--extra-bottom-size-size,1fr) var(--min-ver-side-size);
+	grid-template-areas:
+		"T T T T T"
+		"T T T T T"
+		"G G G G G"
+		"G G G G G"
+		"G G G G G";
 }
-body.flipped .text-side,
-body.flipped .text-side + .graphic-side {
-	height: 100%;
-	width: 50%;
+.ui.flipped {
+	grid-template-areas:
+		"T T G G G"
+		"T T G G G"
+		"T T G G G"
+		"T T G G G"
+		"T T G G G";
 }
-.graphic-side {
-	bottom: 0;
-	right: 0;
-	height: 100%;
-	width: 100%;
+.ui .graphic-side {
+	grid-area: G;
+	position: relative;
 }
-.text-side {
+.ui .text-side {
+	grid-area: T;
+	position: relative;
 	display: flex;
 	flex-direction: column;
-	top: 0;
-	left: 0;
 	z-index: 1; /* be above photo with blurry backdrop */
 	overflow-y: auto; /* scrollbar should appear only for oversized tools panel */
 }
-.text-side .scrolling {
+.ui .text-side .scrolling {
 	overflow-y: scroll;
 	flex-grow: 1;
 }

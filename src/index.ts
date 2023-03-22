@@ -25,7 +25,8 @@ async function main() {
 		return
 	}
 
-	const $root=document.body
+	const $root=makeDiv('ui')()
+	document.body.append($root)
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
 	const serverListConfigSources:unknown[]=[serverListConfig]
@@ -59,7 +60,7 @@ async function main() {
 		$graphicSide.before(makeDiv('text-side')($scrollingPart,$stickyPart))
 		$graphicSide.append($mapContainer)
 		map=writeMap($root,$mapContainer,globalHistory)
-		const navbar=new Navbar(storage,$navbarContainer,map)
+		const navbar=new Navbar($root,storage,$navbarContainer,map)
 		const noteTable=writeBelowFetchPanel(
 			$root,
 			$scrollingPart,$stickyPart,$moreContainer,

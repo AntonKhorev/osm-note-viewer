@@ -167,10 +167,7 @@
 	font-family: sans-serif;
 }
 .notes table:not(.expanded-username) td.note-user {
-	max-width: 20vw;
-}
-body.flipped table:not(.expanded-username) td.note-user {
-	max-width: 10vw;
+	max-width: 10em;
 }
 .notes table:not(.expanded-username) td.note-user .uid {
 	display: none;
