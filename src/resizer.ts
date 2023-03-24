@@ -11,17 +11,14 @@ class Move {
 	startOffset: number
 	constructor($root: HTMLElement, $side: HTMLElement, ev: PointerEvent) {
 		this.isHor=$root.classList.contains('flipped')
-		const sidebarSize=this.pick($side.clientWidth,$side.clientHeight)
-		const pointerPosition=this.pick(ev.clientX,ev.clientY)
+		const sidebarSize=getSidebarSize($side,this.isHor)
+		const pointerPosition=getPointerPosition(ev,this.isHor)
 		this.startOffset=pointerPosition-sidebarSize
 	}
 	move($root: HTMLElement, storage: NoteViewerStorage, ev: PointerEvent) {
-		const pointerPosition=this.pick(ev.clientX,ev.clientY)
+		const pointerPosition=getPointerPosition(ev,this.isHor)
 		const targetSidebarSize=pointerPosition-this.startOffset
 		setAndStoreSidebarSize($root,storage,this.isHor,targetSidebarSize)
-	}
-	pick<T>(x: T, y: T): T {
-		return this.isHor ? x : y
 	}
 }
 
@@ -64,7 +61,7 @@ export default class SidebarResizer {
 			}
 			if (step==null) return
 			const isHor=this.$root.classList.contains('flipped')
-			const sidebarSize=isHor ? this.$side.clientWidth : this.$side.clientHeight
+			const sidebarSize=getSidebarSize(this.$side,isHor)
 			const targetSidebarSize=sidebarSize+step
 			setAndStoreSidebarSize(this.$root,this.storage,isHor,targetSidebarSize)
 		}
@@ -82,6 +79,14 @@ function setStartingRootProperties($root: HTMLElement, storage: NoteViewerStorag
 	if (verSidebarFractionItem!=null) {
 		setSizeProperties($root,false,Number(verSidebarFractionItem))
 	}
+}
+
+function getPointerPosition(ev: PointerEvent, isHor: boolean): number {
+	return isHor ? ev.clientX : ev.clientY
+}
+
+function getSidebarSize($side: HTMLElement, isHor: boolean): number {
+	return isHor ? $side.offsetWidth : $side.offsetHeight
 }
 
 function setAndStoreSidebarSize($root: HTMLElement, storage: NoteViewerStorage, isHor: boolean, targetSidebarSize: number): void {
