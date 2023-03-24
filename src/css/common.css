@@ -48,6 +48,9 @@ body > .symbols {
 .ui {
 	height: 100dvh;
 	display: grid;
+	grid-template-areas: "G";
+}
+.ui.with-sidebar {
 	grid-template-columns: var(--min-hor-side-size,0) var(--extra-left-side-size,1fr) var(--middle-hor-size,1fr) var(--min-hor-side-size,0);
 	grid-template-rows: var(--min-ver-side-size,0) var(--extra-top-side-size,1fr) var(--middle-ver-size,1fr) var(--min-ver-side-size,0);
 	grid-template-areas:
@@ -56,7 +59,7 @@ body > .symbols {
 		"G G G G"
 		"G G G G";
 }
-.ui.flipped {
+.ui.with-sidebar.flipped {
 	grid-template-areas:
 		"T T G G"
 		"T T G G"

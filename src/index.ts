@@ -57,6 +57,7 @@ async function main() {
 	let map: NoteMap|undefined
 	const globalHistory=new GlobalHistory($root,$scrollingPart,serverList)
 	if (globalHistory.hasServer()) {
+		$root.classList.add('with-sidebar')
 		auth=new Auth(storage,globalHistory.server,serverList)
 		const $textSide=makeDiv('text-side')($scrollingPart,$stickyPart)
 		$graphicSide.before($textSide)
