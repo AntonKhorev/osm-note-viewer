@@ -50,7 +50,7 @@ export default class SidebarResizer {
 		}
 		this.$button.onkeydown=ev=>{
 			if (move) return
-			const stepBase=8
+			const stepBase=ev.shiftKey?24:8
 			let step:number|undefined
 			if (ev.key=='ArrowLeft' || ev.key=='ArrowUp') {
 				step=-stepBase
