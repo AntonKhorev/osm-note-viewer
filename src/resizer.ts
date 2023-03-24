@@ -64,6 +64,9 @@ export default class SidebarResizer {
 			const sidebarSize=getSidebarSize(this.$side,isHor)
 			const targetSidebarSize=sidebarSize+step
 			setAndStoreSidebarSize(this.$root,this.storage,isHor,targetSidebarSize)
+			map.invalidateSize()
+			ev.stopPropagation()
+			ev.preventDefault()
 		}
 	}
 }
