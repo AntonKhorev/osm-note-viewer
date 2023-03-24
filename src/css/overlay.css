@@ -17,6 +17,7 @@
 	z-index: 1;
 	border: 2px solid rgba(0,0,0,0.2);
 	margin: auto;
+	touch-action: none;
 }
 .ui:not(.flipped) .graphic-side button.resize {
 	left: 0;
