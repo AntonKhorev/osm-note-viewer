@@ -26,6 +26,7 @@
 	border-top: none;
 	border-bottom-left-radius: 5px;
 	border-bottom-right-radius: 5px;
+	cursor: row-resize;
 }
 .ui.flipped .graphic-side button.resize {
 	left: 0;
@@ -35,6 +36,7 @@
 	border-left: none;
 	border-top-right-radius: 5px;
 	border-bottom-right-radius: 5px;
+	cursor: col-resize;
 }
 .graphic-side button.resize > svg {
 	position: absolute;
