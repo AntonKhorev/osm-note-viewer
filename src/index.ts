@@ -60,10 +60,10 @@ async function main() {
 		auth=new Auth(storage,globalHistory.server,serverList)
 		const $textSide=makeDiv('text-side')($scrollingPart,$stickyPart)
 		$graphicSide.before($textSide)
-		const $sidebarResizer=makeSidebarResizer($root,$textSide)
-		$graphicSide.append($sidebarResizer)
 		$graphicSide.append($mapContainer)
 		map=writeMap($root,$mapContainer,globalHistory)
+		const $sidebarResizer=makeSidebarResizer($root,$textSide,map)
+		$mapContainer.before($sidebarResizer)
 		const navbar=new Navbar($root,storage,$navbarContainer,map)
 		const noteTable=writeBelowFetchPanel(
 			$root,

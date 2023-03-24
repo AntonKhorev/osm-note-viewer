@@ -1,3 +1,4 @@
+import type NoteMap from './map'
 import {makeElement} from './html'
 
 const minHorSideSize=80
@@ -32,7 +33,7 @@ class Move {
 	}
 }
 
-export default function makeSidebarResizer($root: HTMLElement, $side: HTMLElement): HTMLButtonElement {
+export default function makeSidebarResizer($root: HTMLElement, $side: HTMLElement, map: NoteMap): HTMLButtonElement {
 	$root.style.setProperty('--min-hor-side-size',`${minHorSideSize}px`)
 	$root.style.setProperty('--min-ver-side-size',`${minVerSideSize}px`)
 	const $button=makeElement('button')('global','resize')()
@@ -45,12 +46,12 @@ export default function makeSidebarResizer($root: HTMLElement, $side: HTMLElemen
 	}
 	$button.onpointerup=ev=>{
 		// TODO store size
-		// TODO invalidate map size
 		move=undefined
 	}
 	$button.onpointermove=ev=>{
 		if (!move) return
 		move.move($root,ev)
+		map.invalidateSize()
 	}
 	return $button
 }
