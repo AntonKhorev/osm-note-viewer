@@ -3510,8 +3510,7 @@ function makeHelpDialog(closeButtonLabel, content) {
 }
 
 function makeMenuButton() {
-    const $button = document.createElement('button');
-    $button.classList.add('global', 'menu');
+    const $button = makeElement('button')('global', 'menu')();
     $button.innerHTML = `<svg><use href="#menu" /></svg>`;
     $button.onclick = () => {
         bubbleEvent($button, 'osmNoteViewer:menuToggle');
@@ -3777,6 +3776,118 @@ function equalUrlSequences(seq1, seq2) {
     return seq1.urls.every((_, i) => seq1.urls[i] == seq2.urls[i]);
 }
 
+const minHorSideSize = 80;
+const minVerSideSize = 80;
+const frMultiplier = 100000;
+class Move {
+    constructor($root, $side, ev) {
+        this.isHor = $root.classList.contains('flipped');
+        const sidebarSize = getSidebarSize($side, this.isHor);
+        const pointerPosition = getPointerPosition(ev, this.isHor);
+        this.startOffset = pointerPosition - sidebarSize;
+    }
+    move($root, storage, ev) {
+        const pointerPosition = getPointerPosition(ev, this.isHor);
+        const targetSidebarSize = pointerPosition - this.startOffset;
+        setAndStoreSidebarSize($root, storage, this.isHor, targetSidebarSize);
+    }
+}
+class SidebarResizer {
+    constructor($root, $side, storage) {
+        this.$root = $root;
+        this.$side = $side;
+        this.storage = storage;
+        setStartingRootProperties($root, storage);
+        this.$button = makeElement('button')('global', 'resize')();
+        this.$button.innerHTML = `<svg><use href="#resize" /></svg>`;
+        this.$button.title = `Resize sidebar`;
+    }
+    startListening(map) {
+        let move;
+        this.$button.onpointerdown = ev => {
+            move = new Move(this.$root, this.$side, ev);
+            this.$button.setPointerCapture(ev.pointerId);
+        };
+        this.$button.onpointerup = ev => {
+            move = undefined;
+        };
+        this.$button.onpointermove = ev => {
+            if (!move)
+                return;
+            move.move(this.$root, this.storage, ev);
+            map.invalidateSize();
+        };
+        this.$button.onkeydown = ev => {
+            if (move)
+                return;
+            const stepBase = ev.shiftKey ? 24 : 8;
+            let step;
+            if (ev.key == 'ArrowLeft' || ev.key == 'ArrowUp') {
+                step = -stepBase;
+            }
+            else if (ev.key == 'ArrowRight' || ev.key == 'ArrowDown') {
+                step = +stepBase;
+            }
+            else {
+                return;
+            }
+            if (step == null)
+                return;
+            const isHor = this.$root.classList.contains('flipped');
+            const sidebarSize = getSidebarSize(this.$side, isHor);
+            const targetSidebarSize = sidebarSize + step;
+            setAndStoreSidebarSize(this.$root, this.storage, isHor, targetSidebarSize);
+            map.invalidateSize();
+            ev.stopPropagation();
+            ev.preventDefault();
+        };
+    }
+}
+function setStartingRootProperties($root, storage) {
+    $root.style.setProperty('--min-hor-side-size', `${minHorSideSize}px`);
+    $root.style.setProperty('--min-ver-side-size', `${minVerSideSize}px`);
+    const horSidebarFractionItem = storage.getItem('hor-sidebar-fraction');
+    if (horSidebarFractionItem != null) {
+        setSizeProperties($root, true, Number(horSidebarFractionItem));
+    }
+    const verSidebarFractionItem = storage.getItem('ver-sidebar-fraction');
+    if (verSidebarFractionItem != null) {
+        setSizeProperties($root, false, Number(verSidebarFractionItem));
+    }
+}
+function getPointerPosition(ev, isHor) {
+    return isHor ? ev.clientX : ev.clientY;
+}
+function getSidebarSize($side, isHor) {
+    return isHor ? $side.offsetWidth : $side.offsetHeight;
+}
+function setAndStoreSidebarSize($root, storage, isHor, targetSidebarSize) {
+    const targetSidebarFraction = getTargetSidebarFraction($root, isHor, targetSidebarSize);
+    const sidebarFraction = setSizeProperties($root, isHor, targetSidebarFraction);
+    const storageKey = (isHor ? 'hor-' : 'ver-') + 'sidebar-fraction';
+    storage.setItem(storageKey, String(sidebarFraction));
+}
+function getTargetSidebarFraction($root, isHor, targetSidebarSize) {
+    const minSideSize = isHor ? minHorSideSize : minVerSideSize;
+    const rootExtraSize = (isHor ? $root.clientWidth : $root.clientHeight) - 2 * minSideSize;
+    const targetExtraSize = targetSidebarSize - minSideSize;
+    return targetExtraSize / rootExtraSize;
+}
+function setSizeProperties($root, isHor, sidebarFraction) {
+    const extraSizeProperty = isHor ? '--extra-left-side-size' : '--extra-top-side-size';
+    const middleSizeProperty = isHor ? '--middle-hor-size' : '--middle-ver-size';
+    if (sidebarFraction < 0)
+        sidebarFraction = 0;
+    if (sidebarFraction > 1)
+        sidebarFraction = 1;
+    if (Number.isNaN(sidebarFraction))
+        sidebarFraction = 0.5;
+    const extraFr = Math.round(sidebarFraction * frMultiplier);
+    $root.style.setProperty(extraSizeProperty, `${extraFr}fr`);
+    $root.style.setProperty(middleSizeProperty, `${frMultiplier - extraFr}fr`);
+    return sidebarFraction;
+}
+
 const e$7 = makeEscapeTag(escapeXml);
 class NavDialog {
     constructor() {
@@ -3799,13 +3910,13 @@ class NavDialog {
 // https://www.w3.org/WAI/ARIA/apg/example-index/tabs/tabs-automatic.html
 // https://www.w3.org/WAI/ARIA/apg/example-index/tabs/tabs-manual.html
 class Navbar {
-    constructor(storage, $container, map) {
+    constructor($root, storage, $container, map) {
         this.$tabList = document.createElement('div');
         this.tabs = new Map();
         this.$tabList.setAttribute('role', 'tablist');
         this.$tabList.setAttribute('aria-label', `Note query modes`);
         if (map)
-            $container.append(makeFlipLayoutButton(storage, map));
+            $container.append(makeFlipLayoutButton($root, storage, map));
         $container.append(this.$tabList);
         $container.append(makeResetButton());
         $container.onkeydown = ev => {
@@ -3880,10 +3991,10 @@ class Navbar {
         }
     }
 }
-function makeFlipLayoutButton(storage, map) {
+function makeFlipLayoutButton($root, storage, map) {
     return makeButton('flip', `Flip layout`, () => {
-        document.body.classList.toggle('flipped');
-        storage.setBoolean('flipped', document.body.classList.contains('flipped'));
+        const hasFlipped = $root.classList.toggle('flipped');
+        storage.setBoolean('flipped', hasFlipped);
         map.invalidateSize();
     });
 }
@@ -8903,7 +9014,7 @@ class TimestampTool extends Tool {
     constructor() {
         super(...arguments);
         this.id = 'timestamp';
-        this.name = `Timestamp for historic queries`;
+        this.name = `Timestamp`;
         this.title = `Set timestamp for queries run by Overpass`;
     }
     getInfo() {
@@ -11003,7 +11114,8 @@ async function main() {
     if (checkAuthRedirect()) {
         return;
     }
-    const $root = document.body;
+    const $root = makeDiv('ui')();
+    document.body.append($root);
     const storage = new NoteViewerStorage('osm-note-viewer-');
     const db = await NoteViewerDB.open();
     const serverListConfigSources = [serverListConfig];
@@ -11032,11 +11144,15 @@ async function main() {
     let map;
     const globalHistory = new GlobalHistory($root, $scrollingPart, serverList);
     if (globalHistory.hasServer()) {
+        $root.classList.add('with-sidebar');
         auth = new Auth(storage, globalHistory.server, serverList);
-        $graphicSide.before(makeDiv('text-side')($scrollingPart, $stickyPart));
-        $graphicSide.append($mapContainer);
+        const $textSide = makeDiv('text-side')($scrollingPart, $stickyPart);
+        $graphicSide.before($textSide);
+        const sidebarResizer = new SidebarResizer($root, $textSide, storage);
+        $graphicSide.append(sidebarResizer.$button, $mapContainer);
         map = writeMap($root, $mapContainer, globalHistory);
-        const navbar = new Navbar(storage, $navbarContainer, map);
+        sidebarResizer.startListening(map);
+        const navbar = new Navbar($root, storage, $navbarContainer, map);
         const noteTable = writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer, storage, auth, globalHistory, map);
         new NoteFetchPanel($root, db, auth, $fetchContainer, $moreContainer, navbar, noteTable, map, globalHistory.getQueryHash(), globalHistory.hasMapHash(), serverList.getHostHashValue(globalHistory.server));
     }

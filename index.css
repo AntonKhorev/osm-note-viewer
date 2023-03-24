@@ -38,36 +38,48 @@
 	}
 }
 
+body {
+	padding: 0;
+	margin: 0;
+}
 body > .symbols {
 	display: none;
 }
 
-.text-side,
-.text-side + .graphic-side {
-	position: fixed;
-	height: 50%;
-	width: 100%;
+.ui {
+	height: 100dvh;
+	display: grid;
+	grid-template-areas: "G";
 }
-body.flipped .text-side,
-body.flipped .text-side + .graphic-side {
-	height: 100%;
-	width: 50%;
+.ui.with-sidebar {
+	grid-template-columns: var(--min-hor-side-size,0) var(--extra-left-side-size,1fr) var(--middle-hor-size,1fr) var(--min-hor-side-size,0);
+	grid-template-rows: var(--min-ver-side-size,0) var(--extra-top-side-size,1fr) var(--middle-ver-size,1fr) var(--min-ver-side-size,0);
+	grid-template-areas:
+		"T T T T"
+		"T T T T"
+		"G G G G"
+		"G G G G";
 }
-.graphic-side {
-	bottom: 0;
-	right: 0;
-	height: 100%;
-	width: 100%;
+.ui.with-sidebar.flipped {
+	grid-template-areas:
+		"T T G G"
+		"T T G G"
+		"T T G G"
+		"T T G G";
 }
-.text-side {
+.ui .graphic-side {
+	grid-area: G;
+	position: relative;
+}
+.ui .text-side {
+	grid-area: T;
+	position: relative;
 	display: flex;
 	flex-direction: column;
-	top: 0;
-	left: 0;
 	z-index: 1; /* be above photo with blurry backdrop */
 	overflow-y: auto; /* scrollbar should appear only for oversized tools panel */
 }
-.text-side .scrolling {
+.ui .text-side .scrolling {
 	overflow-y: scroll;
 	flex-grow: 1;
 }
@@ -183,7 +195,7 @@ nav button.reset {
 	border-radius: 50%;
 	right: .5rem;
 }
-body.flipped nav button.flip {
+.ui.flipped nav button.flip {
 	--flip-ver-part-visibility: hidden;
 	--flip-hor-part-visibility: visible;
 }
@@ -250,10 +262,10 @@ nav [role=tablist] [role=tab]:focus {
 	margin: .5rem 0;
 }
 .panel div.notice:not(:empty) {
-	margin: .5em -.5em; /* negative margins only for block-level notices */
+	margin: .5rem -.5rem; /* negative margins only for block-level notices */
 }
 .panel .notice:not(:empty) {
-	padding: .5em;
+	padding: .5rem;
 }
 .panel .notice {
 	background: var(--notice-background-color);
@@ -791,10 +803,7 @@ nav [role=tablist] [role=tab]:focus {
 	font-family: sans-serif;
 }
 .notes table:not(.expanded-username) td.note-user {
-	max-width: 20vw;
-}
-body.flipped table:not(.expanded-username) td.note-user {
-	max-width: 10vw;
+	max-width: 10em;
 }
 .notes table:not(.expanded-username) td.note-user .uid {
 	display: none;
@@ -1014,6 +1023,46 @@ body.flipped table:not(.expanded-username) td.note-user {
 	--menu-cross-part-visibility: visible;
 }
 
+.graphic-side button.resize {
+	z-index: 1;
+	border: 2px solid rgba(0,0,0,0.2);
+	margin: auto;
+	touch-action: none;
+}
+.ui:not(.flipped) .graphic-side button.resize {
+	left: 0;
+	right: 0;
+	top: 0;
+	height: 1rem;
+	border-top: none;
+	border-bottom-left-radius: 5px;
+	border-bottom-right-radius: 5px;
+	cursor: row-resize;
+}
+.ui.flipped .graphic-side button.resize {
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 1rem;
+	border-left: none;
+	border-top-right-radius: 5px;
+	border-bottom-right-radius: 5px;
+	cursor: col-resize;
+}
+.graphic-side button.resize > svg {
+	position: absolute;
+	translate: -50% -50%;
+}
+.ui:not(.flipped) .graphic-side button.resize > svg {
+	height: auto;
+}
+.ui.flipped .graphic-side button.resize > svg {
+	width: auto;
+}
+.graphic-side button.resize:not(:hover) > svg {
+	background: canvas;
+}
+
 .graphic-side div.menu:not([hidden]) {
 	position: absolute;
 	inset: 0;
@@ -1030,6 +1079,15 @@ body.flipped table:not(.expanded-username) td.note-user {
 .graphic-side div.menu .scrolling {
 	flex-grow: 1;
 	overflow-y: scroll;
+}
+.graphic-side div.menu .panel {
+	padding: 1rem;
+}
+.graphic-side div.menu .panel div.notice:not(:empty) {
+	margin-left: -1rem;
+	margin-right: -1rem;
+	padding-left: 1rem;
+	padding-right: 1rem;
 }
 
 dialog.figure {
