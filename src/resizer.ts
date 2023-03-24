@@ -20,15 +20,8 @@ class Move {
 		const minSideSize=this.pick(minHorSideSize,minVerSideSize)
 		const rootExtraSize=this.pick($root.clientWidth,$root.clientHeight)-2*minSideSize
 		const targetSidebarSize=pointerPosition-this.startOffset
-		let targetExtraSize=targetSidebarSize-minSideSize
-		if (targetExtraSize<0) targetExtraSize=0
-		if (targetExtraSize>rootExtraSize) targetExtraSize=rootExtraSize
-		const extraSizeProperty=this.pick('--extra-left-side-size','--extra-top-side-size')
-		const middleSizeProperty=this.pick('--middle-hor-size','--middle-ver-size')
-		const sidebarFraction=targetExtraSize/rootExtraSize
-		const extraFr=Math.round(sidebarFraction*frMultiplier)
-		$root.style.setProperty(extraSizeProperty,`${extraFr}fr`)
-		$root.style.setProperty(middleSizeProperty,`${frMultiplier-extraFr}fr`)
+		const targetExtraSize=targetSidebarSize-minSideSize
+		const sidebarFraction=setSizeProperties($root,this.isHor,targetExtraSize/rootExtraSize)
 		const storageKey=this.pick('hor-','ver-')+'sidebar-fraction'
 		storage.setItem(storageKey,String(sidebarFraction))
 	}
@@ -37,26 +30,28 @@ class Move {
 	}
 }
 
+function setSizeProperties($root: HTMLElement, isHor: boolean, sidebarFraction: number): number {
+	const extraSizeProperty=isHor ? '--extra-left-side-size' : '--extra-top-side-size'
+	const middleSizeProperty=isHor ? '--middle-hor-size' : '--middle-ver-size'
+	if (sidebarFraction<0) sidebarFraction=0
+	if (sidebarFraction>1) sidebarFraction=1
+	if (Number.isNaN(sidebarFraction)) sidebarFraction=0.5
+	const extraFr=Math.round(sidebarFraction*frMultiplier)
+	$root.style.setProperty(extraSizeProperty,`${extraFr}fr`)
+	$root.style.setProperty(middleSizeProperty,`${frMultiplier-extraFr}fr`)
+	return sidebarFraction
+}
+
 function setStartingRootProperties($root: HTMLElement, storage: NoteViewerStorage) {
 	$root.style.setProperty('--min-hor-side-size',`${minHorSideSize}px`)
 	$root.style.setProperty('--min-ver-side-size',`${minVerSideSize}px`)
 	const horSidebarFractionItem=storage.getItem('hor-sidebar-fraction')
 	if (horSidebarFractionItem!=null) {
-		const extraSizeProperty='--extra-left-side-size'
-		const middleSizeProperty='--middle-hor-size'
-		const sidebarFraction=Number(horSidebarFractionItem)
-		const extraFr=Math.round(sidebarFraction*frMultiplier)
-		$root.style.setProperty(extraSizeProperty,`${extraFr}fr`)
-		$root.style.setProperty(middleSizeProperty,`${frMultiplier-extraFr}fr`)
+		setSizeProperties($root,true,Number(horSidebarFractionItem))
 	}
 	const verSidebarFractionItem=storage.getItem('ver-sidebar-fraction')
 	if (verSidebarFractionItem!=null) {
-		const extraSizeProperty='--extra-top-side-size'
-		const middleSizeProperty='--middle-ver-size'
-		const sidebarFraction=Number(verSidebarFractionItem)
-		const extraFr=Math.round(sidebarFraction*frMultiplier)
-		$root.style.setProperty(extraSizeProperty,`${extraFr}fr`)
-		$root.style.setProperty(middleSizeProperty,`${frMultiplier-extraFr}fr`)
+		setSizeProperties($root,false,Number(verSidebarFractionItem))
 	}
 }
 
