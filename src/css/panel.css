@@ -25,10 +25,10 @@
 	margin: .5rem 0;
 }
 .panel div.notice:not(:empty) {
-	margin: .5em -.5em; /* negative margins only for block-level notices */
+	margin: .5rem -.5rem; /* negative margins only for block-level notices */
 }
 .panel .notice:not(:empty) {
-	padding: .5em;
+	padding: .5rem;
 }
 .panel .notice {
 	background: var(--notice-background-color);
