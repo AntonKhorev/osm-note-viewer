@@ -17,41 +17,11 @@ class Move {
 	}
 	move($root: HTMLElement, storage: NoteViewerStorage, ev: PointerEvent) {
 		const pointerPosition=this.pick(ev.clientX,ev.clientY)
-		const minSideSize=this.pick(minHorSideSize,minVerSideSize)
-		const rootExtraSize=this.pick($root.clientWidth,$root.clientHeight)-2*minSideSize
 		const targetSidebarSize=pointerPosition-this.startOffset
-		const targetExtraSize=targetSidebarSize-minSideSize
-		const sidebarFraction=setSizeProperties($root,this.isHor,targetExtraSize/rootExtraSize)
-		const storageKey=this.pick('hor-','ver-')+'sidebar-fraction'
-		storage.setItem(storageKey,String(sidebarFraction))
+		setAndStoreSidebarSize($root,storage,this.isHor,targetSidebarSize)
 	}
 	pick<T>(x: T, y: T): T {
 		return this.isHor ? x : y
-	}
-}
-
-function setSizeProperties($root: HTMLElement, isHor: boolean, sidebarFraction: number): number {
-	const extraSizeProperty=isHor ? '--extra-left-side-size' : '--extra-top-side-size'
-	const middleSizeProperty=isHor ? '--middle-hor-size' : '--middle-ver-size'
-	if (sidebarFraction<0) sidebarFraction=0
-	if (sidebarFraction>1) sidebarFraction=1
-	if (Number.isNaN(sidebarFraction)) sidebarFraction=0.5
-	const extraFr=Math.round(sidebarFraction*frMultiplier)
-	$root.style.setProperty(extraSizeProperty,`${extraFr}fr`)
-	$root.style.setProperty(middleSizeProperty,`${frMultiplier-extraFr}fr`)
-	return sidebarFraction
-}
-
-function setStartingRootProperties($root: HTMLElement, storage: NoteViewerStorage) {
-	$root.style.setProperty('--min-hor-side-size',`${minHorSideSize}px`)
-	$root.style.setProperty('--min-ver-side-size',`${minVerSideSize}px`)
-	const horSidebarFractionItem=storage.getItem('hor-sidebar-fraction')
-	if (horSidebarFractionItem!=null) {
-		setSizeProperties($root,true,Number(horSidebarFractionItem))
-	}
-	const verSidebarFractionItem=storage.getItem('ver-sidebar-fraction')
-	if (verSidebarFractionItem!=null) {
-		setSizeProperties($root,false,Number(verSidebarFractionItem))
 	}
 }
 
@@ -81,5 +51,61 @@ export default class SidebarResizer {
 			move.move(this.$root,this.storage,ev)
 			map.invalidateSize()
 		}
+		this.$button.onkeydown=ev=>{
+			if (move) return
+			const stepBase=8
+			let step:number|undefined
+			if (ev.key=='ArrowLeft' || ev.key=='ArrowUp') {
+				step=-stepBase
+			} else if (ev.key=='ArrowRight' || ev.key=='ArrowDown') {
+				step=+stepBase
+			} else {
+				return
+			}
+			if (step==null) return
+			const isHor=this.$root.classList.contains('flipped')
+			const sidebarSize=isHor ? this.$side.clientWidth : this.$side.clientHeight
+			const targetSidebarSize=sidebarSize+step
+			setAndStoreSidebarSize(this.$root,this.storage,isHor,targetSidebarSize)
+		}
 	}
+}
+
+function setStartingRootProperties($root: HTMLElement, storage: NoteViewerStorage) {
+	$root.style.setProperty('--min-hor-side-size',`${minHorSideSize}px`)
+	$root.style.setProperty('--min-ver-side-size',`${minVerSideSize}px`)
+	const horSidebarFractionItem=storage.getItem('hor-sidebar-fraction')
+	if (horSidebarFractionItem!=null) {
+		setSizeProperties($root,true,Number(horSidebarFractionItem))
+	}
+	const verSidebarFractionItem=storage.getItem('ver-sidebar-fraction')
+	if (verSidebarFractionItem!=null) {
+		setSizeProperties($root,false,Number(verSidebarFractionItem))
+	}
+}
+
+function setAndStoreSidebarSize($root: HTMLElement, storage: NoteViewerStorage, isHor: boolean, targetSidebarSize: number): void {
+	const targetSidebarFraction=getTargetSidebarFraction($root,isHor,targetSidebarSize)
+	const sidebarFraction=setSizeProperties($root,isHor,targetSidebarFraction)
+	const storageKey=(isHor?'hor-':'ver-')+'sidebar-fraction'
+	storage.setItem(storageKey,String(sidebarFraction))
+}
+
+function getTargetSidebarFraction($root: HTMLElement, isHor: boolean, targetSidebarSize: number): number {
+	const minSideSize=isHor ? minHorSideSize : minVerSideSize
+	const rootExtraSize=(isHor?$root.clientWidth:$root.clientHeight)-2*minSideSize
+	const targetExtraSize=targetSidebarSize-minSideSize
+	return targetExtraSize/rootExtraSize
+}
+
+function setSizeProperties($root: HTMLElement, isHor: boolean, sidebarFraction: number): number {
+	const extraSizeProperty=isHor ? '--extra-left-side-size' : '--extra-top-side-size'
+	const middleSizeProperty=isHor ? '--middle-hor-size' : '--middle-ver-size'
+	if (sidebarFraction<0) sidebarFraction=0
+	if (sidebarFraction>1) sidebarFraction=1
+	if (Number.isNaN(sidebarFraction)) sidebarFraction=0.5
+	const extraFr=Math.round(sidebarFraction*frMultiplier)
+	$root.style.setProperty(extraSizeProperty,`${extraFr}fr`)
+	$root.style.setProperty(middleSizeProperty,`${frMultiplier-extraFr}fr`)
+	return sidebarFraction
 }
