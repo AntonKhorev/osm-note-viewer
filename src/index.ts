@@ -7,7 +7,7 @@ import GlobalHistory, {GlobalHistoryWithServer} from './history'
 import Auth, {checkAuthRedirect} from './auth'
 import NoteMap from './map'
 import OverlayDialog, {makeMenuButton} from './overlay'
-import makeSidebarResizer from './resizer'
+import SidebarResizer from './resizer'
 import Navbar from './navbar'
 import NoteFetchPanel from './fetch-panel'
 import NoteFilterPanel from './filter-panel'
@@ -60,10 +60,10 @@ async function main() {
 		auth=new Auth(storage,globalHistory.server,serverList)
 		const $textSide=makeDiv('text-side')($scrollingPart,$stickyPart)
 		$graphicSide.before($textSide)
-		$graphicSide.append($mapContainer)
+		const sidebarResizer=new SidebarResizer($root,$textSide,storage)
+		$graphicSide.append(sidebarResizer.$button,$mapContainer)
 		map=writeMap($root,$mapContainer,globalHistory)
-		const $sidebarResizer=makeSidebarResizer($root,$textSide,storage,map)
-		$mapContainer.before($sidebarResizer)
+		sidebarResizer.startListening(map)
 		const navbar=new Navbar($root,storage,$navbarContainer,map)
 		const noteTable=writeBelowFetchPanel(
 			$root,

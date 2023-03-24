@@ -55,26 +55,31 @@ function setStartingRootProperties($root: HTMLElement, storage: NoteViewerStorag
 	}
 }
 
-export default function makeSidebarResizer(
-	$root: HTMLElement, $side: HTMLElement,
-	storage: NoteViewerStorage, map: NoteMap
-): HTMLButtonElement {
-	setStartingRootProperties($root,storage)
-	const $button=makeElement('button')('global','resize')()
-	$button.innerHTML=`<svg><use href="#resize" /></svg>`
-	$button.title=`Resize sidebar`
-	let move:Move|undefined
-	$button.onpointerdown=ev=>{
-		move=new Move($root,$side,ev)
-		$button.setPointerCapture(ev.pointerId)
+export default class SidebarResizer {
+	readonly $button: HTMLButtonElement
+	constructor(
+		private readonly $root: HTMLElement,
+		private readonly $side: HTMLElement,
+		private readonly storage: NoteViewerStorage
+	) {
+		setStartingRootProperties($root,storage)
+		this.$button=makeElement('button')('global','resize')()
+		this.$button.innerHTML=`<svg><use href="#resize" /></svg>`
+		this.$button.title=`Resize sidebar`
 	}
-	$button.onpointerup=ev=>{
-		move=undefined
+	startListening(map: NoteMap) {
+		let move:Move|undefined
+		this.$button.onpointerdown=ev=>{
+			move=new Move(this.$root,this.$side,ev)
+			this.$button.setPointerCapture(ev.pointerId)
+		}
+		this.$button.onpointerup=ev=>{
+			move=undefined
+		}
+		this.$button.onpointermove=ev=>{
+			if (!move) return
+			move.move(this.$root,this.storage,ev)
+			map.invalidateSize()
+		}
 	}
-	$button.onpointermove=ev=>{
-		if (!move) return
-		move.move($root,storage,ev)
-		map.invalidateSize()
-	}
-	return $button
 }
