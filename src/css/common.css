@@ -48,8 +48,8 @@ body > .symbols {
 .ui {
 	height: 100dvh;
 	display: grid;
-	grid-template-columns: var(--min-hor-side-size,0) var(--extra-left-size-size,1fr) 1fr var(--min-hor-side-size,0);
-	grid-template-rows: var(--min-ver-side-size,0) var(--extra-top-size-size,1fr) 1fr var(--min-ver-side-size,0);
+	grid-template-columns: var(--min-hor-side-size,0) var(--extra-left-side-size,1fr) var(--middle-hor-size,1fr) var(--min-hor-side-size,0);
+	grid-template-rows: var(--min-ver-side-size,0) var(--extra-top-side-size,1fr) var(--middle-ver-size,1fr) var(--min-ver-side-size,0);
 	grid-template-areas:
 		"T T T T"
 		"T T T T"

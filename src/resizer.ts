@@ -2,6 +2,7 @@ import {makeElement} from './html'
 
 const minHorSideSize=80
 const minVerSideSize=80
+const frMultiplier=100000
 
 class Move {
 	isHor: boolean
@@ -15,17 +16,16 @@ class Move {
 	move($root: HTMLElement, ev: PointerEvent) {
 		const pointerPosition=this.pick(ev.clientX,ev.clientY)
 		const minSideSize=this.pick(minHorSideSize,minVerSideSize)
-		const rootSize=this.pick($root.clientWidth,$root.clientHeight)
-		let targetSidebarSize=pointerPosition-this.startOffset
-		if (targetSidebarSize<minSideSize) {
-			targetSidebarSize=minSideSize
-		}
-		if (targetSidebarSize>rootSize-minSideSize) {
-			targetSidebarSize=rootSize-minSideSize
-		}
-		const targetExtraSize=targetSidebarSize-minSideSize
-		const property=this.pick('--extra-left-size-size','--extra-top-size-size')
-		$root.style.setProperty(property,`${targetExtraSize}px`)
+		const rootExtraSize=this.pick($root.clientWidth,$root.clientHeight)-2*minSideSize
+		const targetSidebarSize=pointerPosition-this.startOffset
+		let targetExtraSize=targetSidebarSize-minSideSize
+		if (targetExtraSize<0) targetExtraSize=0
+		if (targetExtraSize>rootExtraSize) targetExtraSize=rootExtraSize
+		const extraSizeProperty=this.pick('--extra-left-side-size','--extra-top-side-size')
+		const middleSizeProperty=this.pick('--middle-hor-size','--middle-ver-size')
+		const extraFr=Math.round(targetExtraSize/rootExtraSize*frMultiplier)
+		$root.style.setProperty(extraSizeProperty,`${extraFr}fr`)
+		$root.style.setProperty(middleSizeProperty,`${frMultiplier-extraFr}fr`)
 	}
 	pick<T>(x: T, y: T): T {
 		return this.isHor ? x : y
