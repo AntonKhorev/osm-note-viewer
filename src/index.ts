@@ -62,7 +62,7 @@ async function main() {
 		$graphicSide.before($textSide)
 		$graphicSide.append($mapContainer)
 		map=writeMap($root,$mapContainer,globalHistory)
-		const $sidebarResizer=makeSidebarResizer($root,$textSide,map)
+		const $sidebarResizer=makeSidebarResizer($root,$textSide,storage,map)
 		$mapContainer.before($sidebarResizer)
 		const navbar=new Navbar($root,storage,$navbarContainer,map)
 		const noteTable=writeBelowFetchPanel(
