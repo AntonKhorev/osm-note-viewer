@@ -12,12 +12,18 @@ import {makeElement, makeDiv, makeLink, bubbleEvent, startAnimation, cleanupAnim
 import {ul,li,p,em,kbd} from './html-shortcuts'
 
 export function makeMenuButton(): HTMLButtonElement {
-	const $button=document.createElement('button')
-	$button.classList.add('global','menu')
+	const $button=makeElement('button')('global','menu')()
 	$button.innerHTML=`<svg><use href="#menu" /></svg>`
 	$button.onclick=()=>{
 		bubbleEvent($button,'osmNoteViewer:menuToggle')
 	}
+	return $button
+}
+
+export function makeSidebarResizer(): HTMLButtonElement {
+	const $button=makeElement('button')('global','resize')()
+	$button.innerHTML=`<svg><use href="#resize" /></svg>`
+	$button.title=`Resize sidebar`
 	return $button
 }
 

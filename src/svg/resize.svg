@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-14 -14 28 28">
+<defs>
+<g id="resize-bump-row">
+<circle r="1" cx="-9" />
+<circle r="1" cx="-3" />
+<circle r="1" cx="+3" />
+<circle r="1" cx="+9" />
+</g>
+</defs>
+<g fill="currentColor">
+<use href="#resize-bump-row" y="-9" />
+<use href="#resize-bump-row" y="-3" />
+<use href="#resize-bump-row" y="+3" />
+<use href="#resize-bump-row" y="+9" />
+</g>
+</svg>

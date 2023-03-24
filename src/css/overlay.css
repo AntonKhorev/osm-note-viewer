@@ -13,6 +13,43 @@
 	--menu-cross-part-visibility: visible;
 }
 
+.graphic-side button.resize {
+	z-index: 1;
+	border: 2px solid rgba(0,0,0,0.2);
+	margin: auto;
+}
+.ui:not(.flipped) .graphic-side button.resize {
+	left: 0;
+	right: 0;
+	top: 0;
+	height: 1rem;
+	border-top: none;
+	border-bottom-left-radius: 5px;
+	border-bottom-right-radius: 5px;
+}
+.ui.flipped .graphic-side button.resize {
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 1rem;
+	border-left: none;
+	border-top-right-radius: 5px;
+	border-bottom-right-radius: 5px;
+}
+.graphic-side button.resize > svg {
+	position: absolute;
+	translate: -50% -50%;
+}
+.ui:not(.flipped) .graphic-side button.resize > svg {
+	height: auto;
+}
+.ui.flipped .graphic-side button.resize > svg {
+	width: auto;
+}
+.graphic-side button.resize:not(:hover) > svg {
+	background: canvas;
+}
+
 .graphic-side div.menu:not([hidden]) {
 	position: absolute;
 	inset: 0;
