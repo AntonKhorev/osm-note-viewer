@@ -20,13 +20,6 @@ export function makeMenuButton(): HTMLButtonElement {
 	return $button
 }
 
-export function makeSidebarResizer(): HTMLButtonElement {
-	const $button=makeElement('button')('global','resize')()
-	$button.innerHTML=`<svg><use href="#resize" /></svg>`
-	$button.title=`Resize sidebar`
-	return $button
-}
-
 type UrlSequence = {urls: string[], index: number}
 
 export default class OverlayDialog {
