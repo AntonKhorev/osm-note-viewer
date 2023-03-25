@@ -397,7 +397,7 @@ describe("browser tests",function(){
 		await page.keyboard.press('ArrowLeft')
 		await page.keyboard.press('ArrowLeft')
 		assert.notEqual(
-			await page.$('.notes tbody .note-action:focus-within'),
+			await page.$('.notes tbody .note-user:focus-within'),
 			null
 		)
 		assert.equal(lastError,undefined)
