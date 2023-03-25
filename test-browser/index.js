@@ -64,7 +64,15 @@ describe("browser tests",function(){
 			return page
 		}
 		this.waitForFetchButton=()=>page.waitForXPath(buttonPath(`Fetch notes`),{visible:true})
-		this.waitForTool=(summaryText)=>page.waitForXPath(`//details[${containsClassCondition('tool')} and contains(./summary,"${summaryText}")]`)
+		this.waitForTool=async(summaryText)=>{
+			const toolbarSettingsButton=await page.waitForSelector(`.toolbar button.settings`)
+			await toolbarSettingsButton.click()
+			const checkbox=await page.waitForXPath(`//dialog//label[contains(.,"${summaryText}")]//input`)
+			const checked=await (await checkbox.getProperty('checked')).jsonValue()
+			if (!checked) await checkbox.click()
+			await page.keyboard.press('Escape')
+			return page.waitForXPath(`//details[${containsClassCondition('tool')} and contains(./summary,"${summaryText}")]`)
+		}
 		this.getToMenu=async()=>{
 			await this.waitForFetchButton()
 			const menuButton=await page.$('button.global.menu')
