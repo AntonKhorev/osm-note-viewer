@@ -25,7 +25,7 @@ export class OverpassTurboTool extends OverpassBaseTool {
 	id='overpass-turbo'
 	name=`Overpass turbo`
 	title=`Open an Overpass turbo window with various queries`
-	isActiveWithCurrentServer(): boolean {
+	protected isActiveWithCurrentServer(): boolean {
 		return !!this.auth.server.overpassTurbo
 	}
 	protected getInfo() {return[p(
@@ -82,7 +82,7 @@ export class OverpassTool extends OverpassBaseTool {
 	id='overpass'
 	name=`Overpass`
 	title=`Run an Overpass query`
-	isActiveWithCurrentServer(): boolean {
+	protected isActiveWithCurrentServer(): boolean {
 		return !!this.auth.server.overpass
 	}
 	protected getInfo() {return[p(
