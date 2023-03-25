@@ -222,6 +222,11 @@ dialog.help .regular-input-group {
 dialog.help .major-input-group {
 	margin: 1rem 0;
 }
+dialog.help .major-input-group.all-tools {
+	padding-bottom: .5rem;
+	border-bottom: var(--frame-line);
+	margin-bottom: .5rem;
+}
 dialog.help .major-input-group:last-child {
 	margin-bottom: 0;
 }

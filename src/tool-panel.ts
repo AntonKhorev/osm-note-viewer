@@ -5,7 +5,11 @@ import type {Tool} from './tools'
 import {toolMakerSequence} from './tools'
 import {makeElement, makeDiv, makeLabel} from './html'
 
-type ToolWithDetails=[tool: Tool, $tool:HTMLDetailsElement|null, $info: HTMLDetailsElement|null]
+type ToolWithDetails=[
+	tool: Tool,
+	$tool: HTMLDetailsElement|null,
+	$info: HTMLDetailsElement|null
+]
 
 export default class ToolPanel {
 	constructor(
@@ -43,7 +47,34 @@ export default class ToolPanel {
 	}
 }
 
-function makeSettingsDialog(tools: ToolWithDetails[], storage: NoteViewerStorage): HTMLDialogElement {
+type ToolWithDetailsAndCheckboxes=[
+	tool: Tool,
+	$tool: HTMLDetailsElement|null,
+	$info: HTMLDetailsElement|null,
+	$checkbox: HTMLInputElement
+]
+
+function makeSettingsDialog(toolsWithDetails: ToolWithDetails[], storage: NoteViewerStorage): HTMLDialogElement {
+	const toolsWithDetailsAndCheckboxes=toolsWithDetails.map((twd):ToolWithDetailsAndCheckboxes=>{
+		const [tool]=twd
+		const storageKey=`tools[${tool.id}]`
+		const $checkbox=makeElement('input')()()
+		$checkbox.type='checkbox'
+		$checkbox.checked=storage.getItem(storageKey)!=null
+		return [...twd,$checkbox]
+	})
+	const toggleTool=(...[tool,$tool,$info,$checkbox]:ToolWithDetailsAndCheckboxes)=>{
+		const storageKey=`tools[${tool.id}]`
+		if ($checkbox.checked) {
+			if ($tool) $tool.hidden=false
+			if ($tool) $tool.open=false
+			storage.setItem(storageKey,'0')
+		} else {
+			if ($tool) $tool.hidden=true
+			if ($info) $info.open=false
+			storage.removeItem(storageKey)
+		}
+	}
 	const $dialog=makeElement('dialog')('help')()
 	const $closeButton=makeElement('button')('close')()
 	$closeButton.title=`Close toolbar settings`
@@ -52,7 +83,7 @@ function makeSettingsDialog(tools: ToolWithDetails[], storage: NoteViewerStorage
 		$dialog.close()
 	}
 	const makeAllToolsListener=(open:boolean)=>()=>{
-		for (const [,$tool] of tools) {
+		for (const [,$tool] of toolsWithDetailsAndCheckboxes) {
 			if (!$tool) continue
 			$tool.open=open
 		}
@@ -61,12 +92,29 @@ function makeSettingsDialog(tools: ToolWithDetails[], storage: NoteViewerStorage
 	$openAllButton.onclick=makeAllToolsListener(true)
 	const $closeAllButton=makeElement('button')('close-all-tools')(`Close all enabled tools`)
 	$closeAllButton.onclick=makeAllToolsListener(false)
+	const $allCheckbox=makeElement('input')()()
+	$allCheckbox.type='checkbox'
+	const updateAllCheckbox=()=>{
+		let hasChecked=false
+		let hasUnchecked=false
+		for (const [,,,$checkbox] of toolsWithDetailsAndCheckboxes) {
+			if ($checkbox.checked) {
+				hasChecked=true
+			} else {
+				hasUnchecked=true
+			}
+		}
+		$allCheckbox.indeterminate=hasChecked && hasUnchecked
+		$allCheckbox.checked=hasChecked && !hasUnchecked
+	}
 	$dialog.append(
 		$closeButton,
-		makeElement('h2')()(`Toolbar settings`)
+		makeElement('h2')()(`Toolbar settings`),
+		makeDiv('major-input-group','all-tools')(makeLabel()(
+			$allCheckbox,` Show/hide all tools`
+		))
 	)
-	for (const [tool,$tool,$info] of tools) {
-		const storageKey=`tools[${tool.id}]`
+	for (const [tool,$tool,$info,$checkbox] of toolsWithDetailsAndCheckboxes) {
 		const getToolName=():HTMLElement=>{
 			if ($tool) {
 				const $name=makeElement('span')()(tool.name)
@@ -78,25 +126,24 @@ function makeSettingsDialog(tools: ToolWithDetails[], storage: NoteViewerStorage
 				return $name
 			}
 		}
-		const $checkbox=makeElement('input')()()
-		$checkbox.type='checkbox'
-		$checkbox.checked=storage.getItem(storageKey)!=null
 		$checkbox.oninput=()=>{
-			if ($checkbox.checked) {
-				if ($tool) $tool.hidden=false
-				if ($tool) $tool.open=false
-				storage.setItem(storageKey,'0')
-			} else {
-				if ($tool) $tool.hidden=true
-				if ($info) $info.open=false
-				storage.removeItem(storageKey)
-			}
+			toggleTool(tool,$tool,$info,$checkbox)
+			updateAllCheckbox()
 		}
 		$dialog.append(
 			makeDiv('regular-input-group')(makeLabel()(
 				$checkbox,` `,getToolName()
 			))
 		)
+	}
+	updateAllCheckbox()
+	$allCheckbox.oninput=()=>{
+		$allCheckbox.indeterminate=false
+		for (const [tool,$tool,$info,$checkbox] of toolsWithDetailsAndCheckboxes) {
+			if ($checkbox.checked==$allCheckbox.checked) continue
+			$checkbox.checked=$allCheckbox.checked
+			toggleTool(tool,$tool,$info,$checkbox)
+		}
 	}
 	$dialog.append(
 		makeDiv('major-input-group')(
