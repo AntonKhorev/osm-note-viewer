@@ -469,11 +469,11 @@ describe("browser tests",function(){
 		await fetchButton.click()
 		await page.waitForSelector('.notes tbody')
 		{
-			const textSvgElement=await page.$('.notes tbody td.note-comments-count button svg text')
+			const textSvgElement=await page.$('.notes tbody td.note-action button svg text')
 			await textSvgElement.click()
 		}
 		assert.notEqual(
-			await page.$('.notes tbody td.note-comments-count button:focus'),
+			await page.$('.notes tbody td.note-action button:focus'),
 			null
 		)
 		await page.keyboard.press('ArrowRight')

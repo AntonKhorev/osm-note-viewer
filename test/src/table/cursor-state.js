@@ -157,10 +157,9 @@ function makeTable(document,nOfCommentsPerNote) {
 		$row.innerHTML=`
 			<th class="note-checkbox"><input type="checkbox">
 			<th class="note-link">id <button>+</button>
-			<th class="note-comments-count"><button>+</button>
+			<th class="note-action"><button>+</button>
 			<th class="note-date">date <button>+</button>
 			<th class="note-user">user <button>+</button>
-			<th class="note-action">
 			<th class="note-comment">comment <button>+</button>
 			<th class="note-map"><button>+</button>
 		`
@@ -171,16 +170,16 @@ function makeTable(document,nOfCommentsPerNote) {
 		const span = nComments>1 ? ` rowspan="${nComments}"` : ``
 		for (let j=0;j<nComments;j++) {
 			const $row=$section.insertRow()
+			const actionHtml = j==0 ? `<button>+</button>` : `<span class="icon-status-open" tabindex="0">!</span>`
 			const commentHtml=`
+				<td class="note-action">${actionHtml}
 				<td class="note-date"><time tabindex="0">2023-03-03</time>
 				<td class="note-user"><a href=#>TheUser</a>
-				<td class="note-action"><span class="icon-status-open" tabindex="0">!</span>
 				<td class="note-comment">note ${i} comment ${j}
 			`
 			$row.innerHTML = j==0 ? `
 				<td class="note-checkbox"${span}><input type="checkbox">
 				<td class="note-link"${span}><a href=#>${100500+i}</a>
-				<td class="note-comments-count"${span}><button>+</button>
 				${commentHtml}
 				<td class="note-map"${span}><a href=#>M</a>
 			` : commentHtml

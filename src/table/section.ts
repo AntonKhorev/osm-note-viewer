@@ -21,15 +21,13 @@ export function writeHeadSectionRow(
 		if ($button) $th.append($button)
 		return $th
 	}
-	const $actionCell=makeElement('th')('note-action')()
-	$actionCell.tabIndex=0
 	const $row=$section.insertRow()
 	$row.append(
 		makeElement('th')('note-checkbox')(
 			$checkbox
 		),
 		makeExpanderCell('note-link',`id`,'id'),
-		makeExpanderCell('note-comments-count',``,'comments',(isExpanded)=>{
+		makeExpanderCell('note-action',``,'comments',(isExpanded)=>{
 			for (const $noteSection of getNoteSections()) {
 				hideNoteSectionRows($noteSection,!isExpanded)
 			}
@@ -37,7 +35,6 @@ export function writeHeadSectionRow(
 		}),
 		makeExpanderCell('note-date',`date`,'date'),
 		makeExpanderCell('note-user',`user`,'username'),
-		$actionCell,
 		makeExpanderCell('note-comment',`comment`,'comment-lines'),
 		makeExpanderCell('note-map',``,'map-link')
 	)
@@ -82,20 +79,6 @@ export function writeNoteSectionRows(
 		$refreshWaitProgress.setAttribute('aria-hidden','true') // otherwise screen reader constantly announces changes of progress elements
 		$refreshWaitProgress.value=0
 		$cell.append(makeDiv()($a,$refreshWaitProgress))
-	}{
-		const $cell=makeRowSpannedCell('note-comments-count')
-		const $button=makeElement('button')('icon-comments-count')()
-		if (note.comments.length>1) {
-			$button.innerHTML=`<svg>`+
-				`<use href="#table-comments" /><text x="8" y="8"></text>`+
-			`</svg>`
-			updateCommentsButton($button,hideRows,note.comments.length-1)
-			$button.addEventListener('click',commentsButtonClickListener)
-			$button.addEventListener('click',rowVisibilityChangeCallback)
-		} else {
-			$button.title=`no additional comments`
-		}
-		$cell.append($button)
 	}
 	let iComment=0
 	for (const comment of note.comments) {
@@ -103,6 +86,31 @@ export function writeNoteSectionRows(
 			if (iComment>0) {
 				$row=$noteSection.insertRow()
 				if (hideRows) $row.hidden=true
+			}
+		}{
+			const $cell=$row.insertCell()
+			$cell.classList.add('note-action')
+			if (iComment==0) {
+				const $button=makeElement('button')('icon-comments-count')()
+				if (note.comments.length>1) {
+					$button.innerHTML=`<svg>`+
+						`<use href="#table-comments" /><text x="8" y="8"></text>`+
+					`</svg>`
+					updateCommentsButton($button,hideRows,note.comments.length-1)
+					$button.addEventListener('click',commentsButtonClickListener)
+					$button.addEventListener('click',rowVisibilityChangeCallback)
+				} else {
+					$button.title=`no additional comments`
+				}
+				$cell.append($button)
+			} else {
+				const $icon=makeElement('span')('icon-status-'+getActionClass(comment.action))()
+				$icon.tabIndex=0
+				$icon.title=comment.action
+				$icon.innerHTML=`<svg>`+
+					`<use href="#table-note" />`+
+				`</svg>`
+				$cell.append($icon)
 			}
 		}{
 			const $cell=$row.insertCell()
@@ -135,18 +143,6 @@ export function writeNoteSectionRows(
 			}
 		}{
 			const $cell=$row.insertCell()
-			$cell.classList.add('note-action')
-			{
-				const $icon=makeElement('span')('icon-status-'+getActionClass(comment.action))()
-				$icon.tabIndex=0
-				$icon.title=comment.action
-				$icon.innerHTML=`<svg>`+
-					`<use href="#table-note" />`+
-				`</svg>`
-				$cell.append($icon)
-			}
-		}{
-			const $cell=$row.insertCell()
 			$cell.classList.add('note-comment')
 			$cell.tabIndex=0
 			commentWriter.writeComment($cell,comment.text,showImages,markText)
@@ -174,7 +170,7 @@ function hideNoteSectionRows(
 	$noteSection: HTMLTableSectionElement,
 	hideRows: boolean
 ): void {
-	const $button=$noteSection.querySelector('td.note-comments-count button')
+	const $button=$noteSection.querySelector('td.note-action button')
 	if (!($button instanceof HTMLButtonElement)) return
 	hideNoteSectionRowsWithButton($noteSection,hideRows,$button)
 }
@@ -187,7 +183,6 @@ function commentsButtonClickListener(this: HTMLButtonElement, ev: MouseEvent) {
 	const wasHidden=$row2?.hidden??true
 	hideNoteSectionRowsWithButton($noteSection,!wasHidden,$button)
 	ev.stopPropagation()
-	// TODO update tabindices
 }
 
 function hideNoteSectionRowsWithButton(

@@ -75,14 +75,14 @@
 .notes :is(td,th):focus-visible {
 	outline-offset: calc(0px - var(--cell-pad));
 }
-.notes :is(td.note-comments-count, td.note-action) [class|=icon] {
+.notes td.note-action [class|=icon] {
 	position: relative;
 	display: inline-block;
 	width: 16px;
 	height: 16px;
 	vertical-align: text-top;
 }
-.notes :is(td.note-comments-count, td.note-action) [class|=icon] > svg {
+.notes td.note-action [class|=icon] > svg {
 	position: absolute;
 	inset: 0;
 	width: 100%;
@@ -130,16 +130,16 @@
 	content: '...';
 }
 
-.notes td.note-comments-count [class|=icon-comments-count] {
+.notes td.note-action [class|=icon-comments-count] {
 	border: 0;
 	padding: 0;
 	background: transparent;
 }
-.notes td.note-comments-count [class|=icon-comments-count]:not(:empty):hover {
+.notes td.note-action [class|=icon-comments-count]:not(:empty):hover {
 	--table-comments-icon-background: #DEF;
 	cursor: pointer;
 }
-.notes td.note-comments-count [class|=icon-comments-count] > svg text {
+.notes td.note-action [class|=icon-comments-count] > svg text {
 	font-family: sans-serif;
 	font-size: 10px;
 	text-anchor: middle;

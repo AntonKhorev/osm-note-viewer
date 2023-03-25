@@ -3,13 +3,15 @@ import type Pager from './pager'
 const columnData: [cellClass:string, headSelector:string, bodySelector:string][] = [
 	['note-checkbox','input','input'],
 	['note-link','button','a'],
-	['note-comments-count','button','button'],
+	['note-action','button',':is(button,[class|=icon])'],
 	['note-date','button','time'],
 	['note-user','button','a'],
-	['note-action','','[class|=icon]'],
 	['note-comment','button',''],
 	['note-map','button','a'],
 ]
+const iCheckboxColumn=0
+const iCommentColumn=5
+
 const nColumns=columnData.length
 function getSelector(cellClass: string, subSelector: string): string {
 	let selector='.'+cellClass
@@ -28,8 +30,6 @@ function getBodySelector(i: number): string {
 	const [cellClass,,subSelector]=columnData[i]
 	return getSelector(cellClass,subSelector)
 }
-const iCheckboxColumn=0
-const iCommentColumn=6
 
 const focusableSelector=`a[href], input, button, [tabindex]`
 const tabbableSelector=`:is(${focusableSelector}):not([tabindex="-1"])`
