@@ -216,14 +216,21 @@ dialog.help > h2:first-child,
 dialog.help > button.close:first-child + h2 {
 	margin-top: 0;
 }
+dialog.help .regular-input-group {
+	margin: .2rem 0;
+}
 dialog.help .major-input-group {
 	margin: 1rem 0;
+}
+dialog.help .major-input-group:last-child {
+	margin-bottom: 0;
 }
 dialog.help .major-input-group button {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
 	padding: var(--major-button-padding);
+	margin: .2rem 0;
 }
 dialog.help .notice {
 	margin-left: -1rem;

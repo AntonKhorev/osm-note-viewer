@@ -76,21 +76,21 @@
 	cursor: pointer;
 }
 
-.panel.command {
+.panel.toolbar {
 	--gap: 8px;  /* used in info tips */
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--gap);
 }
-.panel.command div,
-.panel.command details.tool {
+.panel.toolbar div,
+.panel.toolbar details.tool {
 	margin: 0;
 	line-height: 1.4em;
 }
-.panel.command details.tool.full-width[open] {
+.panel.toolbar details.tool.full-width[open] {
 	width: 100%;
 }
-.panel.command details.tool {
+.panel.toolbar details.tool {
 	outline: none;
 }
 @keyframes tool-ping-fade {
@@ -103,10 +103,11 @@
 		outline-style: solid;
 	}
 }
-.panel.command details.tool summary {
+.panel.toolbar details.tool summary {
 	display: inline;
 }
-.panel.command details.tool :is(summary, button.open-all-tools, button.close-all-tools)::before {
+.panel.toolbar details.tool summary::before,
+dialog.help :is(button.open-all-tools, button.close-all-tools)::before {
 	--size: 11px;
 	content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-5.5 -5.5 11 11' fill='none' stroke='gray'><rect width='10' height='10' x='-5' y='-5' opacity='.3' /><line x1='-3' x2='3' /><line y1='-3' y2='3' /></svg>");
 	display: inline-block;
@@ -115,21 +116,21 @@
 	line-height: var(--size);
 	margin-right: .5ch;
 }
-.panel.command details.tool summary:hover::before {
+.panel.toolbar details.tool summary:hover::before {
 	background: var(--hover-color);
 	outline: solid 1px var(--hover-color);
 	outline-offset: 1px;
 }
-.panel.command details.tool[open] summary::before,
-.panel.command details.tool button.close-all-tools::before  {
+.panel.toolbar details.tool[open] summary::before,
+dialog.help button.close-all-tools::before {
 	content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-5.5 -5.5 11 11' fill='none' stroke='gray'><rect width='10' height='10' x='-5' y='-5' opacity='.3' /><line x1='-3' x2='3' /></svg>");
 }
-.panel.command details.tool[open] summary::after {
+.panel.toolbar details.tool[open] summary::after {
 	content: ':';
 	width: 1ex;
 	display: inline-block;
 }
-.panel.command details.tool button.info {
+.panel.toolbar details.tool button.info {
 	--info-size: 20px;
 	--info-height-with-tip: calc(var(--info-size) + var(--gap) + 1px);
 	display: inline-block;
@@ -143,31 +144,31 @@
 	height: var(--info-size);
 	overflow: hidden;
 }
-.panel.command details.tool button.info > svg {
+.panel.toolbar details.tool button.info > svg {
 	position: absolute;
 	top: 0;
 	left: 0;
 	width: var(--info-size);
 	height: var(--info-height-with-tip);
 }
-.panel.command details.tool button.info[aria-expanded=false] {
+.panel.toolbar details.tool button.info[aria-expanded=false] {
 	cursor: help;
 }
-.panel.command details.tool button.info:hover {
+.panel.toolbar details.tool button.info:hover {
 	--tools-info-hover-part-visibility: visible;
 }
-.panel.command details.tool button.info[aria-expanded=true] {
+.panel.toolbar details.tool button.info[aria-expanded=true] {
 	margin-bottom: calc(-1px - var(--gap));
 	height: var(--info-height-with-tip);
 	--tools-info-tip-part-visibility: visible;
 }
-.panel.command details.tool button.info[aria-expanded=true]:hover {
+.panel.toolbar details.tool button.info[aria-expanded=true]:hover {
 	--tools-info-close-hover-part-visibility: visible;
 }
-.panel.command details.tool form {
+.panel.toolbar details.tool form {
 	display: contents;
 }
-.panel.command details.info {
+.panel.toolbar details.info {
 	width: calc(100% + 1rem);
 	display: none;
 	margin: 0 -.5rem;
@@ -176,71 +177,74 @@
 	padding: 0 .5rem;
 	background: var(--inset-background-color);
 }
-.panel.command details.info p {
+.panel.toolbar details.info p {
 	margin: .5rem 0;
 }
-.panel.command details.info[open] {
+.panel.toolbar details.info[open] {
 	display: block;
 }
-.panel.command details.info summary {
+.panel.toolbar details.info summary {
 	display: none;
 }
-.panel.command details.tool :is(.major-input-group, .gridded-input-group) {
+.panel.toolbar details.tool :is(.major-input-group, .gridded-input-group) {
 	margin: .2em 0;
 }
-.panel.command [class|=icon] > svg {
+.panel.toolbar > button.settings {
+	margin-left: auto;
+}
+.panel.toolbar [class|=icon] > svg {
 	vertical-align: middle;
 }
-.panel.command [class|=icon-map] > svg {
+.panel.toolbar [class|=icon-map] > svg {
 	width: 19px;
 	height: 13px;
 }
-.panel.command [class|=icon-notes] > svg {
+.panel.toolbar [class|=icon-notes] > svg {
 	width: 9px;
 	height: 13px;
 }
-.panel.command [class|=icon-action] > svg {
+.panel.toolbar [class|=icon-action] > svg {
 	width: 13px;
 	height: 13px;
 }
-.panel.command [class|=icon-note-status] > svg {
+.panel.toolbar [class|=icon-note-status] > svg {
 	width: 8px;
 	height: 16px;
 	vertical-align: text-bottom;
 }
-.panel.command .icon-map-area {
+.panel.toolbar .icon-map-area {
 	--tools-map-area-part-visibility: visible;
 }
-.panel.command .icon-map-center {
+.panel.toolbar .icon-map-center {
 	--tools-map-center-part-visibility: visible;
 }
-.panel.command button[disabled] [class|=icon] {
+.panel.toolbar button[disabled] [class|=icon] {
 	opacity: .5;
 }
-.panel.command button.only-with-icon {
+.panel.toolbar button.only-with-icon {
 	box-sizing: content-box;
 	height: 13px;
 	width: 13px;
 	padding: 2px;
 	vertical-align: bottom;
 }
-.panel.command button.only-with-icon [class|=icon] > svg {
+.panel.toolbar button.only-with-icon [class|=icon] > svg {
 	vertical-align: inherit;
 }
-.panel.command input[type=number] {
+.panel.toolbar input[type=number] {
 	width: 7ch;
 }
-.panel.command .interaction-run {
+.panel.toolbar .interaction-run {
 	display: flex;
 	gap: .2em;
 }
-.panel.command .interaction-run > output {
+.panel.toolbar .interaction-run > output {
 	flex-grow: 1;
 }
-.panel.command .interaction-run > button {
+.panel.toolbar .interaction-run > button {
 	flex-shrink: 0;
 }
-.panel.command .interaction-run > button.info {
+.panel.toolbar .interaction-run > button.info {
 	align-self: end;
 }
 

@@ -5,7 +5,7 @@ import {p} from '../html-shortcuts'
 import {makeEscapeTag} from '../escape'
 
 abstract class StreetViewTool extends Tool {
-	isActiveWithCurrentServerConfiguration(): boolean {
+	isActiveWithCurrentServer(): boolean {
 		return this.auth.server.world=='earth'
 	}
 	protected getTool($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements {

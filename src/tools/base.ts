@@ -19,7 +19,7 @@ export abstract class Tool {
 		$root: HTMLElement, $container: HTMLElement,
 		storage: NoteViewerStorage, map: NoteMap
 	) {
-		if (!this.isActiveWithCurrentServerConfiguration()) return
+		if (!this.isActiveWithCurrentServer()) return
 		const storageKey='commands-'+this.id
 		const $tool=makeElement('details')('tool')()
 		$tool.classList.toggle('full-width',this.isFullWidth)
@@ -81,7 +81,7 @@ export abstract class Tool {
 			if (reactedToButtons) this.ping($tool)
 		})
 	}
-	protected isActiveWithCurrentServerConfiguration(): boolean { return true }
+	isActiveWithCurrentServer(): boolean { return true }
 	protected abstract getTool(
 		$root: HTMLElement, $tool: HTMLElement,
 		map: NoteMap

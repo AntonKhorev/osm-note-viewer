@@ -20,5 +20,5 @@ export const toolMakerSequence: Array<(auth:Auth)=>Tool> = [
 	EditorTools.RcTool, EditorTools.IdTool,
 	ExportTools.GpxTool, ExportTools.GeoJsonTool,
 	YandexPanoramasTool, MapillaryTool,
-	UtilTools.CountTool, UtilTools.LegendTool, UtilTools.SettingsTool
+	UtilTools.CountTool, UtilTools.LegendTool
 ].map(ToolClass=>(auth)=>new ToolClass(auth))

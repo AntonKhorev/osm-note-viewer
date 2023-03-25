@@ -101,16 +101,3 @@ export class LegendTool extends Tool {
 		]
 	}
 }
-
-export class SettingsTool extends Tool {
-	id='settings'
-	name=`⚙️`
-	title=`Settings`
-	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
-		const $openAllButton=makeElement('button')('open-all-tools')(`Open all tools`)
-		$openAllButton.onclick=()=>bubbleCustomEvent($tool,'osmNoteViewer:toolsToggle',true)
-		const $closeAllButton=makeElement('button')('close-all-tools')(`Close all tools`)
-		$closeAllButton.onclick=()=>bubbleCustomEvent($tool,'osmNoteViewer:toolsToggle',false)
-		return [$openAllButton,` `,$closeAllButton]
-	}
-}
