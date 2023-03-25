@@ -7373,15 +7373,13 @@ function writeHeadSectionRow($section, $checkbox, makeExpanderButton, getNoteSec
             $th.append($button);
         return $th;
     };
-    const $actionCell = makeElement('th')('note-action')();
-    $actionCell.tabIndex = 0;
     const $row = $section.insertRow();
-    $row.append(makeElement('th')('note-checkbox')($checkbox), makeExpanderCell('note-link', `id`, 'id'), makeExpanderCell('note-comments-count', ``, 'comments', (isExpanded) => {
+    $row.append(makeElement('th')('note-checkbox')($checkbox), makeExpanderCell('note-link', `id`, 'id'), makeExpanderCell('note-action', ``, 'comments', (isExpanded) => {
         for (const $noteSection of getNoteSections()) {
             hideNoteSectionRows($noteSection, !isExpanded);
         }
         rowVisibilityChangeCallback();
-    }), makeExpanderCell('note-date', `date`, 'date'), makeExpanderCell('note-user', `user`, 'username'), $actionCell, makeExpanderCell('note-comment', `comment`, 'comment-lines'), makeExpanderCell('note-map', ``, 'map-link'));
+    }), makeExpanderCell('note-date', `date`, 'date'), makeExpanderCell('note-user', `user`, 'username'), makeExpanderCell('note-comment', `comment`, 'comment-lines'), makeExpanderCell('note-map', ``, 'map-link'));
 }
 /**
  * @returns comment cells
@@ -7414,22 +7412,6 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
         $refreshWaitProgress.value = 0;
         $cell.append(makeDiv()($a, $refreshWaitProgress));
     }
-    {
-        const $cell = makeRowSpannedCell('note-comments-count');
-        const $button = makeElement('button')('icon-comments-count')();
-        if (note.comments.length > 1) {
-            $button.innerHTML = `<svg>` +
-                `<use href="#table-comments" /><text x="8" y="8"></text>` +
-                `</svg>`;
-            updateCommentsButton($button, hideRows, note.comments.length - 1);
-            $button.addEventListener('click', commentsButtonClickListener);
-            $button.addEventListener('click', rowVisibilityChangeCallback);
-        }
-        else {
-            $button.title = `no additional comments`;
-        }
-        $cell.append($button);
-    }
     let iComment = 0;
     for (const comment of note.comments) {
         {
@@ -7437,6 +7419,34 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
                 $row = $noteSection.insertRow();
                 if (hideRows)
                     $row.hidden = true;
+            }
+        }
+        {
+            const $cell = $row.insertCell();
+            $cell.classList.add('note-action');
+            if (iComment == 0) {
+                const $button = makeElement('button')('icon-comments-count')();
+                if (note.comments.length > 1) {
+                    $button.innerHTML = `<svg>` +
+                        `<use href="#table-comments" /><text x="8" y="8"></text>` +
+                        `</svg>`;
+                    updateCommentsButton($button, hideRows, note.comments.length - 1);
+                    $button.addEventListener('click', commentsButtonClickListener);
+                    $button.addEventListener('click', rowVisibilityChangeCallback);
+                }
+                else {
+                    $button.title = `no additional comments`;
+                }
+                $cell.append($button);
+            }
+            else {
+                const $icon = makeElement('span')('icon-status-' + getActionClass(comment.action))();
+                $icon.tabIndex = 0;
+                $icon.title = comment.action;
+                $icon.innerHTML = `<svg>` +
+                    `<use href="#table-note" />` +
+                    `</svg>`;
+                $cell.append($icon);
             }
         }
         {
@@ -7474,19 +7484,6 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
         }
         {
             const $cell = $row.insertCell();
-            $cell.classList.add('note-action');
-            {
-                const $icon = makeElement('span')('icon-status-' + getActionClass(comment.action))();
-                $icon.tabIndex = 0;
-                $icon.title = comment.action;
-                $icon.innerHTML = `<svg>` +
-                    `<use href="#table-note" />` +
-                    `</svg>`;
-                $cell.append($icon);
-            }
-        }
-        {
-            const $cell = $row.insertCell();
             $cell.classList.add('note-comment');
             $cell.tabIndex = 0;
             commentWriter.writeComment($cell, comment.text, showImages, markText);
@@ -7510,7 +7507,7 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
     return $commentCells;
 }
 function hideNoteSectionRows($noteSection, hideRows) {
-    const $button = $noteSection.querySelector('td.note-comments-count button');
+    const $button = $noteSection.querySelector('td.note-action button');
     if (!($button instanceof HTMLButtonElement))
         return;
     hideNoteSectionRowsWithButton($noteSection, hideRows, $button);
@@ -7524,7 +7521,6 @@ function commentsButtonClickListener(ev) {
     const wasHidden = $row2?.hidden ?? true;
     hideNoteSectionRowsWithButton($noteSection, !wasHidden, $button);
     ev.stopPropagation();
-    // TODO update tabindices
 }
 function hideNoteSectionRowsWithButton($noteSection, hideRows, $button) {
     let first = true;
@@ -7600,13 +7596,14 @@ fromIndex, d, indexBound) {
 const columnData = [
     ['note-checkbox', 'input', 'input'],
     ['note-link', 'button', 'a'],
-    ['note-comments-count', 'button', 'button'],
+    ['note-action', 'button', ':is(button,[class|=icon])'],
     ['note-date', 'button', 'time'],
     ['note-user', 'button', 'a'],
-    ['note-action', '', '[class|=icon]'],
     ['note-comment', 'button', ''],
     ['note-map', 'button', 'a'],
 ];
+const iCheckboxColumn = 0;
+const iCommentColumn = 5;
 const nColumns = columnData.length;
 function getSelector(cellClass, subSelector) {
     let selector = '.' + cellClass;
@@ -7626,8 +7623,6 @@ function getBodySelector(i) {
     const [cellClass, , subSelector] = columnData[i];
     return getSelector(cellClass, subSelector);
 }
-const iCheckboxColumn = 0;
-const iCommentColumn = 6;
 const focusableSelector = `a[href], input, button, [tabindex]`;
 const tabbableSelector = `:is(${focusableSelector}):not([tabindex="-1"])`;
 const commentSubItemSelector = '.listened:not(.image.float)';
@@ -8864,22 +8859,29 @@ class Tool {
         this.isFullWidth = false;
         this.$buttonsRequiringSelectedNotes = [];
     }
-    write($root, $container, storage, map) {
-        if (!this.isActiveWithCurrentServerConfiguration())
-            return;
-        const storageKey = 'commands-' + this.id;
+    write($root, map) {
+        if (!this.isActiveWithCurrentServer())
+            return [null, null];
         const $tool = makeElement('details')('tool')();
         $tool.classList.toggle('full-width', this.isFullWidth);
-        $tool.open = storage.getBoolean(storageKey);
         const $toolSummary = makeElement('summary')()(this.name);
         if (this.title)
             $toolSummary.title = this.title;
-        $tool.addEventListener('toggle', () => {
-            storage.setBoolean(storageKey, $tool.open);
-        });
         $tool.append($toolSummary, ...this.getTool($root, $tool, map));
         cleanupAnimationOnEnd($tool);
-        $container.append($tool);
+        $root.addEventListener('osmNoteViewer:notesInput', ev => {
+            const [inputNotes] = ev.detail;
+            let reactedToButtons = false;
+            for (const $button of this.$buttonsRequiringSelectedNotes) {
+                const newDisabled = inputNotes.length <= 0;
+                if ($button.disabled != newDisabled) {
+                    $button.disabled = newDisabled;
+                    reactedToButtons = true;
+                }
+            }
+            if (reactedToButtons)
+                this.ping($tool);
+        });
         const infoElements = this.getInfo();
         if (infoElements) {
             const $info = makeElement('details')('info')(makeElement('summary')()(`${this.name} info`), ...infoElements);
@@ -8908,29 +8910,13 @@ class Tool {
             else {
                 $tool.append(` `, $infoButton);
             }
-            $container.append($info);
+            return [$tool, $info];
         }
-        $root.addEventListener('osmNoteViewer:toolsToggle', ev => {
-            if (ev.target == $tool)
-                return;
-            $tool.open = ev.detail;
-            this.ping($tool);
-        });
-        $root.addEventListener('osmNoteViewer:notesInput', ev => {
-            const [inputNotes] = ev.detail;
-            let reactedToButtons = false;
-            for (const $button of this.$buttonsRequiringSelectedNotes) {
-                const newDisabled = inputNotes.length <= 0;
-                if ($button.disabled != newDisabled) {
-                    $button.disabled = newDisabled;
-                    reactedToButtons = true;
-                }
-            }
-            if (reactedToButtons)
-                this.ping($tool);
-        });
+        else {
+            return [$tool, null];
+        }
     }
-    isActiveWithCurrentServerConfiguration() { return true; }
+    isActiveWithCurrentServer() { return true; }
     getInfo() { return undefined; }
     getInfoButtonContainer() { return undefined; }
     makeRequiringSelectedNotesButton() {
@@ -9085,21 +9071,6 @@ class LegendTool extends Tool {
             makeNoteStatusIcon('open'), ` = open (selected) note, `,
             makeNoteStatusIcon('closed'), ` = closed (selected) note`
         ];
-    }
-}
-class SettingsTool extends Tool {
-    constructor() {
-        super(...arguments);
-        this.id = 'settings';
-        this.name = `⚙️`;
-        this.title = `Settings`;
-    }
-    getTool($root, $tool) {
-        const $openAllButton = makeElement('button')('open-all-tools')(`Open all tools`);
-        $openAllButton.onclick = () => bubbleCustomEvent($tool, 'osmNoteViewer:toolsToggle', true);
-        const $closeAllButton = makeElement('button')('close-all-tools')(`Close all tools`);
-        $closeAllButton.onclick = () => bubbleCustomEvent($tool, 'osmNoteViewer:toolsToggle', false);
-        return [$openAllButton, ` `, $closeAllButton];
     }
 }
 
@@ -10309,7 +10280,7 @@ class OverpassTurboTool extends OverpassBaseTool {
         this.name = `Overpass turbo`;
         this.title = `Open an Overpass turbo window with various queries`;
     }
-    isActiveWithCurrentServerConfiguration() {
+    isActiveWithCurrentServer() {
         return !!this.auth.server.overpassTurbo;
     }
     getInfo() {
@@ -10369,7 +10340,7 @@ class OverpassTool extends OverpassBaseTool {
         this.name = `Overpass`;
         this.title = `Run an Overpass query`;
     }
-    isActiveWithCurrentServerConfiguration() {
+    isActiveWithCurrentServer() {
         return !!this.auth.server.overpass;
     }
     getInfo() {
@@ -10894,7 +10865,7 @@ class GeoJsonTool extends ExportTool {
 }
 
 class StreetViewTool extends Tool {
-    isActiveWithCurrentServerConfiguration() {
+    isActiveWithCurrentServer() {
         return this.auth.server.world == 'earth';
     }
     getTool($root, $tool, map) {
@@ -10945,16 +10916,133 @@ const toolMakerSequence = [
     RcTool, IdTool,
     GpxTool, GeoJsonTool,
     YandexPanoramasTool, MapillaryTool,
-    CountTool, LegendTool, SettingsTool
+    CountTool, LegendTool
 ].map(ToolClass => (auth) => new ToolClass(auth));
 
 class ToolPanel {
-    constructor($root, $container, storage, auth, map) {
+    constructor($root, $toolbar, storage, auth, map) {
+        const tools = [];
         for (const makeTool of toolMakerSequence) {
             const tool = makeTool(auth);
-            tool.write($root, $container, storage, map);
+            const storageKey = `tools[${tool.id}]`;
+            const [$tool, $info] = tool.write($root, map);
+            if ($tool) {
+                const toolState = storage.getItem(storageKey);
+                $tool.open = toolState == '1';
+                $tool.hidden = toolState == null;
+                $tool.addEventListener('toggle', () => {
+                    storage.setItem(storageKey, $tool.open ? '1' : '0');
+                });
+                $toolbar.append($tool);
+                if ($info) {
+                    $toolbar.append($info);
+                }
+            }
+            tools.push([tool, $tool, $info]);
         }
+        const $settingsDialog = makeSettingsDialog(tools, storage);
+        $root.append($settingsDialog);
+        const $settingsButton = makeElement('button')('settings')(`⚙️`);
+        $settingsButton.title = `Toolbar settings`;
+        $settingsButton.onclick = () => {
+            $settingsDialog.showModal();
+        };
+        $toolbar.append($settingsButton);
     }
+}
+function makeSettingsDialog(toolsWithDetails, storage) {
+    const toolsWithDetailsAndCheckboxes = toolsWithDetails.map((twd) => {
+        const [tool] = twd;
+        const storageKey = `tools[${tool.id}]`;
+        const $checkbox = makeElement('input')()();
+        $checkbox.type = 'checkbox';
+        $checkbox.checked = storage.getItem(storageKey) != null;
+        return [...twd, $checkbox];
+    });
+    const toggleTool = (...[tool, $tool, $info, $checkbox]) => {
+        const storageKey = `tools[${tool.id}]`;
+        if ($checkbox.checked) {
+            if ($tool)
+                $tool.hidden = false;
+            if ($tool)
+                $tool.open = false;
+            storage.setItem(storageKey, '0');
+        }
+        else {
+            if ($tool)
+                $tool.hidden = true;
+            if ($info)
+                $info.open = false;
+            storage.removeItem(storageKey);
+        }
+    };
+    const $dialog = makeElement('dialog')('help')();
+    const $closeButton = makeElement('button')('close')();
+    $closeButton.title = `Close toolbar settings`;
+    $closeButton.innerHTML = `<svg><use href="#reset" /></svg>`;
+    $closeButton.onclick = () => {
+        $dialog.close();
+    };
+    const makeAllToolsListener = (open) => () => {
+        for (const [, $tool] of toolsWithDetailsAndCheckboxes) {
+            if (!$tool)
+                continue;
+            $tool.open = open;
+        }
+    };
+    const $openAllButton = makeElement('button')('open-all-tools')(`Open all enabled tools`);
+    $openAllButton.onclick = makeAllToolsListener(true);
+    const $closeAllButton = makeElement('button')('close-all-tools')(`Close all enabled tools`);
+    $closeAllButton.onclick = makeAllToolsListener(false);
+    const $allCheckbox = makeElement('input')()();
+    $allCheckbox.type = 'checkbox';
+    const updateAllCheckbox = () => {
+        let hasChecked = false;
+        let hasUnchecked = false;
+        for (const [, , , $checkbox] of toolsWithDetailsAndCheckboxes) {
+            if ($checkbox.checked) {
+                hasChecked = true;
+            }
+            else {
+                hasUnchecked = true;
+            }
+        }
+        $allCheckbox.indeterminate = hasChecked && hasUnchecked;
+        $allCheckbox.checked = hasChecked && !hasUnchecked;
+    };
+    $dialog.append($closeButton, makeElement('h2')()(`Toolbar settings`), makeDiv('major-input-group', 'all-tools')(makeLabel()($allCheckbox, ` Show/hide all tools`)));
+    for (const [tool, $tool, $info, $checkbox] of toolsWithDetailsAndCheckboxes) {
+        const getToolName = () => {
+            if ($tool) {
+                const $name = makeElement('span')()(tool.name);
+                if (tool.title != null)
+                    $name.title = tool.title;
+                return $name;
+            }
+            else {
+                const $name = makeElement('s')()(tool.name);
+                $name.title = `incompatible with current server`;
+                return $name;
+            }
+        };
+        $checkbox.oninput = () => {
+            toggleTool(tool, $tool, $info, $checkbox);
+            updateAllCheckbox();
+        };
+        $dialog.append(makeDiv('regular-input-group')(makeLabel()($checkbox, ` `, getToolName())));
+    }
+    updateAllCheckbox();
+    $allCheckbox.oninput = () => {
+        $allCheckbox.indeterminate = false;
+        for (const [tool, $tool, $info, $checkbox] of toolsWithDetailsAndCheckboxes) {
+            if ($checkbox.checked == $allCheckbox.checked)
+                continue;
+            $checkbox.checked = $allCheckbox.checked;
+            toggleTool(tool, $tool, $info, $checkbox);
+        }
+    };
+    $dialog.append(makeDiv('major-input-group')($openAllButton, $closeAllButton));
+    return $dialog;
 }
 
 const e = makeEscapeTag(encodeURIComponent);
@@ -11194,7 +11282,7 @@ function writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer
     const $notesContainer = makeDiv('notes')();
     $scrollingPart.append($filterContainer, $notesContainer, $moreContainer);
     const filterPanel = new NoteFilterPanel(storage, globalHistory.server, $filterContainer);
-    const $toolContainer = makeDiv('panel', 'command')();
+    const $toolContainer = makeDiv('panel', 'toolbar')();
     $stickyPart.append($toolContainer);
     new ToolPanel($root, $toolContainer, storage, auth, map);
     const noteTable = new NoteTable($root, $notesContainer, storage, map, filterPanel.noteFilter, globalHistory.server);
