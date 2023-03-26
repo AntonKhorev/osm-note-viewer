@@ -137,7 +137,7 @@ export function writeNoteSectionRows(
 					$cell.append(makeUidText())
 				}
 			} else {
-				const $a=makeElement('a')()(`anonymous`)
+				const $a=makeElement('a')()(comment.guessed?`unknown`:`anonymous`)
 				$a.tabIndex=0
 				$cell.append($a)
 			}
