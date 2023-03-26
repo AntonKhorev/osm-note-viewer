@@ -1,3 +1,5 @@
+import {isArrayOfNumbers} from './types'
+
 /**
  * notes as received from the server
  */
@@ -20,17 +22,24 @@ export interface NoteFeature {
 	}
 	properties: {
 		id: number
+		date_created: string
 		status: 'open' | 'closed' | 'hidden'
 		comments: NoteFeatureComment[]
 	}
 }
 
-export function isNoteFeature(data: any): data is NoteFeature {
-	return data.type=="Feature"
+export function isNoteFeature(data: unknown): data is NoteFeature {
+	if (!data || typeof data != 'object') return false
+	if (!('type' in data) || data.type!='Feature') return false
+	if (!('geometry' in data) || !data.geometry || typeof data.geometry!='object') return false
+	if (!('coordinates' in data.geometry) || !isArrayOfNumbers(data.geometry.coordinates) || data.geometry.coordinates.length<2) return false
+	if (!('properties' in data) || !data.properties || typeof data.properties!='object') return false
+	// TODO data.properties checks
+	return true
 }
 
 /**
- * single note comment as received from the server
+ * Single note comment as received from the server
  */
 export interface NoteFeatureComment {
 	date: string
@@ -53,12 +62,15 @@ export interface Note {
 
 /**
  * Single note comment as saved in the local storage
+ *
+ * May have a guessed flag if there were no visible comments and the opening date had to be converted into a comment.
  */
 export interface NoteComment {
 	date: number
 	uid?: number
 	action: 'opened' | 'closed' | 'reopened' | 'commented' | 'hidden'
 	text: string
+	guessed?: true
 }
 
 export interface Users {
@@ -78,13 +90,22 @@ export function transformFeatureToNotesAndUsers(noteFeature: NoteFeature): [Note
 }
 
 function transformFeatureToNote(noteFeature: NoteFeature, users: Users): Note {
-	return { // TODO make sure note has at least one comment
+	const note={
 		id: noteFeature.properties.id,
 		lat: noteFeature.geometry.coordinates[1],
 		lon: noteFeature.geometry.coordinates[0],
 		status: noteFeature.properties.status,
 		comments: noteFeature.properties.comments.map(cullCommentProps)
 	}
+	if (note.comments.length==0) {
+		note.comments=[{
+			date: transformDate(noteFeature.properties.date_created),
+			action: 'opened',
+			text: '',
+			guessed: true
+		}]
+	}
+	return note
 	function cullCommentProps(a: NoteFeatureComment): NoteComment {
 		const b:NoteComment={
 			date: transformDate(a.date),
