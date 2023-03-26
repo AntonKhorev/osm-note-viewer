@@ -1133,6 +1133,9 @@ class GlobalHistory {
 function isArrayOfStrings(value) {
     return isArray(value) && value.every(item => typeof item == 'string');
 }
+function isArrayOfNumbers(value) {
+    return isArray(value) && value.every(item => typeof item == 'number');
+}
 function isArray(value) {
     return Array.isArray(value);
 }
@@ -4482,7 +4485,18 @@ function isNoteFeatureCollection(data) {
     return data.type == "FeatureCollection";
 }
 function isNoteFeature(data) {
-    return data.type == "Feature";
+    if (!data || typeof data != 'object')
+        return false;
+    if (!('type' in data) || data.type != 'Feature')
+        return false;
+    if (!('geometry' in data) || !data.geometry || typeof data.geometry != 'object')
+        return false;
+    if (!('coordinates' in data.geometry) || !isArrayOfNumbers(data.geometry.coordinates) || data.geometry.coordinates.length < 2)
+        return false;
+    if (!('properties' in data) || !data.properties || typeof data.properties != 'object')
+        return false;
+    // TODO data.properties checks
+    return true;
 }
 function transformFeatureCollectionToNotesAndUsers(noteFeatureCollection) {
     const users = {};
@@ -4495,13 +4509,22 @@ function transformFeatureToNotesAndUsers(noteFeature) {
     return [notes, users];
 }
 function transformFeatureToNote(noteFeature, users) {
-    return {
+    const note = {
         id: noteFeature.properties.id,
         lat: noteFeature.geometry.coordinates[1],
         lon: noteFeature.geometry.coordinates[0],
         status: noteFeature.properties.status,
         comments: noteFeature.properties.comments.map(cullCommentProps)
     };
+    if (note.comments.length == 0) {
+        note.comments = [{
+                date: transformDate(noteFeature.properties.date_created),
+                action: 'opened',
+                text: '',
+                guessed: true
+            }];
+    }
+    return note;
     function cullCommentProps(a) {
         const b = {
             date: transformDate(a.date),
@@ -7477,7 +7500,7 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
                 }
             }
             else {
-                const $a = makeElement('a')()(`anonymous`);
+                const $a = makeElement('a')()(comment.guessed ? `unknown` : `anonymous`);
                 $a.tabIndex = 0;
                 $cell.append($a);
             }
