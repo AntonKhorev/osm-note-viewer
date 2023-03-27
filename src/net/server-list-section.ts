@@ -1,5 +1,5 @@
 import type NoteViewerStorage from '../storage'
-import type Server from '../server'
+import type Server from './server'
 import type ServerList from './server-list'
 import makeCodeForm from '../code'
 import {parseServerListSource} from './server-list-parser'

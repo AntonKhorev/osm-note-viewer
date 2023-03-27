@@ -1,5 +1,5 @@
 import {Tool, ToolElements, makeMapIcon} from './base'
-import {QueryError} from '../server'
+import {QueryError} from '../net/server'
 import type NoteMap from '../map'
 import {makeLink, wrapFetchForButton} from '../html'
 import {p} from '../html-shortcuts'

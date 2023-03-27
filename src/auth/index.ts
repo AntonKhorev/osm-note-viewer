@@ -1,5 +1,5 @@
 import type NoteViewerStorage from '../storage'
-import type Server from '../server'
+import type Server from '../net/server'
 import type ServerList from '../net/server-list'
 import AuthStorage from './storage'
 import AuthAppSection from './app-section'

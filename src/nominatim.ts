@@ -1,4 +1,4 @@
-import type {NominatimProvider} from './server'
+import type {NominatimProvider} from './net/server'
 import {makeEscapeTag} from './escape'
 
 export type NominatimBbox = readonly [minLat:string,maxLat:string,minLon:string,maxLon:string]

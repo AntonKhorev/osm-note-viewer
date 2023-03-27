@@ -1,4 +1,4 @@
-import type Server from '../server'
+import type Server from '../net/server'
 import NoteMarker from './marker'
 import NoteMapBounds from './bounds'
 import {OsmDataLayers, NoteLayer, CrosshairLayer} from './layers'

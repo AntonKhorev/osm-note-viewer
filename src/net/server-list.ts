@@ -1,4 +1,4 @@
-import Server from '../server'
+import Server from './server'
 import {parseServerListSource, parseServerListItem} from './server-list-parser'
 
 export default class ServerList {

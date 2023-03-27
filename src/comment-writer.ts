@@ -1,4 +1,4 @@
-import type {WebUrlLister} from './server'
+import type {WebUrlLister} from './net/server'
 import getCommentItems from './comment'
 import {makeElement} from './html'
 import {a,mark} from './html-shortcuts'

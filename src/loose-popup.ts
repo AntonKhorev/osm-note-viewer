@@ -1,5 +1,5 @@
 import type {LooseParseType} from './loose'
-import type {WebUrlLister} from './server'
+import type {WebUrlLister} from './net/server'
 import {makeElement} from './html'
 import {makeEscapeTag} from './escape'
 

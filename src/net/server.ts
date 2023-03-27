@@ -1,5 +1,5 @@
-import {makeLink} from './html'
-import {makeEscapeTag} from './escape'
+import {makeLink} from '../html'
+import {makeEscapeTag} from '../escape'
 
 export interface ApiUrlLister {
 	api: {

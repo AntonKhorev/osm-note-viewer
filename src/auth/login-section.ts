@@ -1,4 +1,4 @@
-import type Server from '../server'
+import type Server from '../net/server'
 import type AuthStorage from './storage'
 import type {Login} from './storage'
 import AuthLoginForms, {AuthError} from './login-forms'
