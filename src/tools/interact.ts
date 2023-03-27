@@ -1,5 +1,5 @@
 import {Tool, ToolElements, makeActionIcon} from './base'
-import type Auth from '../auth'
+import type {Connection} from '../net'
 import type {Note} from '../data'
 import {readNoteResponse, NoteDataError} from '../fetch-note'
 import {makeHrefWithCurrentHost} from '../hash'
@@ -116,8 +116,8 @@ export class InteractTool extends Tool {
 		outputNoteStatus: 'open',
 		forModerator: true
 	}]
-	constructor(auth: Auth) {
-		super(auth)
+	constructor(cx: Connection) {
+		super(cx)
 		this.updateLoginDependents()
 		this.updateWithOutput()
 		this.updateButtons()
@@ -162,7 +162,7 @@ export class InteractTool extends Tool {
 	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
 		const appendLastChangeset=new TextControl(
 			this.$commentText,
-			()=>this.auth.uid!=null,
+			()=>this.cx.uid!=null,
 			()=>true,
 			(append)=>!this.$commentText.value.endsWith(append),
 			(append)=>{
@@ -170,13 +170,13 @@ export class InteractTool extends Tool {
 				this.updateButtons()
 			},
 			async($a)=>{
-				if (this.auth.uid==null) throw new TypeError(`Undefined user id when getting last changeset`)
-				const response=await this.auth.server.api.fetch(e`changesets.json?user=${this.auth.uid}`)
+				if (this.cx.uid==null) throw new TypeError(`Undefined user id when getting last changeset`)
+				const response=await this.cx.server.api.fetch(e`changesets.json?user=${this.cx.uid}`)
 				const data=await response.json()
 				const changesetId=getLatestChangesetId(data)
 				const append=getParagraphAppend(
 					this.$commentText.value,
-					this.auth.server.web.getUrl(e`changeset/${changesetId}`)
+					this.cx.server.web.getUrl(e`changeset/${changesetId}`)
 				)
 				this.$commentText.value+=append
 				this.updateButtons()
@@ -198,7 +198,7 @@ export class InteractTool extends Tool {
 			try {
 				if (navigator.clipboard.write && window.ClipboardItem) {
 					const plainBlob=new Blob([plainText],{type:'text/plain'})
-					const htmlText=convertDecoratedNoteIdsToHtmlText(decoratedIds,this.auth.server.web)
+					const htmlText=convertDecoratedNoteIdsToHtmlText(decoratedIds,this.cx.server.web)
 					const htmlBlob=new Blob([htmlText],{type:'text/html'})
 					await navigator.clipboard.write([
 						new ClipboardItem({
@@ -289,33 +289,33 @@ export class InteractTool extends Tool {
 	private updateYourNotes(): void {
 		const apiText=`your own latest updated notes`
 		const webText=`your notes page`
-		if (this.auth.username==null) {
+		if (this.cx.username==null) {
 			this.$yourNotesApi.replaceChildren(apiText)
 			this.$yourNotesWeb.replaceChildren(webText)
 		} else {
 			const apiHref=makeHrefWithCurrentHost([
 				['mode','search'],
-				['display_name',this.auth.username],
+				['display_name',this.cx.username],
 				['sort','updated_at']
 			])
-			const webHref=this.auth.server.web.getUrl(e`user/${this.auth.username}/notes`)
+			const webHref=this.cx.server.web.getUrl(e`user/${this.cx.username}/notes`)
 			this.$yourNotesApi.replaceChildren(makeLink(apiText,apiHref))
 			this.$yourNotesWeb.replaceChildren(makeLink(webText,webHref))
 		}
 	}
 	private updateAsOutput(): void {
-		if (this.auth.username==null || this.auth.uid==null) {
+		if (this.cx.username==null || this.cx.uid==null) {
 			this.$asOutput.replaceChildren(
 				this.$loginLink,` to interact`
 			)
 		} else {
 			this.$asOutput.replaceChildren(
-				`as `,this.auth.server.web.makeUserLink(this.auth.uid,this.auth.username)
+				`as `,this.cx.server.web.makeUserLink(this.cx.uid,this.cx.username)
 			)
 		}
 	}
 	private updateWithOutput(): void {
-		const multipleNoteIndicators=getMultipleNoteIndicators(this.auth.server.web,this.stagedNoteIds,5)
+		const multipleNoteIndicators=getMultipleNoteIndicators(this.cx.server.web,this.stagedNoteIds,5)
 		if (multipleNoteIndicators.length>0) {
 			this.$withOutput.replaceChildren(`with `,...multipleNoteIndicators)
 		} else {
@@ -340,7 +340,7 @@ export class InteractTool extends Tool {
 					this.run.status=='paused' && this.run.interactionDescription!=interactionDescription
 				)
 			} else {
-				$button.disabled=!this.auth.token || inputNoteIds.length==0
+				$button.disabled=!this.cx.token || inputNoteIds.length==0
 			}
 			if (cancelCondition) {
 				$button.replaceChildren(`Cancel`)
@@ -351,7 +351,7 @@ export class InteractTool extends Tool {
 					)
 				)
 			}
-			$button.hidden=interactionDescription.forModerator && !this.auth.isModerator
+			$button.hidden=interactionDescription.forModerator && !this.cx.isModerator
 		}
 		if (this.$commentText.value=='') this.$commentButton.disabled=true
 	}
@@ -390,7 +390,7 @@ export class InteractTool extends Tool {
 			outputFragment(`queue emptied`)
 		}
 		if (this.run.currentNoteId!=null) {
-			const $a=getNoteIndicator(this.auth.server.web,
+			const $a=getNoteIndicator(this.cx.server.web,
 				this.run.currentNoteId,this.run.interactionDescription.inputNoteStatus
 			)
 			if (this.run.currentNoteError) {
@@ -459,7 +459,7 @@ export class InteractTool extends Tool {
 			bubbleCustomEvent($tool,'osmNoteViewer:beforeNoteFetch',id)
 			try {
 				let response: Response
-				const fetchBuilder=this.auth.server.api.fetch.withToken(this.auth.token).withUrlencodedBody([
+				const fetchBuilder=this.cx.server.api.fetch.withToken(this.cx.token).withUrlencodedBody([
 					['text',this.$commentText.value]
 				])
 				if (this.run.interactionDescription.verb=='DELETE') {

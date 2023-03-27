@@ -22,7 +22,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 	protected makeLeadAdvancedHint(): Array<string|HTMLElement> {
 		return [p(
 			`Make a `,makeLink(`search for notes`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`),
-			` request at `,code(this.auth.server.api.getUrl(`notes/search?`),em(`parameters`)),`; see `,em(`parameters`),` below.`
+			` request at `,code(this.cx.server.api.getUrl(`notes/search?`),em(`parameters`)),`; see `,em(`parameters`),` below.`
 		)]
 	}
 	protected listParameters(closedDescriptionItems: Array<string|HTMLElement>): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][] {
@@ -84,18 +84,18 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 			this.$userInput.name='user'
 			const userInputControl=new TextControl(
 				this.$userInput,
-				()=>this.auth.username!=null,
-				()=>this.$userInput.value!=this.auth.username,
-				()=>this.$userInput.value!=this.auth.username,
+				()=>this.cx.username!=null,
+				()=>this.$userInput.value!=this.cx.username,
+				()=>this.$userInput.value!=this.cx.username,
 				(username)=>this.$userInput.value=username,
 				async($a)=>{
-					if (this.auth.username==null) throw new TypeError(`Undefined user when setting user search value`)
+					if (this.cx.username==null) throw new TypeError(`Undefined user when setting user search value`)
 					const oldUsername=this.$userInput.value
-					this.$userInput.value=this.auth.username
+					this.$userInput.value=this.cx.username
 					return oldUsername
 				},
 				()=>[makeElement('span')()(`undo set to`)],
-				()=>[makeElement('span')()(`set to`),` `,em(String(this.auth.username))]
+				()=>[makeElement('span')()(`set to`),` `,em(String(this.cx.username))]
 			)
 			$fieldset.append(makeDiv('major-input-group')(userInputControl.$controls,makeLabel()(
 				`OSM username, URL or #id`,rq2('display_name','user'),` `,this.$userInput
@@ -170,7 +170,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 	}
 	protected addEventListenersBeforeClosedLine(): void {
 		this.$userInput.addEventListener('input',()=>{
-			const userQuery=toUserQuery(this.auth.server.api,this.auth.server.web,this.$userInput.value)
+			const userQuery=toUserQuery(this.cx.server.api,this.cx.server.web,this.$userInput.value)
 			if (userQuery.userType=='invalid') {
 				this.$userInput.setCustomValidity(userQuery.message)
 			} else {
@@ -188,7 +188,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 	}
 	protected constructQuery(): NoteQuery | undefined {
 		return makeNoteSearchQueryFromValues(
-			this.auth.server.api,this.auth.server.web,
+			this.cx.server.api,this.cx.server.web,
 			this.$userInput.value,this.$textInput.value,this.$fromInput.value,this.$toInput.value,
 			this.closedValue,this.$sortSelect.value,this.$orderSelect.value
 		)

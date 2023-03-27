@@ -1,5 +1,9 @@
 import type NoteViewerStorage from '../storage'
 
+import AuthStorage from '../auth/storage'
+import AuthAppSection from '../auth/app-section'
+import AuthLoginSection from '../auth/login-section'
+
 import Server from './server'
 import ServerList from './server-list'
 import ServerListSection from './server-list-section'
@@ -22,11 +26,34 @@ export interface ServerSelector {
 	makeServerSelectErrorMessage(): (string|HTMLElement)[]
 }
 
+export class Connection {
+	constructor(
+		readonly server: Server,
+		private readonly authStorage: AuthStorage
+	) {}
+	get token(): string {
+		return this.authStorage.token
+	}
+	get username(): string|undefined {
+		return this.authStorage.login?.username
+	}
+	get uid(): number|undefined {
+		return this.authStorage.login?.uid
+	}
+	get isModerator(): boolean {
+		return this.authStorage.login?.roles?.includes('moderator')??false
+	}
+}
+
 export default class Net<T extends ServerSelector> {
 	readonly serverList: ServerList
 	readonly serverSelector: T
-	readonly server?: Server
+	readonly cx?: Connection
+	readonly $loginSection?: HTMLElement
+	readonly $appSection?: HTMLElement
 	readonly $serverListSection: HTMLElement
+	readonly $sections: HTMLElement[] = []
+	private readonly loginSection?: AuthLoginSection
 	constructor(
 		storage: NoteViewerStorage,
 		serverListConfig: unknown,
@@ -41,8 +68,23 @@ export default class Net<T extends ServerSelector> {
 		} catch {}
 		this.serverList=new ServerList(...serverListConfigSources)
 		this.serverSelector=makeServerSelector(this.serverList)
-		this.server=this.serverSelector.selectServer()
+		const server=this.serverSelector.selectServer()
 		this.$serverListSection=makeElement('section')()()
-		new ServerListSection(this.$serverListSection,storage,this.server,this.serverList,this.serverSelector)
+		new ServerListSection(this.$serverListSection,storage,server,this.serverList,this.serverSelector)
+		if (server) {
+			const authStorage=new AuthStorage(storage,server.host,installUri)
+			this.cx=new Connection(server,authStorage)
+			this.$appSection=makeElement('section')()()
+			this.$loginSection=makeElement('section')()()
+			const appSection=new AuthAppSection(this.$appSection,authStorage,server,this.serverSelector)
+			const loginSection=new AuthLoginSection(this.$loginSection,authStorage,server)
+			appSection.onRegistrationUpdate=()=>loginSection.respondToAppRegistration()
+			this.$sections.push(this.$loginSection,this.$appSection)
+			this.loginSection=loginSection
+		}
+		this.$sections.push(this.$serverListSection)
+	}
+	focusOnLogin(): void {
+		this.loginSection?.focusOnLogin() // TODO move to connection?
 	}
 }

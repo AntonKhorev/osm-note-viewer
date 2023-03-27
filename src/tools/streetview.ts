@@ -6,7 +6,7 @@ import {makeEscapeTag} from '../util/escape'
 
 abstract class StreetViewTool extends Tool {
 	protected isActiveWithCurrentServer(): boolean {
-		return this.auth.server.world=='earth'
+		return this.cx.server.world=='earth'
 	}
 	protected getTool($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements {
 		const $viewButton=document.createElement('button')

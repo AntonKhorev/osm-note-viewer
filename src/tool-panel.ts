@@ -1,5 +1,5 @@
 import type NoteViewerStorage from './storage'
-import type Auth from './auth'
+import type {Connection} from './net'
 import type NoteMap from './map'
 import type {Tool} from './tools'
 import {toolMakerSequence} from './tools'
@@ -14,12 +14,12 @@ type ToolWithDetails=[
 export default class ToolPanel {
 	constructor(
 		$root: HTMLElement, $toolbar: HTMLElement,
-		storage: NoteViewerStorage, auth: Auth,
+		storage: NoteViewerStorage, cx: Connection,
 		map: NoteMap
 	) {
 		const tools: ToolWithDetails[] = []
 		for (const makeTool of toolMakerSequence) {
-			const tool=makeTool(auth)
+			const tool=makeTool(cx)
 			const storageKey=`tools[${tool.id}]`
 			const [$tool,$info]=tool.write($root,map)
 			if ($tool) {

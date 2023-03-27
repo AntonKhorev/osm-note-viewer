@@ -39,7 +39,7 @@ export class ChangesetTool extends Tool {
 	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
 		const getChangesetLink=(changesetId?: number):string|HTMLElement=>{
 			if (changesetId==null) return `none`
-			const $a=makeLink(`link`,this.auth.server.web.getUrl(e`changeset/${changesetId}`))
+			const $a=makeLink(`link`,this.cx.server.web.getUrl(e`changeset/${changesetId}`))
 			$a.classList.add('listened')
 			$a.dataset.changesetId=String(changesetId)
 			return $a
@@ -72,7 +72,7 @@ export class ChangesetTool extends Tool {
 			try {
 				const coordDelta=0.001
 				const day=60*60*24
-				const response=await this.auth.server.api.fetch(e`changesets.json`+
+				const response=await this.cx.server.api.fetch(e`changesets.json`+
 					`?bbox=${closingScope.lon-coordDelta},${closingScope.lat-coordDelta}`+
 					     `,${closingScope.lon+coordDelta},${closingScope.lat+coordDelta}`+
 					`&user=${closingScope.uid}`+

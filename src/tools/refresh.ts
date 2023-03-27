@@ -48,7 +48,7 @@ export class RefreshTool extends Tool {
 				let note: Note
 				let users: Users
 				try {
-					[note,users]=await fetchTableNote(this.auth.server.api,id,this.auth.token)
+					[note,users]=await fetchTableNote(this.cx.server.api,id,this.cx.token)
 				} catch (ex) {
 					bubbleCustomEvent($tool,'osmNoteViewer:failedNoteFetch',[id,getFetchTableNoteErrorMessage(ex)])
 					throw ex

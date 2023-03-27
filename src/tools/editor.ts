@@ -57,7 +57,7 @@ export class RcTool extends EditorTool {
 		$loadNotesButton.append(`Load `,makeNotesIcon('selected'))
 		$loadNotesButton.onclick=async()=>{
 			for (const {id} of inputNotes) {
-				const noteUrl=this.auth.server.web.getUrl(e`note/${id}`)
+				const noteUrl=this.cx.server.web.getUrl(e`note/${id}`)
 				const rcPath=e`import?url=${noteUrl}`
 				const success=await openRcPath($loadNotesButton,rcPath)
 				if (!success) break
@@ -129,13 +129,13 @@ export class IdTool extends EditorTool {
 		const $zoomButton=document.createElement('button')
 		$zoomButton.append(`Open `,makeMapIcon('center'))
 		$zoomButton.onclick=()=>{
-			const url=this.auth.server.web.getUrl(e`id#map=${map.zoom}/${map.lat}/${map.lon}`)
+			const url=this.cx.server.web.getUrl(e`id#map=${map.zoom}/${map.lat}/${map.lon}`)
 			open(url,'id')
 		}
 		return [$zoomButton]
 	}
 	doElementAction(map: NoteMap) {
-		const url=this.auth.server.web.getUrl(e`id#id=${this.inputElement}&map=${map.zoom}/${map.lat}/${map.lon}`)
+		const url=this.cx.server.web.getUrl(e`id#id=${this.inputElement}&map=${map.zoom}/${map.lat}/${map.lon}`)
 		open(url,'id')
 	}
 }

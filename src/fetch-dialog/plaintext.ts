@@ -1,6 +1,6 @@
 import type {NoteFetchDialogSharedCheckboxes} from './base'
 import {NoteIdsFetchDialog, mixinWithFetchButton} from './base'
-import type Auth from '../auth'
+import type {Connection} from '../net'
 import type NoteTable from '../table'
 import type {NoteQuery} from '../query'
 import {makeNoteIdsQueryFromValue} from '../query'
@@ -15,12 +15,12 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 	constructor(
 		$root: HTMLElement,
 		$sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
-		auth: Auth,
+		cx: Connection,
 		getRequestApiPaths: (query: NoteQuery, limit: number) => [type: string, apiPath: string][],
 		submitQuery: (query: NoteQuery) => void,
 		private noteTable: NoteTable
 	) {
-		super($root,$sharedCheckboxes,auth,getRequestApiPaths,submitQuery)
+		super($root,$sharedCheckboxes,cx,getRequestApiPaths,submitQuery)
 	}
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		{

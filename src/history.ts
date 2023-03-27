@@ -29,11 +29,11 @@ export default class GlobalHistory {
 		})
 		window.addEventListener('hashchange',()=>{
 			const [queryHash,mapHashValue,hostHashValue]=this.getAllHashes()
-			if (!net.server) {
+			if (!net.cx) {
 				if (hostHashValue!=net.serverSelector.hostHashValue) location.reload()
 				return
 			}
-			if (hostHashValue!=net.serverSelector.getHostHashValue(net.server)) {
+			if (hostHashValue!=net.serverSelector.getHostHashValue(net.cx.server)) {
 				location.reload()
 				return
 			}
@@ -54,13 +54,13 @@ export default class GlobalHistory {
 			history.replaceState(history.state,'',this.getFullHash(queryHash,mapHashValue,hostHashValue))
 		})
 		$root.addEventListener('osmNoteViewer:newNoteStream',({detail:[queryHash,isNewStart]})=>{
-			if (!net.server) return
+			if (!net.cx) return
 			let mapHashValue=''
 			if (!isNewStart) {
 				const searchParams=getHashSearchParams()
 				mapHashValue=searchParams.get('map')??''
 			}
-			const hostHashValue=net.serverSelector.getHostHashValue(net.server)
+			const hostHashValue=net.serverSelector.getHostHashValue(net.cx.server)
 			const fullHash=this.getFullHash(queryHash,mapHashValue,hostHashValue)
 			if (fullHash!=location.hash) {
 				const url=fullHash||location.pathname+location.search

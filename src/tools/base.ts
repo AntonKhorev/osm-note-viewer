@@ -1,5 +1,5 @@
 import type {Note} from '../data'
-import type Auth from '../auth'
+import type {Connection} from '../net'
 import type NoteMap from '../map'
 import {makeElement, startAnimation, cleanupAnimationOnEnd} from '../util/html'
 
@@ -12,7 +12,7 @@ export abstract class Tool {
 	public readonly isFullWidth: boolean = false
 	private $buttonsRequiringSelectedNotes: HTMLButtonElement[] = []
 	constructor(
-		protected readonly auth: Auth
+		protected readonly cx: Connection
 	){}
 	write(
 		$root: HTMLElement, map: NoteMap

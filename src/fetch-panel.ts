@@ -1,5 +1,5 @@
 import type NoteViewerDB from './db'
-import type Auth from './auth'
+import type {Connection} from './net'
 import type NoteMap from './map'
 import type Navbar from './navbar'
 import type NoteTable from './table'
@@ -17,7 +17,7 @@ export default class NoteFetchPanel {
 	private fetcherInvoker?: NoteFetchDialog
 	constructor(
 		$root: HTMLElement,
-		db: NoteViewerDB, auth: Auth,
+		db: NoteViewerDB, cx: Connection,
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		navbar: Navbar, noteTable: NoteTable, map: NoteMap,
 		queryHash: string, hasMapHash: boolean, hostHashValue: string|null
@@ -27,7 +27,7 @@ export default class NoteFetchPanel {
 		const hashQuery=makeNoteQueryFromHash(queryHash)
 
 		const fetchDialogs=new NoteFetchDialogs(
-			$root,auth,$container,$moreContainer,noteTable,map,hashQuery,
+			$root,cx,$container,$moreContainer,noteTable,map,hashQuery,
 			(dialog:NoteFetchDialog,query:NoteQuery)=>{
 				startFetcher(query,true,false,dialog)
 			},
@@ -115,8 +115,8 @@ export default class NoteFetchPanel {
 			bubbleCustomEvent($container,'osmNoteViewer:newNoteStream',[makeNoteQueryString(query),isNewStart])
 			const environment: NoteFetcherEnvironment = {
 				db,
-				api: auth.server.api,
-				token: auth.token,
+				api: cx.server.api,
+				token: cx.token,
 				hostHashValue,
 				noteTable,$moreContainer,
 				getLimit: dialog.getLimit,

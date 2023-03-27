@@ -26,7 +26,7 @@ export class OverpassTurboTool extends OverpassBaseTool {
 	name=`Overpass turbo`
 	title=`Open an Overpass turbo window with various queries`
 	protected isActiveWithCurrentServer(): boolean {
-		return !!this.auth.server.overpassTurbo
+		return !!this.cx.server.overpassTurbo
 	}
 	protected getInfo() {return[p(
 		`Some Overpass queries to run from `,
@@ -50,8 +50,8 @@ export class OverpassTurboTool extends OverpassBaseTool {
 			}
 			query+=`;\n`
 			query+=`out meta geom;`
-			if (!this.auth.server.overpassTurbo) throw new ReferenceError(`no overpass turbo provider`)
-			open(this.auth.server.overpassTurbo.getUrl(query,map.lat,map.lon,map.zoom),'overpass-turbo')
+			if (!this.cx.server.overpassTurbo) throw new ReferenceError(`no overpass turbo provider`)
+			open(this.cx.server.overpassTurbo.getUrl(query,map.lat,map.lon,map.zoom),'overpass-turbo')
 		}
 		{
 			const $button=document.createElement('button')
@@ -83,7 +83,7 @@ export class OverpassTool extends OverpassBaseTool {
 	name=`Overpass`
 	title=`Run an Overpass query`
 	protected isActiveWithCurrentServer(): boolean {
-		return !!this.auth.server.overpass
+		return !!this.cx.server.overpass
 	}
 	protected getInfo() {return[p(
 		`Query `,makeLink(`Overpass API`,'https://wiki.openstreetmap.org/wiki/Overpass_API'),` without going through Overpass turbo. `,
@@ -101,11 +101,11 @@ export class OverpassTool extends OverpassBaseTool {
 			let query=this.getOverpassQueryPreamble(map)
 			query+=`node(around:${radius},${map.lat},${map.lon});\n`
 			query+=`out skel;`
-			if (!this.auth.server.overpass) throw new ReferenceError(`no overpass provider`)
-			const doc=await this.auth.server.overpass.fetch(query)
+			if (!this.cx.server.overpass) throw new ReferenceError(`no overpass provider`)
+			const doc=await this.cx.server.overpass.fetch(query)
 			const closestNodeId=getClosestNodeId(doc,map.lat,map.lon)
 			if (!closestNodeId) throw `Could not find nodes nearby`
-			const url=this.auth.server.web.getUrl(`node/`+encodeURIComponent(closestNodeId))
+			const url=this.cx.server.web.getUrl(`node/`+encodeURIComponent(closestNodeId))
 			const $a=makeLink(`link`,url)
 			$a.dataset.elementType='node'
 			$a.dataset.elementId=String(closestNodeId)

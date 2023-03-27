@@ -2,10 +2,9 @@ import type {Note, Users} from './data'
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
 import {HashServerSelector} from './hash'
-import Net, {checkAuthRedirect, Server} from './net'
+import Net, {checkAuthRedirect, Server, Connection} from './net'
 import GlobalEventsListener from './events'
 import GlobalHistory from './history'
-import Auth from './auth'
 import NoteMap from './map'
 import OverlayDialog, {makeMenuButton} from './overlay'
 import SidebarResizer from './resizer'
@@ -35,7 +34,6 @@ async function main() {
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
 	const net=new Net(storage,serverListConfig,serverList=>new HashServerSelector(serverList))
-	let auth: Auth|undefined
 	const $menuButton=makeMenuButton()
 
 	const $navbarContainer=document.createElement('nav')
@@ -52,37 +50,35 @@ async function main() {
 
 	let map: NoteMap|undefined
 	const globalHistory=new GlobalHistory($root,$scrollingPart,net)
-	if (net.server) {
+	if (net.cx) {
 		$root.classList.add('with-sidebar')
-		auth=new Auth(storage,net.server,net.serverSelector)
 		const $textSide=makeDiv('text-side')($scrollingPart,$stickyPart)
 		$graphicSide.before($textSide)
 		const sidebarResizer=new SidebarResizer($root,$textSide,storage)
 		$graphicSide.append(sidebarResizer.$button,$mapContainer)
-		map=writeMap($root,$mapContainer,net.server,globalHistory)
+		map=writeMap($root,$mapContainer,net.cx.server,globalHistory)
 		sidebarResizer.startListening(map)
 		const navbar=new Navbar($root,storage,$navbarContainer,map)
 		const noteTable=writeBelowFetchPanel(
 			$root,
 			$scrollingPart,$stickyPart,$moreContainer,
-			storage,auth,net.server,globalHistory,
+			storage,net.cx,globalHistory,
 			map
 		)
 		new NoteFetchPanel(
 			$root,
-			db,auth,
+			db,net.cx,
 			$fetchContainer,$moreContainer,
 			navbar,noteTable,map,
 			globalHistory.getQueryHash(),globalHistory.hasMapHash(),
-			net.serverSelector.getHostHashValue(net.server)
+			net.serverSelector.getHostHashValue(net.cx.server)
 		)
 	}
 	
 	{
 		const overlayDialog=new OverlayDialog(
 			$root,
-			storage,db,
-			net,auth,
+			storage,db,net,
 			map,$menuButton
 		)
 		$graphicSide.append(
@@ -91,8 +87,8 @@ async function main() {
 		)
 	}
 
-	if (net.server) {
-		const server=net.server
+	if (net.cx) {
+		const server=net.cx.server
 		$root.addEventListener('osmNoteViewer:updateNoteLinkClick',async(ev)=>{
 			const $a=ev.target
 			if (!($a instanceof HTMLAnchorElement)) return
@@ -101,7 +97,7 @@ async function main() {
 			let note: Note
 			let users: Users
 			try {
-				[note,users]=await fetchTableNote(server.api,id,auth?.token)
+				[note,users]=await fetchTableNote(server.api,id,net.cx?.token)
 			} catch (ex) {
 				bubbleCustomEvent($a,'osmNoteViewer:failedNoteFetch',[id,getFetchTableNoteErrorMessage(ex)])
 				return
@@ -132,24 +128,24 @@ function writeMap(
 function writeBelowFetchPanel(
 	$root: HTMLElement,
 	$scrollingPart: HTMLElement, $stickyPart: HTMLElement, $moreContainer: HTMLElement,
-	storage: NoteViewerStorage, auth: Auth, server: Server, globalHistory: GlobalHistory,
+	storage: NoteViewerStorage, cx: Connection, globalHistory: GlobalHistory,
 	map: NoteMap
 ): NoteTable {
 	const $filterContainer=makeDiv('panel','fetch')()
 	const $notesContainer=makeDiv('notes')()
 	$scrollingPart.append($filterContainer,$notesContainer,$moreContainer)
-	const filterPanel=new NoteFilterPanel(storage,server.api,server.web,$filterContainer)
+	const filterPanel=new NoteFilterPanel(storage,cx.server.api,cx.server.web,$filterContainer)
 	const $toolContainer=makeDiv('panel','toolbar')()
 	$stickyPart.append($toolContainer)
 
 	new ToolPanel(
 		$root,$toolContainer,
-		storage,auth,map
+		storage,cx,map
 	)
 	const noteTable=new NoteTable(
 		$root,$notesContainer,
 		storage,map,filterPanel.noteFilter,
-		server
+		cx.server
 	)
 	filterPanel.onFilterUpdate=noteFilter=>noteTable.updateFilter(noteFilter)
 	globalHistory.$resizeObservationTarget=$notesContainer

@@ -9,11 +9,11 @@ import {OverpassTurboTool, OverpassTool} from './overpass'
 import * as EditorTools from './editor'
 import * as ExportTools from './export'
 import {YandexPanoramasTool, MapillaryTool} from './streetview'
-import Auth from '../auth'
+import type {Connection} from '../net'
 
 export {Tool}
 
-export const toolMakerSequence: Array<(auth:Auth)=>Tool> = [
+export const toolMakerSequence: Array<(cx:Connection)=>Tool> = [
 	InteractTool, ReportTool, RefreshTool,
 	UtilTools.AutozoomTool, UtilTools.TimestampTool, ParseTool,
 	ChangesetTool, OverpassTurboTool, OverpassTool,
@@ -21,4 +21,4 @@ export const toolMakerSequence: Array<(auth:Auth)=>Tool> = [
 	ExportTools.GpxTool, ExportTools.GeoJsonTool,
 	YandexPanoramasTool, MapillaryTool,
 	UtilTools.CountTool, UtilTools.LegendTool
-].map(ToolClass=>(auth)=>new ToolClass(auth))
+].map(ToolClass=>(cx)=>new ToolClass(cx))

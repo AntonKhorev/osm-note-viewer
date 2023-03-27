@@ -3,8 +3,6 @@ import type NoteViewerStorage from './storage'
 import type NoteViewerDB from './db'
 import type Net from './net'
 import type {HashServerSelector} from './hash'
-import type Auth from './auth'
-import type {AuthLoginSection} from './auth'
 import type NoteMap from './map'
 import makeHelpDialog from './help-dialog'
 import {makeElement, makeDiv, makeLink, startAnimation, cleanupAnimationOnEnd} from './util/html'
@@ -47,13 +45,13 @@ export default class OverlayDialog {
 	constructor(
 		$root: HTMLElement,
 		storage: NoteViewerStorage, db: NoteViewerDB,
-		net: Net<HashServerSelector>, auth: Auth|undefined,
+		net: Net<HashServerSelector>,
 		private map: NoteMap|undefined,
 		private $menuButton: HTMLButtonElement,
 	) {
-		this.menuHidden=!!auth
-		this.$menuButton.disabled=!auth
-		const loginSection=this.writeMenuPanel(storage,db,net,auth)
+		this.menuHidden=!!net.cx
+		this.$menuButton.disabled=!net.cx
+		this.writeMenuPanel(storage,db,net)
 		this.writeFigureDialog()
 		$root.append(this.$figureHelpDialog)
 		for (const eventType of [
@@ -72,7 +70,7 @@ export default class OverlayDialog {
 			if (this.imageSequence!=null) this.close()
 			if (detail=='login') {
 				this.menuHidden=false
-				loginSection?.focusOnLogin()
+				net.focusOnLogin()
 			} else {
 				this.menuHidden=!this.menuHidden
 			}
@@ -187,8 +185,8 @@ export default class OverlayDialog {
 	}
 	private writeMenuPanel(
 		storage: NoteViewerStorage, db: NoteViewerDB,
-		net: Net<HashServerSelector>, auth: Auth|undefined
-	): AuthLoginSection|undefined {
+		net: Net<HashServerSelector>
+	) {
 		const $lead=makeDiv('lead')()
 		{
 			const $about=makeDiv()(
@@ -202,8 +200,7 @@ export default class OverlayDialog {
 			$lead.append($about)
 		}
 		const $scrolling=makeDiv('panel','scrolling')()
-		const loginSection=auth?.writeMenuSections($scrolling)
-		$scrolling.append(net.$serverListSection)
+		$scrolling.append(...net.$sections)
 		{
 			const $subsection=makeElement('section')()()
 			new StorageSection($subsection,storage,db,net.serverSelector)
@@ -211,7 +208,6 @@ export default class OverlayDialog {
 		}
 		$scrolling.append(makeExtraSubsection())
 		this.$menuPanel.append($lead,$scrolling)
-		return loginSection
 	}
 	private close(): void {
 		this.map?.hide(false)

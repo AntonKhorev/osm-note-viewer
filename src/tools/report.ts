@@ -32,10 +32,10 @@ export class ReportTool extends Tool {
 		const $tabCountOutput=document.createElement('output')
 		const $confirmTabCountOutput=document.createElement('output')
 		const e=makeEscapeTag(encodeURIComponent)
-		const getNoteReportUrl=(id:number)=>this.auth.server.web.getUrl(e`reports/new?reportable_id=${id}&reportable_type=Note`)
-		const getUserReportUrl=(id:number)=>this.auth.server.web.getUrl(e`reports/new?reportable_id=${id}&reportable_type=User`)
-		const getUserBlockUrl=(username:string)=>this.auth.server.web.getUrl(e`blocks/new/${username}`)
-		const getNoteListItem=(id:number)=>`- `+this.auth.server.web.getUrl(e`note/${id}`)+`\n`
+		const getNoteReportUrl=(id:number)=>this.cx.server.web.getUrl(e`reports/new?reportable_id=${id}&reportable_type=Note`)
+		const getUserReportUrl=(id:number)=>this.cx.server.web.getUrl(e`reports/new?reportable_id=${id}&reportable_type=User`)
+		const getUserBlockUrl=(username:string)=>this.cx.server.web.getUrl(e`blocks/new/${username}`)
+		const getNoteListItem=(id:number)=>`- `+this.cx.server.web.getUrl(e`note/${id}`)+`\n`
 		const getNoteList=()=>inputNoteIds.map(getNoteListItem).join('')
 		const copyNoteList=()=>navigator.clipboard.writeText(getNoteList())
 		const $reportOneButton=this.makeRequiringSelectedNotesButton()
@@ -52,7 +52,7 @@ export class ReportTool extends Tool {
 		$blockUserButton.append(`Block opening user`)
 		$blockUserButton.disabled=$reportUserButton.disabled=true
 		const updateLoginDependents=()=>{
-			$blockUserButton.hidden=!this.auth.isModerator
+			$blockUserButton.hidden=!this.cx.isModerator
 		}
 		updateLoginDependents()
 		$reportOneButton.onclick=async()=>{

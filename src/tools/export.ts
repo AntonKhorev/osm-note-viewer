@@ -41,7 +41,7 @@ abstract class ExportTool extends Tool {
 		const $exportNotesButton=this.makeRequiringSelectedNotesButton()
 		$exportNotesButton.append(`Export `,makeNotesIcon('selected'))
 		$exportNotesButton.onclick=()=>{
-			const data=this.generateData(this.auth.server,getOptionValues())
+			const data=this.generateData(this.cx.server,getOptionValues())
 			const filename=this.generateFilename()
 			const file=new File([data],filename)
 			const $a=document.createElement('a')
@@ -52,7 +52,7 @@ abstract class ExportTool extends Tool {
 		}
 		$exportNotesButton.draggable=true
 		$exportNotesButton.ondragstart=(ev)=>{
-			const data=this.generateData(this.auth.server,getOptionValues())
+			const data=this.generateData(this.cx.server,getOptionValues())
 			if (!ev.dataTransfer) return
 			ev.dataTransfer.setData($dataTypeSelect.value,data)
 		}
