@@ -1,8 +1,8 @@
 import type ServerList from './net/server-list'
 import type Server from './net/server'
 import {getHashSearchParams} from './hash'
-import {escapeHash} from './escape'
-import {bubbleCustomEvent} from './html'
+import {escapeHash} from './util/escape'
+import {bubbleCustomEvent} from './util/html'
 
 const scrollRestorerEnabled=true // almost works without this, just won't restore position correctly on forward
 

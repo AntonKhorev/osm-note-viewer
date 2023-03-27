@@ -1,4 +1,4 @@
-import {bubbleEvent, bubbleCustomEvent} from './html'
+import {bubbleEvent, bubbleCustomEvent} from './util/html'
 
 export default class GlobalEventListener {
 	constructor($root: HTMLElement) {

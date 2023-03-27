@@ -1,9 +1,9 @@
 import type Server from '../net/server'
 import type ServerList from '../net/server-list'
 import type AuthStorage from './storage'
-import {p,ol,ul,li,em,strong,mark,code} from '../html-shortcuts'
-import {makeElement, makeDiv, makeLink, makeLabel} from '../html'
-import {escapeHash} from '../escape'
+import {p,ol,ul,li,em,strong,mark,code} from '../util/html-shortcuts'
+import {makeElement, makeDiv, makeLink, makeLabel} from '../util/html'
+import {escapeHash} from '../util/escape'
 
 const app=()=>em(`osm-note-viewer`)
 

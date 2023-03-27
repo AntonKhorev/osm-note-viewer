@@ -1,5 +1,5 @@
-import {makeElement, makeDiv} from './html'
-import {kbd} from './html-shortcuts'
+import {makeElement, makeDiv} from './util/html'
+import {kbd} from './util/html-shortcuts'
 
 export default function makeHelpDialog(closeButtonLabel: string, content: (string|HTMLElement)[]): HTMLDialogElement {
 	const $helpDialog=makeElement('dialog')('help')()

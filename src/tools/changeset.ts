@@ -2,9 +2,9 @@ import {Tool, ToolElements, makeNotesIcon} from './base'
 import {findClosingChangesetId} from './changeset-find'
 import {toUrlDate} from '../query-date'
 import {getChangesetsFromOsmApiResponse} from '../osm'
-import {makeElement, makeLink} from '../html'
-import {p,ul,li} from '../html-shortcuts'
-import {makeEscapeTag} from '../escape'
+import {makeElement, makeLink} from '../util/html'
+import {p,ul,li} from '../util/html-shortcuts'
+import {makeEscapeTag} from '../util/escape'
 
 const e=makeEscapeTag(encodeURIComponent)
 

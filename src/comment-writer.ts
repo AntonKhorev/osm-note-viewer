@@ -1,7 +1,7 @@
 import type {WebUrlLister} from './net/server'
 import getCommentItems from './comment'
-import {makeElement} from './html'
-import {a,mark} from './html-shortcuts'
+import {makeElement} from './util/html'
+import {a,mark} from './util/html-shortcuts'
 
 export default class CommentWriter {
 	constructor(private webUrlLister: WebUrlLister) {}

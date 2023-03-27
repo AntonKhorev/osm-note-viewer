@@ -4,7 +4,7 @@ import type Auth from '../auth'
 import type NoteTable from '../table'
 import type {NoteQuery} from '../query'
 import {makeNoteIdsQueryFromValue} from '../query'
-import {makeElement, makeDiv, makeLabel} from '../html'
+import {makeElement, makeDiv, makeLabel} from '../util/html'
 
 export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) {
 	shortTitle=`Plaintext`

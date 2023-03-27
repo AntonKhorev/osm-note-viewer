@@ -1,6 +1,6 @@
 import type {Note, NoteComment} from '../data'
 import type {WebProvider} from '../net/server'
-import {escapeXml, makeEscapeTag} from '../escape'
+import {escapeXml, makeEscapeTag} from '../util/escape'
 
 const e=makeEscapeTag(escapeXml)
 

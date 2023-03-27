@@ -8,8 +8,8 @@ import type Auth from './auth'
 import type {AuthLoginSection} from './auth'
 import type NoteMap from './map'
 import makeHelpDialog from './help-dialog'
-import {makeElement, makeDiv, makeLink, bubbleEvent, startAnimation, cleanupAnimationOnEnd} from './html'
-import {ul,li,p,em,kbd} from './html-shortcuts'
+import {makeElement, makeDiv, makeLink, bubbleEvent, startAnimation, cleanupAnimationOnEnd} from './util/html'
+import {ul,li,p,em,kbd} from './util/html-shortcuts'
 
 export function makeMenuButton(): HTMLButtonElement {
 	const $button=makeElement('button')('global','menu')()

@@ -1,5 +1,5 @@
 import type NoteViewerStorage from '../storage'
-import {makeElement} from '../html'
+import {makeElement} from '../util/html'
 
 type ExpanderDescription = [
 	defaultValue:boolean,

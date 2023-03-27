@@ -1,7 +1,7 @@
 import {NoteIdsFetchDialog} from './base'
 import type {NoteQuery, NoteIdsQuery} from '../query'
-import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
-import {em,p,ul,ol,li} from '../html-shortcuts'
+import {makeElement, makeLink, makeDiv, makeLabel} from '../util/html'
+import {em,p,ul,ol,li} from '../util/html-shortcuts'
 
 export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 	shortTitle=`XML`

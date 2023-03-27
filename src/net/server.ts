@@ -1,5 +1,5 @@
-import {makeLink} from '../html'
-import {makeEscapeTag} from '../escape'
+import {makeLink} from '../util/html'
+import {makeEscapeTag} from '../util/escape'
 
 export class QueryError {
 	get reason():string {

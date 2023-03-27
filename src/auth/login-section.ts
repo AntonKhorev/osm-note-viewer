@@ -7,8 +7,8 @@ import {
 	makeElement, makeDiv,
 	wrapFetchForButton, makeGetKnownErrorMessage,
 	bubbleEvent
-} from '../html'
-import {em} from '../html-shortcuts'
+} from '../util/html'
+import {em} from '../util/html-shortcuts'
 import {isArrayOfStrings} from '../types'
 
 type AuthErrorData = {

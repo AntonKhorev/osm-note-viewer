@@ -3,7 +3,7 @@ import type Auth from './auth'
 import type NoteMap from './map'
 import type {Tool} from './tools'
 import {toolMakerSequence} from './tools'
-import {makeElement, makeDiv, makeLabel} from './html'
+import {makeElement, makeDiv, makeLabel} from './util/html'
 
 type ToolWithDetails=[
 	tool: Tool,

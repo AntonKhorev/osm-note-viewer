@@ -2,9 +2,9 @@ import Server from '../net/server'
 import type {OsmBase, OsmElementBase, OsmAdiffElement} from '../osm'
 import type {LayerBoundOsmData} from './osm'
 import compareKeys from './popup-key-compare'
-import {makeElement, makeDiv, makeLink} from '../html'
-import {p,strong,em} from '../html-shortcuts'
-import {makeEscapeTag} from '../escape'
+import {makeElement, makeDiv, makeLink} from '../util/html'
+import {p,strong,em} from '../util/html-shortcuts'
+import {makeEscapeTag} from '../util/escape'
 
 const e=makeEscapeTag(encodeURIComponent)
 const h=(...s: Array<string|HTMLElement>)=>p(strong(...s))

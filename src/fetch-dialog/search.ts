@@ -4,8 +4,8 @@ import {makeNoteSearchQueryFromValues} from '../query'
 import {toUserQuery} from '../query-user'
 import {toDateQuery, toShortReadableDate} from '../query-date'
 import TextControl from '../text-control'
-import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
-import {p,em,code} from '../html-shortcuts'
+import {makeElement, makeLink, makeDiv, makeLabel} from '../util/html'
+import {p,em,code} from '../util/html-shortcuts'
 
 const rq=(param: string)=>makeElement('span')('advanced-hint')(` (`,code(param),` parameter)`)
 const rq2=(param1: string, param2: string)=>makeElement('span')('advanced-hint')(` (`,code(param1),` or `,code(param2),` parameter)`)

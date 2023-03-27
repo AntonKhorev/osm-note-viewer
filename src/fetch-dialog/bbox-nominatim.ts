@@ -3,8 +3,8 @@ import {NominatimBbox, NominatimBboxFetcher} from '../nominatim'
 import {
 	makeElement, makeLink, makeDiv, makeLabel,
 	wrapFetchForButton, makeGetKnownErrorMessage
-} from '../html'
-import {em,code} from '../html-shortcuts'
+} from '../util/html'
+import {em,code} from '../util/html-shortcuts'
 
 const spanRequest=(...ss: Array<string|HTMLElement>)=>makeElement('span')('advanced-hint')(...ss)
 

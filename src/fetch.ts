@@ -6,8 +6,8 @@ import {isNoteFeatureCollection, isNoteFeature, transformFeatureCollectionToNote
 import type {NoteQuery, NoteSearchQuery, NoteBboxQuery, NoteIdsQuery, NoteFetchDetails} from './query'
 import {makeNoteQueryStringWithHostHash, getNextFetchDetails} from './query'
 import type {NoteTableUpdater} from './table'
-import {makeElement, makeDiv, makeLink} from './html'
-import {makeEscapeTag} from './escape'
+import {makeElement, makeDiv, makeLink} from './util/html'
+import {makeEscapeTag} from './util/escape'
 
 const e=makeEscapeTag(encodeURIComponent)
 

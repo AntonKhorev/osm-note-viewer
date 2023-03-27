@@ -1,6 +1,6 @@
 import type NoteViewerStorage from './storage'
 import type NoteMap from './map'
-import {makeElement} from './html'
+import {makeElement} from './util/html'
 
 const minHorSideSize=80
 const minVerSideSize=80

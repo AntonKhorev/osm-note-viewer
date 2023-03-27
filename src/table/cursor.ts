@@ -2,8 +2,8 @@ import Pager from './pager'
 import type {KeyResponse} from './cursor-state'
 import CursorState from './cursor-state'
 import makeHelpDialog from '../help-dialog'
-import {makeElement} from '../html'
-import {ul,li,p,kbd} from '../html-shortcuts'
+import {makeElement} from '../util/html'
+import {ul,li,p,kbd} from '../util/html-shortcuts'
 
 export default class Cursor {
 	$helpDialog=makeHelpDialog(`Close note table help`,[

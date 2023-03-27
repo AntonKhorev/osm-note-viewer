@@ -2,9 +2,9 @@ import {Tool, ToolElements, makeNotesIcon, makeMapIcon} from './base'
 import type {Note} from '../data'
 import type NoteMap from '../map'
 import {listDecoratedNoteIds, convertDecoratedNoteIdsToPlainText} from '../id-lister'
-import {makeLink} from '../html'
-import {p,em,ul,li,code} from '../html-shortcuts'
-import {makeEscapeTag} from '../escape'
+import {makeLink} from '../util/html'
+import {p,em,ul,li,code} from '../util/html-shortcuts'
+import {makeEscapeTag} from '../util/escape'
 
 const e=makeEscapeTag(encodeURIComponent)
 

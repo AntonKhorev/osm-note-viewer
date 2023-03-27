@@ -3,7 +3,7 @@ import type {ApiUrlLister, WebUrlLister} from './net/server'
 import type {UserQuery} from './query-user'
 import {toUserQuery, makeUserQueryFromUserNameAndId} from './query-user'
 import {toDateQuery, toUrlDate} from './query-date'
-import {escapeHash} from './escape' // TODO use escapeHash() instead of encodeURIComponent() for all hash parameters; won't have to use "." as a separator in ids parameter
+import {escapeHash} from './util/escape' // TODO use escapeHash() instead of encodeURIComponent() for all hash parameters; won't have to use "." as a separator in ids parameter
 
 const defaultLowerDate=Date.parse('2001-01-01 00:00:00Z')/1000
 

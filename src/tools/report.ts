@@ -1,8 +1,8 @@
 import {Tool, ToolElements, makeNotesIcon} from './base'
 import ConfirmedButtonListener from '../confirmed-button-listener'
-import {makeLink} from '../html'
-import {em,p,ul,li} from '../html-shortcuts'
-import {makeEscapeTag} from '../escape'
+import {makeLink} from '../util/html'
+import {em,p,ul,li} from '../util/html-shortcuts'
+import {makeEscapeTag} from '../util/escape'
 
 export class ReportTool extends Tool {
 	id='report'

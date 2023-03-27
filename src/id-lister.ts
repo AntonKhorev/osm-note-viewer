@@ -1,5 +1,5 @@
 import type {WebProvider} from './net/server'
-import {makeEscapeTag, escapeXml} from './escape'
+import {makeEscapeTag, escapeXml} from './util/escape'
 
 type Item = [text: string, id?: number]
 

@@ -4,9 +4,9 @@ import type ServerList from './server-list'
 import makeCodeForm from '../code'
 import {parseServerListSource} from './server-list-parser'
 import RadioTable from '../radio-table'
-import {makeElement, makeDiv, makeLink} from '../html'
-import {code} from '../html-shortcuts'
-import {escapeHash} from '../escape'
+import {makeElement, makeDiv, makeLink} from '../util/html'
+import {code} from '../util/html-shortcuts'
+import {escapeHash} from '../util/escape'
 
 function term(t:string):string {
 	return `<em>&lt;${t}&gt;</em>`

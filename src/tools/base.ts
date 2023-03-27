@@ -1,7 +1,7 @@
 import type {Note} from '../data'
 import type Auth from '../auth'
 import type NoteMap from '../map'
-import {makeElement, startAnimation, cleanupAnimationOnEnd} from '../html'
+import {makeElement, startAnimation, cleanupAnimationOnEnd} from '../util/html'
 
 export type ToolElements = Array<string|HTMLElement>
 

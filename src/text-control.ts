@@ -1,4 +1,4 @@
-import {makeDiv, makeSemiLink} from './html'
+import {makeDiv, makeSemiLink} from './util/html'
 
 export default class TextControl {
 	$controls: HTMLDivElement

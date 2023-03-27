@@ -1,6 +1,6 @@
 import type NoteViewerStorage from './storage'
 import type NoteMap from './map'
-import {escapeXml, makeEscapeTag} from './escape'
+import {escapeXml, makeEscapeTag} from './util/escape'
 
 const e=makeEscapeTag(escapeXml)
 

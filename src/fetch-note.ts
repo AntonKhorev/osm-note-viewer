@@ -1,7 +1,7 @@
 import type {ApiProvider} from './net/server'
 import type {Note, Users} from './data'
 import {isNoteFeature, transformFeatureToNotesAndUsers} from './data'
-import {makeEscapeTag} from './escape'
+import {makeEscapeTag} from './util/escape'
 
 const e=makeEscapeTag(encodeURIComponent)
 

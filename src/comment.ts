@@ -1,5 +1,5 @@
 import type {WebUrlLister} from './net/server'
-import {escapeRegex} from './escape'
+import {escapeRegex} from './util/escape'
 
 interface BaseCommentItem {
 	text: string

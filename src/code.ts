@@ -1,4 +1,4 @@
-import {makeDiv, makeLabel} from './html'
+import {makeDiv, makeLabel} from './util/html'
 
 export default function makeCodeForm(
 	initialValue: string,

@@ -16,7 +16,7 @@ import ToolPanel from './tool-panel'
 import fetchTableNote, {getFetchTableNoteErrorMessage} from './fetch-note'
 import OsmDownloader from './osm-downloader'
 import TimeTitleUpdater from './time-title-updater'
-import {bubbleCustomEvent, makeDiv} from './html'
+import {bubbleCustomEvent, makeDiv} from './util/html'
 import serverListConfig from './server-list-config'
 
 main()

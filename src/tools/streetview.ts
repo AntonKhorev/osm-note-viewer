@@ -1,8 +1,8 @@
 import {Tool, ToolElements, makeMapIcon} from './base'
 import type NoteMap from '../map'
-import {makeLink} from '../html'
-import {p} from '../html-shortcuts'
-import {makeEscapeTag} from '../escape'
+import {makeLink} from '../util/html'
+import {p} from '../util/html-shortcuts'
+import {makeEscapeTag} from '../util/escape'
 
 abstract class StreetViewTool extends Tool {
 	protected isActiveWithCurrentServer(): boolean {

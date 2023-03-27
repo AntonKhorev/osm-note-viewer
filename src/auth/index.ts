@@ -4,7 +4,7 @@ import type ServerList from '../net/server-list'
 import AuthStorage from './storage'
 import AuthAppSection from './app-section'
 import AuthLoginSection from './login-section'
-import {makeElement, makeDiv, makeLink} from '../html'
+import {makeElement, makeDiv, makeLink} from '../util/html'
 
 export {AuthLoginSection}
 

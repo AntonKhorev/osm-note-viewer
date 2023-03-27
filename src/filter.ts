@@ -2,7 +2,7 @@ import type {Note, NoteComment} from './data'
 import type {ApiUrlLister, WebUrlLister} from './net/server'
 import type {ValidUserQuery} from './query-user'
 import {toUserQuery} from './query-user'
-import {escapeRegex} from './escape'
+import {escapeRegex} from './util/escape'
 
 type Operator = '=' | '!=' | '~='
 

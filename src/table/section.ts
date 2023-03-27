@@ -3,8 +3,8 @@ import type {WebProvider} from '../net/server'
 import type CommentWriter from '../comment-writer'
 import {makeDateOutput} from '../comment-writer'
 import {toReadableDate} from '../query-date'
-import {makeDiv, makeElement} from '../html'
-import {a,mark} from '../html-shortcuts'
+import {makeDiv, makeElement} from '../util/html'
+import {a,mark} from '../util/html-shortcuts'
 
 export function writeHeadSectionRow(
 	$section: HTMLTableSectionElement,

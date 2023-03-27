@@ -1,7 +1,7 @@
 import type {LooseParseType} from './loose'
 import type {WebUrlLister} from './net/server'
-import {makeElement} from './html'
-import {makeEscapeTag} from './escape'
+import {makeElement} from './util/html'
+import {makeEscapeTag} from './util/escape'
 
 const e=makeEscapeTag(encodeURIComponent)
 const makeItem=makeElement('li')()

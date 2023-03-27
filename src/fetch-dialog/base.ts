@@ -1,8 +1,8 @@
 import type Auth from '../auth'
 import {NavDialog} from '../navbar'
 import type {NoteQuery} from '../query'
-import {makeElement, makeLink, makeDiv, makeLabel} from '../html'
-import {em,sup,code} from '../html-shortcuts'
+import {makeElement, makeLink, makeDiv, makeLabel} from '../util/html'
+import {em,sup,code} from '../util/html-shortcuts'
 
 export interface NoteFetchDialogSharedCheckboxes {
 	showImages: HTMLInputElement[]

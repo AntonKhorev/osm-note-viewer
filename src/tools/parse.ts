@@ -1,7 +1,7 @@
 import {Tool, ToolElements} from './base'
 import CommentWriter from '../comment-writer'
-import {makeElement, makeLink} from '../html'
-import {p,ul,li} from '../html-shortcuts'
+import {makeElement, makeLink} from '../util/html'
+import {p,ul,li} from '../util/html-shortcuts'
 
 export class ParseTool extends Tool {
 	id='parse'

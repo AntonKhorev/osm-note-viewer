@@ -3,8 +3,8 @@ import type NoteViewerDB from './db'
 import type {FetchEntry} from './db'
 import type ServerList from './net/server-list'
 import ConfirmedButtonListener from './confirmed-button-listener'
-import {makeElement, makeDiv, makeLink} from './html'
-import {p} from './html-shortcuts'
+import {makeElement, makeDiv, makeLink} from './util/html'
+import {p} from './util/html-shortcuts'
 
 export default class StorageSection {
 	constructor(
