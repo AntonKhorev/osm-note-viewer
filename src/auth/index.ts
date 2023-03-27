@@ -4,44 +4,11 @@ import type ServerList from '../net/server-list'
 import AuthStorage from './storage'
 import AuthAppSection from './app-section'
 import AuthLoginSection from './login-section'
-import {makeElement, makeDiv, makeLink} from '../util/html'
+import {makeElement} from '../util/html'
 
 export {AuthLoginSection}
 
-interface AuthOpener {
-	receiveOsmNoteViewerAuthCode(code:unknown):unknown
-	receiveOsmNoteViewerAuthDenial(errorDescription:unknown):unknown
-}
-function isAuthOpener(o:any): o is AuthOpener {
-	return (
-		o && typeof o == 'object' &&
-		typeof o.receiveOsmNoteViewerAuthCode == 'function' &&
-		typeof o.receiveOsmNoteViewerAuthDenial == 'function'
-	)
-}
-
-const installUri=`${location.protocol}//${location.host}${location.pathname}`
-
-export function checkAuthRedirect(): boolean {
-	const params=new URLSearchParams(location.search)
-	const code=params.get('code')
-	const error=params.get('error')
-	const errorDescription=params.get('error_description')
-	if (code==null && error==null) {
-		return false
-	}
-	if (!isAuthOpener(window.opener)) {
-		document.body.append(makeDiv('notice')(
-			`You opened the location of note-viewer's authentication redirect for a popup window outside of a popup window. `,
-			`If you want to continue using note-viewer, please open `,makeLink(`this link`,installUri),`.`
-		))
-	} else if (code!=null) {
-		window.opener.receiveOsmNoteViewerAuthCode(code)
-	} else if (error!=null) {
-		window.opener.receiveOsmNoteViewerAuthDenial(errorDescription??error)
-	}
-	return true
-}
+const installUri=`${location.protocol}//${location.host}${location.pathname}` // TODO get from net/index
 
 export default class Auth {
 	readonly authStorage: AuthStorage
