@@ -14,10 +14,8 @@ describe("CommentWriter",()=>{
 	})
 	it("writes links",function(){
 		const commentWriter=new CommentWriter({
-			web: {
-				urls: [`https://osmtest.example.com/`],
-				getUrl: webPath=>`https://osmtest.example.com/`+webPath
-			}
+			urls: [`https://osmtest.example.com/`],
+			getUrl: webPath=>`https://osmtest.example.com/`+webPath
 		})
 		const [inlines,images]=commentWriter.makeCommentElements(`https://osmtest.example.com/changeset/133024245`)
 		assert.deepEqual(images,[])

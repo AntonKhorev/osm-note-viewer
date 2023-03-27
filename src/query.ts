@@ -81,11 +81,11 @@ function makeNoteSearchQueryFromUserQueryAndValues(
 }
 
 export function makeNoteSearchQueryFromValues(
-	urlLister: ApiUrlLister&WebUrlLister,
+	apiUrlLister: ApiUrlLister, webUrlLister: WebUrlLister,
 	userValue: string, textValue: string, fromValue: string, toValue: string, closedValue: string, sortValue: string, orderValue: string
 ): NoteSearchQuery | undefined {
 	return makeNoteSearchQueryFromUserQueryAndValues(
-		toUserQuery(urlLister,userValue),
+		toUserQuery(apiUrlLister,webUrlLister,userValue),
 		textValue,fromValue,toValue,closedValue,sortValue,orderValue
 	)
 }

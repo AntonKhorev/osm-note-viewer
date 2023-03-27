@@ -1,20 +1,6 @@
 import {makeLink} from '../html'
 import {makeEscapeTag} from '../escape'
 
-export interface ApiUrlLister {
-	api: {
-		get url(): string
-		getUrl(apiPath:string): string
-	}
-}
-
-export interface WebUrlLister {
-	web: {
-		get urls(): readonly string[]
-		getUrl(webPath:string): string
-	}
-}
-
 export class QueryError {
 	get reason():string {
 		return `for unknown reason`
@@ -35,6 +21,15 @@ export class ResponseQueryError extends QueryError {
 	get reason():string {
 		return `receiving the following message: ${this.text}`
 	}
+}
+
+export interface ApiUrlLister {
+	get url(): string
+}
+
+export interface WebUrlLister {
+	get urls(): readonly string[]
+	getUrl(webPath:string): string
 }
 
 abstract class OsmProvider {
@@ -83,7 +78,7 @@ abstract class OsmProvider {
 	}
 }
 
-export class WebProvider extends OsmProvider {
+export class WebProvider extends OsmProvider implements WebUrlLister {
 	constructor(
 		public readonly urls: string[]
 	) {
@@ -105,7 +100,7 @@ export class WebProvider extends OsmProvider {
 	}
 }
 
-export class ApiProvider extends OsmProvider {
+export class ApiProvider extends OsmProvider implements ApiUrlLister {
 	constructor(
 		public readonly url: string
 	) {
@@ -190,7 +185,7 @@ export class OverpassTurboProvider {
 	}
 }
 
-export default class Server implements ApiUrlLister, WebUrlLister {
+export default class Server {
 	public readonly web: WebProvider
 	public readonly api: ApiProvider
 	public readonly tile: TileProvider

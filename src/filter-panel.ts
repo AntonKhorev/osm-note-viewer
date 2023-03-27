@@ -67,17 +67,17 @@ export default class NoteFilterPanel {
 	onFilterUpdate?: (noteFilter: NoteFilter) => void
 	constructor(
 		storage: NoteViewerStorage,
-		urlLister: ApiUrlLister&WebUrlLister,
+		apiUrlLister: ApiUrlLister, webUrlLister: WebUrlLister,
 		$container: HTMLElement
 	) {
-		this.noteFilter=new NoteFilter(urlLister,``)
+		this.noteFilter=new NoteFilter(apiUrlLister,webUrlLister,``)
 		const $form=makeCodeForm(
 			'',storage.getString('filter'),
 			`Note filter`,`Filter`,`Apply filter`,
 			input=>this.noteFilter.isSameQuery(input),
-			input=>new NoteFilter(urlLister,input),
+			input=>new NoteFilter(apiUrlLister,webUrlLister,input),
 			input=>{
-				this.noteFilter=new NoteFilter(urlLister,input)
+				this.noteFilter=new NoteFilter(apiUrlLister,webUrlLister,input)
 				storage.setString('filter',input)
 			},
 			()=>{

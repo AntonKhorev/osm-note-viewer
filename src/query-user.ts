@@ -23,7 +23,7 @@ export interface EmptyUserQuery {
 
 export type UserQuery = ValidUserQuery | InvalidUserQuery | EmptyUserQuery
 
-export function toUserQuery(urlLister: ApiUrlLister&WebUrlLister, value: string): UserQuery {
+export function toUserQuery(apiUrlLister: ApiUrlLister, webUrlLister: WebUrlLister, value: string): UserQuery {
 	const s=value.trim()
 	if (s=='') return {
 		userType: 'empty'
@@ -51,7 +51,7 @@ export function toUserQuery(urlLister: ApiUrlLister&WebUrlLister, value: string)
 	}
 	if (s.includes('/')) {
 		const hosts=new Set<string>()
-		for (const urlString of [urlLister.api.url,...urlLister.web.urls]) {
+		for (const urlString of [apiUrlLister.url,...webUrlLister.urls]) {
 			try {
 				const url=new URL(urlString)
 				hosts.add(url.host)

@@ -51,7 +51,7 @@ function isValidOperator(op: string): op is Operator {
 
 export default class NoteFilter {
 	private statements: Statement[] = []
-	constructor(urlLister: ApiUrlLister&WebUrlLister, private query: string) {
+	constructor(apiUrlLister: ApiUrlLister, webUrlLister: WebUrlLister, private query: string) {
 		let lineNumber=0
 		lineLoop: for (const untrimmedLine of query.split('\n')) {
 			lineNumber++
@@ -72,7 +72,7 @@ export default class NoteFilter {
 				if (match=matchTerm('user','(.+)')) {
 					const [,operator,user]=match
 					if (!isValidOperator(operator)) continue // impossible
-					const userQuery=toUserQuery(urlLister,user)
+					const userQuery=toUserQuery(apiUrlLister,webUrlLister,user)
 					if (userQuery.userType=='invalid' || userQuery.userType=='empty') {
 						throwError(`Invalid user value "${user}"`)
 					}

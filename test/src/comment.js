@@ -2,11 +2,9 @@ import {strict as assert} from 'assert'
 import getCommentItems from '../../test-build/comment.js'
 
 class WebUrlLister {
-	constructor(webUrls) {
-		this.web={
-			urls: webUrls,
-			getUrl: webPath=>`${webUrls[0]}${webPath}`
-		}
+	constructor(urls) {
+		this.urls=urls
+		this.getUrl=webPath=>`${urls[0]}${webPath}`
 	}
 }
 

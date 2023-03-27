@@ -109,10 +109,10 @@ export default class NoteTable implements NoteTableUpdater {
 				visibleNoteIds.map(id=>this.notesById.get(id)).filter(isDefined)
 			)
 		})
-		this.commentWriter=new CommentWriter(server)
+		this.commentWriter=new CommentWriter(server.web)
 		$container.append(this.$table)
 		this.reset()
-		const looseParserPopup=new LooseParserPopup(server,$container)
+		const looseParserPopup=new LooseParserPopup(server.web,$container)
 		this.looseParserListener=new LooseParserListener((x,y,text)=>{
 			const parseResult=parseLoose(text)
 			if (!parseResult) return

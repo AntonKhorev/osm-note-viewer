@@ -34,7 +34,7 @@ export default class LooseParserPopup {
 	private makeLink(id: number, type: LooseParseType): HTMLAnchorElement {
 		if (type==null) return makeElement('a')()('?')
 		const $a=makeElement('a')()(type)
-		$a.href=this.webUrlLister.web.getUrl(e`${type}/${id}`)
+		$a.href=this.webUrlLister.getUrl(e`${type}/${id}`)
 		if (type=='note') {
 			$a.classList.add('other-note')
 			$a.dataset.noteId=String(id)

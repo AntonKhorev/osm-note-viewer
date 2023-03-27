@@ -1,31 +1,32 @@
 import {strict as assert} from 'assert'
 import NoteFilter from '../../test-build/filter.js'
 
-class ApiAndWebUrlLister {
-	constructor(apiUrl,webUrls) {
-		this.api={
-			url: apiUrl,
-			getUrl: apiPath=>`${apiUrl}api/0.6/${apiPath}`
-		}
-		this.web={
-			urls: webUrls,
-			getUrl: webPath=>`${webUrls[0]}${webPath}`
-		}
+class ApiUrlLister {
+	constructor(url) {
+		this.url=url
 	}
 }
 
-const defaultApiAndWebUrlLister=new ApiAndWebUrlLister(
-	`https://api.openstreetmap.org/`,[
+class WebUrlLister {
+	constructor(urls) {
+		this.urls=urls
+		this.getUrl=webPath=>`${urls[0]}${webPath}`
+	}
+}
+
+const defaultListers=[
+	new ApiUrlLister(`https://api.openstreetmap.org/`),
+	new WebUrlLister([
 		`https://www.openstreetmap.org/`,
 		`https://openstreetmap.org/`,
 		`https://www.osm.org/`,
 		`https://osm.org/`,
-	]
-)
+	])
+]
 
 class DefaultNoteFilter extends NoteFilter {
 	constructor(query) {
-		super(defaultApiAndWebUrlLister,query)
+		super(...defaultListers,query)
 	}
 }
 
