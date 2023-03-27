@@ -1,4 +1,4 @@
-import {makeElement, makeLink} from './util/html'
+import {makeElement, makeLink} from './html'
 
 type Content = Array<string|HTMLElement>
 
