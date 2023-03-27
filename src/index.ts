@@ -1,7 +1,7 @@
 import type {Note, Users} from './data'
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
-import ServerList from './server-list'
+import ServerList from './net/server-list'
 import GlobalEventsListener from './events'
 import GlobalHistory, {GlobalHistoryWithServer} from './history'
 import Auth, {checkAuthRedirect} from './auth'

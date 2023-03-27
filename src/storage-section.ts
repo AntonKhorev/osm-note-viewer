@@ -1,7 +1,7 @@
 import type NoteViewerStorage from './storage'
 import type NoteViewerDB from './db'
 import type {FetchEntry} from './db'
-import type ServerList from './server-list'
+import type ServerList from './net/server-list'
 import ConfirmedButtonListener from './confirmed-button-listener'
 import {makeElement, makeDiv, makeLink} from './html'
 import {p} from './html-shortcuts'

@@ -1,4 +1,4 @@
-import type ServerList from './server-list'
+import type ServerList from './net/server-list'
 import type Server from './server'
 import {getHashSearchParams} from './hash'
 import {escapeHash} from './escape'

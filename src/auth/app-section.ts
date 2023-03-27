@@ -1,5 +1,5 @@
 import type Server from '../server'
-import type ServerList from '../server-list'
+import type ServerList from '../net/server-list'
 import type AuthStorage from './storage'
 import {p,ol,ul,li,em,strong,mark,code} from '../html-shortcuts'
 import {makeElement, makeDiv, makeLink, makeLabel} from '../html'

@@ -52,7 +52,7 @@ export async function buildTest(srcDir,testDir,dstDir) {
 export async function checkServerConfig(serverListConfig,srcDir) {
 	const inputName=`virtual-config-checker`
 	const inputCode=[
-		`import {parseServerListSource} from './${srcDir}/server-list-parser.ts'`,
+		`import {parseServerListSource} from './${srcDir}/net/server-list-parser.ts'`,
 		`parseServerListSource(`+JSON.stringify(serverListConfig,undefined,4)+`)`,
 	].join('\n')
 	const bundle=await rollup({

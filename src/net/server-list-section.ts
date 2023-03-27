@@ -1,13 +1,13 @@
-import type NoteViewerStorage from './storage'
-import type Server from './server'
+import type NoteViewerStorage from '../storage'
+import type Server from '../server'
 import type ServerList from './server-list'
-import makeCodeForm from './code'
-import serverListConfig from './server-list-config'
+import makeCodeForm from '../code'
+import serverListConfig from '../server-list-config'
 import {parseServerListSource} from './server-list-parser'
-import RadioTable from './radio-table'
-import {makeElement, makeDiv, makeLink} from './html'
-import {code} from './html-shortcuts'
-import {escapeHash} from './escape'
+import RadioTable from '../radio-table'
+import {makeElement, makeDiv, makeLink} from '../html'
+import {code} from '../html-shortcuts'
+import {escapeHash} from '../escape'
 
 function term(t:string):string {
 	return `<em>&lt;${t}&gt;</em>`
