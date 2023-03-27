@@ -5,7 +5,7 @@ import {OsmDataLayers, NoteLayer, CrosshairLayer} from './layers'
 import type {GeometryData, LayerBoundOsmData} from './osm'
 import {renderOsmElement, renderOsmChangeset, renderOsmChangesetAdiff} from './osm'
 import {makePopupWriter} from './popup'
-import {bubbleCustomEvent} from '../util/html'
+import {bubbleCustomEvent} from '../util/events'
 import {escapeXml, makeEscapeTag} from '../util/escape'
 
 export {NoteMarker, NoteMapBounds}

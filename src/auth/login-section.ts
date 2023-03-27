@@ -3,11 +3,8 @@ import type AuthStorage from './storage'
 import type {Login} from './storage'
 import AuthLoginForms, {AuthError} from './login-forms'
 import RadioTable from '../radio-table'
-import {
-	makeElement, makeDiv,
-	wrapFetchForButton, makeGetKnownErrorMessage,
-	bubbleEvent
-} from '../util/html'
+import {makeElement, makeDiv, wrapFetchForButton, makeGetKnownErrorMessage} from '../util/html'
+import {bubbleEvent} from '../util/events'
 import {em} from '../util/html-shortcuts'
 import {isArrayOfStrings} from '../types'
 

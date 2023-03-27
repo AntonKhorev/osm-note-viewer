@@ -1,5 +1,6 @@
 import {Tool, ToolElements, makeNotesIcon,  makeMapIcon, makeNoteStatusIcon} from './base'
-import {bubbleCustomEvent, makeElement, makeLink} from '../util/html'
+import {bubbleCustomEvent} from '../util/events'
+import {makeElement, makeLink} from '../util/html'
 import {em,dfn,p} from '../util/html-shortcuts'
 
 export class AutozoomTool extends Tool {

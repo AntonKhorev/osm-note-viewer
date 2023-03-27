@@ -9,7 +9,7 @@ import type {NoteFetcherEnvironment, NoteFetcherRun} from './fetch'
 import {NoteSearchFetcherRun, NoteBboxFetcherRun, NoteIdsFetcherRun} from './fetch'
 import type {NoteFetchDialog} from './fetch-dialog'
 import NoteFetchDialogs from './fetch-dialog'
-import {bubbleCustomEvent} from './util/html'
+import {bubbleCustomEvent} from './util/events'
 
 export default class NoteFetchPanel {
 	// TODO have invoking dialog object; react only on dl params change in it; display that fieldset differently

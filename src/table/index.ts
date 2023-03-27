@@ -14,7 +14,8 @@ import type NoteFilter from '../filter'
 import NoteSectionVisibilityObserver from './observer'
 import IdShortener from '../id-shortener'
 import type Server from '../net/server'
-import {makeElement, resetAnimation, bubbleCustomEvent} from '../util/html'
+import {makeElement, resetAnimation} from '../util/html'
+import {bubbleCustomEvent} from '../util/events'
 
 export interface NoteTableUpdater {
 	addNotes(notes: Iterable<Note>, users: Users): number

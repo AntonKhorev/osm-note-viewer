@@ -2,7 +2,8 @@ import {Tool, ToolElements, makeActionIcon} from './base'
 import type {Note, Users} from '../data'
 import {getNoteUpdateDate} from '../data'
 import fetchTableNote, {getFetchTableNoteErrorMessage} from '../fetch-note'
-import {bubbleCustomEvent, makeElement, makeLabel} from '../util/html'
+import {bubbleCustomEvent} from '../util/events'
+import {makeElement, makeLabel} from '../util/html'
 import RefreshToolScheduler from './refresh-scheduler'
 
 export class RefreshTool extends Tool {

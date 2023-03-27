@@ -2,7 +2,7 @@ import type Server from './net/server'
 import type {OsmChangesetWithBbox} from './osm'
 import {hasBbox, getChangesetFromOsmApiResponse, getElementsFromOsmApiResponse, getAdiffFromDocument} from './osm'
 import {toUrlDate} from './query-date'
-import {bubbleCustomEvent} from './util/html'
+import {bubbleCustomEvent} from './util/events'
 import {makeEscapeTag} from './util/escape'
 
 const e=makeEscapeTag(encodeURIComponent)
