@@ -1,5 +1,5 @@
 import type {Note, NoteComment} from './data'
-import type {ApiUrlLister, WebUrlLister} from './net/server'
+import type {ApiUrlLister, WebUrlLister} from './net'
 import type {UserQuery} from './query-user'
 import {toUserQuery, makeUserQueryFromUserNameAndId} from './query-user'
 import {toDateQuery, toUrlDate} from './query-date'

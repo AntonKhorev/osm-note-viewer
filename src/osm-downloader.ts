@@ -1,4 +1,4 @@
-import type Server from './net/server'
+import type {Server} from './net'
 import type {OsmChangesetWithBbox} from './osm'
 import {hasBbox, getChangesetFromOsmApiResponse, getElementsFromOsmApiResponse, getAdiffFromDocument} from './osm'
 import {toUrlDate} from './query-date'

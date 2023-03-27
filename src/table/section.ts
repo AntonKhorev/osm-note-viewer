@@ -1,5 +1,5 @@
 import type {Note, NoteComment, Users} from '../data'
-import type {WebProvider} from '../net/server'
+import type {WebProvider} from '../net'
 import type CommentWriter from '../comment-writer'
 import {makeDateOutput} from '../comment-writer'
 import {toReadableDate} from '../query-date'

@@ -13,7 +13,7 @@ import CommentWriter, {handleShowImagesUpdate} from '../comment-writer'
 import type NoteFilter from '../filter'
 import NoteSectionVisibilityObserver from './observer'
 import IdShortener from '../id-shortener'
-import type Server from '../net/server'
+import type {Server} from '../net'
 import {makeElement, resetAnimation} from '../util/html'
 import {bubbleCustomEvent} from '../util/events'
 

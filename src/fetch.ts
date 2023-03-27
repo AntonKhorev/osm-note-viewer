@@ -1,6 +1,6 @@
 import type NoteViewerDB from './db'
 import type {FetchEntry} from './db'
-import type {ApiProvider} from './net/server'
+import type {ApiProvider} from './net'
 import type {Note, Users} from './data'
 import {isNoteFeatureCollection, isNoteFeature, transformFeatureCollectionToNotesAndUsers, transformFeatureToNotesAndUsers} from './data'
 import type {NoteQuery, NoteSearchQuery, NoteBboxQuery, NoteIdsQuery, NoteFetchDetails} from './query'

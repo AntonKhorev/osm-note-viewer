@@ -11,6 +11,7 @@ import {checkAuthRedirectForInstallUri} from './redirect'
 import {makeElement} from '../util/html'
 
 export {Server, ServerList}
+export * from './server'
 
 const installUri=`${location.protocol}//${location.host}${location.pathname}`
 

@@ -5,7 +5,7 @@ import type {
 
 import {Tool, ToolElements, makeNotesIcon} from './base'
 import type {Note, NoteComment} from '../data'
-import type Server from '../net/server'
+import type {Server} from '../net'
 import {toReadableDate, toUrlDate} from '../query-date'
 import {makeLink, makeLabel} from '../util/html'
 import {em,dfn,code,p,ul,li} from '../util/html-shortcuts'

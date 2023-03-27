@@ -1,4 +1,4 @@
-import type {ApiUrlLister, WebUrlLister} from './net/server'
+import type {ApiUrlLister, WebUrlLister} from './net'
 
 export interface UsernameQuery {
 	userType: 'name'

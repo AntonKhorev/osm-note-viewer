@@ -1,4 +1,4 @@
-import type {ApiProvider} from './net/server'
+import type {ApiProvider} from './net'
 import type {Note, Users} from './data'
 import {isNoteFeature, transformFeatureToNotesAndUsers} from './data'
 import {makeEscapeTag} from './util/escape'

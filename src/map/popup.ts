@@ -1,4 +1,4 @@
-import Server from '../net/server'
+import {Server} from '../net'
 import type {OsmBase, OsmElementBase, OsmAdiffElement} from '../osm'
 import type {LayerBoundOsmData} from './osm'
 import compareKeys from './popup-key-compare'
