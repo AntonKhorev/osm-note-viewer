@@ -1,12 +1,11 @@
 import type NoteViewerStorage from '../storage'
 
-import AuthStorage from '../auth/storage'
-import AuthAppSection from '../auth/app-section'
-import AuthLoginSection from '../auth/login-section'
-
+import AuthStorage from './auth-storage'
 import Server from './server'
 import ServerList from './server-list'
 import ServerListSection from './server-list-section'
+import AppSection from './app-section'
+import LoginSection from './login-section'
 import {checkAuthRedirectForInstallUri} from './redirect'
 
 import {makeElement} from '../util/html'
@@ -53,7 +52,7 @@ export default class Net<T extends ServerSelector> {
 	readonly $appSection?: HTMLElement
 	readonly $serverListSection: HTMLElement
 	readonly $sections: HTMLElement[] = []
-	private readonly loginSection?: AuthLoginSection
+	private readonly loginSection?: LoginSection
 	constructor(
 		storage: NoteViewerStorage,
 		serverListConfig: unknown,
@@ -76,8 +75,8 @@ export default class Net<T extends ServerSelector> {
 			this.cx=new Connection(server,authStorage)
 			this.$appSection=makeElement('section')()()
 			this.$loginSection=makeElement('section')()()
-			const appSection=new AuthAppSection(this.$appSection,authStorage,server,this.serverSelector)
-			const loginSection=new AuthLoginSection(this.$loginSection,authStorage,server)
+			const appSection=new AppSection(this.$appSection,authStorage,server,this.serverSelector)
+			const loginSection=new LoginSection(this.$loginSection,authStorage,server)
 			appSection.onRegistrationUpdate=()=>loginSection.respondToAppRegistration()
 			this.$sections.push(this.$loginSection,this.$appSection)
 			this.loginSection=loginSection

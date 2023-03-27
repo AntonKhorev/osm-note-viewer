@@ -1,7 +1,8 @@
-import type Server from '../net/server'
-import type AuthStorage from './storage'
-import type {Login} from './storage'
-import AuthLoginForms, {AuthError} from './login-forms'
+import type Server from './server'
+import type AuthStorage from './auth-storage'
+import type {Login} from './auth-storage'
+import LoginForms, {AuthError} from './login-forms'
+
 import RadioTable from '../util/radio-table'
 import {makeElement, makeDiv, wrapFetchForButton, makeGetKnownErrorMessage} from '../util/html'
 import {bubbleEvent} from '../util/events'
@@ -64,12 +65,12 @@ function makeLogin(scope: string, userData: Readonly<UserData>): Login {
 	return login
 }
 
-export default class AuthLoginSection {
+export default class LoginSection {
 	private readonly $clientIdRequired=makeDiv('notice')(
 		`Please register the app and enter the `,em(`client id`),` below to be able to login.`
 	)
 	private readonly $loginForms=makeDiv()()
-	private readonly loginForms: AuthLoginForms
+	private readonly loginForms: LoginForms
 	private readonly $logins=makeDiv()()
 	constructor(
 		private readonly $section: HTMLElement,
@@ -174,7 +175,7 @@ export default class AuthLoginSection {
 			this.$logins.replaceChildren(loginTable.$table)
 		}
 
-		this.loginForms=new AuthLoginForms(this.$loginForms,authStorage.isManualCodeEntry,(codeChallenge:string)=>{
+		this.loginForms=new LoginForms(this.$loginForms,authStorage.isManualCodeEntry,(codeChallenge:string)=>{
 			return server.web.getUrl('oauth2/authorize')+'?'+[
 				['client_id',authStorage.clientId],
 				['redirect_uri',authStorage.redirectUri],

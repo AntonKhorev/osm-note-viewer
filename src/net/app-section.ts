@@ -1,12 +1,12 @@
-import type {ServerSelector} from '../net'
-import type Server from '../net/server'
-import type AuthStorage from './storage'
+import type {ServerSelector} from '.'
+import type Server from './server'
+import type AuthStorage from './auth-storage'
 import {p,ol,ul,li,em,strong,mark,code} from '../util/html-shortcuts'
 import {makeElement, makeDiv, makeLink, makeLabel} from '../util/html'
 
 const app=()=>em(`osm-note-viewer`)
 
-export default class AuthAppSection {
+export default class AppSection {
 	onRegistrationUpdate?: ()=>void
 	constructor(
 		$section: HTMLElement,

@@ -6,7 +6,7 @@ import {p,em} from '../util/html-shortcuts'
 
 export class AuthError extends TypeError {}
 
-export default class AuthLoginForms {
+export default class LoginForms {
 	readonly $loginButton=makeElement('button')()(`Login`)
 	private readonly $cancelLoginButton=makeElement('button')()(`Cancel login`)
 	private readonly $manualCodeForm=document.createElement('form')
