@@ -2,9 +2,9 @@ import Server from './server'
 import {parseServerListSource, parseServerListItem} from './server-list-parser'
 
 export default class ServerList {
-	private defaultServer: Server
-	defaultServerListConfig: unknown
-	servers = new Map<string,Server>()
+	readonly defaultServer: Server
+	readonly defaultServerListConfig: unknown
+	readonly servers = new Map<string,Server>()
 	constructor(...configSources:unknown[]) {
 		;[this.defaultServerListConfig]=configSources
 		for (const configSource of configSources) {
@@ -21,17 +21,6 @@ export default class ServerList {
 			const server=new Server(...parameters)
 			this.servers.set(server.host,server)
 		}
-		[this.defaultServer]=this.servers.values()
-	}
-	getHostHashValue(server:Server): string|null {
-		let hostHashValue:null|string = null
-		if (server!=this.defaultServer) {
-			hostHashValue=server.host
-		}
-		return hostHashValue
-	}
-	getServer(hostHash:string|null): Server|undefined {
-		if (hostHash==null) return this.defaultServer
-		return this.servers.get(hostHash)
+		;[this.defaultServer]=this.servers.values()
 	}
 }

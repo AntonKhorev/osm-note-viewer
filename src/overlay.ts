@@ -4,6 +4,7 @@ import type NoteViewerStorage from './storage'
 import type NoteViewerDB from './db'
 import type Server from './net/server'
 import type ServerList from './net/server-list'
+import type {HashServerSelector} from './hash'
 import type Auth from './auth'
 import type {AuthLoginSection} from './auth'
 import type NoteMap from './map'
@@ -48,14 +49,14 @@ export default class OverlayDialog {
 	constructor(
 		$root: HTMLElement,
 		storage: NoteViewerStorage, db: NoteViewerDB,
-		server: Server|undefined, serverList: ServerList, serverHash: string,
+		server: Server|undefined, serverList: ServerList, serverSelector: HashServerSelector,
 		auth: Auth|undefined,
 		private map: NoteMap|undefined,
 		private $menuButton: HTMLButtonElement,
 	) {
 		this.menuHidden=!!auth
 		this.$menuButton.disabled=!auth
-		const loginSection=this.writeMenuPanel(storage,db,server,serverList,serverHash,auth)
+		const loginSection=this.writeMenuPanel(storage,db,server,serverList,serverSelector,auth)
 		this.writeFigureDialog()
 		$root.append(this.$figureHelpDialog)
 		for (const eventType of [
@@ -189,7 +190,7 @@ export default class OverlayDialog {
 	}
 	private writeMenuPanel(
 		storage: NoteViewerStorage, db: NoteViewerDB,
-		server: Server|undefined, serverList: ServerList, serverHash: string,
+		server: Server|undefined, serverList: ServerList, serverSelector: HashServerSelector,
 		auth: Auth|undefined
 	): AuthLoginSection|undefined {
 		const $lead=makeDiv('lead')()
@@ -208,11 +209,11 @@ export default class OverlayDialog {
 		const loginSection=auth?.writeMenuSections($scrolling)
 		{
 			const $subsection=makeElement('section')()()
-			new ServerListSection($subsection,storage,server,serverList,serverHash)
+			new ServerListSection($subsection,storage,server,serverList,serverSelector)
 			$scrolling.append($subsection)
 		}{
 			const $subsection=makeElement('section')()()
-			new StorageSection($subsection,storage,db,serverList)
+			new StorageSection($subsection,storage,db,serverSelector)
 			$scrolling.append($subsection)
 		}
 		$scrolling.append(makeExtraSubsection())

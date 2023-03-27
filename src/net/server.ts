@@ -208,6 +208,9 @@ export default class Server {
 		public readonly noteText: string|undefined,
 		public readonly world: string,
 		public readonly oauthId: string|undefined,
+		/** 
+		  * App location registered with OSM server to receive auth redirects
+		  */
 		public readonly oauthUrl: string|undefined
 	) {
 		this.web=new WebProvider(webUrls)

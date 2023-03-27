@@ -1,38 +1,18 @@
-import type ServerList from './net/server-list'
-import type Server from './net/server'
-import {getHashSearchParams} from './hash'
+import type Net from './net'
+import {getHashSearchParams, HashServerSelector} from './hash'
 import {escapeHash} from './util/escape'
 import {bubbleCustomEvent} from './util/events'
 
 const scrollRestorerEnabled=true // almost works without this, just won't restore position correctly on forward
 
-export interface GlobalHistoryWithServer {
-	$resizeObservationTarget: HTMLElement|undefined
-	readonly server: Server
-	readonly serverList: ServerList
-	triggerInitialMapHashChange(): void
-	restoreScrollPosition(): void
-	getQueryHash(): string
-	hasMapHash(): boolean
-}
-
 export default class GlobalHistory {
 	$resizeObservationTarget: HTMLElement|undefined // needs to be set before calling restoreScrollPosition()
 	private rememberScrollPosition=false
-	public readonly server: Server|undefined
-	public readonly serverHash: string = ''
-	private readonly hostHashValue: string|null
 	constructor(
 		private readonly $root: HTMLElement,
 		private readonly $scrollingPart: HTMLElement,
-		public readonly serverList: ServerList
+		net: Net<HashServerSelector>
 	) {
-		{
-			const [,,hostHashValue]=this.getAllHashes()
-			this.hostHashValue=hostHashValue
-			this.server=this.serverList.getServer(hostHashValue)
-			if (hostHashValue!=null) this.serverHash=`host=`+escapeHash(hostHashValue)
-		}
 		if (!scrollRestorerEnabled) return
 		history.scrollRestoration='manual'
 		const replaceScrollPositionInHistory=()=>{
@@ -49,11 +29,11 @@ export default class GlobalHistory {
 		})
 		window.addEventListener('hashchange',()=>{
 			const [queryHash,mapHashValue,hostHashValue]=this.getAllHashes()
-			if (!this.server) {
-				if (hostHashValue!=this.hostHashValue) location.reload()
+			if (!net.server) {
+				if (hostHashValue!=net.serverSelector.hostHashValue) location.reload()
 				return
 			}
-			if (hostHashValue!=this.serverList.getHostHashValue(this.server)) {
+			if (hostHashValue!=net.serverSelector.getHostHashValue(net.server)) {
 				location.reload()
 				return
 			}
@@ -74,13 +54,13 @@ export default class GlobalHistory {
 			history.replaceState(history.state,'',this.getFullHash(queryHash,mapHashValue,hostHashValue))
 		})
 		$root.addEventListener('osmNoteViewer:newNoteStream',({detail:[queryHash,isNewStart]})=>{
-			if (!this.server) return
+			if (!net.server) return
 			let mapHashValue=''
 			if (!isNewStart) {
 				const searchParams=getHashSearchParams()
 				mapHashValue=searchParams.get('map')??''
 			}
-			const hostHashValue=this.serverList.getHostHashValue(this.server)
+			const hostHashValue=net.serverSelector.getHostHashValue(net.server)
 			const fullHash=this.getFullHash(queryHash,mapHashValue,hostHashValue)
 			if (fullHash!=location.hash) {
 				const url=fullHash||location.pathname+location.search
@@ -133,9 +113,6 @@ export default class GlobalHistory {
 		const searchParams=getHashSearchParams()
 		const mapHashValue=searchParams.get('map')
 		return !!mapHashValue
-	}
-	hasServer(): this is GlobalHistoryWithServer {
-		return !!this.server
 	}
 	private getAllHashes(): [queryHash: string, mapHashValue: string|null, hostHashValue: string|null] {
 		const searchParams=getHashSearchParams()

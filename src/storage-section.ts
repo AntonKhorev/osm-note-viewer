@@ -1,7 +1,7 @@
 import type NoteViewerStorage from './storage'
 import type NoteViewerDB from './db'
 import type {FetchEntry} from './db'
-import type ServerList from './net/server-list'
+import type {HashServerSelector} from './hash'
 import ConfirmedButtonListener from './confirmed-button-listener'
 import {makeElement, makeDiv, makeLink} from './util/html'
 import {p} from './util/html-shortcuts'
@@ -11,7 +11,7 @@ export default class StorageSection {
 		$section: HTMLElement,
 		storage: NoteViewerStorage,
 		db: NoteViewerDB,
-		serverList: ServerList
+		serverSelector: HashServerSelector
 	) {
 		$section.append(
 			makeElement('h2')()(`Storage`)
@@ -54,7 +54,7 @@ export default class StorageSection {
 				const username=searchParams.get('display_name')
 				const ids=searchParams.get('ids')
 				const host=searchParams.get('host')
-				const fetchEntryServer=serverList.getServer(host)
+				const fetchEntryServer=serverSelector.getServer(host)
 				if (username) {
 					if (fetchEntryServer) {
 						const href=fetchEntryServer.web.getUrl(`user/`+encodeURIComponent(username))

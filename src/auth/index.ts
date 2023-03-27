@@ -1,6 +1,6 @@
 import type NoteViewerStorage from '../storage'
+import type {ServerSelector} from '../net'
 import type Server from '../net/server'
-import type ServerList from '../net/server-list'
 import AuthStorage from './storage'
 import AuthAppSection from './app-section'
 import AuthLoginSection from './login-section'
@@ -15,7 +15,7 @@ export default class Auth {
 	constructor(
 		storage: NoteViewerStorage,
 		public readonly server: Server,
-		private readonly serverList: ServerList
+		private readonly serverSelector: ServerSelector
 	) {
 		this.authStorage=new AuthStorage(storage,server.host,installUri)
 	}
@@ -24,7 +24,7 @@ export default class Auth {
 	):AuthLoginSection {
 		const $appSection=makeElement('section')()()
 		const $loginSection=makeElement('section')()()
-		const appSection=new AuthAppSection($appSection,this.authStorage,this.server,this.serverList)
+		const appSection=new AuthAppSection($appSection,this.authStorage,this.server,this.serverSelector)
 		const loginSection=new AuthLoginSection($loginSection,this.authStorage,this.server)
 		appSection.onRegistrationUpdate=()=>loginSection.respondToAppRegistration()
 		$container.append($loginSection,$appSection)

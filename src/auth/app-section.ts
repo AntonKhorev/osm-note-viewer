@@ -1,9 +1,8 @@
+import type {ServerSelector} from '../net'
 import type Server from '../net/server'
-import type ServerList from '../net/server-list'
 import type AuthStorage from './storage'
 import {p,ol,ul,li,em,strong,mark,code} from '../util/html-shortcuts'
 import {makeElement, makeDiv, makeLink, makeLabel} from '../util/html'
-import {escapeHash} from '../util/escape'
 
 const app=()=>em(`osm-note-viewer`)
 
@@ -13,7 +12,7 @@ export default class AuthAppSection {
 		$section: HTMLElement,
 		authStorage: AuthStorage,
 		server: Server,
-		serverList: ServerList
+		serverSelector: ServerSelector
 	) {
 		const isSecureWebInstall=(
 			location.protocol=='https:' ||
@@ -36,18 +35,15 @@ export default class AuthAppSection {
 			$registrationNotice.append(
 				`With `,makeLink(`the selected OSM server`,server.web.getUrl('')),`, `,
 			)
-			const appendHostHash=(url:string)=>{
-				const hashValue=serverList.getHostHashValue(server)
-				return url+(hashValue ? `#host=`+escapeHash(hashValue) : '')
-			}
 			if (authStorage.installUri==server.oauthUrl || !server.oauthUrl) {
 				$registrationNotice.append(
 					app(),` has a built-in registration`
 				)
 				if (authStorage.installUri==server.oauthUrl) {
+					const href=serverSelector.addServerSelectToAppInstallLocationHref(server,server.oauthUrl)
 					$registrationNotice.append(
 						` for `,
-						makeLink(`its install location`,appendHostHash(server.oauthUrl))
+						makeLink(`its install location`,href)
 					)
 				}
 				if (!authStorage.clientId) {
@@ -65,9 +61,10 @@ export default class AuthAppSection {
 					)
 				}
 			} else {
+				const href=serverSelector.addServerSelectToAppInstallLocationHref(server,server.oauthUrl)
 				$registrationNotice.append(
 					app(),` has a built-in registration for `,
-					makeLink(`a different install location`,appendHostHash(server.oauthUrl))
+					makeLink(`a different install location`,href)
 				)
 			}
 		}

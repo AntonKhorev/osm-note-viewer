@@ -1,12 +1,11 @@
 import type NoteViewerStorage from '../storage'
+import type {ServerSelector} from '.'
 import type Server from './server'
 import type ServerList from './server-list'
 import {parseServerListSource} from './server-list-parser'
 import makeCodeForm from '../util/code-form'
 import RadioTable from '../util/radio-table'
 import {makeElement, makeDiv, makeLink} from '../util/html'
-import {code} from '../util/html-shortcuts'
-import {escapeHash} from '../util/escape'
 
 function term(t:string):string {
 	return `<em>&lt;${t}&gt;</em>`
@@ -97,15 +96,14 @@ export default class ServerListSection {
 		storage: NoteViewerStorage,
 		server: Server|undefined,
 		serverList: ServerList,
-		serverHash: string
+		serverSelector: ServerSelector
 	) {
 		$section.append(
 			makeElement('h2')()(`Servers`)
 		)
 		if (!server) $section.append(makeDiv('notice','error')(
-			`Unknown server in URL hash parameter `,
-			code(serverHash),
-			`. Please select one of the servers below.`
+			...serverSelector.makeServerSelectErrorMessage(),
+			` Please select one of the servers below.`
 		))
 		{
 			const serverTable=new RadioTable('host',[
@@ -117,10 +115,8 @@ export default class ServerListSection {
 				[['capability'],[`Overpass turbo`]],
 				[[],[`note`]],
 			])
-			const baseLocation=location.pathname+location.search
 			for (const [availableHost,availableServer] of serverList.servers) {
-				const hashValue=serverList.getHostHashValue(availableServer)
-				const availableServerLocation=baseLocation+(hashValue ? `#host=`+escapeHash(hashValue) : '')
+				const availableServerLocation=serverSelector.getServerSelectHref(availableServer)
 				let note:string|HTMLElement = ''
 				if (availableServer.noteText && !availableServer.noteUrl) {
 					note=availableServer.noteText

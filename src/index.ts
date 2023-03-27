@@ -1,10 +1,10 @@
 import type {Note, Users} from './data'
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
-import {checkAuthRedirect} from './net'
-import ServerList from './net/server-list'
+import {HashServerSelector} from './hash'
+import Net, {checkAuthRedirect, Server} from './net'
 import GlobalEventsListener from './events'
-import GlobalHistory, {GlobalHistoryWithServer} from './history'
+import GlobalHistory from './history'
 import Auth from './auth'
 import NoteMap from './map'
 import OverlayDialog, {makeMenuButton} from './overlay'
@@ -32,14 +32,7 @@ async function main() {
 	document.body.append($root)
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
-	const serverListConfigSources:unknown[]=[serverListConfig]
-	try {
-		const customServerListConfig=storage.getItem('servers')
-		if (customServerListConfig!=null) {
-			serverListConfigSources.push(JSON.parse(customServerListConfig))
-		}
-	} catch {}
-	const serverList=new ServerList(...serverListConfigSources)
+	const net=new Net(storage,serverListConfig,serverList=>new HashServerSelector(serverList))
 	new GlobalEventsListener($root)
 	let auth: Auth|undefined
 	const $menuButton=makeMenuButton()
@@ -57,21 +50,21 @@ async function main() {
 	if (flipped) $root.classList.add('flipped')
 
 	let map: NoteMap|undefined
-	const globalHistory=new GlobalHistory($root,$scrollingPart,serverList)
-	if (globalHistory.hasServer()) {
+	const globalHistory=new GlobalHistory($root,$scrollingPart,net)
+	if (net.server) {
 		$root.classList.add('with-sidebar')
-		auth=new Auth(storage,globalHistory.server,serverList)
+		auth=new Auth(storage,net.server,net.serverSelector)
 		const $textSide=makeDiv('text-side')($scrollingPart,$stickyPart)
 		$graphicSide.before($textSide)
 		const sidebarResizer=new SidebarResizer($root,$textSide,storage)
 		$graphicSide.append(sidebarResizer.$button,$mapContainer)
-		map=writeMap($root,$mapContainer,globalHistory)
+		map=writeMap($root,$mapContainer,net.server,globalHistory)
 		sidebarResizer.startListening(map)
 		const navbar=new Navbar($root,storage,$navbarContainer,map)
 		const noteTable=writeBelowFetchPanel(
 			$root,
 			$scrollingPart,$stickyPart,$moreContainer,
-			storage,auth,globalHistory,
+			storage,auth,net.server,globalHistory,
 			map
 		)
 		new NoteFetchPanel(
@@ -80,7 +73,7 @@ async function main() {
 			$fetchContainer,$moreContainer,
 			navbar,noteTable,map,
 			globalHistory.getQueryHash(),globalHistory.hasMapHash(),
-			serverList.getHostHashValue(globalHistory.server)
+			net.serverSelector.getHostHashValue(net.server)
 		)
 	}
 	
@@ -88,7 +81,7 @@ async function main() {
 		const overlayDialog=new OverlayDialog(
 			$root,
 			storage,db,
-			globalHistory.server,serverList,globalHistory.serverHash,auth,
+			net.server,net.serverList,net.serverSelector,auth,
 			map,$menuButton
 		)
 		$graphicSide.append(
@@ -97,7 +90,8 @@ async function main() {
 		)
 	}
 
-	if (globalHistory.hasServer()) {
+	if (net.server) {
+		const server=net.server
 		$root.addEventListener('osmNoteViewer:updateNoteLinkClick',async(ev)=>{
 			const $a=ev.target
 			if (!($a instanceof HTMLAnchorElement)) return
@@ -106,7 +100,7 @@ async function main() {
 			let note: Note
 			let users: Users
 			try {
-				[note,users]=await fetchTableNote(globalHistory.server.api,id,auth?.token)
+				[note,users]=await fetchTableNote(server.api,id,auth?.token)
 			} catch (ex) {
 				bubbleCustomEvent($a,'osmNoteViewer:failedNoteFetch',[id,getFetchTableNoteErrorMessage(ex)])
 				return
@@ -114,7 +108,7 @@ async function main() {
 			bubbleCustomEvent($a,'osmNoteViewer:noteFetch',[note,users,'manual'])
 			bubbleCustomEvent($a,'osmNoteViewer:noteUpdatePush',[note,users])
 		})
-		new OsmDownloader($root,globalHistory.server)
+		new OsmDownloader($root,server)
 		globalHistory.restoreScrollPosition()
 	}
 
@@ -124,10 +118,11 @@ async function main() {
 function writeMap(
 	$root: HTMLElement,
 	$mapContainer: HTMLElement,
-	globalHistory: GlobalHistoryWithServer
+	server: Server,
+	globalHistory: GlobalHistory
 ) {
 	const map=new NoteMap(
-		$root,$mapContainer,globalHistory.server
+		$root,$mapContainer,server
 	)
 	globalHistory.triggerInitialMapHashChange()
 	return map
@@ -136,13 +131,13 @@ function writeMap(
 function writeBelowFetchPanel(
 	$root: HTMLElement,
 	$scrollingPart: HTMLElement, $stickyPart: HTMLElement, $moreContainer: HTMLElement,
-	storage: NoteViewerStorage, auth: Auth, globalHistory: GlobalHistoryWithServer,
+	storage: NoteViewerStorage, auth: Auth, server: Server, globalHistory: GlobalHistory,
 	map: NoteMap
 ): NoteTable {
 	const $filterContainer=makeDiv('panel','fetch')()
 	const $notesContainer=makeDiv('notes')()
 	$scrollingPart.append($filterContainer,$notesContainer,$moreContainer)
-	const filterPanel=new NoteFilterPanel(storage,globalHistory.server.api,globalHistory.server.web,$filterContainer)
+	const filterPanel=new NoteFilterPanel(storage,server.api,server.web,$filterContainer)
 	const $toolContainer=makeDiv('panel','toolbar')()
 	$stickyPart.append($toolContainer)
 
@@ -153,7 +148,7 @@ function writeBelowFetchPanel(
 	const noteTable=new NoteTable(
 		$root,$notesContainer,
 		storage,map,filterPanel.noteFilter,
-		globalHistory.server
+		server
 	)
 	filterPanel.onFilterUpdate=noteFilter=>noteTable.updateFilter(noteFilter)
 	globalHistory.$resizeObservationTarget=$notesContainer
