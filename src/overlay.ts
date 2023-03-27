@@ -1,9 +1,7 @@
-import ServerListSection from './net/server-list-section'
 import StorageSection from './storage-section'
 import type NoteViewerStorage from './storage'
 import type NoteViewerDB from './db'
-import type Server from './net/server'
-import type ServerList from './net/server-list'
+import type Net from './net'
 import type {HashServerSelector} from './hash'
 import type Auth from './auth'
 import type {AuthLoginSection} from './auth'
@@ -49,14 +47,13 @@ export default class OverlayDialog {
 	constructor(
 		$root: HTMLElement,
 		storage: NoteViewerStorage, db: NoteViewerDB,
-		server: Server|undefined, serverList: ServerList, serverSelector: HashServerSelector,
-		auth: Auth|undefined,
+		net: Net<HashServerSelector>, auth: Auth|undefined,
 		private map: NoteMap|undefined,
 		private $menuButton: HTMLButtonElement,
 	) {
 		this.menuHidden=!!auth
 		this.$menuButton.disabled=!auth
-		const loginSection=this.writeMenuPanel(storage,db,server,serverList,serverSelector,auth)
+		const loginSection=this.writeMenuPanel(storage,db,net,auth)
 		this.writeFigureDialog()
 		$root.append(this.$figureHelpDialog)
 		for (const eventType of [
@@ -190,8 +187,7 @@ export default class OverlayDialog {
 	}
 	private writeMenuPanel(
 		storage: NoteViewerStorage, db: NoteViewerDB,
-		server: Server|undefined, serverList: ServerList, serverSelector: HashServerSelector,
-		auth: Auth|undefined
+		net: Net<HashServerSelector>, auth: Auth|undefined
 	): AuthLoginSection|undefined {
 		const $lead=makeDiv('lead')()
 		{
@@ -207,13 +203,10 @@ export default class OverlayDialog {
 		}
 		const $scrolling=makeDiv('panel','scrolling')()
 		const loginSection=auth?.writeMenuSections($scrolling)
+		$scrolling.append(net.$serverListSection)
 		{
 			const $subsection=makeElement('section')()()
-			new ServerListSection($subsection,storage,server,serverList,serverSelector)
-			$scrolling.append($subsection)
-		}{
-			const $subsection=makeElement('section')()()
-			new StorageSection($subsection,storage,db,serverSelector)
+			new StorageSection($subsection,storage,db,net.serverSelector)
 			$scrolling.append($subsection)
 		}
 		$scrolling.append(makeExtraSubsection())

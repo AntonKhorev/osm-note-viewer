@@ -30,10 +30,11 @@ async function main() {
 
 	const $root=makeDiv('ui')()
 	document.body.append($root)
+	new GlobalEventsListener($root)
+	
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
 	const net=new Net(storage,serverListConfig,serverList=>new HashServerSelector(serverList))
-	new GlobalEventsListener($root)
 	let auth: Auth|undefined
 	const $menuButton=makeMenuButton()
 
@@ -81,7 +82,7 @@ async function main() {
 		const overlayDialog=new OverlayDialog(
 			$root,
 			storage,db,
-			net.server,net.serverList,net.serverSelector,auth,
+			net,auth,
 			map,$menuButton
 		)
 		$graphicSide.append(
