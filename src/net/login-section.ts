@@ -7,7 +7,7 @@ import RadioTable from '../util/radio-table'
 import {makeElement, makeDiv, wrapFetchForButton, makeGetKnownErrorMessage} from '../util/html'
 import {bubbleEvent} from '../util/events'
 import {em} from '../util/html-shortcuts'
-import {isArrayOfStrings} from '../types'
+import {isArrayOfStrings} from '../util/types'
 
 type AuthErrorData = {
 	error_description: string

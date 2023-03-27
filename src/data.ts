@@ -1,4 +1,4 @@
-import {isArrayOfNumbers} from './types'
+import {isArrayOfNumbers} from './util/types'
 
 /**
  * notes as received from the server

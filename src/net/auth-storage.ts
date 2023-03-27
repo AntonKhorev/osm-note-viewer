@@ -1,5 +1,5 @@
 import type NoteViewerStorage from '../storage'
-import {isArray, isArrayOfStrings} from '../types'
+import {isArray, isArrayOfStrings} from '../util/types'
 
 export type Login = {
 	scope: string,

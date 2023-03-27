@@ -9,7 +9,7 @@ import {bubbleEvent, bubbleCustomEvent} from '../util/events'
 import {makeElement, makeDiv, makeLabel, makeLink, makeSemiLink} from '../util/html'
 import {p,ul,li,code,em} from '../util/html-shortcuts'
 import {makeEscapeTag} from '../util/escape'
-import {isArray} from '../types'
+import {isArray} from '../util/types'
 import {getMultipleNoteIndicators, getNoteIndicator, getNoteCountIndicator, getButtonNoteIcon} from './interact-indicator'
 
 const e=makeEscapeTag(encodeURIComponent)
