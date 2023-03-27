@@ -3,8 +3,10 @@ import {parseServerListSource, parseServerListItem} from './server-list-parser'
 
 export default class ServerList {
 	private defaultServer: Server
+	defaultServerListConfig: unknown
 	servers = new Map<string,Server>()
 	constructor(...configSources:unknown[]) {
+		;[this.defaultServerListConfig]=configSources
 		for (const configSource of configSources) {
 			try {
 				const parametersList=parseServerListSource(configSource)

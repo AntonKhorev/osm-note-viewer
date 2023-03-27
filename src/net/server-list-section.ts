@@ -2,7 +2,6 @@ import type NoteViewerStorage from '../storage'
 import type Server from '../server'
 import type ServerList from './server-list'
 import makeCodeForm from '../code'
-import serverListConfig from '../server-list-config'
 import {parseServerListSource} from './server-list-parser'
 import RadioTable from '../radio-table'
 import {makeElement, makeDiv, makeLink} from '../html'
@@ -70,7 +69,7 @@ this property is optional, it is used to remind about the correct location that 
 </dl>
 `
 
-const syntaxExamples: [string,string[]][] = [
+const makeSyntaxExamples=(defaultServerListConfig: unknown):[string,string[]][]=>[
 	[`Local server on port 3333`,[`"http://127.0.0.1:3333/"`]],
 	[`Dev server with custom tiles`,[
 		`{`,
@@ -89,7 +88,7 @@ const syntaxExamples: [string,string[]][] = [
 		`  "note": "dev server with CyclOSM tiles"`,
 		`}`
 	]],
-	[`Default configuration`,[JSON.stringify(serverListConfig,undefined,2)]]
+	[`Default configuration`,[JSON.stringify(defaultServerListConfig,undefined,2)]]
 ]
 
 export default class ServerListSection {
@@ -163,7 +162,7 @@ export default class ServerListSection {
 			()=>{
 				location.reload()
 			},
-			syntaxDescription,syntaxExamples
+			syntaxDescription,makeSyntaxExamples(serverList.defaultServerListConfig)
 		))
 	}
 }
