@@ -1,7 +1,7 @@
 import NoteFilter from './filter'
 import type NoteViewerStorage from './storage'
 import type {ApiUrlLister, WebUrlLister} from './net/server'
-import makeCodeForm from './code'
+import makeCodeForm from './util/code-form'
 
 const syntaxDescription=`<summary>Filter syntax</summary>
 <ul>
