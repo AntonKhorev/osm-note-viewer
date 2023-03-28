@@ -117,8 +117,8 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 			this.$toInput.size=20
 			this.$toInput.name='to'
 			$fieldset.append(makeDiv('regular-input-group')(
-				makeLabel()(`From date`,rq('from'),` `,this.$fromInput),` `,
-				makeLabel()(`to date`,rq('to'),` `,this.$toInput)
+				makeLabel('inline')(`From date`,rq('from'),` `,this.$fromInput),` `,
+				makeLabel('inline')(`to date`,rq('to'),` `,this.$toInput)
 			))
 		}
 	}
