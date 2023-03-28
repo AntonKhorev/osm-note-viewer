@@ -69,12 +69,21 @@ export default class AppSection {
 				)
 			}
 		}
+		const $overallClientIdPresence=makeElement('span')()()
+		const updateOverallClientIdPresence=()=>{
+			$overallClientIdPresence.replaceChildren(authStorage.clientId
+				? `you have it`
+				: `you don't have it`
+			)
+		}
+		updateOverallClientIdPresence()
 
 		const onRegistrationInput=(...$inputs: HTMLInputElement[])=>{
 			for (const $input of $inputs) {
 				if ($input==$clientIdInput) {
 					authStorage.clientId=$clientIdInput.value.trim()
 					updateRegistrationNotice()
+					updateOverallClientIdPresence()
 				} else if ($input==$manualCodeEntryCheckbox) {
 					authStorage.isManualCodeEntry=$manualCodeEntryCheckbox.checked
 				}
@@ -152,10 +161,11 @@ export default class AppSection {
 			if (isOpen) $details.open=true
 			return $details
 		}
-		$section.append(
-			makeElement('h2')()(`Register app`),
+		const $overallDetails=makeElement('details')()(
+			makeElement('summary')()(
+				`Only required if you want logins and don't have a `,em(`client id`),` (`,$overallClientIdPresence,`).`
+			),
 			p(
-				`Only required if you don't yet have a `,em(`client id`),`. `,
 				`You have to get a `,em(`client id`),` if you want to run your own copy of `,app(),` and be able to manipulate notes from it. `,
 				`There are two possible app registration methods described below. `,
 				`Their necessary steps are the same except for the `,mark(`marked`),` parts.`
@@ -222,6 +232,11 @@ export default class AppSection {
 				` (for non-https/non-secure install locations)`
 			),
 			$registrationNotice
+		)
+		$overallDetails.open=!authStorage.clientId
+		$section.append(
+			makeElement('h2')()(`Register app`),
+			$overallDetails
 		)
 	}
 }

@@ -590,6 +590,8 @@ describe("browser tests",function(){
 			const menuPanel=await this.getToMenu()
 			await menuPanel.waitForXPath(buttonPath(`Login`),{visible:true})
 			const [loginButton]=await menuPanel.$x(buttonPath(`Login`))
+			const [appSection]=await menuPanel.$x(`//section[contains(h2,"Register app")]`)
+			await (await appSection.$('details > summary')).click()
 			const clientIdInput=await menuPanel.$('#auth-app-client-id')
 			await clientIdInput.focus()
 			await this.deleteAll()
