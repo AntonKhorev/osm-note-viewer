@@ -57,7 +57,8 @@ export default class Net<T extends ServerSelector> {
 		appName: string,
 		storage: SimpleStorage,
 		serverListConfig: unknown,
-		makeServerSelector: (serverList:ServerList)=>T
+		makeServerSelector: (serverList:ServerList)=>T,
+		oauthScope: string
 	) {
 		const serverListConfigSources:unknown[]=[serverListConfig]
 		try {
@@ -77,7 +78,7 @@ export default class Net<T extends ServerSelector> {
 			this.$appSection=makeElement('section')()()
 			this.$loginSection=makeElement('section')()()
 			const appSection=new AppSection(this.$appSection,appName,authStorage,server,this.serverSelector)
-			const loginSection=new LoginSection(this.$loginSection,appName,authStorage,server)
+			const loginSection=new LoginSection(this.$loginSection,appName,authStorage,server,oauthScope)
 			appSection.onRegistrationUpdate=()=>loginSection.respondToAppRegistration()
 			this.$sections.push(this.$loginSection,this.$appSection)
 			this.loginSection=loginSection

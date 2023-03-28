@@ -76,7 +76,8 @@ export default class LoginSection {
 		private readonly $section: HTMLElement,
 		appName: string,
 		private readonly authStorage: AuthStorage,
-		server: Server
+		server: Server,
+		oauthScope: string
 	) {
 		const webPostUrlencodedWithPossibleAuthError=async(webPath:string,parameters:[k:string,v:string][],whenMessage:string)=>{
 			const response=await server.web.fetch.withUrlencodedBody(parameters).post(webPath)
@@ -180,7 +181,7 @@ export default class LoginSection {
 			return server.web.getUrl('oauth2/authorize')+'?'+[
 				['client_id',authStorage.clientId],
 				['redirect_uri',authStorage.redirectUri],
-				['scope','read_prefs write_notes'],
+				['scope',oauthScope],
 				['response_type','code'],
 				['code_challenge',codeChallenge],
 				['code_challenge_method','S256']

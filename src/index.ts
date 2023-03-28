@@ -34,7 +34,7 @@ async function main() {
 	
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
-	const net=new Net(`osm-note-viewer`,storage,serverListConfig,serverList=>new HashServerSelector(serverList))
+	const net=new Net(`osm-note-viewer`,storage,serverListConfig,serverList=>new HashServerSelector(serverList),'read_prefs write_notes')
 	const $menuButton=makeMenuButton()
 
 	const $navbarContainer=document.createElement('nav')
