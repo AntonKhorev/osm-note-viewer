@@ -115,7 +115,6 @@ export default class LoginSection {
 		const updateInResponseToLogin=()=>{
 			const logins=authStorage.getLogins()
 			if (logins.size==0) {
-				const loginReasons=[`You need to login if you'd like to manipulate notes.`]
 				this.$logins.replaceChildren(
 					`No active logins. Press the button above to login. `,
 					...loginReasons

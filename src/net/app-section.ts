@@ -166,7 +166,7 @@ export default class AppSection {
 				`Only required if you want logins and don't have a `,em(`client id`),` (`,$overallClientIdPresence,`).`
 			),
 			p(
-				`You have to get a `,em(`client id`),` if you want to run your own copy of `,app(),` and be able to manipulate notes from it. `,
+				`You have to get a `,em(`client id`),` if you want to run your own copy of `,app(),` and be able to perform actions requiring a login. `,
 				`There are two possible app registration methods described below. `,
 				`Their necessary steps are the same except for the `,mark(`marked`),` parts.`
 			),
