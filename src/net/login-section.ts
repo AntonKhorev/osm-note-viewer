@@ -74,9 +74,9 @@ export default class LoginSection {
 	constructor(
 		private readonly $section: HTMLElement,
 		appName: string,
+		oauthScope: string,
 		private readonly authStorage: AuthStorage,
 		server: Server,
-		oauthScope: string,
 		onLoginChange: ()=>void
 	) {
 		const webPostUrlencodedWithPossibleAuthError=async(webPath:string,parameters:[k:string,v:string][],whenMessage:string)=>{

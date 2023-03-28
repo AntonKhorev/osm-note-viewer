@@ -9,6 +9,7 @@ export default class AppSection {
 	constructor(
 		$section: HTMLElement,
 		appName: string,
+		oauthScope: string,
 		authStorage: AuthStorage,
 		server: Server,
 		serverSelector: ServerSelector
@@ -134,10 +135,7 @@ export default class AppSection {
 					),li(
 						`Uncheck `,em(`Confidential application?`)
 					),li(
-						`In `,em(`Permissions`),` check:`,ul(
-							li(`Read user preferences`),
-							li(`Modify notes`)
-						)
+						`In `,em(`Permissions`),` check:`,makePermissionsList(oauthScope)
 					),li(
 						`Click `,em(`Register`),`.`
 					),li(
@@ -226,4 +224,21 @@ export default class AppSection {
 			$registrationNotice
 		)
 	}
+}
+
+// openstreetmap-website/config/locales/en.yml en.oauth.authorize.scopes
+const oauthScopeNames: {[k:string]:string} = {
+	read_prefs: `Read user preferences`,
+	write_prefs: `Modify user preferences`,
+	write_diary: `Create diary entries, comments and make friends`,
+	write_api: `Modify the map`,
+	read_gpx: `Read private GPS traces`,
+	write_gpx: `Upload GPS traces`,
+	write_notes: `Modify notes`,
+}
+
+function makePermissionsList(oauthScope: string): HTMLElement {
+	return ul(
+		...oauthScope.split(' ').map(s=>li(oauthScopeNames[s]))
+	)
 }

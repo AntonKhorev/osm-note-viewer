@@ -78,8 +78,8 @@ export default class Net<T extends ServerSelector> {
 			this.cx=new Connection(server,authStorage)
 			this.$appSection=makeElement('section')()()
 			this.$loginSection=makeElement('section')()()
-			const appSection=new AppSection(this.$appSection,appName,authStorage,server,this.serverSelector)
-			const loginSection=new LoginSection(this.$loginSection,appName,authStorage,server,oauthScope,onLoginChange)
+			const appSection=new AppSection(this.$appSection,appName,oauthScope,authStorage,server,this.serverSelector)
+			const loginSection=new LoginSection(this.$loginSection,appName,oauthScope,authStorage,server,onLoginChange)
 			appSection.onRegistrationUpdate=()=>loginSection.respondToAppRegistration()
 			this.$sections.push(this.$loginSection,this.$appSection)
 			this.loginSection=loginSection
