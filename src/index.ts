@@ -35,7 +35,9 @@ async function main() {
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
 	const net=new Net(
-		`osm-note-viewer`,'read_prefs write_notes',serverListConfig,
+		`osm-note-viewer`,'read_prefs write_notes',
+		[`You need to login if you'd like to manipulate notes.`],
+		serverListConfig,
 		storage,
 		serverList=>new HashServerSelector(serverList),
 		()=>bubbleEvent($root,'osmNoteViewer:loginChange')

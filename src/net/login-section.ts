@@ -75,6 +75,7 @@ export default class LoginSection {
 		private readonly $section: HTMLElement,
 		appName: string,
 		oauthScope: string,
+		loginReasons: (string|HTMLElement)[],
 		private readonly authStorage: AuthStorage,
 		server: Server,
 		onLoginChange: ()=>void
@@ -114,7 +115,11 @@ export default class LoginSection {
 		const updateInResponseToLogin=()=>{
 			const logins=authStorage.getLogins()
 			if (logins.size==0) {
-				this.$logins.textContent=`No active logins. Use the form above to login if you'd like to manipulate notes.`
+				const loginReasons=[`You need to login if you'd like to manipulate notes.`]
+				this.$logins.replaceChildren(
+					`No active logins. Press the button above to login. `,
+					...loginReasons
+				)
 				return
 			}
 			const loginTable=new RadioTable('login',[
