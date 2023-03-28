@@ -1,8 +1,9 @@
-import type NoteViewerStorage from '../storage'
 import type {ServerSelector} from '.'
 import type Server from './server'
 import type ServerList from './server-list'
 import {parseServerListSource} from './server-list-parser'
+import type {SimpleStorage} from '../util/storage'
+import {getStorageString, setStorageString} from '../util/storage'
 import makeCodeForm from '../util/code-form'
 import RadioTable from '../util/radio-table'
 import {makeElement, makeDiv, makeLink} from '../util/html'
@@ -93,7 +94,7 @@ const makeSyntaxExamples=(defaultServerListConfig: unknown):[string,string[]][]=
 export default class ServerListSection {
 	constructor(
 		$section: HTMLElement,
-		storage: NoteViewerStorage,
+		storage: SimpleStorage,
 		server: Server|undefined,
 		serverList: ServerList,
 		serverSelector: ServerSelector
@@ -144,16 +145,16 @@ export default class ServerListSection {
 			$section.append(serverTable.$table)
 		}
 		$section.append(makeCodeForm(
-			storage.getString('servers'),'',
+			getStorageString(storage,'servers'),'',
 			`Custom servers configuration`,`Configuration`,`Apply changes`,
-			input=>input==storage.getString('servers'),
+			input=>input==getStorageString(storage,'servers'),
 			input=>{
 				if (input.trim()=='') return
 				const configSource=JSON.parse(input)
 				parseServerListSource(configSource)
 			},
 			input=>{
-				storage.setString('servers',input.trim())
+				setStorageString(storage,'servers',input.trim())
 			},
 			()=>{
 				location.reload()

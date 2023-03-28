@@ -1,5 +1,6 @@
 import NoteFilter from './filter'
-import type NoteViewerStorage from './storage'
+import type {SimpleStorage} from './util/storage'
+import {getStorageString, setStorageString} from './util/storage'
 import type {ApiUrlLister, WebUrlLister} from './net'
 import makeCodeForm from './util/code-form'
 
@@ -66,19 +67,19 @@ export default class NoteFilterPanel {
 	noteFilter: NoteFilter
 	onFilterUpdate?: (noteFilter: NoteFilter) => void
 	constructor(
-		storage: NoteViewerStorage,
+		storage: SimpleStorage,
 		apiUrlLister: ApiUrlLister, webUrlLister: WebUrlLister,
 		$container: HTMLElement
 	) {
 		this.noteFilter=new NoteFilter(apiUrlLister,webUrlLister,``)
 		const $form=makeCodeForm(
-			'',storage.getString('filter'),
+			'',getStorageString(storage,'filter'),
 			`Note filter`,`Filter`,`Apply filter`,
 			input=>this.noteFilter.isSameQuery(input),
 			input=>new NoteFilter(apiUrlLister,webUrlLister,input),
 			input=>{
 				this.noteFilter=new NoteFilter(apiUrlLister,webUrlLister,input)
-				storage.setString('filter',input)
+				setStorageString(storage,'filter',input)
 			},
 			()=>{
 				this.onFilterUpdate?.(this.noteFilter)

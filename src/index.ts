@@ -1,5 +1,6 @@
 import type {Note, Users} from './data'
 import NoteViewerStorage from './storage'
+import {getStorageBoolean} from './util/storage'
 import NoteViewerDB from './db'
 import {HashServerSelector} from './hash'
 import Net, {checkAuthRedirect, Server, Connection} from './net'
@@ -45,7 +46,7 @@ async function main() {
 	const $mapContainer=makeDiv('map')()
 	$root.append($graphicSide)
 
-	const flipped=storage.getBoolean('flipped')
+	const flipped=getStorageBoolean(storage,'flipped')
 	if (flipped) $root.classList.add('flipped')
 
 	let map: NoteMap|undefined

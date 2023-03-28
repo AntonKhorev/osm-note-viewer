@@ -1,4 +1,5 @@
-import type NoteViewerStorage from '../storage'
+import type {SimpleStorage} from '../util/storage'
+import {getStorageString, setStorageString, getStorageBoolean, setStorageBoolean} from '../util/storage'
 import {isArray, isArrayOfStrings} from '../util/types'
 
 export type Login = {
@@ -30,32 +31,32 @@ function makeLogin(data: unknown): Login {
 export default class AuthStorage {
 	readonly manualCodeUri=`urn:ietf:wg:oauth:2.0:oob`
 	constructor(
-		private readonly storage: NoteViewerStorage,
+		private readonly storage: SimpleStorage,
 		private readonly host: string,
 		readonly installUri: string
 	) {}
-	get prefix():string {
+	get prefix(): string {
 		return `host[${this.host}].`
 	}
-	get clientId():string {
-		return this.storage.getString(`${this.prefix}clientId`)
+	get clientId(): string {
+		return getStorageString(this.storage,`${this.prefix}clientId`)
 	}
-	set clientId(clientId:string) {
-		this.storage.setString(`${this.prefix}clientId`,clientId)
+	set clientId(clientId: string) {
+		setStorageString(this.storage,`${this.prefix}clientId`,clientId)
 	}
 	get isManualCodeEntry(): boolean {
-		return this.storage.getBoolean(`${this.prefix}isManualCodeEntry`)
+		return getStorageBoolean(this.storage,`${this.prefix}isManualCodeEntry`)
 	}
-	set isManualCodeEntry(isManualCodeEntry:boolean) {
-		this.storage.setBoolean(`${this.prefix}isManualCodeEntry`,isManualCodeEntry)
+	set isManualCodeEntry(isManualCodeEntry: boolean) {
+		setStorageBoolean(this.storage,`${this.prefix}isManualCodeEntry`,isManualCodeEntry)
 	}
-	get token():string {
-		return this.storage.getString(`${this.prefix}token`)
+	get token(): string {
+		return getStorageString(this.storage,`${this.prefix}token`)
 	}
-	set token(token:string) {
-		this.storage.setString(`${this.prefix}token`,token)
+	set token(token: string) {
+		setStorageString(this.storage,`${this.prefix}token`,token)
 	}
-	get redirectUri():string {
+	get redirectUri(): string {
 		return this.isManualCodeEntry?this.manualCodeUri:this.installUri
 	}
 	getLogins(): Map<string,Readonly<Login>> {

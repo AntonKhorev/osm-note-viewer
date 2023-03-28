@@ -1,5 +1,3 @@
-import type NoteViewerStorage from '../storage'
-
 import AuthStorage from './auth-storage'
 import Server from './server'
 import ServerList from './server-list'
@@ -8,6 +6,7 @@ import AppSection from './app-section'
 import LoginSection from './login-section'
 import {checkAuthRedirectForInstallUri} from './redirect'
 
+import type {SimpleStorage} from '../util/storage'
 import {makeElement} from '../util/html'
 
 export {Server, ServerList}
@@ -55,7 +54,7 @@ export default class Net<T extends ServerSelector> {
 	readonly $sections: HTMLElement[] = []
 	private readonly loginSection?: LoginSection
 	constructor(
-		storage: NoteViewerStorage,
+		storage: SimpleStorage,
 		serverListConfig: unknown,
 		makeServerSelector: (serverList:ServerList)=>T
 	) {

@@ -1,4 +1,5 @@
-import type NoteViewerStorage from './storage'
+import type {SimpleStorage} from './util/storage'
+import {setStorageBoolean} from './util/storage'
 import type NoteMap from './map'
 import {escapeXml, makeEscapeTag} from './util/escape'
 
@@ -29,7 +30,7 @@ export abstract class NavDialog {
 export default class Navbar {
 	private readonly $tabList=document.createElement('div')
 	private readonly tabs: Map<NavDialog,HTMLButtonElement> = new Map()
-	constructor($root: HTMLElement, storage: NoteViewerStorage, $container: HTMLElement, map: NoteMap|undefined) {
+	constructor($root: HTMLElement, storage: SimpleStorage, $container: HTMLElement, map: NoteMap|undefined) {
 		this.$tabList.setAttribute('role','tablist')
 		this.$tabList.setAttribute('aria-label',`Note query modes`)
 		if (map) $container.append(makeFlipLayoutButton($root,storage,map))
@@ -102,10 +103,10 @@ export default class Navbar {
 	}
 }
 
-function makeFlipLayoutButton($root: HTMLElement, storage: NoteViewerStorage, map: NoteMap): HTMLButtonElement {
+function makeFlipLayoutButton($root: HTMLElement, storage: SimpleStorage, map: NoteMap): HTMLButtonElement {
 	return makeButton('flip',`Flip layout`,()=>{
 		const hasFlipped=$root.classList.toggle('flipped')
-		storage.setBoolean('flipped',hasFlipped)
+		setStorageBoolean(storage,'flipped',hasFlipped)
 		map.invalidateSize()
 	})
 }
