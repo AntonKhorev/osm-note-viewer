@@ -18,7 +18,7 @@ import fetchTableNote, {getFetchTableNoteErrorMessage} from './fetch-note'
 import OsmDownloader from './osm-downloader'
 import TimeTitleUpdater from './time-title-updater'
 import {makeDiv} from './util/html'
-import {bubbleCustomEvent} from './util/events'
+import {bubbleEvent, bubbleCustomEvent} from './util/events'
 import serverListConfig from './server-list-config'
 
 main()
@@ -34,7 +34,12 @@ async function main() {
 	
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
-	const net=new Net(`osm-note-viewer`,storage,serverListConfig,serverList=>new HashServerSelector(serverList),'read_prefs write_notes')
+	const net=new Net(
+		`osm-note-viewer`,storage,serverListConfig,
+		serverList=>new HashServerSelector(serverList),
+		'read_prefs write_notes',
+		()=>bubbleEvent($root,'osmNoteViewer:loginChange')
+	)
 	const $menuButton=makeMenuButton()
 
 	const $navbarContainer=document.createElement('nav')

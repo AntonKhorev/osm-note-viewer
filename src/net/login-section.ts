@@ -5,7 +5,6 @@ import LoginForms, {AuthError} from './login-forms'
 
 import RadioTable from '../util/radio-table'
 import {makeElement, makeDiv, wrapFetchForButton, makeGetKnownErrorMessage} from '../util/html'
-import {bubbleEvent} from '../util/events'
 import {em} from '../util/html-shortcuts'
 import {isArrayOfStrings} from '../util/types'
 
@@ -77,7 +76,8 @@ export default class LoginSection {
 		appName: string,
 		private readonly authStorage: AuthStorage,
 		server: Server,
-		oauthScope: string
+		oauthScope: string,
+		onLoginChange: ()=>void
 	) {
 		const webPostUrlencodedWithPossibleAuthError=async(webPath:string,parameters:[k:string,v:string][],whenMessage:string)=>{
 			const response=await server.web.fetch.withUrlencodedBody(parameters).post(webPath)
@@ -109,7 +109,7 @@ export default class LoginSection {
 
 		const switchToToken=(token:string)=>{
 			authStorage.token=token
-			bubbleEvent($section,'osmNoteViewer:loginChange')
+			onLoginChange()
 		}
 		const updateInResponseToLogin=()=>{
 			const logins=authStorage.getLogins()
