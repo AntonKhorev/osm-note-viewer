@@ -14,8 +14,8 @@ export * from './server'
 
 const installUri=`${location.protocol}//${location.host}${location.pathname}`
 
-export function checkAuthRedirect() {
-	return checkAuthRedirectForInstallUri(installUri)
+export function checkAuthRedirect(appName: string) {
+	return checkAuthRedirectForInstallUri(appName,installUri)
 }
 
 export interface ServerSelector {
@@ -54,6 +54,7 @@ export default class Net<T extends ServerSelector> {
 	readonly $sections: HTMLElement[] = []
 	private readonly loginSection?: LoginSection
 	constructor(
+		appName: string,
 		storage: SimpleStorage,
 		serverListConfig: unknown,
 		makeServerSelector: (serverList:ServerList)=>T
@@ -69,14 +70,14 @@ export default class Net<T extends ServerSelector> {
 		this.serverSelector=makeServerSelector(this.serverList)
 		const server=this.serverSelector.selectServer()
 		this.$serverListSection=makeElement('section')()()
-		new ServerListSection(this.$serverListSection,storage,server,this.serverList,this.serverSelector)
+		new ServerListSection(this.$serverListSection,appName,storage,server,this.serverList,this.serverSelector)
 		if (server) {
 			const authStorage=new AuthStorage(storage,server.host,installUri)
 			this.cx=new Connection(server,authStorage)
 			this.$appSection=makeElement('section')()()
 			this.$loginSection=makeElement('section')()()
-			const appSection=new AppSection(this.$appSection,authStorage,server,this.serverSelector)
-			const loginSection=new LoginSection(this.$loginSection,authStorage,server)
+			const appSection=new AppSection(this.$appSection,appName,authStorage,server,this.serverSelector)
+			const loginSection=new LoginSection(this.$loginSection,appName,authStorage,server)
 			appSection.onRegistrationUpdate=()=>loginSection.respondToAppRegistration()
 			this.$sections.push(this.$loginSection,this.$appSection)
 			this.loginSection=loginSection

@@ -16,6 +16,7 @@ export default class LoginForms {
 	private loginWindow?: Window
 	constructor(
 		$container: HTMLElement,
+		appName: string,
 		private isManualCodeEntry: boolean,
 		getRequestCodeUrl: (codeChallenge:string)=>string,
 		exchangeCodeForToken: (code:string,codeVerifier:string)=>Promise<void>
@@ -45,7 +46,7 @@ export default class LoginForms {
 
 		// TODO write that you may not get a confirmation page if you are already logged in - in this case logout first
 		//	^ to do this, need to check if anything user-visible appears in the popup at all with auto-code registrations
-		const app=()=>em(`osm-note-viewer`)
+		const app=()=>em(appName)
 		this.$manualCodeForm.append(
 			p(`If the manual code copying method was used to register `,app(),`, copy the code into the input below.`),
 			makeDiv('major-input-group')(

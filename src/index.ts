@@ -24,7 +24,7 @@ import serverListConfig from './server-list-config'
 main()
 
 async function main() {
-	if (checkAuthRedirect()) {
+	if (checkAuthRedirect(`osm-note-viewer`)) {
 		return
 	}
 
@@ -34,7 +34,7 @@ async function main() {
 	
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
-	const net=new Net(storage,serverListConfig,serverList=>new HashServerSelector(serverList))
+	const net=new Net(`osm-note-viewer`,storage,serverListConfig,serverList=>new HashServerSelector(serverList))
 	const $menuButton=makeMenuButton()
 
 	const $navbarContainer=document.createElement('nav')

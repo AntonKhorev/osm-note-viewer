@@ -1,4 +1,5 @@
 import {makeDiv, makeLink} from '../util/html'
+import {em} from '../util/html-shortcuts'
 
 interface AuthOpener {
 	receiveOsmNoteViewerAuthCode(code:unknown):unknown
@@ -12,7 +13,8 @@ function isAuthOpener(o:any): o is AuthOpener {
 	)
 }
 
-export function checkAuthRedirectForInstallUri(installUri: string): boolean {
+export function checkAuthRedirectForInstallUri(appName: string, installUri: string): boolean {
+	const app=()=>em(appName)
 	const params=new URLSearchParams(location.search)
 	const code=params.get('code')
 	const error=params.get('error')
@@ -22,8 +24,10 @@ export function checkAuthRedirectForInstallUri(installUri: string): boolean {
 	}
 	if (!isAuthOpener(window.opener)) {
 		document.body.append(makeDiv('notice')(
-			`You opened the location of note-viewer's authentication redirect for a popup window outside of a popup window. `,
-			`If you want to continue using note-viewer, please open `,makeLink(`this link`,installUri),`.`
+			`This is the location of authentication redirect for `,app(),`. `,
+			`It is expected to be opened in a popup window when performing a login. `,
+			`Instead it is opened outside of a popup and cannot function properly. `,
+			`If you want to continue using `,app(),`, please open `,makeLink(`this link`,installUri),`.`
 		))
 	} else if (code!=null) {
 		window.opener.receiveOsmNoteViewerAuthCode(code)

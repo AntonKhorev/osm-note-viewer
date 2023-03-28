@@ -74,6 +74,7 @@ export default class LoginSection {
 	private readonly $logins=makeDiv()()
 	constructor(
 		private readonly $section: HTMLElement,
+		appName: string,
 		private readonly authStorage: AuthStorage,
 		server: Server
 	) {
@@ -175,7 +176,7 @@ export default class LoginSection {
 			this.$logins.replaceChildren(loginTable.$table)
 		}
 
-		this.loginForms=new LoginForms(this.$loginForms,authStorage.isManualCodeEntry,(codeChallenge:string)=>{
+		this.loginForms=new LoginForms(this.$loginForms,appName,authStorage.isManualCodeEntry,(codeChallenge:string)=>{
 			return server.web.getUrl('oauth2/authorize')+'?'+[
 				['client_id',authStorage.clientId],
 				['redirect_uri',authStorage.redirectUri],

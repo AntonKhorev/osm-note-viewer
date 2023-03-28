@@ -8,6 +8,7 @@ import makeCodeForm from '../util/code-form'
 import RadioTable from '../util/radio-table'
 import {makeElement, makeDiv, makeLink} from '../util/html'
 
+// TODO html-escape
 function term(t:string):string {
 	return `<em>&lt;${t}&gt;</em>`
 }
@@ -15,7 +16,8 @@ function property(t:string): string {
 	return `<strong><code>${t}</code></strong>`
 }
 
-const syntaxDescription=`<summary>Custom server configuration syntax</summary>
+// TODO html-escape app name
+const makeSyntaxDescription=(appName:string)=>`<summary>Custom server configuration syntax</summary>
 <p>Uses <a href=https://en.wikipedia.org/wiki/JSON>JSON</a> format to describe one or more custom servers.
 These servers can be referred to in the <code>host</code> URL parameter and appear in the list above.
 The entire custom servers input can be one of:</p>
@@ -58,14 +60,14 @@ Possible <em>object</em> properties are:</p>
 <dt>${property('zoom')}
 <dd>a number with max zoom level; defaults to the OSM max zoom value of 19
 </dl>
-<p>An ${term('oauth specification')} is an <em>object</em> describing the registration of <em>note-viewer</em> as an <a href=https://wiki.openstreetmap.org/wiki/OAuth#OAuth_2.0_2>OAuth 2 app</a> on this OSM server.
+<p>An ${term('oauth specification')} is an <em>object</em> describing the registration of <em>${appName}</em> as an <a href=https://wiki.openstreetmap.org/wiki/OAuth#OAuth_2.0_2>OAuth 2 app</a> on this OSM server.
 It can have the following properties:</p>
 <dl>
 <dt>${property('id')}
 <dd>a <em>string</em> with the OAuth <em>client id</em>; this property is <strong>required</strong> when an ${term('oauth specification')} is present
 <dt>${property('url')}
-<dd>a <em>string</em> with the OAuth <em>redirect URI</em> matching the location where <em>note-viewer</em> is hosted;
-this property is optional, it is used to remind about the correct location that is going to receive OAuth redirects in case if <em>note-viewer</em> is copied to a different location
+<dd>a <em>string</em> with the OAuth <em>redirect URI</em> matching the location where <em>${appName}</em> is hosted;
+this property is optional, it is used to remind about the correct location that is going to receive OAuth redirects in case if <em>${appName}</em> is copied to a different location
 </dl>
 `
 
@@ -94,6 +96,7 @@ const makeSyntaxExamples=(defaultServerListConfig: unknown):[string,string[]][]=
 export default class ServerListSection {
 	constructor(
 		$section: HTMLElement,
+		appName: string,
 		storage: SimpleStorage,
 		server: Server|undefined,
 		serverList: ServerList,
@@ -159,7 +162,8 @@ export default class ServerListSection {
 			()=>{
 				location.reload()
 			},
-			syntaxDescription,makeSyntaxExamples(serverList.defaultServerListConfig)
+			makeSyntaxDescription(appName),
+			makeSyntaxExamples(serverList.defaultServerListConfig)
 		))
 	}
 }
