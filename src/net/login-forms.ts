@@ -84,7 +84,7 @@ export default class LoginForms {
 				})
 			}
 		} else {
-			(<any>window).receiveOsmNoteViewerAuthCode=async(code:unknown)=>{
+			(<any>window).receiveOsmAuthCode=async(code:unknown)=>{
 				await wrapAction(async()=>{
 					if (typeof code != 'string') {
 						throw new AuthError(`Unexpected code parameter type received from popup window`)
@@ -93,7 +93,7 @@ export default class LoginForms {
 				})
 				this.stopWaitingForAuthorization()
 			}
-			(<any>window).receiveOsmNoteViewerAuthDenial=async(errorDescription:unknown)=>{
+			(<any>window).receiveOsmAuthDenial=async(errorDescription:unknown)=>{
 				await wrapAction(async()=>{
 					throw new AuthError(typeof errorDescription == 'string'
 						? errorDescription
@@ -114,8 +114,8 @@ export default class LoginForms {
 	}
 	private stopWaitingForAuthorization() {
 		this.$manualCodeForm.onsubmit=(ev)=>ev.preventDefault()
-		delete (<any>window).receiveOsmNoteViewerAuthCode
-		delete (<any>window).receiveOsmNoteViewerAuthDenial
+		delete (<any>window).receiveOsmAuthCode
+		delete (<any>window).receiveOsmAuthDenial
 		this.loginWindow?.close()
 		this.loginWindow=undefined
 		this.$loginButton.hidden=false

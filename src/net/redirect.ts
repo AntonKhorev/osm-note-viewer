@@ -2,14 +2,14 @@ import {makeDiv, makeLink} from '../util/html'
 import {em} from '../util/html-shortcuts'
 
 interface AuthOpener {
-	receiveOsmNoteViewerAuthCode(code:unknown):unknown
-	receiveOsmNoteViewerAuthDenial(errorDescription:unknown):unknown
+	receiveOsmAuthCode(code:unknown):unknown
+	receiveOsmAuthDenial(errorDescription:unknown):unknown
 }
 function isAuthOpener(o:any): o is AuthOpener {
 	return (
 		o && typeof o == 'object' &&
-		typeof o.receiveOsmNoteViewerAuthCode == 'function' &&
-		typeof o.receiveOsmNoteViewerAuthDenial == 'function'
+		typeof o.receiveOsmAuthCode == 'function' &&
+		typeof o.receiveOsmAuthDenial == 'function'
 	)
 }
 
@@ -30,9 +30,9 @@ export function checkAuthRedirectForInstallUri(appName: string, installUri: stri
 			`If you want to continue using `,app(),`, please open `,makeLink(`this link`,installUri),`.`
 		))
 	} else if (code!=null) {
-		window.opener.receiveOsmNoteViewerAuthCode(code)
+		window.opener.receiveOsmAuthCode(code)
 	} else if (error!=null) {
-		window.opener.receiveOsmNoteViewerAuthDenial(errorDescription??error)
+		window.opener.receiveOsmAuthDenial(errorDescription??error)
 	}
 	return true
 }
