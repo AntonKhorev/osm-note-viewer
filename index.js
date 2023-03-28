@@ -11,53 +11,43 @@ class NoteViewerStorage {
     removeItem(k) {
         localStorage.removeItem(this.prefix + k);
     }
-    getString(k) {
-        return this.getItem(k) ?? '';
-    }
-    setString(k, v) {
-        if (v != '') {
-            this.setItem(k, v);
-        }
-        else {
-            this.removeItem(k);
-        }
-    }
-    getBoolean(k) {
-        return !!this.getItem(k);
-    }
-    setBoolean(k, v) {
-        if (v) {
-            this.setItem(k, '1');
-        }
-        else {
-            this.removeItem(k);
-        }
-    }
     getKeys() {
         const result = [];
-        for (const k in localStorage) {
-            if (!localStorage.hasOwnProperty(k))
-                continue;
-            if (!k.startsWith(this.prefix))
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (!k?.startsWith(this.prefix))
                 continue;
             result.push(k.substring(this.prefix.length));
         }
         return result;
     }
-    computeSize() {
-        let size = 0;
-        for (const k of this.getKeys()) {
-            const value = this.getItem(k);
-            if (value == null)
-                continue;
-            size += (value.length + this.prefix.length + k.length) * 2;
-        }
-        return size;
-    }
     clear() {
         for (const k of this.getKeys()) {
             this.removeItem(k);
         }
+    }
+}
+
+function getStorageString(storage, k) {
+    return storage.getItem(k) ?? '';
+}
+function setStorageString(storage, k, v) {
+    if (v != '') {
+        storage.setItem(k, v);
+    }
+    else {
+        storage.removeItem(k);
+    }
+}
+function getStorageBoolean(storage, k) {
+    return !!storage.getItem(k);
+}
+function setStorageBoolean(storage, k, v) {
+    if (v) {
+        storage.setItem(k, '1');
+    }
+    else {
+        storage.removeItem(k);
     }
 }
 
@@ -401,15 +391,19 @@ function makeGetKnownErrorMessage(KnownError // KnownError: typeof TypeError,
         }
     };
 }
-function bubbleEvent($target, type) {
-    return $target.dispatchEvent(new Event(type, { bubbles: true }));
-}
-function bubbleCustomEvent($target, type, detail) {
-    return $target.dispatchEvent(new CustomEvent(type, {
-        bubbles: true,
-        detail
-    }));
-}
+
+const em = (...ss) => makeElement('em')()(...ss);
+const strong = (...ss) => makeElement('strong')()(...ss);
+const sup = (...ss) => makeElement('sup')()(...ss);
+const dfn = (...ss) => makeElement('dfn')()(...ss);
+const kbd = (...ss) => makeElement('kbd')()(...ss);
+const code = (...ss) => makeElement('code')()(...ss);
+const mark = (...ss) => makeElement('mark')()(...ss);
+const a = (...ss) => makeElement('a')()(...ss);
+const p = (...ss) => makeElement('p')()(...ss);
+const ul = (...ss) => makeElement('ul')()(...ss);
+const ol = (...ss) => makeElement('ol')()(...ss);
+const li = (...ss) => makeElement('li')()(...ss);
 
 function escapeRegex(text) {
     return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
@@ -437,6 +431,161 @@ function makeEscapeTag(escapeFn) {
         }
         return result;
     };
+}
+
+function getHashSearchParams() {
+    const paramString = (location.hash[0] == '#')
+        ? location.hash.slice(1)
+        : location.hash;
+    return new URLSearchParams(paramString);
+}
+function makeHrefWithCurrentHost(parameters) {
+    const hostHashValue = getHashSearchParams().get('host');
+    const parametersWithCurrentHost = [];
+    if (hostHashValue)
+        parametersWithCurrentHost.push(['host', hostHashValue]);
+    parametersWithCurrentHost.push(...parameters);
+    return '#' + parametersWithCurrentHost.map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+}
+class HashServerSelector {
+    constructor(serverList) {
+        this.serverList = serverList;
+        const searchParams = getHashSearchParams();
+        this.hostHashValue = searchParams.get('host');
+    }
+    selectServer() {
+        return this.getServer(this.hostHashValue);
+    }
+    getHostHashValue(server) {
+        let hostHashValue = null;
+        if (server != this.serverList.defaultServer) {
+            hostHashValue = server.host;
+        }
+        return hostHashValue;
+    }
+    getServerSelectHref(server) {
+        const baseLocation = location.pathname + location.search;
+        const hashValue = this.getHostHashValue(server);
+        return baseLocation + (hashValue ? `#host=` + escapeHash(hashValue) : '');
+    }
+    addServerSelectToAppInstallLocationHref(server, installLocationHref) {
+        const hashValue = this.getHostHashValue(server);
+        return installLocationHref + (hashValue ? `#host=` + escapeHash(hashValue) : '');
+    }
+    makeServerSelectErrorMessage() {
+        const hostHash = (this.hostHashValue != null
+            ? `host=` + escapeHash(this.hostHashValue)
+            : ``);
+        return [
+            `Unknown server in URL hash parameter `, code(hostHash), `.`
+        ];
+    }
+    getServer(hostHashValue) {
+        if (hostHashValue == null)
+            return this.serverList.defaultServer;
+        return this.serverList.servers.get(hostHashValue);
+    }
+}
+
+function isArrayOfStrings(value) {
+    return isArray(value) && value.every(item => typeof item == 'string');
+}
+function isArrayOfNumbers(value) {
+    return isArray(value) && value.every(item => typeof item == 'number');
+}
+function isArray(value) {
+    return Array.isArray(value);
+}
+
+function makeLogin$1(data) {
+    if (!data || typeof data != 'object' ||
+        !('scope' in data) || typeof data.scope != 'string' ||
+        !('uid' in data) || typeof data.uid != 'number' ||
+        !('username' in data) || typeof data.username != 'string')
+        throw new TypeError(`Invalid login data`);
+    const login = {
+        scope: data.scope,
+        uid: data.uid,
+        username: data.username
+    };
+    if (('roles' in data) && isArrayOfStrings(data.roles)) {
+        login.roles = data.roles;
+    }
+    return login;
+}
+class AuthStorage {
+    constructor(storage, host, installUri) {
+        this.storage = storage;
+        this.host = host;
+        this.installUri = installUri;
+        this.manualCodeUri = `urn:ietf:wg:oauth:2.0:oob`;
+    }
+    get prefix() {
+        return `host[${this.host}].`;
+    }
+    get clientId() {
+        return getStorageString(this.storage, `${this.prefix}clientId`);
+    }
+    set clientId(clientId) {
+        setStorageString(this.storage, `${this.prefix}clientId`, clientId);
+    }
+    get isManualCodeEntry() {
+        return getStorageBoolean(this.storage, `${this.prefix}isManualCodeEntry`);
+    }
+    set isManualCodeEntry(isManualCodeEntry) {
+        setStorageBoolean(this.storage, `${this.prefix}isManualCodeEntry`, isManualCodeEntry);
+    }
+    get token() {
+        return getStorageString(this.storage, `${this.prefix}token`);
+    }
+    set token(token) {
+        setStorageString(this.storage, `${this.prefix}token`, token);
+    }
+    get redirectUri() {
+        return this.isManualCodeEntry ? this.manualCodeUri : this.installUri;
+    }
+    getLogins() {
+        const logins = new Map;
+        const loginsString = this.storage.getItem(`${this.prefix}logins`);
+        if (loginsString == null)
+            return logins;
+        let loginsArray;
+        try {
+            loginsArray = JSON.parse(loginsString);
+        }
+        catch { }
+        if (!isArray(loginsArray))
+            return logins;
+        for (const loginsArrayEntry of loginsArray) {
+            if (!isArray(loginsArrayEntry))
+                continue;
+            const [token, loginData] = loginsArrayEntry;
+            if (typeof token != 'string')
+                continue;
+            try {
+                const login = makeLogin$1(loginData);
+                logins.set(token, login);
+            }
+            catch { }
+        }
+        return logins;
+    }
+    setLogin(token, login) {
+        const logins = this.getLogins();
+        logins.set(token, login);
+        this.setLoginsStorageItem(logins);
+    }
+    deleteLogin(token) {
+        const logins = this.getLogins();
+        logins.delete(token);
+        this.setLoginsStorageItem(logins);
+    }
+    get login() {
+        return this.getLogins().get(this.token);
+    }
+    setLoginsStorageItem(logins) {
+        this.storage.setItem(`${this.prefix}logins`, JSON.stringify([...logins.entries()]));
+    }
 }
 
 class QueryError {
@@ -617,7 +766,11 @@ class OverpassTurboProvider {
     }
 }
 class Server {
-    constructor(host, apiUrl, webUrls, tileUrlTemplate, tileAttributionUrl, tileAttributionText, tileMaxZoom, tileOwner, nominatimUrl, overpassUrl, overpassTurboUrl, noteUrl, noteText, world, oauthId, oauthUrl) {
+    constructor(host, apiUrl, webUrls, tileUrlTemplate, tileAttributionUrl, tileAttributionText, tileMaxZoom, tileOwner, nominatimUrl, overpassUrl, overpassTurboUrl, noteUrl, noteText, world, oauthId, 
+    /**
+      * App location registered with OSM server to receive auth redirects
+      */
+    oauthUrl) {
         this.host = host;
         this.noteUrl = noteUrl;
         this.noteText = noteText;
@@ -840,6 +993,7 @@ function type(value) {
 class ServerList {
     constructor(...configSources) {
         this.servers = new Map();
+        [this.defaultServerListConfig] = configSources;
         for (const configSource of configSources) {
             try {
                 const parametersList = parseServerListSource(configSource);
@@ -857,18 +1011,815 @@ class ServerList {
         }
         [this.defaultServer] = this.servers.values();
     }
-    getHostHashValue(server) {
-        let hostHashValue = null;
-        if (server != this.defaultServer) {
-            hostHashValue = server.host;
+}
+
+function makeCodeForm(initialValue, stashedValue, summary, textareaLabel, applyButtonLabel, isSameInput, checkInput, applyInput, runCallback, syntaxDescription, syntaxExamples) {
+    const $formDetails = document.createElement('details');
+    const $form = document.createElement('form');
+    const $output = document.createElement('output');
+    const $textarea = document.createElement('textarea');
+    const $applyButton = document.createElement('button');
+    const $clearButton = document.createElement('button');
+    const $undoClearButton = document.createElement('button');
+    $textarea.value = initialValue;
+    const isEmpty = () => !$textarea.value;
+    const canUndoClear = () => !!stashedValue && isEmpty();
+    const reactToChanges = () => {
+        const isSame = isSameInput($textarea.value);
+        $output.replaceChildren();
+        if (!isSame) {
+            $output.append(` (with unapplied changes)`);
         }
-        return hostHashValue;
+        else if (isEmpty()) {
+            $output.append(` (currently not set)`);
+        }
+        $applyButton.disabled = isSame;
+        $clearButton.disabled = isEmpty();
+        $undoClearButton.hidden = !($clearButton.hidden = canUndoClear());
+        try {
+            checkInput($textarea.value);
+            $textarea.setCustomValidity('');
+        }
+        catch (ex) {
+            let message = `Syntax error`;
+            if (ex instanceof RangeError || ex instanceof SyntaxError)
+                message = ex.message;
+            $textarea.setCustomValidity(message);
+        }
+    };
+    reactToChanges();
+    {
+        $formDetails.classList.add('with-code-form');
+        $formDetails.open = !isEmpty();
+        const $formSummary = document.createElement('summary');
+        $formSummary.append(summary, $output);
+        $formDetails.append($formSummary, $form);
     }
-    getServer(hostHash) {
-        if (hostHash == null)
-            return this.defaultServer;
-        return this.servers.get(hostHash);
+    {
+        const $syntaxDetails = document.createElement('details');
+        $syntaxDetails.classList.add('syntax');
+        $syntaxDetails.innerHTML = syntaxDescription;
+        const $examplesTitle = document.createElement('p');
+        $examplesTitle.innerHTML = '<strong>Examples</strong>:';
+        const $examplesList = document.createElement('dl');
+        $examplesList.classList.add('examples');
+        for (const [title, codeLines] of syntaxExamples) {
+            const $dt = document.createElement('dt');
+            $dt.append(title);
+            const $dd = document.createElement('dd');
+            const $code = document.createElement('code');
+            $code.textContent = codeLines.join('\n');
+            $dd.append($code);
+            $examplesList.append($dt, $dd);
+        }
+        $syntaxDetails.append($examplesTitle, $examplesList);
+        $form.append($syntaxDetails);
     }
+    {
+        $textarea.rows = 5;
+        $form.append(makeDiv('major-input-group')(makeLabel()(textareaLabel, ` `, $textarea)));
+    }
+    {
+        $applyButton.textContent = applyButtonLabel;
+        $clearButton.textContent = `Clear`;
+        $undoClearButton.textContent = `Restore previous`;
+        $undoClearButton.type = $clearButton.type = 'button';
+        $form.append(makeDiv('gridded-input-group')($applyButton, $clearButton, $undoClearButton));
+    }
+    $textarea.oninput = reactToChanges;
+    $clearButton.onclick = () => {
+        stashedValue = $textarea.value;
+        $textarea.value = '';
+        $undoClearButton.textContent = `Undo clear`;
+        reactToChanges();
+    };
+    $undoClearButton.onclick = () => {
+        $textarea.value = stashedValue;
+        reactToChanges();
+    };
+    $form.onsubmit = (ev) => {
+        ev.preventDefault();
+        try {
+            applyInput($textarea.value);
+        }
+        catch (ex) {
+            return;
+        }
+        runCallback();
+        reactToChanges();
+    };
+    return $formDetails;
+}
+
+class RadioTable {
+    constructor(radioName, columns) {
+        this.radioName = radioName;
+        this.$table = makeElement('table')()();
+        this.cellClassesList = [];
+        this.nRows = 0;
+        const $row = this.$table.insertRow();
+        for (const [cellClasses, cellLabels] of [[[], []], ...columns]) {
+            $row.append(makeElement('th')(...cellClasses)(...cellLabels));
+            this.cellClassesList.push(cellClasses);
+        }
+    }
+    addRow(provideCellContent) {
+        const $radio = document.createElement('input');
+        $radio.type = 'radio';
+        $radio.name = this.radioName;
+        $radio.id = `${this.radioName}-${this.nRows}`;
+        const $row = this.$table.insertRow();
+        const contentList = [[$radio], ...provideCellContent($radio)];
+        for (const [i, cellContent] of contentList.entries()) {
+            const cellClasses = this.cellClassesList[i] ?? [];
+            let rawCellContent;
+            if (typeof cellContent == 'undefined') {
+                rawCellContent = [];
+            }
+            else if (typeof cellContent == 'boolean') {
+                rawCellContent = [cellContent ? '+' : ''];
+            }
+            else if (typeof cellContent == 'string') {
+                rawCellContent = [cellContent ? makeLink('+', cellContent) : ''];
+            }
+            else {
+                rawCellContent = cellContent;
+            }
+            $row.append(makeElement('td')(...cellClasses)(...rawCellContent));
+        }
+        this.nRows++;
+    }
+}
+
+// TODO html-escape
+function term$1(t) {
+    return `<em>&lt;${t}&gt;</em>`;
+}
+function property(t) {
+    return `<strong><code>${t}</code></strong>`;
+}
+// TODO html-escape app name
+const makeSyntaxDescription = (appName) => `<summary>Custom server configuration syntax</summary>
+<p>Uses <a href=https://en.wikipedia.org/wiki/JSON>JSON</a> format to describe one or more custom servers.
+These servers can be referred to in the <code>host</code> URL parameter and appear in the list above.
+The entire custom servers input can be one of:</p>
+<ul>
+<li>empty when no custom servers are specified
+<li>an <em>array</em> where each element is a ${term$1('server specification')}
+<li>a single ${term$1('server specification')}
+</ul>
+<p>A ${term$1('server specification')} is <em>null</em> for default OSM server configuration, a <em>URL string</em> for a quick configuration, or an <em>object</em> with optional properties described below.
+A <em>string</em> is equivalent to an <em>object</em> with only the ${property('web')} property set.
+Possible <em>object</em> properties are:</p>
+<dl>
+<dt>${property('web')}
+<dd><strong>required</strong>; a <em>URL string</em> or an <em>array</em> of <em>URL strings</em>; used to generate/detect links to users/notes/elements/changesets
+<dt>${property('api')}
+<dd>a <em>URL string</em>; used for OSM API requests; defaults to ${property('web')} property value if not specified
+<dt>${property('nominatim')}
+<dd>a <em>URL string</em> pointing to a <a href=https://wiki.openstreetmap.org/wiki/Nominatim>Nominatim</a> service
+<dt>${property('overpass')}
+<dd>a <em>URL string</em> pointing to an <a href=https://wiki.openstreetmap.org/wiki/Overpass_API>Overpass API</a> server
+<dt>${property('overpassTurbo')}
+<dd>a <em>URL string</em> pointing to an <a href=https://wiki.openstreetmap.org/wiki/Overpass_turbo>Overpass turbo</a> web page
+<dt>${property('tiles')}
+<dd>a ${term$1('tiles specification')}
+<dt>${property('world')}
+<dd>a <em>string</em>; if it's not <code>"earth"</code>, street view tools won't be shown
+<dt>${property('oauth')}
+<dd>an ${term$1('oauth specification')}
+<dt>${property('note')}
+<dd>a <em>URL string</em>, a <em>text string</em> or an <em>array</em> of both representing a note about the server visible on the server list
+</dl>
+<p>A ${term$1('tiles specification')} is a <em>string</em> or an <em>object</em> with optional properties described below.
+A <em>string</em> value is equivalent to an <em>object</em> with only the ${property('template')} property set.
+Possible <em>object</em> properties are:</p>
+<dl>
+<dt>${property('template')}
+<dd>a <em>string</em> with template parameters like "<code>https://tile.openstreetmap.org/{z}/{x}/{y}.png</code>" or "<code>https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png</code>" to generate tile URLs
+<dt>${property('attribution')}
+<dd>a <em>URL string</em>, a <em>text string</em> or an <em>array</em> of both containing an <a href=https://wiki.osmfoundation.org/wiki/Licence/Attribution_Guidelines#Interactive_maps>attribution</a> displayed in the corner of the map
+<dt>${property('zoom')}
+<dd>a number with max zoom level; defaults to the OSM max zoom value of 19
+</dl>
+<p>An ${term$1('oauth specification')} is an <em>object</em> describing the registration of <em>${appName}</em> as an <a href=https://wiki.openstreetmap.org/wiki/OAuth#OAuth_2.0_2>OAuth 2 app</a> on this OSM server.
+It can have the following properties:</p>
+<dl>
+<dt>${property('id')}
+<dd>a <em>string</em> with the OAuth <em>client id</em>; this property is <strong>required</strong> when an ${term$1('oauth specification')} is present
+<dt>${property('url')}
+<dd>a <em>string</em> with the OAuth <em>redirect URI</em> matching the location where <em>${appName}</em> is hosted;
+this property is optional, it is used to remind about the correct location that is going to receive OAuth redirects in case if <em>${appName}</em> is copied to a different location
+</dl>
+`;
+const makeSyntaxExamples = (defaultServerListConfig) => [
+    [`Local server on port 3333`, [`"http://127.0.0.1:3333/"`]],
+    [`Dev server with custom tiles`, [
+            `{`,
+            `  "web": "https://api06.dev.openstreetmap.org/",`,
+            `  "tiles": "https://tile.openstreetmap.de/{z}/{x}/{y}.png",`,
+            `  "note": "dev server with German tiles"`,
+            `}`
+        ]],
+    [`Dev server with custom tiles and different max zoom`, [
+            `{`,
+            `  "web": "https://api06.dev.openstreetmap.org/",`,
+            `  "tiles": {`,
+            `    "template": "https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",`,
+            `    "zoom": 20`,
+            `  },`,
+            `  "note": "dev server with CyclOSM tiles"`,
+            `}`
+        ]],
+    [`Default configuration`, [JSON.stringify(defaultServerListConfig, undefined, 2)]]
+];
+class ServerListSection {
+    constructor($section, appName, storage, server, serverList, serverSelector) {
+        $section.append(makeElement('h2')()(`Servers`));
+        if (!server)
+            $section.append(makeDiv('notice', 'error')(...serverSelector.makeServerSelectErrorMessage(), ` Please select one of the servers below.`));
+        {
+            const serverTable = new RadioTable('host', [
+                [[], [`host`]],
+                [['capability'], [`website`]],
+                [['capability'], [`own tiles`]],
+                [['capability'], [`Nominatim`]],
+                [['capability'], [`Overpass`]],
+                [['capability'], [`Overpass turbo`]],
+                [[], [`note`]],
+            ]);
+            for (const [availableHost, availableServer] of serverList.servers) {
+                const availableServerLocation = serverSelector.getServerSelectHref(availableServer);
+                let note = '';
+                if (availableServer.noteText && !availableServer.noteUrl) {
+                    note = availableServer.noteText;
+                }
+                else if (availableServer.noteUrl) {
+                    note = makeLink(availableServer.noteText || `[note]`, availableServer.noteUrl);
+                }
+                serverTable.addRow(($radio) => {
+                    $radio.checked = server == availableServer;
+                    $radio.tabIndex = -1;
+                    const $a = makeLink(availableHost, availableServerLocation);
+                    const $label = makeElement('label')()($a);
+                    $label.htmlFor = $radio.id;
+                    $radio.onclick = () => $a.click();
+                    return [
+                        [$label],
+                        availableServer.web.getUrl(''),
+                        availableServer.tile.owner,
+                        availableServer.nominatim?.statusUrl,
+                        availableServer.overpass?.statusUrl,
+                        availableServer.overpassTurbo?.url,
+                        [note]
+                    ];
+                });
+            }
+            $section.append(serverTable.$table);
+        }
+        $section.append(makeCodeForm(getStorageString(storage, 'servers'), '', `Custom servers configuration`, `Configuration`, `Apply changes`, input => input == getStorageString(storage, 'servers'), input => {
+            if (input.trim() == '')
+                return;
+            const configSource = JSON.parse(input);
+            parseServerListSource(configSource);
+        }, input => {
+            setStorageString(storage, 'servers', input.trim());
+        }, () => {
+            location.reload();
+        }, makeSyntaxDescription(appName), makeSyntaxExamples(serverList.defaultServerListConfig)));
+    }
+}
+
+class AppSection {
+    constructor($section, appName, oauthScope, authStorage, server, serverSelector) {
+        const app = () => em(appName);
+        const isSecureWebInstall = (location.protocol == 'https:' ||
+            location.protocol == 'http:' && location.hostname == '127.0.0.1');
+        const $clientIdInput = document.createElement('input');
+        $clientIdInput.id = 'auth-app-client-id';
+        $clientIdInput.type = 'text';
+        $clientIdInput.value = authStorage.clientId;
+        const manualCodeEntryLabel = `Manual authorization code entry`;
+        const $manualCodeEntryCheckbox = document.createElement('input');
+        $manualCodeEntryCheckbox.id = 'auth-app-manual-code-entry';
+        $manualCodeEntryCheckbox.type = 'checkbox';
+        $manualCodeEntryCheckbox.checked = authStorage.isManualCodeEntry;
+        const $registrationNotice = makeDiv('notice')();
+        const $useBuiltinRegistrationButton = makeElement('button')()(`Use the built-in registration`);
+        const updateRegistrationNotice = () => {
+            $registrationNotice.replaceChildren();
+            if (!server.oauthId)
+                return;
+            $registrationNotice.append(`With `, makeLink(`the selected OSM server`, server.web.getUrl('')), `, `);
+            if (authStorage.installUri == server.oauthUrl || !server.oauthUrl) {
+                $registrationNotice.append(app(), ` has a built-in registration`);
+                if (authStorage.installUri == server.oauthUrl) {
+                    const href = serverSelector.addServerSelectToAppInstallLocationHref(server, server.oauthUrl);
+                    $registrationNotice.append(` for `, makeLink(`its install location`, href));
+                }
+                if (!authStorage.clientId) {
+                    $registrationNotice.append(` — `, $useBuiltinRegistrationButton);
+                }
+                else if (authStorage.clientId != server.oauthId) {
+                    $registrationNotice.append(` but the current `, em(`client id`), ` doesn't match it`, ` — `, $useBuiltinRegistrationButton);
+                }
+                else {
+                    $registrationNotice.append(` which matches the current `, em(`client id`), ` ✓`);
+                }
+            }
+            else {
+                const href = serverSelector.addServerSelectToAppInstallLocationHref(server, server.oauthUrl);
+                $registrationNotice.append(app(), ` has a built-in registration for `, makeLink(`a different install location`, href));
+            }
+        };
+        const $overallClientIdPresence = makeElement('span')()();
+        const updateOverallClientIdPresence = () => {
+            $overallClientIdPresence.replaceChildren(authStorage.clientId
+                ? `you have it`
+                : `you don't have it`);
+        };
+        updateOverallClientIdPresence();
+        const onRegistrationInput = (...$inputs) => {
+            for (const $input of $inputs) {
+                if ($input == $clientIdInput) {
+                    authStorage.clientId = $clientIdInput.value.trim();
+                    updateRegistrationNotice();
+                    updateOverallClientIdPresence();
+                }
+                else if ($input == $manualCodeEntryCheckbox) {
+                    authStorage.isManualCodeEntry = $manualCodeEntryCheckbox.checked;
+                }
+            }
+            this.onRegistrationUpdate?.();
+        };
+        const useBuiltinRegistration = () => {
+            if (!server.oauthId)
+                return;
+            $clientIdInput.value = server.oauthId;
+            $manualCodeEntryCheckbox.checked = false;
+            onRegistrationInput($clientIdInput, $manualCodeEntryCheckbox);
+        };
+        $clientIdInput.oninput = () => onRegistrationInput($clientIdInput);
+        $manualCodeEntryCheckbox.oninput = () => onRegistrationInput($manualCodeEntryCheckbox);
+        $useBuiltinRegistrationButton.onclick = useBuiltinRegistration;
+        if (server.oauthId && !authStorage.clientId &&
+            (authStorage.installUri == server.oauthUrl || !server.oauthUrl)) {
+            useBuiltinRegistration();
+        }
+        else {
+            updateRegistrationNotice();
+        }
+        const value = (text) => {
+            const $kbd = makeElement('kbd')('copy')(text);
+            $kbd.onclick = () => navigator.clipboard.writeText(text);
+            return $kbd;
+        };
+        const registrationDetails = (isOpen, redirectUri, isManualCodeEntry, summary, lead) => {
+            const makeInputLink = ($input, ...content) => {
+                const $anchor = document.createElement('a');
+                $anchor.href = '#' + $input.id;
+                $anchor.classList.add('input-link');
+                $anchor.append(...content);
+                $anchor.onclick = ev => {
+                    ev.preventDefault();
+                    $input.focus();
+                };
+                return $anchor;
+            };
+            const $details = makeElement('details')()(makeElement('summary')()(summary), ...lead, ol(li(`Go to `, makeLink(`My Settings > OAuth 2 applications > Register new application`, server.web.getUrl(`oauth2/applications/new`)), ` on `, em(server.host), `.`), li(`For `, em(`Name`), ` enter anything that would help users to identify your copy of `, app(), `, for example, `, value(`${appName} @ ${authStorage.installUri}`), `. `, `Users will see this name on the authorization granting page and in their `, makeLink(`active authorizations list`, server.web.getUrl(`oauth2/authorized_applications`)), ` after they log in here.`), li(`For `, em(`Redirect URIs`), ` enter `, mark(value(redirectUri)), `.`), li(`Uncheck `, em(`Confidential application?`)), li(`In `, em(`Permissions`), ` check:`, makePermissionsList(oauthScope)), li(`Click `, em(`Register`), `.`), li(`Copy the `, em(`Client ID`), ` to `, makeInputLink($clientIdInput, `the input below`), `.`), li(`Don't copy the `, em(`Client Secret`), `. `, `You can write it down somewhere but it's going to be useless because `, app(), ` is not a confidential app and can't keep secrets.`), li(mark(isManualCodeEntry ? `Check` : `Uncheck`), ` `, makeInputLink($manualCodeEntryCheckbox, em(manualCodeEntryLabel), ` below`), `.`)), p(`After these steps you should be able to see `, app(), ` with its client id and permissions in `, makeLink(`your client applications`, server.web.getUrl(`oauth2/applications`)), `.`));
+            if (isOpen)
+                $details.open = true;
+            return $details;
+        };
+        const $overallDetails = makeElement('details')()(makeElement('summary')()(`Only required if you want logins and don't have a `, em(`client id`), ` (`, $overallClientIdPresence, `).`), p(`You have to get a `, em(`client id`), ` if you want to run your own copy of `, app(), ` and be able to perform actions requiring a login. `, `There are two possible app registration methods described below. `, `Their necessary steps are the same except for the `, mark(`marked`), ` parts.`), registrationDetails(!authStorage.clientId && isSecureWebInstall, authStorage.installUri, false, `Instructions for setting up automatic logins`, [
+            p(`This method sets up the most expected login workflow: login happens after the `, em(`Authorize`), ` button is pressed.`), ` `,
+            p(`This method will only work when `, app(), ` served over `, em(`https`), ` or over `, em(`http`), ` on localhost. `, ...(isSecureWebInstall
+                ? [`This seems to be the case with your install.`]
+                : [
+                    strong(`This doesn't seem to be the case with your install.`), ` `,
+                    `If you register `, app(), ` with this method, logins will likely fail after pressing the `, em(`Authorize`), ` button. `,
+                    `Use the registration method with manual code entry described below or move `, app(), ` to a secure web server.`
+                ]))
+        ]), registrationDetails(!authStorage.clientId && !isSecureWebInstall, authStorage.manualCodeUri, true, `Instructions for setting up logins where users have to copy the authorization code manually`, [
+            p(`This sets up a less user-friendly login workflow: after pressing the `, em(`Authorize`), ` an `, em(`Authorization code`), ` appears that has to be copied into the `, em(`Authorization code`), ` input below the login button on this page.`), ` `,
+            p(`This setup method is required when `, app(), ` is not running on a secure web server. `, ...(!isSecureWebInstall
+                ? [`This seems to be the case with your install.`]
+                : [
+                    strong(`This doesn't seem to be the case with your install.`), ` `,
+                    `You may still use this method but the one described before gives a simpler login workflow.`
+                ]))
+        ]), makeElement('details')()(makeElement('summary')()(`Additional instructions for building your own copy of `, app(), ` with a registration included`), ol(li(`Register an OAuth 2 app with one of the methods described above.`), li(`Open `, code(`servers.json`), ` in `, app(), `'s source code. `, `The format of this file is described here in `, em(`Custom server configuration syntax`), `.`), li(`If you're using a custom server specified on this page, copy its configuration to `, code(`servers.json`), `.`), li(`Find the `, code(`oauth`), ` property corresponding to the server you're using or add one if it doesn't exist.`), li(`Copy the `, em(`Client ID`), ` to the `, code(`id`), ` property inside `, code(`oauth`), `.`), li(`If you're not using manual authorization code entry, copy `, app(), `'s install location (`, value(authStorage.installUri), `) to the `, code(`url`), ` property inside `, code(`oauth`), `.`), li(`Rebuild `, app(), `.`))), makeDiv('major-input-group')(makeLabel()(`Client ID `, $clientIdInput)), makeDiv('major-input-group')(makeLabel()($manualCodeEntryCheckbox, ` ` + manualCodeEntryLabel), ` (for non-https/non-secure install locations)`), $registrationNotice);
+        $overallDetails.open = !authStorage.clientId;
+        $section.append(makeElement('h2')()(`Register app`), $overallDetails);
+    }
+}
+// openstreetmap-website/config/locales/en.yml en.oauth.authorize.scopes
+const oauthScopeNames = {
+    read_prefs: `Read user preferences`,
+    write_prefs: `Modify user preferences`,
+    write_diary: `Create diary entries, comments and make friends`,
+    write_api: `Modify the map`,
+    read_gpx: `Read private GPS traces`,
+    write_gpx: `Upload GPS traces`,
+    write_notes: `Modify notes`,
+};
+function makePermissionsList(oauthScope) {
+    return ul(...oauthScope.split(' ').map(s => li(oauthScopeNames[s])));
+}
+
+class AuthError extends TypeError {
+}
+class LoginForms {
+    constructor($container, appName, isManualCodeEntry, getRequestCodeUrl, exchangeCodeForToken) {
+        this.isManualCodeEntry = isManualCodeEntry;
+        this.$loginButton = makeElement('button')()(`Login`);
+        this.$cancelLoginButton = makeElement('button')()(`Cancel login`);
+        this.$manualCodeForm = document.createElement('form');
+        this.$manualCodeButton = document.createElement('button');
+        this.$manualCodeInput = document.createElement('input');
+        this.$error = makeDiv('notice')();
+        this.$manualCodeInput.type = 'text';
+        this.$manualCodeInput.required = true;
+        this.$manualCodeButton.textContent = `Login with the authorization code`;
+        this.stopWaitingForAuthorization();
+        this.$loginButton.onclick = async () => {
+            const codeVerifier = getCodeVerifier();
+            const codeChallenge = await getCodeChallenge(codeVerifier);
+            const width = 600;
+            const height = 600;
+            const loginWindow = open(getRequestCodeUrl(codeChallenge), '_blank', `width=${width},height=${height},left=${screen.width / 2 - width / 2},top=${screen.height / 2 - height / 2}`);
+            if (loginWindow == null)
+                return;
+            this.waitForAuthorization(loginWindow, code => exchangeCodeForToken(code, codeVerifier));
+        };
+        this.$cancelLoginButton.onclick = () => {
+            this.stopWaitingForAuthorization();
+        };
+        window.addEventListener('beforeunload', () => {
+            this.stopWaitingForAuthorization();
+        });
+        // TODO write that you may not get a confirmation page if you are already logged in - in this case logout first
+        //	^ to do this, need to check if anything user-visible appears in the popup at all with auto-code registrations
+        const app = () => em(appName);
+        this.$manualCodeForm.append(p(`If the manual code copying method was used to register `, app(), `, copy the code into the input below.`), makeDiv('major-input-group')(makeLabel()(`Authorization code `, this.$manualCodeInput)), makeDiv('major-input-group')(this.$manualCodeButton));
+        $container.append(makeDiv('major-input-group')(this.$loginButton, this.$cancelLoginButton), this.$manualCodeForm, this.$error);
+    }
+    respondToAppRegistration(isManualCodeEntry) {
+        this.isManualCodeEntry = isManualCodeEntry;
+        this.stopWaitingForAuthorization();
+        this.clearError();
+    }
+    waitForAuthorization(loginWindow, submitCode) {
+        const wrapAction = (action) => wrapFetch(this.$manualCodeButton, action, makeGetKnownErrorMessage(AuthError), this.$error, message => this.$error.textContent = message);
+        if (this.isManualCodeEntry) {
+            this.$manualCodeForm.onsubmit = async (ev) => {
+                ev.preventDefault();
+                await wrapAction(async () => {
+                    await submitCode(this.$manualCodeInput.value.trim());
+                    this.stopWaitingForAuthorization(); // keep the login popup on error in case user copied the code incorrectly
+                });
+            };
+        }
+        else {
+            window.receiveOsmAuthCode = async (code) => {
+                await wrapAction(async () => {
+                    if (typeof code != 'string') {
+                        throw new AuthError(`Unexpected code parameter type received from popup window`);
+                    }
+                    await submitCode(code);
+                });
+                this.stopWaitingForAuthorization();
+            };
+            window.receiveOsmAuthDenial = async (errorDescription) => {
+                await wrapAction(async () => {
+                    throw new AuthError(typeof errorDescription == 'string'
+                        ? errorDescription
+                        : `Unknown authorization error`);
+                });
+                this.stopWaitingForAuthorization();
+            };
+        }
+        this.loginWindow = loginWindow;
+        this.$loginButton.hidden = true;
+        this.$cancelLoginButton.hidden = false;
+        this.$manualCodeForm.hidden = !this.isManualCodeEntry;
+        if (this.isManualCodeEntry) {
+            this.$manualCodeInput.focus();
+        }
+        this.clearError();
+    }
+    stopWaitingForAuthorization() {
+        this.$manualCodeForm.onsubmit = (ev) => ev.preventDefault();
+        delete window.receiveOsmAuthCode;
+        delete window.receiveOsmAuthDenial;
+        this.loginWindow?.close();
+        this.loginWindow = undefined;
+        this.$loginButton.hidden = false;
+        this.$cancelLoginButton.hidden = true;
+        this.$manualCodeForm.hidden = true;
+        this.$manualCodeInput.value = '';
+    }
+    clearError() {
+        this.$error.replaceChildren();
+    }
+}
+function getCodeVerifier() {
+    const byteLength = 48; // verifier string length == byteLength * 8/6
+    return encodeBase64url(crypto.getRandomValues(new Uint8Array(byteLength)));
+}
+async function getCodeChallenge(codeVerifier) {
+    const codeVerifierArray = new TextEncoder().encode(codeVerifier);
+    const codeChallengeBuffer = await crypto.subtle.digest('SHA-256', codeVerifierArray);
+    return encodeBase64url(new Uint8Array(codeChallengeBuffer));
+}
+function encodeBase64url(bytes) {
+    const string = String.fromCharCode(...bytes);
+    return btoa(string).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function isAuthErrorData(data) {
+    return (data &&
+        typeof data == 'object' &&
+        typeof data.error_description == 'string');
+}
+function isAuthTokenData(data) {
+    return (data &&
+        typeof data == 'object' &&
+        typeof data.access_token == 'string' &&
+        typeof data.scope == 'string');
+}
+function isUserData(data) {
+    return (data &&
+        data.user &&
+        typeof data.user == 'object' &&
+        typeof data.user.id == 'number' &&
+        typeof data.user.display_name == 'string' &&
+        hasCorrectRoles(data.user.roles));
+    function hasCorrectRoles(roles) {
+        if (roles === undefined)
+            return true;
+        return isArrayOfStrings(roles);
+    }
+}
+function makeLogin(scope, userData) {
+    const login = {
+        scope,
+        uid: userData.user.id,
+        username: userData.user.display_name
+    };
+    if (userData.user.roles)
+        login.roles = userData.user.roles;
+    return login;
+}
+class LoginSection {
+    constructor($section, appName, oauthScope, loginReasons, authStorage, server, onLoginChange) {
+        this.$section = $section;
+        this.authStorage = authStorage;
+        this.$clientIdRequired = makeDiv('notice')(`Please register the app and enter the `, em(`client id`), ` below to be able to login.`);
+        this.$loginForms = makeDiv()();
+        this.$logins = makeDiv()();
+        const webPostUrlencodedWithPossibleAuthError = async (webPath, parameters, whenMessage) => {
+            const response = await server.web.fetch.withUrlencodedBody(parameters).post(webPath);
+            if (response.ok)
+                return response;
+            let errorData;
+            try {
+                errorData = await response.json();
+            }
+            catch { }
+            if (isAuthErrorData(errorData)) {
+                throw new AuthError(`Error ${whenMessage}: ${errorData.error_description}`);
+            }
+            else {
+                throw new AuthError(`Error ${whenMessage} with unknown error format`);
+            }
+        };
+        const fetchUserData = async (token) => {
+            const userResponse = await server.api.fetch.withToken(token)(`user/details.json`);
+            if (!userResponse.ok) {
+                throw new AuthError(`Error while getting user details`);
+            }
+            let userData;
+            try {
+                userData = await userResponse.json();
+            }
+            catch { }
+            if (!isUserData(userData)) {
+                throw new AuthError(`Unexpected response format when getting user details`);
+            }
+            return userData;
+        };
+        const switchToToken = (token) => {
+            authStorage.token = token;
+            onLoginChange();
+        };
+        const updateInResponseToLogin = () => {
+            const logins = authStorage.getLogins();
+            if (logins.size == 0) {
+                this.$logins.replaceChildren(`No active logins. Press the button above to login. `, ...loginReasons);
+                return;
+            }
+            const loginTable = new RadioTable('login', [
+                [['number'], [`user id`]],
+                [[], [`username`]],
+                [['capability'], [`profile`]],
+                [['capability'], [`moderator`]],
+            ]);
+            loginTable.addRow(($radio) => {
+                $radio.checked = !authStorage.token;
+                $radio.onclick = () => {
+                    switchToToken('');
+                };
+                const $usernameLabel = makeElement('label')()(em(`anonymous`));
+                $usernameLabel.htmlFor = $radio.id;
+                return [
+                    [],
+                    [$usernameLabel]
+                ];
+            });
+            for (const [token, login] of logins) {
+                const userHref = server.web.getUrl(`user/` + encodeURIComponent(login.username));
+                const $updateButton = makeElement('button')()(`Update user info`);
+                const $logoutButton = makeElement('button')()(`Logout`);
+                $updateButton.onclick = () => wrapFetchForButton($updateButton, async () => {
+                    const userData = await fetchUserData(token);
+                    authStorage.setLogin(token, makeLogin(login.scope, userData));
+                    updateInResponseToLogin();
+                }, makeGetKnownErrorMessage(AuthError));
+                $logoutButton.onclick = () => wrapFetchForButton($logoutButton, async () => {
+                    await webPostUrlencodedWithPossibleAuthError(`oauth2/revoke`, [
+                        ['token', token],
+                        // ['token_type_hint','access_token']
+                        ['client_id', authStorage.clientId]
+                    ], `while revoking a token`);
+                    authStorage.deleteLogin(token);
+                    if (authStorage.token == token) {
+                        switchToToken('');
+                    }
+                    updateInResponseToLogin();
+                }, makeGetKnownErrorMessage(AuthError));
+                loginTable.addRow(($radio) => {
+                    $radio.checked = authStorage.token == token;
+                    $radio.onclick = () => {
+                        switchToToken(token);
+                    };
+                    const $uidLabel = makeElement('label')()(String(login.uid));
+                    const $usernameLabel = makeElement('label')()(login.username);
+                    $uidLabel.htmlFor = $usernameLabel.htmlFor = $radio.id;
+                    return [
+                        [$uidLabel],
+                        [$usernameLabel],
+                        userHref,
+                        login.roles?.includes('moderator'),
+                        [$updateButton],
+                        [$logoutButton],
+                    ];
+                });
+            }
+            this.$logins.replaceChildren(loginTable.$table);
+        };
+        this.loginForms = new LoginForms(this.$loginForms, appName, authStorage.isManualCodeEntry, (codeChallenge) => {
+            return server.web.getUrl('oauth2/authorize') + '?' + [
+                ['client_id', authStorage.clientId],
+                ['redirect_uri', authStorage.redirectUri],
+                ['scope', oauthScope],
+                ['response_type', 'code'],
+                ['code_challenge', codeChallenge],
+                ['code_challenge_method', 'S256']
+            ].map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+        }, async (code, codeVerifier) => {
+            const tokenResponse = await webPostUrlencodedWithPossibleAuthError(`oauth2/token`, [
+                ['client_id', authStorage.clientId],
+                ['redirect_uri', authStorage.redirectUri],
+                ['grant_type', 'authorization_code'],
+                ['code', code],
+                ['code_verifier', codeVerifier]
+            ], `while getting a token`);
+            let tokenData;
+            try {
+                tokenData = await tokenResponse.json();
+            }
+            catch { }
+            if (!isAuthTokenData(tokenData)) {
+                throw new AuthError(`Unexpected response format when getting a token`);
+            }
+            const userData = await fetchUserData(tokenData.access_token);
+            authStorage.setLogin(tokenData.access_token, makeLogin(tokenData.scope, userData));
+            switchToToken(tokenData.access_token);
+            updateInResponseToLogin();
+        });
+        this.updateVisibility();
+        updateInResponseToLogin();
+        $section.append(makeElement('h2')()(`Logins`), this.$clientIdRequired, this.$loginForms, this.$logins);
+    }
+    respondToAppRegistration() {
+        this.loginForms.respondToAppRegistration(this.authStorage.isManualCodeEntry);
+        this.updateVisibility();
+    }
+    focusOnLogin() {
+        this.$section.scrollIntoView();
+        if (!this.$loginForms.hidden && !this.loginForms.$loginButton.hidden) {
+            this.loginForms.$loginButton.focus();
+        }
+    }
+    updateVisibility() {
+        const canLogin = !!this.authStorage.clientId;
+        this.$clientIdRequired.hidden = canLogin;
+        this.$loginForms.hidden = !canLogin;
+        this.$logins.hidden = !canLogin;
+    }
+}
+
+function isAuthOpener(o) {
+    return (o && typeof o == 'object' &&
+        typeof o.receiveOsmAuthCode == 'function' &&
+        typeof o.receiveOsmAuthDenial == 'function');
+}
+function checkAuthRedirectForInstallUri(appName, installUri) {
+    const app = () => em(appName);
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code');
+    const error = params.get('error');
+    const errorDescription = params.get('error_description');
+    if (code == null && error == null) {
+        return false;
+    }
+    if (!isAuthOpener(window.opener)) {
+        document.body.append(makeDiv('notice')(`This is the location of authentication redirect for `, app(), `. `, `It is expected to be opened in a popup window when performing a login. `, `Instead it is opened outside of a popup and cannot function properly. `, `If you want to continue using `, app(), `, please open `, makeLink(`this link`, installUri), `.`));
+    }
+    else if (code != null) {
+        window.opener.receiveOsmAuthCode(code);
+    }
+    else if (error != null) {
+        window.opener.receiveOsmAuthDenial(errorDescription ?? error);
+    }
+    return true;
+}
+
+const installUri = `${location.protocol}//${location.host}${location.pathname}`;
+function checkAuthRedirect(appName) {
+    return checkAuthRedirectForInstallUri(appName, installUri);
+}
+class Connection {
+    constructor(server, authStorage) {
+        this.server = server;
+        this.authStorage = authStorage;
+    }
+    get token() {
+        return this.authStorage.token;
+    }
+    get username() {
+        return this.authStorage.login?.username;
+    }
+    get uid() {
+        return this.authStorage.login?.uid;
+    }
+    get isModerator() {
+        return this.authStorage.login?.roles?.includes('moderator') ?? false;
+    }
+}
+class Net {
+    constructor(appName, oauthScope, loginReasons, serverListConfig, storage, makeServerSelector, onLoginChange) {
+        this.$sections = [];
+        const serverListConfigSources = [serverListConfig];
+        try {
+            const customServerListConfig = storage.getItem('servers');
+            if (customServerListConfig != null) {
+                serverListConfigSources.push(JSON.parse(customServerListConfig));
+            }
+        }
+        catch { }
+        this.serverList = new ServerList(...serverListConfigSources);
+        this.serverSelector = makeServerSelector(this.serverList);
+        const server = this.serverSelector.selectServer();
+        this.$serverListSection = makeElement('section')()();
+        new ServerListSection(this.$serverListSection, appName, storage, server, this.serverList, this.serverSelector);
+        if (server) {
+            const authStorage = new AuthStorage(storage, server.host, installUri);
+            this.cx = new Connection(server, authStorage);
+            this.$appSection = makeElement('section')()();
+            this.$loginSection = makeElement('section')()();
+            const appSection = new AppSection(this.$appSection, appName, oauthScope, authStorage, server, this.serverSelector);
+            const loginSection = new LoginSection(this.$loginSection, appName, oauthScope, loginReasons, authStorage, server, onLoginChange);
+            appSection.onRegistrationUpdate = () => loginSection.respondToAppRegistration();
+            this.$sections.push(this.$loginSection, this.$appSection);
+            this.loginSection = loginSection;
+        }
+        this.$sections.push(this.$serverListSection);
+    }
+    focusOnLogin() {
+        this.loginSection?.focusOnLogin(); // TODO move to connection?
+    }
+}
+
+function bubbleEvent($target, type) {
+    return $target.dispatchEvent(new Event(type, { bubbles: true }));
+}
+function bubbleCustomEvent($target, type, detail) {
+    return $target.dispatchEvent(new CustomEvent(type, {
+        bubbles: true,
+        detail
+    }));
 }
 
 class GlobalEventListener {
@@ -956,35 +1907,11 @@ class GlobalEventListener {
     }
 }
 
-function getHashSearchParams() {
-    const paramString = (location.hash[0] == '#')
-        ? location.hash.slice(1)
-        : location.hash;
-    return new URLSearchParams(paramString);
-}
-function makeHrefWithCurrentHost(parameters) {
-    const hostHashValue = getHashSearchParams().get('host');
-    const parametersWithCurrentHost = [];
-    if (hostHashValue)
-        parametersWithCurrentHost.push(['host', hostHashValue]);
-    parametersWithCurrentHost.push(...parameters);
-    return '#' + parametersWithCurrentHost.map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
-}
-
 class GlobalHistory {
-    constructor($root, $scrollingPart, serverList) {
+    constructor($root, $scrollingPart, net) {
         this.$root = $root;
         this.$scrollingPart = $scrollingPart;
-        this.serverList = serverList;
         this.rememberScrollPosition = false;
-        this.serverHash = '';
-        {
-            const [, , hostHashValue] = this.getAllHashes();
-            this.hostHashValue = hostHashValue;
-            this.server = this.serverList.getServer(hostHashValue);
-            if (hostHashValue != null)
-                this.serverHash = `host=` + escapeHash(hostHashValue);
-        }
         history.scrollRestoration = 'manual';
         const replaceScrollPositionInHistory = () => {
             const scrollPosition = $scrollingPart.scrollTop;
@@ -1001,12 +1928,12 @@ class GlobalHistory {
         });
         window.addEventListener('hashchange', () => {
             const [queryHash, mapHashValue, hostHashValue] = this.getAllHashes();
-            if (!this.server) {
-                if (hostHashValue != this.hostHashValue)
+            if (!net.cx) {
+                if (hostHashValue != net.serverSelector.hostHashValue)
                     location.reload();
                 return;
             }
-            if (hostHashValue != this.serverList.getHostHashValue(this.server)) {
+            if (hostHashValue != net.serverSelector.getHostHashValue(net.cx.server)) {
                 location.reload();
                 return;
             }
@@ -1027,14 +1954,14 @@ class GlobalHistory {
             history.replaceState(history.state, '', this.getFullHash(queryHash, mapHashValue, hostHashValue));
         });
         $root.addEventListener('osmNoteViewer:newNoteStream', ({ detail: [queryHash, isNewStart] }) => {
-            if (!this.server)
+            if (!net.cx)
                 return;
             let mapHashValue = '';
             if (!isNewStart) {
                 const searchParams = getHashSearchParams();
                 mapHashValue = searchParams.get('map') ?? '';
             }
-            const hostHashValue = this.serverList.getHostHashValue(this.server);
+            const hostHashValue = net.serverSelector.getHostHashValue(net.cx.server);
             const fullHash = this.getFullHash(queryHash, mapHashValue, hostHashValue);
             if (fullHash != location.hash) {
                 const url = fullHash || location.pathname + location.search;
@@ -1094,9 +2021,6 @@ class GlobalHistory {
         const mapHashValue = searchParams.get('map');
         return !!mapHashValue;
     }
-    hasServer() {
-        return !!this.server;
-    }
     getAllHashes() {
         const searchParams = getHashSearchParams();
         const mapHashValue = searchParams.get('map');
@@ -1127,633 +2051,6 @@ class GlobalHistory {
         if (zoom && lat && lon) {
             bubbleCustomEvent(this.$root, 'osmNoteViewer:mapMoveTrigger', { zoom, lat, lon });
         }
-    }
-}
-
-function isArrayOfStrings(value) {
-    return isArray(value) && value.every(item => typeof item == 'string');
-}
-function isArrayOfNumbers(value) {
-    return isArray(value) && value.every(item => typeof item == 'number');
-}
-function isArray(value) {
-    return Array.isArray(value);
-}
-
-function makeLogin$1(data) {
-    if (!data || typeof data != 'object' ||
-        !('scope' in data) || typeof data.scope != 'string' ||
-        !('uid' in data) || typeof data.uid != 'number' ||
-        !('username' in data) || typeof data.username != 'string')
-        throw new TypeError(`Invalid login data`);
-    const login = {
-        scope: data.scope,
-        uid: data.uid,
-        username: data.username
-    };
-    if (('roles' in data) && isArrayOfStrings(data.roles)) {
-        login.roles = data.roles;
-    }
-    return login;
-}
-class AuthStorage {
-    constructor(storage, host, installUri) {
-        this.storage = storage;
-        this.host = host;
-        this.installUri = installUri;
-        this.manualCodeUri = `urn:ietf:wg:oauth:2.0:oob`;
-    }
-    get prefix() {
-        return `host[${this.host}].`;
-    }
-    get clientId() {
-        return this.storage.getString(`${this.prefix}clientId`);
-    }
-    set clientId(clientId) {
-        this.storage.setString(`${this.prefix}clientId`, clientId);
-    }
-    get isManualCodeEntry() {
-        return this.storage.getBoolean(`${this.prefix}isManualCodeEntry`);
-    }
-    set isManualCodeEntry(isManualCodeEntry) {
-        this.storage.setBoolean(`${this.prefix}isManualCodeEntry`, isManualCodeEntry);
-    }
-    get token() {
-        return this.storage.getString(`${this.prefix}token`);
-    }
-    set token(token) {
-        this.storage.setString(`${this.prefix}token`, token);
-    }
-    get redirectUri() {
-        return this.isManualCodeEntry ? this.manualCodeUri : this.installUri;
-    }
-    getLogins() {
-        const logins = new Map;
-        const loginsString = this.storage.getItem(`${this.prefix}logins`);
-        if (loginsString == null)
-            return logins;
-        let loginsArray;
-        try {
-            loginsArray = JSON.parse(loginsString);
-        }
-        catch { }
-        if (!isArray(loginsArray))
-            return logins;
-        for (const loginsArrayEntry of loginsArray) {
-            if (!isArray(loginsArrayEntry))
-                continue;
-            const [token, loginData] = loginsArrayEntry;
-            if (typeof token != 'string')
-                continue;
-            try {
-                const login = makeLogin$1(loginData);
-                logins.set(token, login);
-            }
-            catch { }
-        }
-        return logins;
-    }
-    setLogin(token, login) {
-        const logins = this.getLogins();
-        logins.set(token, login);
-        this.setLoginsStorageItem(logins);
-    }
-    deleteLogin(token) {
-        const logins = this.getLogins();
-        logins.delete(token);
-        this.setLoginsStorageItem(logins);
-    }
-    get login() {
-        return this.getLogins().get(this.token);
-    }
-    setLoginsStorageItem(logins) {
-        this.storage.setItem(`${this.prefix}logins`, JSON.stringify([...logins.entries()]));
-    }
-}
-
-const em = (...ss) => makeElement('em')()(...ss);
-const strong = (...ss) => makeElement('strong')()(...ss);
-const sup = (...ss) => makeElement('sup')()(...ss);
-const dfn = (...ss) => makeElement('dfn')()(...ss);
-const kbd = (...ss) => makeElement('kbd')()(...ss);
-const code = (...ss) => makeElement('code')()(...ss);
-const mark = (...ss) => makeElement('mark')()(...ss);
-const a = (...ss) => makeElement('a')()(...ss);
-const p = (...ss) => makeElement('p')()(...ss);
-const ul = (...ss) => makeElement('ul')()(...ss);
-const ol = (...ss) => makeElement('ol')()(...ss);
-const li = (...ss) => makeElement('li')()(...ss);
-
-const app = () => em(`osm-note-viewer`);
-class AuthAppSection {
-    constructor($section, authStorage, server, serverList) {
-        const isSecureWebInstall = (location.protocol == 'https:' ||
-            location.protocol == 'http:' && location.hostname == '127.0.0.1');
-        const $clientIdInput = document.createElement('input');
-        $clientIdInput.id = 'auth-app-client-id';
-        $clientIdInput.type = 'text';
-        $clientIdInput.value = authStorage.clientId;
-        const manualCodeEntryLabel = `Manual authorization code entry`;
-        const $manualCodeEntryCheckbox = document.createElement('input');
-        $manualCodeEntryCheckbox.id = 'auth-app-manual-code-entry';
-        $manualCodeEntryCheckbox.type = 'checkbox';
-        $manualCodeEntryCheckbox.checked = authStorage.isManualCodeEntry;
-        const $registrationNotice = makeDiv('notice')();
-        const $useBuiltinRegistrationButton = makeElement('button')()(`Use the built-in registration`);
-        const updateRegistrationNotice = () => {
-            $registrationNotice.replaceChildren();
-            if (!server.oauthId)
-                return;
-            $registrationNotice.append(`With `, makeLink(`the selected OSM server`, server.web.getUrl('')), `, `);
-            const appendHostHash = (url) => {
-                const hashValue = serverList.getHostHashValue(server);
-                return url + (hashValue ? `#host=` + escapeHash(hashValue) : '');
-            };
-            if (authStorage.installUri == server.oauthUrl || !server.oauthUrl) {
-                $registrationNotice.append(app(), ` has a built-in registration`);
-                if (authStorage.installUri == server.oauthUrl) {
-                    $registrationNotice.append(` for `, makeLink(`its install location`, appendHostHash(server.oauthUrl)));
-                }
-                if (!authStorage.clientId) {
-                    $registrationNotice.append(` — `, $useBuiltinRegistrationButton);
-                }
-                else if (authStorage.clientId != server.oauthId) {
-                    $registrationNotice.append(` but the current `, em(`client id`), ` doesn't match it`, ` — `, $useBuiltinRegistrationButton);
-                }
-                else {
-                    $registrationNotice.append(` which matches the current `, em(`client id`), ` ✓`);
-                }
-            }
-            else {
-                $registrationNotice.append(app(), ` has a built-in registration for `, makeLink(`a different install location`, appendHostHash(server.oauthUrl)));
-            }
-        };
-        const onRegistrationInput = (...$inputs) => {
-            for (const $input of $inputs) {
-                if ($input == $clientIdInput) {
-                    authStorage.clientId = $clientIdInput.value.trim();
-                    updateRegistrationNotice();
-                }
-                else if ($input == $manualCodeEntryCheckbox) {
-                    authStorage.isManualCodeEntry = $manualCodeEntryCheckbox.checked;
-                }
-            }
-            this.onRegistrationUpdate?.();
-        };
-        const useBuiltinRegistration = () => {
-            if (!server.oauthId)
-                return;
-            $clientIdInput.value = server.oauthId;
-            $manualCodeEntryCheckbox.checked = false;
-            onRegistrationInput($clientIdInput, $manualCodeEntryCheckbox);
-        };
-        $clientIdInput.oninput = () => onRegistrationInput($clientIdInput);
-        $manualCodeEntryCheckbox.oninput = () => onRegistrationInput($manualCodeEntryCheckbox);
-        $useBuiltinRegistrationButton.onclick = useBuiltinRegistration;
-        if (server.oauthId && !authStorage.clientId &&
-            (authStorage.installUri == server.oauthUrl || !server.oauthUrl)) {
-            useBuiltinRegistration();
-        }
-        else {
-            updateRegistrationNotice();
-        }
-        const value = (text) => {
-            const $kbd = makeElement('kbd')('copy')(text);
-            $kbd.onclick = () => navigator.clipboard.writeText(text);
-            return $kbd;
-        };
-        const registrationDetails = (isOpen, redirectUri, isManualCodeEntry, summary, lead) => {
-            const makeInputLink = ($input, ...content) => {
-                const $anchor = document.createElement('a');
-                $anchor.href = '#' + $input.id;
-                $anchor.classList.add('input-link');
-                $anchor.append(...content);
-                $anchor.onclick = ev => {
-                    ev.preventDefault();
-                    $input.focus();
-                };
-                return $anchor;
-            };
-            const $details = makeElement('details')()(makeElement('summary')()(summary), ...lead, ol(li(`Go to `, makeLink(`My Settings > OAuth 2 applications > Register new application`, server.web.getUrl(`oauth2/applications/new`)), ` on `, em(server.host), `.`), li(`For `, em(`Name`), ` enter anything that would help users to identify your copy of `, app(), `, for example, `, value(`osm-note-viewer @ ${authStorage.installUri}`), `. `, `Users will see this name on the authorization granting page and in their `, makeLink(`active authorizations list`, server.web.getUrl(`oauth2/authorized_applications`)), ` after they log in here.`), li(`For `, em(`Redirect URIs`), ` enter `, mark(value(redirectUri)), `.`), li(`Uncheck `, em(`Confidential application?`)), li(`In `, em(`Permissions`), ` check:`, ul(li(`Read user preferences`), li(`Modify notes`))), li(`Click `, em(`Register`), `.`), li(`Copy the `, em(`Client ID`), ` to `, makeInputLink($clientIdInput, `the input below`), `.`), li(`Don't copy the `, em(`Client Secret`), `. `, `You can write it down somewhere but it's going to be useless because `, app(), ` is not a confidential app and can't keep secrets.`), li(mark(isManualCodeEntry ? `Check` : `Uncheck`), ` `, makeInputLink($manualCodeEntryCheckbox, em(manualCodeEntryLabel), ` below`), `.`)), p(`After these steps you should be able to see `, app(), ` with its client id and permissions in `, makeLink(`your client applications`, server.web.getUrl(`oauth2/applications`)), `.`));
-            if (isOpen)
-                $details.open = true;
-            return $details;
-        };
-        $section.append(makeElement('h2')()(`Register app`), p(`Only required if you don't yet have a `, em(`client id`), `. `, `You have to get a `, em(`client id`), ` if you want to run your own copy of `, app(), ` and be able to manipulate notes from it. `, `There are two possible app registration methods described below. `, `Their necessary steps are the same except for the `, mark(`marked`), ` parts.`), registrationDetails(!authStorage.clientId && isSecureWebInstall, authStorage.installUri, false, `Instructions for setting up automatic logins`, [
-            p(`This method sets up the most expected login workflow: login happens after the `, em(`Authorize`), ` button is pressed.`), ` `,
-            p(`This method will only work when `, app(), ` served over `, em(`https`), ` or over `, em(`http`), ` on localhost. `, ...(isSecureWebInstall
-                ? [`This seems to be the case with your install.`]
-                : [
-                    strong(`This doesn't seem to be the case with your install.`), ` `,
-                    `If you register `, app(), ` with this method, logins will likely fail after pressing the `, em(`Authorize`), ` button. `,
-                    `Use the registration method with manual code entry described below or move `, app(), ` to a secure web server.`
-                ]))
-        ]), registrationDetails(!authStorage.clientId && !isSecureWebInstall, authStorage.manualCodeUri, true, `Instructions for setting up logins where users have to copy the authorization code manually`, [
-            p(`This sets up a less user-friendly login workflow: after pressing the `, em(`Authorize`), ` an `, em(`Authorization code`), ` appears that has to be copied into the `, em(`Authorization code`), ` input below the login button on this page.`), ` `,
-            p(`This setup method is required when `, app(), ` is not running on a secure web server. `, ...(!isSecureWebInstall
-                ? [`This seems to be the case with your install.`]
-                : [
-                    strong(`This doesn't seem to be the case with your install.`), ` `,
-                    `You may still use this method but the one described before gives a simpler login workflow.`
-                ]))
-        ]), makeElement('details')()(makeElement('summary')()(`Additional instructions for building your own copy of `, app(), ` with a registration included`), ol(li(`Register an OAuth 2 app with one of the methods described above.`), li(`Open `, code(`servers.json`), ` in `, app(), `'s source code. `, `The format of this file is described here in `, em(`Custom server configuration syntax`), `.`), li(`If you're using a custom server specified on this page, copy its configuration to `, code(`servers.json`), `.`), li(`Find the `, code(`oauth`), ` property corresponding to the server you're using or add one if it doesn't exist.`), li(`Copy the `, em(`Client ID`), ` to the `, code(`id`), ` property inside `, code(`oauth`), `.`), li(`If you're not using manual authorization code entry, copy `, app(), `'s install location (`, value(authStorage.installUri), `) to the `, code(`url`), ` property inside `, code(`oauth`), `.`), li(`Rebuild `, app(), `.`))), makeDiv('major-input-group')(makeLabel()(`Client ID `, $clientIdInput)), makeDiv('major-input-group')(makeLabel()($manualCodeEntryCheckbox, ` ` + manualCodeEntryLabel), ` (for non-https/non-secure install locations)`), $registrationNotice);
-    }
-}
-
-class AuthError extends TypeError {
-}
-class AuthLoginForms {
-    constructor($container, isManualCodeEntry, getRequestCodeUrl, exchangeCodeForToken) {
-        this.isManualCodeEntry = isManualCodeEntry;
-        this.$loginButton = makeElement('button')()(`Login`);
-        this.$cancelLoginButton = makeElement('button')()(`Cancel login`);
-        this.$manualCodeForm = document.createElement('form');
-        this.$manualCodeButton = document.createElement('button');
-        this.$manualCodeInput = document.createElement('input');
-        this.$error = makeDiv('notice')();
-        this.$manualCodeInput.type = 'text';
-        this.$manualCodeInput.required = true;
-        this.$manualCodeButton.textContent = `Login with the authorization code`;
-        this.stopWaitingForAuthorization();
-        this.$loginButton.onclick = async () => {
-            const codeVerifier = getCodeVerifier();
-            const codeChallenge = await getCodeChallenge(codeVerifier);
-            const width = 600;
-            const height = 600;
-            const loginWindow = open(getRequestCodeUrl(codeChallenge), '_blank', `width=${width},height=${height},left=${screen.width / 2 - width / 2},top=${screen.height / 2 - height / 2}`);
-            if (loginWindow == null)
-                return;
-            this.waitForAuthorization(loginWindow, code => exchangeCodeForToken(code, codeVerifier));
-        };
-        this.$cancelLoginButton.onclick = () => {
-            this.stopWaitingForAuthorization();
-        };
-        window.addEventListener('beforeunload', () => {
-            this.stopWaitingForAuthorization();
-        });
-        // TODO write that you may not get a confirmation page if you are already logged in - in this case logout first
-        //	^ to do this, need to check if anything user-visible appears in the popup at all with auto-code registrations
-        const app = () => em(`osm-note-viewer`);
-        this.$manualCodeForm.append(p(`If the manual code copying method was used to register `, app(), `, copy the code into the input below.`), makeDiv('major-input-group')(makeLabel()(`Authorization code `, this.$manualCodeInput)), makeDiv('major-input-group')(this.$manualCodeButton));
-        $container.append(makeDiv('major-input-group')(this.$loginButton, this.$cancelLoginButton), this.$manualCodeForm, this.$error);
-    }
-    respondToAppRegistration(isManualCodeEntry) {
-        this.isManualCodeEntry = isManualCodeEntry;
-        this.stopWaitingForAuthorization();
-        this.clearError();
-    }
-    waitForAuthorization(loginWindow, submitCode) {
-        const wrapAction = (action) => wrapFetch(this.$manualCodeButton, action, makeGetKnownErrorMessage(AuthError), this.$error, message => this.$error.textContent = message);
-        if (this.isManualCodeEntry) {
-            this.$manualCodeForm.onsubmit = async (ev) => {
-                ev.preventDefault();
-                await wrapAction(async () => {
-                    await submitCode(this.$manualCodeInput.value.trim());
-                    this.stopWaitingForAuthorization(); // keep the login popup on error in case user copied the code incorrectly
-                });
-            };
-        }
-        else {
-            window.receiveOsmNoteViewerAuthCode = async (code) => {
-                await wrapAction(async () => {
-                    if (typeof code != 'string') {
-                        throw new AuthError(`Unexpected code parameter type received from popup window`);
-                    }
-                    await submitCode(code);
-                });
-                this.stopWaitingForAuthorization();
-            };
-            window.receiveOsmNoteViewerAuthDenial = async (errorDescription) => {
-                await wrapAction(async () => {
-                    throw new AuthError(typeof errorDescription == 'string'
-                        ? errorDescription
-                        : `Unknown authorization error`);
-                });
-                this.stopWaitingForAuthorization();
-            };
-        }
-        this.loginWindow = loginWindow;
-        this.$loginButton.hidden = true;
-        this.$cancelLoginButton.hidden = false;
-        this.$manualCodeForm.hidden = !this.isManualCodeEntry;
-        if (this.isManualCodeEntry) {
-            this.$manualCodeInput.focus();
-        }
-        this.clearError();
-    }
-    stopWaitingForAuthorization() {
-        this.$manualCodeForm.onsubmit = (ev) => ev.preventDefault();
-        delete window.receiveOsmNoteViewerAuthCode;
-        delete window.receiveOsmNoteViewerAuthDenial;
-        this.loginWindow?.close();
-        this.loginWindow = undefined;
-        this.$loginButton.hidden = false;
-        this.$cancelLoginButton.hidden = true;
-        this.$manualCodeForm.hidden = true;
-        this.$manualCodeInput.value = '';
-    }
-    clearError() {
-        this.$error.replaceChildren();
-    }
-}
-function getCodeVerifier() {
-    const byteLength = 48; // verifier string length == byteLength * 8/6
-    return encodeBase64url(crypto.getRandomValues(new Uint8Array(byteLength)));
-}
-async function getCodeChallenge(codeVerifier) {
-    const codeVerifierArray = new TextEncoder().encode(codeVerifier);
-    const codeChallengeBuffer = await crypto.subtle.digest('SHA-256', codeVerifierArray);
-    return encodeBase64url(new Uint8Array(codeChallengeBuffer));
-}
-function encodeBase64url(bytes) {
-    const string = String.fromCharCode(...bytes);
-    return btoa(string).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-class RadioTable {
-    constructor(radioName, columns) {
-        this.radioName = radioName;
-        this.$table = makeElement('table')()();
-        this.cellClassesList = [];
-        this.nRows = 0;
-        const $row = this.$table.insertRow();
-        for (const [cellClasses, cellLabels] of [[[], []], ...columns]) {
-            $row.append(makeElement('th')(...cellClasses)(...cellLabels));
-            this.cellClassesList.push(cellClasses);
-        }
-    }
-    addRow(provideCellContent) {
-        const $radio = document.createElement('input');
-        $radio.type = 'radio';
-        $radio.name = this.radioName;
-        $radio.id = `${this.radioName}-${this.nRows}`;
-        const $row = this.$table.insertRow();
-        const contentList = [[$radio], ...provideCellContent($radio)];
-        for (const [i, cellContent] of contentList.entries()) {
-            const cellClasses = this.cellClassesList[i] ?? [];
-            let rawCellContent;
-            if (typeof cellContent == 'undefined') {
-                rawCellContent = [];
-            }
-            else if (typeof cellContent == 'boolean') {
-                rawCellContent = [cellContent ? '+' : ''];
-            }
-            else if (typeof cellContent == 'string') {
-                rawCellContent = [cellContent ? makeLink('+', cellContent) : ''];
-            }
-            else {
-                rawCellContent = cellContent;
-            }
-            $row.append(makeElement('td')(...cellClasses)(...rawCellContent));
-        }
-        this.nRows++;
-    }
-}
-
-function isAuthErrorData(data) {
-    return (data &&
-        typeof data == 'object' &&
-        typeof data.error_description == 'string');
-}
-function isAuthTokenData(data) {
-    return (data &&
-        typeof data == 'object' &&
-        typeof data.access_token == 'string' &&
-        typeof data.scope == 'string');
-}
-function isUserData(data) {
-    return (data &&
-        data.user &&
-        typeof data.user == 'object' &&
-        typeof data.user.id == 'number' &&
-        typeof data.user.display_name == 'string' &&
-        hasCorrectRoles(data.user.roles));
-    function hasCorrectRoles(roles) {
-        if (roles === undefined)
-            return true;
-        return isArrayOfStrings(roles);
-    }
-}
-function makeLogin(scope, userData) {
-    const login = {
-        scope,
-        uid: userData.user.id,
-        username: userData.user.display_name
-    };
-    if (userData.user.roles)
-        login.roles = userData.user.roles;
-    return login;
-}
-class AuthLoginSection {
-    constructor($section, authStorage, server) {
-        this.$section = $section;
-        this.authStorage = authStorage;
-        this.$clientIdRequired = makeDiv('notice')(`Please register the app and enter the `, em(`client id`), ` below to be able to login.`);
-        this.$loginForms = makeDiv()();
-        this.$logins = makeDiv()();
-        const webPostUrlencodedWithPossibleAuthError = async (webPath, parameters, whenMessage) => {
-            const response = await server.web.fetch.withUrlencodedBody(parameters).post(webPath);
-            if (response.ok)
-                return response;
-            let errorData;
-            try {
-                errorData = await response.json();
-            }
-            catch { }
-            if (isAuthErrorData(errorData)) {
-                throw new AuthError(`Error ${whenMessage}: ${errorData.error_description}`);
-            }
-            else {
-                throw new AuthError(`Error ${whenMessage} with unknown error format`);
-            }
-        };
-        const fetchUserData = async (token) => {
-            const userResponse = await server.api.fetch.withToken(token)(`user/details.json`);
-            if (!userResponse.ok) {
-                throw new AuthError(`Error while getting user details`);
-            }
-            let userData;
-            try {
-                userData = await userResponse.json();
-            }
-            catch { }
-            if (!isUserData(userData)) {
-                throw new AuthError(`Unexpected response format when getting user details`);
-            }
-            return userData;
-        };
-        const switchToToken = (token) => {
-            authStorage.token = token;
-            bubbleEvent($section, 'osmNoteViewer:loginChange');
-        };
-        const updateInResponseToLogin = () => {
-            const logins = authStorage.getLogins();
-            if (logins.size == 0) {
-                this.$logins.textContent = `No active logins. Use the form above to login if you'd like to manipulate notes.`;
-                return;
-            }
-            const loginTable = new RadioTable('login', [
-                [['number'], [`user id`]],
-                [[], [`username`]],
-                [['capability'], [`profile`]],
-                [['capability'], [`moderator`]],
-            ]);
-            loginTable.addRow(($radio) => {
-                $radio.checked = !authStorage.token;
-                $radio.onclick = () => {
-                    switchToToken('');
-                };
-                const $usernameLabel = makeElement('label')()(em(`anonymous`));
-                $usernameLabel.htmlFor = $radio.id;
-                return [
-                    [],
-                    [$usernameLabel]
-                ];
-            });
-            for (const [token, login] of logins) {
-                const userHref = server.web.getUrl(`user/` + encodeURIComponent(login.username));
-                const $updateButton = makeElement('button')()(`Update user info`);
-                const $logoutButton = makeElement('button')()(`Logout`);
-                $updateButton.onclick = () => wrapFetchForButton($updateButton, async () => {
-                    const userData = await fetchUserData(token);
-                    authStorage.setLogin(token, makeLogin(login.scope, userData));
-                    updateInResponseToLogin();
-                }, makeGetKnownErrorMessage(AuthError));
-                $logoutButton.onclick = () => wrapFetchForButton($logoutButton, async () => {
-                    await webPostUrlencodedWithPossibleAuthError(`oauth2/revoke`, [
-                        ['token', token],
-                        // ['token_type_hint','access_token']
-                        ['client_id', authStorage.clientId]
-                    ], `while revoking a token`);
-                    authStorage.deleteLogin(token);
-                    if (authStorage.token == token) {
-                        switchToToken('');
-                    }
-                    updateInResponseToLogin();
-                }, makeGetKnownErrorMessage(AuthError));
-                loginTable.addRow(($radio) => {
-                    $radio.checked = authStorage.token == token;
-                    $radio.onclick = () => {
-                        switchToToken(token);
-                    };
-                    const $uidLabel = makeElement('label')()(String(login.uid));
-                    const $usernameLabel = makeElement('label')()(login.username);
-                    $uidLabel.htmlFor = $usernameLabel.htmlFor = $radio.id;
-                    return [
-                        [$uidLabel],
-                        [$usernameLabel],
-                        userHref,
-                        login.roles?.includes('moderator'),
-                        [$updateButton],
-                        [$logoutButton],
-                    ];
-                });
-            }
-            this.$logins.replaceChildren(loginTable.$table);
-        };
-        this.loginForms = new AuthLoginForms(this.$loginForms, authStorage.isManualCodeEntry, (codeChallenge) => {
-            return server.web.getUrl('oauth2/authorize') + '?' + [
-                ['client_id', authStorage.clientId],
-                ['redirect_uri', authStorage.redirectUri],
-                ['scope', 'read_prefs write_notes'],
-                ['response_type', 'code'],
-                ['code_challenge', codeChallenge],
-                ['code_challenge_method', 'S256']
-            ].map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
-        }, async (code, codeVerifier) => {
-            const tokenResponse = await webPostUrlencodedWithPossibleAuthError(`oauth2/token`, [
-                ['client_id', authStorage.clientId],
-                ['redirect_uri', authStorage.redirectUri],
-                ['grant_type', 'authorization_code'],
-                ['code', code],
-                ['code_verifier', codeVerifier]
-            ], `while getting a token`);
-            let tokenData;
-            try {
-                tokenData = await tokenResponse.json();
-            }
-            catch { }
-            if (!isAuthTokenData(tokenData)) {
-                throw new AuthError(`Unexpected response format when getting a token`);
-            }
-            const userData = await fetchUserData(tokenData.access_token);
-            authStorage.setLogin(tokenData.access_token, makeLogin(tokenData.scope, userData));
-            switchToToken(tokenData.access_token);
-            updateInResponseToLogin();
-        });
-        this.updateVisibility();
-        updateInResponseToLogin();
-        $section.append(makeElement('h2')()(`Logins`), this.$clientIdRequired, this.$loginForms, this.$logins);
-    }
-    respondToAppRegistration() {
-        this.loginForms.respondToAppRegistration(this.authStorage.isManualCodeEntry);
-        this.updateVisibility();
-    }
-    focusOnLogin() {
-        this.$section.scrollIntoView();
-        if (!this.$loginForms.hidden && !this.loginForms.$loginButton.hidden) {
-            this.loginForms.$loginButton.focus();
-        }
-    }
-    updateVisibility() {
-        const canLogin = !!this.authStorage.clientId;
-        this.$clientIdRequired.hidden = canLogin;
-        this.$loginForms.hidden = !canLogin;
-        this.$logins.hidden = !canLogin;
-    }
-}
-
-function isAuthOpener(o) {
-    return (o && typeof o == 'object' &&
-        typeof o.receiveOsmNoteViewerAuthCode == 'function' &&
-        typeof o.receiveOsmNoteViewerAuthDenial == 'function');
-}
-const installUri = `${location.protocol}//${location.host}${location.pathname}`;
-function checkAuthRedirect() {
-    const params = new URLSearchParams(location.search);
-    const code = params.get('code');
-    const error = params.get('error');
-    const errorDescription = params.get('error_description');
-    if (code == null && error == null) {
-        return false;
-    }
-    if (!isAuthOpener(window.opener)) {
-        document.body.append(makeDiv('notice')(`You opened the location of note-viewer's authentication redirect for a popup window outside of a popup window. `, `If you want to continue using note-viewer, please open `, makeLink(`this link`, installUri), `.`));
-    }
-    else if (code != null) {
-        window.opener.receiveOsmNoteViewerAuthCode(code);
-    }
-    else if (error != null) {
-        window.opener.receiveOsmNoteViewerAuthDenial(errorDescription ?? error);
-    }
-    return true;
-}
-class Auth {
-    constructor(storage, server, serverList) {
-        this.server = server;
-        this.serverList = serverList;
-        this.authStorage = new AuthStorage(storage, server.host, installUri);
-    }
-    writeMenuSections($container) {
-        const $appSection = makeElement('section')()();
-        const $loginSection = makeElement('section')()();
-        const appSection = new AuthAppSection($appSection, this.authStorage, this.server, this.serverList);
-        const loginSection = new AuthLoginSection($loginSection, this.authStorage, this.server);
-        appSection.onRegistrationUpdate = () => loginSection.respondToAppRegistration();
-        $container.append($loginSection, $appSection);
-        return loginSection;
-    }
-    get token() {
-        return this.authStorage.token;
-    }
-    get username() {
-        return this.authStorage.login?.username;
-    }
-    get uid() {
-        return this.authStorage.login?.uid;
-    }
-    get isModerator() {
-        return this.authStorage.login?.roles?.includes('moderator') ?? false;
     }
 }
 
@@ -3061,318 +3358,6 @@ function calculateOffsetsToFit(map, $popupContainer) {
     return [-dx, -dy];
 }
 
-function makeCodeForm(initialValue, stashedValue, summary, textareaLabel, applyButtonLabel, isSameInput, checkInput, applyInput, runCallback, syntaxDescription, syntaxExamples) {
-    const $formDetails = document.createElement('details');
-    const $form = document.createElement('form');
-    const $output = document.createElement('output');
-    const $textarea = document.createElement('textarea');
-    const $applyButton = document.createElement('button');
-    const $clearButton = document.createElement('button');
-    const $undoClearButton = document.createElement('button');
-    $textarea.value = initialValue;
-    const isEmpty = () => !$textarea.value;
-    const canUndoClear = () => !!stashedValue && isEmpty();
-    const reactToChanges = () => {
-        const isSame = isSameInput($textarea.value);
-        $output.replaceChildren();
-        if (!isSame) {
-            $output.append(` (with unapplied changes)`);
-        }
-        else if (isEmpty()) {
-            $output.append(` (currently not set)`);
-        }
-        $applyButton.disabled = isSame;
-        $clearButton.disabled = isEmpty();
-        $undoClearButton.hidden = !($clearButton.hidden = canUndoClear());
-        try {
-            checkInput($textarea.value);
-            $textarea.setCustomValidity('');
-        }
-        catch (ex) {
-            let message = `Syntax error`;
-            if (ex instanceof RangeError || ex instanceof SyntaxError)
-                message = ex.message;
-            $textarea.setCustomValidity(message);
-        }
-    };
-    reactToChanges();
-    {
-        $formDetails.classList.add('with-code-form');
-        $formDetails.open = !isEmpty();
-        const $formSummary = document.createElement('summary');
-        $formSummary.append(summary, $output);
-        $formDetails.append($formSummary, $form);
-    }
-    {
-        const $syntaxDetails = document.createElement('details');
-        $syntaxDetails.classList.add('syntax');
-        $syntaxDetails.innerHTML = syntaxDescription;
-        const $examplesTitle = document.createElement('p');
-        $examplesTitle.innerHTML = '<strong>Examples</strong>:';
-        const $examplesList = document.createElement('dl');
-        $examplesList.classList.add('examples');
-        for (const [title, codeLines] of syntaxExamples) {
-            const $dt = document.createElement('dt');
-            $dt.append(title);
-            const $dd = document.createElement('dd');
-            const $code = document.createElement('code');
-            $code.textContent = codeLines.join('\n');
-            $dd.append($code);
-            $examplesList.append($dt, $dd);
-        }
-        $syntaxDetails.append($examplesTitle, $examplesList);
-        $form.append($syntaxDetails);
-    }
-    {
-        $textarea.rows = 5;
-        $form.append(makeDiv('major-input-group')(makeLabel()(textareaLabel, ` `, $textarea)));
-    }
-    {
-        $applyButton.textContent = applyButtonLabel;
-        $clearButton.textContent = `Clear`;
-        $undoClearButton.textContent = `Restore previous`;
-        $undoClearButton.type = $clearButton.type = 'button';
-        $form.append(makeDiv('gridded-input-group')($applyButton, $clearButton, $undoClearButton));
-    }
-    $textarea.oninput = reactToChanges;
-    $clearButton.onclick = () => {
-        stashedValue = $textarea.value;
-        $textarea.value = '';
-        $undoClearButton.textContent = `Undo clear`;
-        reactToChanges();
-    };
-    $undoClearButton.onclick = () => {
-        $textarea.value = stashedValue;
-        reactToChanges();
-    };
-    $form.onsubmit = (ev) => {
-        ev.preventDefault();
-        try {
-            applyInput($textarea.value);
-        }
-        catch (ex) {
-            return;
-        }
-        runCallback();
-        reactToChanges();
-    };
-    return $formDetails;
-}
-
-var serverListConfig = [
-    {
-        "web": [
-            "https://www.openstreetmap.org/",
-            "https://openstreetmap.org/",
-            "https://www.osm.org/",
-            "https://osm.org/"
-        ],
-        "api": "https://api.openstreetmap.org/",
-        "nominatim": "https://nominatim.openstreetmap.org/",
-        "overpass": "https://www.overpass-api.de/",
-        "overpassTurbo": "https://overpass-turbo.eu/",
-        "tiles": {
-            "template": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-            "attribution": "OpenStreetMap contributors"
-        },
-        "note": "main OSM server",
-        "oauth": {
-            "id": "hRPFdI68dfFi2ucLe8Nt8y6rBM4uwTwIzNioi1EuTms",
-            "url": "https://antonkhorev.github.io/osm-note-viewer/"
-        }
-    },
-    {
-        "web": "https://master.apis.dev.openstreetmap.org/",
-        "note": [
-            "OSM sandbox/development server",
-            "https://wiki.openstreetmap.org/wiki/Sandbox_for_editing#Experiment_with_the_API_(advanced)"
-        ],
-        "oauth": {
-            "id": "KiQpJiwp0njkF3Y172lIpX2bzru4C98nH8y6FZcBir8",
-            "url": "https://antonkhorev.github.io/osm-note-viewer/"
-        }
-    },
-    {
-        "web": [
-            "https://www.openhistoricalmap.org/",
-            "https://openhistoricalmap.org/"
-        ],
-        "nominatim": "https://nominatim.openhistoricalmap.org/",
-        "overpass": "https://overpass-api.openhistoricalmap.org/",
-        "overpassTurbo": "https://openhistoricalmap.github.io/overpass-turbo/",
-        "oauth": {
-            "id": "pEMqG7m8YHHEfqRfctwQecseI1TYm1toHAAoRPzCPMw",
-            "url": "https://antonkhorev.github.io/osm-note-viewer/"
-        }
-    },
-    {
-        "web": "https://opengeofiction.net/",
-        "tiles": {
-            "template": "https://tiles04.rent-a-planet.com/ogf-carto/{z}/{x}/{y}.png",
-            "attribution": "OpenGeofiction and contributors"
-        },
-        "overpass": "https://overpass.ogf.rent-a-planet.com/",
-        "overpassTurbo": "https://turbo.ogf.rent-a-planet.com/",
-        "world": "opengeofiction",
-        "oauth": {
-            "id": "q7AADWIuLnof-YIo5J6ht31jB73jFNPPp6LreINnwQs",
-            "url": "https://antonkhorev.github.io/osm-note-viewer/"
-        }
-    },
-    {
-        "web": "https://fosm.org/",
-        "tiles": {
-            "template": "https://map.fosm.org/default/{z}/{x}/{y}.png",
-            "attribution": "https://fosm.org/",
-            "zoom": 18
-        },
-        "note": "mostly useless here because notes are not implemented on this server"
-    },
-    {
-        "web": "http://127.0.0.1:3000/",
-        "note": "default local rails dev server"
-    }
-];
-
-function term$1(t) {
-    return `<em>&lt;${t}&gt;</em>`;
-}
-function property(t) {
-    return `<strong><code>${t}</code></strong>`;
-}
-const syntaxDescription$1 = `<summary>Custom server configuration syntax</summary>
-<p>Uses <a href=https://en.wikipedia.org/wiki/JSON>JSON</a> format to describe one or more custom servers.
-These servers can be referred to in the <code>host</code> URL parameter and appear in the list above.
-The entire custom servers input can be one of:</p>
-<ul>
-<li>empty when no custom servers are specified
-<li>an <em>array</em> where each element is a ${term$1('server specification')}
-<li>a single ${term$1('server specification')}
-</ul>
-<p>A ${term$1('server specification')} is <em>null</em> for default OSM server configuration, a <em>URL string</em> for a quick configuration, or an <em>object</em> with optional properties described below.
-A <em>string</em> is equivalent to an <em>object</em> with only the ${property('web')} property set.
-Possible <em>object</em> properties are:</p>
-<dl>
-<dt>${property('web')}
-<dd><strong>required</strong>; a <em>URL string</em> or an <em>array</em> of <em>URL strings</em>; used to generate/detect links to users/notes/elements/changesets
-<dt>${property('api')}
-<dd>a <em>URL string</em>; used for OSM API requests; defaults to ${property('web')} property value if not specified
-<dt>${property('nominatim')}
-<dd>a <em>URL string</em> pointing to a <a href=https://wiki.openstreetmap.org/wiki/Nominatim>Nominatim</a> service
-<dt>${property('overpass')}
-<dd>a <em>URL string</em> pointing to an <a href=https://wiki.openstreetmap.org/wiki/Overpass_API>Overpass API</a> server
-<dt>${property('overpassTurbo')}
-<dd>a <em>URL string</em> pointing to an <a href=https://wiki.openstreetmap.org/wiki/Overpass_turbo>Overpass turbo</a> web page
-<dt>${property('tiles')}
-<dd>a ${term$1('tiles specification')}
-<dt>${property('world')}
-<dd>a <em>string</em>; if it's not <code>"earth"</code>, street view tools won't be shown
-<dt>${property('oauth')}
-<dd>an ${term$1('oauth specification')}
-<dt>${property('note')}
-<dd>a <em>URL string</em>, a <em>text string</em> or an <em>array</em> of both representing a note about the server visible on the server list
-</dl>
-<p>A ${term$1('tiles specification')} is a <em>string</em> or an <em>object</em> with optional properties described below.
-A <em>string</em> value is equivalent to an <em>object</em> with only the ${property('template')} property set.
-Possible <em>object</em> properties are:</p>
-<dl>
-<dt>${property('template')}
-<dd>a <em>string</em> with template parameters like "<code>https://tile.openstreetmap.org/{z}/{x}/{y}.png</code>" or "<code>https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png</code>" to generate tile URLs
-<dt>${property('attribution')}
-<dd>a <em>URL string</em>, a <em>text string</em> or an <em>array</em> of both containing an <a href=https://wiki.osmfoundation.org/wiki/Licence/Attribution_Guidelines#Interactive_maps>attribution</a> displayed in the corner of the map
-<dt>${property('zoom')}
-<dd>a number with max zoom level; defaults to the OSM max zoom value of 19
-</dl>
-<p>An ${term$1('oauth specification')} is an <em>object</em> describing the registration of <em>note-viewer</em> as an <a href=https://wiki.openstreetmap.org/wiki/OAuth#OAuth_2.0_2>OAuth 2 app</a> on this OSM server.
-It can have the following properties:</p>
-<dl>
-<dt>${property('id')}
-<dd>a <em>string</em> with the OAuth <em>client id</em>; this property is <strong>required</strong> when an ${term$1('oauth specification')} is present
-<dt>${property('url')}
-<dd>a <em>string</em> with the OAuth <em>redirect URI</em> matching the location where <em>note-viewer</em> is hosted;
-this property is optional, it is used to remind about the correct location that is going to receive OAuth redirects in case if <em>note-viewer</em> is copied to a different location
-</dl>
-`;
-const syntaxExamples$1 = [
-    [`Local server on port 3333`, [`"http://127.0.0.1:3333/"`]],
-    [`Dev server with custom tiles`, [
-            `{`,
-            `  "web": "https://api06.dev.openstreetmap.org/",`,
-            `  "tiles": "https://tile.openstreetmap.de/{z}/{x}/{y}.png",`,
-            `  "note": "dev server with German tiles"`,
-            `}`
-        ]],
-    [`Dev server with custom tiles and different max zoom`, [
-            `{`,
-            `  "web": "https://api06.dev.openstreetmap.org/",`,
-            `  "tiles": {`,
-            `    "template": "https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",`,
-            `    "zoom": 20`,
-            `  },`,
-            `  "note": "dev server with CyclOSM tiles"`,
-            `}`
-        ]],
-    [`Default configuration`, [JSON.stringify(serverListConfig, undefined, 2)]]
-];
-class ServerListSection {
-    constructor($section, storage, server, serverList, serverHash) {
-        $section.append(makeElement('h2')()(`Servers`));
-        if (!server)
-            $section.append(makeDiv('notice', 'error')(`Unknown server in URL hash parameter `, code(serverHash), `. Please select one of the servers below.`));
-        {
-            const serverTable = new RadioTable('host', [
-                [[], [`host`]],
-                [['capability'], [`website`]],
-                [['capability'], [`own tiles`]],
-                [['capability'], [`Nominatim`]],
-                [['capability'], [`Overpass`]],
-                [['capability'], [`Overpass turbo`]],
-                [[], [`note`]],
-            ]);
-            const baseLocation = location.pathname + location.search;
-            for (const [availableHost, availableServer] of serverList.servers) {
-                const hashValue = serverList.getHostHashValue(availableServer);
-                const availableServerLocation = baseLocation + (hashValue ? `#host=` + escapeHash(hashValue) : '');
-                let note = '';
-                if (availableServer.noteText && !availableServer.noteUrl) {
-                    note = availableServer.noteText;
-                }
-                else if (availableServer.noteUrl) {
-                    note = makeLink(availableServer.noteText || `[note]`, availableServer.noteUrl);
-                }
-                serverTable.addRow(($radio) => {
-                    $radio.checked = server == availableServer;
-                    $radio.tabIndex = -1;
-                    const $a = makeLink(availableHost, availableServerLocation);
-                    const $label = makeElement('label')()($a);
-                    $label.htmlFor = $radio.id;
-                    $radio.onclick = () => $a.click();
-                    return [
-                        [$label],
-                        availableServer.web.getUrl(''),
-                        availableServer.tile.owner,
-                        availableServer.nominatim?.statusUrl,
-                        availableServer.overpass?.statusUrl,
-                        availableServer.overpassTurbo?.url,
-                        [note]
-                    ];
-                });
-            }
-            $section.append(serverTable.$table);
-        }
-        $section.append(makeCodeForm(storage.getString('servers'), '', `Custom servers configuration`, `Configuration`, `Apply changes`, input => input == storage.getString('servers'), input => {
-            if (input.trim() == '')
-                return;
-            const configSource = JSON.parse(input);
-            parseServerListSource(configSource);
-        }, input => {
-            storage.setString('servers', input.trim());
-        }, () => {
-            location.reload();
-        }, syntaxDescription$1, syntaxExamples$1));
-    }
-}
-
 class ConfirmedButtonListener {
     constructor($initButton, $cancelButton, $confirmButton, runAction, isConfirmationRequired = () => true) {
         this.$initButton = $initButton;
@@ -3416,7 +3401,7 @@ class ConfirmedButtonListener {
 }
 
 class StorageSection {
-    constructor($section, storage, db, serverList) {
+    constructor($section, storage, db, serverSelector) {
         $section.append(makeElement('h2')()(`Storage`));
         const $updateFetchesButton = document.createElement('button');
         $updateFetchesButton.textContent = `Update stored fetch list`;
@@ -3455,7 +3440,7 @@ class StorageSection {
                 const username = searchParams.get('display_name');
                 const ids = searchParams.get('ids');
                 const host = searchParams.get('host');
-                const fetchEntryServer = serverList.getServer(host);
+                const fetchEntryServer = serverSelector.getServer(host);
                 if (username) {
                     if (fetchEntryServer) {
                         const href = fetchEntryServer.web.getUrl(`user/` + encodeURIComponent(username));
@@ -3521,7 +3506,7 @@ function makeMenuButton() {
     return $button;
 }
 class OverlayDialog {
-    constructor($root, storage, db, server, serverList, serverHash, auth, map, $menuButton) {
+    constructor($root, storage, db, net, map, $menuButton) {
         this.map = map;
         this.$menuButton = $menuButton;
         this.$menuPanel = makeElement('div')('menu')();
@@ -3538,9 +3523,9 @@ class OverlayDialog {
             p(`When zoomed out:`),
             ul(li(kbd(`Arrow keys`), ` — go to previous/next image in sequence`), li(kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last image in sequence`))
         ]);
-        this.menuHidden = !!auth;
-        this.$menuButton.disabled = !auth;
-        const loginSection = this.writeMenuPanel(storage, db, server, serverList, serverHash, auth);
+        this.menuHidden = !!net.cx;
+        this.$menuButton.disabled = !net.cx;
+        this.writeMenuPanel(storage, db, net);
         this.writeFigureDialog();
         $root.append(this.$figureHelpDialog);
         for (const eventType of [
@@ -3560,7 +3545,7 @@ class OverlayDialog {
                 this.close();
             if (detail == 'login') {
                 this.menuHidden = false;
-                loginSection?.focusOnLogin();
+                net.focusOnLogin();
             }
             else {
                 this.menuHidden = !this.menuHidden;
@@ -3685,7 +3670,7 @@ class OverlayDialog {
         }
         cleanupAnimationOnEnd(this.$figureCaption);
     }
-    writeMenuPanel(storage, db, server, serverList, serverHash, auth) {
+    writeMenuPanel(storage, db, net) {
         const $lead = makeDiv('lead')();
         {
             const $about = makeDiv()(makeElement('strong')()(`note-viewer`));
@@ -3696,20 +3681,14 @@ class OverlayDialog {
             $lead.append($about);
         }
         const $scrolling = makeDiv('panel', 'scrolling')();
-        const loginSection = auth?.writeMenuSections($scrolling);
+        $scrolling.append(...net.$sections);
         {
             const $subsection = makeElement('section')()();
-            new ServerListSection($subsection, storage, server, serverList, serverHash);
-            $scrolling.append($subsection);
-        }
-        {
-            const $subsection = makeElement('section')()();
-            new StorageSection($subsection, storage, db, serverList);
+            new StorageSection($subsection, storage, db, net.serverSelector);
             $scrolling.append($subsection);
         }
         $scrolling.append(makeExtraSubsection());
         this.$menuPanel.append($lead, $scrolling);
-        return loginSection;
     }
     close() {
         this.map?.hide(false);
@@ -3997,7 +3976,7 @@ class Navbar {
 function makeFlipLayoutButton($root, storage, map) {
     return makeButton('flip', `Flip layout`, () => {
         const hasFlipped = $root.classList.toggle('flipped');
-        storage.setBoolean('flipped', hasFlipped);
+        setStorageBoolean(storage, 'flipped', hasFlipped);
         map.invalidateSize();
     });
 }
@@ -4020,7 +3999,7 @@ function makeButton(id, title, listener) {
     return $button;
 }
 
-function toUserQuery(urlLister, value) {
+function toUserQuery(apiUrlLister, webUrlLister, value) {
     const s = value.trim();
     if (s == '')
         return {
@@ -4051,7 +4030,7 @@ function toUserQuery(urlLister, value) {
     }
     if (s.includes('/')) {
         const hosts = new Set();
-        for (const urlString of [urlLister.api.url, ...urlLister.web.urls]) {
+        for (const urlString of [apiUrlLister.url, ...webUrlLister.urls]) {
             try {
                 const url = new URL(urlString);
                 hosts.add(url.host);
@@ -4319,8 +4298,8 @@ function makeNoteSearchQueryFromUserQueryAndValues(userQuery, textValue, fromVal
         return 'newest';
     }
 }
-function makeNoteSearchQueryFromValues(urlLister, userValue, textValue, fromValue, toValue, closedValue, sortValue, orderValue) {
-    return makeNoteSearchQueryFromUserQueryAndValues(toUserQuery(urlLister, userValue), textValue, fromValue, toValue, closedValue, sortValue, orderValue);
+function makeNoteSearchQueryFromValues(apiUrlLister, webUrlLister, userValue, textValue, fromValue, toValue, closedValue, sortValue, orderValue) {
+    return makeNoteSearchQueryFromUserQueryAndValues(toUserQuery(apiUrlLister, webUrlLister, userValue), textValue, fromValue, toValue, closedValue, sortValue, orderValue);
 }
 function makeNoteBboxQueryFromValues(bboxValue, closedValue) {
     const noteBboxQuery = {
@@ -4980,11 +4959,11 @@ function rewriteFetchErrorMessage($container, query, responseKindText, fetchErro
 }
 
 class NoteFetchDialog extends NavDialog {
-    constructor($root, $sharedCheckboxes, auth, getRequestApiPaths, submitQuery) {
+    constructor($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery) {
         super();
         this.$root = $root;
         this.$sharedCheckboxes = $sharedCheckboxes;
-        this.auth = auth;
+        this.cx = cx;
         this.getRequestApiPaths = getRequestApiPaths;
         this.submitQuery = submitQuery;
         this.$form = document.createElement('form');
@@ -5051,7 +5030,7 @@ class NoteFetchDialog extends NavDialog {
             return;
         }
         const [[mainType, mainApiPath], ...otherRequestApiPaths] = requestApiPaths;
-        const mainUrl = this.auth.server.api.getUrl(mainApiPath);
+        const mainUrl = this.cx.server.api.getUrl(mainApiPath);
         const $a = makeLink(mainUrl, mainUrl);
         $a.classList.add('request');
         this.$requestOutput.replaceChildren(code($a), ` in ${mainType} format`);
@@ -5067,7 +5046,7 @@ class NoteFetchDialog extends NavDialog {
             else {
                 this.$requestOutput.append(`, `);
             }
-            const url = this.auth.server.api.getUrl(apiPath);
+            const url = this.cx.server.api.getUrl(apiPath);
             this.$requestOutput.append(code(makeLink(type, url)));
             appendLinkIfKnown(type);
         }
@@ -5184,6 +5163,11 @@ function mixinWithAutoLoadCheckbox(c) {
         }
         get getAutoLoad() {
             return () => this.$autoLoadCheckbox.checked;
+        }
+        writeDownloadModeFieldset($fieldset) {
+            this.$autoLoadCheckbox.type = 'checkbox';
+            this.$autoLoadCheckbox.checked = true;
+            $fieldset.append(makeDiv('regular-input-group')(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
         }
     }
     return WithAutoLoadCheckbox;
@@ -5323,13 +5307,6 @@ class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
         this.limitLabelAfterText = ` notes`;
         this.limitIsParameter = false;
     }
-    writeDownloadModeFieldset($fieldset) {
-        {
-            this.$autoLoadCheckbox.type = 'checkbox';
-            this.$autoLoadCheckbox.checked = true;
-            $fieldset.append(makeDiv('regular-input-group')(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
-        }
-    }
 }
 function restrictClosedSelectValue(v) {
     if (v < 0) {
@@ -5434,7 +5411,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         this.limitIsParameter = true;
     }
     makeLeadAdvancedHint() {
-        return [p(`Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`), ` request at `, code(this.auth.server.api.getUrl(`notes/search?`), em(`parameters`)), `; see `, em(`parameters`), ` below.`)];
+        return [p(`Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`), ` request at `, code(this.cx.server.api.getUrl(`notes/search?`), em(`parameters`)), `; see `, em(`parameters`), ` below.`)];
     }
     listParameters(closedDescriptionItems) {
         return [
@@ -5493,13 +5470,13 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         {
             this.$userInput.type = 'text';
             this.$userInput.name = 'user';
-            const userInputControl = new TextControl(this.$userInput, () => this.auth.username != null, () => this.$userInput.value != this.auth.username, () => this.$userInput.value != this.auth.username, (username) => this.$userInput.value = username, async ($a) => {
-                if (this.auth.username == null)
+            const userInputControl = new TextControl(this.$userInput, () => this.cx.username != null, () => this.$userInput.value != this.cx.username, () => this.$userInput.value != this.cx.username, (username) => this.$userInput.value = username, async ($a) => {
+                if (this.cx.username == null)
                     throw new TypeError(`Undefined user when setting user search value`);
                 const oldUsername = this.$userInput.value;
-                this.$userInput.value = this.auth.username;
+                this.$userInput.value = this.cx.username;
                 return oldUsername;
-            }, () => [makeElement('span')()(`undo set to`)], () => [makeElement('span')()(`set to`), ` `, em(String(this.auth.username))]);
+            }, () => [makeElement('span')()(`undo set to`)], () => [makeElement('span')()(`set to`), ` `, em(String(this.cx.username))]);
             $fieldset.append(makeDiv('major-input-group')(userInputControl.$controls, makeLabel()(`OSM username, URL or #id`, rq2('display_name', 'user'), ` `, this.$userInput)));
             this.$root.addEventListener('osmNoteViewer:loginChange', () => {
                 userInputControl.update();
@@ -5517,20 +5494,13 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
             this.$toInput.type = 'text';
             this.$toInput.size = 20;
             this.$toInput.name = 'to';
-            $fieldset.append(makeDiv('regular-input-group')(makeLabel()(`From date`, rq$1('from'), ` `, this.$fromInput), ` `, makeLabel()(`to date`, rq$1('to'), ` `, this.$toInput)));
+            $fieldset.append(makeDiv('regular-input-group')(makeLabel('inline')(`From date`, rq$1('from'), ` `, this.$fromInput), ` `, makeLabel('inline')(`to date`, rq$1('to'), ` `, this.$toInput)));
         }
     }
     appendToClosedLine($div) {
         this.$sortSelect.append(new Option(`creation`, 'created_at'), new Option(`last update`, 'updated_at'));
         this.$orderSelect.append(new Option('newest'), new Option('oldest'));
         $div.append(` `, makeLabel('inline')(`sorted by `, this.$sortSelect, rq$1('sort'), ` date`), `, `, makeLabel('inline')(this.$orderSelect, rq$1('order'), ` first`));
-    }
-    writeDownloadModeFieldset($fieldset) {
-        {
-            this.$autoLoadCheckbox.type = 'checkbox';
-            this.$autoLoadCheckbox.checked = true;
-            $fieldset.append(makeDiv('regular-input-group')(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
-        }
     }
     populateInputsWithoutUpdatingRequestExceptForClosedInput(query) {
         if (query && query.mode != 'search')
@@ -5553,7 +5523,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
     }
     addEventListenersBeforeClosedLine() {
         this.$userInput.addEventListener('input', () => {
-            const userQuery = toUserQuery(this.auth.server, this.$userInput.value);
+            const userQuery = toUserQuery(this.cx.server.api, this.cx.server.web, this.$userInput.value);
             if (userQuery.userType == 'invalid') {
                 this.$userInput.setCustomValidity(userQuery.message);
             }
@@ -5573,7 +5543,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
             });
     }
     constructQuery() {
-        return makeNoteSearchQueryFromValues(this.auth.server, this.$userInput.value, this.$textInput.value, this.$fromInput.value, this.$toInput.value, this.closedValue, this.$sortSelect.value, this.$orderSelect.value);
+        return makeNoteSearchQueryFromValues(this.cx.server.api, this.cx.server.web, this.$userInput.value, this.$textInput.value, this.$fromInput.value, this.$toInput.value, this.closedValue, this.$sortSelect.value, this.$orderSelect.value);
     }
     listQueryChangingInputs() {
         return [
@@ -5714,8 +5684,8 @@ function makeDumbCache() {
 const rq = (param) => makeElement('span')('advanced-hint')(` (`, code(param), ` parameter)`);
 const spanRequest = (...ss) => makeElement('span')('advanced-hint')(...ss);
 class NoteBboxFetchDialog extends NoteQueryFetchDialog {
-    constructor($root, $sharedCheckboxes, auth, getRequestApiPaths, submitQuery, map) {
-        super($root, $sharedCheckboxes, auth, getRequestApiPaths, submitQuery);
+    constructor($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, map) {
+        super($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery);
         this.map = map;
         this.shortTitle = `BBox`;
         this.title = `Get notes inside rectangular area`;
@@ -5728,8 +5698,8 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         this.limitLabelBeforeText = `at most `;
         this.limitLabelAfterText = ` notes`;
         this.limitIsParameter = true;
-        if (auth.server.nominatim) {
-            this.nominatimSubForm = new NominatimSubForm(auth.server.nominatim, () => map.bounds, (bbox) => {
+        if (cx.server.nominatim) {
+            this.nominatimSubForm = new NominatimSubForm(cx.server.nominatim, () => map.bounds, (bbox) => {
                 const [minLat, maxLat, minLon, maxLon] = bbox;
                 this.setBbox(minLon, minLat, maxLon, maxLat);
                 this.$trackMapSelect.value = 'nothing';
@@ -5753,7 +5723,7 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         }
     }
     makeLeadAdvancedHint() {
-        return [p(`Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code(this.auth.server.api.getUrl(`notes?`), em(`parameters`)), `; see `, em(`parameters`), ` below.`)];
+        return [p(`Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code(this.cx.server.api.getUrl(`notes?`), em(`parameters`)), `; see `, em(`parameters`), ` below.`)];
     }
     listParameters(closedDescriptionItems) {
         return [
@@ -6359,8 +6329,8 @@ const neisCountries = [
 ];
 
 class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) {
-    constructor($root, $sharedCheckboxes, auth, getRequestApiPaths, submitQuery, noteTable) {
-        super($root, $sharedCheckboxes, auth, getRequestApiPaths, submitQuery);
+    constructor($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, noteTable) {
+        super($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery);
         this.noteTable = noteTable;
         this.shortTitle = `Plaintext`;
         this.title = `Fetch notes by ids from unstructured text`;
@@ -6433,7 +6403,7 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
 }
 
 class NoteFetchDialogs {
-    constructor($root, auth, $container, $moreContainer, noteTable, map, hashQuery, submitQueryToDialog, limitChangeListener) {
+    constructor($root, cx, $container, $moreContainer, noteTable, map, hashQuery, submitQueryToDialog, limitChangeListener) {
         const $sharedCheckboxes = {
             showImages: [],
             advancedMode: []
@@ -6445,10 +6415,10 @@ class NoteFetchDialogs {
             dialog.populateInputs(hashQuery);
             return dialog;
         };
-        this.searchDialog = makeFetchDialog(new NoteSearchFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteSearchFetchDialog($root, $sharedCheckboxes, auth, getRequestApiPaths, submitQuery));
-        this.bboxDialog = makeFetchDialog(new NoteBboxFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteBboxFetchDialog($root, $sharedCheckboxes, auth, getRequestApiPaths, submitQuery, map));
-        this.xmlDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteXmlFetchDialog($root, $sharedCheckboxes, auth, getRequestApiPaths, submitQuery));
-        this.plaintextDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NotePlaintextFetchDialog($root, $sharedCheckboxes, auth, getRequestApiPaths, submitQuery, noteTable));
+        this.searchDialog = makeFetchDialog(new NoteSearchFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteSearchFetchDialog($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery));
+        this.bboxDialog = makeFetchDialog(new NoteBboxFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteBboxFetchDialog($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, map));
+        this.xmlDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteXmlFetchDialog($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery));
+        this.plaintextDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NotePlaintextFetchDialog($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, noteTable));
         const handleSharedCheckboxes = ($checkboxes, stateChangeListener) => {
             for (const $checkbox of $checkboxes) {
                 $checkbox.addEventListener('input', inputListener);
@@ -6497,11 +6467,11 @@ class NoteFetchDialogs {
 }
 
 class NoteFetchPanel {
-    constructor($root, db, auth, $container, $moreContainer, navbar, noteTable, map, queryHash, hasMapHash, hostHashValue) {
+    constructor($root, db, cx, $container, $moreContainer, navbar, noteTable, map, queryHash, hasMapHash, hostHashValue) {
         const self = this;
         const moreButtonIntersectionObservers = [];
         const hashQuery = makeNoteQueryFromHash(queryHash);
-        const fetchDialogs = new NoteFetchDialogs($root, auth, $container, $moreContainer, noteTable, map, hashQuery, (dialog, query) => {
+        const fetchDialogs = new NoteFetchDialogs($root, cx, $container, $moreContainer, noteTable, map, hashQuery, (dialog, query) => {
             startFetcher(query, true, false, dialog);
         }, (dialog) => {
             if (this.fetcherRun && this.fetcherInvoker == dialog) {
@@ -6589,8 +6559,8 @@ class NoteFetchPanel {
             bubbleCustomEvent($container, 'osmNoteViewer:newNoteStream', [makeNoteQueryString(query), isNewStart]);
             const environment = {
                 db,
-                api: auth.server.api,
-                token: auth.token,
+                api: cx.server.api,
+                token: cx.token,
                 hostHashValue,
                 noteTable, $moreContainer,
                 getLimit: dialog.getLimit,
@@ -6638,7 +6608,7 @@ function isValidOperator(op) {
     return (op == '=' || op == '!=' || op == '~=');
 }
 class NoteFilter {
-    constructor(urlLister, query) {
+    constructor(apiUrlLister, webUrlLister, query) {
         this.query = query;
         this.statements = [];
         let lineNumber = 0;
@@ -6663,7 +6633,7 @@ class NoteFilter {
                     const [, operator, user] = match;
                     if (!isValidOperator(operator))
                         continue; // impossible
-                    const userQuery = toUserQuery(urlLister, user);
+                    const userQuery = toUserQuery(apiUrlLister, webUrlLister, user);
                     if (userQuery.userType == 'invalid' || userQuery.userType == 'empty') {
                         throwError(`Invalid user value "${user}"`);
                     }
@@ -6885,11 +6855,11 @@ function term(t) {
     return `<em>&lt;${t}&gt;</em>`;
 }
 class NoteFilterPanel {
-    constructor(storage, urlLister, $container) {
-        this.noteFilter = new NoteFilter(urlLister, ``);
-        const $form = makeCodeForm('', storage.getString('filter'), `Note filter`, `Filter`, `Apply filter`, input => this.noteFilter.isSameQuery(input), input => new NoteFilter(urlLister, input), input => {
-            this.noteFilter = new NoteFilter(urlLister, input);
-            storage.setString('filter', input);
+    constructor(storage, apiUrlLister, webUrlLister, $container) {
+        this.noteFilter = new NoteFilter(apiUrlLister, webUrlLister, ``);
+        const $form = makeCodeForm('', getStorageString(storage, 'filter'), `Note filter`, `Filter`, `Apply filter`, input => this.noteFilter.isSameQuery(input), input => new NoteFilter(apiUrlLister, webUrlLister, input), input => {
+            this.noteFilter = new NoteFilter(apiUrlLister, webUrlLister, input);
+            setStorageString(storage, 'filter', input);
         }, () => {
             this.onFilterUpdate?.(this.noteFilter);
         }, syntaxDescription, syntaxExamples);
@@ -7062,7 +7032,7 @@ class LooseParserPopup {
         if (type == null)
             return makeElement('a')()('?');
         const $a = makeElement('a')()(type);
-        $a.href = this.webUrlLister.web.getUrl(e$5 `${type}/${id}`);
+        $a.href = this.webUrlLister.getUrl(e$5 `${type}/${id}`);
         if (type == 'note') {
             $a.classList.add('other-note');
             $a.dataset.noteId = String(id);
@@ -7156,7 +7126,7 @@ function getCommentItems(webUrlLister, commentText) {
     }
 }
 function makeWebUrlRegex(webUrlLister) {
-    return '(?:' + webUrlLister.web.urls.map(webUrl => escapeRegex(stripProtocol(webUrl))).join('|') + ')';
+    return '(?:' + webUrlLister.urls.map(webUrl => escapeRegex(stripProtocol(webUrl))).join('|') + ')';
 }
 function stripProtocol(webUrl) {
     return webUrl.replace(new RegExp('^[^:]*://'), '');
@@ -7221,7 +7191,7 @@ function getMatchItem(webUrlLister, groups) {
     };
 }
 function rewriteOsmHref(webUrlLister, path, hash) {
-    let href = webUrlLister.web.getUrl(path ?? '');
+    let href = webUrlLister.getUrl(path ?? '');
     if (hash)
         href += hash;
     return href;
@@ -8325,10 +8295,10 @@ class NoteTable {
                 map.fitNoteTrack();
             bubbleCustomEvent(this.$table, 'osmNoteViewer:notesInViewportChange', visibleNoteIds.map(id => this.notesById.get(id)).filter(isDefined));
         });
-        this.commentWriter = new CommentWriter(server);
+        this.commentWriter = new CommentWriter(server.web);
         $container.append(this.$table);
         this.reset();
-        const looseParserPopup = new LooseParserPopup(server, $container);
+        const looseParserPopup = new LooseParserPopup(server.web, $container);
         this.looseParserListener = new LooseParserListener((x, y, text) => {
             const parseResult = parseLoose(text);
             if (!parseResult)
@@ -8877,8 +8847,8 @@ function isDefined(argument) {
 }
 
 class Tool {
-    constructor(auth) {
-        this.auth = auth;
+    constructor(cx) {
+        this.cx = cx;
         this.isFullWidth = false;
         this.$buttonsRequiringSelectedNotes = [];
     }
@@ -9255,8 +9225,8 @@ const e$3 = makeEscapeTag(encodeURIComponent);
 class InteractionError extends TypeError {
 }
 class InteractTool extends Tool {
-    constructor(auth) {
-        super(auth);
+    constructor(cx) {
+        super(cx);
         this.id = 'interact';
         this.name = `Interact`;
         this.title = `Interact with notes on OSM server`;
@@ -9344,16 +9314,16 @@ class InteractTool extends Tool {
         return this.$run;
     }
     getTool($root, $tool) {
-        const appendLastChangeset = new TextControl(this.$commentText, () => this.auth.uid != null, () => true, (append) => !this.$commentText.value.endsWith(append), (append) => {
+        const appendLastChangeset = new TextControl(this.$commentText, () => this.cx.uid != null, () => true, (append) => !this.$commentText.value.endsWith(append), (append) => {
             this.$commentText.value = this.$commentText.value.slice(0, -append.length);
             this.updateButtons();
         }, async ($a) => {
-            if (this.auth.uid == null)
+            if (this.cx.uid == null)
                 throw new TypeError(`Undefined user id when getting last changeset`);
-            const response = await this.auth.server.api.fetch(e$3 `changesets.json?user=${this.auth.uid}`);
+            const response = await this.cx.server.api.fetch(e$3 `changesets.json?user=${this.cx.uid}`);
             const data = await response.json();
             const changesetId = getLatestChangesetId(data);
-            const append = getParagraphAppend(this.$commentText.value, this.auth.server.web.getUrl(e$3 `changeset/${changesetId}`));
+            const append = getParagraphAppend(this.$commentText.value, this.cx.server.web.getUrl(e$3 `changeset/${changesetId}`));
             this.$commentText.value += append;
             this.updateButtons();
             $a.dataset.changesetId = String(changesetId);
@@ -9371,7 +9341,7 @@ class InteractTool extends Tool {
             try {
                 if (navigator.clipboard.write && window.ClipboardItem) {
                     const plainBlob = new Blob([plainText], { type: 'text/plain' });
-                    const htmlText = convertDecoratedNoteIdsToHtmlText(decoratedIds, this.auth.server.web);
+                    const htmlText = convertDecoratedNoteIdsToHtmlText(decoratedIds, this.cx.server.web);
                     const htmlBlob = new Blob([htmlText], { type: 'text/html' });
                     await navigator.clipboard.write([
                         new ClipboardItem({
@@ -9464,31 +9434,31 @@ class InteractTool extends Tool {
     updateYourNotes() {
         const apiText = `your own latest updated notes`;
         const webText = `your notes page`;
-        if (this.auth.username == null) {
+        if (this.cx.username == null) {
             this.$yourNotesApi.replaceChildren(apiText);
             this.$yourNotesWeb.replaceChildren(webText);
         }
         else {
             const apiHref = makeHrefWithCurrentHost([
                 ['mode', 'search'],
-                ['display_name', this.auth.username],
+                ['display_name', this.cx.username],
                 ['sort', 'updated_at']
             ]);
-            const webHref = this.auth.server.web.getUrl(e$3 `user/${this.auth.username}/notes`);
+            const webHref = this.cx.server.web.getUrl(e$3 `user/${this.cx.username}/notes`);
             this.$yourNotesApi.replaceChildren(makeLink(apiText, apiHref));
             this.$yourNotesWeb.replaceChildren(makeLink(webText, webHref));
         }
     }
     updateAsOutput() {
-        if (this.auth.username == null || this.auth.uid == null) {
+        if (this.cx.username == null || this.cx.uid == null) {
             this.$asOutput.replaceChildren(this.$loginLink, ` to interact`);
         }
         else {
-            this.$asOutput.replaceChildren(`as `, this.auth.server.web.makeUserLink(this.auth.uid, this.auth.username));
+            this.$asOutput.replaceChildren(`as `, this.cx.server.web.makeUserLink(this.cx.uid, this.cx.username));
         }
     }
     updateWithOutput() {
-        const multipleNoteIndicators = getMultipleNoteIndicators(this.auth.server.web, this.stagedNoteIds, 5);
+        const multipleNoteIndicators = getMultipleNoteIndicators(this.cx.server.web, this.stagedNoteIds, 5);
         if (multipleNoteIndicators.length > 0) {
             this.$withOutput.replaceChildren(`with `, ...multipleNoteIndicators);
         }
@@ -9513,7 +9483,7 @@ class InteractTool extends Tool {
                     this.run.status == 'paused' && this.run.interactionDescription != interactionDescription);
             }
             else {
-                $button.disabled = !this.auth.token || inputNoteIds.length == 0;
+                $button.disabled = !this.cx.token || inputNoteIds.length == 0;
             }
             if (cancelCondition) {
                 $button.replaceChildren(`Cancel`);
@@ -9521,7 +9491,7 @@ class InteractTool extends Tool {
             else {
                 $button.replaceChildren(`${interactionDescription.label} `, ...getButtonNoteIcon(inputNoteIds, interactionDescription.inputNoteStatus, interactionDescription.outputNoteStatus));
             }
-            $button.hidden = interactionDescription.forModerator && !this.auth.isModerator;
+            $button.hidden = interactionDescription.forModerator && !this.cx.isModerator;
         }
         if (this.$commentText.value == '')
             this.$commentButton.disabled = true;
@@ -9556,7 +9526,7 @@ class InteractTool extends Tool {
             outputFragment(`queue emptied`);
         }
         if (this.run.currentNoteId != null) {
-            const $a = getNoteIndicator(this.auth.server.web, this.run.currentNoteId, this.run.interactionDescription.inputNoteStatus);
+            const $a = getNoteIndicator(this.cx.server.web, this.run.currentNoteId, this.run.interactionDescription.inputNoteStatus);
             if (this.run.currentNoteError) {
                 $a.classList.add('error');
                 $a.title = this.run.currentNoteError;
@@ -9626,7 +9596,7 @@ class InteractTool extends Tool {
             bubbleCustomEvent($tool, 'osmNoteViewer:beforeNoteFetch', id);
             try {
                 let response;
-                const fetchBuilder = this.auth.server.api.fetch.withToken(this.auth.token).withUrlencodedBody([
+                const fetchBuilder = this.cx.server.api.fetch.withToken(this.cx.token).withUrlencodedBody([
                     ['text', this.$commentText.value]
                 ]);
                 if (this.run.interactionDescription.verb == 'DELETE') {
@@ -9737,10 +9707,10 @@ class ReportTool extends Tool {
         const $tabCountOutput = document.createElement('output');
         const $confirmTabCountOutput = document.createElement('output');
         const e = makeEscapeTag(encodeURIComponent);
-        const getNoteReportUrl = (id) => this.auth.server.web.getUrl(e `reports/new?reportable_id=${id}&reportable_type=Note`);
-        const getUserReportUrl = (id) => this.auth.server.web.getUrl(e `reports/new?reportable_id=${id}&reportable_type=User`);
-        const getUserBlockUrl = (username) => this.auth.server.web.getUrl(e `blocks/new/${username}`);
-        const getNoteListItem = (id) => `- ` + this.auth.server.web.getUrl(e `note/${id}`) + `\n`;
+        const getNoteReportUrl = (id) => this.cx.server.web.getUrl(e `reports/new?reportable_id=${id}&reportable_type=Note`);
+        const getUserReportUrl = (id) => this.cx.server.web.getUrl(e `reports/new?reportable_id=${id}&reportable_type=User`);
+        const getUserBlockUrl = (username) => this.cx.server.web.getUrl(e `blocks/new/${username}`);
+        const getNoteListItem = (id) => `- ` + this.cx.server.web.getUrl(e `note/${id}`) + `\n`;
         const getNoteList = () => inputNoteIds.map(getNoteListItem).join('');
         const copyNoteList = () => navigator.clipboard.writeText(getNoteList());
         const $reportOneButton = this.makeRequiringSelectedNotesButton();
@@ -9757,7 +9727,7 @@ class ReportTool extends Tool {
         $blockUserButton.append(`Block opening user`);
         $blockUserButton.disabled = $reportUserButton.disabled = true;
         const updateLoginDependents = () => {
-            $blockUserButton.hidden = !this.auth.isModerator;
+            $blockUserButton.hidden = !this.cx.isModerator;
         };
         updateLoginDependents();
         $reportOneButton.onclick = async () => {
@@ -9997,7 +9967,7 @@ class RefreshTool extends Tool {
             let note;
             let users;
             try {
-                [note, users] = await fetchTableNote(this.auth.server.api, id, this.auth.token);
+                [note, users] = await fetchTableNote(this.cx.server.api, id, this.cx.token);
             }
             catch (ex) {
                 bubbleCustomEvent($tool, 'osmNoteViewer:failedNoteFetch', [id, getFetchTableNoteErrorMessage(ex)]);
@@ -10128,7 +10098,7 @@ class ParseTool extends Tool {
         return [p(`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →. `, `Currently detected active elements are: `), ul(li(`links to images made in `, makeLink(`StreetComplete`, `https://wiki.openstreetmap.org/wiki/StreetComplete`)), li(`links to OSM notes (clicking the output link is not yet implemented)`), li(`links to OSM changesets`), li(`links to OSM elements`), li(`ISO-formatted timestamps`)), p(`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`)];
     }
     getTool() {
-        const commentWriter = new CommentWriter(this.auth.server);
+        const commentWriter = new CommentWriter(this.cx.server.web);
         const $input = document.createElement('input');
         $input.type = 'text';
         $input.size = 50;
@@ -10200,7 +10170,7 @@ class ChangesetTool extends Tool {
         const getChangesetLink = (changesetId) => {
             if (changesetId == null)
                 return `none`;
-            const $a = makeLink(`link`, this.auth.server.web.getUrl(e$2 `changeset/${changesetId}`));
+            const $a = makeLink(`link`, this.cx.server.web.getUrl(e$2 `changeset/${changesetId}`));
             $a.classList.add('listened');
             $a.dataset.changesetId = String(changesetId);
             return $a;
@@ -10230,7 +10200,7 @@ class ChangesetTool extends Tool {
             try {
                 const coordDelta = 0.001;
                 const day = 60 * 60 * 24;
-                const response = await this.auth.server.api.fetch(e$2 `changesets.json` +
+                const response = await this.cx.server.api.fetch(e$2 `changesets.json` +
                     `?bbox=${closingScope.lon - coordDelta},${closingScope.lat - coordDelta}` +
                     `,${closingScope.lon + coordDelta},${closingScope.lat + coordDelta}` +
                     `&user=${closingScope.uid}` +
@@ -10304,7 +10274,7 @@ class OverpassTurboTool extends OverpassBaseTool {
         this.title = `Open an Overpass turbo window with various queries`;
     }
     isActiveWithCurrentServer() {
-        return !!this.auth.server.overpassTurbo;
+        return !!this.cx.server.overpassTurbo;
     }
     getInfo() {
         return [p(`Some Overpass queries to run from `, makeLink(`Overpass turbo`, 'https://wiki.openstreetmap.org/wiki/Overpass_turbo'), `, web UI for Overpass API. `, `Useful to inspect historic data at the time a particular note comment was made.`)];
@@ -10326,9 +10296,9 @@ class OverpassTurboTool extends OverpassBaseTool {
             }
             query += `;\n`;
             query += `out meta geom;`;
-            if (!this.auth.server.overpassTurbo)
+            if (!this.cx.server.overpassTurbo)
                 throw new ReferenceError(`no overpass turbo provider`);
-            open(this.auth.server.overpassTurbo.getUrl(query, map.lat, map.lon, map.zoom), 'overpass-turbo');
+            open(this.cx.server.overpassTurbo.getUrl(query, map.lat, map.lon, map.zoom), 'overpass-turbo');
         };
         {
             const $button = document.createElement('button');
@@ -10364,7 +10334,7 @@ class OverpassTool extends OverpassBaseTool {
         this.title = `Run an Overpass query`;
     }
     isActiveWithCurrentServer() {
-        return !!this.auth.server.overpass;
+        return !!this.cx.server.overpass;
     }
     getInfo() {
         return [p(`Query `, makeLink(`Overpass API`, 'https://wiki.openstreetmap.org/wiki/Overpass_API'), ` without going through Overpass turbo. `, `Shows results on the map. Also gives link to the element page on the OSM website.`)];
@@ -10381,13 +10351,13 @@ class OverpassTool extends OverpassBaseTool {
             let query = this.getOverpassQueryPreamble(map);
             query += `node(around:${radius},${map.lat},${map.lon});\n`;
             query += `out skel;`;
-            if (!this.auth.server.overpass)
+            if (!this.cx.server.overpass)
                 throw new ReferenceError(`no overpass provider`);
-            const doc = await this.auth.server.overpass.fetch(query);
+            const doc = await this.cx.server.overpass.fetch(query);
             const closestNodeId = getClosestNodeId(doc, map.lat, map.lon);
             if (!closestNodeId)
                 throw `Could not find nodes nearby`;
-            const url = this.auth.server.web.getUrl(`node/` + encodeURIComponent(closestNodeId));
+            const url = this.cx.server.web.getUrl(`node/` + encodeURIComponent(closestNodeId));
             const $a = makeLink(`link`, url);
             $a.dataset.elementType = 'node';
             $a.dataset.elementId = String(closestNodeId);
@@ -10472,7 +10442,7 @@ class RcTool extends EditorTool {
         $loadNotesButton.append(`Load `, makeNotesIcon('selected'));
         $loadNotesButton.onclick = async () => {
             for (const { id } of inputNotes) {
-                const noteUrl = this.auth.server.web.getUrl(e$1 `note/${id}`);
+                const noteUrl = this.cx.server.web.getUrl(e$1 `note/${id}`);
                 const rcPath = e$1 `import?url=${noteUrl}`;
                 const success = await openRcPath($loadNotesButton, rcPath);
                 if (!success)
@@ -10522,13 +10492,13 @@ class IdTool extends EditorTool {
         const $zoomButton = document.createElement('button');
         $zoomButton.append(`Open `, makeMapIcon('center'));
         $zoomButton.onclick = () => {
-            const url = this.auth.server.web.getUrl(e$1 `id#map=${map.zoom}/${map.lat}/${map.lon}`);
+            const url = this.cx.server.web.getUrl(e$1 `id#map=${map.zoom}/${map.lat}/${map.lon}`);
             open(url, 'id');
         };
         return [$zoomButton];
     }
     doElementAction(map) {
-        const url = this.auth.server.web.getUrl(e$1 `id#id=${this.inputElement}&map=${map.zoom}/${map.lat}/${map.lon}`);
+        const url = this.cx.server.web.getUrl(e$1 `id#id=${this.inputElement}&map=${map.zoom}/${map.lat}/${map.lon}`);
         open(url, 'id');
     }
 }
@@ -10580,7 +10550,7 @@ class ExportTool extends Tool {
         const $exportNotesButton = this.makeRequiringSelectedNotesButton();
         $exportNotesButton.append(`Export `, makeNotesIcon('selected'));
         $exportNotesButton.onclick = () => {
-            const data = this.generateData(this.auth.server, getOptionValues());
+            const data = this.generateData(this.cx.server, getOptionValues());
             const filename = this.generateFilename();
             const file = new File([data], filename);
             const $a = document.createElement('a');
@@ -10591,7 +10561,7 @@ class ExportTool extends Tool {
         };
         $exportNotesButton.draggable = true;
         $exportNotesButton.ondragstart = (ev) => {
-            const data = this.generateData(this.auth.server, getOptionValues());
+            const data = this.generateData(this.cx.server, getOptionValues());
             if (!ev.dataTransfer)
                 return;
             ev.dataTransfer.setData($dataTypeSelect.value, data);
@@ -10889,7 +10859,7 @@ class GeoJsonTool extends ExportTool {
 
 class StreetViewTool extends Tool {
     isActiveWithCurrentServer() {
-        return this.auth.server.world == 'earth';
+        return this.cx.server.world == 'earth';
     }
     getTool($root, $tool, map) {
         const $viewButton = document.createElement('button');
@@ -10940,13 +10910,13 @@ const toolMakerSequence = [
     GpxTool, GeoJsonTool,
     YandexPanoramasTool, MapillaryTool,
     CountTool, LegendTool
-].map(ToolClass => (auth) => new ToolClass(auth));
+].map(ToolClass => (cx) => new ToolClass(cx));
 
 class ToolPanel {
-    constructor($root, $toolbar, storage, auth, map) {
+    constructor($root, $toolbar, storage, cx, map) {
         const tools = [];
         for (const makeTool of toolMakerSequence) {
-            const tool = makeTool(auth);
+            const tool = makeTool(cx);
             const storageKey = `tools[${tool.id}]`;
             const [$tool, $info] = tool.write($root, map);
             if ($tool) {
@@ -11220,26 +11190,92 @@ class TimeTitleUpdater {
     }
 }
 
+var serverListConfig = [
+    {
+        "web": [
+            "https://www.openstreetmap.org/",
+            "https://openstreetmap.org/",
+            "https://www.osm.org/",
+            "https://osm.org/"
+        ],
+        "api": "https://api.openstreetmap.org/",
+        "nominatim": "https://nominatim.openstreetmap.org/",
+        "overpass": "https://www.overpass-api.de/",
+        "overpassTurbo": "https://overpass-turbo.eu/",
+        "tiles": {
+            "template": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+            "attribution": "OpenStreetMap contributors"
+        },
+        "note": "main OSM server",
+        "oauth": {
+            "id": "hRPFdI68dfFi2ucLe8Nt8y6rBM4uwTwIzNioi1EuTms",
+            "url": "https://antonkhorev.github.io/osm-note-viewer/"
+        }
+    },
+    {
+        "web": "https://master.apis.dev.openstreetmap.org/",
+        "note": [
+            "OSM sandbox/development server",
+            "https://wiki.openstreetmap.org/wiki/Sandbox_for_editing#Experiment_with_the_API_(advanced)"
+        ],
+        "oauth": {
+            "id": "KiQpJiwp0njkF3Y172lIpX2bzru4C98nH8y6FZcBir8",
+            "url": "https://antonkhorev.github.io/osm-note-viewer/"
+        }
+    },
+    {
+        "web": [
+            "https://www.openhistoricalmap.org/",
+            "https://openhistoricalmap.org/"
+        ],
+        "nominatim": "https://nominatim.openhistoricalmap.org/",
+        "overpass": "https://overpass-api.openhistoricalmap.org/",
+        "overpassTurbo": "https://openhistoricalmap.github.io/overpass-turbo/",
+        "oauth": {
+            "id": "pEMqG7m8YHHEfqRfctwQecseI1TYm1toHAAoRPzCPMw",
+            "url": "https://antonkhorev.github.io/osm-note-viewer/"
+        }
+    },
+    {
+        "web": "https://opengeofiction.net/",
+        "tiles": {
+            "template": "https://tiles04.rent-a-planet.com/ogf-carto/{z}/{x}/{y}.png",
+            "attribution": "OpenGeofiction and contributors"
+        },
+        "overpass": "https://overpass.ogf.rent-a-planet.com/",
+        "overpassTurbo": "https://turbo.ogf.rent-a-planet.com/",
+        "world": "opengeofiction",
+        "oauth": {
+            "id": "q7AADWIuLnof-YIo5J6ht31jB73jFNPPp6LreINnwQs",
+            "url": "https://antonkhorev.github.io/osm-note-viewer/"
+        }
+    },
+    {
+        "web": "https://fosm.org/",
+        "tiles": {
+            "template": "https://map.fosm.org/default/{z}/{x}/{y}.png",
+            "attribution": "https://fosm.org/",
+            "zoom": 18
+        },
+        "note": "mostly useless here because notes are not implemented on this server"
+    },
+    {
+        "web": "http://127.0.0.1:3000/",
+        "note": "default local rails dev server"
+    }
+];
+
 main();
 async function main() {
-    if (checkAuthRedirect()) {
+    if (checkAuthRedirect(`osm-note-viewer`)) {
         return;
     }
     const $root = makeDiv('ui')();
     document.body.append($root);
+    new GlobalEventListener($root);
     const storage = new NoteViewerStorage('osm-note-viewer-');
     const db = await NoteViewerDB.open();
-    const serverListConfigSources = [serverListConfig];
-    try {
-        const customServerListConfig = storage.getItem('servers');
-        if (customServerListConfig != null) {
-            serverListConfigSources.push(JSON.parse(customServerListConfig));
-        }
-    }
-    catch { }
-    const serverList = new ServerList(...serverListConfigSources);
-    new GlobalEventListener($root);
-    let auth;
+    const net = new Net(`osm-note-viewer`, 'read_prefs write_notes', [`You need to login if you'd like to manipulate notes.`], serverListConfig, storage, serverList => new HashServerSelector(serverList), () => bubbleEvent($root, 'osmNoteViewer:loginChange'));
     const $menuButton = makeMenuButton();
     const $navbarContainer = document.createElement('nav');
     const $fetchContainer = makeDiv('panel', 'fetch')();
@@ -11249,29 +11285,29 @@ async function main() {
     const $graphicSide = makeDiv('graphic-side')($menuButton);
     const $mapContainer = makeDiv('map')();
     $root.append($graphicSide);
-    const flipped = storage.getBoolean('flipped');
+    const flipped = getStorageBoolean(storage, 'flipped');
     if (flipped)
         $root.classList.add('flipped');
     let map;
-    const globalHistory = new GlobalHistory($root, $scrollingPart, serverList);
-    if (globalHistory.hasServer()) {
+    const globalHistory = new GlobalHistory($root, $scrollingPart, net);
+    if (net.cx) {
         $root.classList.add('with-sidebar');
-        auth = new Auth(storage, globalHistory.server, serverList);
         const $textSide = makeDiv('text-side')($scrollingPart, $stickyPart);
         $graphicSide.before($textSide);
         const sidebarResizer = new SidebarResizer($root, $textSide, storage);
         $graphicSide.append(sidebarResizer.$button, $mapContainer);
-        map = writeMap($root, $mapContainer, globalHistory);
+        map = writeMap($root, $mapContainer, net.cx.server, globalHistory);
         sidebarResizer.startListening(map);
         const navbar = new Navbar($root, storage, $navbarContainer, map);
-        const noteTable = writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer, storage, auth, globalHistory, map);
-        new NoteFetchPanel($root, db, auth, $fetchContainer, $moreContainer, navbar, noteTable, map, globalHistory.getQueryHash(), globalHistory.hasMapHash(), serverList.getHostHashValue(globalHistory.server));
+        const noteTable = writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer, storage, net.cx, globalHistory, map);
+        new NoteFetchPanel($root, db, net.cx, $fetchContainer, $moreContainer, navbar, noteTable, map, globalHistory.getQueryHash(), globalHistory.hasMapHash(), net.serverSelector.getHostHashValue(net.cx.server));
     }
     {
-        const overlayDialog = new OverlayDialog($root, storage, db, globalHistory.server, serverList, globalHistory.serverHash, auth, map, $menuButton);
+        const overlayDialog = new OverlayDialog($root, storage, db, net, map, $menuButton);
         $graphicSide.append(overlayDialog.$menuPanel, overlayDialog.$figureDialog);
     }
-    if (globalHistory.hasServer()) {
+    if (net.cx) {
+        const server = net.cx.server;
         $root.addEventListener('osmNoteViewer:updateNoteLinkClick', async (ev) => {
             const $a = ev.target;
             if (!($a instanceof HTMLAnchorElement))
@@ -11281,7 +11317,7 @@ async function main() {
             let note;
             let users;
             try {
-                [note, users] = await fetchTableNote(globalHistory.server.api, id, auth?.token);
+                [note, users] = await fetchTableNote(server.api, id, net.cx?.token);
             }
             catch (ex) {
                 bubbleCustomEvent($a, 'osmNoteViewer:failedNoteFetch', [id, getFetchTableNoteErrorMessage(ex)]);
@@ -11290,25 +11326,25 @@ async function main() {
             bubbleCustomEvent($a, 'osmNoteViewer:noteFetch', [note, users, 'manual']);
             bubbleCustomEvent($a, 'osmNoteViewer:noteUpdatePush', [note, users]);
         });
-        new OsmDownloader($root, globalHistory.server);
+        new OsmDownloader($root, server);
         globalHistory.restoreScrollPosition();
     }
     new TimeTitleUpdater($root);
 }
-function writeMap($root, $mapContainer, globalHistory) {
-    const map = new NoteMap($root, $mapContainer, globalHistory.server);
+function writeMap($root, $mapContainer, server, globalHistory) {
+    const map = new NoteMap($root, $mapContainer, server);
     globalHistory.triggerInitialMapHashChange();
     return map;
 }
-function writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer, storage, auth, globalHistory, map) {
+function writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer, storage, cx, globalHistory, map) {
     const $filterContainer = makeDiv('panel', 'fetch')();
     const $notesContainer = makeDiv('notes')();
     $scrollingPart.append($filterContainer, $notesContainer, $moreContainer);
-    const filterPanel = new NoteFilterPanel(storage, globalHistory.server, $filterContainer);
+    const filterPanel = new NoteFilterPanel(storage, cx.server.api, cx.server.web, $filterContainer);
     const $toolContainer = makeDiv('panel', 'toolbar')();
     $stickyPart.append($toolContainer);
-    new ToolPanel($root, $toolContainer, storage, auth, map);
-    const noteTable = new NoteTable($root, $notesContainer, storage, map, filterPanel.noteFilter, globalHistory.server);
+    new ToolPanel($root, $toolContainer, storage, cx, map);
+    const noteTable = new NoteTable($root, $notesContainer, storage, map, filterPanel.noteFilter, cx.server);
     filterPanel.onFilterUpdate = noteFilter => noteTable.updateFilter(noteFilter);
     globalHistory.$resizeObservationTarget = $notesContainer;
     return noteTable;
