@@ -31,21 +31,12 @@ export default class NoteViewerStorage {
 	}
 	getKeys(): string[] { // don't return iterator because may want to modify stuff while iterating
 		const result:string[]=[]
-		for (const k in localStorage) {
-			if (!localStorage.hasOwnProperty(k)) continue
-			if (!k.startsWith(this.prefix)) continue
+		for (let i=0;i<localStorage.length;i++) {
+			const k=localStorage.key(i)
+			if (!k?.startsWith(this.prefix)) continue
 			result.push(k.substring(this.prefix.length))
 		}
 		return result
-	}
-	computeSize(): number {
-		let size=0
-		for (const k of this.getKeys()) {
-			const value=this.getItem(k)
-			if (value==null) continue
-			size+=(value.length+this.prefix.length+k.length)*2
-		}
-		return size
 	}
 	clear(): void {
 		for (const k of this.getKeys()) {
