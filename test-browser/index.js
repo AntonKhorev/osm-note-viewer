@@ -79,7 +79,7 @@ describe("browser tests",function(){
 			await menuButton.click()
 			return await page.$('.graphic-side .menu .panel')
 		}
-		const hasText=async(target,text)=>(await target.$x(`//*[contains(text(),"${text}")]`)).length
+		const hasText=async(target,text)=>(await target.$x(`//*/text()[contains(.,"${text}")]`)).length
 		const hasTitleText=async(target,text)=>(await target.$x(`//*[contains(@title,"${text}")]`)).length
 		this.assertText=async(target,text)=>assert(await hasText(target,text),`missing expected text "${text}"`)
 		this.assertNoText=async(target,text)=>assert(!await hasText(target,text),`present unexpected text "${text}"`)
