@@ -143,15 +143,6 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 	protected limitLabelBeforeText=`in batches of `
 	protected limitLabelAfterText=` notes`
 	protected limitIsParameter=true
-	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
-		{
-			this.$autoLoadCheckbox.type='checkbox'
-			this.$autoLoadCheckbox.checked=true
-			$fieldset.append(makeDiv('regular-input-group')(makeLabel()(
-				this.$autoLoadCheckbox,` Automatically load more notes when scrolled to the end of the table`
-			)))
-		}
-	}
 	protected populateInputsWithoutUpdatingRequestExceptForClosedInput(query: NoteQuery | undefined): void {
 		if (query && query.mode!='search') return
 		if (query?.display_name) {

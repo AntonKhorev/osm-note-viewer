@@ -244,6 +244,13 @@ export function mixinWithAutoLoadCheckbox<T extends abstract new (...args: any[]
 		get getAutoLoad(): ()=>boolean {
 			return ()=>this.$autoLoadCheckbox.checked
 		}
+		protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
+			this.$autoLoadCheckbox.type='checkbox'
+			this.$autoLoadCheckbox.checked=true
+			$fieldset.append(makeDiv('regular-input-group')(makeLabel()(
+				this.$autoLoadCheckbox,` Automatically load more notes when scrolled to the end of the table`
+			)))
+		}
 	}
 	return WithAutoLoadCheckbox
 }
@@ -408,15 +415,6 @@ export abstract class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteF
 	protected limitLabelBeforeText=`in batches of `
 	protected limitLabelAfterText=` notes`
 	protected limitIsParameter=false
-	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
-		{
-			this.$autoLoadCheckbox.type='checkbox'
-			this.$autoLoadCheckbox.checked=true
-			$fieldset.append(makeDiv('regular-input-group')(makeLabel()(
-				this.$autoLoadCheckbox,` Automatically load more notes when scrolled to the end of the table`
-			)))
-		}
-	}
 }
 
 function restrictClosedSelectValue(v: number): number {
