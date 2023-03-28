@@ -55,10 +55,10 @@ export default class Net<T extends ServerSelector> {
 	private readonly loginSection?: LoginSection
 	constructor(
 		appName: string,
-		storage: SimpleStorage,
-		serverListConfig: unknown,
-		makeServerSelector: (serverList:ServerList)=>T,
 		oauthScope: string,
+		serverListConfig: unknown,
+		storage: SimpleStorage,
+		makeServerSelector: (serverList:ServerList)=>T,
 		onLoginChange: ()=>void
 	) {
 		const serverListConfigSources:unknown[]=[serverListConfig]

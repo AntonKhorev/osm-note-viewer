@@ -35,9 +35,9 @@ async function main() {
 	const storage=new NoteViewerStorage('osm-note-viewer-')
 	const db=await NoteViewerDB.open()
 	const net=new Net(
-		`osm-note-viewer`,storage,serverListConfig,
+		`osm-note-viewer`,'read_prefs write_notes',serverListConfig,
+		storage,
 		serverList=>new HashServerSelector(serverList),
-		'read_prefs write_notes',
 		()=>bubbleEvent($root,'osmNoteViewer:loginChange')
 	)
 	const $menuButton=makeMenuButton()
