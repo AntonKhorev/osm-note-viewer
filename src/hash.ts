@@ -9,14 +9,6 @@ export function getHashSearchParams(): URLSearchParams {
 	return new URLSearchParams(paramString)
 }
 
-export function makeHrefWithCurrentHost(parameters: [k:string,v:string][]): string {
-	const hostHashValue=getHashSearchParams().get('host')
-	const parametersWithCurrentHost=[]
-	if (hostHashValue) parametersWithCurrentHost.push(['host',hostHashValue])
-	parametersWithCurrentHost.push(...parameters)
-	return '#'+parametersWithCurrentHost.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
-}
-
 export class HashServerSelector implements ServerSelector {
 	readonly hostHashValue: string|null
 	constructor(

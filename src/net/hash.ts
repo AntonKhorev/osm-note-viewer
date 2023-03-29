@@ -2,6 +2,13 @@ import {escapeHash} from '../util/escape'
 
 // can't use URLSearchParams for encoding because of different escaping
 
+export function getHashFromLocation(): string {
+	return (location.hash[0]=='#'
+		? location.hash.slice(1)
+		: location.hash
+	)
+}
+
 /**
  * Splits &-separated string into first 'host' parameter value
  */

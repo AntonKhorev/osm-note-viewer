@@ -1,8 +1,8 @@
 import {Tool, ToolElements, makeActionIcon} from './base'
 import type {Connection} from '../net'
+import {getHashFromLocation, splitHostFromHash, joinHostToHash} from '../net'
 import type {Note} from '../data'
 import {readNoteResponse, NoteDataError} from '../fetch-note'
-import {makeHrefWithCurrentHost} from '../hash'
 import TextControl from '../text-control'
 import {listDecoratedNoteIds, convertDecoratedNoteIdsToPlainText, convertDecoratedNoteIdsToHtmlText} from '../id-lister'
 import {bubbleEvent, bubbleCustomEvent} from '../util/events'
@@ -293,11 +293,14 @@ export class InteractTool extends Tool {
 			this.$yourNotesApi.replaceChildren(apiText)
 			this.$yourNotesWeb.replaceChildren(webText)
 		} else {
-			const apiHref=makeHrefWithCurrentHost([
+			const hash=getHashFromLocation()
+			const [hostHashValue]=splitHostFromHash(hash)
+			const queryHash=new URLSearchParams([
 				['mode','search'],
 				['display_name',this.cx.username],
 				['sort','updated_at']
-			])
+			]).toString()
+			const apiHref='#'+joinHostToHash(hostHashValue,queryHash)
 			const webHref=this.cx.server.web.getUrl(e`user/${this.cx.username}/notes`)
 			this.$yourNotesApi.replaceChildren(makeLink(apiText,apiHref))
 			this.$yourNotesWeb.replaceChildren(makeLink(webText,webHref))
