@@ -32,7 +32,7 @@ async function main() {
 	document.body.append($root)
 	new GlobalEventsListener($root)
 	
-	const storage=new NoteViewerStorage('osm-note-viewer-')
+	const storage=new NoteViewerStorage()
 	const db=await NoteViewerDB.open()
 	const net=new Net(
 		`osm-note-viewer`,'read_prefs write_notes',
