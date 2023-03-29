@@ -79,7 +79,7 @@ async function main() {
 			$fetchContainer,$moreContainer,
 			navbar,noteTable,map,
 			globalHistory.getQueryHash(),globalHistory.hasMapHash(),
-			net.serverSelector.getHostHashValue(net.cx.server)
+			net.serverSelector.getHostHashValueForServer(net.cx.server)
 		)
 	}
 	

@@ -1,4 +1,4 @@
-import {Server, ServerList} from './net'
+import type {Server, ServerList, ServerSelector} from './net'
 import {code} from './util/html-shortcuts'
 import {escapeHash} from './util/escape'
 
@@ -17,7 +17,7 @@ export function makeHrefWithCurrentHost(parameters: [k:string,v:string][]): stri
 	return '#'+parametersWithCurrentHost.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
 }
 
-export class HashServerSelector {
+export class HashServerSelector implements ServerSelector {
 	readonly hostHashValue: string|null
 	constructor(
 		private serverList: ServerList
@@ -25,23 +25,18 @@ export class HashServerSelector {
 		const searchParams=getHashSearchParams()
 		this.hostHashValue=searchParams.get('host')
 	}
+
+	// generic server selector methods
 	selectServer(): Server|undefined {
-		return this.getServer(this.hostHashValue)
-	}
-	getHostHashValue(server: Server): string|null {
-		let hostHashValue:null|string = null
-		if (server!=this.serverList.defaultServer) {
-			hostHashValue=server.host
-		}
-		return hostHashValue
+		return this.getServerForHostHashValue(this.hostHashValue)
 	}
 	getServerSelectHref(server: Server): string {
 		const baseLocation=location.pathname+location.search
-		const hashValue=this.getHostHashValue(server)
+		const hashValue=this.getHostHashValueForServer(server)
 		return baseLocation+(hashValue ? `#host=`+escapeHash(hashValue) : '')
 	}
 	addServerSelectToAppInstallLocationHref(server: Server, installLocationHref: string): string {
-		const hashValue=this.getHostHashValue(server)
+		const hashValue=this.getHostHashValueForServer(server)
 		return installLocationHref+(hashValue ? `#host=`+escapeHash(hashValue) : '')
 	}
 	makeServerSelectErrorMessage(): (string|HTMLElement)[] {
@@ -53,7 +48,16 @@ export class HashServerSelector {
 			`Unknown server in URL hash parameter `,code(hostHash),`.`
 		]
 	}
-	getServer(hostHashValue: string|null): Server|undefined {
+	
+	// host-hash-specific methods
+	getHostHashValueForServer(server: Server): string|null {
+		let hostHashValue:null|string = null
+		if (server!=this.serverList.defaultServer) {
+			hostHashValue=server.host
+		}
+		return hostHashValue
+	}
+	getServerForHostHashValue(hostHashValue: string|null): Server|undefined {
 		if (hostHashValue==null) return this.serverList.defaultServer
 		return this.serverList.servers.get(hostHashValue)
 	}

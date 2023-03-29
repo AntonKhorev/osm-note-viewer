@@ -54,7 +54,7 @@ export default class StorageSection {
 				const username=searchParams.get('display_name')
 				const ids=searchParams.get('ids')
 				const host=searchParams.get('host')
-				const fetchEntryServer=serverSelector.getServer(host)
+				const fetchEntryServer=serverSelector.getServerForHostHashValue(host)
 				if (username) {
 					if (fetchEntryServer) {
 						const href=fetchEntryServer.web.getUrl(`user/`+encodeURIComponent(username))

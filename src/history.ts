@@ -33,7 +33,7 @@ export default class GlobalHistory {
 				if (hostHashValue!=net.serverSelector.hostHashValue) location.reload()
 				return
 			}
-			if (hostHashValue!=net.serverSelector.getHostHashValue(net.cx.server)) {
+			if (hostHashValue!=net.serverSelector.getHostHashValueForServer(net.cx.server)) {
 				location.reload()
 				return
 			}
@@ -60,7 +60,7 @@ export default class GlobalHistory {
 				const searchParams=getHashSearchParams()
 				mapHashValue=searchParams.get('map')??''
 			}
-			const hostHashValue=net.serverSelector.getHostHashValue(net.cx.server)
+			const hostHashValue=net.serverSelector.getHostHashValueForServer(net.cx.server)
 			const fullHash=this.getFullHash(queryHash,mapHashValue,hostHashValue)
 			if (fullHash!=location.hash) {
 				const url=fullHash||location.pathname+location.search
@@ -132,6 +132,7 @@ export default class GlobalHistory {
 		if (hostHashValue) appendToFullHash('host='+escapeHash(hostHashValue))
 		appendToFullHash(queryHash)
 		if (mapHashValue) appendToFullHash('map='+escapeHash(mapHashValue))
+		// fullHash=this.net.serverSelector.addHostHashToHash(fullHash,hostHashValue)
 		if (fullHash) fullHash='#'+fullHash
 		return fullHash
 	}
