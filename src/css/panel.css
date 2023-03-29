@@ -346,6 +346,19 @@ dialog.help button.close-all-tools::before {
 .panel .gridded-input-group > button {
 	padding: var(--major-button-padding);
 }
+.panel .date-range-input-group {
+	display: flex;
+	flex-wrap: wrap;
+	gap: .5em;
+}
+.panel .date-range-input-group > label {
+	flex-grow: 1;
+}
+.panel .date-range-input-group > label > input {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+}
 
 .more div {
 	margin: 1em;
