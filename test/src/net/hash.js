@@ -1,5 +1,5 @@
 import {strict as assert} from 'assert'
-import {splitHostFromHash} from '../../../test-build/net/hash.js'
+import {splitHostFromHash, joinHostToHash} from '../../../test-build/net/hash.js'
 
 describe("hash module / splitHostFromHash()",()=>{
 	it("gets nothing from an empty string",()=>{
@@ -51,5 +51,24 @@ describe("hash module / splitHostFromHash()",()=>{
 		const [host,rest]=splitHostFromHash(`%68ost=yes`)
 		assert.equal(host,`yes`)
 		assert.equal(rest,``)
+	})
+})
+
+describe("hash module / joinHostToHash()",()=>{
+	it("adds nothing when host is null",()=>{
+		const hash=joinHostToHash(null,`whatever`)
+		assert.equal(hash,`whatever`)
+	})
+	it("adds host",()=>{
+		const hash=joinHostToHash(`something`,`whatever`)
+		assert.equal(hash,`host=something&whatever`)
+	})
+	it("adds host without %-encoding",()=>{
+		const hash=joinHostToHash(`a/b`,`whatever`)
+		assert.equal(hash,`host=a/b&whatever`)
+	})
+	it("adds host with %-encoding",()=>{
+		const hash=joinHostToHash(`a=b`,`whatever`)
+		assert.equal(hash,`host=a%3Db&whatever`)
 	})
 })

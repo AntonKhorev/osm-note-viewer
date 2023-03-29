@@ -1,3 +1,5 @@
+import {escapeHash} from '../util/escape'
+
 // can't use URLSearchParams for encoding because of different escaping
 
 /**
@@ -23,6 +25,7 @@ export function splitHostFromHash(hash: string): [host:string|null,hostlessHash:
 	return [hostHashValue,hostlessParts.join('&')]
 }
 
-export function joinHostToHash(host:string|null, hostlessHash:string): string {
-	return ''
+export function joinHostToHash(hostHashValue:string|null, hostlessHash:string): string {
+	if (hostHashValue==null) return hostlessHash
+	return `host=`+escapeHash(hostHashValue)+`&`+hostlessHash
 }
