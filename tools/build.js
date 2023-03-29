@@ -88,41 +88,42 @@ async function cleanupDirectory(dir) {
 }
 
 async function buildHtml(srcDir,dstDir,downloads) {
-	const [embeddedStyles,embeddedSymbols]=await getAllEmbeddedSvgs(srcDir)
-	const embeddedSvgs=
-		`<svg class="symbols">\n`+
-		`<style>\n`+
-		embeddedStyles+
-		`</style>\n`+
-		embeddedSymbols+
-		`</svg>`
-	const favicon=await fs.readFile(`${srcDir}/svg/favicon.svg`,'utf-8')
-	const encodedFavicon=Buffer.from(favicon).toString('base64')
 	let htmlContents=await fs.readFile(`${srcDir}/index.html`,'utf-8')
 	if (downloads) {
 		htmlContents=await replaceHtmlLinksToDownloads(downloads,htmlContents)
 	}
 	htmlContents=htmlContents
 		.replace(`<body>`,`<body data-build="${new Date().toISOString()}">`)
-		.replace(`<!-- {embed svgs} -->`,embeddedSvgs)
-		.replace(`<!-- {embed favicon} -->`,`<link rel=icon href="data:image/svg+xml;charset=utf-8;base64,${encodedFavicon}">`)
+	const embeddedSvgsResult=await getAllEmbeddedSvgs(srcDir)
+		if (embeddedSvgsResult) {
+		const [embeddedStyles,embeddedSymbols]=await getAllEmbeddedSvgs(srcDir)
+		const embeddedSvgs=
+			`<svg class="symbols">\n`+
+			`<style>\n`+
+			embeddedStyles+
+			`</style>\n`+
+			embeddedSymbols+
+			`</svg>`
+		const favicon=await fs.readFile(`${srcDir}/svg/favicon.svg`,'utf-8')
+		const encodedFavicon=Buffer.from(favicon).toString('base64')
+		htmlContents=htmlContents
+			.replace(`<!-- {embed svgs} -->`,embeddedSvgs)
+			.replace(`<!-- {embed favicon} -->`,`<link rel=icon href="data:image/svg+xml;charset=utf-8;base64,${encodedFavicon}">`)
+	}
 	await fs.writeFile(`${dstDir}/index.html`,htmlContents)
 }
 
 async function buildCss(srcDir,dstDir) {
-	const cssFiles={}
-	for (const dirEntry of await fs.readdir(`${srcDir}/css`,{withFileTypes:true})) {
-		if (dirEntry.isDirectory()) continue
-		const filename=dirEntry.name
-		cssFiles[`css/${filename}`]=await fs.readFile(`${srcDir}/css/${filename}`,'utf-8')
+	let indexCss=await fs.readFile(`${srcDir}/index.css`,'utf-8')
+	const cssFiles=await getAllCssFiles(srcDir)
+	if (cssFiles) {
+		indexCss=indexCss.replace(new RegExp(`@import '([^']*)';`,'g'),(_,filename)=>{
+			const contents=cssFiles[filename]
+			if (contents==null) return `// can't find file ${filename}\n`
+			return `/*** ${filename} ***/\n${contents}`
+		})
 	}
-	const indexCss=await fs.readFile(`${srcDir}/index.css`,'utf-8')
-	const bundledIndexCss=indexCss.replace(new RegExp(`@import '([^']*)';`,'g'),(_,filename)=>{
-		const contents=cssFiles[filename]
-		if (contents==null) return `// can't find file ${filename}\n`
-		return `/*** ${filename} ***/\n${contents}`
-	})
-	await fs.writeFile(`${dstDir}/index.css`,bundledIndexCss)
+	await fs.writeFile(`${dstDir}/index.css`,indexCss)
 }
 
 async function buildJs(srcDir,dstDir,serverListConfig) {
@@ -142,7 +143,27 @@ async function buildJs(srcDir,dstDir,serverListConfig) {
 	bundle.close()
 }
 
+async function getAllCssFiles(srcDir) {
+	try {
+		await fs.access(`${srcDir}/css`)
+	} catch {
+		return null
+	}
+	const cssFiles={}
+	for (const dirEntry of await fs.readdir(`${srcDir}/css`,{withFileTypes:true})) {
+		if (dirEntry.isDirectory()) continue
+		const filename=dirEntry.name
+		cssFiles[`css/${filename}`]=await fs.readFile(`${srcDir}/css/${filename}`,'utf-8')
+	}
+	return cssFiles
+}
+
 async function getAllEmbeddedSvgs(srcDir) {
+	try {
+		await fs.access(`${srcDir}/svg`)
+	} catch {
+		return null
+	}
 	let styles=''
 	let symbols=''
 	for (const dirEntry of await fs.readdir(`${srcDir}/svg`,{withFileTypes:true})) {
