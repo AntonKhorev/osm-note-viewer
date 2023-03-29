@@ -31,10 +31,14 @@ export function detachValueFromHash(key: string, hash: string): [value:string|nu
 
 export function attachValueToFrontOfHash(key: string, value: string|null, restOfHash: string): string {
 	if (value==null) return restOfHash
-	return `${key}=${escapeHash(value)}&${restOfHash}`
+	const valueHash=`${key}=${escapeHash(value)}`
+	if (!restOfHash) return valueHash
+	return `${valueHash}&${restOfHash}`
 }
 
 export function attachValueToBackOfHash(key: string, value: string|null, restOfHash: string): string {
 	if (value==null) return restOfHash
-	return `${restOfHash}&${key}=${escapeHash(value)}`
+	const valueHash=`${key}=${escapeHash(value)}`
+	if (!restOfHash) return valueHash
+	return `${restOfHash}&${valueHash}`
 }

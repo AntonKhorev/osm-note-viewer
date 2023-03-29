@@ -1,5 +1,5 @@
 import {strict as assert} from 'assert'
-import {detachValueFromHash, attachValueToFrontOfHash} from '../../../test-build/util/hash.js'
+import {detachValueFromHash, attachValueToFrontOfHash, attachValueToBackOfHash} from '../../../test-build/util/hash.js'
 
 describe("hash module / detachValueFromHash()",()=>{
 	it("gets nothing from an empty string",()=>{
@@ -59,6 +59,10 @@ describe("hash module / attachValueToFrontOfHash()",()=>{
 		const hash=attachValueToFrontOfHash(`host`,null,`whatever`)
 		assert.equal(hash,`whatever`)
 	})
+	it("adds host to empty hash",()=>{
+		const hash=attachValueToFrontOfHash(`host`,`something`,``)
+		assert.equal(hash,`host=something`)
+	})
 	it("adds host",()=>{
 		const hash=attachValueToFrontOfHash(`host`,`something`,`whatever`)
 		assert.equal(hash,`host=something&whatever`)
@@ -70,5 +74,12 @@ describe("hash module / attachValueToFrontOfHash()",()=>{
 	it("adds host with %-encoding",()=>{
 		const hash=attachValueToFrontOfHash(`host`,`a=b`,`whatever`)
 		assert.equal(hash,`host=a%3Db&whatever`)
+	})
+})
+
+describe("hash module / attachValueToBackOfHash()",()=>{
+	it("adds host to empty hash",()=>{
+		const hash=attachValueToBackOfHash(`host`,`something`,``)
+		assert.equal(hash,`host=something`)
 	})
 })

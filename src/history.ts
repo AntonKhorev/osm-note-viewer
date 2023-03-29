@@ -1,5 +1,6 @@
 import type Net from './net'
 import {getHashSearchParams, HashServerSelector} from './hash'
+import {getHashFromLocation, detachValueFromHash, attachValueToFrontOfHash, attachValueToBackOfHash} from './util/hash'
 import {escapeHash} from './util/escape'
 import {bubbleCustomEvent} from './util/events'
 
@@ -46,12 +47,12 @@ export default class GlobalHistory {
 		})
 		$root.addEventListener('osmNoteViewer:mapMoveEnd',({detail:{zoom,lat,lon}})=>{
 			const mapHashValue=`${zoom}/${lat}/${lon}`
-			const searchParams=getHashSearchParams()
-			searchParams.delete('map')
-			const hostHashValue=searchParams.get('host')
-			searchParams.delete('host')
-			const queryHash=searchParams.toString()
-			history.replaceState(history.state,'',this.getFullHash(queryHash,mapHashValue,hostHashValue))
+			const hash=getHashFromLocation()
+			const [hostHashValue,hostlessHash]=detachValueFromHash('host',hash)
+			const [,queryHash]=detachValueFromHash('map',hostlessHash)
+			const updatedHostlessHash=attachValueToBackOfHash('map',mapHashValue,queryHash)
+			const updatedHash=attachValueToFrontOfHash('host',hostHashValue,updatedHostlessHash)
+			history.replaceState(history.state,'','#'+updatedHash)
 		})
 		$root.addEventListener('osmNoteViewer:newNoteStream',({detail:[queryHash,isNewStart]})=>{
 			if (!net.cx) return
