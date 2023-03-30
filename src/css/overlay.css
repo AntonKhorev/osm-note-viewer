@@ -71,13 +71,7 @@
 	overflow-y: scroll;
 }
 .graphic-side div.menu .panel {
-	padding: 1rem;
-}
-.graphic-side div.menu .panel div.notice:not(:empty) {
-	margin-left: -1rem;
-	margin-right: -1rem;
-	padding-left: 1rem;
-	padding-right: 1rem;
+	--panel-padding: 1rem;
 }
 
 dialog.figure {

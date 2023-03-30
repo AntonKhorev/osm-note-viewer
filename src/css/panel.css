@@ -3,8 +3,9 @@
 }
 
 .panel {
+	--panel-padding: .5rem;
 	position: relative;
-	padding: .5rem;
+	padding: var(--panel-padding);
 	border-top: var(--frame-line);
 	border-bottom: var(--frame-line);
 }
@@ -25,10 +26,10 @@
 	margin: .5rem 0;
 }
 .panel div.notice:not(:empty) {
-	margin: .5rem -.5rem; /* negative margins only for block-level notices */
+	margin: .5rem calc(-1 * var(--panel-padding)); /* negative margins only for block-level notices */
 }
 .panel .notice:not(:empty) {
-	padding: .5rem;
+	padding: .5rem var(--panel-padding);
 }
 .panel .notice {
 	background: var(--notice-background-color);
@@ -36,6 +37,20 @@
 .panel .notice.error {
 	color: var(--error-color);
 	background: var(--error-background-color);
+}
+.panel details > summary:hover {
+	background: var(--hover-color);
+}
+.panel > details:first-child {
+	margin-top: calc(-1 * var(--panel-padding));
+}
+.panel > details:last-child {
+	margin-bottom: calc(-1 * var(--panel-padding));
+}
+.panel > details > summary {
+	margin-left: calc(-1 * var(--panel-padding));
+	margin-right: calc(-1 * var(--panel-padding));
+	padding: .5rem var(--panel-padding);
 }
 
 :is(.panel.fetch, .more) .advanced-hint {
@@ -103,10 +118,10 @@
 		outline-style: solid;
 	}
 }
-.panel.toolbar details.tool summary {
+.panel.toolbar details.tool > summary {
 	display: inline;
 }
-.panel.toolbar details.tool summary::before,
+.panel.toolbar details.tool > summary::before,
 dialog.help :is(button.open-all-tools, button.close-all-tools)::before {
 	--size: 11px;
 	content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-5.5 -5.5 11 11' fill='none' stroke='gray'><rect width='10' height='10' x='-5' y='-5' opacity='.3' /><line x1='-3' x2='3' /><line y1='-3' y2='3' /></svg>");
@@ -116,16 +131,19 @@ dialog.help :is(button.open-all-tools, button.close-all-tools)::before {
 	line-height: var(--size);
 	margin-right: .5ch;
 }
-.panel.toolbar details.tool summary:hover::before {
+.panel.toolbar details.tool > summary:hover {
+	background: unset;
+}
+.panel.toolbar details.tool > summary:hover::before {
 	background: var(--hover-color);
 	outline: solid 1px var(--hover-color);
 	outline-offset: 1px;
 }
-.panel.toolbar details.tool[open] summary::before,
+.panel.toolbar details.tool[open] > summary::before,
 dialog.help button.close-all-tools::before {
 	content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-5.5 -5.5 11 11' fill='none' stroke='gray'><rect width='10' height='10' x='-5' y='-5' opacity='.3' /><line x1='-3' x2='3' /></svg>");
 }
-.panel.toolbar details.tool[open] summary::after {
+.panel.toolbar details.tool[open] > summary::after {
 	content: ':';
 	width: 1ex;
 	display: inline-block;
@@ -183,7 +201,7 @@ dialog.help button.close-all-tools::before {
 .panel.toolbar details.info[open] {
 	display: block;
 }
-.panel.toolbar details.info summary {
+.panel.toolbar details.info > summary {
 	display: none;
 }
 .panel.toolbar details.tool :is(.major-input-group, .gridded-input-group) {
