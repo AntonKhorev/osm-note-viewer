@@ -23,6 +23,7 @@ export interface NoteTableUpdater {
 
 export default class NoteTable implements NoteTableUpdater {
 	private wrappedNoteSectionListeners: Array<[event: string, listener: (this:HTMLTableSectionElement,ev:Event)=>void]>
+	private wrappedNoteSectionKeydownListener: (this:HTMLTableSectionElement, ev: KeyboardEvent) => void
 	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedAllNotesCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private cursor: Cursor
@@ -85,6 +86,18 @@ export default class NoteTable implements NoteTableUpdater {
 				$clickReadyNoteSection=undefined
 			}]
 		]
+		this.wrappedNoteSectionKeydownListener=function(ev: KeyboardEvent){
+			const $noteSection=this
+			if (ev.key=='+') {
+				that.focusOnNote($noteSection,true,false)
+			} else if (ev.key=='-') {
+				that.focusOnNote($noteSection,true,true)
+			} else {
+				return
+			}
+			ev.stopPropagation()
+			ev.preventDefault()
+		}
 		this.wrappedNoteCheckboxClickListener=function(ev: MouseEvent){
 			that.noteCheckboxClickListener(this,ev)
 		}
@@ -368,6 +381,7 @@ export default class NoteTable implements NoteTableUpdater {
 		for (const [event,listener] of this.wrappedNoteSectionListeners) {
 			$noteSection.addEventListener(event,listener)
 		}
+		$noteSection.addEventListener('keydown',this.wrappedNoteSectionKeydownListener)
 		if (isVisible && !$checkbox.checked) {
 			if (this.$selectAllCheckbox.checked) {
 				this.$selectAllCheckbox.checked=false
@@ -383,7 +397,6 @@ export default class NoteTable implements NoteTableUpdater {
 			this.showImages,
 			this.markUser,this.markText,
 			()=>this.focusOnNote($noteSection,true,false),
-			()=>this.focusOnNote($noteSection,true,true),
 			()=>this.cursor.updateTabIndex()
 		)
 		for (const $commentCell of $commentCells) {

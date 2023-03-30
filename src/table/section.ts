@@ -53,7 +53,6 @@ export function writeNoteSectionRows(
 	markUser: string|number|undefined,
 	markText: string|undefined,
 	zoomInOnNote: ()=>void,
-	zoomOutOnNote: ()=>void,
 	rowVisibilityChangeCallback: ()=>void
 ): HTMLTableCellElement[] {
 	const $commentCells: HTMLTableCellElement[]=[]
@@ -159,17 +158,6 @@ export function writeNoteSectionRows(
 				zoomInOnNote()
 				const $map=document.querySelector('.ui .map') // TODO rewrite this hack
 				if ($map instanceof HTMLElement) $map.focus()
-				ev.stopPropagation()
-				ev.preventDefault()
-			}
-			$a.onkeydown=ev=>{
-				if (ev.key=='+') {
-					zoomInOnNote()
-				} else if (ev.key=='-') {
-					zoomOutOnNote()
-				} else {
-					return
-				}
 				ev.stopPropagation()
 				ev.preventDefault()
 			}

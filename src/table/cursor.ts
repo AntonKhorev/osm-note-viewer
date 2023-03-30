@@ -26,6 +26,7 @@ export default class Cursor {
 			li(kbd(`Esc`),` while inside a comment cell — exit the cell`),
 			li(kbd(`Enter`),` while in the map column — switch to the map and zoom to note`),
 			li(kbd(`Esc`),` while switched to the map — switch back to the note table`),
+			li(kbd(`+`),` / `,kbd(`-`),` — zoom in/out on a note location`),
 		),
 	])
 	private state: CursorState
