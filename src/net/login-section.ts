@@ -70,7 +70,8 @@ export default class LoginSection {
 	)
 	private readonly $loginForms=makeDiv()()
 	private readonly loginForms: LoginForms
-	private readonly $logins=makeDiv()()
+	private readonly $loginMessage=makeDiv()()
+	private readonly $loginTable=makeDiv()()
 	constructor(
 		private readonly $section: HTMLElement,
 		appName: string,
@@ -115,10 +116,11 @@ export default class LoginSection {
 		const updateInResponseToLogin=()=>{
 			const logins=authStorage.getLogins()
 			if (logins.size==0) {
-				this.$logins.replaceChildren(
+				this.$loginMessage.replaceChildren(
 					`No active logins. Press the button above to login. `,
 					...loginReasons
 				)
+				this.$loginTable.replaceChildren()
 				return
 			}
 			const loginTable=new RadioTable('login',[
@@ -178,7 +180,10 @@ export default class LoginSection {
 					]
 				})
 			}
-			this.$logins.replaceChildren(loginTable.$table)
+			this.$loginMessage.replaceChildren(
+				`You can login again and have several different active logins. Use the table below to switch between them.`
+			)
+			this.$loginTable.replaceChildren(loginTable.$table)
 		}
 
 		this.loginForms=new LoginForms(this.$loginForms,appName,authStorage.isManualCodeEntry,(codeChallenge:string)=>{
@@ -216,7 +221,8 @@ export default class LoginSection {
 			makeElement('h2')()(`Logins`),
 			this.$clientIdRequired,
 			this.$loginForms,
-			this.$logins
+			this.$loginMessage,
+			this.$loginTable
 		)
 	}
 	respondToAppRegistration(): void {
@@ -233,6 +239,7 @@ export default class LoginSection {
 		const canLogin=!!this.authStorage.clientId
 		this.$clientIdRequired.hidden=canLogin
 		this.$loginForms.hidden=!canLogin
-		this.$logins.hidden=!canLogin
+		this.$loginMessage.hidden=!canLogin
+		this.$loginTable.hidden=!canLogin
 	}
 }
