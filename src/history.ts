@@ -1,5 +1,5 @@
 import type Net from './net'
-import {getHashSearchParams, HashServerSelector} from './hash'
+import {HashServerSelector} from './hash'
 import {getHashFromLocation, detachValueFromHash, attachValueToFrontOfHash, attachValueToBackOfHash} from './util/hash'
 import {escapeHash} from './util/escape'
 import {bubbleCustomEvent} from './util/events'
@@ -29,7 +29,9 @@ export default class GlobalHistory {
 			// ... or save some other kind of position relative to notes table instead of scroll
 		})
 		window.addEventListener('hashchange',()=>{
-			const [queryHash,mapHashValue,hostHashValue]=this.getAllHashes()
+			const hash=getHashFromLocation()
+			const [hostHashValue,hostlessHash]=detachValueFromHash('host',hash)
+			const [mapHashValue,queryHash]=detachValueFromHash('map',hostlessHash)
 			if (!net.cx) {
 				if (hostHashValue!=net.serverSelector.hostHashValue) location.reload()
 				return
@@ -58,8 +60,9 @@ export default class GlobalHistory {
 			if (!net.cx) return
 			let mapHashValue=''
 			if (!isNewStart) {
-				const searchParams=getHashSearchParams()
-				mapHashValue=searchParams.get('map')??''
+				const hash=getHashFromLocation()
+				const [currentMapHashValue]=detachValueFromHash('map',hash)
+				mapHashValue=currentMapHashValue??''
 			}
 			const hostHashValue=net.serverSelector.getHostHashValueForServer(net.cx.server)
 			const fullHash=this.getFullHash(queryHash,mapHashValue,hostHashValue)
@@ -74,7 +77,8 @@ export default class GlobalHistory {
 		})
 	}
 	triggerInitialMapHashChange(): void {
-		const [,mapHashValue]=this.getAllHashes()
+		const hash=getHashFromLocation()
+		const [mapHashValue]=detachValueFromHash('map',hash)
 		if (mapHashValue) {
 			this.onMapHashChange(mapHashValue)
 		}
@@ -108,21 +112,15 @@ export default class GlobalHistory {
 		resizeObserver.observe(this.$resizeObservationTarget) // observing $scrollingPart won't work because its size doesn't change
 	}
 	getQueryHash(): string {
-		return this.getAllHashes()[0]
+		const hash=getHashFromLocation()
+		const [,hostlessHash]=detachValueFromHash('host',hash)
+		const [,queryHash]=detachValueFromHash('map',hostlessHash)
+		return queryHash
 	}
 	hasMapHash(): boolean {
-		const searchParams=getHashSearchParams()
-		const mapHashValue=searchParams.get('map')
+		const hash=getHashFromLocation()
+		const [mapHashValue]=detachValueFromHash('map',hash)
 		return !!mapHashValue
-	}
-	private getAllHashes(): [queryHash: string, mapHashValue: string|null, hostHashValue: string|null] {
-		const searchParams=getHashSearchParams()
-		const mapHashValue=searchParams.get('map')
-		searchParams.delete('map')
-		const hostHashValue=searchParams.get('host')
-		searchParams.delete('host')
-		const queryHash=searchParams.toString()
-		return [queryHash,mapHashValue,hostHashValue]
 	}
 	private getFullHash(queryHash: string, mapHashValue: string, hostHashValue: string|null): string {
 		let fullHash=''
