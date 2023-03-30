@@ -22,10 +22,8 @@ export default class Cursor {
 			li(kbd(`Ctrl`),` + `,kbd(`Home`),` / `,kbd(`End`),` — go to first/last row`),
 			li(kbd(`Shift`),` + left click on a checkbox — select a range of notes starting from the previous click`),
 			li(kbd(`Shift`),` + any vertical navigation keys — select notes`),
-			li(kbd(`Enter`),` while in the comment column — go inside the comment cell`),
-			li(kbd(`Esc`),` while inside a comment cell — exit the cell`),
-			li(kbd(`Enter`),` while in the map column — switch to the map and zoom to note`),
-			li(kbd(`Esc`),` while switched to the map — switch back to the note table`),
+			li(kbd(`Enter`),` while in the comment column — go inside the comment cell; `,kbd(`Esc`),` — go back`),
+			li(kbd(`Enter`),` while in the map column — switch to the map and zoom to note; `,kbd(`Esc`),` — switch back`),
 			li(kbd(`+`),` / `,kbd(`-`),` — zoom in/out on a note location`),
 		),
 	])
