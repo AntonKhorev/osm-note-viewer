@@ -1,7 +1,6 @@
 import type Net from './net'
-import {HashServerSelector} from './hash'
+import type {HashServerSelector} from './net'
 import {getHashFromLocation, detachValueFromHash, attachValueToFrontOfHash, attachValueToBackOfHash} from './util/hash'
-import {escapeHash} from './util/escape'
 import {bubbleCustomEvent} from './util/events'
 
 const scrollRestorerEnabled=true // almost works without this, just won't restore position correctly on forward

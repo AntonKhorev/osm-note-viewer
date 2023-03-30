@@ -1,5 +1,5 @@
-import type {ServerSelector} from '.'
 import type Server from './server'
+import type ServerSelector from './server-selector'
 import type AuthStorage from './auth-storage'
 import {p,ol,ul,li,em,strong,mark,code} from '../util/html-shortcuts'
 import {makeElement, makeDiv, makeLink, makeLabel} from '../util/html'

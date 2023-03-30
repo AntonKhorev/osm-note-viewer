@@ -1,5 +1,5 @@
-import type {ServerSelector} from '.'
 import type Server from './server'
+import type ServerSelector from './server-selector'
 import type ServerList from './server-list'
 import {parseServerListSource} from './server-list-parser'
 import type {SimpleStorage} from '../util/storage'

@@ -1,9 +1,11 @@
-import type {Server, ServerList, ServerSelector} from './net'
-import {getHashFromLocation, detachValueFromHash} from './util/hash'
-import {code} from './util/html-shortcuts'
-import {escapeHash} from './util/escape'
+import type Server from './server'
+import type ServerList from './server-list'
+import type ServerSelector from './server-selector'
+import {getHashFromLocation, detachValueFromHash} from '../util/hash'
+import {code} from '../util/html-shortcuts'
+import {escapeHash} from '../util/escape'
 
-export class HashServerSelector implements ServerSelector {
+export default class HashServerSelector implements ServerSelector {
 	readonly hostHashValue: string|null
 	constructor(
 		private serverList: ServerList
