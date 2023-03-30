@@ -1,21 +1,15 @@
 import type {Server, ServerList, ServerSelector} from './net'
+import {getHashFromLocation, detachValueFromHash} from './util/hash'
 import {code} from './util/html-shortcuts'
 import {escapeHash} from './util/escape'
-
-export function getHashSearchParams(): URLSearchParams {
-	const paramString = (location.hash[0]=='#')
-		? location.hash.slice(1)
-		: location.hash
-	return new URLSearchParams(paramString)
-}
 
 export class HashServerSelector implements ServerSelector {
 	readonly hostHashValue: string|null
 	constructor(
 		private serverList: ServerList
 	) {
-		const searchParams=getHashSearchParams()
-		this.hostHashValue=searchParams.get('host')
+		const hash=getHashFromLocation()
+		;[this.hostHashValue]=detachValueFromHash('host',hash)
 	}
 
 	// generic server selector methods
