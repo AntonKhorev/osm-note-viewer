@@ -1,3 +1,4 @@
+import type Connection from './connection'
 import type Server from './server'
 import type ServerList from './server-list'
 import type ServerSelector from './server-selector'
@@ -48,5 +49,23 @@ export default class HashServerSelector implements ServerSelector {
 	getServerForHostHashValue(hostHashValue: string|null): Server|undefined {
 		if (hostHashValue==null) return this.serverList.defaultServer
 		return this.serverList.servers.get(hostHashValue)
+	}
+	installHashChangeListener(
+		cx: Connection|undefined,
+		callback: (hostlessHash:string)=>void
+	): void {
+		window.addEventListener('hashchange',()=>{
+			const hash=getHashFromLocation()
+			const [hostHashValue,hostlessHash]=detachValueFromHash('host',hash)
+			if (!cx) {
+				if (hostHashValue!=this.hostHashValue) location.reload()
+				return
+			}
+			if (hostHashValue!=this.getHostHashValueForServer(cx.server)) {
+				location.reload()
+				return
+			}
+			callback(hostlessHash)
+		})
 	}
 }

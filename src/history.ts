@@ -27,18 +27,8 @@ export default class GlobalHistory {
 			// TODO save more panel open/closed state... actually all panels open/closed states - Firefox does that, Chrome doesn't
 			// ... or save some other kind of position relative to notes table instead of scroll
 		})
-		window.addEventListener('hashchange',()=>{
-			const hash=getHashFromLocation()
-			const [hostHashValue,hostlessHash]=detachValueFromHash('host',hash)
+		net.serverSelector.installHashChangeListener(net.cx,hostlessHash=>{
 			const [mapHashValue,queryHash]=detachValueFromHash('map',hostlessHash)
-			if (!net.cx) {
-				if (hostHashValue!=net.serverSelector.hostHashValue) location.reload()
-				return
-			}
-			if (hostHashValue!=net.serverSelector.getHostHashValueForServer(net.cx.server)) {
-				location.reload()
-				return
-			}
 			if (mapHashValue) {
 				this.onMapHashChange(mapHashValue)
 			}
