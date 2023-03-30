@@ -404,7 +404,7 @@ export default class CursorState {
 		if (!$headSection) return null
 		return $headSection.querySelector(getHeadSelector(this.iColumn))
 	}
-	private getCurrentBodyItem(): HTMLElement|null {
+	getCurrentBodyItem(): HTMLElement|null {
 		const selector=getBodySelector(this.iColumn)
 		const $section=this.$table.tBodies.item(this.iSection)
 		if (!$section) return null

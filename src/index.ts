@@ -80,6 +80,12 @@ async function main() {
 			globalHistory.getQueryHash(),globalHistory.hasMapHash(),
 			net.serverSelector.getHostHashValueForServer(net.cx.server)
 		)
+		$mapContainer.addEventListener('keydown',ev=>{
+			if (ev.key!='Escape') return
+			noteTable.focus()
+			ev.stopPropagation()
+			ev.preventDefault()
+		})
 	}
 	
 	{

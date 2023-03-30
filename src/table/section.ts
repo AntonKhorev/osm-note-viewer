@@ -156,6 +156,8 @@ export function writeNoteSectionRows(
 			$a.innerHTML=`<svg><use href="#tools-map" /></svg>`
 			$a.onclick=ev=>{
 				noteMapClickListener()
+				const $map=document.querySelector('.ui .map') // TODO rewrite this hack
+				if ($map instanceof HTMLElement) $map.focus()
 				ev.stopPropagation()
 				ev.preventDefault()
 			}

@@ -334,6 +334,9 @@ export default class NoteTable implements NoteTableUpdater {
 			this.focusOnNote($noteSection)
 		}
 	}
+	focus() {
+		this.cursor.focus()
+	}
 	private writeHeadSection(): HTMLTableSectionElement {
 		const $headSection=this.$table.createTHead()
 		this.$selectAllCheckbox.type='checkbox'
