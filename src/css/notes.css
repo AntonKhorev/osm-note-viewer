@@ -75,18 +75,8 @@
 .notes :is(td,th):focus-visible {
 	outline-offset: calc(0px - var(--cell-pad));
 }
-.notes td.note-action [class|=icon] {
-	position: relative;
-	display: inline-block;
-	width: 16px;
-	height: 16px;
-	vertical-align: text-top;
-}
-.notes td.note-action [class|=icon] > svg {
-	position: absolute;
-	inset: 0;
-	width: 100%;
-	height: 100%;
+.notes mark {
+	background: #FF08;
 }
 
 .notes td.note-link > div {
@@ -130,6 +120,19 @@
 	content: '...';
 }
 
+.notes td.note-action [class|=icon] {
+	position: relative;
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	vertical-align: text-top;
+}
+.notes td.note-action [class|=icon] > svg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
 .notes td.note-action [class|=icon-comments-count] {
 	border: 0;
 	padding: 0;
