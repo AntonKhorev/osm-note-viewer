@@ -65,7 +65,9 @@ export default class GlobalHistory {
 				mapHashValue=currentMapHashValue??''
 			}
 			const hostHashValue=net.serverSelector.getHostHashValueForServer(net.cx.server)
-			const fullHash=this.getFullHash(queryHash,mapHashValue,hostHashValue)
+			const updatedHostlessHash=attachValueToBackOfHash('map',mapHashValue,queryHash)
+			const updatedHash=attachValueToFrontOfHash('host',hostHashValue,updatedHostlessHash)
+			const fullHash=updatedHash ? '#'+updatedHash : ''
 			if (fullHash!=location.hash) {
 				const url=fullHash||location.pathname+location.search
 				if (isNewStart) {
@@ -121,19 +123,6 @@ export default class GlobalHistory {
 		const hash=getHashFromLocation()
 		const [mapHashValue]=detachValueFromHash('map',hash)
 		return !!mapHashValue
-	}
-	private getFullHash(queryHash: string, mapHashValue: string, hostHashValue: string|null): string {
-		let fullHash=''
-		const appendToFullHash=(hash:string)=>{
-			if (fullHash && hash) fullHash+='&'
-			fullHash+=hash
-		}
-		if (hostHashValue) appendToFullHash('host='+escapeHash(hostHashValue))
-		appendToFullHash(queryHash)
-		if (mapHashValue) appendToFullHash('map='+escapeHash(mapHashValue))
-		// fullHash=this.net.serverSelector.addHostHashToHash(fullHash,hostHashValue)
-		if (fullHash) fullHash='#'+fullHash
-		return fullHash
 	}
 	private onMapHashChange(mapHashValue: string) {
 		const [zoom,lat,lon]=mapHashValue.split('/')
