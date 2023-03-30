@@ -100,18 +100,25 @@ export default class NoteMap {
 		})
 		// TODO maybe have :dataClear event
 			// this.elementLayer.clearLayers()
-		$root.addEventListener('osmNoteViewer:noteFocus',ev=>{
-			const noteId=ev.detail
+		$root.addEventListener('osmNoteViewer:noteFocus',({detail:[noteId,isNegativeZoom]})=>{
 			const marker=this.getNoteMarker(noteId)
 			if (!marker) return
-			const z1=this.zoom
-			const z2=this.maxZoom
-			if (this.isCloseEnoughToCenter(marker.getLatLng()) && z1<z2) {
-				const nextZoom=Math.min(z2,z1+Math.ceil((z2-z1)/2))
-				this.panAndZoomTo(marker.getLatLng(),nextZoom)
-			} else {
-				this.panTo(marker.getLatLng())
+			if (this.isCloseEnoughToCenter(marker.getLatLng())) {
+				let nextZoom: number|undefined
+				const z1=this.zoom
+				if (!isNegativeZoom && z1<this.maxZoom) {
+					const z2=this.maxZoom
+					nextZoom=Math.min(z2,z1+Math.ceil((z2-z1)/2))
+				} else if (isNegativeZoom && z1>0) {
+					const z2=0
+					nextZoom=Math.max(z2,z1+Math.ceil((z2-z1)/2))
+				}
+				if (nextZoom!=null) {
+					this.panAndZoomTo(marker.getLatLng(),nextZoom)
+					return
+				}
 			}
+			this.panTo(marker.getLatLng())
 		})
 	}
 	hide(hidden: boolean) {

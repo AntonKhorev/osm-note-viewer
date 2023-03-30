@@ -382,7 +382,8 @@ export default class NoteTable implements NoteTableUpdater {
 			!this.$table.classList.contains('expanded-comments'),
 			this.showImages,
 			this.markUser,this.markText,
-			()=>this.focusOnNote($noteSection,true),
+			()=>this.focusOnNote($noteSection,true,false),
+			()=>this.focusOnNote($noteSection,true,true),
 			()=>this.cursor.updateTabIndex()
 		)
 		for (const $commentCell of $commentCells) {
@@ -447,12 +448,16 @@ export default class NoteTable implements NoteTableUpdater {
 		}
 		this.updateCheckboxDependentsAndSendNoteChangeEvents()
 	}
-	private focusOnNote($noteSection: HTMLTableSectionElement, isSectionClicked: boolean = false): void {
+	private focusOnNote(
+		$noteSection: HTMLTableSectionElement,
+		isSectionClicked: boolean = false,
+		isNegativeZoom: boolean = false
+	): void {
 		this.activateNote('click',$noteSection)
 		this.noteSectionVisibilityObserver.haltMapFitting() // otherwise scrollIntoView() may ruin note pan/zoom - it may cause observer to fire after exiting this function
 		if (!isSectionClicked) $noteSection.scrollIntoView({block:'nearest'})
 		const noteId=Number($noteSection.dataset.noteId)
-		bubbleCustomEvent($noteSection,'osmNoteViewer:noteFocus',noteId) // TODO correct target, it could be a marker
+		bubbleCustomEvent($noteSection,'osmNoteViewer:noteFocus',[noteId,isNegativeZoom]) // TODO correct target, it could be a marker
 		if (!this.$selectAllCheckbox.checked && !this.$selectAllCheckbox.indeterminate) {
 			const noteId=Number($noteSection.dataset.noteId)
 			const note=this.notesById.get(noteId)

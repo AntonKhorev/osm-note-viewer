@@ -5,7 +5,7 @@ declare global {
 	interface HTMLElementEventMap {
 		'osmNoteViewer:menuToggle': CustomEvent<undefined|'login'>
 		'osmNoteViewer:timestampChange': CustomEvent<string>
-		'osmNoteViewer:noteFocus': CustomEvent<number>
+		'osmNoteViewer:noteFocus': CustomEvent<[noteId: number, isNegativeZoom: boolean]>
 		'osmNoteViewer:mapFitModeChange': CustomEvent<string>
 		'osmNoteViewer:noteCountsChange': CustomEvent<readonly [nFetched: number, nVisible: number, nSelected: number]>
 		'osmNoteViewer:notesInput': CustomEvent<readonly [inputNotes: ReadonlyArray<Note>, inputNoteUsers: ReadonlyMap<number,string>]>
