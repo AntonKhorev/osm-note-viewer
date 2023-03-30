@@ -41,16 +41,22 @@
 .panel details > summary:hover {
 	background: var(--hover-color);
 }
-.panel > details:first-child {
+.panel > details:first-child > summary {
 	margin-top: calc(-1 * var(--panel-padding));
 }
-.panel > details:last-child {
+.panel > details:last-child > summary {
 	margin-bottom: calc(-1 * var(--panel-padding));
 }
 .panel > details > summary {
 	margin-left: calc(-1 * var(--panel-padding));
 	margin-right: calc(-1 * var(--panel-padding));
 	padding: .5rem var(--panel-padding);
+}
+.panel > section > details > summary,
+.panel > section > details > details > summary {
+	margin-left: calc(-1 * var(--panel-padding));
+	margin-right: calc(-1 * var(--panel-padding));
+	padding: 0 var(--panel-padding);
 }
 
 :is(.panel.fetch, .more) .advanced-hint {
@@ -429,4 +435,9 @@ dialog.help button.close-all-tools::before {
 
 .panel details.with-code-form details.syntax {
 	float: right;
+}
+.panel details.with-code-form details.syntax[open] > summary {
+	margin-left: calc(-1 * var(--panel-padding));
+	margin-right: calc(-1 * var(--panel-padding));
+	padding: 0 var(--panel-padding);
 }
