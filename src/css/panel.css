@@ -38,22 +38,22 @@
 	color: var(--error-color);
 	background: var(--error-background-color);
 }
-.panel details > summary:hover {
+.panel:not(.toolbar) details > summary:hover {
 	background: var(--hover-color);
 }
-.panel > details:first-child > summary {
+.panel:not(.toolbar) > details:first-child > summary {
 	margin-top: calc(-1 * var(--panel-padding));
 }
-.panel > details:last-child > summary {
+.panel:not(.toolbar) > details:last-child > summary {
 	margin-bottom: calc(-1 * var(--panel-padding));
 }
-.panel > details > summary {
+.panel:not(.toolbar) > details > summary {
 	margin-left: calc(-1 * var(--panel-padding));
 	margin-right: calc(-1 * var(--panel-padding));
 	padding: .5rem var(--panel-padding);
 }
-.panel > section > details > summary,
-.panel > section > details > details > summary {
+.panel:not(.toolbar) > section > details > summary,
+.panel:not(.toolbar) > section > details > details > summary {
 	margin-left: calc(-1 * var(--panel-padding));
 	margin-right: calc(-1 * var(--panel-padding));
 	padding: 0 var(--panel-padding);
@@ -136,9 +136,6 @@ dialog.help :is(button.open-all-tools, button.close-all-tools)::before {
 	height: var(--size);
 	line-height: var(--size);
 	margin-right: .5ch;
-}
-.panel.toolbar details.tool > summary:hover {
-	background: unset;
 }
 .panel.toolbar details.tool > summary:hover::before {
 	background: var(--hover-color);
