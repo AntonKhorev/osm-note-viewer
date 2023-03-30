@@ -242,8 +242,9 @@ nav [role=tablist] [role=tab]:focus {
 }
 
 .panel {
+	--panel-padding: .5rem;
 	position: relative;
-	padding: .5rem;
+	padding: var(--panel-padding);
 	border-top: var(--frame-line);
 	border-bottom: var(--frame-line);
 }
@@ -264,10 +265,10 @@ nav [role=tablist] [role=tab]:focus {
 	margin: .5rem 0;
 }
 .panel div.notice:not(:empty) {
-	margin: .5rem -.5rem; /* negative margins only for block-level notices */
+	margin: .5rem calc(-1 * var(--panel-padding)); /* negative margins only for block-level notices */
 }
 .panel .notice:not(:empty) {
-	padding: .5rem;
+	padding: .5rem var(--panel-padding);
 }
 .panel .notice {
 	background: var(--notice-background-color);
@@ -275,6 +276,26 @@ nav [role=tablist] [role=tab]:focus {
 .panel .notice.error {
 	color: var(--error-color);
 	background: var(--error-background-color);
+}
+.panel:not(.toolbar) details > summary:hover {
+	background: var(--hover-color);
+}
+.panel:not(.toolbar) > details:first-child > summary {
+	margin-top: calc(-1 * var(--panel-padding));
+}
+.panel:not(.toolbar) > details:last-child > summary {
+	margin-bottom: calc(-1 * var(--panel-padding));
+}
+.panel:not(.toolbar) > details > summary {
+	margin-left: calc(-1 * var(--panel-padding));
+	margin-right: calc(-1 * var(--panel-padding));
+	padding: .5rem var(--panel-padding);
+}
+.panel:not(.toolbar) > section > details > summary,
+.panel:not(.toolbar) > section > details > details > summary {
+	margin-left: calc(-1 * var(--panel-padding));
+	margin-right: calc(-1 * var(--panel-padding));
+	padding: 0 var(--panel-padding);
 }
 
 :is(.panel.fetch, .more) .advanced-hint {
@@ -342,10 +363,10 @@ nav [role=tablist] [role=tab]:focus {
 		outline-style: solid;
 	}
 }
-.panel.toolbar details.tool summary {
+.panel.toolbar details.tool > summary {
 	display: inline;
 }
-.panel.toolbar details.tool summary::before,
+.panel.toolbar details.tool > summary::before,
 dialog.help :is(button.open-all-tools, button.close-all-tools)::before {
 	--size: 11px;
 	content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-5.5 -5.5 11 11' fill='none' stroke='gray'><rect width='10' height='10' x='-5' y='-5' opacity='.3' /><line x1='-3' x2='3' /><line y1='-3' y2='3' /></svg>");
@@ -355,16 +376,16 @@ dialog.help :is(button.open-all-tools, button.close-all-tools)::before {
 	line-height: var(--size);
 	margin-right: .5ch;
 }
-.panel.toolbar details.tool summary:hover::before {
+.panel.toolbar details.tool > summary:hover::before {
 	background: var(--hover-color);
 	outline: solid 1px var(--hover-color);
 	outline-offset: 1px;
 }
-.panel.toolbar details.tool[open] summary::before,
+.panel.toolbar details.tool[open] > summary::before,
 dialog.help button.close-all-tools::before {
 	content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-5.5 -5.5 11 11' fill='none' stroke='gray'><rect width='10' height='10' x='-5' y='-5' opacity='.3' /><line x1='-3' x2='3' /></svg>");
 }
-.panel.toolbar details.tool[open] summary::after {
+.panel.toolbar details.tool[open] > summary::after {
 	content: ':';
 	width: 1ex;
 	display: inline-block;
@@ -422,7 +443,7 @@ dialog.help button.close-all-tools::before {
 .panel.toolbar details.info[open] {
 	display: block;
 }
-.panel.toolbar details.info summary {
+.panel.toolbar details.info > summary {
 	display: none;
 }
 .panel.toolbar details.tool :is(.major-input-group, .gridded-input-group) {
@@ -585,6 +606,19 @@ dialog.help button.close-all-tools::before {
 .panel .gridded-input-group > button {
 	padding: var(--major-button-padding);
 }
+.panel .date-range-input-group {
+	display: flex;
+	flex-wrap: wrap;
+	gap: .5em;
+}
+.panel .date-range-input-group > label {
+	flex-grow: 1;
+}
+.panel .date-range-input-group > label > input {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+}
 
 .more div {
 	margin: 1em;
@@ -637,6 +671,11 @@ dialog.help button.close-all-tools::before {
 
 .panel details.with-code-form details.syntax {
 	float: right;
+}
+.panel details.with-code-form details.syntax[open] > summary {
+	margin-left: calc(-1 * var(--panel-padding));
+	margin-right: calc(-1 * var(--panel-padding));
+	padding: 0 var(--panel-padding);
 }
 
 /*** css/notes.css ***/
@@ -717,18 +756,8 @@ dialog.help button.close-all-tools::before {
 .notes :is(td,th):focus-visible {
 	outline-offset: calc(0px - var(--cell-pad));
 }
-.notes td.note-action [class|=icon] {
-	position: relative;
-	display: inline-block;
-	width: 16px;
-	height: 16px;
-	vertical-align: text-top;
-}
-.notes td.note-action [class|=icon] > svg {
-	position: absolute;
-	inset: 0;
-	width: 100%;
-	height: 100%;
+.notes mark {
+	background: #FF08;
 }
 
 .notes td.note-link > div {
@@ -772,6 +801,19 @@ dialog.help button.close-all-tools::before {
 	content: '...';
 }
 
+.notes td.note-action [class|=icon] {
+	position: relative;
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	vertical-align: text-top;
+}
+.notes td.note-action [class|=icon] > svg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
 .notes td.note-action [class|=icon-comments-count] {
 	border: 0;
 	padding: 0;
@@ -1087,13 +1129,7 @@ dialog.help button.close-all-tools::before {
 	overflow-y: scroll;
 }
 .graphic-side div.menu .panel {
-	padding: 1rem;
-}
-.graphic-side div.menu .panel div.notice:not(:empty) {
-	margin-left: -1rem;
-	margin-right: -1rem;
-	padding-left: 1rem;
-	padding-right: 1rem;
+	--panel-padding: 1rem;
 }
 
 dialog.figure {

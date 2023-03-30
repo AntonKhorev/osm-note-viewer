@@ -1,4 +1,26 @@
-class NoteViewerStorage {
+function getStorageString(storage, k) {
+    return storage.getItem(k) ?? '';
+}
+function setStorageString(storage, k, v) {
+    if (v != '') {
+        storage.setItem(k, v);
+    }
+    else {
+        storage.removeItem(k);
+    }
+}
+function getStorageBoolean(storage, k) {
+    return !!storage.getItem(k);
+}
+function setStorageBoolean(storage, k, v) {
+    if (v) {
+        storage.setItem(k, '1');
+    }
+    else {
+        storage.removeItem(k);
+    }
+}
+class PrefixedLocalStorage {
     constructor(prefix) {
         this.prefix = prefix;
     }
@@ -28,26 +50,9 @@ class NoteViewerStorage {
     }
 }
 
-function getStorageString(storage, k) {
-    return storage.getItem(k) ?? '';
-}
-function setStorageString(storage, k, v) {
-    if (v != '') {
-        storage.setItem(k, v);
-    }
-    else {
-        storage.removeItem(k);
-    }
-}
-function getStorageBoolean(storage, k) {
-    return !!storage.getItem(k);
-}
-function setStorageBoolean(storage, k, v) {
-    if (v) {
-        storage.setItem(k, '1');
-    }
-    else {
-        storage.removeItem(k);
+class NoteViewerStorage extends PrefixedLocalStorage {
+    constructor() {
+        super('osm-note-viewer-');
     }
 }
 
@@ -297,193 +302,22 @@ function writeUsers(userStore, fetchTimestamp, users) {
     }
 }
 
-function makeLink(text, href, title) {
-    const $link = document.createElement('a');
-    $link.href = href;
-    $link.textContent = text;
-    if (title != null)
-        $link.title = title;
-    return $link;
-}
-function makeElement(tag) {
-    return (...classes) => (...items) => {
-        const $element = document.createElement(tag);
-        if (classes.length > 0)
-            $element.classList.add(...classes);
-        $element.append(...items);
-        return $element;
-    };
-}
-const makeDiv = makeElement('div');
-const makeLabel = makeElement('label');
-function makeSemiLink(...classes) {
-    const makeWithItems = makeElement('a')(...classes);
-    return (...items) => {
-        const $a = makeWithItems(...items);
-        $a.setAttribute('tabindex', '0');
-        $a.addEventListener('keydown', semiLinkKeydownListener);
-        return $a;
-    };
-}
-function semiLinkKeydownListener(ev) {
-    if (ev.key != 'Enter')
-        return;
-    this.click();
-    ev.preventDefault();
-    ev.stopPropagation();
-}
-function startAnimation($element, animationName, animationDuration) {
-    if (resetAnimation($element, animationName))
-        return;
-    $element.style.animationName = animationName;
-    $element.style.animationDuration = animationDuration;
-}
-function resetAnimation($element, animationName) {
-    const animation = getAnimation($element, animationName);
-    if (!animation)
-        return false;
-    animation.currentTime = 0;
-    return true;
-}
-function cleanupAnimationOnEnd($element) {
-    $element.addEventListener('animationend', animationEndListener);
-}
-function animationEndListener() {
-    this.style.removeProperty('animation-name');
-    this.style.removeProperty('animation-duration');
-}
-function getAnimation($element, animationName) {
-    if (typeof CSSAnimation == 'undefined')
-        return; // experimental technology, implemented in latest browser versions
-    for (const animation of $element.getAnimations()) {
-        if (!(animation instanceof CSSAnimation))
-            continue;
-        if (animation.animationName == animationName)
-            return animation;
+class Connection {
+    constructor(server, authStorage) {
+        this.server = server;
+        this.authStorage = authStorage;
     }
-}
-async function wrapFetch($actionButton, action, getErrorMessage, $errorClassReceiver, writeErrorMessage) {
-    try {
-        $actionButton.disabled = true;
-        $errorClassReceiver.classList.remove('error');
-        writeErrorMessage('');
-        await action();
+    get token() {
+        return this.authStorage.token;
     }
-    catch (ex) {
-        $errorClassReceiver.classList.add('error');
-        writeErrorMessage(getErrorMessage(ex));
+    get username() {
+        return this.authStorage.login?.username;
     }
-    finally {
-        $actionButton.disabled = false;
+    get uid() {
+        return this.authStorage.login?.uid;
     }
-}
-function wrapFetchForButton($actionButton, action, getErrorMessage) {
-    return wrapFetch($actionButton, action, getErrorMessage, $actionButton, message => $actionButton.title = message);
-}
-function makeGetKnownErrorMessage(KnownError // KnownError: typeof TypeError,
-) {
-    return (ex) => {
-        if (ex instanceof TypeError && ex instanceof KnownError) {
-            return ex.message;
-        }
-        else {
-            return `Unknown error ${ex}`;
-        }
-    };
-}
-
-const em = (...ss) => makeElement('em')()(...ss);
-const strong = (...ss) => makeElement('strong')()(...ss);
-const sup = (...ss) => makeElement('sup')()(...ss);
-const dfn = (...ss) => makeElement('dfn')()(...ss);
-const kbd = (...ss) => makeElement('kbd')()(...ss);
-const code = (...ss) => makeElement('code')()(...ss);
-const mark = (...ss) => makeElement('mark')()(...ss);
-const a = (...ss) => makeElement('a')()(...ss);
-const p = (...ss) => makeElement('p')()(...ss);
-const ul = (...ss) => makeElement('ul')()(...ss);
-const ol = (...ss) => makeElement('ol')()(...ss);
-const li = (...ss) => makeElement('li')()(...ss);
-
-function escapeRegex(text) {
-    return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-}
-function escapeXml(text) {
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/"/g, '&quot;')
-        .replace(/\t/g, '&#x9;')
-        .replace(/\n/g, '&#xA;')
-        .replace(/\r/g, '&#xD;');
-}
-function escapeHash(text) {
-    return text.replace(/[^0-9a-zA-Z?/:@._~!$'()*+,;-]/g, // https://stackoverflow.com/a/26119120 except & and =
-    // https://stackoverflow.com/a/26119120 except & and =
-    c => `%${c.charCodeAt(0).toString(16).toUpperCase()}` // escape like in https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURI#encoding_for_rfc3986
-    );
-}
-function makeEscapeTag(escapeFn) {
-    return function (strings, ...values) {
-        let result = strings[0];
-        for (let i = 0; i < values.length; i++) {
-            result += escapeFn(String(values[i])) + strings[i + 1];
-        }
-        return result;
-    };
-}
-
-function getHashSearchParams() {
-    const paramString = (location.hash[0] == '#')
-        ? location.hash.slice(1)
-        : location.hash;
-    return new URLSearchParams(paramString);
-}
-function makeHrefWithCurrentHost(parameters) {
-    const hostHashValue = getHashSearchParams().get('host');
-    const parametersWithCurrentHost = [];
-    if (hostHashValue)
-        parametersWithCurrentHost.push(['host', hostHashValue]);
-    parametersWithCurrentHost.push(...parameters);
-    return '#' + parametersWithCurrentHost.map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
-}
-class HashServerSelector {
-    constructor(serverList) {
-        this.serverList = serverList;
-        const searchParams = getHashSearchParams();
-        this.hostHashValue = searchParams.get('host');
-    }
-    selectServer() {
-        return this.getServer(this.hostHashValue);
-    }
-    getHostHashValue(server) {
-        let hostHashValue = null;
-        if (server != this.serverList.defaultServer) {
-            hostHashValue = server.host;
-        }
-        return hostHashValue;
-    }
-    getServerSelectHref(server) {
-        const baseLocation = location.pathname + location.search;
-        const hashValue = this.getHostHashValue(server);
-        return baseLocation + (hashValue ? `#host=` + escapeHash(hashValue) : '');
-    }
-    addServerSelectToAppInstallLocationHref(server, installLocationHref) {
-        const hashValue = this.getHostHashValue(server);
-        return installLocationHref + (hashValue ? `#host=` + escapeHash(hashValue) : '');
-    }
-    makeServerSelectErrorMessage() {
-        const hostHash = (this.hostHashValue != null
-            ? `host=` + escapeHash(this.hostHashValue)
-            : ``);
-        return [
-            `Unknown server in URL hash parameter `, code(hostHash), `.`
-        ];
-    }
-    getServer(hostHashValue) {
-        if (hostHashValue == null)
-            return this.serverList.defaultServer;
-        return this.serverList.servers.get(hostHashValue);
+    get isModerator() {
+        return this.authStorage.login?.roles?.includes('moderator') ?? false;
     }
 }
 
@@ -586,6 +420,129 @@ class AuthStorage {
     setLoginsStorageItem(logins) {
         this.storage.setItem(`${this.prefix}logins`, JSON.stringify([...logins.entries()]));
     }
+}
+
+function makeLink(text, href, title) {
+    const $link = document.createElement('a');
+    $link.href = href;
+    $link.textContent = text;
+    if (title != null)
+        $link.title = title;
+    return $link;
+}
+function makeElement(tag) {
+    return (...classes) => (...items) => {
+        const $element = document.createElement(tag);
+        if (classes.length > 0)
+            $element.classList.add(...classes);
+        $element.append(...items);
+        return $element;
+    };
+}
+const makeDiv = makeElement('div');
+const makeLabel = makeElement('label');
+function makeSemiLink(...classes) {
+    const makeWithItems = makeElement('a')(...classes);
+    return (...items) => {
+        const $a = makeWithItems(...items);
+        $a.setAttribute('tabindex', '0');
+        $a.addEventListener('keydown', semiLinkKeydownListener);
+        return $a;
+    };
+}
+function semiLinkKeydownListener(ev) {
+    if (ev.key != 'Enter')
+        return;
+    this.click();
+    ev.preventDefault();
+    ev.stopPropagation();
+}
+function startAnimation($element, animationName, animationDuration) {
+    if (resetAnimation($element, animationName))
+        return;
+    $element.style.animationName = animationName;
+    $element.style.animationDuration = animationDuration;
+}
+function resetAnimation($element, animationName) {
+    const animation = getAnimation($element, animationName);
+    if (!animation)
+        return false;
+    animation.currentTime = 0;
+    return true;
+}
+function cleanupAnimationOnEnd($element) {
+    $element.addEventListener('animationend', animationEndListener);
+}
+function animationEndListener() {
+    this.style.removeProperty('animation-name');
+    this.style.removeProperty('animation-duration');
+}
+function getAnimation($element, animationName) {
+    if (typeof CSSAnimation == 'undefined')
+        return; // experimental technology, implemented in latest browser versions
+    for (const animation of $element.getAnimations()) {
+        if (!(animation instanceof CSSAnimation))
+            continue;
+        if (animation.animationName == animationName)
+            return animation;
+    }
+}
+async function wrapFetch($actionButton, action, getErrorMessage, $errorClassReceiver, writeErrorMessage) {
+    try {
+        $actionButton.disabled = true;
+        $errorClassReceiver.classList.remove('error');
+        writeErrorMessage('');
+        await action();
+    }
+    catch (ex) {
+        $errorClassReceiver.classList.add('error');
+        writeErrorMessage(getErrorMessage(ex));
+    }
+    finally {
+        $actionButton.disabled = false;
+    }
+}
+function wrapFetchForButton($actionButton, action, getErrorMessage) {
+    return wrapFetch($actionButton, action, getErrorMessage, $actionButton, message => $actionButton.title = message);
+}
+function makeGetKnownErrorMessage(KnownError // KnownError: typeof TypeError,
+) {
+    return (ex) => {
+        if (ex instanceof TypeError && ex instanceof KnownError) {
+            return ex.message;
+        }
+        else {
+            return `Unknown error ${ex}`;
+        }
+    };
+}
+
+function escapeRegex(text) {
+    return text.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+function escapeXml(text) {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/"/g, '&quot;')
+        .replace(/\t/g, '&#x9;')
+        .replace(/\n/g, '&#xA;')
+        .replace(/\r/g, '&#xD;');
+}
+function escapeHash(text) {
+    return text.replace(/[^0-9a-zA-Z?/:@._~!$'()*+,;-]/g, // https://stackoverflow.com/a/26119120 except & and =
+    // https://stackoverflow.com/a/26119120 except & and =
+    c => `%${c.charCodeAt(0).toString(16).toUpperCase()}` // escape like in https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURI#encoding_for_rfc3986
+    );
+}
+function makeEscapeTag(escapeFn) {
+    return function (strings, ...values) {
+        let result = strings[0];
+        for (let i = 0; i < values.length; i++) {
+            result += escapeFn(String(values[i])) + strings[i + 1];
+        }
+        return result;
+    };
 }
 
 class QueryError {
@@ -786,6 +743,120 @@ class Server {
             this.overpass = new OverpassProvider(overpassUrl);
         if (overpassTurboUrl != null)
             this.overpassTurbo = new OverpassTurboProvider(overpassTurboUrl);
+    }
+}
+
+// can't use URLSearchParams for encoding because of different escaping
+function getHashFromLocation() {
+    return (location.hash[0] == '#'
+        ? location.hash.slice(1)
+        : location.hash);
+}
+function detachValueFromHash(key, hash) {
+    let metKey = false;
+    let value = null;
+    const restParts = [];
+    for (const part of hash.split('&')) {
+        if (metKey) {
+            restParts.push(part);
+            continue;
+        }
+        const detectedValue = new URLSearchParams(part).get(key);
+        if (detectedValue == null) {
+            restParts.push(part);
+        }
+        else {
+            value = detectedValue;
+            metKey = true;
+        }
+    }
+    return [value, restParts.join('&')];
+}
+function attachValueToFrontOfHash(key, value, restOfHash) {
+    if (value == null)
+        return restOfHash;
+    const valueHash = `${key}=${escapeHash(value)}`;
+    if (!restOfHash)
+        return valueHash;
+    return `${valueHash}&${restOfHash}`;
+}
+function attachValueToBackOfHash(key, value, restOfHash) {
+    if (value == null)
+        return restOfHash;
+    const valueHash = `${key}=${escapeHash(value)}`;
+    if (!restOfHash)
+        return valueHash;
+    return `${restOfHash}&${valueHash}`;
+}
+
+const em = (...ss) => makeElement('em')()(...ss);
+const strong = (...ss) => makeElement('strong')()(...ss);
+const sup = (...ss) => makeElement('sup')()(...ss);
+const dfn = (...ss) => makeElement('dfn')()(...ss);
+const kbd = (...ss) => makeElement('kbd')()(...ss);
+const code = (...ss) => makeElement('code')()(...ss);
+const mark = (...ss) => makeElement('mark')()(...ss);
+const a = (...ss) => makeElement('a')()(...ss);
+const p = (...ss) => makeElement('p')()(...ss);
+const ul = (...ss) => makeElement('ul')()(...ss);
+const ol = (...ss) => makeElement('ol')()(...ss);
+const li = (...ss) => makeElement('li')()(...ss);
+
+class HashServerSelector {
+    constructor(serverList) {
+        this.serverList = serverList;
+        const hash = getHashFromLocation();
+        [this.hostHashValue] = detachValueFromHash('host', hash);
+    }
+    // generic server selector methods
+    selectServer() {
+        return this.getServerForHostHashValue(this.hostHashValue);
+    }
+    getServerSelectHref(server) {
+        const baseLocation = location.pathname + location.search;
+        const hashValue = this.getHostHashValueForServer(server);
+        return baseLocation + (hashValue ? `#host=` + escapeHash(hashValue) : '');
+    }
+    addServerSelectToAppInstallLocationHref(server, installLocationHref) {
+        const hashValue = this.getHostHashValueForServer(server);
+        return installLocationHref + (hashValue ? `#host=` + escapeHash(hashValue) : '');
+    }
+    makeServerSelectErrorMessage() {
+        const hostHash = (this.hostHashValue != null
+            ? `host=` + escapeHash(this.hostHashValue)
+            : ``);
+        return [
+            `Unknown server in URL hash parameter `, code(hostHash), `.`
+        ];
+    }
+    // host-hash-specific methods
+    getHostHashValueForServer(server) {
+        let hostHashValue = null;
+        if (server != this.serverList.defaultServer) {
+            hostHashValue = server.host;
+        }
+        return hostHashValue;
+    }
+    getServerForHostHashValue(hostHashValue) {
+        if (hostHashValue == null)
+            return this.serverList.defaultServer;
+        return this.serverList.servers.get(hostHashValue);
+    }
+    installHashChangeListener(cx, callback) {
+        window.addEventListener('hashchange', () => {
+            const hash = getHashFromLocation();
+            const [hostHashValue, hostlessHash] = detachValueFromHash('host', hash);
+            if (!cx) {
+                if (hostHashValue != this.hostHashValue)
+                    location.reload();
+                return;
+            }
+            if (hostHashValue != this.getHostHashValueForServer(cx.server)) {
+                location.reload();
+                return;
+            }
+            callback(hostlessHash);
+        });
     }
 }
 
@@ -1577,7 +1648,8 @@ class LoginSection {
         this.authStorage = authStorage;
         this.$clientIdRequired = makeDiv('notice')(`Please register the app and enter the `, em(`client id`), ` below to be able to login.`);
         this.$loginForms = makeDiv()();
-        this.$logins = makeDiv()();
+        this.$loginMessage = makeDiv()();
+        this.$loginTable = makeDiv()();
         const webPostUrlencodedWithPossibleAuthError = async (webPath, parameters, whenMessage) => {
             const response = await server.web.fetch.withUrlencodedBody(parameters).post(webPath);
             if (response.ok)
@@ -1616,7 +1688,8 @@ class LoginSection {
         const updateInResponseToLogin = () => {
             const logins = authStorage.getLogins();
             if (logins.size == 0) {
-                this.$logins.replaceChildren(`No active logins. Press the button above to login. `, ...loginReasons);
+                this.$loginMessage.replaceChildren(`No active logins. Press the button above to login. `, ...loginReasons);
+                this.$loginTable.replaceChildren();
                 return;
             }
             const loginTable = new RadioTable('login', [
@@ -1676,7 +1749,8 @@ class LoginSection {
                     ];
                 });
             }
-            this.$logins.replaceChildren(loginTable.$table);
+            this.$loginMessage.replaceChildren(`You can login again and have several different active logins. Use the table below to switch between them.`);
+            this.$loginTable.replaceChildren(loginTable.$table);
         };
         this.loginForms = new LoginForms(this.$loginForms, appName, authStorage.isManualCodeEntry, (codeChallenge) => {
             return server.web.getUrl('oauth2/authorize') + '?' + [
@@ -1710,7 +1784,7 @@ class LoginSection {
         });
         this.updateVisibility();
         updateInResponseToLogin();
-        $section.append(makeElement('h2')()(`Logins`), this.$clientIdRequired, this.$loginForms, this.$logins);
+        $section.append(makeElement('h2')()(`Logins`), this.$clientIdRequired, this.$loginForms, this.$loginMessage, this.$loginTable);
     }
     respondToAppRegistration() {
         this.loginForms.respondToAppRegistration(this.authStorage.isManualCodeEntry);
@@ -1726,7 +1800,8 @@ class LoginSection {
         const canLogin = !!this.authStorage.clientId;
         this.$clientIdRequired.hidden = canLogin;
         this.$loginForms.hidden = !canLogin;
-        this.$logins.hidden = !canLogin;
+        this.$loginMessage.hidden = !canLogin;
+        this.$loginTable.hidden = !canLogin;
     }
 }
 
@@ -1759,24 +1834,6 @@ function checkAuthRedirectForInstallUri(appName, installUri) {
 const installUri = `${location.protocol}//${location.host}${location.pathname}`;
 function checkAuthRedirect(appName) {
     return checkAuthRedirectForInstallUri(appName, installUri);
-}
-class Connection {
-    constructor(server, authStorage) {
-        this.server = server;
-        this.authStorage = authStorage;
-    }
-    get token() {
-        return this.authStorage.token;
-    }
-    get username() {
-        return this.authStorage.login?.username;
-    }
-    get uid() {
-        return this.authStorage.login?.uid;
-    }
-    get isModerator() {
-        return this.authStorage.login?.roles?.includes('moderator') ?? false;
-    }
 }
 class Net {
     constructor(appName, oauthScope, loginReasons, serverListConfig, storage, makeServerSelector, onLoginChange) {
@@ -1926,17 +1983,8 @@ class GlobalHistory {
             // TODO save more panel open/closed state... actually all panels open/closed states - Firefox does that, Chrome doesn't
             // ... or save some other kind of position relative to notes table instead of scroll
         });
-        window.addEventListener('hashchange', () => {
-            const [queryHash, mapHashValue, hostHashValue] = this.getAllHashes();
-            if (!net.cx) {
-                if (hostHashValue != net.serverSelector.hostHashValue)
-                    location.reload();
-                return;
-            }
-            if (hostHashValue != net.serverSelector.getHostHashValue(net.cx.server)) {
-                location.reload();
-                return;
-            }
+        net.serverSelector.installHashChangeListener(net.cx, hostlessHash => {
+            const [mapHashValue, queryHash] = detachValueFromHash('map', hostlessHash);
             if (mapHashValue) {
                 this.onMapHashChange(mapHashValue);
             }
@@ -1946,23 +1994,26 @@ class GlobalHistory {
         });
         $root.addEventListener('osmNoteViewer:mapMoveEnd', ({ detail: { zoom, lat, lon } }) => {
             const mapHashValue = `${zoom}/${lat}/${lon}`;
-            const searchParams = getHashSearchParams();
-            searchParams.delete('map');
-            const hostHashValue = searchParams.get('host');
-            searchParams.delete('host');
-            const queryHash = searchParams.toString();
-            history.replaceState(history.state, '', this.getFullHash(queryHash, mapHashValue, hostHashValue));
+            const hash = getHashFromLocation();
+            const [hostHashValue, hostlessHash] = detachValueFromHash('host', hash);
+            const [, queryHash] = detachValueFromHash('map', hostlessHash);
+            const updatedHostlessHash = attachValueToBackOfHash('map', mapHashValue, queryHash);
+            const updatedHash = attachValueToFrontOfHash('host', hostHashValue, updatedHostlessHash);
+            history.replaceState(history.state, '', '#' + updatedHash);
         });
         $root.addEventListener('osmNoteViewer:newNoteStream', ({ detail: [queryHash, isNewStart] }) => {
             if (!net.cx)
                 return;
             let mapHashValue = '';
             if (!isNewStart) {
-                const searchParams = getHashSearchParams();
-                mapHashValue = searchParams.get('map') ?? '';
+                const hash = getHashFromLocation();
+                const [currentMapHashValue] = detachValueFromHash('map', hash);
+                mapHashValue = currentMapHashValue ?? '';
             }
-            const hostHashValue = net.serverSelector.getHostHashValue(net.cx.server);
-            const fullHash = this.getFullHash(queryHash, mapHashValue, hostHashValue);
+            const hostHashValue = net.serverSelector.getHostHashValueForServer(net.cx.server);
+            const updatedHostlessHash = attachValueToBackOfHash('map', mapHashValue, queryHash);
+            const updatedHash = attachValueToFrontOfHash('host', hostHashValue, updatedHostlessHash);
+            const fullHash = updatedHash ? '#' + updatedHash : '';
             if (fullHash != location.hash) {
                 const url = fullHash || location.pathname + location.search;
                 if (isNewStart) {
@@ -1975,7 +2026,8 @@ class GlobalHistory {
         });
     }
     triggerInitialMapHashChange() {
-        const [, mapHashValue] = this.getAllHashes();
+        const hash = getHashFromLocation();
+        const [mapHashValue] = detachValueFromHash('map', hash);
         if (mapHashValue) {
             this.onMapHashChange(mapHashValue);
         }
@@ -2014,37 +2066,15 @@ class GlobalHistory {
         resizeObserver.observe(this.$resizeObservationTarget); // observing $scrollingPart won't work because its size doesn't change
     }
     getQueryHash() {
-        return this.getAllHashes()[0];
+        const hash = getHashFromLocation();
+        const [, hostlessHash] = detachValueFromHash('host', hash);
+        const [, queryHash] = detachValueFromHash('map', hostlessHash);
+        return queryHash;
     }
     hasMapHash() {
-        const searchParams = getHashSearchParams();
-        const mapHashValue = searchParams.get('map');
+        const hash = getHashFromLocation();
+        const [mapHashValue] = detachValueFromHash('map', hash);
         return !!mapHashValue;
-    }
-    getAllHashes() {
-        const searchParams = getHashSearchParams();
-        const mapHashValue = searchParams.get('map');
-        searchParams.delete('map');
-        const hostHashValue = searchParams.get('host');
-        searchParams.delete('host');
-        const queryHash = searchParams.toString();
-        return [queryHash, mapHashValue, hostHashValue];
-    }
-    getFullHash(queryHash, mapHashValue, hostHashValue) {
-        let fullHash = '';
-        const appendToFullHash = (hash) => {
-            if (fullHash && hash)
-                fullHash += '&';
-            fullHash += hash;
-        };
-        if (hostHashValue)
-            appendToFullHash('host=' + escapeHash(hostHashValue));
-        appendToFullHash(queryHash);
-        if (mapHashValue)
-            appendToFullHash('map=' + escapeHash(mapHashValue));
-        if (fullHash)
-            fullHash = '#' + fullHash;
-        return fullHash;
     }
     onMapHashChange(mapHashValue) {
         const [zoom, lat, lon] = mapHashValue.split('/');
@@ -3071,20 +3101,27 @@ class NoteMap {
         });
         // TODO maybe have :dataClear event
         // this.elementLayer.clearLayers()
-        $root.addEventListener('osmNoteViewer:noteFocus', ev => {
-            const noteId = ev.detail;
+        $root.addEventListener('osmNoteViewer:noteFocus', ({ detail: [noteId, isNegativeZoom] }) => {
             const marker = this.getNoteMarker(noteId);
             if (!marker)
                 return;
-            const z1 = this.zoom;
-            const z2 = this.maxZoom;
-            if (this.isCloseEnoughToCenter(marker.getLatLng()) && z1 < z2) {
-                const nextZoom = Math.min(z2, z1 + Math.ceil((z2 - z1) / 2));
-                this.panAndZoomTo(marker.getLatLng(), nextZoom);
+            if (this.isCloseEnoughToCenter(marker.getLatLng())) {
+                let nextZoom;
+                const z1 = this.zoom;
+                if (!isNegativeZoom && z1 < this.maxZoom) {
+                    const z2 = this.maxZoom;
+                    nextZoom = Math.min(z2, z1 + Math.ceil((z2 - z1) / 2));
+                }
+                else if (isNegativeZoom && z1 > 0) {
+                    const z2 = 0;
+                    nextZoom = Math.max(z2, z1 + Math.ceil((z2 - z1) / 2));
+                }
+                if (nextZoom != null) {
+                    this.panAndZoomTo(marker.getLatLng(), nextZoom);
+                    return;
+                }
             }
-            else {
-                this.panTo(marker.getLatLng());
-            }
+            this.panTo(marker.getLatLng());
         });
     }
     hide(hidden) {
@@ -3440,7 +3477,7 @@ class StorageSection {
                 const username = searchParams.get('display_name');
                 const ids = searchParams.get('ids');
                 const host = searchParams.get('host');
-                const fetchEntryServer = serverSelector.getServer(host);
+                const fetchEntryServer = serverSelector.getServerForHostHashValue(host);
                 if (username) {
                     if (fetchEntryServer) {
                         const href = fetchEntryServer.web.getUrl(`user/` + encodeURIComponent(username));
@@ -5494,7 +5531,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
             this.$toInput.type = 'text';
             this.$toInput.size = 20;
             this.$toInput.name = 'to';
-            $fieldset.append(makeDiv('regular-input-group')(makeLabel('inline')(`From date`, rq$1('from'), ` `, this.$fromInput), ` `, makeLabel('inline')(`to date`, rq$1('to'), ` `, this.$toInput)));
+            $fieldset.append(makeDiv('date-range-input-group')(makeLabel('inline')(`From date`, rq$1('from'), ` `, this.$fromInput), ` `, makeLabel('inline')(`To date`, rq$1('to'), ` `, this.$toInput)));
         }
     }
     appendToClosedLine($div) {
@@ -7377,7 +7414,7 @@ function writeHeadSectionRow($section, $checkbox, makeExpanderButton, getNoteSec
 /**
  * @returns comment cells
  */
-function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note, users, hideRows, showImages, markUser, markText, noteMapClickListener, rowVisibilityChangeCallback) {
+function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note, users, hideRows, showImages, markUser, markText, zoomInOnNote, rowVisibilityChangeCallback) {
     const $commentCells = [];
     let $row = $noteSection.insertRow();
     const nComments = note.comments.length;
@@ -7489,7 +7526,10 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
             $a.title = `show note on map`;
             $a.innerHTML = `<svg><use href="#tools-map" /></svg>`;
             $a.onclick = ev => {
-                noteMapClickListener();
+                zoomInOnNote();
+                const $map = document.querySelector('.ui .map'); // TODO rewrite this hack
+                if ($map instanceof HTMLElement)
+                    $map.focus();
                 ev.stopPropagation();
                 ev.preventDefault();
             };
@@ -8065,7 +8105,7 @@ class Cursor {
             p(`Anywhere inside the table:`),
             ul(li(kbd(`Arrow keys`), ` — go to adjacent table cell`), li(kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last column`), li(kbd(`Ctrl`), ` + `, kbd(`A`), ` — select all notes`)),
             p(`Inside the table body:`),
-            ul(li(kbd(`Ctrl`), ` + `, kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last row`), li(kbd(`Shift`), ` + left click on a checkbox — select a range of notes starting from the previous click`), li(kbd(`Shift`), ` + any vertical navigation keys — select notes`), li(kbd(`Enter`), ` while in comment column — go inside the comment cell`), li(kbd(`Esc`), ` while inside a comment cell — exit the cell`)),
+            ul(li(kbd(`Ctrl`), ` + `, kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last row`), li(kbd(`Shift`), ` + left click on a checkbox — select a range of notes starting from the previous click`), li(kbd(`Shift`), ` + any vertical navigation keys — select notes`), li(kbd(`Enter`), ` while in the comment column — go inside the comment cell; `, kbd(`Esc`), ` — go back`), li(kbd(`Enter`), ` while in the map column — switch to the map and zoom to note; `, kbd(`Esc`), ` — switch back`), li(kbd(`+`), ` / `, kbd(`-`), ` — zoom in/out on a note location`)),
         ]);
         this.state = new CursorState($table);
         $table.addEventListener('keydown', ev => {
@@ -8096,6 +8136,10 @@ class Cursor {
     }
     updateTabIndex() {
         this.state.setToNearestVisible();
+    }
+    focus() {
+        const $e = this.state.getCurrentBodyItem();
+        $e?.focus();
     }
 }
 function noteTableKeydownListener($table, ev, selectSections, state) {
@@ -8273,6 +8317,20 @@ class NoteTable {
                     $clickReadyNoteSection = undefined;
                 }]
         ];
+        this.wrappedNoteSectionKeydownListener = function (ev) {
+            const $noteSection = this;
+            if (ev.key == '+') {
+                that.focusOnNote($noteSection, true, false);
+            }
+            else if (ev.key == '-') {
+                that.focusOnNote($noteSection, true, true);
+            }
+            else {
+                return;
+            }
+            ev.stopPropagation();
+            ev.preventDefault();
+        };
         this.wrappedNoteCheckboxClickListener = function (ev) {
             that.noteCheckboxClickListener(this, ev);
         };
@@ -8545,6 +8603,9 @@ class NoteTable {
             this.focusOnNote($noteSection);
         }
     }
+    focus() {
+        this.cursor.focus();
+    }
     writeHeadSection() {
         const $headSection = this.$table.createTHead();
         this.$selectAllCheckbox.type = 'checkbox';
@@ -8566,6 +8627,7 @@ class NoteTable {
         for (const [event, listener] of this.wrappedNoteSectionListeners) {
             $noteSection.addEventListener(event, listener);
         }
+        $noteSection.addEventListener('keydown', this.wrappedNoteSectionKeydownListener);
         if (isVisible && !$checkbox.checked) {
             if (this.$selectAllCheckbox.checked) {
                 this.$selectAllCheckbox.checked = false;
@@ -8573,7 +8635,7 @@ class NoteTable {
             }
         }
         $checkbox.setAttribute('aria-label', `${note.status} note at latitude ${note.lat}, longitude ${note.lon}`);
-        const $commentCells = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, $checkbox, note, users, !this.$table.classList.contains('expanded-comments'), this.showImages, this.markUser, this.markText, () => this.focusOnNote($noteSection, true), () => this.cursor.updateTabIndex());
+        const $commentCells = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, $checkbox, note, users, !this.$table.classList.contains('expanded-comments'), this.showImages, this.markUser, this.markText, () => this.focusOnNote($noteSection, true, false), () => this.cursor.updateTabIndex());
         for (const $commentCell of $commentCells) {
             this.looseParserListener.listen($commentCell);
         }
@@ -8645,13 +8707,13 @@ class NoteTable {
         }
         this.updateCheckboxDependentsAndSendNoteChangeEvents();
     }
-    focusOnNote($noteSection, isSectionClicked = false) {
+    focusOnNote($noteSection, isSectionClicked = false, isNegativeZoom = false) {
         this.activateNote('click', $noteSection);
         this.noteSectionVisibilityObserver.haltMapFitting(); // otherwise scrollIntoView() may ruin note pan/zoom - it may cause observer to fire after exiting this function
         if (!isSectionClicked)
             $noteSection.scrollIntoView({ block: 'nearest' });
         const noteId = Number($noteSection.dataset.noteId);
-        bubbleCustomEvent($noteSection, 'osmNoteViewer:noteFocus', noteId); // TODO correct target, it could be a marker
+        bubbleCustomEvent($noteSection, 'osmNoteViewer:noteFocus', [noteId, isNegativeZoom]); // TODO correct target, it could be a marker
         if (!this.$selectAllCheckbox.checked && !this.$selectAllCheckbox.indeterminate) {
             const noteId = Number($noteSection.dataset.noteId);
             const note = this.notesById.get(noteId);
@@ -9439,11 +9501,14 @@ class InteractTool extends Tool {
             this.$yourNotesWeb.replaceChildren(webText);
         }
         else {
-            const apiHref = makeHrefWithCurrentHost([
+            const hash = getHashFromLocation();
+            const [hostHashValue] = detachValueFromHash('host', hash);
+            const queryHash = new URLSearchParams([
                 ['mode', 'search'],
                 ['display_name', this.cx.username],
                 ['sort', 'updated_at']
-            ]);
+            ]).toString();
+            const apiHref = '#' + attachValueToFrontOfHash('host', hostHashValue, queryHash);
             const webHref = this.cx.server.web.getUrl(e$3 `user/${this.cx.username}/notes`);
             this.$yourNotesApi.replaceChildren(makeLink(apiText, apiHref));
             this.$yourNotesWeb.replaceChildren(makeLink(webText, webHref));
@@ -11273,7 +11338,7 @@ async function main() {
     const $root = makeDiv('ui')();
     document.body.append($root);
     new GlobalEventListener($root);
-    const storage = new NoteViewerStorage('osm-note-viewer-');
+    const storage = new NoteViewerStorage();
     const db = await NoteViewerDB.open();
     const net = new Net(`osm-note-viewer`, 'read_prefs write_notes', [`You need to login if you'd like to manipulate notes.`], serverListConfig, storage, serverList => new HashServerSelector(serverList), () => bubbleEvent($root, 'osmNoteViewer:loginChange'));
     const $menuButton = makeMenuButton();
@@ -11300,7 +11365,14 @@ async function main() {
         sidebarResizer.startListening(map);
         const navbar = new Navbar($root, storage, $navbarContainer, map);
         const noteTable = writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer, storage, net.cx, globalHistory, map);
-        new NoteFetchPanel($root, db, net.cx, $fetchContainer, $moreContainer, navbar, noteTable, map, globalHistory.getQueryHash(), globalHistory.hasMapHash(), net.serverSelector.getHostHashValue(net.cx.server));
+        new NoteFetchPanel($root, db, net.cx, $fetchContainer, $moreContainer, navbar, noteTable, map, globalHistory.getQueryHash(), globalHistory.hasMapHash(), net.serverSelector.getHostHashValueForServer(net.cx.server));
+        $mapContainer.addEventListener('keydown', ev => {
+            if (ev.key != 'Escape')
+                return;
+            noteTable.focus();
+            ev.stopPropagation();
+            ev.preventDefault();
+        });
     }
     {
         const overlayDialog = new OverlayDialog($root, storage, db, net, map, $menuButton);
