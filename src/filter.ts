@@ -1,44 +1,45 @@
 import type {Note, NoteComment} from './data'
 import type {ApiUrlLister, WebUrlLister} from './net'
-import type {ValidUserQuery} from './query-user'
-import {toUserQuery} from './query-user'
+import type {ValidUserQuery} from './query'
+import {toUserQuery} from './query'
 import {escapeRegex} from './util/escape'
 
 type Operator = '=' | '!=' | '~='
 
-interface BeginningStatement {
+type BeginningStatement = {
 	type: '^'
 }
 
-interface EndStatement {
+type EndStatement = {
 	type: '$'
 }
 
-interface AnyStatement {
+type AnyStatement = {
 	type: '*'
 }
 
-interface BaseCondition {
+type BaseCondition = {
 	operator: Operator
 }
 
-type UserCondition = BaseCondition & ValidUserQuery & {
+type UserCondition = BaseCondition & {
 	type: 'user'
+	user: ValidUserQuery
 }
 
-interface ActionCondition extends BaseCondition {
+type ActionCondition = BaseCondition & {
 	type: 'action'
 	action: 'opened' | 'closed' | 'reopened' | 'commented' | 'hidden'
 }
 
-interface TextCondition extends BaseCondition {
+type TextCondition = BaseCondition & {
 	type: 'text'
 	text: string
 }
 
 type Condition = UserCondition | ActionCondition | TextCondition
 
-interface ConditionsStatement {
+type ConditionsStatement = {
 	type: 'conditions',
 	conditions: Condition[]
 }
@@ -73,10 +74,10 @@ export default class NoteFilter {
 					const [,operator,user]=match
 					if (!isValidOperator(operator)) continue // impossible
 					const userQuery=toUserQuery(apiUrlLister,webUrlLister,user)
-					if (userQuery.userType=='invalid' || userQuery.userType=='empty') {
+					if (userQuery.type=='invalid' || userQuery.type=='empty') {
 						throwError(`Invalid user value "${user}"`)
 					}
-					conditions.push({type:'user',operator,...userQuery})
+					conditions.push({type:'user',operator,user:userQuery})
 					continue
 				} else if (match=matchTerm('action','(.+)')) {
 					const [,operator,action]=match
@@ -116,25 +117,25 @@ export default class NoteFilter {
 	matchNote(note: Note, getUsername: (uid: number) => string|undefined): boolean {
 		// console.log('> match',this.statements,note.comments)
 		const isCommentEqualToUserConditionValue=(condition: UserCondition, comment: NoteComment): boolean => {
-			if (condition.userType=='id') {
-				if (condition.uid==0) {
+			if (condition.user.type=='id') {
+				if (condition.user.uid==0) {
 					if (comment.uid!=null) return false
 				} else {
-					if (comment.uid!=condition.uid) return false
+					if (comment.uid!=condition.user.uid) return false
 				}
 			} else {
-				if (condition.username=='0') {
+				if (condition.user.username=='0') {
 					if (comment.uid!=null) return false
 				} else {
 					if (comment.uid==null) return false
-					if (getUsername(comment.uid)!=condition.username) return false
+					if (getUsername(comment.uid)!=condition.user.username) return false
 				}
 			}
 			return true
 		}
 		const getConditionActualValue=(condition: Condition, comment: NoteComment): string | number | undefined => {
 			if (condition.type=='user') {
-				if (condition.userType=='id') {
+				if (condition.user.type=='id') {
 					return comment.uid
 				} else {
 					if (comment.uid==null) return undefined
@@ -148,10 +149,10 @@ export default class NoteFilter {
 		}
 		const getConditionCompareValue=(condition: Condition): string | number | undefined => {
 			if (condition.type=='user') {
-				if (condition.userType=='id') {
-					return condition.uid
+				if (condition.user.type=='id') {
+					return condition.user.uid
 				} else {
-					return condition.username
+					return condition.user.username
 				}
 			} else if (condition.type=='action') {
 				return condition.action

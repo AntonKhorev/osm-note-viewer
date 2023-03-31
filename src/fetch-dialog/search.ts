@@ -1,7 +1,6 @@
 import {NoteQueryFetchDialog, mixinWithAutoLoadCheckbox} from './base'
 import type {NoteQuery} from '../query'
-import {makeNoteSearchQueryFromValues} from '../query'
-import {toUserQuery} from '../query-user'
+import {makeNoteSearchQueryFromValues, toUserQuery} from '../query'
 import {toDateQuery, toShortReadableDate} from '../query-date'
 import TextControl from '../text-control'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../util/html'
@@ -162,7 +161,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 	protected addEventListenersBeforeClosedLine(): void {
 		this.$userInput.addEventListener('input',()=>{
 			const userQuery=toUserQuery(this.cx.server.api,this.cx.server.web,this.$userInput.value)
-			if (userQuery.userType=='invalid') {
+			if (userQuery.type=='invalid') {
 				this.$userInput.setCustomValidity(userQuery.message)
 			} else {
 				this.$userInput.setCustomValidity('')

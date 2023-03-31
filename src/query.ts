@@ -1,9 +1,11 @@
 import type {Note, NoteComment} from './data'
 import type {ApiUrlLister, WebUrlLister} from './net'
-import type {UserQuery} from './query-user'
-import {toUserQuery, makeUserQueryFromUserNameAndId} from './query-user'
+import type {UserQuery} from './osm'
+import {toUserQuery} from './osm'
 import {toDateQuery, toUrlDate} from './query-date'
 import {escapeHash} from './util/escape' // TODO use escapeHash() instead of encodeURIComponent() for all hash parameters; won't have to use "." as a separator in ids parameter
+
+export {UserQuery, ValidUserQuery, toUserQuery} from './osm'
 
 const defaultLowerDate=Date.parse('2001-01-01 00:00:00Z')/1000
 
@@ -36,6 +38,24 @@ export function makeUserQueryFromNoteSearchQuery(query: NoteSearchQuery): UserQu
 	return makeUserQueryFromUserNameAndId(query.display_name,query.user)
 }
 
+function makeUserQueryFromUserNameAndId(username: string|undefined|null, uid: number|undefined|null): UserQuery {
+	if (username!=null) {
+		return {
+			type: 'name',
+			username
+		}
+	} else if (uid!=null && Number.isInteger(uid)) {
+		return {
+			type: 'id',
+			uid
+		}
+	} else {
+		return {
+			type: 'empty'
+		}
+	}
+}
+
 function makeNoteSearchQueryFromUserQueryAndValues(
 	userQuery: UserQuery, textValue: string, fromValue: string, toValue: string, closedValue: string, sortValue: string, orderValue: string
 ): NoteSearchQuery | undefined {
@@ -46,10 +66,10 @@ function makeNoteSearchQueryFromUserQueryAndValues(
 		order: toOrder(orderValue)
 	}
 	{
-		if (userQuery.userType=='invalid') return undefined
-		if (userQuery.userType=='name') {
+		if (userQuery.type=='invalid') return undefined
+		if (userQuery.type=='name') {
 			noteSearchQuery.display_name=userQuery.username
-		} else if (userQuery.userType=='id') {
+		} else if (userQuery.type=='id') {
 			noteSearchQuery.user=userQuery.uid
 		}
 	}{

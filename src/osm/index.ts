@@ -10,3 +10,7 @@ export {
 	OsmChangesetApiData, OsmChangesetWithBboxApiData,
 	hasBbox, getChangesetFromOsmApiResponse, getChangesetsFromOsmApiResponse
 } from './changeset'
+
+export {
+	UserQuery, ValidUserQuery, toUserQuery
+} from './query-user'
