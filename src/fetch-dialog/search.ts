@@ -98,7 +98,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 				()=>[makeElement('span')()(`set to`),` `,em(String(this.cx.username))]
 			)
 			$fieldset.append(makeDiv('major-input-group')(userInputControl.$controls,makeLabel()(
-				`OSM username, URL or #id`,rq2('display_name','user'),` `,this.$userInput
+				`Username, URL or #id`,rq2('display_name','user'),` `,this.$userInput
 			)))
 			this.$root.addEventListener('osmNoteViewer:loginChange',()=>{
 				userInputControl.update()
