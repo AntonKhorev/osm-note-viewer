@@ -1,6 +1,7 @@
 import type {Server} from './net'
-import type {OsmChangesetWithBbox} from './osm'
-import {hasBbox, getChangesetFromOsmApiResponse, getElementsFromOsmApiResponse, getAdiffFromDocument} from './osm'
+import type {OsmChangesetWithBboxApiData} from './osm'
+import {hasBbox, getChangesetFromOsmApiResponse, getElementsFromOsmApiResponse} from './osm'
+import {getAdiffFromDocument} from './osm-adiff'
 import {toUrlDate} from './query-date'
 import {bubbleCustomEvent} from './util/events'
 import {makeEscapeTag} from './util/escape'
@@ -95,7 +96,7 @@ export default class OsmDownloader {
  * Time range is (created_at - 1 second) .. (closed_at if closed).
  * Similar to what achavi does, see https://github.com/nrenner/achavi/blob/9934871777b6e744d21bb2f22b112d386bcd9d30/js/map.js#L261
  */
-function makeAdiffQueryPreamble(changeset: OsmChangesetWithBbox): string {
+function makeAdiffQueryPreamble(changeset: OsmChangesetWithBboxApiData): string {
 	const startDate=toUrlDate(Date.parse(changeset.created_at)/1000-1,'-')
 	const endPart=changeset.closed_at!=null?`,"${changeset.closed_at}"`:``
 	const swneBounds=(

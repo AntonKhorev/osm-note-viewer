@@ -1,5 +1,6 @@
 import {Server} from '../net'
-import type {OsmBase, OsmElementBase, OsmAdiffElement} from '../osm'
+import type {OsmBaseApiData, OsmElementBaseApiData} from '../osm'
+import type {OsmAdiffElement} from '../osm-adiff'
 import type {LayerBoundOsmData} from './osm'
 import compareKeys from './popup-key-compare'
 import {makeElement, makeDiv, makeLink} from '../util/html'
@@ -97,7 +98,7 @@ export function makePopupWriter(
 	}
 }
 
-function makeElementHeaderContents(server: Server, element: OsmElementBase, elementType: string): (string|HTMLElement)[] {
+function makeElementHeaderContents(server: Server, element: OsmElementBaseApiData, elementType: string): (string|HTMLElement)[] {
 	const elementPath=e`${elementType}/${element.id}`
 	const headerContents: (string|HTMLElement)[] = [
 		capitalize(elementType)+`: `,
@@ -108,7 +109,7 @@ function makeElementHeaderContents(server: Server, element: OsmElementBase, elem
 	return headerContents
 }
 
-function makeElementContents(server: Server, element: OsmElementBase, visisble=true, versionTitle=`Version`): HTMLElement[] {
+function makeElementContents(server: Server, element: OsmElementBaseApiData, visisble=true, versionTitle=`Version`): HTMLElement[] {
 	const content: HTMLElement[] = []
 	content.push(h(
 		`${versionTitle} #${element.version}`,visisble?``:` · DELETED`
@@ -267,7 +268,7 @@ function makeDate(timestamp: string, short=false): HTMLElement {
 	return $time
 }
 
-function makeUserLink(server: Server, data: OsmBase): HTMLElement {
+function makeUserLink(server: Server, data: OsmBaseApiData): HTMLElement {
 	const $a=(data.user
 		? makeUserNameLink(server,data.user)
 		: makeUserIdLink(server,data.uid)
@@ -288,7 +289,7 @@ function makeUserIdLink(server: Server, uid: number): HTMLAnchorElement {
 	return makeLink('#'+uid,fromId(uid))
 }
 
-function getElementName(element: OsmElementBase): string {
+function getElementName(element: OsmElementBaseApiData): string {
 	if (element.tags?.name) {
 		return `${element.tags.name} (${element.id})`
 	} else {

@@ -1,6 +1,6 @@
-import {OsmChangeset} from '../osm'
+import {OsmChangesetApiData} from '../osm'
 
-export function findClosingChangesetId(targetTimestamp: number, changesets: OsmChangeset[]): number|undefined {
+export function findClosingChangesetId(targetTimestamp: number, changesets: OsmChangesetApiData[]): number|undefined {
 	let id: number|undefined
 	let distance=Infinity
 	for (const changeset of changesets) {

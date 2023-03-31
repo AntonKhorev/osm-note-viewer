@@ -1,5 +1,6 @@
 import type {Note, Users} from '../src/data'
-import type {OsmChangeset, OsmElement, OsmElementMap, OsmAdiff} from '../src/osm'
+import type {OsmChangesetApiData, OsmVisibleElementApiData, OsmVisibleElementApiDataMap} from '../src/osm'
+import type {OsmAdiff} from '../src/osm-adiff'
 
 declare global {
 	interface HTMLElementEventMap {
@@ -21,9 +22,9 @@ declare global {
 		'osmNoteViewer:noteRender': CustomEvent<Note>
 		'osmNoteViewer:noteRefreshWaitProgress': CustomEvent<readonly [id: number, progress: number]>
 		'osmNoteViewer:notesInViewportChange': CustomEvent<readonly Note[]>
-		'osmNoteViewer:elementRender': CustomEvent<readonly [OsmElement, OsmElementMap]>
-		'osmNoteViewer:changesetRender': CustomEvent<OsmChangeset>
-		'osmNoteViewer:changesetAdiffRender': CustomEvent<readonly [OsmChangeset, OsmAdiff]>
+		'osmNoteViewer:elementRender': CustomEvent<readonly [OsmVisibleElementApiData, OsmVisibleElementApiDataMap]>
+		'osmNoteViewer:changesetRender': CustomEvent<OsmChangesetApiData>
+		'osmNoteViewer:changesetAdiffRender': CustomEvent<readonly [OsmChangesetApiData, OsmAdiff]>
 	}
 }
 export {}

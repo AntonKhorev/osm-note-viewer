@@ -1,15 +1,17 @@
 import type {
-	OsmChangeset, OsmElement, OsmElementMap,
-	OsmNodeElement, OsmWayElement, OsmRelationElement,
+	OsmChangesetApiData, OsmVisibleElementApiData, OsmVisibleElementApiDataMap,
+	OsmVisibleNodeApiData, OsmVisibleWayApiData, OsmVisibleRelationApiData
+} from '../osm'
+import type {
 	OsmAdiff, OsmAdiffAction, OsmAdiffElement,
 	OsmAdiffNodeElement, OsmAdiffWayElement
-} from '../osm'
+} from '../osm-adiff'
 import {hasBbox} from '../osm'
 
 export type LayerBoundOsmData = ({
 	type: 'element',
 	adiff: false,
-	item: OsmElement
+	item: OsmVisibleElementApiData
 } | {
 	type: 'element',
 	adiff: true,
@@ -17,7 +19,7 @@ export type LayerBoundOsmData = ({
 } | {
 	type: 'changeset',
 	adiff: boolean,
-	item: OsmChangeset
+	item: OsmChangesetApiData
 }) & {
 	skippedRelationIds?: Set<number>
 	emptyReason?: string
@@ -31,7 +33,7 @@ export type GeometryData = {
 	deletedGeometry?:  [layer:L.Layer,data:LayerBoundOsmData][]
 }
 
-export function renderOsmElement(element: OsmElement, elements: OsmElementMap): GeometryData {
+export function renderOsmElement(element: OsmVisibleElementApiData, elements: OsmVisibleElementApiDataMap): GeometryData {
 	if (element.type=='node') {
 		const layer=makeOsmNodeLayer(element)
 		return {baseGeometry:[
@@ -55,7 +57,7 @@ export function renderOsmElement(element: OsmElement, elements: OsmElementMap): 
 	}
 }
 
-export function renderOsmChangeset(changeset: OsmChangeset): GeometryData {
+export function renderOsmChangeset(changeset: OsmChangesetApiData): GeometryData {
 	const baseLayer=makeOsmChangesetLayer(changeset)
 	return {baseGeometry:[
 		baseLayer,{
@@ -65,7 +67,7 @@ export function renderOsmChangeset(changeset: OsmChangeset): GeometryData {
 	]}
 }
 
-export function renderOsmChangesetAdiff(changeset: OsmChangeset, adiff: OsmAdiff): GeometryData {
+export function renderOsmChangesetAdiff(changeset: OsmChangesetApiData, adiff: OsmAdiff): GeometryData {
 	const colorAdded='#39dbc0' // color values from OSMCha
 	const colorModifiedOld='#db950a'
 	const colorModifiedNew='#e8e845'
@@ -121,11 +123,11 @@ export function renderOsmChangesetAdiff(changeset: OsmChangeset, adiff: OsmAdiff
 	return geometryData
 }
 
-function makeOsmNodeLayer(node: OsmNodeElement): L.Layer {
+function makeOsmNodeLayer(node: OsmVisibleNodeApiData): L.Layer {
 	return L.circleMarker([node.lat,node.lon])
 }
 
-function makeOsmWayLayer(way: OsmWayElement, elements: OsmElementMap): L.Layer {
+function makeOsmWayLayer(way: OsmVisibleWayApiData, elements: OsmVisibleElementApiDataMap): L.Layer {
 	const coords: L.LatLngExpression[] = []
 	for (const id of way.nodes) {
 		const node=elements.node[id]
@@ -135,7 +137,7 @@ function makeOsmWayLayer(way: OsmWayElement, elements: OsmElementMap): L.Layer {
 	return L.polyline(coords)
 }
 
-function makeOsmRelationLayerAndSkippedRelations(relation: OsmRelationElement, elements: OsmElementMap): [
+function makeOsmRelationLayerAndSkippedRelations(relation: OsmVisibleRelationApiData, elements: OsmVisibleElementApiDataMap): [
 	layer:L.Layer|null,skippedRelationIds:Set<number>
 ] {
 	let layer:L.FeatureGroup|null=null
@@ -158,7 +160,7 @@ function makeOsmRelationLayerAndSkippedRelations(relation: OsmRelationElement, e
 	return [layer,skippedRelationIds]
 }
 
-function makeOsmChangesetLayer(changeset: OsmChangeset, options: L.PolylineOptions = {color:'#000'}): L.Layer|null {
+function makeOsmChangesetLayer(changeset: OsmChangesetApiData, options: L.PolylineOptions = {color:'#000'}): L.Layer|null {
 	if (!hasBbox(changeset)) return null
 	return L.rectangle([
 		[changeset.minlat,changeset.minlon],
