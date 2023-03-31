@@ -55,6 +55,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 		this.$fileInput.disabled=disabled
 	}
 	protected writePrependedFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void {
+		if (this.cx.server.host!='www.openstreetmap.org') return
 		$legend.append(
 			`Get notes in a country from `,
 			em(`resultmaps.neis-one.org`)
@@ -120,7 +121,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 		}
 	}
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void {
-		$legend.textContent=`Or read custom XML file`
+		$legend.textContent=`Read custom XML file`
 		{
 			$fieldset.append(makeDiv('advanced-hint')(p(
 				`Load an arbitrary XML file containing note ids or links. `,
