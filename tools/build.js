@@ -95,7 +95,7 @@ async function buildHtml(srcDir,dstDir,downloads) {
 	htmlContents=htmlContents
 		.replace(`<body>`,`<body data-build="${new Date().toISOString()}">`)
 	const embeddedSvgsResult=await getAllEmbeddedSvgs(srcDir)
-		if (embeddedSvgsResult) {
+	if (embeddedSvgsResult) {
 		const [embeddedStyles,embeddedSymbols]=await getAllEmbeddedSvgs(srcDir)
 		const embeddedSvgs=
 			`<svg class="symbols">\n`+
@@ -104,10 +104,13 @@ async function buildHtml(srcDir,dstDir,downloads) {
 			`</style>\n`+
 			embeddedSymbols+
 			`</svg>`
+		htmlContents=htmlContents
+			.replace(`<!-- {embed svgs} -->`,embeddedSvgs)
+	}
+	if (await checkEmbeddedFavicon(srcDir)) {
 		const favicon=await fs.readFile(`${srcDir}/svg/favicon.svg`,'utf-8')
 		const encodedFavicon=Buffer.from(favicon).toString('base64')
 		htmlContents=htmlContents
-			.replace(`<!-- {embed svgs} -->`,embeddedSvgs)
 			.replace(`<!-- {embed favicon} -->`,`<link rel=icon href="data:image/svg+xml;charset=utf-8;base64,${encodedFavicon}">`)
 	}
 	await fs.writeFile(`${dstDir}/index.html`,htmlContents)
@@ -156,6 +159,15 @@ async function getAllCssFiles(srcDir) {
 		cssFiles[`css/${filename}`]=await fs.readFile(`${srcDir}/css/${filename}`,'utf-8')
 	}
 	return cssFiles
+}
+
+async function checkEmbeddedFavicon(srcDir) {
+	try {
+		await fs.access(`${srcDir}/svg/favicon.svg`)
+	} catch {
+		return null
+	}
+	return true
 }
 
 async function getAllEmbeddedSvgs(srcDir) {
