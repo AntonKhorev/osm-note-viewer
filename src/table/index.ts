@@ -22,6 +22,7 @@ export interface NoteTableUpdater {
 }
 
 export default class NoteTable implements NoteTableUpdater {
+	private wrappedMarkerLinkListeners: Array<[event: string, listener: (this:HTMLAnchorElement,ev:Event)=>void]>
 	private wrappedNoteSectionListeners: Array<[event: string, listener: (this:HTMLTableSectionElement,ev:Event)=>void]>
 	private wrappedNoteSectionKeydownListener: (this:HTMLTableSectionElement, ev: KeyboardEvent) => void
 	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
@@ -52,6 +53,22 @@ export default class NoteTable implements NoteTableUpdater {
 		this.$table.setAttribute('role','grid')
 		const that=this
 		let $clickReadyNoteSection: HTMLTableSectionElement|undefined
+		this.wrappedMarkerLinkListeners=[
+			['mouseenter',function(){
+				const noteId=this.dataset.noteId
+				if (!noteId) return
+				const $noteSection=that.getNoteSection(noteId)
+				if (!$noteSection) return
+				that.activateNote('hover',$noteSection)
+			}],
+			['mouseleave',function(){
+				const noteId=this.dataset.noteId
+				if (!noteId) return
+				const $noteSection=that.getNoteSection(noteId)
+				if (!$noteSection) return
+				that.deactivateNote('hover',$noteSection)
+			}],
+		]
 		this.wrappedNoteSectionListeners=[
 			['mouseenter',function(){
 				that.activateNote('hover',this)
@@ -367,11 +384,8 @@ export default class NoteTable implements NoteTableUpdater {
 	private makeMarker($noteSection: HTMLTableSectionElement, note: Note, isVisible: boolean): NoteMarker {
 		const marker=new NoteMarker(this.server.web,note)
 		marker.addTo(isVisible ? this.map.unselectedNoteLayer : this.map.filteredNoteLayer)
-		marker.$a.onmouseenter=()=>{
-			this.activateNote('hover',$noteSection)
-		}
-		marker.$a.onmouseleave=()=>{
-			this.deactivateNote('hover',$noteSection)
+		for (const [event,listener] of this.wrappedMarkerLinkListeners) {
+			marker.$a.addEventListener(event,listener)
 		}
 		return marker
 	}
