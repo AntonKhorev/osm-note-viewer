@@ -265,7 +265,7 @@ export default class NoteTable implements NoteTableUpdater {
 			const $noteSection=this.$table.createTBody()
 			$noteSection.dataset.noteId=String(note.id)
 			this.noteSectionVisibilityObserver.observe($noteSection)
-			this.makeMarker(note,isVisible)
+			this.makeMarker($noteSection,note,isVisible)
 			const $checkbox=document.createElement('input')
 			$checkbox.type='checkbox'
 			// $checkbox.title=`shift+click to select/unselect a range`
@@ -303,7 +303,7 @@ export default class NoteTable implements NoteTableUpdater {
 		// output table section
 		const getUsername=(uid:number)=>users[uid]
 		const isVisible=this.filter.matchNote(note,getUsername)
-		this.makeMarker(note,isVisible)
+		this.makeMarker($noteSection,note,isVisible)
 		this.writeNoteSection($noteSection,$checkbox,note,users,isVisible)
 		const $a2=this.getNoteLink($noteSection)
 		if (!($a2 instanceof HTMLAnchorElement)) throw new Error(`note link not found after note replace`)
@@ -364,9 +364,15 @@ export default class NoteTable implements NoteTableUpdater {
 		)
 		return $headSection
 	}
-	private makeMarker(note: Note, isVisible: boolean): NoteMarker {
+	private makeMarker($noteSection: HTMLTableSectionElement, note: Note, isVisible: boolean): NoteMarker {
 		const marker=new NoteMarker(this.server.web,note)
 		marker.addTo(isVisible ? this.map.unselectedNoteLayer : this.map.filteredNoteLayer)
+		marker.$a.onmouseenter=()=>{
+			this.activateNote('hover',$noteSection)
+		}
+		marker.$a.onmouseleave=()=>{
+			this.deactivateNote('hover',$noteSection)
+		}
 		return marker
 	}
 	private writeNoteSection(
