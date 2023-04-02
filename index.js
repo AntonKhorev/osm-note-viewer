@@ -842,7 +842,7 @@ class HashServerSelector {
             return this.serverList.defaultServer;
         return this.serverList.servers.get(hostHashValue);
     }
-    installHashChangeListener(cx, callback) {
+    installHashChangeListener(cx, callback, callBackImmediately = false) {
         window.addEventListener('hashchange', () => {
             const hash = getHashFromLocation();
             const [hostHashValue, hostlessHash] = detachValueFromHash('host', hash);
@@ -857,6 +857,35 @@ class HashServerSelector {
             }
             callback(hostlessHash);
         });
+        if (callBackImmediately) {
+            const hash = getHashFromLocation();
+            const [, hostlessHash] = detachValueFromHash('host', hash);
+            callback(hostlessHash);
+        }
+    }
+    getHostlessHash() {
+        const hash = getHashFromLocation();
+        const [, hostlessHash] = detachValueFromHash('host', hash);
+        return hostlessHash;
+    }
+    pushHostlessHashInHistory(hostlessHash) {
+        this.pushOrReplaceHostlessHashInHistory(hostlessHash, true);
+    }
+    replaceHostlessHashInHistory(hostlessHash) {
+        this.pushOrReplaceHostlessHashInHistory(hostlessHash, false);
+    }
+    pushOrReplaceHostlessHashInHistory(hostlessHash, push = false) {
+        const hash = attachValueToFrontOfHash('host', this.hostHashValue, hostlessHash);
+        const fullHash = hash ? '#' + hash : '';
+        if (fullHash != location.hash) {
+            const url = fullHash || location.pathname + location.search;
+            if (push) {
+                history.pushState(history.state, '', url);
+            }
+            else {
+                history.replaceState(history.state, '', url);
+            }
+        }
     }
 }
 
@@ -1968,6 +1997,7 @@ class GlobalHistory {
     constructor($root, $scrollingPart, net) {
         this.$root = $root;
         this.$scrollingPart = $scrollingPart;
+        this.net = net;
         this.rememberScrollPosition = false;
         history.scrollRestoration = 'manual';
         const replaceScrollPositionInHistory = () => {
@@ -1994,40 +2024,31 @@ class GlobalHistory {
         });
         $root.addEventListener('osmNoteViewer:mapMoveEnd', ({ detail: { zoom, lat, lon } }) => {
             const mapHashValue = `${zoom}/${lat}/${lon}`;
-            const hash = getHashFromLocation();
-            const [hostHashValue, hostlessHash] = detachValueFromHash('host', hash);
+            const hostlessHash = net.serverSelector.getHostlessHash();
             const [, queryHash] = detachValueFromHash('map', hostlessHash);
             const updatedHostlessHash = attachValueToBackOfHash('map', mapHashValue, queryHash);
-            const updatedHash = attachValueToFrontOfHash('host', hostHashValue, updatedHostlessHash);
-            history.replaceState(history.state, '', '#' + updatedHash);
+            net.serverSelector.replaceHostlessHashInHistory(updatedHostlessHash);
         });
         $root.addEventListener('osmNoteViewer:newNoteStream', ({ detail: [queryHash, isNewStart] }) => {
             if (!net.cx)
                 return;
             let mapHashValue = null;
             if (!isNewStart) {
-                const hash = getHashFromLocation();
-                const [currentMapHashValue] = detachValueFromHash('map', hash);
-                mapHashValue = currentMapHashValue ?? '';
+                const hostlessHash = net.serverSelector.getHostlessHash();
+                [mapHashValue] = detachValueFromHash('map', hostlessHash);
             }
-            const hostHashValue = net.serverSelector.getHostHashValueForServer(net.cx.server);
             const updatedHostlessHash = attachValueToBackOfHash('map', mapHashValue, queryHash);
-            const updatedHash = attachValueToFrontOfHash('host', hostHashValue, updatedHostlessHash);
-            const fullHash = updatedHash ? '#' + updatedHash : '';
-            if (fullHash != location.hash) {
-                const url = fullHash || location.pathname + location.search;
-                if (isNewStart) {
-                    history.pushState(history.state, '', url);
-                }
-                else {
-                    history.replaceState(history.state, '', url);
-                }
+            if (isNewStart) {
+                net.serverSelector.pushHostlessHashInHistory(updatedHostlessHash);
+            }
+            else {
+                net.serverSelector.replaceHostlessHashInHistory(updatedHostlessHash);
             }
         });
     }
     triggerInitialMapHashChange() {
-        const hash = getHashFromLocation();
-        const [mapHashValue] = detachValueFromHash('map', hash);
+        const hostlessHash = this.net.serverSelector.getHostlessHash();
+        const [mapHashValue] = detachValueFromHash('map', hostlessHash);
         if (mapHashValue) {
             this.onMapHashChange(mapHashValue);
         }
@@ -2066,14 +2087,13 @@ class GlobalHistory {
         resizeObserver.observe(this.$resizeObservationTarget); // observing $scrollingPart won't work because its size doesn't change
     }
     getQueryHash() {
-        const hash = getHashFromLocation();
-        const [, hostlessHash] = detachValueFromHash('host', hash);
+        const hostlessHash = this.net.serverSelector.getHostlessHash();
         const [, queryHash] = detachValueFromHash('map', hostlessHash);
         return queryHash;
     }
     hasMapHash() {
-        const hash = getHashFromLocation();
-        const [mapHashValue] = detachValueFromHash('map', hash);
+        const hostlessHash = this.net.serverSelector.getHostlessHash();
+        const [mapHashValue] = detachValueFromHash('map', hostlessHash);
         return !!mapHashValue;
     }
     onMapHashChange(mapHashValue) {
@@ -3470,7 +3490,7 @@ class OverlayDialog {
         this.$nextImageButton = makeElement('button')('global', 'next')();
         this.$figureHelpDialog = makeHelpDialog(`Close image viewer help`, [
             makeElement('h2')()(`Image viewer keyboard controls`),
-            ul(li(kbd(`Enter`), ` and `, kbd(`Space`), ` — toggle image zoom`), li(kbd(`Esc`), ` — close image viewer`)),
+            ul(li(kbd(`Enter`), ` , `, kbd(`Space`), ` , `, kbd(`+`), ` / `, kbd(`-`), ` — toggle image zoom`), li(kbd(`Esc`), ` — close image viewer`)),
             p(`When zoomed out:`),
             ul(li(kbd(`Arrow keys`), ` — go to previous/next image in sequence`), li(kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last image in sequence`))
         ]);
@@ -3573,9 +3593,26 @@ class OverlayDialog {
             this.switchToImageDelta(+1);
             this.updateImageState();
         };
+        const scrollFigure = (xScrollFraction, yScrollFraction) => {
+            const xMaxScrollDistance = this.$figure.scrollWidth - this.$figure.clientWidth;
+            const yMaxScrollDistance = this.$figure.scrollHeight - this.$figure.clientHeight;
+            if (xMaxScrollDistance > 0)
+                this.$figure.scrollLeft = Math.round(xScrollFraction * xMaxScrollDistance);
+            if (yMaxScrollDistance > 0)
+                this.$figure.scrollTop = Math.round(yScrollFraction * yMaxScrollDistance);
+        };
         this.$figure.onkeydown = ev => {
             if (ev.key == 'Enter' || ev.key == ' ') {
-                this.$figure.classList.toggle('zoomed');
+                if (this.$figure.classList.toggle('zoomed')) {
+                    scrollFigure(.5, .5);
+                }
+            }
+            else if (ev.key == '+') {
+                this.$figure.classList.add('zoomed');
+                scrollFigure(.5, .5);
+            }
+            else if (ev.key == '-') {
+                this.$figure.classList.remove('zoomed');
             }
             else {
                 return;
@@ -3596,12 +3633,7 @@ class OverlayDialog {
                     yScrollFraction = clamp(ev.offsetY / this.$img.offsetHeight);
                 }
                 this.$figure.classList.add('zoomed');
-                const xMaxScrollDistance = this.$figure.scrollWidth - this.$figure.clientWidth;
-                const yMaxScrollDistance = this.$figure.scrollHeight - this.$figure.clientHeight;
-                if (xMaxScrollDistance > 0)
-                    this.$figure.scrollLeft = Math.round(xScrollFraction * xMaxScrollDistance);
-                if (yMaxScrollDistance > 0)
-                    this.$figure.scrollTop = Math.round(yScrollFraction * yMaxScrollDistance);
+                scrollFigure(xScrollFraction, yScrollFraction);
             }
         };
         this.$figure.onmousemove = ev => {
@@ -3974,15 +4006,15 @@ function toShortOrFullReadableDate(date, full) {
     }
     return dateString;
 }
-function toUrlDate(date, separator = '') {
+function toUrlDate(date, dateSeparator = '', timeSeparator = '') {
     const pad = (n) => ('0' + n).slice(-2);
     const dateObject = new Date(date * 1000);
-    const dateString = dateObject.getUTCFullYear() + separator +
-        pad(dateObject.getUTCMonth() + 1) + separator +
+    const dateString = dateObject.getUTCFullYear() + dateSeparator +
+        pad(dateObject.getUTCMonth() + 1) + dateSeparator +
         pad(dateObject.getUTCDate()) +
         'T' +
-        pad(dateObject.getUTCHours()) + separator +
-        pad(dateObject.getUTCMinutes()) + separator +
+        pad(dateObject.getUTCHours()) + timeSeparator +
+        pad(dateObject.getUTCMinutes()) + timeSeparator +
         pad(dateObject.getUTCSeconds()) +
         'Z';
     return dateString;
@@ -4346,12 +4378,10 @@ function transformFeatureToNote(noteFeature, users) {
         comments: noteFeature.properties.comments.map(cullCommentProps)
     };
     if (note.comments.length == 0) {
-        note.comments = [{
-                date: transformDate(noteFeature.properties.date_created),
-                action: 'opened',
-                text: '',
-                guessed: true
-            }];
+        note.comments = [makeGuessedOpeningComment(noteFeature)];
+    }
+    else if (note.comments[0].action != 'opened') {
+        note.comments.unshift(makeGuessedOpeningComment(noteFeature));
     }
     return note;
     function cullCommentProps(a) {
@@ -4367,13 +4397,21 @@ function transformFeatureToNote(noteFeature, users) {
         }
         return b;
     }
-    function transformDate(a) {
-        const match = a.match(/^\d\d\d\d-\d\d-\d\d\s+\d\d:\d\d:\d\d/);
-        if (!match)
-            return 0; // shouldn't happen
-        const [s] = match;
-        return Date.parse(s + 'Z') / 1000;
-    }
+}
+function makeGuessedOpeningComment(noteFeature) {
+    return {
+        date: transformDate(noteFeature.properties.date_created),
+        action: 'opened',
+        text: '',
+        guessed: true
+    };
+}
+function transformDate(a) {
+    const match = a.match(/^\d\d\d\d-\d\d-\d\d\s+\d\d:\d\d:\d\d/);
+    if (!match)
+        return 0; // shouldn't happen
+    const [s] = match;
+    return Date.parse(s + 'Z') / 1000;
 }
 function getNoteUpdateDate(note) {
     return note.comments[note.comments.length - 1]?.date ?? 0;
@@ -11202,7 +11240,7 @@ class OsmDownloader {
  * Similar to what achavi does, see https://github.com/nrenner/achavi/blob/9934871777b6e744d21bb2f22b112d386bcd9d30/js/map.js#L261
  */
 function makeAdiffQueryPreamble(changeset) {
-    const startDate = toUrlDate(Date.parse(changeset.created_at) / 1000 - 1, '-');
+    const startDate = toUrlDate(Date.parse(changeset.created_at) / 1000 - 1, '-', ':');
     const endPart = changeset.closed_at != null ? `,"${changeset.closed_at}"` : ``;
     const swneBounds = (changeset.minlat + ',' + changeset.minlon + ',' +
         changeset.maxlat + ',' + changeset.maxlon);
