@@ -1,6 +1,6 @@
 import type Net from './net'
 import type {HashServerSelector} from './net'
-import {getHashFromLocation, detachValueFromHash, attachValueToFrontOfHash, attachValueToBackOfHash} from './util/hash'
+import {detachValueFromHash, attachValueToBackOfHash} from './util/hash'
 import {bubbleCustomEvent} from './util/events'
 
 const scrollRestorerEnabled=true // almost works without this, just won't restore position correctly on forward
@@ -11,7 +11,7 @@ export default class GlobalHistory {
 	constructor(
 		private readonly $root: HTMLElement,
 		private readonly $scrollingPart: HTMLElement,
-		net: Net<HashServerSelector>
+		private readonly net: Net<HashServerSelector>
 	) {
 		if (!scrollRestorerEnabled) return
 		history.scrollRestoration='manual'
@@ -38,38 +38,29 @@ export default class GlobalHistory {
 		})
 		$root.addEventListener('osmNoteViewer:mapMoveEnd',({detail:{zoom,lat,lon}})=>{
 			const mapHashValue=`${zoom}/${lat}/${lon}`
-			const hash=getHashFromLocation()
-			const [hostHashValue,hostlessHash]=detachValueFromHash('host',hash)
+			const hostlessHash=net.serverSelector.getHostlessHash()
 			const [,queryHash]=detachValueFromHash('map',hostlessHash)
 			const updatedHostlessHash=attachValueToBackOfHash('map',mapHashValue,queryHash)
-			const updatedHash=attachValueToFrontOfHash('host',hostHashValue,updatedHostlessHash)
-			history.replaceState(history.state,'','#'+updatedHash)
+			net.serverSelector.replaceHostlessHashInHistory(updatedHostlessHash)
 		})
 		$root.addEventListener('osmNoteViewer:newNoteStream',({detail:[queryHash,isNewStart]})=>{
 			if (!net.cx) return
-			let mapHashValue=null
+			let mapHashValue: string|null = null
 			if (!isNewStart) {
-				const hash=getHashFromLocation()
-				const [currentMapHashValue]=detachValueFromHash('map',hash)
-				mapHashValue=currentMapHashValue??''
+				const hostlessHash=net.serverSelector.getHostlessHash()
+				;[mapHashValue]=detachValueFromHash('map',hostlessHash)
 			}
-			const hostHashValue=net.serverSelector.getHostHashValueForServer(net.cx.server)
 			const updatedHostlessHash=attachValueToBackOfHash('map',mapHashValue,queryHash)
-			const updatedHash=attachValueToFrontOfHash('host',hostHashValue,updatedHostlessHash)
-			const fullHash=updatedHash ? '#'+updatedHash : ''
-			if (fullHash!=location.hash) {
-				const url=fullHash||location.pathname+location.search
-				if (isNewStart) {
-					history.pushState(history.state,'',url)
-				} else {
-					history.replaceState(history.state,'',url)
-				}
+			if (isNewStart) {
+				net.serverSelector.pushHostlessHashInHistory(updatedHostlessHash)
+			} else {
+				net.serverSelector.replaceHostlessHashInHistory(updatedHostlessHash)
 			}
 		})
 	}
 	triggerInitialMapHashChange(): void {
-		const hash=getHashFromLocation()
-		const [mapHashValue]=detachValueFromHash('map',hash)
+		const hostlessHash=this.net.serverSelector.getHostlessHash()
+		const [mapHashValue]=detachValueFromHash('map',hostlessHash)
 		if (mapHashValue) {
 			this.onMapHashChange(mapHashValue)
 		}
@@ -103,14 +94,13 @@ export default class GlobalHistory {
 		resizeObserver.observe(this.$resizeObservationTarget) // observing $scrollingPart won't work because its size doesn't change
 	}
 	getQueryHash(): string {
-		const hash=getHashFromLocation()
-		const [,hostlessHash]=detachValueFromHash('host',hash)
+		const hostlessHash=this.net.serverSelector.getHostlessHash()
 		const [,queryHash]=detachValueFromHash('map',hostlessHash)
 		return queryHash
 	}
 	hasMapHash(): boolean {
-		const hash=getHashFromLocation()
-		const [mapHashValue]=detachValueFromHash('map',hash)
+		const hostlessHash=this.net.serverSelector.getHostlessHash()
+		const [mapHashValue]=detachValueFromHash('map',hostlessHash)
 		return !!mapHashValue
 	}
 	private onMapHashChange(mapHashValue: string) {

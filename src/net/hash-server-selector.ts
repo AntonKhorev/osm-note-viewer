@@ -74,12 +74,27 @@ export default class HashServerSelector implements ServerSelector {
 			callback(hostlessHash)
 		}
 	}
-	pushHashToHistory(hostlessHash: string): void {
+	getHostlessHash(): string {
+		const hash=getHashFromLocation()
+		const [,hostlessHash]=detachValueFromHash('host',hash)
+		return hostlessHash
+	}
+	pushHostlessHashInHistory(hostlessHash: string): void {
+		this.pushOrReplaceHostlessHashInHistory(hostlessHash,true)
+	}
+	replaceHostlessHashInHistory(hostlessHash: string): void {
+		this.pushOrReplaceHostlessHashInHistory(hostlessHash,false)
+	}
+	private pushOrReplaceHostlessHashInHistory(hostlessHash: string, push=false): void {
 		const hash=attachValueToFrontOfHash('host',this.hostHashValue,hostlessHash)
 		const fullHash=hash ? '#'+hash : ''
 		if (fullHash!=location.hash) {
 			const url=fullHash||location.pathname+location.search
-			history.pushState(history.state,'',url)
+			if (push) {
+				history.pushState(history.state,'',url)
+			} else {
+				history.replaceState(history.state,'',url)
+			}
 		}
 	}
 }
