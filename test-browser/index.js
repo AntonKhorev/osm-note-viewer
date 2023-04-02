@@ -371,6 +371,36 @@ describe("browser tests",function(){
 		await this.assertText(page,"the-first-note")
 		await this.assertNoText(page,"the-second-note")
 	})
+	it("doesn't have empty map parameter in location hash",async function(){
+		this.osmServer.setNotes([{
+			"map": "1.5/1.5",
+			"text": "the-first-note"
+		}])
+		const page=await this.openPage()
+		await this.waitForFetchButton()
+		const bboxTab=await page.$('#tab-BBox')
+		await bboxTab.click()
+		const bboxPanel=await page.$('#tab-panel-BBox')
+		const [fetchButton]=await bboxPanel.$x(buttonPath("Fetch notes"))
+		const bboxInput=await page.$('#tab-panel-BBox input[name=bbox]')
+		const waitForBbox=async(bbox)=>{
+			await page.waitForXPath(`//div[${containsClassCondition('notes')}]//caption/a[contains(.,"${bbox}")]`)
+			await page.waitForSelector('.notes tbody')
+		}
+		const fetchBbox=async(bbox)=>{
+			await bboxInput.focus()
+			await this.deleteAll()
+			await bboxInput.type(bbox)
+			await fetchButton.click()
+			await waitForBbox(bbox)
+		}
+		await fetchBbox('1,1,2,2')
+		const url=page.url()
+		assert.equal(
+			url.endsWith(`&map=`),
+			false
+		)
+	})
 
 	// keyboard controls
 

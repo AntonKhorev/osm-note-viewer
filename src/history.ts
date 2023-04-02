@@ -47,7 +47,7 @@ export default class GlobalHistory {
 		})
 		$root.addEventListener('osmNoteViewer:newNoteStream',({detail:[queryHash,isNewStart]})=>{
 			if (!net.cx) return
-			let mapHashValue=''
+			let mapHashValue=null
 			if (!isNewStart) {
 				const hash=getHashFromLocation()
 				const [currentMapHashValue]=detachValueFromHash('map',hash)
