@@ -139,11 +139,20 @@ export default class OverlayDialog {
 			this.switchToImageDelta(+1)
 			this.updateImageState()
 		}
+		const scrollFigure=(xScrollFraction:number,yScrollFraction:number)=>{
+			const xMaxScrollDistance=this.$figure.scrollWidth -this.$figure.clientWidth
+			const yMaxScrollDistance=this.$figure.scrollHeight-this.$figure.clientHeight
+			if (xMaxScrollDistance>0) this.$figure.scrollLeft=Math.round(xScrollFraction*xMaxScrollDistance)
+			if (yMaxScrollDistance>0) this.$figure.scrollTop =Math.round(yScrollFraction*yMaxScrollDistance)
+		}
 		this.$figure.onkeydown=ev=>{
 			if (ev.key=='Enter' || ev.key==' ') {
-				this.$figure.classList.toggle('zoomed')
+				if (this.$figure.classList.toggle('zoomed')) {
+					scrollFigure(.5,.5)
+				}
 			} else if (ev.key=='+') {
 				this.$figure.classList.add('zoomed')
+				scrollFigure(.5,.5)
 			} else if (ev.key=='-') {
 				this.$figure.classList.remove('zoomed')
 			} else {
@@ -164,10 +173,7 @@ export default class OverlayDialog {
 					yScrollFraction=clamp(ev.offsetY/this.$img.offsetHeight)
 				}
 				this.$figure.classList.add('zoomed')
-				const xMaxScrollDistance=this.$figure.scrollWidth -this.$figure.clientWidth
-				const yMaxScrollDistance=this.$figure.scrollHeight-this.$figure.clientHeight
-				if (xMaxScrollDistance>0) this.$figure.scrollLeft=Math.round(xScrollFraction*xMaxScrollDistance)
-				if (yMaxScrollDistance>0) this.$figure.scrollTop =Math.round(yScrollFraction*yMaxScrollDistance)
+				scrollFigure(xScrollFraction,yScrollFraction)
 			}
 		}
 		this.$figure.onmousemove=ev=>{
