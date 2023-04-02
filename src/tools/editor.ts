@@ -71,16 +71,14 @@ export class RcTool extends EditorTool {
 				`?left=${bounds.getWest()}&right=${bounds.getEast()}`+
 				`&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`
 			if (inputNotes.length>=1) {
-				let changesetComment=convertDecoratedNoteIdsToPlainText(
+				const combinedNoteComment=combineNoteComments(inputNotes)
+				const listedNoteIdsComment=convertDecoratedNoteIdsToPlainText(
 					listDecoratedNoteIds(inputNotes.map(note=>note.id))
 				)
-				if (inputNotes.length==1 && inputNotes[0].comments.length>0) {
-					const noteComment=inputNotes[0].comments[0].text
-					const [firstLine]=noteComment.split('\n',1)
-					if (firstLine.length>0 && firstLine.length<100) {
-						changesetComment=firstLine+' - '+changesetComment
-					}
-				}
+				const changesetCommentParts=[] as string[]
+				if (combinedNoteComment) changesetCommentParts.push(combinedNoteComment)
+				if (listedNoteIdsComment) changesetCommentParts.push(listedNoteIdsComment)
+				const changesetComment=changesetCommentParts.join(' - ')
 				const changesetTags=`source=notes|comment=${changesetComment}`
 				rcPath+=e`&changeset_tags=${changesetTags}`
 			}
@@ -170,4 +168,24 @@ async function openRcPath($button: HTMLButtonElement, rcPath: string): Promise<b
 		$button.classList.remove('error')
 		$button.title=''
 	}
+}
+
+function combineNoteComments(inputNotes: Iterable<Note>): string {
+	const maxNoteCommentLength=100
+	const visitedNoteComments=new Set<string>()
+	let combinedNoteComments=''
+	for (const note of inputNotes) {
+		if (note.comments.length==0) continue
+		const [comment]=note.comments[0].text.split('\n',1)
+		if (comment.length==0) continue
+		if (comment.length>maxNoteCommentLength) break
+		if (visitedNoteComments.has(comment)) continue
+		if (combinedNoteComments) combinedNoteComments+=`, `
+		combinedNoteComments+=comment
+		if (combinedNoteComments.length>maxNoteCommentLength) {
+			return ''
+		}
+		visitedNoteComments.add(comment)
+	}
+	return combinedNoteComments
 }
