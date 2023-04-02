@@ -2004,7 +2004,7 @@ class GlobalHistory {
         $root.addEventListener('osmNoteViewer:newNoteStream', ({ detail: [queryHash, isNewStart] }) => {
             if (!net.cx)
                 return;
-            let mapHashValue = '';
+            let mapHashValue = null;
             if (!isNewStart) {
                 const hash = getHashFromLocation();
                 const [currentMapHashValue] = detachValueFromHash('map', hash);
@@ -2282,133 +2282,86 @@ class OsmDataLayers {
     }
 }
 
-function isOsmBase(d) {
-    if (!d)
+function isOsmBaseApiData(d) {
+    if (!d || typeof d != 'object')
         return false;
-    if (!Number.isInteger(d.id))
+    if (!('id' in d) || !Number.isInteger(d.id))
         return false;
-    if (d.user != null && (typeof d.user != 'string'))
+    if (('user' in d) && (typeof d.user != 'string'))
         return false;
-    if (!Number.isInteger(d.uid))
+    if (!('uid' in d) || !Number.isInteger(d.uid))
         return false;
-    if (d.tags != null && (typeof d.tags != 'object'))
-        return false;
-    return true;
-}
-function isOsmElementBase(e) {
-    if (!isOsmBase(e))
-        return false;
-    if (e.type != 'node' && e.type != 'way' && e.type != 'relation')
-        return false;
-    if (typeof e.timestamp != 'string')
-        return false;
-    if (!Number.isInteger(e.version))
-        return false;
-    if (!Number.isInteger(e.changeset))
+    if (('tags' in d) && (typeof d.tags != 'object'))
         return false;
     return true;
 }
-function isOsmNodeElement(e) {
-    if (!isOsmElementBase(e))
+
+function isOsmElementBaseApiData(e) {
+    if (!isOsmBaseApiData(e))
+        return false;
+    if (!('type' in e) || (e.type != 'node' && e.type != 'way' && e.type != 'relation'))
+        return false;
+    if (!('timestamp' in e) || typeof e.timestamp != 'string')
+        return false;
+    if (!('version' in e) || !Number.isInteger(e.version))
+        return false;
+    if (!('changeset' in e) || !Number.isInteger(e.changeset))
+        return false;
+    return true;
+}
+function isOsmVisibleNodeApiData(e) {
+    if (!isOsmElementBaseApiData(e))
         return false;
     if (e.type != 'node')
         return false;
-    if (typeof e.lat != 'number')
+    if (!('lat' in e) || typeof e.lat != 'number')
         return false;
-    if (typeof e.lon != 'number')
+    if (!('lon' in e) || typeof e.lon != 'number')
         return false;
     return true;
 }
-function isOsmWayElement(e) {
-    if (!isOsmElementBase(e))
+function isOsmVisibleWayApiData(e) {
+    if (!isOsmElementBaseApiData(e))
         return false;
     if (e.type != 'way')
         return false;
-    const nodes = e.nodes;
-    if (!Array.isArray(nodes))
+    if (!('nodes' in e) || !isArray(e.nodes))
         return false;
-    if (!nodes.every(v => Number.isInteger(v)))
+    if (!e.nodes.every(v => Number.isInteger(v)))
         return false;
     return true;
 }
-function isOsmRelationElement(e) {
-    if (!isOsmElementBase(e))
+function isOsmVisibleRelationApiData(e) {
+    if (!isOsmElementBaseApiData(e))
         return false;
     if (e.type != 'relation')
         return false;
-    const members = e.members;
-    if (!Array.isArray(members))
+    if (!('members' in e) || !isArray(e.members))
         return false;
-    if (!members.every(m => (m &&
-        (m.type == 'node' || m.type == 'way' || m.type == 'relation') &&
-        Number.isInteger(m.ref) &&
-        (typeof m.role == 'string'))))
+    if (!e.members.every(m => (m && typeof m == 'object' &&
+        'type' in m && (m.type == 'node' || m.type == 'way' || m.type == 'relation') &&
+        'ref' in m && Number.isInteger(m.ref) &&
+        'role' in m && typeof m.role == 'string')))
         return false;
     return true;
-}
-function isOsmChangeset(c) {
-    if (!isOsmBase(c))
-        return false;
-    if (typeof c.created_at != 'string')
-        return false;
-    if (c.closed_at != null && (typeof c.closed_at != 'string'))
-        return false;
-    if (c.minlat == null && c.minlon == null &&
-        c.maxlat == null && c.maxlon == null) {
-        return true;
-    }
-    else if (Number.isFinite(c.minlat) && Number.isFinite(c.minlon) &&
-        Number.isFinite(c.maxlat) && Number.isFinite(c.maxlon)) {
-        return true;
-    }
-    else {
-        return false;
-    }
-}
-function hasBbox(changeset) {
-    return (changeset.minlat != null && changeset.minlon != null &&
-        changeset.maxlat != null && changeset.maxlon != null);
-}
-function getChangesetFromOsmApiResponse(data) {
-    if (!data)
-        throw new TypeError(`OSM API error: invalid response data`);
-    const changesetArray = data.elements;
-    if (!Array.isArray(changesetArray))
-        throw new TypeError(`OSM API error: invalid response data`);
-    if (changesetArray.length != 1)
-        throw new TypeError(`OSM API error: invalid number of changesets in response data`);
-    const changeset = changesetArray[0];
-    if (!isOsmChangeset(changeset))
-        throw new TypeError(`OSM API error: invalid changeset in response data`);
-    return changeset;
-}
-function getChangesetsFromOsmApiResponse(data) {
-    if (!data)
-        throw new TypeError(`OSM API error: invalid response data`);
-    const changesetArray = data.changesets;
-    if (!Array.isArray(changesetArray))
-        throw new TypeError(`OSM API error: invalid response data`);
-    if (!changesetArray.every(isOsmChangeset))
-        throw new TypeError(`OSM API error: invalid changeset in response data`);
-    return changesetArray;
 }
 function getElementsFromOsmApiResponse(data) {
     const node = {};
     const way = {};
     const relation = {};
-    if (!data)
+    if (!data || typeof data != 'object')
         throw new TypeError(`OSM API error: invalid response data`);
+    if (!('elements' in data) || !isArray(data.elements))
+        throw new TypeError(`OSM API error: no elements array in response data`);
     const elementArray = data.elements;
-    if (!Array.isArray(elementArray))
-        throw new TypeError(`OSM API error: invalid response data`);
     for (const element of elementArray) {
-        if (isOsmNodeElement(element)) {
+        if (isOsmVisibleNodeApiData(element)) {
             node[element.id] = element;
         }
-        else if (isOsmWayElement(element)) {
+        else if (isOsmVisibleWayApiData(element)) {
             way[element.id] = element;
         }
-        else if (isOsmRelationElement(element)) {
+        else if (isOsmVisibleRelationApiData(element)) {
             relation[element.id] = element;
         }
         else {
@@ -2417,189 +2370,150 @@ function getElementsFromOsmApiResponse(data) {
     }
     return { node, way, relation };
 }
-function getAdiffFromDocument(changeset, doc) {
-    const node = {};
-    const way = {};
-    const changedNodeIds = new Set();
-    for (const actionDocElement of doc.querySelectorAll('action')) {
-        const actionType = actionDocElement.getAttribute('type');
-        if (actionType == 'create') {
-            const element = doesElementMatchChangeset(changeset, changedNodeIds, actionDocElement);
-            if (element) {
-                if (element.type == 'node') {
-                    node[element.id] = {
-                        action: actionType,
-                        newElement: element
+
+function isOsmChangesetApiData(c) {
+    if (!isOsmBaseApiData(c))
+        return false;
+    if (!('created_at' in c) || typeof c.created_at != 'string')
+        return false;
+    if (('closed_at' in c) && typeof c.closed_at != 'string')
+        return false;
+    return true;
+}
+function hasBbox(c) {
+    if (!('minlat' in c) || !Number.isFinite(c.minlat))
+        return false;
+    if (!('maxlat' in c) || !Number.isFinite(c.maxlat))
+        return false;
+    if (!('minlon' in c) || !Number.isFinite(c.minlon))
+        return false;
+    if (!('maxlon' in c) || !Number.isFinite(c.maxlon))
+        return false;
+    return true;
+}
+function getChangesetFromOsmApiResponse(data) {
+    if (!data || typeof data != 'object')
+        throw new TypeError(`OSM API error: invalid response data`);
+    if (!('elements' in data) || !isArray(data.elements))
+        throw new TypeError(`OSM API error: no 'elements' array with changesets in response data`);
+    const changesetArray = data.elements;
+    if (changesetArray.length != 1)
+        throw new TypeError(`OSM API error: invalid number of changesets in response data`);
+    const changeset = changesetArray[0];
+    if (!isOsmChangesetApiData(changeset))
+        throw new TypeError(`OSM API error: invalid changeset in response data`);
+    return changeset;
+}
+function getChangesetsFromOsmApiResponse(data) {
+    if (!data || typeof data != 'object')
+        throw new TypeError(`OSM API error: invalid response data`);
+    if (!('changesets' in data) || !isArray(data.changesets))
+        throw new TypeError(`OSM API error: no changesets array in response data`);
+    const changesetArray = data.changesets;
+    if (!changesetArray.every(isOsmChangesetApiData))
+        throw new TypeError(`OSM API error: invalid changeset in response data`);
+    return changesetArray;
+}
+
+function toUserQuery(apiUrlLister, webUrlLister, value) {
+    const s = value.trim();
+    if (s == '')
+        return {
+            type: 'empty'
+        };
+    if (s[0] == '#') {
+        let match;
+        if (match = s.match(/^#\s*(\d+)$/)) {
+            const [, uid] = match;
+            return {
+                type: 'id',
+                uid: Number(uid)
+            };
+        }
+        else if (match = s.match(/^#\s*\d*(.)/)) {
+            const [, c] = match;
+            return {
+                type: 'invalid',
+                message: `uid cannot contain non-digits, found ${c}`
+            };
+        }
+        else {
+            return {
+                type: 'invalid',
+                message: `uid cannot be empty`
+            };
+        }
+    }
+    if (s.includes('/')) {
+        const hosts = new Set();
+        for (const urlString of [apiUrlLister.url, ...webUrlLister.urls]) {
+            try {
+                const url = new URL(urlString);
+                hosts.add(url.host);
+            }
+            catch { }
+        }
+        try {
+            const url = new URL(s);
+            if (!hosts.has(url.host)) {
+                let domainString = `was given ${url.host}`;
+                if (!url.host)
+                    domainString = `no domain was given`;
+                return {
+                    type: 'invalid',
+                    message: `URL has to be of an OSM domain, ${domainString}`
+                };
+            }
+            const [, typeDir] = url.pathname.split('/', 2);
+            if (typeDir == 'user') {
+                const [, , userDir] = url.pathname.split('/', 3);
+                if (!userDir)
+                    return {
+                        type: 'invalid',
+                        message: `OSM user URL has to include username`
                     };
-                }
-                else if (element.type == 'way') {
-                    way[element.id] = {
-                        action: actionType,
-                        newElement: element
+                return {
+                    type: 'name',
+                    username: decodeURIComponent(userDir)
+                };
+            }
+            else if (typeDir == 'api') {
+                const [, , apiVersionDir, apiCall, apiValue] = url.pathname.split('/', 5);
+                if (apiVersionDir != '0.6' || apiCall != 'user')
+                    return {
+                        type: 'invalid',
+                        message: `OSM API URL has to be "api/0.6/user/..."`
                     };
-                }
+                const [uidString] = apiValue.split('.');
+                const uid = Number(uidString);
+                if (!Number.isInteger(uid))
+                    return {
+                        type: 'invalid',
+                        message: `OSM API URL has to include valid user id"`
+                    };
+                return {
+                    type: 'id',
+                    uid
+                };
+            }
+            else {
+                return {
+                    type: 'invalid',
+                    message: `OSM URL has to be either user page or user api link`
+                };
             }
         }
-        else if (actionType == 'modify') {
-            const elements = doesNewElementMatchChangeset(changeset, changedNodeIds, actionDocElement);
-            if (elements) {
-                const [oldElement, newElement] = elements;
-                if (oldElement.type == 'node' && newElement.type == 'node') {
-                    node[newElement.id] = {
-                        action: actionType,
-                        oldElement, newElement
-                    };
-                }
-                else if (oldElement.type == 'way' && newElement.type == 'way') {
-                    way[newElement.id] = {
-                        action: actionType,
-                        oldElement, newElement
-                    };
-                }
-            }
-        }
-        else if (actionType == 'delete') {
-            const elements = doesNewElementMatchChangeset(changeset, changedNodeIds, actionDocElement);
-            if (elements) {
-                const [oldElement, newElement] = elements;
-                if (oldElement.type == 'node' && newElement.type == 'node') {
-                    node[newElement.id] = {
-                        action: actionType,
-                        oldElement, newElement
-                    };
-                }
-                else if (oldElement.type == 'way' && newElement.type == 'way') {
-                    way[newElement.id] = {
-                        action: actionType,
-                        oldElement, newElement
-                    };
-                }
-            }
+        catch {
+            return {
+                type: 'invalid',
+                message: `string containing "/" character has to be a valid URL`
+            };
         }
     }
-    return { node, way };
-}
-function doesElementMatchChangeset(changeset, changedNodeIds, parent) {
-    const docElement = parent.firstElementChild;
-    if (!docElement)
-        throw new TypeError(`Overpass error: missing element`);
-    const element = readAdiffElement(docElement);
-    if (!isElementMatchesChangeset(changeset, changedNodeIds, element))
-        return null;
-    return element;
-}
-function doesNewElementMatchChangeset(changeset, changedNodeIds, parent) {
-    const [oldChild, newChild] = getOldAndNewChildren(parent);
-    if (!oldChild || !newChild)
-        throw new TypeError(`Overpass error: missing element`);
-    const oldDocElement = oldChild.firstElementChild;
-    const newDocElement = newChild.firstElementChild;
-    if (!oldDocElement || !newDocElement)
-        throw new TypeError(`Overpass error: missing element`);
-    const oldElement = readAdiffElement(oldDocElement);
-    const newElement = readAdiffElement(newDocElement);
-    if (!isElementMatchesChangeset(changeset, changedNodeIds, newElement))
-        return null;
-    if (oldElement.type == 'node' && newElement.type == 'node') {
-        return [oldElement, newElement];
-    }
-    else if (oldElement.type == 'way' && newElement.type == 'way') {
-        return [oldElement, newElement];
-    }
-    else {
-        throw new TypeError(`Overpass error: unexpected element type change`);
-    }
-}
-function getOldAndNewChildren(parent) {
-    let oldChild;
-    let newChild;
-    for (const oldOrNewChild of parent.children) {
-        if (oldOrNewChild.tagName == 'old') {
-            oldChild = oldOrNewChild;
-        }
-        else if (oldOrNewChild.tagName == 'new') {
-            newChild = oldOrNewChild;
-        }
-    }
-    return [oldChild, newChild];
-}
-function isElementMatchesChangeset(changeset, changedNodeIds, element) {
-    const changesetIdMatched = element.changeset == changeset.id;
-    if (element.type == 'node') {
-        if (changesetIdMatched) {
-            changedNodeIds.add(element.id);
-        }
-    }
-    else if (element.type == 'way' && element.visible) {
-        if (!changesetIdMatched) {
-            for (const [ref] of element.nodeRefs) {
-                if (changedNodeIds.has(ref))
-                    return true;
-            }
-        }
-    }
-    return changesetIdMatched;
-}
-function readAdiffElement(docElement) {
-    const readAttribute = (k, e = docElement) => {
-        const v = e.getAttribute(k);
-        if (v == null)
-            throw new TypeError(`Overpass error: missing element ${k}`);
-        return v;
+    return {
+        type: 'name',
+        username: s
     };
-    const readNumberAttribute = (k, e = docElement) => {
-        const v = Number(readAttribute(k, e));
-        if (isNaN(v))
-            throw new TypeError(`Overpass error: invalid element ${k}`);
-        return v;
-    };
-    const id = readNumberAttribute('id');
-    const version = readNumberAttribute('version');
-    const timestamp = readAttribute('timestamp');
-    const changeset = readNumberAttribute('changeset');
-    const uid = readNumberAttribute('uid');
-    const user = readAttribute('user');
-    const type = docElement.tagName;
-    const visible = docElement.getAttribute('visible') != 'false';
-    if (!visible) {
-        if (type == 'node' || type == 'way') {
-            return {
-                type, id, version, timestamp, changeset, uid, user, visible
-            };
-        }
-    }
-    else {
-        let tags;
-        for (const tagDocElement of docElement.querySelectorAll('tag')) {
-            if (!tags)
-                tags = {};
-            const k = readAttribute('k', tagDocElement);
-            const v = readAttribute('v', tagDocElement);
-            tags[k] = v;
-        }
-        if (type == 'node') {
-            const lat = readNumberAttribute('lat');
-            const lon = readNumberAttribute('lon');
-            return {
-                type, id, version, timestamp, changeset, uid, user, visible, tags,
-                lat, lon
-            };
-        }
-        else if (type == 'way') {
-            const nodeRefs = [];
-            for (const nodeRefDocElement of docElement.querySelectorAll('nd')) {
-                const ref = readNumberAttribute('ref', nodeRefDocElement);
-                const lat = readNumberAttribute('lat', nodeRefDocElement);
-                const lon = readNumberAttribute('lon', nodeRefDocElement);
-                nodeRefs.push([ref, lat, lon]);
-            }
-            return {
-                type, id, version, timestamp, changeset, uid, user, visible, tags,
-                nodeRefs
-            };
-        }
-    }
-    throw new TypeError(`Overpass error: unexpected element type "${docElement.tagName}"`);
 }
 
 function renderOsmElement(element, elements) {
@@ -4036,126 +3950,6 @@ function makeButton(id, title, listener) {
     return $button;
 }
 
-function toUserQuery(apiUrlLister, webUrlLister, value) {
-    const s = value.trim();
-    if (s == '')
-        return {
-            userType: 'empty'
-        };
-    if (s[0] == '#') {
-        let match;
-        if (match = s.match(/^#\s*(\d+)$/)) {
-            const [, uid] = match;
-            return {
-                userType: 'id',
-                uid: Number(uid)
-            };
-        }
-        else if (match = s.match(/^#\s*\d*(.)/)) {
-            const [, c] = match;
-            return {
-                userType: 'invalid',
-                message: `uid cannot contain non-digits, found ${c}`
-            };
-        }
-        else {
-            return {
-                userType: 'invalid',
-                message: `uid cannot be empty`
-            };
-        }
-    }
-    if (s.includes('/')) {
-        const hosts = new Set();
-        for (const urlString of [apiUrlLister.url, ...webUrlLister.urls]) {
-            try {
-                const url = new URL(urlString);
-                hosts.add(url.host);
-            }
-            catch { }
-        }
-        try {
-            const url = new URL(s);
-            if (!hosts.has(url.host)) {
-                let domainString = `was given ${url.host}`;
-                if (!url.host)
-                    domainString = `no domain was given`;
-                return {
-                    userType: 'invalid',
-                    message: `URL has to be of an OSM domain, ${domainString}`
-                };
-            }
-            const [, typeDir] = url.pathname.split('/', 2);
-            if (typeDir == 'user') {
-                const [, , userDir] = url.pathname.split('/', 3);
-                if (!userDir)
-                    return {
-                        userType: 'invalid',
-                        message: `OSM user URL has to include username`
-                    };
-                return {
-                    userType: 'name',
-                    username: decodeURIComponent(userDir)
-                };
-            }
-            else if (typeDir == 'api') {
-                const [, , apiVersionDir, apiCall, apiValue] = url.pathname.split('/', 5);
-                if (apiVersionDir != '0.6' || apiCall != 'user')
-                    return {
-                        userType: 'invalid',
-                        message: `OSM API URL has to be "api/0.6/user/..."`
-                    };
-                const [uidString] = apiValue.split('.');
-                const uid = Number(uidString);
-                if (!Number.isInteger(uid))
-                    return {
-                        userType: 'invalid',
-                        message: `OSM API URL has to include valid user id"`
-                    };
-                return {
-                    userType: 'id',
-                    uid
-                };
-            }
-            else {
-                return {
-                    userType: 'invalid',
-                    message: `OSM URL has to be either user page or user api link`
-                };
-            }
-        }
-        catch {
-            return {
-                userType: 'invalid',
-                message: `string containing "/" character has to be a valid URL`
-            };
-        }
-    }
-    return {
-        userType: 'name',
-        username: s
-    };
-}
-function makeUserQueryFromUserNameAndId(username, uid) {
-    if (username != null) {
-        return {
-            userType: 'name',
-            username
-        };
-    }
-    else if (uid != null && Number.isInteger(uid)) {
-        return {
-            userType: 'id',
-            uid
-        };
-    }
-    else {
-        return {
-            userType: 'empty'
-        };
-    }
-}
-
 function toReadableDate(date) {
     return toShortOrFullReadableDate(date, true);
 }
@@ -4281,6 +4075,25 @@ function toDateQuery(readableDate) {
 }
 
 const defaultLowerDate = Date.parse('2001-01-01 00:00:00Z') / 1000;
+function makeUserQueryFromUserNameAndId(username, uid) {
+    if (username != null) {
+        return {
+            type: 'name',
+            username
+        };
+    }
+    else if (uid != null && Number.isInteger(uid)) {
+        return {
+            type: 'id',
+            uid
+        };
+    }
+    else {
+        return {
+            type: 'empty'
+        };
+    }
+}
 function makeNoteSearchQueryFromUserQueryAndValues(userQuery, textValue, fromValue, toValue, closedValue, sortValue, orderValue) {
     const noteSearchQuery = {
         mode: 'search',
@@ -4289,12 +4102,12 @@ function makeNoteSearchQueryFromUserQueryAndValues(userQuery, textValue, fromVal
         order: toOrder(orderValue)
     };
     {
-        if (userQuery.userType == 'invalid')
+        if (userQuery.type == 'invalid')
             return undefined;
-        if (userQuery.userType == 'name') {
+        if (userQuery.type == 'name') {
             noteSearchQuery.display_name = userQuery.username;
         }
-        else if (userQuery.userType == 'id') {
+        else if (userQuery.type == 'id') {
             noteSearchQuery.user = userQuery.uid;
         }
     }
@@ -5514,7 +5327,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
                 this.$userInput.value = this.cx.username;
                 return oldUsername;
             }, () => [makeElement('span')()(`undo set to`)], () => [makeElement('span')()(`set to`), ` `, em(String(this.cx.username))]);
-            $fieldset.append(makeDiv('major-input-group')(userInputControl.$controls, makeLabel()(`OSM username, URL or #id`, rq2('display_name', 'user'), ` `, this.$userInput)));
+            $fieldset.append(makeDiv('major-input-group')(userInputControl.$controls, makeLabel()(`Username, URL or #id`, rq2('display_name', 'user'), ` `, this.$userInput)));
             this.$root.addEventListener('osmNoteViewer:loginChange', () => {
                 userInputControl.update();
             });
@@ -5561,7 +5374,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
     addEventListenersBeforeClosedLine() {
         this.$userInput.addEventListener('input', () => {
             const userQuery = toUserQuery(this.cx.server.api, this.cx.server.web, this.$userInput.value);
-            if (userQuery.userType == 'invalid') {
+            if (userQuery.type == 'invalid') {
                 this.$userInput.setCustomValidity(userQuery.message);
             }
             else {
@@ -5965,6 +5778,8 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
         this.$fileInput.disabled = disabled;
     }
     writePrependedFieldset($fieldset, $legend) {
+        if (this.cx.server.host != 'www.openstreetmap.org')
+            return;
         $legend.append(`Get notes in a country from `, em(`resultmaps.neis-one.org`));
         {
             $fieldset.append(makeDiv()(makeElement('details')()(makeElement('summary')()(`How to get notes from `, em(`resultmaps.neis-one.org`)), ol(li(`Select a country and a note status, then click `, em(`Download feed file`), `. `, `After this one of the following things will happen, depending on your browser: `, ul(li(`The feed file is downloaded, which is what you want.`), li(`Browser opens a new tab with the feed file. In this case manually save the page.`)), `Also the `, em(`selector`), ` and `, em(`attribute`), ` fields below are updated to extract note ids from this feed.`), li(`Open the file with one of these two methods: `, ul(li(`Click the `, em(`Read XML file`), ` area and use a file picker dialog.`), li(`Drag and drop the file from browser downloads panel/window into the `, em(`Read XML file`), ` area. This is likely a faster method.`)))), p(`Unfortunately these steps of downloading/opening a file cannot be avoided because `, makeLink(`neis-one.org`, `https://resultmaps.neis-one.org/osm-notes`), ` server is not configured to let its data to be accessed by browser scripts.`))));
@@ -5992,7 +5807,7 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
         }
     }
     writeScopeAndOrderFieldset($fieldset, $legend) {
-        $legend.textContent = `Or read custom XML file`;
+        $legend.textContent = `Read custom XML file`;
         {
             $fieldset.append(makeDiv('advanced-hint')(p(`Load an arbitrary XML file containing note ids or links. `, `Elements containing the ids are selected by a `, makeLink(`css selector`, `https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors`), ` provided below. `, `Inside the elements ids are looked for in an `, em(`attribute`), ` if specified below, or in text content. `, `After that download each note `, makeLink(`by its id`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Read:_GET_/api/0.6/notes/#id`), `.`)));
         }
@@ -6671,10 +6486,10 @@ class NoteFilter {
                     if (!isValidOperator(operator))
                         continue; // impossible
                     const userQuery = toUserQuery(apiUrlLister, webUrlLister, user);
-                    if (userQuery.userType == 'invalid' || userQuery.userType == 'empty') {
+                    if (userQuery.type == 'invalid' || userQuery.type == 'empty') {
                         throwError(`Invalid user value "${user}"`);
                     }
-                    conditions.push({ type: 'user', operator, ...userQuery });
+                    conditions.push({ type: 'user', operator, user: userQuery });
                     continue;
                 }
                 else if (match = matchTerm('action', '(.+)')) {
@@ -6719,25 +6534,25 @@ class NoteFilter {
     matchNote(note, getUsername) {
         // console.log('> match',this.statements,note.comments)
         const isCommentEqualToUserConditionValue = (condition, comment) => {
-            if (condition.userType == 'id') {
-                if (condition.uid == 0) {
+            if (condition.user.type == 'id') {
+                if (condition.user.uid == 0) {
                     if (comment.uid != null)
                         return false;
                 }
                 else {
-                    if (comment.uid != condition.uid)
+                    if (comment.uid != condition.user.uid)
                         return false;
                 }
             }
             else {
-                if (condition.username == '0') {
+                if (condition.user.username == '0') {
                     if (comment.uid != null)
                         return false;
                 }
                 else {
                     if (comment.uid == null)
                         return false;
-                    if (getUsername(comment.uid) != condition.username)
+                    if (getUsername(comment.uid) != condition.user.username)
                         return false;
                 }
             }
@@ -6745,7 +6560,7 @@ class NoteFilter {
         };
         const getConditionActualValue = (condition, comment) => {
             if (condition.type == 'user') {
-                if (condition.userType == 'id') {
+                if (condition.user.type == 'id') {
                     return comment.uid;
                 }
                 else {
@@ -6763,11 +6578,11 @@ class NoteFilter {
         };
         const getConditionCompareValue = (condition) => {
             if (condition.type == 'user') {
-                if (condition.userType == 'id') {
-                    return condition.uid;
+                if (condition.user.type == 'id') {
+                    return condition.user.uid;
                 }
                 else {
-                    return condition.username;
+                    return condition.user.username;
                 }
             }
             else if (condition.type == 'action') {
@@ -11101,6 +10916,191 @@ function makeSettingsDialog(toolsWithDetails, storage) {
     };
     $dialog.append(makeDiv('major-input-group')($openAllButton, $closeAllButton));
     return $dialog;
+}
+
+function getAdiffFromDocument(changeset, doc) {
+    const node = {};
+    const way = {};
+    const changedNodeIds = new Set();
+    for (const actionDocElement of doc.querySelectorAll('action')) {
+        const actionType = actionDocElement.getAttribute('type');
+        if (actionType == 'create') {
+            const element = doesElementMatchChangeset(changeset, changedNodeIds, actionDocElement);
+            if (element) {
+                if (element.type == 'node') {
+                    node[element.id] = {
+                        action: actionType,
+                        newElement: element
+                    };
+                }
+                else if (element.type == 'way') {
+                    way[element.id] = {
+                        action: actionType,
+                        newElement: element
+                    };
+                }
+            }
+        }
+        else if (actionType == 'modify') {
+            const elements = doesNewElementMatchChangeset(changeset, changedNodeIds, actionDocElement);
+            if (elements) {
+                const [oldElement, newElement] = elements;
+                if (oldElement.type == 'node' && newElement.type == 'node') {
+                    node[newElement.id] = {
+                        action: actionType,
+                        oldElement, newElement
+                    };
+                }
+                else if (oldElement.type == 'way' && newElement.type == 'way') {
+                    way[newElement.id] = {
+                        action: actionType,
+                        oldElement, newElement
+                    };
+                }
+            }
+        }
+        else if (actionType == 'delete') {
+            const elements = doesNewElementMatchChangeset(changeset, changedNodeIds, actionDocElement);
+            if (elements) {
+                const [oldElement, newElement] = elements;
+                if (oldElement.type == 'node' && newElement.type == 'node') {
+                    node[newElement.id] = {
+                        action: actionType,
+                        oldElement, newElement
+                    };
+                }
+                else if (oldElement.type == 'way' && newElement.type == 'way') {
+                    way[newElement.id] = {
+                        action: actionType,
+                        oldElement, newElement
+                    };
+                }
+            }
+        }
+    }
+    return { node, way };
+}
+function doesElementMatchChangeset(changeset, changedNodeIds, parent) {
+    const docElement = parent.firstElementChild;
+    if (!docElement)
+        throw new TypeError(`Overpass error: missing element`);
+    const element = readAdiffElement(docElement);
+    if (!isElementMatchesChangeset(changeset, changedNodeIds, element))
+        return null;
+    return element;
+}
+function doesNewElementMatchChangeset(changeset, changedNodeIds, parent) {
+    const [oldChild, newChild] = getOldAndNewChildren(parent);
+    if (!oldChild || !newChild)
+        throw new TypeError(`Overpass error: missing element`);
+    const oldDocElement = oldChild.firstElementChild;
+    const newDocElement = newChild.firstElementChild;
+    if (!oldDocElement || !newDocElement)
+        throw new TypeError(`Overpass error: missing element`);
+    const oldElement = readAdiffElement(oldDocElement);
+    const newElement = readAdiffElement(newDocElement);
+    if (!isElementMatchesChangeset(changeset, changedNodeIds, newElement))
+        return null;
+    if (oldElement.type == 'node' && newElement.type == 'node') {
+        return [oldElement, newElement];
+    }
+    else if (oldElement.type == 'way' && newElement.type == 'way') {
+        return [oldElement, newElement];
+    }
+    else {
+        throw new TypeError(`Overpass error: unexpected element type change`);
+    }
+}
+function getOldAndNewChildren(parent) {
+    let oldChild;
+    let newChild;
+    for (const oldOrNewChild of parent.children) {
+        if (oldOrNewChild.tagName == 'old') {
+            oldChild = oldOrNewChild;
+        }
+        else if (oldOrNewChild.tagName == 'new') {
+            newChild = oldOrNewChild;
+        }
+    }
+    return [oldChild, newChild];
+}
+function isElementMatchesChangeset(changeset, changedNodeIds, element) {
+    const changesetIdMatched = element.changeset == changeset.id;
+    if (element.type == 'node') {
+        if (changesetIdMatched) {
+            changedNodeIds.add(element.id);
+        }
+    }
+    else if (element.type == 'way' && element.visible) {
+        if (!changesetIdMatched) {
+            for (const [ref] of element.nodeRefs) {
+                if (changedNodeIds.has(ref))
+                    return true;
+            }
+        }
+    }
+    return changesetIdMatched;
+}
+function readAdiffElement(docElement) {
+    const readAttribute = (k, e = docElement) => {
+        const v = e.getAttribute(k);
+        if (v == null)
+            throw new TypeError(`Overpass error: missing element ${k}`);
+        return v;
+    };
+    const readNumberAttribute = (k, e = docElement) => {
+        const v = Number(readAttribute(k, e));
+        if (isNaN(v))
+            throw new TypeError(`Overpass error: invalid element ${k}`);
+        return v;
+    };
+    const id = readNumberAttribute('id');
+    const version = readNumberAttribute('version');
+    const timestamp = readAttribute('timestamp');
+    const changeset = readNumberAttribute('changeset');
+    const uid = readNumberAttribute('uid');
+    const user = readAttribute('user');
+    const type = docElement.tagName;
+    const visible = docElement.getAttribute('visible') != 'false';
+    if (!visible) {
+        if (type == 'node' || type == 'way') {
+            return {
+                type, id, version, timestamp, changeset, uid, user, visible
+            };
+        }
+    }
+    else {
+        let tags;
+        for (const tagDocElement of docElement.querySelectorAll('tag')) {
+            if (!tags)
+                tags = {};
+            const k = readAttribute('k', tagDocElement);
+            const v = readAttribute('v', tagDocElement);
+            tags[k] = v;
+        }
+        if (type == 'node') {
+            const lat = readNumberAttribute('lat');
+            const lon = readNumberAttribute('lon');
+            return {
+                type, id, version, timestamp, changeset, uid, user, visible, tags,
+                lat, lon
+            };
+        }
+        else if (type == 'way') {
+            const nodeRefs = [];
+            for (const nodeRefDocElement of docElement.querySelectorAll('nd')) {
+                const ref = readNumberAttribute('ref', nodeRefDocElement);
+                const lat = readNumberAttribute('lat', nodeRefDocElement);
+                const lon = readNumberAttribute('lon', nodeRefDocElement);
+                nodeRefs.push([ref, lat, lon]);
+            }
+            return {
+                type, id, version, timestamp, changeset, uid, user, visible, tags,
+                nodeRefs
+            };
+        }
+    }
+    throw new TypeError(`Overpass error: unexpected element type "${docElement.tagName}"`);
 }
 
 const e = makeEscapeTag(encodeURIComponent);
