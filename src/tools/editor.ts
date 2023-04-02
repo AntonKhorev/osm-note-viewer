@@ -71,9 +71,16 @@ export class RcTool extends EditorTool {
 				`?left=${bounds.getWest()}&right=${bounds.getEast()}`+
 				`&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`
 			if (inputNotes.length>=1) {
-				const changesetComment=convertDecoratedNoteIdsToPlainText(
+				let changesetComment=convertDecoratedNoteIdsToPlainText(
 					listDecoratedNoteIds(inputNotes.map(note=>note.id))
 				)
+				if (inputNotes.length==1 && inputNotes[0].comments.length>0) {
+					const noteComment=inputNotes[0].comments[0].text
+					const [firstLine]=noteComment.split('\n',1)
+					if (firstLine.length>0 && firstLine.length<100) {
+						changesetComment=firstLine+' - '+changesetComment
+					}
+				}
 				const changesetTags=`source=notes|comment=${changesetComment}`
 				rcPath+=e`&changeset_tags=${changesetTags}`
 			}
