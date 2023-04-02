@@ -36,33 +36,39 @@ export class OverpassTurboTool extends OverpassBaseTool {
 	)]}
 	protected getTool($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements {
 		this.installTimestampListener($root,$tool)
-		const buttonClickListener=(onlyAround: boolean, withRelations: boolean)=>{
+		const $withRelationsCheckbox=makeElement('input')()()
+		const $withLandusesCheckbox=makeElement('input')()()
+		const buttonClickListener=(onlyAround: boolean)=>{
 			let query=this.getOverpassQueryPreamble(map)
-			if (withRelations) {
-				query+=`nwr`
-			} else {
-				query+=`nw`
-			}
+			const types=$withRelationsCheckbox.checked ? `nwr` : `nw`
+			query+=types
 			if (onlyAround) {
 				const radius=10
 				query+=`(around:${radius},${map.lat},${map.lon})`
 			}
 			query+=`;\n`
+			if (!$withLandusesCheckbox.checked) {
+				query+=`${types}._[!landuse];\n`
+			}
 			query+=`out meta geom;`
 			if (!this.cx.server.overpassTurbo) throw new ReferenceError(`no overpass turbo provider`)
 			open(this.cx.server.overpassTurbo.getUrl(query,map.lat,map.lon,map.zoom),'overpass-turbo')
 		}
 		const $loadAreaButton=makeElement('button')()(`Load `,makeMapIcon('area'))
 		const $loadAroundButton=makeElement('button')()(`Load around `,makeMapIcon('center'))
-		const $withRelationsCheckbox=makeElement('input')()()
+		
 		$withRelationsCheckbox.type='checkbox'
-		const $withRelationsLabel=makeLabel('inline')($withRelationsCheckbox,` with relations`)
+		const $withRelationsLabel=makeLabel('inline')($withRelationsCheckbox,` relations`)
 		$withRelationsLabel.title=`May fetch large unwanted relations like routes`
-		$loadAreaButton.onclick=()=>buttonClickListener(false,$withRelationsCheckbox.checked)
-		$loadAroundButton.onclick=()=>buttonClickListener(true,$withRelationsCheckbox.checked)
+		$withLandusesCheckbox.type='checkbox'
+		$withLandusesCheckbox.checked=true
+		const $withLandusesLabel=makeLabel('inline')($withLandusesCheckbox,` landuses`)
+		$withLandusesLabel.title=`Landuses often overlap with smaller objects and make them difficult to select in Overpass turbo`
+		$loadAreaButton.onclick=()=>buttonClickListener(false)
+		$loadAroundButton.onclick=()=>buttonClickListener(true)
 		return [
 			$loadAreaButton,` `,$loadAroundButton,` `,
-			$withRelationsLabel
+			`with `,$withRelationsLabel,` `,$withLandusesLabel
 		]
 	}
 }
