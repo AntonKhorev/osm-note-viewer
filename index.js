@@ -2107,16 +2107,21 @@ class GlobalHistory {
 const e$9 = makeEscapeTag(escapeXml);
 class NoteMarker extends L.Marker {
     constructor(web, note) {
-        const icon = getNoteMarkerIcon(web, note, false);
+        const $a = document.createElement('a');
+        $a.href = web.getUrl(`note/` + encodeURIComponent(note.id));
+        $a.classList.add('listened', 'other-note');
+        $a.dataset.noteId = String(note.id);
+        const icon = getNoteMarkerIcon($a, web, note, false);
         super([note.lat, note.lon], { icon });
+        this.$a = $a;
         this.noteId = note.id;
     }
     updateIcon(web, note, isSelected) {
-        const icon = getNoteMarkerIcon(web, note, isSelected);
+        const icon = getNoteMarkerIcon(this.$a, web, note, isSelected);
         this.setIcon(icon);
     }
 }
-function getNoteMarkerIcon(web, note, isSelected) {
+function getNoteMarkerIcon($a, web, note, isSelected) {
     const width = 25;
     const height = 40;
     const auraThickness = 4;
@@ -2135,12 +2140,8 @@ function getNoteMarkerIcon(web, note, isSelected) {
         html += drawCheckMark();
     }
     html += e$9 `</svg>`;
-    const $a = document.createElement('a');
     $a.innerHTML = html;
-    $a.href = web.getUrl(`note/` + encodeURIComponent(note.id));
     $a.title = `${note.status} note #${note.id}`;
-    $a.classList.add('listened', 'other-note');
-    $a.dataset.noteId = String(note.id);
     $a.style.width = widthWithAura + 'px';
     $a.style.height = heightWithAura + 'px';
     return L.divIcon({
@@ -8139,6 +8140,26 @@ class NoteTable {
         this.$table.setAttribute('role', 'grid');
         const that = this;
         let $clickReadyNoteSection;
+        this.wrappedMarkerLinkListeners = [
+            ['mouseenter', function () {
+                    const noteId = this.dataset.noteId;
+                    if (!noteId)
+                        return;
+                    const $noteSection = that.getNoteSection(noteId);
+                    if (!$noteSection)
+                        return;
+                    that.activateNote('hover', $noteSection);
+                }],
+            ['mouseleave', function () {
+                    const noteId = this.dataset.noteId;
+                    if (!noteId)
+                        return;
+                    const $noteSection = that.getNoteSection(noteId);
+                    if (!$noteSection)
+                        return;
+                    that.deactivateNote('hover', $noteSection);
+                }],
+        ];
         this.wrappedNoteSectionListeners = [
             ['mouseenter', function () {
                     that.activateNote('hover', this);
@@ -8365,7 +8386,7 @@ class NoteTable {
             const $noteSection = this.$table.createTBody();
             $noteSection.dataset.noteId = String(note.id);
             this.noteSectionVisibilityObserver.observe($noteSection);
-            this.makeMarker(note, isVisible);
+            this.makeMarker($noteSection, note, isVisible);
             const $checkbox = document.createElement('input');
             $checkbox.type = 'checkbox';
             // $checkbox.title=`shift+click to select/unselect a range`
@@ -8407,7 +8428,7 @@ class NoteTable {
         // output table section
         const getUsername = (uid) => users[uid];
         const isVisible = this.filter.matchNote(note, getUsername);
-        this.makeMarker(note, isVisible);
+        this.makeMarker($noteSection, note, isVisible);
         this.writeNoteSection($noteSection, $checkbox, note, users, isVisible);
         const $a2 = this.getNoteLink($noteSection);
         if (!($a2 instanceof HTMLAnchorElement))
@@ -8467,9 +8488,12 @@ class NoteTable {
         writeHeadSectionRow($headSection, this.$selectAllCheckbox, (key, clickListener) => this.expanders.makeButton(key, clickListener), () => this.$table.tBodies, () => this.cursor.updateTabIndex());
         return $headSection;
     }
-    makeMarker(note, isVisible) {
+    makeMarker($noteSection, note, isVisible) {
         const marker = new NoteMarker(this.server.web, note);
         marker.addTo(isVisible ? this.map.unselectedNoteLayer : this.map.filteredNoteLayer);
+        for (const [event, listener] of this.wrappedMarkerLinkListeners) {
+            marker.$a.addEventListener(event, listener);
+        }
         return marker;
     }
     writeNoteSection($noteSection, $checkbox, note, users, isVisible) {
@@ -9063,8 +9087,33 @@ function listDecoratedNoteIds(inputIds) {
     appendRange();
     return result;
 }
-function convertDecoratedNoteIdsToPlainText(decoratedIds) {
-    return decoratedIds.map(([text]) => text).join('');
+function convertDecoratedNoteIdsToPlainText(decoratedIds, limit) {
+    const fullResult = decoratedIds.map(([text]) => text).join('');
+    if (limit == null || fullResult.length <= limit)
+        return fullResult;
+    const clipText = `...`;
+    let safeResult = '';
+    let extraResult = '';
+    let nAppends = 0;
+    const appendToSafeResult = () => {
+        if (safeResult.length + extraResult.length + clipText.length > limit)
+            return false;
+        safeResult += extraResult;
+        extraResult = '';
+        nAppends++;
+        return true;
+    };
+    for (const [text, id] of decoratedIds) {
+        if (id) {
+            if (!appendToSafeResult())
+                break;
+        }
+        extraResult += text;
+    }
+    appendToSafeResult();
+    if (nAppends < 2)
+        return ''; // no ids in result
+    return safeResult + clipText;
 }
 const escU = makeEscapeTag(encodeURIComponent);
 const escX = makeEscapeTag(escapeXml);
@@ -10199,49 +10248,40 @@ class OverpassTurboTool extends OverpassBaseTool {
     }
     getTool($root, $tool, map) {
         this.installTimestampListener($root, $tool);
-        const $overpassButtons = [];
-        const buttonClickListener = (withRelations, onlyAround) => {
+        const $withRelationsCheckbox = makeElement('input')()();
+        const $withLandusesCheckbox = makeElement('input')()();
+        const buttonClickListener = (onlyAround) => {
             let query = this.getOverpassQueryPreamble(map);
-            if (withRelations) {
-                query += `nwr`;
-            }
-            else {
-                query += `nw`;
-            }
+            const types = $withRelationsCheckbox.checked ? `nwr` : `nw`;
+            query += types;
             if (onlyAround) {
                 const radius = 10;
                 query += `(around:${radius},${map.lat},${map.lon})`;
             }
             query += `;\n`;
+            if (!$withLandusesCheckbox.checked) {
+                query += `${types}._[!landuse];\n`;
+            }
             query += `out meta geom;`;
             if (!this.cx.server.overpassTurbo)
                 throw new ReferenceError(`no overpass turbo provider`);
             open(this.cx.server.overpassTurbo.getUrl(query, map.lat, map.lon, map.zoom), 'overpass-turbo');
         };
-        {
-            const $button = document.createElement('button');
-            $button.append(`Load `, makeMapIcon('area'), ` without relations`);
-            $button.onclick = () => buttonClickListener(false, false);
-            $overpassButtons.push($button);
-        }
-        {
-            const $button = document.createElement('button');
-            $button.append(`Load `, makeMapIcon('area'), ` with relations`);
-            $button.title = `May fetch large unwanted relations like routes.`;
-            $button.onclick = () => buttonClickListener(true, false);
-            $overpassButtons.push($button);
-        }
-        {
-            const $button = document.createElement('button');
-            $button.append(`Load around `, makeMapIcon('center'));
-            $button.onclick = () => buttonClickListener(false, true);
-            $overpassButtons.push($button);
-        }
-        const result = [];
-        for (const $button of $overpassButtons) {
-            result.push(` `, $button);
-        }
-        return result;
+        const $loadAreaButton = makeElement('button')()(`Load `, makeMapIcon('area'));
+        const $loadAroundButton = makeElement('button')()(`Load around `, makeMapIcon('center'));
+        $withRelationsCheckbox.type = 'checkbox';
+        const $withRelationsLabel = makeLabel('inline')($withRelationsCheckbox, ` relations`);
+        $withRelationsLabel.title = `May fetch large unwanted relations like routes`;
+        $withLandusesCheckbox.type = 'checkbox';
+        $withLandusesCheckbox.checked = true;
+        const $withLandusesLabel = makeLabel('inline')($withLandusesCheckbox, ` landuses`);
+        $withLandusesLabel.title = `Landuses often overlap with smaller objects and make them difficult to select in Overpass turbo`;
+        $loadAreaButton.onclick = () => buttonClickListener(false);
+        $loadAroundButton.onclick = () => buttonClickListener(true);
+        return [
+            $loadAreaButton, ` `, $loadAroundButton, ` `,
+            `with `, $withRelationsLabel, ` `, $withLandusesLabel
+        ];
     }
 }
 class OverpassTool extends OverpassBaseTool {
@@ -10375,7 +10415,16 @@ class RcTool extends EditorTool {
                 `?left=${bounds.getWest()}&right=${bounds.getEast()}` +
                 `&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`;
             if (inputNotes.length >= 1) {
-                const changesetComment = convertDecoratedNoteIdsToPlainText(listDecoratedNoteIds(inputNotes.map(note => note.id)));
+                const maxTagLength = 255;
+                const changesetCommentJoiner = ` - `;
+                const combinedNoteComment = combineNoteComments(inputNotes);
+                const listedNoteIdsComment = convertDecoratedNoteIdsToPlainText(listDecoratedNoteIds(inputNotes.map(note => note.id)), maxTagLength - (combinedNoteComment.length + changesetCommentJoiner.length));
+                const changesetCommentParts = [];
+                if (combinedNoteComment)
+                    changesetCommentParts.push(combinedNoteComment);
+                if (listedNoteIdsComment)
+                    changesetCommentParts.push(listedNoteIdsComment);
+                const changesetComment = changesetCommentParts.join(changesetCommentJoiner);
                 const changesetTags = `source=notes|comment=${changesetComment}`;
                 rcPath += e$1 `&changeset_tags=${changesetTags}`;
             }
@@ -10443,6 +10492,30 @@ async function openRcPath($button, rcPath) {
         $button.classList.remove('error');
         $button.title = '';
     }
+}
+function combineNoteComments(inputNotes) {
+    const maxNoteCommentLength = 100;
+    const visitedNoteComments = new Set();
+    let combinedNoteComments = '';
+    for (const note of inputNotes) {
+        if (note.comments.length == 0)
+            continue;
+        const [comment] = note.comments[0].text.split('\n', 1);
+        if (comment.length == 0)
+            continue;
+        if (comment.length > maxNoteCommentLength)
+            break;
+        if (visitedNoteComments.has(comment))
+            continue;
+        if (combinedNoteComments)
+            combinedNoteComments += `, `;
+        combinedNoteComments += comment;
+        if (combinedNoteComments.length > maxNoteCommentLength) {
+            return '';
+        }
+        visitedNoteComments.add(comment);
+    }
+    return combinedNoteComments;
 }
 
 class ExportTool extends Tool {
