@@ -32,7 +32,7 @@ export default class OverlayDialog {
 	private $figureHelpDialog=makeHelpDialog(`Close image viewer help`,[
 		makeElement('h2')()(`Image viewer keyboard controls`),
 		ul(
-			li(kbd(`Enter`),` and `,kbd(`Space`),` — toggle image zoom`),
+			li(kbd(`Enter`),` , `,kbd(`Space`),` , `,kbd(`+`),` / `,kbd(`-`),` — toggle image zoom`),
 			li(kbd(`Esc`),` — close image viewer`),
 		),
 		p(`When zoomed out:`),
@@ -142,6 +142,10 @@ export default class OverlayDialog {
 		this.$figure.onkeydown=ev=>{
 			if (ev.key=='Enter' || ev.key==' ') {
 				this.$figure.classList.toggle('zoomed')
+			} else if (ev.key=='+') {
+				this.$figure.classList.add('zoomed')
+			} else if (ev.key=='-') {
+				this.$figure.classList.remove('zoomed')
 			} else {
 				return
 			}
