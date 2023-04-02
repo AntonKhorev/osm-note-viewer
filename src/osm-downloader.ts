@@ -97,7 +97,7 @@ export default class OsmDownloader {
  * Similar to what achavi does, see https://github.com/nrenner/achavi/blob/9934871777b6e744d21bb2f22b112d386bcd9d30/js/map.js#L261
  */
 function makeAdiffQueryPreamble(changeset: OsmChangesetWithBboxApiData): string {
-	const startDate=toUrlDate(Date.parse(changeset.created_at)/1000-1,'-')
+	const startDate=toUrlDate(Date.parse(changeset.created_at)/1000-1,'-',':')
 	const endPart=changeset.closed_at!=null?`,"${changeset.closed_at}"`:``
 	const swneBounds=(
 		changeset.minlat+','+changeset.minlon+','+
