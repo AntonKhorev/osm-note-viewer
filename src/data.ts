@@ -98,12 +98,9 @@ function transformFeatureToNote(noteFeature: NoteFeature, users: Users): Note {
 		comments: noteFeature.properties.comments.map(cullCommentProps)
 	}
 	if (note.comments.length==0) {
-		note.comments=[{
-			date: transformDate(noteFeature.properties.date_created),
-			action: 'opened',
-			text: '',
-			guessed: true
-		}]
+		note.comments=[makeGuessedOpeningComment(noteFeature)]
+	} else if (note.comments[0].action!='opened') {
+		note.comments.unshift(makeGuessedOpeningComment(noteFeature))
 	}
 	return note
 	function cullCommentProps(a: NoteFeatureComment): NoteComment {
@@ -118,12 +115,22 @@ function transformFeatureToNote(noteFeature: NoteFeature, users: Users): Note {
 		}
 		return b
 	}
-	function transformDate(a: string): number {
-		const match=a.match(/^\d\d\d\d-\d\d-\d\d\s+\d\d:\d\d:\d\d/)
-		if (!match) return 0 // shouldn't happen
-		const [s]=match
-		return Date.parse(s+'Z')/1000
+}
+
+function makeGuessedOpeningComment(noteFeature: NoteFeature): NoteComment {
+	return {
+		date: transformDate(noteFeature.properties.date_created),
+		action: 'opened',
+		text: '',
+		guessed: true
 	}
+}
+
+function transformDate(a: string): number {
+	const match=a.match(/^\d\d\d\d-\d\d-\d\d\s+\d\d:\d\d:\d\d/)
+	if (!match) return 0 // shouldn't happen
+	const [s]=match
+	return Date.parse(s+'Z')/1000
 }
 
 export function getNoteUpdateDate(note:Note):number {
