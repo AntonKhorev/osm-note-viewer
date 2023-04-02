@@ -42,8 +42,29 @@ export function listDecoratedNoteIds(inputIds: Iterable<number>): Item[] {
 	return result
 }
 
-export function convertDecoratedNoteIdsToPlainText(decoratedIds: [text:string,id?:number][]): string {
-	return decoratedIds.map(([text])=>text).join('')
+export function convertDecoratedNoteIdsToPlainText(decoratedIds: [text:string,id?:number][], limit?: number): string {
+	const fullResult=decoratedIds.map(([text])=>text).join('')
+	if (limit==null || fullResult.length<=limit) return fullResult
+	const clipText=`...`
+	let safeResult=''
+	let extraResult=''
+	let nAppends=0
+	const appendToSafeResult=()=>{
+		if (safeResult.length+extraResult.length+clipText.length>limit) return false
+		safeResult+=extraResult
+		extraResult=''
+		nAppends++
+		return true
+	}
+	for (const [text,id] of decoratedIds) {
+		if (id) {
+			if (!appendToSafeResult()) break
+		}
+		extraResult+=text
+	}
+	appendToSafeResult()
+	if (nAppends<2) return '' // no ids in result
+	return safeResult+clipText
 }
 
 const escU=makeEscapeTag(encodeURIComponent)
