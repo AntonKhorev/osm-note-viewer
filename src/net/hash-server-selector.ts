@@ -2,7 +2,7 @@ import type Connection from './connection'
 import type Server from './server'
 import type ServerList from './server-list'
 import type ServerSelector from './server-selector'
-import {getHashFromLocation, detachValueFromHash} from '../util/hash'
+import {getHashFromLocation, detachValueFromHash, attachValueToFrontOfHash} from '../util/hash'
 import {code} from '../util/html-shortcuts'
 import {escapeHash} from '../util/escape'
 
@@ -52,7 +52,8 @@ export default class HashServerSelector implements ServerSelector {
 	}
 	installHashChangeListener(
 		cx: Connection|undefined,
-		callback: (hostlessHash:string)=>void
+		callback: (hostlessHash:string)=>void,
+		callBackImmediately=false
 	): void {
 		window.addEventListener('hashchange',()=>{
 			const hash=getHashFromLocation()
@@ -67,5 +68,18 @@ export default class HashServerSelector implements ServerSelector {
 			}
 			callback(hostlessHash)
 		})
+		if (callBackImmediately) {
+			const hash=getHashFromLocation()
+			const [,hostlessHash]=detachValueFromHash('host',hash)
+			callback(hostlessHash)
+		}
+	}
+	pushHashToHistory(hostlessHash: string): void {
+		const hash=attachValueToFrontOfHash('host',this.hostHashValue,hostlessHash)
+		const fullHash=hash ? '#'+hash : ''
+		if (fullHash!=location.hash) {
+			const url=fullHash||location.pathname+location.search
+			history.pushState(history.state,'',url)
+		}
 	}
 }
