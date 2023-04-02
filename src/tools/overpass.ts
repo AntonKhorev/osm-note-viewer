@@ -1,7 +1,7 @@
 import {Tool, ToolElements, makeMapIcon} from './base'
 import {QueryError} from '../net'
 import type NoteMap from '../map'
-import {makeLink, wrapFetchForButton} from '../util/html'
+import {makeElement, makeLabel, makeLink, wrapFetchForButton} from '../util/html'
 import {p} from '../util/html-shortcuts'
 
 abstract class OverpassBaseTool extends Tool {
@@ -36,8 +36,7 @@ export class OverpassTurboTool extends OverpassBaseTool {
 	)]}
 	protected getTool($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements {
 		this.installTimestampListener($root,$tool)
-		const $overpassButtons: HTMLButtonElement[] = []
-		const buttonClickListener=(withRelations: boolean, onlyAround: boolean)=>{
+		const buttonClickListener=(onlyAround: boolean, withRelations: boolean)=>{
 			let query=this.getOverpassQueryPreamble(map)
 			if (withRelations) {
 				query+=`nwr`
@@ -53,28 +52,18 @@ export class OverpassTurboTool extends OverpassBaseTool {
 			if (!this.cx.server.overpassTurbo) throw new ReferenceError(`no overpass turbo provider`)
 			open(this.cx.server.overpassTurbo.getUrl(query,map.lat,map.lon,map.zoom),'overpass-turbo')
 		}
-		{
-			const $button=document.createElement('button')
-			$button.append(`Load `,makeMapIcon('area'),` without relations`)
-			$button.onclick=()=>buttonClickListener(false,false)
-			$overpassButtons.push($button)
-		}{
-			const $button=document.createElement('button')
-			$button.append(`Load `,makeMapIcon('area'),` with relations`)
-			$button.title=`May fetch large unwanted relations like routes.`
-			$button.onclick=()=>buttonClickListener(true,false)
-			$overpassButtons.push($button)
-		}{
-			const $button=document.createElement('button')
-			$button.append(`Load around `,makeMapIcon('center'))
-			$button.onclick=()=>buttonClickListener(false,true)
-			$overpassButtons.push($button)
-		}
-		const result: ToolElements = []
-		for (const $button of $overpassButtons) {
-			result.push(` `,$button)
-		}
-		return result
+		const $loadAreaButton=makeElement('button')()(`Load `,makeMapIcon('area'))
+		const $loadAroundButton=makeElement('button')()(`Load around `,makeMapIcon('center'))
+		const $withRelationsCheckbox=makeElement('input')()()
+		$withRelationsCheckbox.type='checkbox'
+		const $withRelationsLabel=makeLabel('inline')($withRelationsCheckbox,` with relations`)
+		$withRelationsLabel.title=`May fetch large unwanted relations like routes`
+		$loadAreaButton.onclick=()=>buttonClickListener(false,$withRelationsCheckbox.checked)
+		$loadAroundButton.onclick=()=>buttonClickListener(true,$withRelationsCheckbox.checked)
+		return [
+			$loadAreaButton,` `,$loadAroundButton,` `,
+			$withRelationsLabel
+		]
 	}
 }
 
