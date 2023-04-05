@@ -77,10 +77,21 @@ export default class SidebarResizer {
 			map.invalidateSize()
 		}
 		this.$button.onkeydown=ev=>{
+			const flip=(flipped:boolean)=>{
+				this.$root.classList.toggle('flipped',flipped)
+				setStorageBoolean(this.storage,'flipped',flipped)
+			}
 			if (move) return
 			const stepBase=ev.shiftKey?24:8
 			let step:number|undefined
-			if (ev.key=='ArrowLeft' || ev.key=='ArrowUp') {
+			const isHor=this.$root.classList.contains('flipped')
+			if (isHor && (ev.key=='ArrowUp' || ev.key=='ArrowDown')) {
+				flip(false)
+				step=0
+			} else if (!isHor && (ev.key=='ArrowLeft' || ev.key=='ArrowRight')) {
+				flip(true)
+				step=0
+			} else if (ev.key=='ArrowLeft' || ev.key=='ArrowUp') {
 				step=-stepBase
 			} else if (ev.key=='ArrowRight' || ev.key=='ArrowDown') {
 				step=+stepBase
@@ -88,10 +99,11 @@ export default class SidebarResizer {
 				return
 			}
 			if (step==null) return
-			const isHor=this.$root.classList.contains('flipped')
-			const sidebarSize=getSidebarSize(this.$side,isHor)
-			const targetSidebarSize=sidebarSize+step
-			setAndStoreSidebarSize(this.$root,this.storage,isHor,targetSidebarSize)
+			if (step) {
+				const sidebarSize=getSidebarSize(this.$side,isHor)
+				const targetSidebarSize=sidebarSize+step
+				setAndStoreSidebarSize(this.$root,this.storage,isHor,targetSidebarSize)
+			}
 			map.invalidateSize()
 			ev.stopPropagation()
 			ev.preventDefault()
