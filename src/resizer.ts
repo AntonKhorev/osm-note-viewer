@@ -19,25 +19,38 @@ function isOpposite(side1: Side, side2: Side): boolean {
 		(side2=='left' && side1=='right')
 	)
 }
+function isFront(side: Side): boolean {
+	return side=='top' || side=='left'
+}
+
+function adjustFraction(side: Side, fraction: number): number {
+	return isFront(side) ? fraction : 1-fraction
+}
 
 class Move {
-	side: Side
-	startOffset: number
-	sidebarFraction: number
-	startSidebarFraction: number
+	readonly side: Side
+	readonly startOffset: number
+	frontFraction: number
+	readonly startFrontFraction: number
 	constructor($root: HTMLElement, $side: HTMLElement, ev: PointerEvent) {
 		this.side=$side.dataset.side=forceValidSide($root,$side.dataset.side)
 		const frontSize=getFrontSize($root,$side,this.side)
 		const pointerPosition=getPointerPosition(ev,isHor(this.side))
 		this.startOffset=pointerPosition-frontSize
-		const targetSidebarFraction=getTargetFrontFraction($root,isHor(this.side),frontSize)
-		this.startSidebarFraction=this.sidebarFraction=setSizeProperties($root,isHor(this.side),targetSidebarFraction)
+		const targetFrontFraction=getTargetFraction($root,isHor(this.side),frontSize)
+		this.startFrontFraction=this.frontFraction=setFrontSizeProperties($root,this.side,targetFrontFraction)
 	}
 	move($root: HTMLElement, ev: PointerEvent): void {
 		const pointerPosition=getPointerPosition(ev,isHor(this.side))
 		const targetFrontSize=pointerPosition-this.startOffset
-		const targetSidebarFraction=getTargetFrontFraction($root,isHor(this.side),targetFrontSize)
-		this.sidebarFraction=setSizeProperties($root,isHor(this.side),targetSidebarFraction)
+		const targetFrontFraction=getTargetFraction($root,isHor(this.side),targetFrontSize)
+		this.frontFraction=setFrontSizeProperties($root,this.side,targetFrontFraction)
+	}
+	get sidebarFraction(): number {
+		return adjustFraction(this.side,this.frontFraction)
+	}
+	get startSidebarFraction(): number {
+		return adjustFraction(this.side,this.startFrontFraction)
 	}
 }
 
@@ -70,8 +83,13 @@ export default class SidebarResizer {
 		private readonly storage: NoteViewerStorage
 	) {
 		$root.append(...Object.values(this.$flipMargins))
-		setStartingRootProperties($root,storage)
-		$side.dataset.side=forceValidSide($root,storage.getItem('sidebar-side'))
+		$root.style.setProperty('--min-hor-side-size',`${minHorSideSize}px`)
+		$root.style.setProperty('--min-ver-side-size',`${minVerSideSize}px`)
+		const side=$side.dataset.side=forceValidSide($root,storage.getItem('sidebar-side'))
+		const sidebarFractionItem=storage.getItem(`sidebar-fraction`)
+		if (sidebarFractionItem!=null) {
+			setSidebarSizeProperties($root,side,Number(sidebarFractionItem))
+		}
 		this.$button=makeElement('button')('global','resize')()
 		this.$button.innerHTML=`<svg><use href="#resize" /></svg>`
 		this.$button.title=`Resize sidebar`
@@ -88,12 +106,10 @@ export default class SidebarResizer {
 			if (!move) return
 			const newSide=forceValidSide(this.$root,this.$side.dataset.side)
 			if (move.side==newSide) {
-				this.storeFrontSize(move.side,move.sidebarFraction)
+				this.storeSidebarSize(move.side,move.sidebarFraction)
 			} else {
 				this.storage.setItem('sidebar-side',newSide)
-				if (isOpposite(move.side,newSide)) {
-					this.storeFrontSize(move.side,1-move.startSidebarFraction)
-				}
+				this.storeSidebarSize(newSide,move.startSidebarFraction)
 			}
 			move=undefined
 		}
@@ -113,9 +129,7 @@ export default class SidebarResizer {
 			const flipAction=(move:Move,side:Side):boolean=>{
 				if (move.side==side) return false
 				this.$side.dataset.side=side
-				if (isOpposite(side,move.side)) {
-					setSizeProperties(this.$root,isHor(move.side),1-move.startSidebarFraction)
-				}
+				setSidebarSizeProperties(this.$root,side,move.startSidebarFraction)
 				return true
 			}
 			if (onLeftMargin && flipAction(move,'left')) {
@@ -151,15 +165,15 @@ export default class SidebarResizer {
 			} else {
 				return
 			}
-			if (step==null) return
 			if (step) {
 				const frontSize=getFrontSize(this.$root,this.$side,side)
 				const targetFrontSize=frontSize+step
-				const targetSidebarFraction=getTargetFrontFraction(this.$root,isHor(side),targetFrontSize)
-				const sidebarFraction=setSizeProperties(this.$root,isHor(side),targetSidebarFraction)
-				this.storeFrontSize(side,sidebarFraction)
+				const targetFrontFraction=getTargetFraction(this.$root,isHor(side),targetFrontSize)
+				const frontFraction=setFrontSizeProperties(this.$root,side,targetFrontFraction)
+				this.storeFrontSize(side,frontFraction)
 			}
 			map.invalidateSize()
+			if (step==null) return
 			ev.stopPropagation()
 			ev.preventDefault()
 		}
@@ -175,22 +189,11 @@ export default class SidebarResizer {
 			$flipMargin.classList.remove('active')
 		}
 	}
+	private storeSidebarSize(side: Side, sidebarFraction: number): void {
+		this.storage.setItem(`sidebar-fraction`,String(sidebarFraction))
+	}
 	private storeFrontSize(side: Side, sidebarFraction: number): void {
-		const storageKey=`sidebar-fraction[${isHor(side)?'hor':'ver'}]`
-		this.storage.setItem(storageKey,String(sidebarFraction))
-	}
-}
-
-function setStartingRootProperties($root: HTMLElement, storage: NoteViewerStorage) {
-	$root.style.setProperty('--min-hor-side-size',`${minHorSideSize}px`)
-	$root.style.setProperty('--min-ver-side-size',`${minVerSideSize}px`)
-	const horSidebarFractionItem=storage.getItem('sidebar-fraction[hor]')
-	if (horSidebarFractionItem!=null) {
-		setSizeProperties($root,true,Number(horSidebarFractionItem))
-	}
-	const verSidebarFractionItem=storage.getItem('sidebar-fraction[ver]')
-	if (verSidebarFractionItem!=null) {
-		setSizeProperties($root,false,Number(verSidebarFractionItem))
+		this.storage.setItem(`sidebar-fraction`,String(adjustFraction(side,sidebarFraction)))
 	}
 }
 
@@ -212,19 +215,25 @@ function getFrontSize($root: HTMLElement, $side: HTMLElement, side: Side): numbe
 	}
 }
 
-function getTargetFrontFraction($root: HTMLElement, isHor: boolean, targetFrontSize: number): number {
+function getTargetFraction($root: HTMLElement, isHor: boolean, targetSize: number): number {
 	const minSideSize=isHor ? minHorSideSize : minVerSideSize
 	const rootExtraSize=(isHor?$root.clientWidth:$root.clientHeight)-2*minSideSize
-	const targetExtraSize=targetFrontSize-minSideSize
+	const targetExtraSize=targetSize-minSideSize
 	return targetExtraSize/rootExtraSize
 }
 
-function setSizeProperties($root: HTMLElement, isHor: boolean, sidebarFraction: number): number {
-	if (sidebarFraction<0) sidebarFraction=0
-	if (sidebarFraction>1) sidebarFraction=1
-	if (Number.isNaN(sidebarFraction)) sidebarFraction=0.5
-	const fr=Math.round(sidebarFraction*frMultiplier)
-	$root.style.setProperty(isHor ? '--left-side-size' : '--top-side-size',`${fr}fr`)
-	$root.style.setProperty(isHor ? '--right-side-size' : '--bottom-side-size',`${frMultiplier-fr}fr`)
-	return sidebarFraction
+function setSidebarSizeProperties($root: HTMLElement, side: Side, sidebarFraction: number): number {
+	const frontFraction=adjustFraction(side,sidebarFraction)
+	const outputFrontFraction=setFrontSizeProperties($root,side,frontFraction)
+	return adjustFraction(side,outputFrontFraction)
+}
+
+function setFrontSizeProperties($root: HTMLElement, side: Side, frontFraction: number): number {
+	if (frontFraction<0) frontFraction=0
+	if (frontFraction>1) frontFraction=1
+	if (Number.isNaN(frontFraction)) frontFraction=0.5
+	const fr=Math.round(frontFraction*frMultiplier)
+	$root.style.setProperty(isHor(side) ? '--left-side-size' : '--top-side-size',`${fr}fr`)
+	$root.style.setProperty(isHor(side) ? '--right-side-size' : '--bottom-side-size',`${frMultiplier-fr}fr`)
+	return frontFraction
 }
