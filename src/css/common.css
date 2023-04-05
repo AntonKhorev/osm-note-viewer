@@ -98,9 +98,27 @@ body > .symbols {
 .ui .flip-margin {
 	background: #8888;
 	z-index: 10;
+	position: relative;
 }
-.ui .flip-margin.active {
-	background: #48F8;
+.ui .flip-margin .side-indicator {
+	position: absolute;
+	inset: 0;
+	margin: auto;
+	max-width: calc(100% - 1rem);
+	max-height: calc(100% - 1rem);
+	aspect-ratio: 1;
+	background: canvas;
+	box-sizing: border-box;
+	border: solid 1px;
+}
+.ui .flip-margin.active .side-indicator {
+	background: var(--hover-color);
+}
+.ui:not(.flipped) .flip-margin .side-indicator {
+	border-left-width: 1rem;
+}
+.ui.flipped .flip-margin .side-indicator {
+	border-top-width: 1rem;
 }
 
 a.input-link[tabindex],

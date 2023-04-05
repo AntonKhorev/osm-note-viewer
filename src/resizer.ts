@@ -25,7 +25,7 @@ class Move {
 
 export default class SidebarResizer {
 	readonly $button: HTMLButtonElement
-	private readonly $flipMargin=makeDiv('flip-margin')()
+	private readonly $flipMargin=makeDiv('flip-margin')(makeElement('span')('side-indicator')())
 	constructor(
 		private readonly $root: HTMLElement,
 		private readonly $side: HTMLElement,
