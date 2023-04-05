@@ -1,6 +1,3 @@
-import type {SimpleStorage} from './util/storage'
-import {setStorageBoolean} from './util/storage'
-import type NoteMap from './map'
 import {escapeXml, makeEscapeTag} from './util/escape'
 
 const e=makeEscapeTag(escapeXml)

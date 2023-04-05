@@ -1,6 +1,7 @@
 import type NoteViewerStorage from './storage'
 import type NoteMap from './map'
-import {makeElement} from './util/html'
+import {makeDiv, makeElement} from './util/html'
+import {setStorageBoolean} from './util/storage'
 
 const minHorSideSize=80
 const minVerSideSize=80
@@ -24,11 +25,14 @@ class Move {
 
 export default class SidebarResizer {
 	readonly $button: HTMLButtonElement
+	private readonly $flipMargin=makeDiv('flip-margin')()
 	constructor(
 		private readonly $root: HTMLElement,
 		private readonly $side: HTMLElement,
 		private readonly storage: NoteViewerStorage
 	) {
+		this.$flipMargin.hidden=true
+		$root.append(this.$flipMargin)
 		setStartingRootProperties($root,storage)
 		this.$button=makeElement('button')('global','resize')()
 		this.$button.innerHTML=`<svg><use href="#resize" /></svg>`
@@ -37,15 +41,39 @@ export default class SidebarResizer {
 	startListening(map: NoteMap) {
 		let move:Move|undefined
 		this.$button.onpointerdown=ev=>{
+			this.$flipMargin.hidden=false
 			move=new Move(this.$root,this.$side,ev)
 			this.$button.setPointerCapture(ev.pointerId)
 		}
-		this.$button.onpointerup=ev=>{
+		this.$button.onpointerup=this.$button.onpointercancel=ev=>{
 			move=undefined
+			this.$flipMargin.hidden=true
 		}
 		this.$button.onpointermove=ev=>{
+			const flip=(flipped:boolean)=>{
+				this.$root.classList.toggle('flipped',flipped)
+				setStorageBoolean(this.storage,'flipped',flipped)
+			}
 			if (!move) return
-			move.move(this.$root,this.storage,ev)
+			if (move.isHor) {
+				if (ev.clientY<minVerSideSize && ev.clientX>=minHorSideSize) {
+					flip(false)
+					move.isHor=false
+					move.startOffset=0
+					setAndStoreSidebarSize(this.$root,this.storage,move.isHor,minVerSideSize)
+				} else {
+					move.move(this.$root,this.storage,ev)
+				}
+			} else {
+				if (ev.clientX<minHorSideSize && ev.clientY>=minVerSideSize) {
+					flip(true)
+					move.isHor=true
+					move.startOffset=0
+					setAndStoreSidebarSize(this.$root,this.storage,move.isHor,minHorSideSize)
+				} else {
+					move.move(this.$root,this.storage,ev)
+				}
+			}
 			map.invalidateSize()
 		}
 		this.$button.onkeydown=ev=>{

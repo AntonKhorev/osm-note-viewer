@@ -74,6 +74,14 @@ body > .symbols {
 	grid-row: 1 / -1;
 	grid-column: 1 / 3;
 }
+.ui.with-sidebar .flip-margin {
+	grid-row: 1 / -1;
+	grid-column: 1 / 2;
+}
+.ui.with-sidebar.flipped .flip-margin {
+	grid-column: 1 / -1;
+	grid-row: 1 / 2;
+}
 
 .ui .text-side {
 	position: relative;
@@ -85,6 +93,11 @@ body > .symbols {
 .ui .text-side .scrolling {
 	overflow-y: scroll;
 	flex-grow: 1;
+}
+
+.ui .flip-margin {
+	background: #8888;
+	z-index: 10;
 }
 
 a.input-link[tabindex],
