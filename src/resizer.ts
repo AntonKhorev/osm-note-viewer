@@ -8,21 +8,30 @@ const frMultiplier=100000
 
 type Side = 'top'|'bottom'|'left'|'right'
 
-function isHor(side: Side) {
+function isHor(side: Side): boolean {
 	return side=='left' || side=='right'
+}
+function isOpposite(side1: Side, side2: Side): boolean {
+	return (
+		(side1=='top' && side2=='bottom') ||
+		(side2=='top' && side1=='bottom') ||
+		(side1=='left' && side2=='right') ||
+		(side2=='left' && side1=='right')
+	)
 }
 
 class Move {
 	side: Side
 	startOffset: number
 	sidebarFraction: number
+	startSidebarFraction: number
 	constructor($root: HTMLElement, $side: HTMLElement, ev: PointerEvent) {
 		this.side=$side.dataset.side=forceValidSide($root,$side.dataset.side)
 		const frontSize=getFrontSize($root,$side,this.side)
 		const pointerPosition=getPointerPosition(ev,isHor(this.side))
 		this.startOffset=pointerPosition-frontSize
 		const targetSidebarFraction=getTargetFrontFraction($root,isHor(this.side),frontSize)
-		this.sidebarFraction=setSizeProperties($root,isHor(this.side),targetSidebarFraction)
+		this.startSidebarFraction=this.sidebarFraction=setSizeProperties($root,isHor(this.side),targetSidebarFraction)
 	}
 	move($root: HTMLElement, ev: PointerEvent): void {
 		const pointerPosition=getPointerPosition(ev,isHor(this.side))
@@ -77,10 +86,14 @@ export default class SidebarResizer {
 		this.$button.onpointerup=this.$button.onpointercancel=ev=>{
 			this.hideFlipMargins()
 			if (!move) return
-			this.storeFrontSize(move.side,move.sidebarFraction)
 			const newSide=forceValidSide(this.$root,this.$side.dataset.side)
-			if (newSide!=move.side) {
+			if (move.side==newSide) {
+				this.storeFrontSize(move.side,move.sidebarFraction)
+			} else {
 				this.storage.setItem('sidebar-side',newSide)
+				if (isOpposite(move.side,newSide)) {
+					this.storeFrontSize(move.side,1-move.startSidebarFraction)
+				}
 			}
 			move=undefined
 		}
@@ -97,14 +110,18 @@ export default class SidebarResizer {
 			this.$flipMargins.right.classList.toggle('active',onRightMargin && move.side!='right')
 			this.$flipMargins.top.classList.toggle('active',onTopMargin && move.side!='top')
 			this.$flipMargins.bottom.classList.toggle('active',onBottomMargin && move.side!='bottom')
-			if (onLeftMargin && move.side!='left') {
-				this.$side.dataset.side='left'
-			} else if (onRightMargin && move.side!='right') {
-				this.$side.dataset.side='right'
-			} else if (onTopMargin && move.side!='top') {
-				this.$side.dataset.side='top'
-			} else if (onBottomMargin && move.side!='bottom') {
-				this.$side.dataset.side='bottom'
+			const flipAction=(move:Move,side:Side):boolean=>{
+				if (move.side==side) return false
+				this.$side.dataset.side=side
+				if (isOpposite(side,move.side)) {
+					setSizeProperties(this.$root,isHor(move.side),1-move.startSidebarFraction)
+				}
+				return true
+			}
+			if (onLeftMargin && flipAction(move,'left')) {
+			} else if (onRightMargin && flipAction(move,'right')) {
+			} else if (onTopMargin && flipAction(move,'top')) {
+			} else if (onBottomMargin && flipAction(move,'bottom')) {
 			} else {
 				this.$side.dataset.side=move.side
 				move.move(this.$root,ev)
