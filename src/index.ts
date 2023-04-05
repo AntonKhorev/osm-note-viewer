@@ -1,6 +1,5 @@
 import type {Note, Users} from './data'
 import NoteViewerStorage from './storage'
-import {getStorageBoolean} from './util/storage'
 import NoteViewerDB from './db'
 import Net, {checkAuthRedirect, Server, Connection, HashServerSelector} from './net'
 import GlobalEventsListener from './events'
@@ -52,13 +51,9 @@ async function main() {
 	const $mapContainer=makeDiv('map')()
 	$root.append($graphicSide)
 
-	const flipped=getStorageBoolean(storage,'flipped')
-	if (flipped) $root.classList.add('flipped')
-
 	let map: NoteMap|undefined
 	const globalHistory=new GlobalHistory($root,$scrollingPart,net)
 	if (net.cx) {
-		$root.classList.add('with-sidebar')
 		const $textSide=makeDiv('text-side')($scrollingPart,$stickyPart)
 		$graphicSide.before($textSide)
 		const sidebarResizer=new SidebarResizer($root,$textSide,storage)

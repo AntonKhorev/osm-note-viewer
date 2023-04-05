@@ -19,7 +19,7 @@
 	margin: auto;
 	touch-action: none;
 }
-.ui:not(.flipped) .graphic-side button.resize {
+.ui .text-side[data-side='top'] + .graphic-side button.resize {
 	left: 0;
 	right: 0;
 	top: 0;
@@ -29,7 +29,17 @@
 	border-bottom-right-radius: 5px;
 	cursor: row-resize;
 }
-.ui.flipped .graphic-side button.resize {
+.ui .text-side[data-side='bottom'] + .graphic-side button.resize {
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: 1rem;
+	border-bottom: none;
+	border-top-left-radius: 5px;
+	border-top-right-radius: 5px;
+	cursor: row-resize;
+}
+.ui .text-side[data-side='left'] + .graphic-side button.resize {
 	left: 0;
 	top: 0;
 	bottom: 0;
@@ -39,14 +49,24 @@
 	border-bottom-right-radius: 5px;
 	cursor: col-resize;
 }
+.ui .text-side[data-side='right'] + .graphic-side button.resize {
+	right: 0;
+	top: 0;
+	bottom: 0;
+	width: 1rem;
+	border-right: none;
+	border-top-left-radius: 5px;
+	border-bottom-left-radius: 5px;
+	cursor: col-resize;
+}
 .graphic-side button.resize > svg {
 	position: absolute;
 	translate: -50% -50%;
 }
-.ui:not(.flipped) .graphic-side button.resize > svg {
+.ui .text-side:is([data-side='top'],[data-side='bottom']) + .graphic-side button.resize > svg {
 	height: auto;
 }
-.ui.flipped .graphic-side button.resize > svg {
+.ui .text-side:is([data-side='left'],[data-side='right']) + .graphic-side button.resize > svg {
 	width: auto;
 }
 .graphic-side button.resize:not(:hover) > svg {
