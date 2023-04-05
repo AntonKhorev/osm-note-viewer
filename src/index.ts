@@ -65,7 +65,7 @@ async function main() {
 		$graphicSide.append(sidebarResizer.$button,$mapContainer)
 		map=writeMap($root,$mapContainer,net.cx.server,globalHistory)
 		sidebarResizer.startListening(map)
-		const navbar=new Navbar($root,storage,$navbarContainer,map)
+		const navbar=new Navbar($root,$navbarContainer)
 		const noteTable=writeBelowFetchPanel(
 			$root,
 			$scrollingPart,$stickyPart,$moreContainer,

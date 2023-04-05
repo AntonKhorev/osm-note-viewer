@@ -30,10 +30,9 @@ export abstract class NavDialog {
 export default class Navbar {
 	private readonly $tabList=document.createElement('div')
 	private readonly tabs: Map<NavDialog,HTMLButtonElement> = new Map()
-	constructor($root: HTMLElement, storage: SimpleStorage, $container: HTMLElement, map: NoteMap|undefined) {
+	constructor($root: HTMLElement, $container: HTMLElement) {
 		this.$tabList.setAttribute('role','tablist')
 		this.$tabList.setAttribute('aria-label',`Note query modes`)
-		if (map) $container.append(makeFlipLayoutButton($root,storage,map))
 		$container.append(this.$tabList)
 		$container.append(makeResetButton())
 		$container.onkeydown=ev=>{
@@ -101,14 +100,6 @@ export default class Navbar {
 			}
 		}
 	}
-}
-
-function makeFlipLayoutButton($root: HTMLElement, storage: SimpleStorage, map: NoteMap): HTMLButtonElement {
-	return makeButton('flip',`Flip layout`,()=>{
-		const hasFlipped=$root.classList.toggle('flipped')
-		setStorageBoolean(storage,'flipped',hasFlipped)
-		map.invalidateSize()
-	})
 }
 
 function makeResetButton(): HTMLButtonElement {

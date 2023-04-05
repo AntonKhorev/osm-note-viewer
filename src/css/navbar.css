@@ -1,25 +1,14 @@
 nav {
 	position: relative;
 	box-sizing: border-box;
-	padding: 1rem 3rem 0 3rem;
+	padding: .5rem 3rem 0 .5rem;
 	z-index: 1;
-}
-nav button.global {
-	top: .5rem;
-	z-index: 2;
-}
-nav button.flip {
-	border-radius: 3px;
-	left: .5rem;
-	--flip-ver-part-visibility: visible;
 }
 nav button.reset {
 	border-radius: 50%;
-	right: .5rem;
-}
-.ui.flipped nav button.flip {
-	--flip-ver-part-visibility: hidden;
-	--flip-hor-part-visibility: visible;
+	right: .25rem;
+	top: .25rem;
+	z-index: 2;
 }
 nav [role=tablist] {
 	display: flex;
