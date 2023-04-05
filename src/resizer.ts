@@ -1,7 +1,6 @@
 import type NoteViewerStorage from './storage'
 import type NoteMap from './map'
 import {makeDiv, makeElement} from './util/html'
-import {setStorageBoolean} from './util/storage'
 
 const minHorSideSize=80
 const minVerSideSize=80
@@ -16,16 +15,20 @@ function isHor(side: Side) {
 class Move {
 	side: Side
 	startOffset: number
+	sidebarFraction: number
 	constructor($root: HTMLElement, $side: HTMLElement, ev: PointerEvent) {
 		this.side=$side.dataset.side=forceValidSide($root,$side.dataset.side)
 		const frontSize=getFrontSize($root,$side,this.side)
 		const pointerPosition=getPointerPosition(ev,isHor(this.side))
 		this.startOffset=pointerPosition-frontSize
+		const targetSidebarFraction=getTargetFrontFraction($root,isHor(this.side),frontSize)
+		this.sidebarFraction=setSizeProperties($root,isHor(this.side),targetSidebarFraction)
 	}
-	move($root: HTMLElement, storage: NoteViewerStorage, ev: PointerEvent) {
+	move($root: HTMLElement, ev: PointerEvent): void {
 		const pointerPosition=getPointerPosition(ev,isHor(this.side))
 		const targetFrontSize=pointerPosition-this.startOffset
-		setAndStoreFrontSize($root,storage,isHor(this.side),targetFrontSize)
+		const targetSidebarFraction=getTargetFrontFraction($root,isHor(this.side),targetFrontSize)
+		this.sidebarFraction=setSizeProperties($root,isHor(this.side),targetSidebarFraction)
 	}
 }
 
@@ -72,11 +75,14 @@ export default class SidebarResizer {
 			this.$button.setPointerCapture(ev.pointerId)
 		}
 		this.$button.onpointerup=this.$button.onpointercancel=ev=>{
-			this.storage.setItem('sidebar-side',
-				forceValidSide(this.$root,this.$side.dataset.side)
-			)
-			move=undefined
 			this.hideFlipMargins()
+			if (!move) return
+			this.storeFrontSize(move.side,move.sidebarFraction)
+			const newSide=forceValidSide(this.$root,this.$side.dataset.side)
+			if (newSide!=move.side) {
+				this.storage.setItem('sidebar-side',newSide)
+			}
+			move=undefined
 		}
 		this.$button.onpointermove=ev=>{
 			if (!move) return
@@ -101,7 +107,7 @@ export default class SidebarResizer {
 				this.$side.dataset.side='bottom'
 			} else {
 				this.$side.dataset.side=move.side
-				move.move(this.$root,this.storage,ev)
+				move.move(this.$root,ev)
 			}
 			map.invalidateSize()
 		}
@@ -132,7 +138,9 @@ export default class SidebarResizer {
 			if (step) {
 				const frontSize=getFrontSize(this.$root,this.$side,side)
 				const targetFrontSize=frontSize+step
-				setAndStoreFrontSize(this.$root,this.storage,isHor(side),targetFrontSize)
+				const targetSidebarFraction=getTargetFrontFraction(this.$root,isHor(side),targetFrontSize)
+				const sidebarFraction=setSizeProperties(this.$root,isHor(side),targetSidebarFraction)
+				this.storeFrontSize(side,sidebarFraction)
 			}
 			map.invalidateSize()
 			ev.stopPropagation()
@@ -149,6 +157,10 @@ export default class SidebarResizer {
 			$flipMargin.hidden=true
 			$flipMargin.classList.remove('active')
 		}
+	}
+	private storeFrontSize(side: Side, sidebarFraction: number): void {
+		const storageKey=`sidebar-fraction[${isHor(side)?'hor':'ver'}]`
+		this.storage.setItem(storageKey,String(sidebarFraction))
 	}
 }
 
@@ -181,13 +193,6 @@ function getFrontSize($root: HTMLElement, $side: HTMLElement, side: Side): numbe
 	} else {
 		throw new RangeError(`invalid sidebar side`)
 	}
-}
-
-function setAndStoreFrontSize($root: HTMLElement, storage: NoteViewerStorage, isHor: boolean, targetFrontSize: number): void {
-	const targetSidebarFraction=getTargetFrontFraction($root,isHor,targetFrontSize)
-	const sidebarFraction=setSizeProperties($root,isHor,targetSidebarFraction)
-	const storageKey=`sidebar-fraction[${isHor?'hor':'ver'}]`
-	storage.setItem(storageKey,String(sidebarFraction))
 }
 
 function getTargetFrontFraction($root: HTMLElement, isHor: boolean, targetFrontSize: number): number {
