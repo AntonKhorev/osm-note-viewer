@@ -50,30 +50,32 @@ body > .symbols {
 	height: 100%;
 	width: 100%;
 	display: grid;
-	grid-template-areas: "G";
-}
-.ui.with-sidebar {
 	grid-template-columns: var(--min-hor-side-size,0) var(--extra-left-side-size,1fr) var(--middle-hor-size,1fr) var(--min-hor-side-size,0);
 	grid-template-rows: var(--min-ver-side-size,0) var(--extra-top-side-size,1fr) var(--middle-ver-size,1fr) var(--min-ver-side-size,0);
-	grid-template-areas:
-		"T T T T"
-		"T T T T"
-		"G G G G"
-		"G G G G";
-}
-.ui.with-sidebar.flipped {
-	grid-template-areas:
-		"T T G G"
-		"T T G G"
-		"T T G G"
-		"T T G G";
 }
 .ui .graphic-side {
-	grid-area: G;
+	grid-row: 1 / -1;
+	grid-column: 1 / -1;
 	position: relative;
 }
+.ui.with-sidebar .graphic-side {
+	grid-column: 1 / -1;
+	grid-row: 3 / -1;
+}
+.ui.with-sidebar.flipped .graphic-side {
+	grid-row: 1 / -1;
+	grid-column: 3 / -1;
+}
+.ui.with-sidebar .text-side {
+	grid-column: 1 / -1;
+	grid-row: 1 / 3;
+}
+.ui.with-sidebar.flipped .text-side {
+	grid-row: 1 / -1;
+	grid-column: 1 / 3;
+}
+
 .ui .text-side {
-	grid-area: T;
 	position: relative;
 	display: flex;
 	flex-direction: column;
