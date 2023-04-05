@@ -46,34 +46,23 @@ export default class SidebarResizer {
 			this.$button.setPointerCapture(ev.pointerId)
 		}
 		this.$button.onpointerup=this.$button.onpointercancel=ev=>{
-			move=undefined
-			this.$flipMargin.hidden=true
-		}
-		this.$button.onpointermove=ev=>{
-			const flip=(flipped:boolean)=>{
+			if (move && this.$flipMargin.classList.contains('active')) {
+				const flipped=!move.isHor
 				this.$root.classList.toggle('flipped',flipped)
 				setStorageBoolean(this.storage,'flipped',flipped)
+				map.invalidateSize()
 			}
+			move=undefined
+			this.$flipMargin.hidden=true
+			this.$flipMargin.classList.remove('active')
+		}
+		this.$button.onpointermove=ev=>{
 			if (!move) return
-			if (move.isHor) {
-				if (ev.clientY<minVerSideSize && ev.clientX>=minHorSideSize) {
-					flip(false)
-					move.isHor=false
-					move.startOffset=0
-					setAndStoreSidebarSize(this.$root,this.storage,move.isHor,minVerSideSize)
-				} else {
-					move.move(this.$root,this.storage,ev)
-				}
-			} else {
-				if (ev.clientX<minHorSideSize && ev.clientY>=minVerSideSize) {
-					flip(true)
-					move.isHor=true
-					move.startOffset=0
-					setAndStoreSidebarSize(this.$root,this.storage,move.isHor,minHorSideSize)
-				} else {
-					move.move(this.$root,this.storage,ev)
-				}
-			}
+			this.$flipMargin.classList.toggle('active',(move.isHor
+				? ev.clientY<minVerSideSize && ev.clientX>=minHorSideSize
+				: ev.clientX<minHorSideSize && ev.clientY>=minVerSideSize
+			))
+			move.move(this.$root,this.storage,ev)
 			map.invalidateSize()
 		}
 		this.$button.onkeydown=ev=>{

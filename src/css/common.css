@@ -99,6 +99,9 @@ body > .symbols {
 	background: #8888;
 	z-index: 10;
 }
+.ui .flip-margin.active {
+	background: #48F8;
+}
 
 a.input-link[tabindex],
 a.listened,
