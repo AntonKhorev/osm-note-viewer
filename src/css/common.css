@@ -75,11 +75,11 @@ body > .symbols {
 	grid-row: 1 / -1;
 	grid-column: 1 / 3;
 }
-.ui.with-sidebar .flip-margin {
+.ui.with-sidebar .flip-margin[data-side='left'] {
 	grid-row: 1 / -1;
 	grid-column: 1 / 2;
 }
-.ui.with-sidebar.flipped .flip-margin {
+.ui.with-sidebar .flip-margin[data-side='top'] {
 	grid-column: 1 / -1;
 	grid-row: 1 / 2;
 }
@@ -100,6 +100,9 @@ body > .symbols {
 	background: #8888;
 	z-index: 10;
 	position: relative;
+}
+.ui .flip-margin.active {
+	background: #7898;
 }
 .ui .flip-margin .side-indicator {
 	position: absolute;
@@ -122,14 +125,14 @@ body > .symbols {
 	inset: 0;
 	background: var(--frame-color);
 }
-.ui:not(.flipped) .flip-margin .side-indicator::before {
+.ui .flip-margin[data-side='left'] .side-indicator::before {
 	width: 25%;
 	height: 100%;
 	border-right: solid 1px;
 	border-top-left-radius: 3px;
 	border-bottom-left-radius: 3px;
 }
-.ui.flipped .flip-margin .side-indicator::before {
+.ui .flip-margin[data-side='top'] .side-indicator::before {
 	height: 25%;
 	width: 100%;
 	border-bottom: solid 1px;

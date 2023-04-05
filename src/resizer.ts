@@ -41,8 +41,9 @@ export default class SidebarResizer {
 	startListening(map: NoteMap) {
 		let move:Move|undefined
 		this.$button.onpointerdown=ev=>{
-			this.$flipMargin.hidden=false
 			move=new Move(this.$root,this.$side,ev)
+			this.$flipMargin.dataset.side=move.isHor?'top':'left'
+			this.$flipMargin.hidden=false
 			this.$button.setPointerCapture(ev.pointerId)
 		}
 		this.$button.onpointerup=this.$button.onpointercancel=ev=>{
@@ -58,11 +59,17 @@ export default class SidebarResizer {
 		}
 		this.$button.onpointermove=ev=>{
 			if (!move) return
-			this.$flipMargin.classList.toggle('active',(move.isHor
+			const dock=(move.isHor
 				? ev.clientY<minVerSideSize && ev.clientX>=minHorSideSize
 				: ev.clientX<minHorSideSize && ev.clientY>=minVerSideSize
-			))
-			move.move(this.$root,this.storage,ev)
+			)
+			this.$flipMargin.classList.toggle('active',dock)
+			if (dock) {
+				this.$root.classList.toggle('flipped',!move.isHor)
+			} else {
+				this.$root.classList.toggle('flipped',move.isHor)
+				move.move(this.$root,this.storage,ev)
+			}
 			map.invalidateSize()
 		}
 		this.$button.onkeydown=ev=>{
