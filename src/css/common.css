@@ -1,5 +1,5 @@
 :root {
-	--frame-color: #CCC;
+	--frame-color: #AAA;
 	--hover-color: #DEF;
 	--click-color: #FC8;
 	--info-color: #28F;
@@ -21,6 +21,7 @@
 }
 @media (prefers-color-scheme: dark) {
 	:root {
+		--frame-color: #666;
 		--hover-color: #246;
 		--click-color: #A84;
 		--info-color: #26B;
@@ -110,15 +111,30 @@ body > .symbols {
 	background: canvas;
 	box-sizing: border-box;
 	border: solid 1px;
+	border-radius: 4px;
 }
 .ui .flip-margin.active .side-indicator {
 	background: var(--hover-color);
 }
-.ui:not(.flipped) .flip-margin .side-indicator {
-	border-left-width: 1rem;
+.ui .flip-margin .side-indicator::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: var(--frame-color);
 }
-.ui.flipped .flip-margin .side-indicator {
-	border-top-width: 1rem;
+.ui:not(.flipped) .flip-margin .side-indicator::before {
+	width: 25%;
+	height: 100%;
+	border-right: solid 1px;
+	border-top-left-radius: 3px;
+	border-bottom-left-radius: 3px;
+}
+.ui.flipped .flip-margin .side-indicator::before {
+	height: 25%;
+	width: 100%;
+	border-bottom: solid 1px;
+	border-top-left-radius: 3px;
+	border-top-right-radius: 3px;
 }
 
 a.input-link[tabindex],
