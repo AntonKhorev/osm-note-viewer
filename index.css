@@ -1,6 +1,6 @@
 /*** css/common.css ***/
 :root {
-	--frame-color: #CCC;
+	--frame-color: #AAA;
 	--hover-color: #DEF;
 	--click-color: #FC8;
 	--info-color: #28F;
@@ -22,6 +22,7 @@
 }
 @media (prefers-color-scheme: dark) {
 	:root {
+		--frame-color: #666;
 		--hover-color: #246;
 		--click-color: #A84;
 		--info-color: #26B;
@@ -51,30 +52,40 @@ body > .symbols {
 	height: 100%;
 	width: 100%;
 	display: grid;
-	grid-template-areas: "G";
-}
-.ui.with-sidebar {
 	grid-template-columns: var(--min-hor-side-size,0) var(--extra-left-side-size,1fr) var(--middle-hor-size,1fr) var(--min-hor-side-size,0);
 	grid-template-rows: var(--min-ver-side-size,0) var(--extra-top-side-size,1fr) var(--middle-ver-size,1fr) var(--min-ver-side-size,0);
-	grid-template-areas:
-		"T T T T"
-		"T T T T"
-		"G G G G"
-		"G G G G";
-}
-.ui.with-sidebar.flipped {
-	grid-template-areas:
-		"T T G G"
-		"T T G G"
-		"T T G G"
-		"T T G G";
 }
 .ui .graphic-side {
-	grid-area: G;
+	grid-row: 1 / -1;
+	grid-column: 1 / -1;
 	position: relative;
 }
+.ui.with-sidebar .graphic-side {
+	grid-column: 1 / -1;
+	grid-row: 3 / -1;
+}
+.ui.with-sidebar.flipped .graphic-side {
+	grid-row: 1 / -1;
+	grid-column: 3 / -1;
+}
+.ui.with-sidebar .text-side {
+	grid-column: 1 / -1;
+	grid-row: 1 / 3;
+}
+.ui.with-sidebar.flipped .text-side {
+	grid-row: 1 / -1;
+	grid-column: 1 / 3;
+}
+.ui.with-sidebar .flip-margin[data-side='left'] {
+	grid-row: 1 / -1;
+	grid-column: 1 / 2;
+}
+.ui.with-sidebar .flip-margin[data-side='top'] {
+	grid-column: 1 / -1;
+	grid-row: 1 / 2;
+}
+
 .ui .text-side {
-	grid-area: T;
 	position: relative;
 	display: flex;
 	flex-direction: column;
@@ -84,6 +95,50 @@ body > .symbols {
 .ui .text-side .scrolling {
 	overflow-y: scroll;
 	flex-grow: 1;
+}
+
+.ui .flip-margin {
+	background: #8888;
+	z-index: 10;
+	position: relative;
+}
+.ui .flip-margin.active {
+	background: #7898;
+}
+.ui .flip-margin .side-indicator {
+	position: absolute;
+	inset: 0;
+	margin: auto;
+	max-width: calc(100% - 1rem);
+	max-height: calc(100% - 1rem);
+	aspect-ratio: 1;
+	background: canvas;
+	box-sizing: border-box;
+	border: solid 1px;
+	border-radius: 4px;
+}
+.ui .flip-margin.active .side-indicator {
+	background: var(--hover-color);
+}
+.ui .flip-margin .side-indicator::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: var(--frame-color);
+}
+.ui .flip-margin[data-side='left'] .side-indicator::before {
+	width: 25%;
+	height: 100%;
+	border-right: solid 1px;
+	border-top-left-radius: 3px;
+	border-bottom-left-radius: 3px;
+}
+.ui .flip-margin[data-side='top'] .side-indicator::before {
+	height: 25%;
+	width: 100%;
+	border-bottom: solid 1px;
+	border-top-left-radius: 3px;
+	border-top-right-radius: 3px;
 }
 
 a.input-link[tabindex],
@@ -181,25 +236,14 @@ button.global:not([disabled]):hover > svg { /* > svg background only required fo
 nav {
 	position: relative;
 	box-sizing: border-box;
-	padding: 1rem 3rem 0 3rem;
+	padding: .5rem 3rem 0 .5rem;
 	z-index: 1;
-}
-nav button.global {
-	top: .5rem;
-	z-index: 2;
-}
-nav button.flip {
-	border-radius: 3px;
-	left: .5rem;
-	--flip-ver-part-visibility: visible;
 }
 nav button.reset {
 	border-radius: 50%;
-	right: .5rem;
-}
-.ui.flipped nav button.flip {
-	--flip-ver-part-visibility: hidden;
-	--flip-hor-part-visibility: visible;
+	right: .25rem;
+	top: .25rem;
+	z-index: 2;
 }
 nav [role=tablist] {
 	display: flex;

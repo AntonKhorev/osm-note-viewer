@@ -3763,6 +3763,9 @@ class SidebarResizer {
         this.$root = $root;
         this.$side = $side;
         this.storage = storage;
+        this.$flipMargin = makeDiv('flip-margin')(makeElement('span')('side-indicator')());
+        this.$flipMargin.hidden = true;
+        $root.append(this.$flipMargin);
         setStartingRootProperties($root, storage);
         this.$button = makeElement('button')('global', 'resize')();
         this.$button.innerHTML = `<svg><use href="#resize" /></svg>`;
@@ -3772,23 +3775,56 @@ class SidebarResizer {
         let move;
         this.$button.onpointerdown = ev => {
             move = new Move(this.$root, this.$side, ev);
+            this.$flipMargin.dataset.side = move.isHor ? 'top' : 'left';
+            this.$flipMargin.hidden = false;
             this.$button.setPointerCapture(ev.pointerId);
         };
-        this.$button.onpointerup = ev => {
+        this.$button.onpointerup = this.$button.onpointercancel = ev => {
+            if (move && this.$flipMargin.classList.contains('active')) {
+                const flipped = !move.isHor;
+                this.$root.classList.toggle('flipped', flipped);
+                setStorageBoolean(this.storage, 'flipped', flipped);
+                map.invalidateSize();
+            }
             move = undefined;
+            this.$flipMargin.hidden = true;
+            this.$flipMargin.classList.remove('active');
         };
         this.$button.onpointermove = ev => {
             if (!move)
                 return;
-            move.move(this.$root, this.storage, ev);
+            const dock = (move.isHor
+                ? ev.clientY < minVerSideSize && ev.clientX >= minHorSideSize
+                : ev.clientX < minHorSideSize && ev.clientY >= minVerSideSize);
+            this.$flipMargin.classList.toggle('active', dock);
+            if (dock) {
+                this.$root.classList.toggle('flipped', !move.isHor);
+            }
+            else {
+                this.$root.classList.toggle('flipped', move.isHor);
+                move.move(this.$root, this.storage, ev);
+            }
             map.invalidateSize();
         };
         this.$button.onkeydown = ev => {
+            const flip = (flipped) => {
+                this.$root.classList.toggle('flipped', flipped);
+                setStorageBoolean(this.storage, 'flipped', flipped);
+            };
             if (move)
                 return;
             const stepBase = ev.shiftKey ? 24 : 8;
             let step;
-            if (ev.key == 'ArrowLeft' || ev.key == 'ArrowUp') {
+            const isHor = this.$root.classList.contains('flipped');
+            if (isHor && (ev.key == 'ArrowUp' || ev.key == 'ArrowDown')) {
+                flip(false);
+                step = 0;
+            }
+            else if (!isHor && (ev.key == 'ArrowLeft' || ev.key == 'ArrowRight')) {
+                flip(true);
+                step = 0;
+            }
+            else if (ev.key == 'ArrowLeft' || ev.key == 'ArrowUp') {
                 step = -stepBase;
             }
             else if (ev.key == 'ArrowRight' || ev.key == 'ArrowDown') {
@@ -3799,10 +3835,11 @@ class SidebarResizer {
             }
             if (step == null)
                 return;
-            const isHor = this.$root.classList.contains('flipped');
-            const sidebarSize = getSidebarSize(this.$side, isHor);
-            const targetSidebarSize = sidebarSize + step;
-            setAndStoreSidebarSize(this.$root, this.storage, isHor, targetSidebarSize);
+            if (step) {
+                const sidebarSize = getSidebarSize(this.$side, isHor);
+                const targetSidebarSize = sidebarSize + step;
+                setAndStoreSidebarSize(this.$root, this.storage, isHor, targetSidebarSize);
+            }
             map.invalidateSize();
             ev.stopPropagation();
             ev.preventDefault();
@@ -3876,13 +3913,11 @@ class NavDialog {
 // https://www.w3.org/WAI/ARIA/apg/example-index/tabs/tabs-automatic.html
 // https://www.w3.org/WAI/ARIA/apg/example-index/tabs/tabs-manual.html
 class Navbar {
-    constructor($root, storage, $container, map) {
+    constructor($root, $container) {
         this.$tabList = document.createElement('div');
         this.tabs = new Map();
         this.$tabList.setAttribute('role', 'tablist');
         this.$tabList.setAttribute('aria-label', `Note query modes`);
-        if (map)
-            $container.append(makeFlipLayoutButton($root, storage, map));
         $container.append(this.$tabList);
         $container.append(makeResetButton());
         $container.onkeydown = ev => {
@@ -3956,13 +3991,6 @@ class Navbar {
             }
         }
     }
-}
-function makeFlipLayoutButton($root, storage, map) {
-    return makeButton('flip', `Flip layout`, () => {
-        const hasFlipped = $root.classList.toggle('flipped');
-        setStorageBoolean(storage, 'flipped', hasFlipped);
-        map.invalidateSize();
-    });
 }
 function makeResetButton() {
     return makeButton('reset', `Reset query`, () => {
@@ -11474,7 +11502,7 @@ async function main() {
         $graphicSide.append(sidebarResizer.$button, $mapContainer);
         map = writeMap($root, $mapContainer, net.cx.server, globalHistory);
         sidebarResizer.startListening(map);
-        const navbar = new Navbar($root, storage, $navbarContainer, map);
+        const navbar = new Navbar($root, $navbarContainer);
         const noteTable = writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer, storage, net.cx, globalHistory, map);
         new NoteFetchPanel($root, db, net.cx, $fetchContainer, $moreContainer, navbar, noteTable, map, globalHistory.getQueryHash(), globalHistory.hasMapHash(), net.serverSelector.getHostHashValueForServer(net.cx.server));
         $mapContainer.addEventListener('keydown', ev => {

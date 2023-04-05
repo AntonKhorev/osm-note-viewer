@@ -11,11 +11,9 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" crossorigin="" />
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
 </head>
-<body data-build="2023-04-02T17:14:43.448Z">
+<body data-build="2023-04-05T13:42:11.061Z">
 <svg class="symbols">
 <style>
-#flip .hor { visibility: var(--flip-hor-part-visibility,hidden); }
-#flip .ver { visibility: var(--flip-ver-part-visibility,hidden); }
 #menu .cross { visibility: var(--menu-cross-part-visibility,hidden); }
 #table-expander .hor-out { visibility: var(--table-expander-hor-out-part-visibility,hidden); }
 #table-expander .hor-in { visibility: var(--table-expander-hor-in-part-visibility,hidden); }
@@ -32,50 +30,6 @@
 #tools-map .area { visibility: var(--tools-map-area-part-visibility,hidden); }
 #tools-map .center { visibility: var(--tools-map-center-part-visibility,hidden); }
 </style>
-<symbol id="flip" viewBox="-32 -32 64 64">
-<defs>
-<filter id="flip-map-surface">
-<feTurbulence result="turbulence" baseFrequency="0.05" />
-<feComposite operator="atop" in="turbulence" in2="SourceGraphic" />
-</filter>
-<path id="flip-map-shape" d="M 31,1 V 25 A 6,6 0 0 1 25,31 H -25 A 6,6 0 0 1 -31,25 V 1 Z"/>
-<g id="flip-background" stroke="#444" stroke-width="2">
-<use href="#flip-map-shape" stroke="none" fill="#CE8" filter="url(#flip-map-surface)" opacity=".7" />
-<use href="#flip-map-shape" fill="none" />
-<path d="M -31 1 V -25 A 6,6 0 0 1 -25,-31 H 25 A 6,6 0 0 1 31,-25 V 1" fill="none" />
-</g>
-<path id="flip-hor-row" d="M -24,0 H 24" stroke="#888" stroke-width="4" opacity=".5" />
-<path id="flip-ver-row" d="M -24,0 H -6" stroke="#888" stroke-width="4" opacity=".5" />
-<g id="flip-arrow" fill="none" stroke-linecap="square" >
-<path d="M 7,-23 a 16,16 0 0 1 16,16 v 2" />
-<path d="M 9,-27 l -4,4 l 4,4" />
-</g>
-<g id="flip-arrow-pair">
-<use href="#flip-arrow" />
-<use href="#flip-arrow" transform="scale(-1)" />
-</g>
-<g id="flip-arrow-pair-outlined">
-<use href="#flip-arrow-pair" stroke="#FFF" stroke-width="4" opacity=".5" />
-<use href="#flip-arrow-pair" stroke="#000" stroke-width="2" />
-</g>
-</defs>
-<g class="hor">
-<use href="#flip-background" />
-<use href="#flip-hor-row" y="-22" />
-<use href="#flip-hor-row" y="-14" />
-<use href="#flip-hor-row" y="-6" />
-<use href="#flip-arrow-pair-outlined" transform="matrix(0,1,1,0,0,0)" />
-</g>
-<g class="ver">
-<use href="#flip-background" transform="rotate(-90)" />
-<use href="#flip-ver-row" y="-16" />
-<use href="#flip-ver-row" y="-8" />
-<use href="#flip-ver-row" y="0" />
-<use href="#flip-ver-row" y="8" />
-<use href="#flip-ver-row" y="16" />
-<use href="#flip-arrow-pair-outlined" />
-</g>
-</symbol>
 <symbol id="image-next" viewBox="-32 -32 64 64">
 <polygon points="-10,16 -10,-16 14,0" fill="currentColor" />
 </symbol>
