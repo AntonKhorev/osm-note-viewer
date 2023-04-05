@@ -79,9 +79,17 @@ body > .symbols {
 	grid-row: 1 / -1;
 	grid-column: 1 / 2;
 }
+.ui.with-sidebar .flip-margin[data-side='right'] {
+	grid-row: 1 / -1;
+	grid-column: -2 / -1;
+}
 .ui.with-sidebar .flip-margin[data-side='top'] {
 	grid-column: 1 / -1;
 	grid-row: 1 / 2;
+}
+.ui.with-sidebar .flip-margin[data-side='bottom'] {
+	grid-column: 1 / -1;
+	grid-row: -2 / -1;
 }
 
 .ui .text-side {
@@ -122,7 +130,6 @@ body > .symbols {
 .ui .flip-margin .side-indicator::before {
 	content: '';
 	position: absolute;
-	inset: 0;
 	background: var(--frame-color);
 }
 .ui .flip-margin[data-side='left'] .side-indicator::before {
@@ -132,12 +139,28 @@ body > .symbols {
 	border-top-left-radius: 3px;
 	border-bottom-left-radius: 3px;
 }
+.ui .flip-margin[data-side='right'] .side-indicator::before {
+	width: 25%;
+	height: 100%;
+	border-left: solid 1px;
+	border-top-right-radius: 3px;
+	border-bottom-right-radius: 3px;
+	right: 0;
+}
 .ui .flip-margin[data-side='top'] .side-indicator::before {
 	height: 25%;
 	width: 100%;
 	border-bottom: solid 1px;
 	border-top-left-radius: 3px;
 	border-top-right-radius: 3px;
+}
+.ui .flip-margin[data-side='bottom'] .side-indicator::before {
+	height: 25%;
+	width: 100%;
+	border-top: solid 1px;
+	border-bottom-left-radius: 3px;
+	border-bottom-right-radius: 3px;
+	bottom: 0;
 }
 
 a.input-link[tabindex],

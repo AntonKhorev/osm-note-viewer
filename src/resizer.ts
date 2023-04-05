@@ -7,6 +7,8 @@ const minHorSideSize=80
 const minVerSideSize=80
 const frMultiplier=100000
 
+type Side = 'top'|'bottom'|'left'|'right'
+
 class Move {
 	isHor: boolean
 	startOffset: number
@@ -23,16 +25,27 @@ class Move {
 	}
 }
 
+function makeFlipMargin(side: Side): HTMLElement {
+	const $flipMargin=makeDiv('flip-margin')(makeElement('span')('side-indicator')())
+	$flipMargin.dataset.side=side
+	$flipMargin.hidden=true
+	return $flipMargin
+}
+
 export default class SidebarResizer {
 	readonly $button: HTMLButtonElement
-	private readonly $flipMargin=makeDiv('flip-margin')(makeElement('span')('side-indicator')())
+	private $flipMargins={
+		top: makeFlipMargin('top'),
+		bottom: makeFlipMargin('bottom'),
+		left: makeFlipMargin('left'),
+		right: makeFlipMargin('right'),
+	}
 	constructor(
 		private readonly $root: HTMLElement,
 		private readonly $side: HTMLElement,
 		private readonly storage: NoteViewerStorage
 	) {
-		this.$flipMargin.hidden=true
-		$root.append(this.$flipMargin)
+		$root.append(...Object.values(this.$flipMargins))
 		setStartingRootProperties($root,storage)
 		this.$button=makeElement('button')('global','resize')()
 		this.$button.innerHTML=`<svg><use href="#resize" /></svg>`
@@ -42,29 +55,39 @@ export default class SidebarResizer {
 		let move:Move|undefined
 		this.$button.onpointerdown=ev=>{
 			move=new Move(this.$root,this.$side,ev)
-			this.$flipMargin.dataset.side=move.isHor?'top':'left'
-			this.$flipMargin.hidden=false
+			if (move.isHor) {
+				this.showFlipMargins('left')
+			} else {
+				this.showFlipMargins('top')
+			}
 			this.$button.setPointerCapture(ev.pointerId)
 		}
 		this.$button.onpointerup=this.$button.onpointercancel=ev=>{
-			if (move && this.$flipMargin.classList.contains('active')) {
-				const flipped=!move.isHor
-				this.$root.classList.toggle('flipped',flipped)
-				setStorageBoolean(this.storage,'flipped',flipped)
-				map.invalidateSize()
-			}
+			// if (move && this.$flipMargin.classList.contains('active')) {
+			// 	const flipped=!move.isHor
+			// 	this.$root.classList.toggle('flipped',flipped)
+			// 	setStorageBoolean(this.storage,'flipped',flipped)
+			// 	map.invalidateSize()
+			// }
 			move=undefined
-			this.$flipMargin.hidden=true
-			this.$flipMargin.classList.remove('active')
+			this.hideFlipMargins()
 		}
 		this.$button.onpointermove=ev=>{
 			if (!move) return
-			const dock=(move.isHor
-				? ev.clientY<minVerSideSize && ev.clientX>=minHorSideSize
-				: ev.clientX<minHorSideSize && ev.clientY>=minVerSideSize
-			)
-			this.$flipMargin.classList.toggle('active',dock)
-			if (dock) {
+			let onLeftMargin=ev.clientX<minHorSideSize
+			let onRightMargin=ev.clientX>=this.$root.clientWidth-minHorSideSize
+			let onTopMargin=ev.clientY<minVerSideSize
+			let onBottomMargin=ev.clientY>=this.$root.clientHeight-minVerSideSize
+			if ((+onLeftMargin)+(+onRightMargin)+(+onTopMargin)+(+onBottomMargin)>1) {
+				onLeftMargin=onRightMargin=onTopMargin=onBottomMargin=false
+			}
+			this.$flipMargins.left.classList.toggle('active',onLeftMargin && !move.isHor)
+			this.$flipMargins.right.classList.toggle('active',onRightMargin)
+			this.$flipMargins.top.classList.toggle('active',onTopMargin && move.isHor)
+			this.$flipMargins.bottom.classList.toggle('active',onBottomMargin)
+			if (onLeftMargin && !move.isHor) {
+				this.$root.classList.toggle('flipped',!move.isHor)
+			} else if (onTopMargin && move.isHor) {
 				this.$root.classList.toggle('flipped',!move.isHor)
 			} else {
 				this.$root.classList.toggle('flipped',move.isHor)
@@ -103,6 +126,17 @@ export default class SidebarResizer {
 			map.invalidateSize()
 			ev.stopPropagation()
 			ev.preventDefault()
+		}
+	}
+	showFlipMargins(againstSide: 'top'|'bottom'|'left'|'right'): void {
+		for (const [side,$flipMargin] of Object.entries(this.$flipMargins)) {
+			$flipMargin.hidden=side==againstSide
+		}
+	}
+	hideFlipMargins(): void {
+		for (const $flipMargin of Object.values(this.$flipMargins)) {
+			$flipMargin.hidden=true
+			$flipMargin.classList.remove('active')
 		}
 	}
 }
