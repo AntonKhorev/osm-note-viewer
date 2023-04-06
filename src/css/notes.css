@@ -252,6 +252,7 @@
 
 .notes th.note-map {
 	text-align: center;
+	right: 0;
 }
 .notes td.note-map {
 	position: sticky;
