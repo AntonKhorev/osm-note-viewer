@@ -35,6 +35,7 @@ const expanderDescriptions=new Map<string,ExpanderDescription>([
 	]],
 	['username',[
 		0,[
+			[-1,false,true,true,`seriously clip usernames`],
 			[0,false,true,false,`clip long usernames`],
 			[1,false,false,false,`show full usernames with ids`],
 		]

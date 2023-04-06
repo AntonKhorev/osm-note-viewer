@@ -193,6 +193,9 @@
 .notes table:not(.expanded-username) td.note-user .uid {
 	display: none;
 }
+.notes table.contracted-username td.note-user {
+	max-width: 3em;
+}
 
 .notes td.note-action [class|=icon-status-open] > svg {
 	--table-note-default-part-visibility: hidden;
