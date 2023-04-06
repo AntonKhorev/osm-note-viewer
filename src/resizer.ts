@@ -143,13 +143,18 @@ export default class SidebarResizer {
 			map.invalidateSize()
 		}
 		this.$button.onkeydown=ev=>{
-			const flip=(side:Side)=>{
-				this.storage.setItem('sidebar-side',this.$side.dataset.side=side)
-			}
 			if (move) return
 			const stepBase=ev.shiftKey?24:8
 			let step:number|undefined
 			const side=this.$side.dataset.side=forceValidSide(this.$root,this.$side.dataset.side)
+			const flip=(newSide:Side)=>{
+				const frontSize=getFrontSize(this.$root,this.$side,side)
+				const targetFrontFraction=getTargetFraction(this.$root,isHor(side),frontSize)
+				const targetSidebarFraction=adjustFraction(side,targetFrontFraction)
+				this.storage.setItem('sidebar-side',this.$side.dataset.side=newSide)
+				const sidebarFraction=setSidebarSizeProperties(this.$root,newSide,targetSidebarFraction)
+				this.storeSidebarSize(newSide,sidebarFraction)
+			}
 			if (isHor(side) && ev.key=='ArrowUp') {
 				flip('top')
 			} else if (isHor(side) && ev.key=='ArrowDown') {
