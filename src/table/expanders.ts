@@ -97,10 +97,10 @@ export default class Expanders {
 		const storageKey=`table-expanded[${key}]`
 		const $button=makeElement('button')('expander')()
 		$button.innerHTML=getButtonSvg()
-		let hasFocus=false
 		let hasHover=false
+		let inFocusTransition=false
 		const updateButton=()=>{
-			const nextShape=hasFocus||hasHover
+			const nextShape=inFocusTransition||hasHover
 			const value=this.values.get(key)
 			if (value==null) throw new RangeError(`unset expander value`)
 			const [currentState,nextState]=getCurrentAndNextState(key,value)
@@ -121,16 +121,9 @@ export default class Expanders {
 			this.$table.classList.toggle(`expanded-${key}`,value>0)
 			this.$table.classList.toggle(`contracted-${key}`,value<0)
 			this.storage.setItem(storageKey,String(value))
+			inFocusTransition=false
 			updateButton()
 			clickListener(value)
-		}
-		$button.onfocus=()=>{
-			hasFocus=true
-			updateButton()
-		}
-		$button.onblur=()=>{
-			hasFocus=false
-			updateButton()
 		}
 		$button.onpointerenter=()=>{
 			hasHover=true
@@ -138,6 +131,14 @@ export default class Expanders {
 		}
 		$button.onpointerleave=()=>{
 			hasHover=false
+			updateButton()
+		}
+		$button.onfocus=()=>{
+			inFocusTransition=!hasHover
+			updateButton()
+		}
+		$button.onblur=$button.ontransitionend=()=>{
+			inFocusTransition=false
 			updateButton()
 		}
 		return $button
