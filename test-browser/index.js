@@ -432,7 +432,7 @@ describe("browser tests",function(){
 		await page.waitForSelector('.notes tbody')
 		{
 			const commentCell=await page.$('.notes tbody .note-comment')
-			await commentCell.click()
+			await commentCell.click({offset:{x:0,y:0}})
 		}
 		assert.notEqual(
 			await page.$('.notes tbody .note-comment:focus'),
