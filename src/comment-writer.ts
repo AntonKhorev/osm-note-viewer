@@ -80,9 +80,12 @@ export function handleShowImagesUpdate($table: HTMLTableElement, showImages: boo
 
 export function makeDateOutput(readableDate: string): HTMLElement {
 	const [readableDateWithoutTime,readableDateTime]=readableDate.split(' ',2)
-	if (readableDate && readableDateWithoutTime) {
+	const readableYear=readableDateWithoutTime.slice(0,5)
+	const readableMonthDay=readableDateWithoutTime.slice(5)
+	if (readableYear && readableMonthDay && readableDateWithoutTime) {
 		return makeActiveTimeElement([
-			readableDateWithoutTime,
+			makeElement('span')('year-part')(readableYear),
+			readableMonthDay,
 			makeElement('span')('time-part')(` ${readableDateTime}`)
 		],`${readableDate.replace(' ','T')}Z`,`${readableDate} UTC`)
 	} else {

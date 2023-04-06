@@ -29,6 +29,7 @@ const expanderDescriptions=new Map<string,ExpanderDescription>([
 	]],
 	['date',[
 		0,[
+			[-1,false,true,true,`hide time of day and year`],
 			[0,false,true,false,`hide time of day`],
 			[1,false,false,false,`show time of day`],
 		]
