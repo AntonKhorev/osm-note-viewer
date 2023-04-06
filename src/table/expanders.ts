@@ -95,11 +95,15 @@ export default class Expanders {
 		const storageKey=`table-expanded[${key}]`
 		const $button=makeElement('button')('expander')()
 		$button.innerHTML=getButtonSvg()
+		let hasFocus=false
+		let hasHover=false
 		const updateButton=()=>{
+			const nextShape=hasFocus||hasHover
 			const value=this.values.get(key)
 			if (value==null) throw new RangeError(`unset expander value`)
 			const [currentState,nextState]=getCurrentAndNextState(key,value)
-			const [,isVertical,isInward,isTight]=currentState
+			const shapeState=nextShape?nextState:currentState
+			const [,isVertical,isInward,isTight]=shapeState
 			$button.classList.toggle('vertical',isVertical)
 			$button.classList.toggle('inward',isInward)
 			$button.classList.toggle('tight',isTight)
@@ -117,6 +121,22 @@ export default class Expanders {
 			this.storage.setItem(storageKey,String(value))
 			updateButton()
 			clickListener(value)
+		}
+		$button.onfocus=()=>{
+			hasFocus=true
+			updateButton()
+		}
+		$button.onblur=()=>{
+			hasFocus=false
+			updateButton()
+		}
+		$button.onpointerenter=()=>{
+			hasHover=true
+			updateButton()
+		}
+		$button.onpointerleave=()=>{
+			hasHover=false
+			updateButton()
 		}
 		return $button
 	}
