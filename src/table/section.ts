@@ -29,7 +29,7 @@ export function writeHeadSectionRow(
 		makeExpanderCell('note-link',`id`,'id'),
 		makeExpanderCell('note-action',``,'comments',(value)=>{
 			for (const $noteSection of getNoteSections()) {
-				hideNoteSectionRows($noteSection,value>0)
+				hideNoteSectionRows($noteSection,value<=0)
 			}
 			rowVisibilityChangeCallback()
 		}),
