@@ -9,11 +9,11 @@ import {a,mark} from '../util/html-shortcuts'
 export function writeHeadSectionRow(
 	$section: HTMLTableSectionElement,
 	$checkbox: HTMLInputElement,
-	makeExpanderButton: (key:string,clickListener?:(isExpanded:boolean)=>void)=>HTMLButtonElement|undefined,
+	makeExpanderButton: (key:string,clickListener?:(value:number)=>void)=>HTMLButtonElement|undefined,
 	getNoteSections: ()=>Iterable<HTMLTableSectionElement>,
 	rowVisibilityChangeCallback: ()=>void
 ) {
-	const makeExpanderCell=(cssClass:string,title:string,key:string,clickListener?:(isExpanded:boolean)=>void)=>{
+	const makeExpanderCell=(cssClass:string,title:string,key:string,clickListener?:(value:number)=>void)=>{
 		const $th=makeElement('th')(cssClass)()
 		const $button=makeExpanderButton(key,clickListener)
 		if (title) $th.append(title)
@@ -27,9 +27,9 @@ export function writeHeadSectionRow(
 			$checkbox
 		),
 		makeExpanderCell('note-link',`id`,'id'),
-		makeExpanderCell('note-action',``,'comments',(isExpanded)=>{
+		makeExpanderCell('note-action',``,'comments',(value)=>{
 			for (const $noteSection of getNoteSections()) {
-				hideNoteSectionRows($noteSection,!isExpanded)
+				hideNoteSectionRows($noteSection,value>0)
 			}
 			rowVisibilityChangeCallback()
 		}),

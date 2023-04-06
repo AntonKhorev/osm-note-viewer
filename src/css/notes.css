@@ -21,32 +21,6 @@
 .notes tbody * {
 	scroll-margin-top: var(--table-header-height);
 }
-.notes thead th button.expander {
-	position: relative;
-	box-sizing: border-box;
-	width: 17px;
-	height: 17px;
-	vertical-align: text-top;
-	cursor: pointer;
-}
-.notes thead th button.expander > svg {
-	position: absolute;
-	inset: 0;
-	width: 100%;
-	height: 100%;
-}
-.notes thead th button.expander.hor-out > svg {
-	--table-expander-hor-out-part-visibility: visible;
-}
-.notes thead th button.expander.hor-in > svg {
-	--table-expander-hor-in-part-visibility: visible;
-}
-.notes thead th button.expander.ver-out > svg {
-	--table-expander-ver-out-part-visibility: visible;
-}
-.notes thead th button.expander.ver-in > svg {
-	--table-expander-ver-in-part-visibility: visible;
-}
 .notes tbody {
 	position: relative;
 }
@@ -77,6 +51,41 @@
 }
 .notes mark {
 	background: #FF08;
+}
+
+.notes thead th button.expander {
+	position: relative;
+	box-sizing: border-box;
+	width: 17px;
+	height: 17px;
+	vertical-align: text-top;
+	cursor: pointer;
+}
+.notes thead th button.expander > svg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+.notes thead th button.expander > svg .arrow,
+.notes thead th button.expander > svg .arrowend,
+.notes thead th button.expander > svg .arrowhead {
+	transition: transform 150ms;
+}
+.notes thead th button.expander > svg .arrow {
+	transform-origin: 7.5px 7.5px;
+}
+.notes thead th button.expander > svg .arrowend {
+	transform: translate(5px,0px);
+}
+.notes thead th button.expander.vertical > svg .arrow {
+	transform: rotate(90deg);
+}
+.notes thead th button.expander.inward > svg .arrowhead {
+	transform: scale(-1,1);
+}
+.notes thead th button.expander.tight > svg .arrowend {
+	transform: translate(3px,0px);
 }
 
 .notes td.note-link > div {
