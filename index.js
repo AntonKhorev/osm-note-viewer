@@ -6873,76 +6873,149 @@ class NoteFilterPanel {
 
 const expanderDescriptions = new Map([
     ['id', [
-            true,
-            'hor-out', 'hor-in',
-            `show all id digits`, `show only changing id digits`
+            1, [
+                [-1, false, true, true, `don't show id digits`],
+                [0, false, true, false, `show only changing id digits`],
+                [1, false, false, false, `show all id digits`],
+            ]
         ]],
     ['comments', [
-            true,
-            'ver-out', 'ver-in',
-            `show all comments/actions`, `show only first comment/action`
+            1, [
+                [0, true, true, false, `show only first comment/action`],
+                [1, true, false, false, `show all comments/actions`],
+            ]
         ]],
     ['date', [
-            false,
-            'hor-out', 'hor-in',
-            `show time of day`, `hide time of day`
+            0, [
+                [-1, false, true, true, `hide time of day and year`],
+                [0, false, true, false, `hide time of day`],
+                [1, false, false, false, `show time of day`],
+            ]
         ]],
     ['username', [
-            false,
-            'hor-out', 'hor-in',
-            `show full usernames with ids`, `clip long usernames`
+            0, [
+                [-1, false, true, true, `seriously clip usernames`],
+                [0, false, true, false, `clip long usernames`],
+                [1, false, false, false, `show full usernames with ids`],
+            ]
         ]],
     ['comment-lines', [
-            true,
-            'ver-out', 'hor-out',
-            `allow line breaks in comments`, `keep comments on one line`
+            1, [
+                [0, false, false, false, `keep comments on one line`],
+                [1, true, false, false, `allow line breaks in comments`],
+            ]
         ]],
     ['map-link', [
-            true,
-            'hor-out', 'hor-in',
-            `stretch map links`, `don't stretch map links`
+            1, [
+                [0, false, true, false, `don't stretch map links`],
+                [1, false, false, false, `stretch map links`],
+            ]
         ]],
 ]);
+function getCurrentAndNextState(key, currentValue) {
+    const expanderDescription = expanderDescriptions.get(key);
+    if (!expanderDescription)
+        throw new RangeError(`invalid expander key`);
+    const [, states] = expanderDescription;
+    let currentState;
+    for (const state of states) {
+        if (currentState) {
+            return [currentState, state];
+        }
+        const [comparedValue] = state;
+        if (currentValue == comparedValue) {
+            currentState = state;
+        }
+    }
+    const [firstState, secondState] = states;
+    if (currentState)
+        return [currentState, firstState];
+    return [firstState, secondState];
+}
 class Expanders {
     constructor(storage, $table) {
         this.storage = storage;
         this.$table = $table;
-        for (const [key, [defaultValue]] of expanderDescriptions) {
-            const tableClass = `expanded-${key}`;
+        this.values = new Map;
+        for (const [key, [defaultValue, states]] of expanderDescriptions) {
+            const possibleValues = new Set(states.map(([value]) => value));
             const storageKey = `table-expanded[${key}]`;
-            const storedValue = this.storage.getItem(storageKey);
-            let value = defaultValue;
-            if (storedValue == '0')
-                value = false;
-            if (storedValue == '1')
-                value = true;
-            if (value)
-                this.$table.classList.add(tableClass);
+            const storedValue = Number(this.storage.getItem(storageKey));
+            const value = possibleValues.has(storedValue) ? storedValue : defaultValue;
+            if (value > 0)
+                this.$table.classList.add(`expanded-${key}`);
+            if (value < 0)
+                this.$table.classList.add(`contracted-${key}`);
+            this.values.set(key, value);
         }
     }
     makeButton(key, clickListener = () => { }) {
-        const expanderDescription = expanderDescriptions.get(key);
-        if (!expanderDescription)
-            return;
-        const [, expandButtonClass, collapseButtonClass, expandTitle, collapseTitle] = expanderDescription;
-        const $button = makeElement('button')('expander')();
-        $button.innerHTML = `<svg><use href="#table-expander" /></svg>`;
-        const update = (value) => {
-            $button.classList.toggle(expandButtonClass, !value);
-            $button.classList.toggle(collapseButtonClass, value);
-            $button.title = value ? collapseTitle : expandTitle;
-        };
-        const tableClass = `expanded-${key}`;
         const storageKey = `table-expanded[${key}]`;
-        update(this.$table.classList.contains(tableClass));
+        const $button = makeElement('button')('expander')();
+        $button.innerHTML = getButtonSvg();
+        let hasFocus = false;
+        let hasHover = false;
+        const updateButton = () => {
+            const nextShape = hasFocus || hasHover;
+            const value = this.values.get(key);
+            if (value == null)
+                throw new RangeError(`unset expander value`);
+            const [currentState, nextState] = getCurrentAndNextState(key, value);
+            const shapeState = nextShape ? nextState : currentState;
+            const [, isVertical, isInward, isTight] = shapeState;
+            $button.classList.toggle('vertical', isVertical);
+            $button.classList.toggle('inward', isInward);
+            $button.classList.toggle('tight', isTight);
+            [, , , , $button.title] = nextState;
+        };
+        updateButton();
         $button.onclick = () => {
-            const isExpanded = this.$table.classList.toggle(tableClass);
-            this.storage.setItem(storageKey, isExpanded ? '1' : '0');
-            update(isExpanded);
-            clickListener(isExpanded);
+            let value = this.values.get(key);
+            if (value == null)
+                throw new RangeError(`unset expander value`);
+            const [, nextState] = getCurrentAndNextState(key, value);
+            [value] = nextState;
+            this.values.set(key, value);
+            this.$table.classList.toggle(`expanded-${key}`, value > 0);
+            this.$table.classList.toggle(`contracted-${key}`, value < 0);
+            this.storage.setItem(storageKey, String(value));
+            updateButton();
+            clickListener(value);
+        };
+        $button.onfocus = () => {
+            hasFocus = true;
+            updateButton();
+        };
+        $button.onblur = () => {
+            hasFocus = false;
+            updateButton();
+        };
+        $button.onpointerenter = () => {
+            hasHover = true;
+            updateButton();
+        };
+        $button.onpointerleave = () => {
+            hasHover = false;
+            updateButton();
         };
         return $button;
     }
+}
+function getButtonSvg() {
+    return `<svg width="15" height="15" viewBox="0 0 15 15">` +
+        `<g class="arrow" stroke="currentColor" fill="none">` +
+        `<line x1="0.5" x2="14.5" y1="7.5" y2="7.5" />` +
+        getArrowEndSvg(``) +
+        getArrowEndSvg(` scale(-1 1)`) +
+        `</g>` +
+        `</svg>`;
+}
+function getArrowEndSvg(extraTransform) {
+    return `<g transform="translate(7.5)${extraTransform}">` +
+        `<g class="arrowend">` +
+        `<path class="arrowhead" d="M-2,4 L+2,7.5 L-2,11" />` +
+        `</g>` +
+        `</g>`;
 }
 
 class LooseParserListener {
@@ -7260,7 +7333,7 @@ class CommentWriter {
                 inlineElements.push($a);
             }
             else if (item.type == 'date') {
-                const $time = makeActiveTimeElement(markedText, '', item.text);
+                const $time = makeActiveTimeElement(markedText, item.text);
                 inlineElements.push($time);
             }
             else {
@@ -7291,8 +7364,14 @@ function handleShowImagesUpdate($table, showImages) {
 }
 function makeDateOutput(readableDate) {
     const [readableDateWithoutTime, readableDateTime] = readableDate.split(' ', 2);
-    if (readableDate && readableDateWithoutTime) {
-        return makeActiveTimeElement([readableDateWithoutTime], ` ${readableDateTime}`, `${readableDate.replace(' ', 'T')}Z`, `${readableDate} UTC`);
+    const readableYear = readableDateWithoutTime.slice(0, 5);
+    const readableMonthDay = readableDateWithoutTime.slice(5);
+    if (readableYear && readableMonthDay && readableDateWithoutTime) {
+        return makeActiveTimeElement([
+            makeElement('span')('year-part')(readableYear),
+            readableMonthDay,
+            makeElement('span')('time-part')(` ${readableDateTime}`)
+        ], `${readableDate.replace(' ', 'T')}Z`, `${readableDate} UTC`);
     }
     else {
         const $unknownDateTime = document.createElement('span');
@@ -7300,14 +7379,12 @@ function makeDateOutput(readableDate) {
         return $unknownDateTime;
     }
 }
-function makeActiveTimeElement(unwrappedPart, wrappedPart, dateTime, title) {
-    const $time = makeElement('time')('listened')(...unwrappedPart);
+function makeActiveTimeElement(textParts, dateTime, title) {
+    const $time = makeElement('time')('listened')(...textParts);
     $time.tabIndex = 0;
     $time.dateTime = dateTime;
     if (title)
         $time.title = title;
-    if (wrappedPart)
-        $time.append(makeElement('span')()(wrappedPart));
     return $time;
 }
 function makeMarkedText(text, markText) {
@@ -7363,7 +7440,7 @@ function writeHeadSectionRow($section, $checkbox, makeExpanderButton, getNoteSec
         const $th = makeElement('th')(cssClass)();
         const $button = makeExpanderButton(key, clickListener);
         if (title)
-            $th.append(title);
+            $th.append(makeElement('span')('title')(title));
         if (title && $button)
             $th.append(` `);
         if ($button)
@@ -7371,9 +7448,9 @@ function writeHeadSectionRow($section, $checkbox, makeExpanderButton, getNoteSec
         return $th;
     };
     const $row = $section.insertRow();
-    $row.append(makeElement('th')('note-checkbox')($checkbox), makeExpanderCell('note-link', `id`, 'id'), makeExpanderCell('note-action', ``, 'comments', (isExpanded) => {
+    $row.append(makeElement('th')('note-checkbox')($checkbox), makeExpanderCell('note-link', `id`, 'id'), makeExpanderCell('note-action', ``, 'comments', (value) => {
         for (const $noteSection of getNoteSections()) {
-            hideNoteSectionRows($noteSection, !isExpanded);
+            hideNoteSectionRows($noteSection, value <= 0);
         }
         rowVisibilityChangeCallback();
     }), makeExpanderCell('note-date', `date`, 'date'), makeExpanderCell('note-user', `user`, 'username'), makeExpanderCell('note-comment', `comment`, 'comment-lines'), makeExpanderCell('note-map', ``, 'map-link'));

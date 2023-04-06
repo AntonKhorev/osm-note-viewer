@@ -11,14 +11,10 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" crossorigin="" />
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
 </head>
-<body data-build="2023-04-06T00:26:26.931Z">
+<body data-build="2023-04-06T17:48:13.762Z">
 <svg class="symbols">
 <style>
 #menu .cross { visibility: var(--menu-cross-part-visibility,hidden); }
-#table-expander .hor-out { visibility: var(--table-expander-hor-out-part-visibility,hidden); }
-#table-expander .hor-in { visibility: var(--table-expander-hor-in-part-visibility,hidden); }
-#table-expander .ver-out { visibility: var(--table-expander-ver-out-part-visibility,hidden); }
-#table-expander .ver-in { visibility: var(--table-expander-ver-in-part-visibility,hidden); }
 #table-note .default { visibility: var(--table-note-default-part-visibility,visible); }
 #table-note .commented { visibility: var(--table-note-commented-part-visibility,hidden); }
 #table-note .open { visibility: var(--table-note-open-part-visibility,hidden); }
@@ -88,33 +84,6 @@
 <g stroke="#444" stroke-width="2" fill="var(--table-comments-icon-background,#FFF)" >
 <rect width="30" height="22" x="-15" y="-11" rx="4"/>
 <path d="M 7,10 v 1 a 4,4 0 0 0 4,4 a 8,4 0 0 1 -8,-4 v -1" />
-</g>
-</symbol>
-<symbol id="table-expander" viewBox="-7.5 -7.5 15 15">
-<defs>
-<path id="table-expander-arrowhead" d="M-3,-3 L0,0 L-3,+3" />
-<g id="table-expander-arrow-out">
-<line x1="-6" x2="+6" />
-<use href="#table-expander-arrowhead" transform="translate(6)" />
-<use href="#table-expander-arrowhead" transform="scale(-1) translate(6)" />
-</g>
-<g id="table-expander-arrow-in">
-<line x1="-6" x2="+6" />
-<use href="#table-expander-arrowhead" transform="translate(3) scale(-1)" />
-<use href="#table-expander-arrowhead" transform="scale(-1) translate(3) scale(-1)" />
-</g>
-</defs>
-<g class="hor-out">
-<use href="#table-expander-arrow-out" stroke="currentColor" fill="none" />
-</g>
-<g class="hor-in">
-<use href="#table-expander-arrow-in" stroke="currentColor" fill="none" />
-</g>
-<g class="ver-out">
-<use href="#table-expander-arrow-out" stroke="currentColor" fill="none" transform="rotate(90)" />
-</g>
-<g class="ver-in">
-<use href="#table-expander-arrow-in" stroke="currentColor" fill="none" transform="rotate(90)" />
 </g>
 </symbol>
 <symbol id="table-note" viewBox="-16 -16 32 32">

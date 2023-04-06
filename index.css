@@ -785,32 +785,6 @@ dialog.help button.close-all-tools::before {
 .notes tbody * {
 	scroll-margin-top: var(--table-header-height);
 }
-.notes thead th button.expander {
-	position: relative;
-	box-sizing: border-box;
-	width: 17px;
-	height: 17px;
-	vertical-align: text-top;
-	cursor: pointer;
-}
-.notes thead th button.expander > svg {
-	position: absolute;
-	inset: 0;
-	width: 100%;
-	height: 100%;
-}
-.notes thead th button.expander.hor-out > svg {
-	--table-expander-hor-out-part-visibility: visible;
-}
-.notes thead th button.expander.hor-in > svg {
-	--table-expander-hor-in-part-visibility: visible;
-}
-.notes thead th button.expander.ver-out > svg {
-	--table-expander-ver-out-part-visibility: visible;
-}
-.notes thead th button.expander.ver-in > svg {
-	--table-expander-ver-in-part-visibility: visible;
-}
 .notes tbody {
 	position: relative;
 }
@@ -841,6 +815,41 @@ dialog.help button.close-all-tools::before {
 }
 .notes mark {
 	background: #FF08;
+}
+
+.notes thead th button.expander {
+	position: relative;
+	box-sizing: border-box;
+	width: 17px;
+	height: 17px;
+	vertical-align: text-top;
+	cursor: pointer;
+}
+.notes thead th button.expander > svg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+.notes thead th button.expander > svg .arrow,
+.notes thead th button.expander > svg .arrowend,
+.notes thead th button.expander > svg .arrowhead {
+	transition: transform 150ms;
+}
+.notes thead th button.expander > svg .arrow {
+	transform-origin: 7.5px 7.5px;
+}
+.notes thead th button.expander > svg .arrowend {
+	transform: translate(5px,0px);
+}
+.notes thead th button.expander.vertical > svg .arrow {
+	transform: rotate(90deg);
+}
+.notes thead th button.expander.inward > svg .arrowhead {
+	transform: scale(-1,1);
+}
+.notes thead th button.expander.tight > svg .arrowend {
+	transform: translate(3px,0px);
 }
 
 .notes td.note-link > div {
@@ -883,6 +892,15 @@ dialog.help button.close-all-tools::before {
 .notes table:not(.expanded-id) td.note-link a .constant + .variable::before {
 	content: '...';
 }
+.notes table.contracted-id td.note-link a .variable {
+	display: none;
+}
+.notes table.contracted-id td.note-link a::before {
+	content: '#'
+}
+.notes table.contracted-id th.note-link .title {
+	display: none;
+}
 
 .notes td.note-action [class|=icon] {
 	position: relative;
@@ -916,7 +934,9 @@ dialog.help button.close-all-tools::before {
 .notes td.note-date {
 	white-space: nowrap;
 }
-.notes table:not(.expanded-date) td.note-date time > span {
+.notes table:not(.expanded-date) td.note-date time > .time-part,
+.notes table.contracted-date td.note-date time > .year-part,
+.notes table.contracted-date th.note-date .title {
 	display: none;
 }
 
@@ -938,6 +958,9 @@ dialog.help button.close-all-tools::before {
 }
 .notes table:not(.expanded-username) td.note-user .uid {
 	display: none;
+}
+.notes table.contracted-username td.note-user {
+	max-width: 3em;
 }
 
 .notes td.note-action [class|=icon-status-open] > svg {
