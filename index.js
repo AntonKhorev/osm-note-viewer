@@ -3745,17 +3745,49 @@ function equalUrlSequences(seq1, seq2) {
 const minHorSideSize = 80;
 const minVerSideSize = 80;
 const frMultiplier = 100000;
+function isHor(side) {
+    return side == 'left' || side == 'right';
+}
+function isFront(side) {
+    return side == 'top' || side == 'left';
+}
+function adjustFraction(side, fraction) {
+    return isFront(side) ? fraction : 1 - fraction;
+}
 class Move {
     constructor($root, $side, ev) {
-        this.isHor = $root.classList.contains('flipped');
-        const sidebarSize = getSidebarSize($side, this.isHor);
-        const pointerPosition = getPointerPosition(ev, this.isHor);
-        this.startOffset = pointerPosition - sidebarSize;
+        this.side = $side.dataset.side = forceValidSide($root, $side.dataset.side);
+        const frontSize = getFrontSize($root, $side, this.side);
+        const pointerPosition = getPointerPosition(ev, isHor(this.side));
+        this.startOffset = pointerPosition - frontSize;
+        const targetFrontFraction = getTargetFraction($root, isHor(this.side), frontSize);
+        this.startFrontFraction = this.frontFraction = setFrontSizeProperties($root, this.side, targetFrontFraction);
     }
-    move($root, storage, ev) {
-        const pointerPosition = getPointerPosition(ev, this.isHor);
-        const targetSidebarSize = pointerPosition - this.startOffset;
-        setAndStoreSidebarSize($root, storage, this.isHor, targetSidebarSize);
+    move($root, ev) {
+        const pointerPosition = getPointerPosition(ev, isHor(this.side));
+        const targetFrontSize = pointerPosition - this.startOffset;
+        const targetFrontFraction = getTargetFraction($root, isHor(this.side), targetFrontSize);
+        this.frontFraction = setFrontSizeProperties($root, this.side, targetFrontFraction);
+    }
+    get sidebarFraction() {
+        return adjustFraction(this.side, this.frontFraction);
+    }
+    get startSidebarFraction() {
+        return adjustFraction(this.side, this.startFrontFraction);
+    }
+}
+function makeFlipMargin(side) {
+    const $flipMargin = makeDiv('flip-margin')(makeElement('span')('side-indicator')());
+    $flipMargin.dataset.side = side;
+    $flipMargin.hidden = true;
+    return $flipMargin;
+}
+function forceValidSide($root, side) {
+    if (side == 'top' || side == 'bottom' || side == 'left' || side == 'right') {
+        return side;
+    }
+    else {
+        return $root.clientHeight > $root.clientWidth ? 'top' : 'left';
     }
 }
 class SidebarResizer {
@@ -3763,10 +3795,20 @@ class SidebarResizer {
         this.$root = $root;
         this.$side = $side;
         this.storage = storage;
-        this.$flipMargin = makeDiv('flip-margin')(makeElement('span')('side-indicator')());
-        this.$flipMargin.hidden = true;
-        $root.append(this.$flipMargin);
-        setStartingRootProperties($root, storage);
+        this.$flipMargins = {
+            top: makeFlipMargin('top'),
+            bottom: makeFlipMargin('bottom'),
+            left: makeFlipMargin('left'),
+            right: makeFlipMargin('right'),
+        };
+        $root.append(...Object.values(this.$flipMargins));
+        $root.style.setProperty('--min-hor-side-size', `${minHorSideSize}px`);
+        $root.style.setProperty('--min-ver-side-size', `${minVerSideSize}px`);
+        const side = $side.dataset.side = forceValidSide($root, storage.getItem('sidebar-side'));
+        const sidebarFractionItem = storage.getItem(`sidebar-fraction`);
+        if (sidebarFractionItem != null) {
+            setSidebarSizeProperties($root, side, Number(sidebarFractionItem));
+        }
         this.$button = makeElement('button')('global', 'resize')();
         this.$button.innerHTML = `<svg><use href="#resize" /></svg>`;
         this.$button.title = `Resize sidebar`;
@@ -3775,54 +3817,79 @@ class SidebarResizer {
         let move;
         this.$button.onpointerdown = ev => {
             move = new Move(this.$root, this.$side, ev);
-            this.$flipMargin.dataset.side = move.isHor ? 'top' : 'left';
-            this.$flipMargin.hidden = false;
+            this.showFlipMargins(move.side);
             this.$button.setPointerCapture(ev.pointerId);
         };
         this.$button.onpointerup = this.$button.onpointercancel = ev => {
-            if (move && this.$flipMargin.classList.contains('active')) {
-                const flipped = !move.isHor;
-                this.$root.classList.toggle('flipped', flipped);
-                setStorageBoolean(this.storage, 'flipped', flipped);
-                map.invalidateSize();
+            this.hideFlipMargins();
+            if (!move)
+                return;
+            const newSide = forceValidSide(this.$root, this.$side.dataset.side);
+            if (move.side == newSide) {
+                this.storeSidebarSize(move.side, move.sidebarFraction);
+            }
+            else {
+                this.storage.setItem('sidebar-side', newSide);
+                this.storeSidebarSize(newSide, move.startSidebarFraction);
             }
             move = undefined;
-            this.$flipMargin.hidden = true;
-            this.$flipMargin.classList.remove('active');
         };
         this.$button.onpointermove = ev => {
             if (!move)
                 return;
-            const dock = (move.isHor
-                ? ev.clientY < minVerSideSize && ev.clientX >= minHorSideSize
-                : ev.clientX < minHorSideSize && ev.clientY >= minVerSideSize);
-            this.$flipMargin.classList.toggle('active', dock);
-            if (dock) {
-                this.$root.classList.toggle('flipped', !move.isHor);
+            let onLeftMargin = ev.clientX < minHorSideSize;
+            let onRightMargin = ev.clientX >= this.$root.clientWidth - minHorSideSize;
+            let onTopMargin = ev.clientY < minVerSideSize;
+            let onBottomMargin = ev.clientY >= this.$root.clientHeight - minVerSideSize;
+            if ((+onLeftMargin) + (+onRightMargin) + (+onTopMargin) + (+onBottomMargin) > 1) {
+                onLeftMargin = onRightMargin = onTopMargin = onBottomMargin = false;
             }
+            this.$flipMargins.left.classList.toggle('active', onLeftMargin && move.side != 'left');
+            this.$flipMargins.right.classList.toggle('active', onRightMargin && move.side != 'right');
+            this.$flipMargins.top.classList.toggle('active', onTopMargin && move.side != 'top');
+            this.$flipMargins.bottom.classList.toggle('active', onBottomMargin && move.side != 'bottom');
+            const flipAction = (move, side) => {
+                if (move.side == side)
+                    return false;
+                this.$side.dataset.side = side;
+                setSidebarSizeProperties(this.$root, side, move.startSidebarFraction);
+                return true;
+            };
+            if (onLeftMargin && flipAction(move, 'left')) ;
+            else if (onRightMargin && flipAction(move, 'right')) ;
+            else if (onTopMargin && flipAction(move, 'top')) ;
+            else if (onBottomMargin && flipAction(move, 'bottom')) ;
             else {
-                this.$root.classList.toggle('flipped', move.isHor);
-                move.move(this.$root, this.storage, ev);
+                this.$side.dataset.side = move.side;
+                move.move(this.$root, ev);
             }
             map.invalidateSize();
         };
         this.$button.onkeydown = ev => {
-            const flip = (flipped) => {
-                this.$root.classList.toggle('flipped', flipped);
-                setStorageBoolean(this.storage, 'flipped', flipped);
-            };
             if (move)
                 return;
             const stepBase = ev.shiftKey ? 24 : 8;
             let step;
-            const isHor = this.$root.classList.contains('flipped');
-            if (isHor && (ev.key == 'ArrowUp' || ev.key == 'ArrowDown')) {
-                flip(false);
-                step = 0;
+            const side = this.$side.dataset.side = forceValidSide(this.$root, this.$side.dataset.side);
+            const flip = (newSide) => {
+                const frontSize = getFrontSize(this.$root, this.$side, side);
+                const targetFrontFraction = getTargetFraction(this.$root, isHor(side), frontSize);
+                const targetSidebarFraction = adjustFraction(side, targetFrontFraction);
+                this.storage.setItem('sidebar-side', this.$side.dataset.side = newSide);
+                const sidebarFraction = setSidebarSizeProperties(this.$root, newSide, targetSidebarFraction);
+                this.storeSidebarSize(newSide, sidebarFraction);
+            };
+            if (isHor(side) && ev.key == 'ArrowUp') {
+                flip('top');
             }
-            else if (!isHor && (ev.key == 'ArrowLeft' || ev.key == 'ArrowRight')) {
-                flip(true);
-                step = 0;
+            else if (isHor(side) && ev.key == 'ArrowDown') {
+                flip('bottom');
+            }
+            else if (!isHor(side) && ev.key == 'ArrowLeft') {
+                flip('left');
+            }
+            else if (!isHor(side) && ev.key == 'ArrowRight') {
+                flip('right');
             }
             else if (ev.key == 'ArrowLeft' || ev.key == 'ArrowUp') {
                 step = -stepBase;
@@ -3833,62 +3900,80 @@ class SidebarResizer {
             else {
                 return;
             }
-            if (step == null)
-                return;
             if (step) {
-                const sidebarSize = getSidebarSize(this.$side, isHor);
-                const targetSidebarSize = sidebarSize + step;
-                setAndStoreSidebarSize(this.$root, this.storage, isHor, targetSidebarSize);
+                const frontSize = getFrontSize(this.$root, this.$side, side);
+                const targetFrontSize = frontSize + step;
+                const targetFrontFraction = getTargetFraction(this.$root, isHor(side), targetFrontSize);
+                const frontFraction = setFrontSizeProperties(this.$root, side, targetFrontFraction);
+                this.storeFrontSize(side, frontFraction);
             }
             map.invalidateSize();
+            if (step == null)
+                return;
             ev.stopPropagation();
             ev.preventDefault();
         };
     }
-}
-function setStartingRootProperties($root, storage) {
-    $root.style.setProperty('--min-hor-side-size', `${minHorSideSize}px`);
-    $root.style.setProperty('--min-ver-side-size', `${minVerSideSize}px`);
-    const horSidebarFractionItem = storage.getItem('hor-sidebar-fraction');
-    if (horSidebarFractionItem != null) {
-        setSizeProperties($root, true, Number(horSidebarFractionItem));
+    showFlipMargins(againstSide) {
+        for (const [side, $flipMargin] of Object.entries(this.$flipMargins)) {
+            $flipMargin.hidden = side == againstSide;
+        }
     }
-    const verSidebarFractionItem = storage.getItem('ver-sidebar-fraction');
-    if (verSidebarFractionItem != null) {
-        setSizeProperties($root, false, Number(verSidebarFractionItem));
+    hideFlipMargins() {
+        for (const $flipMargin of Object.values(this.$flipMargins)) {
+            $flipMargin.hidden = true;
+            $flipMargin.classList.remove('active');
+        }
+    }
+    storeSidebarSize(side, sidebarFraction) {
+        this.storage.setItem(`sidebar-fraction`, String(sidebarFraction));
+    }
+    storeFrontSize(side, sidebarFraction) {
+        this.storage.setItem(`sidebar-fraction`, String(adjustFraction(side, sidebarFraction)));
     }
 }
 function getPointerPosition(ev, isHor) {
     return isHor ? ev.clientX : ev.clientY;
 }
-function getSidebarSize($side, isHor) {
-    return isHor ? $side.offsetWidth : $side.offsetHeight;
+function getFrontSize($root, $side, side) {
+    if (side == 'top') {
+        return $side.offsetHeight;
+    }
+    else if (side == 'bottom') {
+        return $root.clientHeight - $side.offsetHeight;
+    }
+    else if (side == 'left') {
+        return $side.offsetWidth;
+    }
+    else if (side == 'right') {
+        return $root.clientWidth - $side.offsetWidth;
+    }
+    else {
+        throw new RangeError(`invalid sidebar side`);
+    }
 }
-function setAndStoreSidebarSize($root, storage, isHor, targetSidebarSize) {
-    const targetSidebarFraction = getTargetSidebarFraction($root, isHor, targetSidebarSize);
-    const sidebarFraction = setSizeProperties($root, isHor, targetSidebarFraction);
-    const storageKey = (isHor ? 'hor-' : 'ver-') + 'sidebar-fraction';
-    storage.setItem(storageKey, String(sidebarFraction));
-}
-function getTargetSidebarFraction($root, isHor, targetSidebarSize) {
+function getTargetFraction($root, isHor, targetSize) {
     const minSideSize = isHor ? minHorSideSize : minVerSideSize;
     const rootExtraSize = (isHor ? $root.clientWidth : $root.clientHeight) - 2 * minSideSize;
-    const targetExtraSize = targetSidebarSize - minSideSize;
+    const targetExtraSize = targetSize - minSideSize;
     return targetExtraSize / rootExtraSize;
 }
-function setSizeProperties($root, isHor, sidebarFraction) {
-    const extraSizeProperty = isHor ? '--extra-left-side-size' : '--extra-top-side-size';
-    const middleSizeProperty = isHor ? '--middle-hor-size' : '--middle-ver-size';
-    if (sidebarFraction < 0)
-        sidebarFraction = 0;
-    if (sidebarFraction > 1)
-        sidebarFraction = 1;
-    if (Number.isNaN(sidebarFraction))
-        sidebarFraction = 0.5;
-    const extraFr = Math.round(sidebarFraction * frMultiplier);
-    $root.style.setProperty(extraSizeProperty, `${extraFr}fr`);
-    $root.style.setProperty(middleSizeProperty, `${frMultiplier - extraFr}fr`);
-    return sidebarFraction;
+function setSidebarSizeProperties($root, side, sidebarFraction) {
+    const frontFraction = adjustFraction(side, sidebarFraction);
+    const outputFrontFraction = setFrontSizeProperties($root, side, frontFraction);
+    return adjustFraction(side, outputFrontFraction);
+}
+function setFrontSizeProperties($root, side, frontFraction) {
+    if (frontFraction < 0)
+        frontFraction = 0;
+    if (frontFraction > 1)
+        frontFraction = 1;
+    if (Number.isNaN(frontFraction))
+        frontFraction = 0.5;
+    const fr = Math.round(frontFraction * frMultiplier);
+    $root.style.setProperty(isHor(side) ? '--left-side-size' : '--top-side-size', `${fr}fr`);
+    $root.style.setProperty(isHor(side) ? '--right-side-size' : '--bottom-side-size', `${frMultiplier - fr}fr`);
+    return frontFraction;
 }
 
 const e$7 = makeEscapeTag(escapeXml);
@@ -11489,13 +11574,9 @@ async function main() {
     const $graphicSide = makeDiv('graphic-side')($menuButton);
     const $mapContainer = makeDiv('map')();
     $root.append($graphicSide);
-    const flipped = getStorageBoolean(storage, 'flipped');
-    if (flipped)
-        $root.classList.add('flipped');
     let map;
     const globalHistory = new GlobalHistory($root, $scrollingPart, net);
     if (net.cx) {
-        $root.classList.add('with-sidebar');
         const $textSide = makeDiv('text-side')($scrollingPart, $stickyPart);
         $graphicSide.before($textSide);
         const sidebarResizer = new SidebarResizer($root, $textSide, storage);

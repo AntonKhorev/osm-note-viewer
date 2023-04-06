@@ -52,37 +52,61 @@ body > .symbols {
 	height: 100%;
 	width: 100%;
 	display: grid;
-	grid-template-columns: var(--min-hor-side-size,0) var(--extra-left-side-size,1fr) var(--middle-hor-size,1fr) var(--min-hor-side-size,0);
-	grid-template-rows: var(--min-ver-side-size,0) var(--extra-top-side-size,1fr) var(--middle-ver-size,1fr) var(--min-ver-side-size,0);
+	grid-template-columns: var(--min-hor-side-size,0) var(--left-side-size,1fr) var(--right-side-size,1fr) var(--min-hor-side-size,0);
+	grid-template-rows: var(--min-ver-side-size,0) var(--top-side-size,1fr) var(--bottom-side-size,1fr) var(--min-ver-side-size,0);
 }
 .ui .graphic-side {
 	grid-row: 1 / -1;
 	grid-column: 1 / -1;
 	position: relative;
 }
-.ui.with-sidebar .graphic-side {
-	grid-column: 1 / -1;
-	grid-row: 3 / -1;
-}
-.ui.with-sidebar.flipped .graphic-side {
-	grid-row: 1 / -1;
-	grid-column: 3 / -1;
-}
-.ui.with-sidebar .text-side {
+.ui .text-side[data-side='top'] {
 	grid-column: 1 / -1;
 	grid-row: 1 / 3;
 }
-.ui.with-sidebar.flipped .text-side {
+.ui .text-side[data-side='top'] + .graphic-side {
+	grid-column: 1 / -1;
+	grid-row: -3 / -1;
+}
+.ui .text-side[data-side='bottom'] {
+	grid-column: 1 / -1;
+	grid-row: -3 / -1;
+}
+.ui .text-side[data-side='bottom'] + .graphic-side {
+	grid-column: 1 / -1;
+	grid-row: 3 / 1;
+}
+.ui .text-side[data-side='left'] {
 	grid-row: 1 / -1;
 	grid-column: 1 / 3;
 }
-.ui.with-sidebar .flip-margin[data-side='left'] {
+.ui .text-side[data-side='left'] + .graphic-side {
+	grid-row: 1 / -1;
+	grid-column: -3 / -1;
+}
+.ui .text-side[data-side='right'] {
+	grid-row: 1 / -1;
+	grid-column: -3 / -1;
+}
+.ui .text-side[data-side='right'] + .graphic-side {
+	grid-row: 1 / -1;
+	grid-column: 1 / 3;
+}
+.ui .flip-margin[data-side='left'] {
 	grid-row: 1 / -1;
 	grid-column: 1 / 2;
 }
-.ui.with-sidebar .flip-margin[data-side='top'] {
+.ui .flip-margin[data-side='right'] {
+	grid-row: 1 / -1;
+	grid-column: -2 / -1;
+}
+.ui .flip-margin[data-side='top'] {
 	grid-column: 1 / -1;
 	grid-row: 1 / 2;
+}
+.ui .flip-margin[data-side='bottom'] {
+	grid-column: 1 / -1;
+	grid-row: -2 / -1;
 }
 
 .ui .text-side {
@@ -123,7 +147,6 @@ body > .symbols {
 .ui .flip-margin .side-indicator::before {
 	content: '';
 	position: absolute;
-	inset: 0;
 	background: var(--frame-color);
 }
 .ui .flip-margin[data-side='left'] .side-indicator::before {
@@ -133,12 +156,28 @@ body > .symbols {
 	border-top-left-radius: 3px;
 	border-bottom-left-radius: 3px;
 }
+.ui .flip-margin[data-side='right'] .side-indicator::before {
+	width: 25%;
+	height: 100%;
+	border-left: solid 1px;
+	border-top-right-radius: 3px;
+	border-bottom-right-radius: 3px;
+	right: 0;
+}
 .ui .flip-margin[data-side='top'] .side-indicator::before {
 	height: 25%;
 	width: 100%;
 	border-bottom: solid 1px;
 	border-top-left-radius: 3px;
 	border-top-right-radius: 3px;
+}
+.ui .flip-margin[data-side='bottom'] .side-indicator::before {
+	height: 25%;
+	width: 100%;
+	border-top: solid 1px;
+	border-bottom-left-radius: 3px;
+	border-bottom-right-radius: 3px;
+	bottom: 0;
 }
 
 a.input-link[tabindex],
@@ -1121,7 +1160,7 @@ dialog.help button.close-all-tools::before {
 	margin: auto;
 	touch-action: none;
 }
-.ui:not(.flipped) .graphic-side button.resize {
+.ui .text-side[data-side='top'] + .graphic-side button.resize {
 	left: 0;
 	right: 0;
 	top: 0;
@@ -1131,7 +1170,17 @@ dialog.help button.close-all-tools::before {
 	border-bottom-right-radius: 5px;
 	cursor: row-resize;
 }
-.ui.flipped .graphic-side button.resize {
+.ui .text-side[data-side='bottom'] + .graphic-side button.resize {
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: 1rem;
+	border-bottom: none;
+	border-top-left-radius: 5px;
+	border-top-right-radius: 5px;
+	cursor: row-resize;
+}
+.ui .text-side[data-side='left'] + .graphic-side button.resize {
 	left: 0;
 	top: 0;
 	bottom: 0;
@@ -1141,14 +1190,24 @@ dialog.help button.close-all-tools::before {
 	border-bottom-right-radius: 5px;
 	cursor: col-resize;
 }
+.ui .text-side[data-side='right'] + .graphic-side button.resize {
+	right: 0;
+	top: 0;
+	bottom: 0;
+	width: 1rem;
+	border-right: none;
+	border-top-left-radius: 5px;
+	border-bottom-left-radius: 5px;
+	cursor: col-resize;
+}
 .graphic-side button.resize > svg {
 	position: absolute;
 	translate: -50% -50%;
 }
-.ui:not(.flipped) .graphic-side button.resize > svg {
+.ui .text-side:is([data-side='top'],[data-side='bottom']) + .graphic-side button.resize > svg {
 	height: auto;
 }
-.ui.flipped .graphic-side button.resize > svg {
+.ui .text-side:is([data-side='left'],[data-side='right']) + .graphic-side button.resize > svg {
 	width: auto;
 }
 .graphic-side button.resize:not(:hover) > svg {
