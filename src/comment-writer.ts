@@ -48,7 +48,7 @@ export default class CommentWriter {
 				$a.classList.add('listened','osm')
 				inlineElements.push($a)
 			} else if (item.type=='date') {
-				const $time=makeActiveTimeElement(markedText,'',item.text)
+				const $time=makeActiveTimeElement(markedText,item.text)
 				inlineElements.push($time)
 			} else {
 				inlineElements.push(...markedText)
@@ -81,7 +81,10 @@ export function handleShowImagesUpdate($table: HTMLTableElement, showImages: boo
 export function makeDateOutput(readableDate: string): HTMLElement {
 	const [readableDateWithoutTime,readableDateTime]=readableDate.split(' ',2)
 	if (readableDate && readableDateWithoutTime) {
-		return makeActiveTimeElement([readableDateWithoutTime],` ${readableDateTime}`,`${readableDate.replace(' ','T')}Z`,`${readableDate} UTC`)
+		return makeActiveTimeElement([
+			readableDateWithoutTime,
+			makeElement('span')('time-part')(` ${readableDateTime}`)
+		],`${readableDate.replace(' ','T')}Z`,`${readableDate} UTC`)
 	} else {
 		const $unknownDateTime=document.createElement('span')
 		$unknownDateTime.textContent=`?`
@@ -89,12 +92,11 @@ export function makeDateOutput(readableDate: string): HTMLElement {
 	}
 }
 
-function makeActiveTimeElement(unwrappedPart: Array<string|HTMLElement>, wrappedPart: string, dateTime: string, title?: string): HTMLTimeElement {
-	const $time=makeElement('time')('listened')(...unwrappedPart)
+function makeActiveTimeElement(textParts: Array<string|HTMLElement>, dateTime: string, title?: string): HTMLTimeElement {
+	const $time=makeElement('time')('listened')(...textParts)
 	$time.tabIndex=0
 	$time.dateTime=dateTime
 	if (title) $time.title=title
-	if (wrappedPart) $time.append(makeElement('span')()(wrappedPart))
 	return $time
 }
 

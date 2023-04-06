@@ -170,7 +170,7 @@
 .notes td.note-date {
 	white-space: nowrap;
 }
-.notes table:not(.expanded-date) td.note-date time > span {
+.notes table:not(.expanded-date) td.note-date time > .time-part {
 	display: none;
 }
 
