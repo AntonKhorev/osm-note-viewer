@@ -11,14 +11,6 @@ type Side = 'top'|'bottom'|'left'|'right'
 function isHor(side: Side): boolean {
 	return side=='left' || side=='right'
 }
-function isOpposite(side1: Side, side2: Side): boolean {
-	return (
-		(side1=='top' && side2=='bottom') ||
-		(side2=='top' && side1=='bottom') ||
-		(side1=='left' && side2=='right') ||
-		(side2=='left' && side1=='right')
-	)
-}
 function isFront(side: Side): boolean {
 	return side=='top' || side=='left'
 }
