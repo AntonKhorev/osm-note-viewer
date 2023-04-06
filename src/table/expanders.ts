@@ -16,7 +16,7 @@ type ExpanderDescription = [
 const expanderDescriptions=new Map<string,ExpanderDescription>([
 	['id',[
 		1,[
-			// [-1,false,true,true,`don't show id digits`],
+			[-1,false,true,true,`don't show id digits`],
 			[0,false,true,false,`show only changing id digits`],
 			[1,false,false,false,`show all id digits`],
 		]

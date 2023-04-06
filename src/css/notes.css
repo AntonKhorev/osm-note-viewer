@@ -128,6 +128,15 @@
 .notes table:not(.expanded-id) td.note-link a .constant + .variable::before {
 	content: '...';
 }
+.notes table.contracted-id td.note-link a .variable {
+	display: none;
+}
+.notes table.contracted-id td.note-link a::before {
+	content: '#'
+}
+.notes table.contracted-id th.note-link .title {
+	display: none;
+}
 
 .notes td.note-action [class|=icon] {
 	position: relative;

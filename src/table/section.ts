@@ -16,7 +16,7 @@ export function writeHeadSectionRow(
 	const makeExpanderCell=(cssClass:string,title:string,key:string,clickListener?:(value:number)=>void)=>{
 		const $th=makeElement('th')(cssClass)()
 		const $button=makeExpanderButton(key,clickListener)
-		if (title) $th.append(title)
+		if (title) $th.append(makeElement('span')('title')(title))
 		if (title && $button) $th.append(` `)
 		if ($button) $th.append($button)
 		return $th
