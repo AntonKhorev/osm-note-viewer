@@ -89,7 +89,10 @@ export default class NoteTable implements NoteTableUpdater {
 			}],
 			['click',function(ev){
 				if (
-					that.$table.classList.contains('expanded-map-link') &&
+					(
+						that.$table.classList.contains('expanded-map-link') ||
+						that.$table.classList.contains('contracted-map-link')
+					) &&
 					$clickReadyNoteSection==this &&
 					!(
 						ev.target instanceof HTMLElement &&
