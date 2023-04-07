@@ -6907,6 +6907,7 @@ const expanderDescriptions = new Map([
         ]],
     ['map-link', [
             1, [
+                [-1, false, true, true, `squeeze map links`],
                 [0, false, true, false, `don't stretch map links`],
                 [1, false, false, false, `stretch map links`],
             ]
@@ -6932,6 +6933,25 @@ function getCurrentAndNextState(key, currentValue) {
         return [currentState, firstState];
     return [firstState, secondState];
 }
+function getStepValue(key, currentValue, di) {
+    const expanderDescription = expanderDescriptions.get(key);
+    if (!expanderDescription)
+        throw new RangeError(`invalid expander key`);
+    const [defaultValue, states] = expanderDescription;
+    let comparedValue = defaultValue;
+    let grabNextValue = false;
+    for (let i = (di > 0 ? 0 : states.length - 1); i >= 0 && i < states.length; i += di) {
+        const state = states[i];
+        [comparedValue] = state;
+        if (grabNextValue) {
+            return comparedValue;
+        }
+        if (currentValue == comparedValue) {
+            grabNextValue = true;
+        }
+    }
+    return comparedValue;
+}
 class Expanders {
     constructor(storage, $table) {
         this.storage = storage;
@@ -6953,10 +6973,10 @@ class Expanders {
         const storageKey = `table-expanded[${key}]`;
         const $button = makeElement('button')('expander')();
         $button.innerHTML = getButtonSvg();
-        let hasFocus = false;
         let hasHover = false;
+        let inFocusTransition = false;
         const updateButton = () => {
-            const nextShape = hasFocus || hasHover;
+            const nextShape = inFocusTransition || hasHover;
             const value = this.values.get(key);
             if (value == null)
                 throw new RangeError(`unset expander value`);
@@ -6969,26 +6989,39 @@ class Expanders {
             [, , , , $button.title] = nextState;
         };
         updateButton();
+        const setValue = (value) => {
+            this.values.set(key, value);
+            this.$table.classList.toggle(`expanded-${key}`, value > 0);
+            this.$table.classList.toggle(`contracted-${key}`, value < 0);
+            this.storage.setItem(storageKey, String(value));
+            inFocusTransition = false;
+            updateButton();
+            clickListener(value);
+        };
         $button.onclick = () => {
             let value = this.values.get(key);
             if (value == null)
                 throw new RangeError(`unset expander value`);
             const [, nextState] = getCurrentAndNextState(key, value);
             [value] = nextState;
-            this.values.set(key, value);
-            this.$table.classList.toggle(`expanded-${key}`, value > 0);
-            this.$table.classList.toggle(`contracted-${key}`, value < 0);
-            this.storage.setItem(storageKey, String(value));
-            updateButton();
-            clickListener(value);
+            setValue(value);
         };
-        $button.onfocus = () => {
-            hasFocus = true;
-            updateButton();
-        };
-        $button.onblur = () => {
-            hasFocus = false;
-            updateButton();
+        $button.onkeydown = ev => {
+            let value = this.values.get(key);
+            if (value == null)
+                throw new RangeError(`unset expander value`);
+            if (ev.key == '+') {
+                value = getStepValue(key, value, +1);
+            }
+            else if (ev.key == '-') {
+                value = getStepValue(key, value, -1);
+            }
+            else {
+                return;
+            }
+            ev.stopPropagation();
+            ev.preventDefault();
+            setValue(value);
         };
         $button.onpointerenter = () => {
             hasHover = true;
@@ -6996,6 +7029,14 @@ class Expanders {
         };
         $button.onpointerleave = () => {
             hasHover = false;
+            updateButton();
+        };
+        $button.onfocus = () => {
+            inFocusTransition = !hasHover;
+            updateButton();
+        };
+        $button.onblur = $button.ontransitionend = () => {
+            inFocusTransition = false;
             updateButton();
         };
         return $button;
@@ -7439,12 +7480,12 @@ function writeHeadSectionRow($section, $checkbox, makeExpanderButton, getNoteSec
     const makeExpanderCell = (cssClass, title, key, clickListener) => {
         const $th = makeElement('th')(cssClass)();
         const $button = makeExpanderButton(key, clickListener);
-        if (title)
-            $th.append(makeElement('span')('title')(title));
-        if (title && $button)
-            $th.append(` `);
         if ($button)
             $th.append($button);
+        if (title && $button)
+            $th.append(` `);
+        if (title)
+            $th.append(makeElement('span')('title')(title));
         return $th;
     };
     const $row = $section.insertRow();
@@ -8148,6 +8189,8 @@ class Cursor {
             ul(li(kbd(`Tab`), ` and `, kbd(`Shift`), ` + `, kbd(`Tab`), ` — switch between table head and body`)),
             p(`Anywhere inside the table:`),
             ul(li(kbd(`Arrow keys`), ` — go to adjacent table cell`), li(kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last column`), li(kbd(`Ctrl`), ` + `, kbd(`A`), ` — select all notes`)),
+            p(`Inside the table head:`),
+            ul(li(kbd(`+`), ` / `, kbd(`-`), ` — expand/contract a table column`)),
             p(`Inside the table body:`),
             ul(li(kbd(`Ctrl`), ` + `, kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last row`), li(kbd(`Shift`), ` + left click on a checkbox — select a range of notes starting from the previous click`), li(kbd(`Shift`), ` + any vertical navigation keys — select notes`), li(kbd(`Enter`), ` while in the comment column — go inside the comment cell; `, kbd(`Esc`), ` — go back`), li(kbd(`Enter`), ` while in the map column — switch to the map and zoom to note; `, kbd(`Esc`), ` — switch back`), li(kbd(`+`), ` / `, kbd(`-`), ` — zoom in/out on a note location`)),
         ]);
@@ -8370,7 +8413,8 @@ class NoteTable {
                     $clickReadyNoteSection = this;
                 }],
             ['click', function (ev) {
-                    if (that.$table.classList.contains('expanded-map-link') &&
+                    if ((that.$table.classList.contains('expanded-map-link') ||
+                        that.$table.classList.contains('contracted-map-link')) &&
                         $clickReadyNoteSection == this &&
                         !(ev.target instanceof HTMLElement &&
                             ev.target.closest('a.listened, time.listened'))) {

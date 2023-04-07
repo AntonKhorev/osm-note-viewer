@@ -855,6 +855,7 @@ dialog.help button.close-all-tools::before {
 .notes td.note-link > div {
 	position: relative;
 	display: grid;
+	text-align: right;
 }
 .notes tbody[data-updated] td.note-link > div::after {
 	content: '';
@@ -891,6 +892,9 @@ dialog.help button.close-all-tools::before {
 }
 .notes table:not(.expanded-id) td.note-link a .constant + .variable::before {
 	content: '...';
+}
+.notes table.contracted-id td.note-link > div {
+	text-align: center;
 }
 .notes table.contracted-id td.note-link a .variable {
 	display: none;
@@ -1016,6 +1020,7 @@ dialog.help button.close-all-tools::before {
 
 .notes th.note-map {
 	text-align: center;
+	right: 0;
 }
 .notes td.note-map {
 	position: sticky;
@@ -1052,6 +1057,26 @@ dialog.help button.close-all-tools::before {
 	margin: auto;
 	width: 19px;
 	height: 13px;
+}
+.notes table.contracted-map-link :is(td,th).note-map {
+	padding-left: 0;
+}
+.notes table.contracted-map-link td.note-map a {
+	border-left: none;
+	border-right: none;
+}
+.notes table.contracted-map-link td.note-map a:focus-visible {
+	outline: none;
+	box-shadow: -3px 0px 0px 0px #08FF;
+}
+.notes table.contracted-map-link td.note-map a > svg {
+	display: none;
+}
+.notes table.contracted-map-link td.note-map {
+	padding: 0;
+}
+.notes table.contracted-map-link th.note-map button {
+	margin-left: -19px;
 }
 
 /*** css/map.css ***/
