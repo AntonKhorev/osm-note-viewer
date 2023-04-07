@@ -49,6 +49,7 @@ const expanderDescriptions=new Map<string,ExpanderDescription>([
 	]],
 	['map-link',[
 		1,[
+			[-1,false,true,true,`squeeze map links`],
 			[0,false,true,false,`don't stretch map links`],
 			[1,false,false,false,`stretch map links`],
 		]

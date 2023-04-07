@@ -290,3 +290,23 @@
 	width: 19px;
 	height: 13px;
 }
+.notes table.contracted-map-link :is(td,th).note-map {
+	padding-left: 0;
+}
+.notes table.contracted-map-link td.note-map a {
+	border-left: none;
+	border-right: none;
+}
+.notes table.contracted-map-link td.note-map a:focus-visible {
+	outline: none;
+	box-shadow: -3px 0px 0px 0px #08FF;
+}
+.notes table.contracted-map-link td.note-map a > svg {
+	display: none;
+}
+.notes table.contracted-map-link td.note-map {
+	padding: 0;
+}
+.notes table.contracted-map-link th.note-map button {
+	margin-left: -19px;
+}
