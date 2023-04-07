@@ -17,6 +17,10 @@ export default class Cursor {
 			li(kbd(`Home`),` / `,kbd(`End`),` — go to first/last column`),
 			li(kbd(`Ctrl`),` + `,kbd(`A`),` — select all notes`),
 		),
+		p(`Inside the table head:`),
+		ul(
+			li(kbd(`+`),` / `,kbd(`-`),` — expand/contract a table column`),
+		),
 		p(`Inside the table body:`),
 		ul(
 			li(kbd(`Ctrl`),` + `,kbd(`Home`),` / `,kbd(`End`),` — go to first/last row`),
