@@ -78,6 +78,25 @@ function getCurrentAndNextState(key: string, currentValue: number): [
 	return [firstState,secondState]
 }
 
+function getStepValue(key: string, currentValue: number, di: number): number {
+	const expanderDescription=expanderDescriptions.get(key)
+	if (!expanderDescription) throw new RangeError(`invalid expander key`)
+	const [defaultValue,states]=expanderDescription
+	let comparedValue=defaultValue
+	let grabNextValue=false
+	for (let i=(di>0?0:states.length-1);i>=0&&i<states.length;i+=di) {
+		const state=states[i]
+		;[comparedValue]=state
+		if (grabNextValue) {
+			return comparedValue
+		}
+		if (currentValue==comparedValue) {
+			grabNextValue=true
+		}
+	}
+	return comparedValue
+}
+
 export default class Expanders {
 	values=new Map<string,number>
 	constructor(
@@ -113,11 +132,7 @@ export default class Expanders {
 			;[,,,,$button.title]=nextState
 		}
 		updateButton()
-		$button.onclick=()=>{
-			let value=this.values.get(key)
-			if (value==null) throw new RangeError(`unset expander value`)
-			const [,nextState]=getCurrentAndNextState(key,value)
-			;[value]=nextState
+		const setValue=(value:number)=>{
 			this.values.set(key,value)
 			this.$table.classList.toggle(`expanded-${key}`,value>0)
 			this.$table.classList.toggle(`contracted-${key}`,value<0)
@@ -125,6 +140,27 @@ export default class Expanders {
 			inFocusTransition=false
 			updateButton()
 			clickListener(value)
+		}
+		$button.onclick=()=>{
+			let value=this.values.get(key)
+			if (value==null) throw new RangeError(`unset expander value`)
+			const [,nextState]=getCurrentAndNextState(key,value)
+			;[value]=nextState
+			setValue(value)
+		}
+		$button.onkeydown=ev=>{
+			let value=this.values.get(key)
+			if (value==null) throw new RangeError(`unset expander value`)
+			if (ev.key=='+') {
+				value=getStepValue(key,value,+1)
+			} else if (ev.key=='-') {
+				value=getStepValue(key,value,-1)
+			} else {
+				return
+			}
+			ev.stopPropagation()
+			ev.preventDefault()
+			setValue(value)
 		}
 		$button.onpointerenter=()=>{
 			hasHover=true
