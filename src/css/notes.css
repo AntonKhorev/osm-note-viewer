@@ -91,6 +91,7 @@
 .notes td.note-link > div {
 	position: relative;
 	display: grid;
+	text-align: right;
 }
 .notes tbody[data-updated] td.note-link > div::after {
 	content: '';
@@ -127,6 +128,9 @@
 }
 .notes table:not(.expanded-id) td.note-link a .constant + .variable::before {
 	content: '...';
+}
+.notes table.contracted-id td.note-link > div {
+	text-align: center;
 }
 .notes table.contracted-id td.note-link a .variable {
 	display: none;
