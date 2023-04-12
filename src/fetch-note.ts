@@ -1,6 +1,8 @@
 import type {ApiProvider} from './net'
+import type {OsmNoteApiData} from './osm'
+import {getNoteFromOsmApiResponse} from './osm'
 import type {Note, Users} from './data'
-import {isNoteFeature, transformFeatureToNotesAndUsers} from './data'
+import {transformFeatureToNotesAndUsers} from './data'
 import {makeEscapeTag} from './util/escape'
 
 const e=makeEscapeTag(encodeURIComponent)
@@ -37,8 +39,13 @@ export async function readNoteResponse(
 	response: Response
 ): Promise<[note:Note,users:Users]> {
 	const data=await response.json()
-	if (!isNoteFeature(data)) throw new NoteDataError(`note reload received invalid data`)
-	const [newNotes,newUsers]=transformFeatureToNotesAndUsers(data)
+	let noteFeature: OsmNoteApiData
+	try {
+		noteFeature=getNoteFromOsmApiResponse(data)
+	} catch {
+		throw new NoteDataError(`note reload received invalid data`)
+	}
+	const [newNotes,newUsers]=transformFeatureToNotesAndUsers(noteFeature)
 	if (newNotes.length!=1) throw new NoteDataError(`note reload received unexpected number of notes`)
 	const [newNote]=newNotes
 	if (newNote.id!=noteId) throw new NoteDataError(`note reload received unexpected note`)

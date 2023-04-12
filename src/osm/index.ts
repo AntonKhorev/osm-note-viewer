@@ -11,6 +11,10 @@ export {
 	hasBbox, getChangesetFromOsmApiResponse, getChangesetsFromOsmApiResponse
 } from './changeset'
 export {
+	OsmNoteCommentApiData, OsmNoteApiData,
+	getNoteFromOsmApiResponse, getNotesFromOsmApiResponse
+} from './note'
+export {
 	OsmUserApiData,
 	getUserFromOsmApiResponse
 } from './user'

@@ -243,6 +243,7 @@ function getNoteJson(note) {
 		properties: {
 			id: note.id,
 			status: note.status,
+			date_created: formatDate(note.comments[0].date),
 			comments: note.comments.map(getNoteCommentJson)
 		}
 	}

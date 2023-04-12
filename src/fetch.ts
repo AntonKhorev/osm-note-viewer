@@ -1,8 +1,10 @@
 import type NoteViewerDB from './db'
 import type {FetchEntry} from './db'
 import type {ApiProvider} from './net'
+import type {OsmNoteApiData} from './osm'
+import {getNoteFromOsmApiResponse, getNotesFromOsmApiResponse} from './osm'
 import type {Note, Users} from './data'
-import {isNoteFeatureCollection, isNoteFeature, transformFeatureCollectionToNotesAndUsers, transformFeatureToNotesAndUsers} from './data'
+import {transformFeatureToNotesAndUsers, transformFeaturesToNotesAndUsers} from './data'
 import type {NoteQuery, NoteSearchQuery, NoteBboxQuery, NoteIdsQuery, NoteFetchDetails} from './query'
 import {makeNoteQueryStringWithHostHash, getNextFetchDetails} from './query'
 import type {NoteTableUpdater} from './table'
@@ -298,14 +300,19 @@ export abstract class NoteFetcherRun {
 	}
 	protected abstract get request(): NoteFetcherRequest
 	protected abstract getCycleFetchDetails(limit: number): NoteFetchDetails
-	protected abstract accumulateDownloadedData(downloadedNotes: Note[], downloadedUsers: Users, data: any): boolean
+	protected abstract accumulateDownloadedData(downloadedNotes: Note[], downloadedUsers: Users, data: unknown): boolean
 	protected abstract continueCycle($moreContainer: HTMLElement, fetchDetails: NoteFetchDetails, downloadedNotes: Note[]|undefined): boolean
 }
 
 abstract class NoteFeatureCollectionFetcherRun extends NoteFetcherRun {
-	protected accumulateDownloadedData(downloadedNotes: Note[], downloadedUsers: Users, data: any) {
-		if (!isNoteFeatureCollection(data)) return false
-		const [newNotes,newUsers]=transformFeatureCollectionToNotesAndUsers(data)
+	protected accumulateDownloadedData(downloadedNotes: Note[], downloadedUsers: Users, data: unknown) {
+		let noteFeatures: OsmNoteApiData[]
+		try {
+			noteFeatures=getNotesFromOsmApiResponse(data)
+		} catch {
+			return false
+		}
+		const [newNotes,newUsers]=transformFeaturesToNotesAndUsers(noteFeatures)
 		downloadedNotes.push(...newNotes)
 		Object.assign(downloadedUsers,newUsers)
 		return true
@@ -399,9 +406,14 @@ export class NoteIdsFetcherRun extends NoteFetcherRun {
 			limit
 		}
 	}
-	protected accumulateDownloadedData(downloadedNotes: Note[], downloadedUsers: Users, data: any) {
-		if (!isNoteFeature(data)) return false
-		const [newNotes,newUsers]=transformFeatureToNotesAndUsers(data)
+	protected accumulateDownloadedData(downloadedNotes: Note[], downloadedUsers: Users, data: unknown) {
+		let noteFeature: OsmNoteApiData
+		try {
+			noteFeature=getNoteFromOsmApiResponse(data)
+		} catch {
+			return false
+		}
+		const [newNotes,newUsers]=transformFeatureToNotesAndUsers(noteFeature)
 		downloadedNotes.push(...newNotes)
 		Object.assign(downloadedUsers,newUsers)
 		return true

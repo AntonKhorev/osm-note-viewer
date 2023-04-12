@@ -1,53 +1,4 @@
-import {isArrayOfNumbers} from './util/types'
-
-/**
- * notes as received from the server
- */
-export interface NoteFeatureCollection {
-	type: "FeatureCollection"
-	features: NoteFeature[]
-}
-
-export function isNoteFeatureCollection(data: any): data is NoteFeatureCollection {
-	return data.type=="FeatureCollection"
-}
-
-/**
- * single note as received from the server
- */
-export interface NoteFeature {
-	type: "Feature"
-	geometry: {
-		coordinates: [lon: number, lat: number]
-	}
-	properties: {
-		id: number
-		date_created: string
-		status: 'open' | 'closed' | 'hidden'
-		comments: NoteFeatureComment[]
-	}
-}
-
-export function isNoteFeature(data: unknown): data is NoteFeature {
-	if (!data || typeof data != 'object') return false
-	if (!('type' in data) || data.type!='Feature') return false
-	if (!('geometry' in data) || !data.geometry || typeof data.geometry!='object') return false
-	if (!('coordinates' in data.geometry) || !isArrayOfNumbers(data.geometry.coordinates) || data.geometry.coordinates.length<2) return false
-	if (!('properties' in data) || !data.properties || typeof data.properties!='object') return false
-	// TODO data.properties checks
-	return true
-}
-
-/**
- * Single note comment as received from the server
- */
-export interface NoteFeatureComment {
-	date: string
-	uid?: number
-	user?: string
-	action: 'opened' | 'closed' | 'reopened' | 'commented' | 'hidden'
-	text: string
-}
+import type {OsmNoteCommentApiData, OsmNoteApiData} from './osm'
 
 /**
  * Single note as saved in the local storage
@@ -77,19 +28,19 @@ export interface Users {
 	[uid: number]: string | undefined
 }
 
-export function transformFeatureCollectionToNotesAndUsers(noteFeatureCollection: NoteFeatureCollection): [Note[], Users] {
+export function transformFeaturesToNotesAndUsers(noteFeatures: OsmNoteApiData[]): [Note[], Users] {
 	const users: Users = {}
-	const notes=noteFeatureCollection.features.map(noteFeature=>transformFeatureToNote(noteFeature,users))
+	const notes=noteFeatures.map(noteFeature=>transformFeatureToNote(noteFeature,users))
 	return [notes,users]
 }
 
-export function transformFeatureToNotesAndUsers(noteFeature: NoteFeature): [Note[], Users] {
+export function transformFeatureToNotesAndUsers(noteFeature: OsmNoteApiData): [Note[], Users] {
 	const users: Users = {}
 	const notes=[transformFeatureToNote(noteFeature,users)]
 	return [notes,users]
 }
 
-function transformFeatureToNote(noteFeature: NoteFeature, users: Users): Note {
+function transformFeatureToNote(noteFeature: OsmNoteApiData, users: Users): Note {
 	const note={
 		id: noteFeature.properties.id,
 		lat: noteFeature.geometry.coordinates[1],
@@ -103,11 +54,11 @@ function transformFeatureToNote(noteFeature: NoteFeature, users: Users): Note {
 		note.comments.unshift(makeGuessedOpeningComment(noteFeature))
 	}
 	return note
-	function cullCommentProps(a: NoteFeatureComment): NoteComment {
+	function cullCommentProps(a: OsmNoteCommentApiData): NoteComment {
 		const b:NoteComment={
 			date: transformDate(a.date),
 			action: a.action,
-			text: a.text
+			text: a.text ?? ''
 		}
 		if (a.uid!=null) {
 			b.uid=a.uid
@@ -117,7 +68,7 @@ function transformFeatureToNote(noteFeature: NoteFeature, users: Users): Note {
 	}
 }
 
-function makeGuessedOpeningComment(noteFeature: NoteFeature): NoteComment {
+function makeGuessedOpeningComment(noteFeature: OsmNoteApiData): NoteComment {
 	return {
 		date: transformDate(noteFeature.properties.date_created),
 		action: 'opened',
