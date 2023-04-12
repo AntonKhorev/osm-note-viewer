@@ -8,11 +8,12 @@ import ServerListSection from './server-list-section'
 import AppSection from './app-section'
 import LoginSection from './login-section'
 import {checkAuthRedirectForInstallUri} from './redirect'
+import WorkerNet from './worker-net'
 
 import type {SimpleStorage} from '../util/storage'
 import {makeElement} from '../util/html'
 
-export {Connection, Server, ServerList, ServerSelector, HashServerSelector}
+export {Connection, Server, ServerList, ServerSelector, HashServerSelector, WorkerNet}
 export * from './server'
 
 const installUri=`${location.protocol}//${location.host}${location.pathname}`

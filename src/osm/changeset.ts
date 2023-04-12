@@ -4,6 +4,8 @@ import {isArray} from '../util/types'
 export type OsmChangesetApiData = OsmBaseApiData & {
 	created_at: string
 	closed_at?: string
+	comments_count: number
+	changes_count: number
 }
 
 export type OsmChangesetWithBboxApiData = OsmChangesetApiData & {
