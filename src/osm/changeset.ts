@@ -19,6 +19,8 @@ function isOsmChangesetApiData(c: unknown): c is OsmChangesetApiData {
 	if (!isOsmBaseApiData(c)) return false
 	if (!('created_at' in c) || typeof c.created_at != 'string') return false
 	if (('closed_at' in c) && typeof c.closed_at != 'string') return false
+	if (!('comments_count' in c) || typeof c.comments_count != 'number') return false
+	if (!('changes_count' in c) || typeof c.changes_count != 'number') return false
 	return true
 }
 
