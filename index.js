@@ -321,6 +321,9 @@ class Connection {
     }
 }
 
+function isObject(value) {
+    return !!(value && typeof value == 'object');
+}
 function isArrayOfStrings(value) {
     return isArray(value) && value.every(item => typeof item == 'string');
 }
@@ -2399,6 +2402,10 @@ function isOsmChangesetApiData(c) {
         return false;
     if (('closed_at' in c) && typeof c.closed_at != 'string')
         return false;
+    if (!('comments_count' in c) || typeof c.comments_count != 'number')
+        return false;
+    if (!('changes_count' in c) || typeof c.changes_count != 'number')
+        return false;
     return true;
 }
 function hasBbox(c) {
@@ -2434,6 +2441,49 @@ function getChangesetsFromOsmApiResponse(data) {
     if (!changesetArray.every(isOsmChangesetApiData))
         throw new TypeError(`OSM API error: invalid changeset in response data`);
     return changesetArray;
+}
+
+function isOsmNoteApiData(n) {
+    if (!isObject(n))
+        return false;
+    // if (!('type' in n) || n.type!='Feature') return false
+    if (!('geometry' in n) || !isObject(n.geometry))
+        return false;
+    if (!('coordinates' in n.geometry) || !isArrayOfNumbers(n.geometry.coordinates) || n.geometry.coordinates.length < 2)
+        return false;
+    if (!('properties' in n) || !isObject(n.properties))
+        return false;
+    if (!('id' in n.properties) || !Number.isInteger(n.properties.id))
+        return false;
+    if (!('date_created' in n.properties) || typeof n.properties.date_created != 'string')
+        return false;
+    if (!('status' in n.properties) || typeof n.properties.status != 'string')
+        return false;
+    if (!('comments' in n.properties) || !isArray(n.properties.comments))
+        return false;
+    if (!n.properties.comments.every(c => (isObject(c) &&
+        'date' in c && typeof c.date == 'string' &&
+        (!('uid' in c) || Number.isInteger(c.uid)) &&
+        (!('user' in c) || typeof c.user == 'string') &&
+        'action' in c && typeof c.action == 'string' &&
+        (!('text' in c) || typeof c.text == 'string'))))
+        return false;
+    return true;
+}
+function getNotesFromOsmApiResponse(data) {
+    if (!isObject(data))
+        throw new TypeError(`OSM API error: invalid response data`);
+    if (!('features' in data) || !isArray(data.features))
+        throw new TypeError(`OSM API error: no features array in response data`);
+    const noteArray = data.features;
+    if (!noteArray.every(isOsmNoteApiData))
+        throw new TypeError(`OSM API error: invalid note feature in response data`);
+    return noteArray;
+}
+function getNoteFromOsmApiResponse(data) {
+    if (!isOsmNoteApiData(data))
+        throw new TypeError(`OSM API error: invalid note feature in response data`);
+    return data;
 }
 
 function toUserQuery(apiUrlLister, webUrlLister, value) {
@@ -3058,6 +3108,9 @@ class NoteMap {
             }
             this.panTo(marker.getLatLng());
         });
+    }
+    focus() {
+        this.$container.focus();
     }
     hide(hidden) {
         if (hidden) {
@@ -3998,24 +4051,35 @@ class NavDialog {
 // https://www.w3.org/WAI/ARIA/apg/example-index/tabs/tabs-automatic.html
 // https://www.w3.org/WAI/ARIA/apg/example-index/tabs/tabs-manual.html
 class Navbar {
-    constructor($root, $container) {
+    constructor($root, $container, noteTable, noteMap) {
         this.$tabList = document.createElement('div');
         this.tabs = new Map();
         this.$tabList.setAttribute('role', 'tablist');
         this.$tabList.setAttribute('aria-label', `Note query modes`);
         $container.append(this.$tabList);
+        const $goToTableButton = makeButton('table', `Go to table`, () => {
+            noteTable.focusHead();
+        });
+        $goToTableButton.disabled = true;
+        const $goToMapButton = makeButton('map', `Go to map`, () => {
+            noteMap.focus();
+        });
+        $container.append($goToTableButton);
+        $container.append($goToMapButton);
         $container.append(makeResetButton());
         $container.onkeydown = ev => {
             const $button = ev.target;
             if (!($button instanceof HTMLButtonElement))
                 return;
             const focusButton = (c, o) => {
-                const $buttons = [...$container.querySelectorAll('button')];
+                const $buttons = [...$container.querySelectorAll('button:not([disabled])')];
                 const i = $buttons.indexOf($button);
                 const l = $buttons.length;
                 if (l <= 0 || i < 0)
                     return;
-                $buttons[(l + i * c + o) % l].focus();
+                const $focusButton = $buttons[(l + i * c + o) % l];
+                if ($focusButton instanceof HTMLElement)
+                    $focusButton.focus();
             };
             if (ev.key == 'ArrowLeft') {
                 focusButton(1, -1);
@@ -4035,6 +4099,12 @@ class Navbar {
             ev.stopPropagation();
             ev.preventDefault();
         };
+        $root.addEventListener('osmNoteViewer:newNoteStream', () => {
+            $goToTableButton.disabled = true;
+        });
+        $root.addEventListener('osmNoteViewer:noteRender', () => {
+            $goToTableButton.disabled = false;
+        });
     }
     addTab(dialog, push = false) {
         const tabId = 'tab-' + dialog.shortTitle;
@@ -4456,26 +4526,9 @@ function getNextFetchDetails(query, requestedLimit, lastNote, prevLastNote, last
     }
 }
 
-function isNoteFeatureCollection(data) {
-    return data.type == "FeatureCollection";
-}
-function isNoteFeature(data) {
-    if (!data || typeof data != 'object')
-        return false;
-    if (!('type' in data) || data.type != 'Feature')
-        return false;
-    if (!('geometry' in data) || !data.geometry || typeof data.geometry != 'object')
-        return false;
-    if (!('coordinates' in data.geometry) || !isArrayOfNumbers(data.geometry.coordinates) || data.geometry.coordinates.length < 2)
-        return false;
-    if (!('properties' in data) || !data.properties || typeof data.properties != 'object')
-        return false;
-    // TODO data.properties checks
-    return true;
-}
-function transformFeatureCollectionToNotesAndUsers(noteFeatureCollection) {
+function transformFeaturesToNotesAndUsers(noteFeatures) {
     const users = {};
-    const notes = noteFeatureCollection.features.map(noteFeature => transformFeatureToNote(noteFeature, users));
+    const notes = noteFeatures.map(noteFeature => transformFeatureToNote(noteFeature, users));
     return [notes, users];
 }
 function transformFeatureToNotesAndUsers(noteFeature) {
@@ -4502,7 +4555,7 @@ function transformFeatureToNote(noteFeature, users) {
         const b = {
             date: transformDate(a.date),
             action: a.action,
-            text: a.text
+            text: a.text ?? ''
         };
         if (a.uid != null) {
             b.uid = a.uid;
@@ -4814,9 +4867,14 @@ class NoteFetcherRun {
 }
 class NoteFeatureCollectionFetcherRun extends NoteFetcherRun {
     accumulateDownloadedData(downloadedNotes, downloadedUsers, data) {
-        if (!isNoteFeatureCollection(data))
+        let noteFeatures;
+        try {
+            noteFeatures = getNotesFromOsmApiResponse(data);
+        }
+        catch {
             return false;
-        const [newNotes, newUsers] = transformFeatureCollectionToNotesAndUsers(data);
+        }
+        const [newNotes, newUsers] = transformFeaturesToNotesAndUsers(noteFeatures);
         downloadedNotes.push(...newNotes);
         Object.assign(downloadedUsers, newUsers);
         return true;
@@ -4916,9 +4974,14 @@ class NoteIdsFetcherRun extends NoteFetcherRun {
         };
     }
     accumulateDownloadedData(downloadedNotes, downloadedUsers, data) {
-        if (!isNoteFeature(data))
+        let noteFeature;
+        try {
+            noteFeature = getNoteFromOsmApiResponse(data);
+        }
+        catch {
             return false;
-        const [newNotes, newUsers] = transformFeatureToNotesAndUsers(data);
+        }
+        const [newNotes, newUsers] = transformFeatureToNotesAndUsers(noteFeature);
         downloadedNotes.push(...newNotes);
         Object.assign(downloadedUsers, newUsers);
         return true;
@@ -7499,7 +7562,7 @@ function writeHeadSectionRow($section, $checkbox, makeExpanderButton, getNoteSec
 /**
  * @returns comment cells
  */
-function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note, users, hideRows, showImages, markUser, markText, zoomInOnNote, rowVisibilityChangeCallback) {
+function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note, users, hideRows, showImages, markUser, markText, mapLinkClickListener, rowVisibilityChangeCallback) {
     const $commentCells = [];
     let $row = $noteSection.insertRow();
     const nComments = note.comments.length;
@@ -7611,10 +7674,7 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
             $a.title = `show note on map`;
             $a.innerHTML = `<svg><use href="#tools-map" /></svg>`;
             $a.onclick = ev => {
-                zoomInOnNote();
-                const $map = document.querySelector('.ui .map'); // TODO rewrite this hack
-                if ($map instanceof HTMLElement)
-                    $map.focus();
+                mapLinkClickListener();
                 ev.stopPropagation();
                 ev.preventDefault();
             };
@@ -8224,7 +8284,11 @@ class Cursor {
     updateTabIndex() {
         this.state.setToNearestVisible();
     }
-    focus() {
+    focusHead() {
+        const $e = this.state.getCurrentHeadItem();
+        $e?.focus();
+    }
+    focusBody() {
         const $e = this.state.getCurrentBodyItem();
         $e?.focus();
     }
@@ -8463,7 +8527,7 @@ class NoteTable {
         });
         this.commentWriter = new CommentWriter(server.web);
         $container.append(this.$table);
-        this.reset();
+        this.reset(makeElement('caption')()(`Use the forms above to fetch notes`));
         const looseParserPopup = new LooseParserPopup(server.web, $container);
         this.looseParserListener = new LooseParserListener((x, y, text) => {
             const parseResult = parseLoose(text);
@@ -8561,8 +8625,7 @@ class NoteTable {
         this.$lastClickedNoteSection = undefined;
         this.noteSectionVisibilityObserver.disconnect();
         this.$table.replaceChildren();
-        if ($caption)
-            this.$table.append($caption);
+        this.$table.append($caption);
         this.updateCheckboxDependentsAndSendNoteChangeEvents();
     }
     updateFilter(filter) {
@@ -8711,8 +8774,11 @@ class NoteTable {
             this.focusOnNote($noteSection);
         }
     }
-    focus() {
-        this.cursor.focus();
+    focusHead() {
+        this.cursor.focusHead();
+    }
+    focusBody() {
+        this.cursor.focusBody();
     }
     writeHeadSection() {
         const $headSection = this.$table.createTHead();
@@ -8746,7 +8812,10 @@ class NoteTable {
             }
         }
         $checkbox.setAttribute('aria-label', `${note.status} note at latitude ${note.lat}, longitude ${note.lon}`);
-        const $commentCells = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, $checkbox, note, users, !this.$table.classList.contains('expanded-comments'), this.showImages, this.markUser, this.markText, () => this.focusOnNote($noteSection, true, false), () => this.cursor.updateTabIndex());
+        const $commentCells = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, $checkbox, note, users, !this.$table.classList.contains('expanded-comments'), this.showImages, this.markUser, this.markText, () => {
+            this.focusOnNote($noteSection, true, false);
+            this.map.focus();
+        }, () => this.cursor.updateTabIndex());
         for (const $commentCell of $commentCells) {
             this.looseParserListener.listen($commentCell);
         }
@@ -9266,9 +9335,14 @@ async function fetchTableNote(api, noteId, token) {
 }
 async function readNoteResponse(noteId, response) {
     const data = await response.json();
-    if (!isNoteFeature(data))
+    let noteFeature;
+    try {
+        noteFeature = getNoteFromOsmApiResponse(data);
+    }
+    catch {
         throw new NoteDataError(`note reload received invalid data`);
-    const [newNotes, newUsers] = transformFeatureToNotesAndUsers(data);
+    }
+    const [newNotes, newUsers] = transformFeatureToNotesAndUsers(noteFeature);
     if (newNotes.length != 1)
         throw new NoteDataError(`note reload received unexpected number of notes`);
     const [newNote] = newNotes;
@@ -11704,13 +11778,13 @@ async function main() {
         $graphicSide.append(sidebarResizer.$button, $mapContainer);
         map = writeMap($root, $mapContainer, net.cx.server, globalHistory);
         sidebarResizer.startListening(map);
-        const navbar = new Navbar($root, $navbarContainer);
         const noteTable = writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer, storage, net.cx, globalHistory, map);
+        const navbar = new Navbar($root, $navbarContainer, noteTable, map);
         new NoteFetchPanel($root, db, net.cx, $fetchContainer, $moreContainer, navbar, noteTable, map, globalHistory.getQueryHash(), globalHistory.hasMapHash(), net.serverSelector.getHostHashValueForServer(net.cx.server));
         $mapContainer.addEventListener('keydown', ev => {
             if (ev.key != 'Escape')
                 return;
-            noteTable.focus();
+            noteTable.focusBody();
             ev.stopPropagation();
             ev.preventDefault();
         });
