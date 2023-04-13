@@ -66,7 +66,7 @@ async function main() {
 			storage,net.cx,globalHistory,
 			map
 		)
-		const navbar=new Navbar($root,$navbarContainer,noteTable)
+		const navbar=new Navbar($root,$navbarContainer,noteTable,map)
 		new NoteFetchPanel(
 			$root,
 			db,net.cx,

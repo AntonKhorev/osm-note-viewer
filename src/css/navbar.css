@@ -13,9 +13,6 @@ nav button.global:not(.reset):not(:focus) {
 	opacity: 0;
 	pointer-events: none;
 }
-nav button.map {
-	background: green;
-}
 nav button.reset {
 	border-radius: 50%;
 }
