@@ -227,3 +227,12 @@ function getActionClass(action: NoteComment['action']): string {
 		return 'other'
 	}
 }
+
+export function getNoteSectionCheckbox($noteSection: HTMLTableSectionElement): HTMLInputElement|null {
+	const $checkbox=$noteSection.querySelector('.note-checkbox input')
+	return $checkbox instanceof HTMLInputElement ? $checkbox : null
+}
+
+export function isSelectedNoteSection($noteSection: HTMLTableSectionElement): boolean {
+	return getNoteSectionCheckbox($noteSection)?.checked ?? false
+}

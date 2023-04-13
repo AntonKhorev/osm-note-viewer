@@ -7,7 +7,7 @@ import Expanders from './expanders'
 import LooseParserListener from '../loose-listen'
 import LooseParserPopup from '../loose-popup'
 import parseLoose from '../loose'
-import {writeHeadSectionRow, writeNoteSectionRows} from './section'
+import {writeHeadSectionRow, writeNoteSectionRows, getNoteSectionCheckbox, isSelectedNoteSection} from './section'
 import Cursor from './cursor'
 import CommentWriter, {handleShowImagesUpdate} from '../comment-writer'
 import type NoteFilter from '../filter'
@@ -242,16 +242,11 @@ export default class NoteTable implements NoteTableUpdater {
 			const note=this.notesById.get(noteId)
 			if (note==null) continue
 			if (this.filter.matchNote(note,getUsername)) {
-				let targetLayer=this.map.unselectedNoteLayer
-				if (isSelectedNoteSection($noteSection)) {
-					targetLayer=this.map.selectedNoteLayer
-				}
-				this.map.moveNoteMarkerToLayer(noteId,targetLayer)
 				$noteSection.hidden=false
+				this.markerHandler.updateMarkerWithNote($noteSection,note)
 			} else {
 				this.deactivateNote('click',$noteSection)
 				this.deactivateNote('hover',$noteSection)
-				this.map.moveNoteMarkerToLayer(noteId,this.map.filteredNoteLayer)
 				$noteSection.hidden=true
 				this.setNoteSelection($noteSection,false)
 			}
@@ -311,7 +306,6 @@ export default class NoteTable implements NoteTableUpdater {
 		const $a=$noteSection.querySelector('td.note-link a')
 		if (!($a instanceof HTMLAnchorElement)) throw new Error(`note link not found during note replace`)
 		const isNoteLinkFocused=document.activeElement==$a
-		this.map.removeNoteMarker(note.id)
 		// remember note and users
 		this.notesById.set(note.id,note)
 		for (const [uid,username] of Object.entries(users)) {
@@ -324,8 +318,8 @@ export default class NoteTable implements NoteTableUpdater {
 		// output table section
 		const getUsername=(uid:number)=>users[uid]
 		const isVisible=this.filter.matchNote(note,getUsername)
-		this.markerHandler.makeMarker(note,isVisible,false)
 		this.writeNoteSection($noteSection,$checkbox,note,users,isVisible)
+		this.markerHandler.updateMarkerWithNote($noteSection,note)
 		const $a2=this.getNoteLink($noteSection)
 		if (!($a2 instanceof HTMLAnchorElement)) throw new Error(`note link not found after note replace`)
 		setUpdateLinkTitle($noteSection,$a2)
@@ -505,12 +499,7 @@ export default class NoteTable implements NoteTableUpdater {
 	}
 	private deactivateNote(type: 'hover'|'click', $noteSection: HTMLTableSectionElement): void {
 		$noteSection.classList.remove('active-'+type)
-		const noteId=Number($noteSection.dataset.noteId)
-		const marker=this.map.getNoteMarker(noteId)
-		if (!marker) return
-		marker.getElement()?.classList.remove('active-'+type)
-		if ($noteSection.classList.contains('active-hover') || $noteSection.classList.contains('active-click')) return
-		marker.setZIndexOffset(0)
+		this.markerHandler.updateMarkerActivation($noteSection)
 	}
 	private activateNote(type: 'hover'|'click', $noteSection: HTMLTableSectionElement): void {
 		let alreadyActive=false
@@ -524,12 +513,8 @@ export default class NoteTable implements NoteTableUpdater {
 			}
 		}
 		if (alreadyActive) return
-		const noteId=Number($noteSection.dataset.noteId)
-		const marker=this.map.getNoteMarker(noteId)
-		if (!marker) return
-		marker.setZIndexOffset(1000)
-		marker.getElement()?.classList.add('active-'+type)
 		$noteSection.classList.add('active-'+type)
+		this.markerHandler.updateMarkerActivation($noteSection)
 	}
 	private updateCheckboxDependentsAndSendNoteChangeEvents(): void {
 		const [nFetched,nVisible,selectedNotes,selectedNoteUsers]=this.getCheckedData()
@@ -565,25 +550,9 @@ export default class NoteTable implements NoteTableUpdater {
 		return [nFetched,nVisible,selectedNotes,selectedNoteUsers]
 	}
 	private setNoteSelection($noteSection: HTMLTableSectionElement, isSelected: boolean): void {
-		const getTargetLayer=()=>{
-			if ($noteSection.hidden) {
-				return this.map.filteredNoteLayer
-			} else if (isSelected) {
-				return this.map.selectedNoteLayer
-			} else {
-				return this.map.unselectedNoteLayer
-			}
-		}
 		const $checkbox=getNoteSectionCheckbox($noteSection)
 		if ($checkbox) $checkbox.checked=isSelected
-		const noteId=Number($noteSection.dataset.noteId)
-		const note=this.notesById.get(noteId)
-		if (!note) return
-		const marker=this.map.moveNoteMarkerToLayer(noteId,getTargetLayer())
-		if (!marker) return
-		marker.updateIcon(this.web,note,isSelected)
-		const activeClasses=['hover','click'].map(type=>'active-'+type).filter(cls=>$noteSection.classList.contains(cls))
-		marker.getElement()?.classList.add(...activeClasses)
+		this.markerHandler.updateMarker($noteSection,id=>this.notesById.get(id))
 	}
 	private listVisibleNoteSections(): NodeListOf<HTMLTableSectionElement> {
 		return this.$table.querySelectorAll('tbody:not([hidden])')
@@ -659,13 +628,4 @@ function setUpdateLinkTitle($noteSection: HTMLTableSectionElement, $a: HTMLAncho
 	} else {
 		$a.title=`reloaded manually ${nManualUpdates} times, reload ${noteReference} again`
 	}
-}
-
-function getNoteSectionCheckbox($noteSection: HTMLTableSectionElement): HTMLInputElement|null {
-	const $checkbox=$noteSection.querySelector('.note-checkbox input')
-	return $checkbox instanceof HTMLInputElement ? $checkbox : null
-}
-
-function isSelectedNoteSection($noteSection: HTMLTableSectionElement): boolean {
-	return getNoteSectionCheckbox($noteSection)?.checked ?? false
 }
