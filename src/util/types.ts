@@ -11,3 +11,7 @@ export function isArrayOfNumbers(value: unknown): value is number[] {
 export function isArray(value: unknown): value is unknown[] {
 	return Array.isArray(value)
 }
+
+export function isDefined<T>(argument: T | undefined): argument is T {
+	return argument !== undefined
+}

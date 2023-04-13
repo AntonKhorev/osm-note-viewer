@@ -16,6 +16,7 @@ import IdShortener from '../id-shortener'
 import type {WebProvider} from '../net'
 import {makeElement, resetAnimation} from '../util/html'
 import {bubbleCustomEvent} from '../util/events'
+import {isDefined} from '../util/types'
 
 export interface NoteTableUpdater {
 	addNotes(notes: Iterable<Note>, users: Users): number
@@ -675,8 +676,4 @@ function getNoteSectionCheckbox($noteSection: HTMLTableSectionElement): HTMLInpu
 
 function isSelectedNoteSection($noteSection: HTMLTableSectionElement): boolean {
 	return getNoteSectionCheckbox($noteSection)?.checked ?? false
-}
-
-function isDefined<T>(argument: T | undefined): argument is T {
-	return argument !== undefined
 }
