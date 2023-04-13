@@ -2,7 +2,7 @@ import type {Note, Users} from '../data'
 import {getNoteUpdateDate} from '../data'
 import type NoteViewerStorage from '../storage'
 import type NoteMap from '../map'
-import {NoteMarker} from '../map'
+import NoteMarkerHandler from './marker-handler'
 import Expanders from './expanders'
 import LooseParserListener from '../loose-listen'
 import LooseParserPopup from '../loose-popup'
@@ -23,11 +23,11 @@ export interface NoteTableUpdater {
 }
 
 export default class NoteTable implements NoteTableUpdater {
-	private wrappedMarkerLinkListeners: Array<[event: string, listener: (this:HTMLAnchorElement,ev:Event)=>void]>
 	private wrappedNoteSectionListeners: Array<[event: string, listener: (this:HTMLTableSectionElement,ev:Event)=>void]>
 	private wrappedNoteSectionKeydownListener: (this:HTMLTableSectionElement, ev: KeyboardEvent) => void
 	private wrappedNoteCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
 	private wrappedAllNotesCheckboxClickListener: (this: HTMLInputElement, ev: MouseEvent) => void
+	private markerHandler: NoteMarkerHandler
 	private cursor: Cursor
 	private expanders: Expanders
 	private noteSectionVisibilityObserver: NoteSectionVisibilityObserver
@@ -54,7 +54,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.$table.setAttribute('role','grid')
 		const that=this
 		let $clickReadyNoteSection: HTMLTableSectionElement|undefined
-		this.wrappedMarkerLinkListeners=[
+		this.markerHandler=new NoteMarkerHandler(map,web,[
 			['mouseenter',function(){
 				const noteId=this.dataset.noteId
 				if (!noteId) return
@@ -69,7 +69,7 @@ export default class NoteTable implements NoteTableUpdater {
 				if (!$noteSection) return
 				that.deactivateNote('hover',$noteSection)
 			}],
-		]
+		])
 		this.wrappedNoteSectionListeners=[
 			['mouseenter',function(){
 				that.activateNote('hover',this)
@@ -286,7 +286,7 @@ export default class NoteTable implements NoteTableUpdater {
 			const $noteSection=this.$table.createTBody()
 			$noteSection.dataset.noteId=String(note.id)
 			this.noteSectionVisibilityObserver.observe($noteSection)
-			this.makeMarker($noteSection,note,isVisible)
+			this.markerHandler.makeMarker(note,isVisible,false)
 			const $checkbox=document.createElement('input')
 			$checkbox.type='checkbox'
 			// $checkbox.title=`shift+click to select/unselect a range`
@@ -324,7 +324,7 @@ export default class NoteTable implements NoteTableUpdater {
 		// output table section
 		const getUsername=(uid:number)=>users[uid]
 		const isVisible=this.filter.matchNote(note,getUsername)
-		this.makeMarker($noteSection,note,isVisible)
+		this.markerHandler.makeMarker(note,isVisible,false)
 		this.writeNoteSection($noteSection,$checkbox,note,users,isVisible)
 		const $a2=this.getNoteLink($noteSection)
 		if (!($a2 instanceof HTMLAnchorElement)) throw new Error(`note link not found after note replace`)
@@ -387,14 +387,6 @@ export default class NoteTable implements NoteTableUpdater {
 			()=>this.cursor.updateTabIndex()
 		)
 		return $headSection
-	}
-	private makeMarker($noteSection: HTMLTableSectionElement, note: Note, isVisible: boolean): NoteMarker {
-		const marker=new NoteMarker(this.web,note)
-		marker.addTo(isVisible ? this.map.unselectedNoteLayer : this.map.filteredNoteLayer)
-		for (const [event,listener] of this.wrappedMarkerLinkListeners) {
-			marker.$a.addEventListener(event,listener)
-		}
-		return marker
 	}
 	private writeNoteSection(
 		$noteSection: HTMLTableSectionElement,
