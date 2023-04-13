@@ -333,6 +333,9 @@ function isArrayOfNumbers(value) {
 function isArray(value) {
     return Array.isArray(value);
 }
+function isDefined(argument) {
+    return argument !== undefined;
+}
 
 function makeLogin$1(data) {
     if (!data || typeof data != 'object' ||
@@ -6934,324 +6937,6 @@ class NoteFilterPanel {
     }
 }
 
-const expanderDescriptions = new Map([
-    ['id', [
-            1, [
-                [-1, false, true, true, `don't show id digits`],
-                [0, false, true, false, `show only changing id digits`],
-                [1, false, false, false, `show all id digits`],
-            ]
-        ]],
-    ['comments', [
-            1, [
-                [0, true, true, false, `show only first comment/action`],
-                [1, true, false, false, `show all comments/actions`],
-            ]
-        ]],
-    ['date', [
-            0, [
-                [-1, false, true, true, `hide time of day and year`],
-                [0, false, true, false, `hide time of day`],
-                [1, false, false, false, `show time of day`],
-            ]
-        ]],
-    ['username', [
-            0, [
-                [-1, false, true, true, `seriously clip usernames`],
-                [0, false, true, false, `clip long usernames`],
-                [1, false, false, false, `show full usernames with ids`],
-            ]
-        ]],
-    ['comment-lines', [
-            1, [
-                [0, false, false, false, `keep comments on one line`],
-                [1, true, false, false, `allow line breaks in comments`],
-            ]
-        ]],
-    ['map-link', [
-            1, [
-                [-1, false, true, true, `squeeze map links`],
-                [0, false, true, false, `don't stretch map links`],
-                [1, false, false, false, `stretch map links`],
-            ]
-        ]],
-]);
-function getCurrentAndNextState(key, currentValue) {
-    const expanderDescription = expanderDescriptions.get(key);
-    if (!expanderDescription)
-        throw new RangeError(`invalid expander key`);
-    const [, states] = expanderDescription;
-    let currentState;
-    for (const state of states) {
-        if (currentState) {
-            return [currentState, state];
-        }
-        const [comparedValue] = state;
-        if (currentValue == comparedValue) {
-            currentState = state;
-        }
-    }
-    const [firstState, secondState] = states;
-    if (currentState)
-        return [currentState, firstState];
-    return [firstState, secondState];
-}
-function getStepValue(key, currentValue, di) {
-    const expanderDescription = expanderDescriptions.get(key);
-    if (!expanderDescription)
-        throw new RangeError(`invalid expander key`);
-    const [defaultValue, states] = expanderDescription;
-    let comparedValue = defaultValue;
-    let grabNextValue = false;
-    for (let i = (di > 0 ? 0 : states.length - 1); i >= 0 && i < states.length; i += di) {
-        const state = states[i];
-        [comparedValue] = state;
-        if (grabNextValue) {
-            return comparedValue;
-        }
-        if (currentValue == comparedValue) {
-            grabNextValue = true;
-        }
-    }
-    return comparedValue;
-}
-class Expanders {
-    constructor(storage, $table) {
-        this.storage = storage;
-        this.$table = $table;
-        this.values = new Map;
-        for (const [key, [defaultValue, states]] of expanderDescriptions) {
-            const possibleValues = new Set(states.map(([value]) => value));
-            const storageKey = `table-expanded[${key}]`;
-            const storedValue = Number(this.storage.getItem(storageKey));
-            const value = possibleValues.has(storedValue) ? storedValue : defaultValue;
-            if (value > 0)
-                this.$table.classList.add(`expanded-${key}`);
-            if (value < 0)
-                this.$table.classList.add(`contracted-${key}`);
-            this.values.set(key, value);
-        }
-    }
-    makeButton(key, clickListener = () => { }) {
-        const storageKey = `table-expanded[${key}]`;
-        const $button = makeElement('button')('expander')();
-        $button.innerHTML = getButtonSvg();
-        let hasHover = false;
-        let inFocusTransition = false;
-        const updateButton = () => {
-            const nextShape = inFocusTransition || hasHover;
-            const value = this.values.get(key);
-            if (value == null)
-                throw new RangeError(`unset expander value`);
-            const [currentState, nextState] = getCurrentAndNextState(key, value);
-            const shapeState = nextShape ? nextState : currentState;
-            const [, isVertical, isInward, isTight] = shapeState;
-            $button.classList.toggle('vertical', isVertical);
-            $button.classList.toggle('inward', isInward);
-            $button.classList.toggle('tight', isTight);
-            [, , , , $button.title] = nextState;
-        };
-        updateButton();
-        const setValue = (value) => {
-            this.values.set(key, value);
-            this.$table.classList.toggle(`expanded-${key}`, value > 0);
-            this.$table.classList.toggle(`contracted-${key}`, value < 0);
-            this.storage.setItem(storageKey, String(value));
-            inFocusTransition = false;
-            updateButton();
-            clickListener(value);
-        };
-        $button.onclick = () => {
-            let value = this.values.get(key);
-            if (value == null)
-                throw new RangeError(`unset expander value`);
-            const [, nextState] = getCurrentAndNextState(key, value);
-            [value] = nextState;
-            setValue(value);
-        };
-        $button.onkeydown = ev => {
-            let value = this.values.get(key);
-            if (value == null)
-                throw new RangeError(`unset expander value`);
-            if (ev.key == '+') {
-                value = getStepValue(key, value, +1);
-            }
-            else if (ev.key == '-') {
-                value = getStepValue(key, value, -1);
-            }
-            else {
-                return;
-            }
-            ev.stopPropagation();
-            ev.preventDefault();
-            setValue(value);
-        };
-        $button.onpointerenter = () => {
-            hasHover = true;
-            updateButton();
-        };
-        $button.onpointerleave = () => {
-            hasHover = false;
-            updateButton();
-        };
-        $button.onfocus = () => {
-            inFocusTransition = !hasHover;
-            updateButton();
-        };
-        $button.onblur = $button.ontransitionend = () => {
-            inFocusTransition = false;
-            updateButton();
-        };
-        return $button;
-    }
-}
-function getButtonSvg() {
-    return `<svg width="15" height="15" viewBox="0 0 15 15">` +
-        `<g class="arrow" stroke="currentColor" fill="none">` +
-        `<line x1="0.5" x2="14.5" y1="7.5" y2="7.5" />` +
-        getArrowEndSvg(``) +
-        getArrowEndSvg(` scale(-1 1)`) +
-        `</g>` +
-        `</svg>`;
-}
-function getArrowEndSvg(extraTransform) {
-    return `<g transform="translate(7.5)${extraTransform}">` +
-        `<g class="arrowend">` +
-        `<path class="arrowhead" d="M-2,4 L+2,7.5 L-2,11" />` +
-        `</g>` +
-        `</g>`;
-}
-
-class LooseParserListener {
-    constructor(callback) {
-        this.hadSelectionOnMouseDown = false;
-        const that = this;
-        this.mouseDownListener = function (ev) {
-            that.x = ev.pageX;
-            that.y = ev.pageY;
-            that.hadSelectionOnMouseDown = !!getValidSelection()?.toString();
-        };
-        this.mouseUpListener = function (ev) {
-            const samePlace = that.x == ev.pageX && that.y == ev.pageY;
-            that.x = that.y = undefined;
-            if (samePlace && that.hadSelectionOnMouseDown)
-                return; // had something selected and made a single click
-            const selectedText = getExtendedSelectionText(this, samePlace); // need to extend the selected text when the selection is a result of a double-click
-            if (!selectedText)
-                return;
-            callback(ev.pageX, ev.pageY, selectedText);
-        };
-        function getValidSelection() {
-            const selection = document.getSelection();
-            if (!selection)
-                return null;
-            if (selection.rangeCount != 1)
-                return null;
-            return selection;
-        }
-        function getExtendedSelectionText(startNode, needToExtend) {
-            const selection = getValidSelection();
-            if (!selection)
-                return '';
-            const selectionText = selection.toString();
-            if (!needToExtend || !selectionText)
-                return selectionText;
-            if (selection.anchorNode == null || selection.anchorOffset == null ||
-                selection.focusNode == null || selection.focusOffset == null)
-                return '';
-            const t1 = getExtendedSelectionTextToNodeAndOffset(startNode, selection.anchorNode, selection.anchorOffset);
-            const t2 = getExtendedSelectionTextToNodeAndOffset(startNode, selection.focusNode, selection.focusOffset);
-            if (t1.length > t2.length) {
-                return t1;
-            }
-            else {
-                return t2;
-            }
-        }
-        function getExtendedSelectionTextToNodeAndOffset(startNode, node, offset) {
-            const range = document.createRange();
-            range.setStart(startNode, 0);
-            range.setEnd(node, offset);
-            return range.toString();
-        }
-    }
-    listen($target) {
-        $target.addEventListener('mousedown', this.mouseDownListener);
-        $target.addEventListener('mouseup', this.mouseUpListener);
-    }
-}
-
-const e$5 = makeEscapeTag(encodeURIComponent);
-const makeItem = makeElement('li')();
-const makeITEM = makeElement('li')('main');
-class LooseParserPopup {
-    constructor(webUrlLister, $container) {
-        this.webUrlLister = webUrlLister;
-        this.$popup = document.createElement('ul');
-        this.$popup.classList.add('loose-parser-popup');
-        this.$popup.onmouseleave = () => {
-            this.$popup.classList.remove('open');
-            this.$popup.innerHTML = '';
-        };
-        $container.append(this.$popup);
-    }
-    open(x, y, id, type) {
-        const itemHeight = 20;
-        const itemWidth = 90;
-        this.$popup.style.left = `${x - 0.75 * itemWidth}px`;
-        this.$popup.style.top = `${y - 2 * itemHeight}px`;
-        this.$popup.innerHTML = '';
-        this.$popup.append(makeItem(makeElement('a')()(`#${id}`)));
-        this.$popup.append(makeITEM(this.makeLink(id, type)));
-        const types = ['note', 'changeset', 'node', 'way', 'relation'];
-        for (const type of types) {
-            this.$popup.append(makeItem(this.makeLink(id, type)));
-        }
-        this.$popup.classList.add('open');
-    }
-    makeLink(id, type) {
-        if (type == null)
-            return makeElement('a')()('?');
-        const $a = makeElement('a')()(type);
-        $a.href = this.webUrlLister.getUrl(e$5 `${type}/${id}`);
-        if (type == 'note') {
-            $a.classList.add('other-note');
-            $a.dataset.noteId = String(id);
-        }
-        else if (type == 'changeset') {
-            $a.dataset.changesetId = String(id);
-        }
-        else {
-            $a.dataset.elementType = type;
-            $a.dataset.elementId = String(id);
-        }
-        $a.classList.add('listened', 'osm');
-        return $a;
-    }
-}
-
-function parseLoose(text) {
-    const match = text.match(/^(.*?)([0-9]+)\s*$/s);
-    if (!match)
-        return null;
-    const [, prefix, idString] = match;
-    return [Number(idString), getType(prefix)];
-}
-function getType(text) {
-    const types = ['note', 'changeset', 'node', 'way', 'relation'];
-    let bestType = undefined;
-    let bestIndex = -1;
-    const lowercaseText = text.toLowerCase();
-    for (const type of types) {
-        const index = lowercaseText.lastIndexOf(type);
-        if (index > bestIndex) {
-            bestIndex = index;
-            bestType = type;
-        }
-    }
-    return bestType;
-}
-
 function getCommentItems(webUrlLister, commentText) {
     const matchRegExp = new RegExp(`(?<before>.*?)(?<text>` +
         `(?<date>\\d\\d\\d\\d-\\d\\d-\\d\\d[T ]\\d\\d:\\d\\d:\\d\\dZ)` +
@@ -7742,6 +7427,391 @@ function getActionClass(action) {
     else {
         return 'other';
     }
+}
+function getNoteSectionCheckbox($noteSection) {
+    const $checkbox = $noteSection.querySelector('.note-checkbox input');
+    return $checkbox instanceof HTMLInputElement ? $checkbox : null;
+}
+function isSelectedNoteSection($noteSection) {
+    return getNoteSectionCheckbox($noteSection)?.checked ?? false;
+}
+
+class NoteMarkerHandler {
+    constructor(map, web, wrappedMarkerLinkListeners) {
+        this.map = map;
+        this.web = web;
+        this.wrappedMarkerLinkListeners = wrappedMarkerLinkListeners;
+    }
+    makeMarker(note, isVisible, isSelected) {
+        const marker = new NoteMarker(this.web, note);
+        marker.addTo(this.getTargetLayer(isVisible, isSelected));
+        for (const [event, listener] of this.wrappedMarkerLinkListeners) {
+            marker.$a.addEventListener(event, listener);
+        }
+        return marker;
+    }
+    updateMarker($noteSection, getNote) {
+        const noteId = Number($noteSection.dataset.noteId);
+        const note = getNote(noteId);
+        if (!note)
+            return;
+        this.updateMarkerWithNote($noteSection, note);
+    }
+    updateMarkerWithNote($noteSection, note) {
+        const isVisible = !$noteSection.hidden;
+        const isSelected = isSelectedNoteSection($noteSection);
+        const marker = this.map.moveNoteMarkerToLayer(note.id, this.getTargetLayer(isVisible, isSelected));
+        if (!marker)
+            return;
+        marker.updateIcon(this.web, note, isSelected);
+        this.updateMarkerActivationWithMarker($noteSection, marker);
+    }
+    getTargetLayer(isVisible, isSelected) {
+        if (!isVisible) {
+            return this.map.filteredNoteLayer;
+        }
+        else if (isSelected) {
+            return this.map.selectedNoteLayer;
+        }
+        else {
+            return this.map.unselectedNoteLayer;
+        }
+    }
+    updateMarkerActivation($noteSection) {
+        const noteId = Number($noteSection.dataset.noteId);
+        const marker = this.map.getNoteMarker(noteId);
+        if (!marker)
+            return;
+        this.updateMarkerActivationWithMarker($noteSection, marker);
+    }
+    updateMarkerActivationWithMarker($noteSection, marker) {
+        let hasSomeActivationClasses = false;
+        for (const type of ['hover', 'click']) {
+            const activationClassName = 'active-' + type;
+            const hasActivationClass = $noteSection.classList.contains(activationClassName);
+            hasSomeActivationClasses || (hasSomeActivationClasses = hasActivationClass);
+            marker.getElement()?.classList.toggle(activationClassName, hasActivationClass);
+        }
+        marker.setZIndexOffset(hasSomeActivationClasses ? 1000 : 0);
+    }
+}
+
+const expanderDescriptions = new Map([
+    ['id', [
+            1, [
+                [-1, false, true, true, `don't show id digits`],
+                [0, false, true, false, `show only changing id digits`],
+                [1, false, false, false, `show all id digits`],
+            ]
+        ]],
+    ['comments', [
+            1, [
+                [0, true, true, false, `show only first comment/action`],
+                [1, true, false, false, `show all comments/actions`],
+            ]
+        ]],
+    ['date', [
+            0, [
+                [-1, false, true, true, `hide time of day and year`],
+                [0, false, true, false, `hide time of day`],
+                [1, false, false, false, `show time of day`],
+            ]
+        ]],
+    ['username', [
+            0, [
+                [-1, false, true, true, `seriously clip usernames`],
+                [0, false, true, false, `clip long usernames`],
+                [1, false, false, false, `show full usernames with ids`],
+            ]
+        ]],
+    ['comment-lines', [
+            1, [
+                [0, false, false, false, `keep comments on one line`],
+                [1, true, false, false, `allow line breaks in comments`],
+            ]
+        ]],
+    ['map-link', [
+            1, [
+                [-1, false, true, true, `squeeze map links`],
+                [0, false, true, false, `don't stretch map links`],
+                [1, false, false, false, `stretch map links`],
+            ]
+        ]],
+]);
+function getCurrentAndNextState(key, currentValue) {
+    const expanderDescription = expanderDescriptions.get(key);
+    if (!expanderDescription)
+        throw new RangeError(`invalid expander key`);
+    const [, states] = expanderDescription;
+    let currentState;
+    for (const state of states) {
+        if (currentState) {
+            return [currentState, state];
+        }
+        const [comparedValue] = state;
+        if (currentValue == comparedValue) {
+            currentState = state;
+        }
+    }
+    const [firstState, secondState] = states;
+    if (currentState)
+        return [currentState, firstState];
+    return [firstState, secondState];
+}
+function getStepValue(key, currentValue, di) {
+    const expanderDescription = expanderDescriptions.get(key);
+    if (!expanderDescription)
+        throw new RangeError(`invalid expander key`);
+    const [defaultValue, states] = expanderDescription;
+    let comparedValue = defaultValue;
+    let grabNextValue = false;
+    for (let i = (di > 0 ? 0 : states.length - 1); i >= 0 && i < states.length; i += di) {
+        const state = states[i];
+        [comparedValue] = state;
+        if (grabNextValue) {
+            return comparedValue;
+        }
+        if (currentValue == comparedValue) {
+            grabNextValue = true;
+        }
+    }
+    return comparedValue;
+}
+class Expanders {
+    constructor(storage, $table) {
+        this.storage = storage;
+        this.$table = $table;
+        this.values = new Map;
+        for (const [key, [defaultValue, states]] of expanderDescriptions) {
+            const possibleValues = new Set(states.map(([value]) => value));
+            const storageKey = `table-expanded[${key}]`;
+            const storedValue = Number(this.storage.getItem(storageKey));
+            const value = possibleValues.has(storedValue) ? storedValue : defaultValue;
+            if (value > 0)
+                this.$table.classList.add(`expanded-${key}`);
+            if (value < 0)
+                this.$table.classList.add(`contracted-${key}`);
+            this.values.set(key, value);
+        }
+    }
+    makeButton(key, clickListener = () => { }) {
+        const storageKey = `table-expanded[${key}]`;
+        const $button = makeElement('button')('expander')();
+        $button.innerHTML = getButtonSvg();
+        let hasHover = false;
+        let inFocusTransition = false;
+        const updateButton = () => {
+            const nextShape = inFocusTransition || hasHover;
+            const value = this.values.get(key);
+            if (value == null)
+                throw new RangeError(`unset expander value`);
+            const [currentState, nextState] = getCurrentAndNextState(key, value);
+            const shapeState = nextShape ? nextState : currentState;
+            const [, isVertical, isInward, isTight] = shapeState;
+            $button.classList.toggle('vertical', isVertical);
+            $button.classList.toggle('inward', isInward);
+            $button.classList.toggle('tight', isTight);
+            [, , , , $button.title] = nextState;
+        };
+        updateButton();
+        const setValue = (value) => {
+            this.values.set(key, value);
+            this.$table.classList.toggle(`expanded-${key}`, value > 0);
+            this.$table.classList.toggle(`contracted-${key}`, value < 0);
+            this.storage.setItem(storageKey, String(value));
+            inFocusTransition = false;
+            updateButton();
+            clickListener(value);
+        };
+        $button.onclick = () => {
+            let value = this.values.get(key);
+            if (value == null)
+                throw new RangeError(`unset expander value`);
+            const [, nextState] = getCurrentAndNextState(key, value);
+            [value] = nextState;
+            setValue(value);
+        };
+        $button.onkeydown = ev => {
+            let value = this.values.get(key);
+            if (value == null)
+                throw new RangeError(`unset expander value`);
+            if (ev.key == '+') {
+                value = getStepValue(key, value, +1);
+            }
+            else if (ev.key == '-') {
+                value = getStepValue(key, value, -1);
+            }
+            else {
+                return;
+            }
+            ev.stopPropagation();
+            ev.preventDefault();
+            setValue(value);
+        };
+        $button.onpointerenter = () => {
+            hasHover = true;
+            updateButton();
+        };
+        $button.onpointerleave = () => {
+            hasHover = false;
+            updateButton();
+        };
+        $button.onfocus = () => {
+            inFocusTransition = !hasHover;
+            updateButton();
+        };
+        $button.onblur = $button.ontransitionend = () => {
+            inFocusTransition = false;
+            updateButton();
+        };
+        return $button;
+    }
+}
+function getButtonSvg() {
+    return `<svg width="15" height="15" viewBox="0 0 15 15">` +
+        `<g class="arrow" stroke="currentColor" fill="none">` +
+        `<line x1="0.5" x2="14.5" y1="7.5" y2="7.5" />` +
+        getArrowEndSvg(``) +
+        getArrowEndSvg(` scale(-1 1)`) +
+        `</g>` +
+        `</svg>`;
+}
+function getArrowEndSvg(extraTransform) {
+    return `<g transform="translate(7.5)${extraTransform}">` +
+        `<g class="arrowend">` +
+        `<path class="arrowhead" d="M-2,4 L+2,7.5 L-2,11" />` +
+        `</g>` +
+        `</g>`;
+}
+
+class LooseParserListener {
+    constructor(callback) {
+        this.hadSelectionOnMouseDown = false;
+        const that = this;
+        this.mouseDownListener = function (ev) {
+            that.x = ev.pageX;
+            that.y = ev.pageY;
+            that.hadSelectionOnMouseDown = !!getValidSelection()?.toString();
+        };
+        this.mouseUpListener = function (ev) {
+            const samePlace = that.x == ev.pageX && that.y == ev.pageY;
+            that.x = that.y = undefined;
+            if (samePlace && that.hadSelectionOnMouseDown)
+                return; // had something selected and made a single click
+            const selectedText = getExtendedSelectionText(this, samePlace); // need to extend the selected text when the selection is a result of a double-click
+            if (!selectedText)
+                return;
+            callback(ev.pageX, ev.pageY, selectedText);
+        };
+        function getValidSelection() {
+            const selection = document.getSelection();
+            if (!selection)
+                return null;
+            if (selection.rangeCount != 1)
+                return null;
+            return selection;
+        }
+        function getExtendedSelectionText(startNode, needToExtend) {
+            const selection = getValidSelection();
+            if (!selection)
+                return '';
+            const selectionText = selection.toString();
+            if (!needToExtend || !selectionText)
+                return selectionText;
+            if (selection.anchorNode == null || selection.anchorOffset == null ||
+                selection.focusNode == null || selection.focusOffset == null)
+                return '';
+            const t1 = getExtendedSelectionTextToNodeAndOffset(startNode, selection.anchorNode, selection.anchorOffset);
+            const t2 = getExtendedSelectionTextToNodeAndOffset(startNode, selection.focusNode, selection.focusOffset);
+            if (t1.length > t2.length) {
+                return t1;
+            }
+            else {
+                return t2;
+            }
+        }
+        function getExtendedSelectionTextToNodeAndOffset(startNode, node, offset) {
+            const range = document.createRange();
+            range.setStart(startNode, 0);
+            range.setEnd(node, offset);
+            return range.toString();
+        }
+    }
+    listen($target) {
+        $target.addEventListener('mousedown', this.mouseDownListener);
+        $target.addEventListener('mouseup', this.mouseUpListener);
+    }
+}
+
+const e$5 = makeEscapeTag(encodeURIComponent);
+const makeItem = makeElement('li')();
+const makeITEM = makeElement('li')('main');
+class LooseParserPopup {
+    constructor(webUrlLister, $container) {
+        this.webUrlLister = webUrlLister;
+        this.$popup = document.createElement('ul');
+        this.$popup.classList.add('loose-parser-popup');
+        this.$popup.onmouseleave = () => {
+            this.$popup.classList.remove('open');
+            this.$popup.innerHTML = '';
+        };
+        $container.append(this.$popup);
+    }
+    open(x, y, id, type) {
+        const itemHeight = 20;
+        const itemWidth = 90;
+        this.$popup.style.left = `${x - 0.75 * itemWidth}px`;
+        this.$popup.style.top = `${y - 2 * itemHeight}px`;
+        this.$popup.innerHTML = '';
+        this.$popup.append(makeItem(makeElement('a')()(`#${id}`)));
+        this.$popup.append(makeITEM(this.makeLink(id, type)));
+        const types = ['note', 'changeset', 'node', 'way', 'relation'];
+        for (const type of types) {
+            this.$popup.append(makeItem(this.makeLink(id, type)));
+        }
+        this.$popup.classList.add('open');
+    }
+    makeLink(id, type) {
+        if (type == null)
+            return makeElement('a')()('?');
+        const $a = makeElement('a')()(type);
+        $a.href = this.webUrlLister.getUrl(e$5 `${type}/${id}`);
+        if (type == 'note') {
+            $a.classList.add('other-note');
+            $a.dataset.noteId = String(id);
+        }
+        else if (type == 'changeset') {
+            $a.dataset.changesetId = String(id);
+        }
+        else {
+            $a.dataset.elementType = type;
+            $a.dataset.elementId = String(id);
+        }
+        $a.classList.add('listened', 'osm');
+        return $a;
+    }
+}
+
+function parseLoose(text) {
+    const match = text.match(/^(.*?)([0-9]+)\s*$/s);
+    if (!match)
+        return null;
+    const [, prefix, idString] = match;
+    return [Number(idString), getType(prefix)];
+}
+function getType(text) {
+    const types = ['note', 'changeset', 'node', 'way', 'relation'];
+    let bestType = undefined;
+    let bestIndex = -1;
+    const lowercaseText = text.toLowerCase();
+    for (const type of types) {
+        const index = lowercaseText.lastIndexOf(type);
+        if (index > bestIndex) {
+            bestIndex = index;
+            bestType = type;
+        }
+    }
+    return bestType;
 }
 
 class Pager {
@@ -8424,10 +8494,10 @@ class IdShortener {
 }
 
 class NoteTable {
-    constructor($root, $container, storage, map, filter, server) {
+    constructor($root, $container, storage, map, filter, web) {
         this.map = map;
         this.filter = filter;
-        this.server = server;
+        this.web = web;
         this.$table = makeElement('table')()();
         this.$selectAllCheckbox = document.createElement('input');
         this.notesById = new Map(); // in the future these might be windowed to limit the amount of stuff on one page
@@ -8437,7 +8507,7 @@ class NoteTable {
         this.$table.setAttribute('role', 'grid');
         const that = this;
         let $clickReadyNoteSection;
-        this.wrappedMarkerLinkListeners = [
+        this.markerHandler = new NoteMarkerHandler(map, web, [
             ['mouseenter', function () {
                     const noteId = this.dataset.noteId;
                     if (!noteId)
@@ -8456,7 +8526,7 @@ class NoteTable {
                         return;
                     that.deactivateNote('hover', $noteSection);
                 }],
-        ];
+        ]);
         this.wrappedNoteSectionListeners = [
             ['mouseenter', function () {
                     that.activateNote('hover', this);
@@ -8525,10 +8595,10 @@ class NoteTable {
                 map.fitNoteTrack();
             bubbleCustomEvent(this.$table, 'osmNoteViewer:notesInViewportChange', visibleNoteIds.map(id => this.notesById.get(id)).filter(isDefined));
         });
-        this.commentWriter = new CommentWriter(server.web);
+        this.commentWriter = new CommentWriter(web);
         $container.append(this.$table);
         this.reset(makeElement('caption')()(`Use the forms above to fetch notes`));
-        const looseParserPopup = new LooseParserPopup(server.web, $container);
+        const looseParserPopup = new LooseParserPopup(web, $container);
         this.looseParserListener = new LooseParserListener((x, y, text) => {
             const parseResult = parseLoose(text);
             if (!parseResult)
@@ -8637,17 +8707,12 @@ class NoteTable {
             if (note == null)
                 continue;
             if (this.filter.matchNote(note, getUsername)) {
-                let targetLayer = this.map.unselectedNoteLayer;
-                if (isSelectedNoteSection($noteSection)) {
-                    targetLayer = this.map.selectedNoteLayer;
-                }
-                this.map.moveNoteMarkerToLayer(noteId, targetLayer);
                 $noteSection.hidden = false;
+                this.markerHandler.updateMarkerWithNote($noteSection, note);
             }
             else {
                 this.deactivateNote('click', $noteSection);
                 this.deactivateNote('hover', $noteSection);
-                this.map.moveNoteMarkerToLayer(noteId, this.map.filteredNoteLayer);
                 $noteSection.hidden = true;
                 this.setNoteSelection($noteSection, false);
             }
@@ -8683,7 +8748,7 @@ class NoteTable {
             const $noteSection = this.$table.createTBody();
             $noteSection.dataset.noteId = String(note.id);
             this.noteSectionVisibilityObserver.observe($noteSection);
-            this.makeMarker($noteSection, note, isVisible);
+            this.markerHandler.makeMarker(note, isVisible, false);
             const $checkbox = document.createElement('input');
             $checkbox.type = 'checkbox';
             // $checkbox.title=`shift+click to select/unselect a range`
@@ -8712,7 +8777,6 @@ class NoteTable {
         if (!($a instanceof HTMLAnchorElement))
             throw new Error(`note link not found during note replace`);
         const isNoteLinkFocused = document.activeElement == $a;
-        this.map.removeNoteMarker(note.id);
         // remember note and users
         this.notesById.set(note.id, note);
         for (const [uid, username] of Object.entries(users)) {
@@ -8725,8 +8789,8 @@ class NoteTable {
         // output table section
         const getUsername = (uid) => users[uid];
         const isVisible = this.filter.matchNote(note, getUsername);
-        this.makeMarker($noteSection, note, isVisible);
         this.writeNoteSection($noteSection, $checkbox, note, users, isVisible);
+        this.markerHandler.updateMarkerWithNote($noteSection, note);
         const $a2 = this.getNoteLink($noteSection);
         if (!($a2 instanceof HTMLAnchorElement))
             throw new Error(`note link not found after note replace`);
@@ -8788,14 +8852,6 @@ class NoteTable {
         writeHeadSectionRow($headSection, this.$selectAllCheckbox, (key, clickListener) => this.expanders.makeButton(key, clickListener), () => this.$table.tBodies, () => this.cursor.updateTabIndex());
         return $headSection;
     }
-    makeMarker($noteSection, note, isVisible) {
-        const marker = new NoteMarker(this.server.web, note);
-        marker.addTo(isVisible ? this.map.unselectedNoteLayer : this.map.filteredNoteLayer);
-        for (const [event, listener] of this.wrappedMarkerLinkListeners) {
-            marker.$a.addEventListener(event, listener);
-        }
-        return marker;
-    }
     writeNoteSection($noteSection, $checkbox, note, users, isVisible) {
         if (!isVisible)
             $noteSection.hidden = true;
@@ -8812,7 +8868,7 @@ class NoteTable {
             }
         }
         $checkbox.setAttribute('aria-label', `${note.status} note at latitude ${note.lat}, longitude ${note.lon}`);
-        const $commentCells = writeNoteSectionRows(this.server.web, this.commentWriter, $noteSection, $checkbox, note, users, !this.$table.classList.contains('expanded-comments'), this.showImages, this.markUser, this.markText, () => {
+        const $commentCells = writeNoteSectionRows(this.web, this.commentWriter, $noteSection, $checkbox, note, users, !this.$table.classList.contains('expanded-comments'), this.showImages, this.markUser, this.markText, () => {
             this.focusOnNote($noteSection, true, false);
             this.map.focus();
         }, () => this.cursor.updateTabIndex());
@@ -8906,14 +8962,7 @@ class NoteTable {
     }
     deactivateNote(type, $noteSection) {
         $noteSection.classList.remove('active-' + type);
-        const noteId = Number($noteSection.dataset.noteId);
-        const marker = this.map.getNoteMarker(noteId);
-        if (!marker)
-            return;
-        marker.getElement()?.classList.remove('active-' + type);
-        if ($noteSection.classList.contains('active-hover') || $noteSection.classList.contains('active-click'))
-            return;
-        marker.setZIndexOffset(0);
+        this.markerHandler.updateMarkerActivation($noteSection);
     }
     activateNote(type, $noteSection) {
         let alreadyActive = false;
@@ -8931,13 +8980,8 @@ class NoteTable {
         }
         if (alreadyActive)
             return;
-        const noteId = Number($noteSection.dataset.noteId);
-        const marker = this.map.getNoteMarker(noteId);
-        if (!marker)
-            return;
-        marker.setZIndexOffset(1000);
-        marker.getElement()?.classList.add('active-' + type);
         $noteSection.classList.add('active-' + type);
+        this.markerHandler.updateMarkerActivation($noteSection);
     }
     updateCheckboxDependentsAndSendNoteChangeEvents() {
         const [nFetched, nVisible, selectedNotes, selectedNoteUsers] = this.getCheckedData();
@@ -8972,30 +9016,10 @@ class NoteTable {
         return [nFetched, nVisible, selectedNotes, selectedNoteUsers];
     }
     setNoteSelection($noteSection, isSelected) {
-        const getTargetLayer = () => {
-            if ($noteSection.hidden) {
-                return this.map.filteredNoteLayer;
-            }
-            else if (isSelected) {
-                return this.map.selectedNoteLayer;
-            }
-            else {
-                return this.map.unselectedNoteLayer;
-            }
-        };
         const $checkbox = getNoteSectionCheckbox($noteSection);
         if ($checkbox)
             $checkbox.checked = isSelected;
-        const noteId = Number($noteSection.dataset.noteId);
-        const note = this.notesById.get(noteId);
-        if (!note)
-            return;
-        const marker = this.map.moveNoteMarkerToLayer(noteId, getTargetLayer());
-        if (!marker)
-            return;
-        marker.updateIcon(this.server.web, note, isSelected);
-        const activeClasses = ['hover', 'click'].map(type => 'active-' + type).filter(cls => $noteSection.classList.contains(cls));
-        marker.getElement()?.classList.add(...activeClasses);
+        this.markerHandler.updateMarker($noteSection, id => this.notesById.get(id));
     }
     listVisibleNoteSections() {
         return this.$table.querySelectorAll('tbody:not([hidden])');
@@ -9076,16 +9100,6 @@ function setUpdateLinkTitle($noteSection, $a) {
     else {
         $a.title = `reloaded manually ${nManualUpdates} times, reload ${noteReference} again`;
     }
-}
-function getNoteSectionCheckbox($noteSection) {
-    const $checkbox = $noteSection.querySelector('.note-checkbox input');
-    return $checkbox instanceof HTMLInputElement ? $checkbox : null;
-}
-function isSelectedNoteSection($noteSection) {
-    return getNoteSectionCheckbox($noteSection)?.checked ?? false;
-}
-function isDefined(argument) {
-    return argument !== undefined;
 }
 
 class Tool {
@@ -11831,7 +11845,7 @@ function writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer
     const $toolContainer = makeDiv('panel', 'toolbar')();
     $stickyPart.append($toolContainer);
     new ToolPanel($root, $toolContainer, storage, cx, map);
-    const noteTable = new NoteTable($root, $notesContainer, storage, map, filterPanel.noteFilter, cx.server);
+    const noteTable = new NoteTable($root, $notesContainer, storage, map, filterPanel.noteFilter, cx.server.web);
     filterPanel.onFilterUpdate = noteFilter => noteTable.updateFilter(noteFilter);
     globalHistory.$resizeObservationTarget = $notesContainer;
     return noteTable;
