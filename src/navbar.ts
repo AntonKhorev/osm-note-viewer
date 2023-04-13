@@ -1,3 +1,4 @@
+import type NoteTable from './table'
 import {escapeXml, makeEscapeTag} from './util/escape'
 
 const e=makeEscapeTag(escapeXml)
@@ -27,10 +28,17 @@ export abstract class NavDialog {
 export default class Navbar {
 	private readonly $tabList=document.createElement('div')
 	private readonly tabs: Map<NavDialog,HTMLButtonElement> = new Map()
-	constructor($root: HTMLElement, $container: HTMLElement) {
+	constructor(
+		$root: HTMLElement, $container: HTMLElement,
+		noteTable: NoteTable
+	) {
 		this.$tabList.setAttribute('role','tablist')
 		this.$tabList.setAttribute('aria-label',`Note query modes`)
 		$container.append(this.$tabList)
+		$container.append(makeButton('table',`Go to table`,()=>{
+			noteTable.focusHead()
+		}))
+		$container.append(makeButton('map',`Go to map`,()=>{}))
 		$container.append(makeResetButton())
 		$container.onkeydown=ev=>{
 			const $button=ev.target

@@ -399,7 +399,7 @@ export default class CursorState {
 		}
 		return select
 	}
-	private getCurrentHeadItem(): HTMLElement|null {
+	getCurrentHeadItem(): HTMLElement|null {
 		const $headSection=this.$table.tHead
 		if (!$headSection) return null
 		return $headSection.querySelector(getHeadSelector(this.iColumn))

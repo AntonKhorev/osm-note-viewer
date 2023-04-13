@@ -66,7 +66,11 @@ export default class Cursor {
 	updateTabIndex() {
 		this.state.setToNearestVisible()
 	}
-	focus() {
+	focusHead() {
+		const $e=this.state.getCurrentHeadItem()
+		$e?.focus()
+	}
+	focusBody() {
 		const $e=this.state.getCurrentBodyItem()
 		$e?.focus()
 	}

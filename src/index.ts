@@ -60,13 +60,13 @@ async function main() {
 		$graphicSide.append(sidebarResizer.$button,$mapContainer)
 		map=writeMap($root,$mapContainer,net.cx.server,globalHistory)
 		sidebarResizer.startListening(map)
-		const navbar=new Navbar($root,$navbarContainer)
 		const noteTable=writeBelowFetchPanel(
 			$root,
 			$scrollingPart,$stickyPart,$moreContainer,
 			storage,net.cx,globalHistory,
 			map
 		)
+		const navbar=new Navbar($root,$navbarContainer,noteTable)
 		new NoteFetchPanel(
 			$root,
 			db,net.cx,
@@ -77,7 +77,7 @@ async function main() {
 		)
 		$mapContainer.addEventListener('keydown',ev=>{
 			if (ev.key!='Escape') return
-			noteTable.focus()
+			noteTable.focusBody()
 			ev.stopPropagation()
 			ev.preventDefault()
 		})

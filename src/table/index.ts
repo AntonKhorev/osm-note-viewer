@@ -145,7 +145,7 @@ export default class NoteTable implements NoteTableUpdater {
 		})
 		this.commentWriter=new CommentWriter(server.web)
 		$container.append(this.$table)
-		this.reset()
+		this.reset(makeElement('caption')()(`Use the forms above to fetch notes`))
 		const looseParserPopup=new LooseParserPopup(server.web,$container)
 		this.looseParserListener=new LooseParserListener((x,y,text)=>{
 			const parseResult=parseLoose(text)
@@ -221,7 +221,7 @@ export default class NoteTable implements NoteTableUpdater {
 			$refreshWaitProgress.value=progress
 		})
 	}
-	reset($caption?: HTMLTableCaptionElement, markUser?: string|number|undefined, markText?: string|undefined): void {
+	reset($caption: HTMLTableCaptionElement, markUser?: string|number|undefined, markText?: string|undefined): void {
 		this.markUser=markUser
 		this.markText=markText
 		this.notesById.clear()
@@ -230,7 +230,7 @@ export default class NoteTable implements NoteTableUpdater {
 		this.$lastClickedNoteSection=undefined
 		this.noteSectionVisibilityObserver.disconnect()
 		this.$table.replaceChildren()
-		if ($caption) this.$table.append($caption)
+		this.$table.append($caption)
 		this.updateCheckboxDependentsAndSendNoteChangeEvents()
 	}
 	updateFilter(filter: NoteFilter): void {
@@ -367,8 +367,11 @@ export default class NoteTable implements NoteTableUpdater {
 			this.focusOnNote($noteSection)
 		}
 	}
-	focus() {
-		this.cursor.focus()
+	focusHead() {
+		this.cursor.focusHead()
+	}
+	focusBody() {
+		this.cursor.focusBody()
 	}
 	private writeHeadSection(): HTMLTableSectionElement {
 		const $headSection=this.$table.createTHead()
