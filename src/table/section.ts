@@ -52,7 +52,7 @@ export function writeNoteSectionRows(
 	showImages: boolean,
 	markUser: string|number|undefined,
 	markText: string|undefined,
-	zoomInOnNote: ()=>void,
+	mapLinkClickListener: ()=>void,
 	rowVisibilityChangeCallback: ()=>void
 ): HTMLTableCellElement[] {
 	const $commentCells: HTMLTableCellElement[]=[]
@@ -155,9 +155,7 @@ export function writeNoteSectionRows(
 			$a.title=`show note on map`
 			$a.innerHTML=`<svg><use href="#tools-map" /></svg>`
 			$a.onclick=ev=>{
-				zoomInOnNote()
-				const $map=document.querySelector('.ui .map') // TODO rewrite this hack
-				if ($map instanceof HTMLElement) $map.focus()
+				mapLinkClickListener()
 				ev.stopPropagation()
 				ev.preventDefault()
 			}

@@ -121,7 +121,10 @@ export default class NoteMap {
 			this.panTo(marker.getLatLng())
 		})
 	}
-	hide(hidden: boolean) {
+	focus(): void {
+		this.$container.focus()
+	}
+	hide(hidden: boolean): void {
 		if (hidden) {
 			this.$container.style.visibility='hidden'
 		} else {

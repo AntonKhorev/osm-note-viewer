@@ -422,7 +422,10 @@ export default class NoteTable implements NoteTableUpdater {
 			!this.$table.classList.contains('expanded-comments'),
 			this.showImages,
 			this.markUser,this.markText,
-			()=>this.focusOnNote($noteSection,true,false),
+			()=>{
+				this.focusOnNote($noteSection,true,false)
+				this.map.focus()
+			},
 			()=>this.cursor.updateTabIndex()
 		)
 		for (const $commentCell of $commentCells) {
