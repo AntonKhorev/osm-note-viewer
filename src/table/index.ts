@@ -13,7 +13,7 @@ import CommentWriter, {handleShowImagesUpdate} from '../comment-writer'
 import type NoteFilter from '../filter'
 import NoteSectionVisibilityObserver from './observer'
 import IdShortener from '../id-shortener'
-import type {Server} from '../net'
+import type {WebProvider} from '../net'
 import {makeElement, resetAnimation} from '../util/html'
 import {bubbleCustomEvent} from '../util/events'
 
@@ -47,7 +47,7 @@ export default class NoteTable implements NoteTableUpdater {
 		storage: NoteViewerStorage,
 		private map: NoteMap,
 		private filter: NoteFilter,
-		private server: Server
+		private web: WebProvider
 	) {
 		this.expanders=new Expanders(storage,this.$table)
 		this.$table.setAttribute('role','grid')
@@ -143,10 +143,10 @@ export default class NoteTable implements NoteTableUpdater {
 				visibleNoteIds.map(id=>this.notesById.get(id)).filter(isDefined)
 			)
 		})
-		this.commentWriter=new CommentWriter(server.web)
+		this.commentWriter=new CommentWriter(web)
 		$container.append(this.$table)
 		this.reset(makeElement('caption')()(`Use the forms above to fetch notes`))
-		const looseParserPopup=new LooseParserPopup(server.web,$container)
+		const looseParserPopup=new LooseParserPopup(web,$container)
 		this.looseParserListener=new LooseParserListener((x,y,text)=>{
 			const parseResult=parseLoose(text)
 			if (!parseResult) return
@@ -388,7 +388,7 @@ export default class NoteTable implements NoteTableUpdater {
 		return $headSection
 	}
 	private makeMarker($noteSection: HTMLTableSectionElement, note: Note, isVisible: boolean): NoteMarker {
-		const marker=new NoteMarker(this.server.web,note)
+		const marker=new NoteMarker(this.web,note)
 		marker.addTo(isVisible ? this.map.unselectedNoteLayer : this.map.filteredNoteLayer)
 		for (const [event,listener] of this.wrappedMarkerLinkListeners) {
 			marker.$a.addEventListener(event,listener)
@@ -416,7 +416,7 @@ export default class NoteTable implements NoteTableUpdater {
 		}
 		$checkbox.setAttribute('aria-label',`${note.status} note at latitude ${note.lat}, longitude ${note.lon}`)
 		const $commentCells=writeNoteSectionRows(
-			this.server.web,this.commentWriter,
+			this.web,this.commentWriter,
 			$noteSection,$checkbox,
 			note,users,
 			!this.$table.classList.contains('expanded-comments'),
@@ -588,7 +588,7 @@ export default class NoteTable implements NoteTableUpdater {
 		if (!note) return
 		const marker=this.map.moveNoteMarkerToLayer(noteId,getTargetLayer())
 		if (!marker) return
-		marker.updateIcon(this.server.web,note,isSelected)
+		marker.updateIcon(this.web,note,isSelected)
 		const activeClasses=['hover','click'].map(type=>'active-'+type).filter(cls=>$noteSection.classList.contains(cls))
 		marker.getElement()?.classList.add(...activeClasses)
 	}

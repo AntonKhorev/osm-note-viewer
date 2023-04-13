@@ -153,7 +153,7 @@ function writeBelowFetchPanel(
 	const noteTable=new NoteTable(
 		$root,$notesContainer,
 		storage,map,filterPanel.noteFilter,
-		cx.server
+		cx.server.web
 	)
 	filterPanel.onFilterUpdate=noteFilter=>noteTable.updateFilter(noteFilter)
 	globalHistory.$resizeObservationTarget=$notesContainer
