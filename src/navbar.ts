@@ -36,22 +36,26 @@ export default class Navbar {
 		this.$tabList.setAttribute('role','tablist')
 		this.$tabList.setAttribute('aria-label',`Note query modes`)
 		$container.append(this.$tabList)
-		$container.append(makeButton('table',`Go to table`,()=>{
+		const $goToTableButton=makeButton('table',`Go to table`,()=>{
 			noteTable.focusHead()
-		}))
-		$container.append(makeButton('map',`Go to map`,()=>{
+		})
+		$goToTableButton.disabled=true
+		const $goToMapButton=makeButton('map',`Go to map`,()=>{
 			noteMap.focus()
-		}))
+		})
+		$container.append($goToTableButton)
+		$container.append($goToMapButton)
 		$container.append(makeResetButton())
 		$container.onkeydown=ev=>{
 			const $button=ev.target
 			if (!($button instanceof HTMLButtonElement)) return
 			const focusButton=(c:number,o:number)=>{
-				const $buttons=[...$container.querySelectorAll('button')]
+				const $buttons=[...$container.querySelectorAll('button:not([disabled])')]
 				const i=$buttons.indexOf($button)
 				const l=$buttons.length
 				if (l<=0 || i<0) return
-				$buttons[(l+i*c+o)%l].focus()
+				const $focusButton=$buttons[(l+i*c+o)%l]
+				if ($focusButton instanceof HTMLElement) $focusButton.focus()
 			}
 			if (ev.key=='ArrowLeft') {
 				focusButton(1,-1)
@@ -67,6 +71,12 @@ export default class Navbar {
 			ev.stopPropagation()
 			ev.preventDefault()
 		}
+		$root.addEventListener('osmNoteViewer:newNoteStream',()=>{
+			$goToTableButton.disabled=true
+		})
+		$root.addEventListener('osmNoteViewer:noteRender',()=>{
+			$goToTableButton.disabled=false
+		})
 	}
 	addTab(dialog: NavDialog, push: boolean = false) {
 		const tabId='tab-'+dialog.shortTitle
