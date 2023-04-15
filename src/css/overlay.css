@@ -112,7 +112,6 @@ dialog.figure figure {
 	padding: 0;
 	cursor: zoom-in;
 	scrollbar-width: thin;
-	touch-action: none;
 }
 dialog.figure figure::-webkit-scrollbar {
 	width: 8px;
@@ -129,6 +128,7 @@ dialog.figure figure:not(.zoomed) {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	touch-action: none;
 }
 dialog.figure figure.zoomed {
 	overflow: scroll;
