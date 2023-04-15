@@ -188,6 +188,7 @@ export default class OverlayDialog {
 		let swipeStartX: number|undefined
 		const getSwipeProgress=(swipeX:number)=>swipeX/(this.$figure.offsetWidth/4)
 		this.$figure.onpointerdown=ev=>{
+			if (ev.pointerType!='touch') return
 			if (!this.imageSequence) return
 			if (this.imageSequence.urls.length<=1) return
 			if (this.$figure.classList.contains('zoomed')) return
