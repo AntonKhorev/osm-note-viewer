@@ -4,6 +4,7 @@ import type NoteViewerDB from './db'
 import type Net from './net'
 import type {HashServerSelector} from './net'
 import type NoteMap from './map'
+import installFigureSwipe from './overlay-swipe'
 import makeHelpDialog from './help-dialog'
 import {makeElement, makeDiv, makeLink, startAnimation, cleanupAnimationOnEnd} from './util/html'
 import {bubbleEvent} from './util/events'
@@ -185,37 +186,14 @@ export default class OverlayDialog {
 			}
 			startAnimation(this.$figureCaption,'figure-control-fade','3s')
 		}
-		let swipeStartX: number|undefined
-		const getSwipeProgress=(swipeX:number)=>swipeX/(this.$figure.offsetWidth/4)
-		this.$figure.onpointerdown=ev=>{
-			if (ev.pointerType!='touch') return
-			if (!this.imageSequence) return
-			if (this.imageSequence.urls.length<=1) return
-			if (this.$figure.classList.contains('zoomed')) return
-			this.$figure.setPointerCapture(ev.pointerId)
-			swipeStartX=ev.clientX
-		}
-		this.$figure.onpointerup=this.$figure.onpointercancel=ev=>{
-			if (swipeStartX==null) return
-			const swipeX=ev.clientX-swipeStartX
-			const swipeProgress=getSwipeProgress(swipeX)
-			if (swipeProgress>=+1) {
-				this.switchToImageDelta(+1)
-				this.updateImageState()
-			} else if (swipeProgress<=-1) {
-				this.switchToImageDelta(-1)
+		installFigureSwipe(
+			this.$figure,this.$img,
+			()=>!!(this.imageSequence && this.imageSequence.urls.length>1),
+			d=>{
+				this.switchToImageDelta(d)
 				this.updateImageState()
 			}
-			swipeStartX=undefined
-			this.$img.style.removeProperty('translate')
-			this.$img.style.removeProperty('opacity')
-		}
-		this.$figure.onpointermove=ev=>{
-			if (swipeStartX==null) return
-			const swipeX=ev.clientX-swipeStartX
-			this.$img.style.translate=`${swipeX}px`
-			this.$img.style.opacity=String(Math.max(0,1-Math.abs(getSwipeProgress(swipeX))))
-		}
+		)
 		$closeButton.onclick=()=>{
 			this.close()
 		}
