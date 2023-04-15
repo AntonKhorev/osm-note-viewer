@@ -252,6 +252,7 @@ export default class OverlayDialog {
 		if (this.imageSequence) {
 			const url=this.imageSequence.urls[this.imageSequence.index]
 			this.$backdrop.style.backgroundImage=`url(${url})`
+			this.$img.removeAttribute('src') // make the old image disappear, otherwise it will stay until the next one is fully loaded
 			this.$img.src=url
 			this.$figureCaption.textContent=url
 			this.$prevImageButton.hidden=this.$nextImageButton.hidden=this.imageSequence.urls.length<=1
