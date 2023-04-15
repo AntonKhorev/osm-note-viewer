@@ -19,6 +19,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 	private readonly $issuesForm=document.createElement('form')
 		private readonly $issuesStatusSelect=document.createElement('select')
 		private readonly $issuesTypeInput=document.createElement('input')
+	private readonly $issuesButton=document.createElement('button')
 	protected $selectorInput=document.createElement('input')
 	protected $attributeInput=document.createElement('input')
 	protected $fileInput=document.createElement('input')
@@ -36,10 +37,13 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 			hideInput(this.$neisCustomStatusInput,'query')
 		)
 		this.$neisForm.id='neis-form'
-		this.$issuesForm.action=this.cx.server.web.getUrl(`issues`) // https://www.openstreetmap.org/issues?status=resolved&issue_type=Note
+		this.$issuesForm.id='issues-form'
+		this.$issuesForm.action=this.cx.server.web.getUrl(`issues`)
+		this.$issuesForm.target='_blank'
 		this.$issuesForm.append(
 			hideInput(this.$issuesTypeInput,'issue_type')
 		)
+		this.$issuesTypeInput.value='Note'
 		this.$section.append(
 			this.$neisForm,
 			this.$neisFeedForm,this.$neisCustomForm, // fully hidden forms, need to be inserted into document anyway otherwise submit doesn't work
@@ -145,8 +149,32 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 			`Get notes from reported issues`
 		)
 		{
-			$fieldset.append(`TODO`)
+			this.$issuesStatusSelect.name='status'
+			this.$issuesStatusSelect.setAttribute('form','issues-form')
+			this.$issuesStatusSelect.append(
+				new Option('open'),
+				new Option('ignored'),
+				new Option('resolved')
+			)
+			$fieldset.append(makeDiv('regular-input-group')(
+				makeLabel()(
+					`Get issues with status `,this.$issuesStatusSelect
+				),` about notes`
+			))
+		}{
+			this.$issuesButton.textContent='Go to issues page and populate XML fields below'
+			this.$issuesButton.setAttribute('form','issues-form')
+			$fieldset.append(makeDiv('major-input-group')(
+				this.$issuesButton
+			))
 		}
+		const updateFieldsetVisibility=()=>{
+			$fieldset.hidden=!this.cx.isModerator
+		}
+		updateFieldsetVisibility()
+		this.$root.addEventListener('osmNoteViewer:loginChange',()=>{
+			updateFieldsetVisibility()
+		})
 	}
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void {
 		$legend.textContent=`Read custom XML file`
@@ -176,7 +204,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 		return // TODO clear inputs
 	}
 	protected addEventListeners(): void {
-		this.$neisForm.addEventListener('submit',ev=>{
+		this.$neisForm.onsubmit=ev=>{
 			ev.preventDefault()
 			if (this.$neisStatusSelect.value=='custom' || this.$neisStatusSelect.value=='custom-open') {
 				this.$selectorInput.value='td:nth-child(2)' // td:nth-child(2):not(:empty) - but empty values are skipped anyway
@@ -191,7 +219,11 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 				this.$neisFeedStatusInput.value=this.$neisStatusSelect.value
 				this.$neisFeedForm.submit()
 			}
-		})
+		}
+		this.$issuesForm.onsubmit=ev=>{
+			this.$selectorInput.value=`a[href^="${this.cx.server.web.getUrl('note/')}"]`
+			this.$attributeInput.value=''
+		}
 		this.$selectorInput.addEventListener('input',()=>{
 			const selector=this.$selectorInput.value
 			try {
