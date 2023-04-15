@@ -16,6 +16,9 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 		private readonly $neisCustomCountryInput=document.createElement('input')
 		private readonly $neisCustomStatusInput=document.createElement('input')
 	private readonly $neisButton=document.createElement('button')
+	private readonly $issuesForm=document.createElement('form')
+		private readonly $issuesStatusSelect=document.createElement('select')
+		private readonly $issuesTypeInput=document.createElement('input')
 	protected $selectorInput=document.createElement('input')
 	protected $attributeInput=document.createElement('input')
 	protected $fileInput=document.createElement('input')
@@ -33,9 +36,14 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 			hideInput(this.$neisCustomStatusInput,'query')
 		)
 		this.$neisForm.id='neis-form'
+		this.$issuesForm.action=this.cx.server.web.getUrl(`issues`) // https://www.openstreetmap.org/issues?status=resolved&issue_type=Note
+		this.$issuesForm.append(
+			hideInput(this.$issuesTypeInput,'issue_type')
+		)
 		this.$section.append(
 			this.$neisForm,
-			this.$neisFeedForm,this.$neisCustomForm // fully hidden forms, need to be inserted into document anyway otherwise submit doesn't work
+			this.$neisFeedForm,this.$neisCustomForm, // fully hidden forms, need to be inserted into document anyway otherwise submit doesn't work
+			this.$issuesForm
 		)
 		function hideInput($input: HTMLInputElement, name: string): HTMLInputElement {
 			$input.name=name
@@ -54,8 +62,19 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 	disableFetchControl(disabled: boolean): void {
 		this.$fileInput.disabled=disabled
 	}
-	protected writePrependedFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void {
-		if (this.cx.server.host!='www.openstreetmap.org') return
+	protected listPrependedFieldsets() {
+		const fieldsetList: (($fieldset:HTMLFieldSetElement,$legend:HTMLLegendElement)=>void)[] = []
+		if (this.cx.server.host=='www.openstreetmap.org') {
+			fieldsetList.push(
+				($fieldset,$legend)=>this.writeNeisPrependedFieldset($fieldset,$legend)
+			)
+		}
+		fieldsetList.push(
+			($fieldset,$legend)=>this.writeIssuesPrependedFieldset($fieldset,$legend)
+		)
+		return fieldsetList
+	}
+	private writeNeisPrependedFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void {
 		$legend.append(
 			`Get notes in a country from `,
 			em(`resultmaps.neis-one.org`)
@@ -85,6 +104,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 					`Unfortunately these steps of downloading/opening a file cannot be avoided because `,makeLink(`neis-one.org`,`https://resultmaps.neis-one.org/osm-notes`),` server is not configured to let its data to be accessed by browser scripts.`
 				)
 			)))
+		}{
 			this.$neisCountryInput.type='text'
 			this.$neisCountryInput.required=true
 			this.$neisCountryInput.classList.add('no-invalid-indication') // because it's inside another form that doesn't require it, don't indicate that it's invalid
@@ -118,6 +138,14 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 			$fieldset.append(makeDiv('major-input-group')(
 				this.$neisButton
 			))
+		}
+	}
+	private writeIssuesPrependedFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void {
+		$legend.append(
+			`Get notes from reported issues`
+		)
+		{
+			$fieldset.append(`TODO`)
 		}
 	}
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void {

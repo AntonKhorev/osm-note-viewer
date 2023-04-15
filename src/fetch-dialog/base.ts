@@ -39,7 +39,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 			}
 		}
 		appendIfExists(
-			this.makePrependedFieldset(),
+			...this.makePrependedFieldsets(),
 			this.makeScopeAndOrderFieldset(),
 			this.makeDownloadModeFieldset(),
 			this.makeFetchControlDiv(),
@@ -113,13 +113,16 @@ export abstract class NoteFetchDialog extends NavDialog {
 			appendLinkIfKnown(type)
 		}
 	}
-	private makePrependedFieldset(): HTMLFieldSetElement|undefined {
-		const $fieldset=document.createElement('fieldset')
-		const $legend=document.createElement('legend')
-		this.writePrependedFieldset($fieldset,$legend)
-		if ($fieldset.childElementCount==0) return
-		$fieldset.prepend($legend)
-		return $fieldset
+	private makePrependedFieldsets(): HTMLFieldSetElement[] {
+		const $fieldsets: HTMLFieldSetElement[] = []
+		for (const writeFieldset of this.listPrependedFieldsets()) {
+			const $fieldset=document.createElement('fieldset')
+			const $legend=document.createElement('legend')
+			writeFieldset($fieldset,$legend)
+			$fieldset.prepend($legend)
+			$fieldsets.push($fieldset)
+		}
+		return $fieldsets
 	}
 	private makeScopeAndOrderFieldset(): HTMLFieldSetElement|undefined {
 		const $fieldset=document.createElement('fieldset')
@@ -219,7 +222,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 		}
 	}
 	protected abstract makeFetchControlDiv(): HTMLDivElement
-	protected writePrependedFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void {}
+	protected listPrependedFieldsets(): (($fieldset:HTMLFieldSetElement,$legend:HTMLLegendElement)=>void)[] { return [] }
 	protected abstract writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void
 	protected abstract writeDownloadModeFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void
 	protected writeExtraForms(): void {}
