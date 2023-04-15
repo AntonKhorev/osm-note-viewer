@@ -3513,6 +3513,79 @@ class StorageSection {
     }
 }
 
+const swipeCompletionFraction = 1 / 4;
+const swipeDecideDirectionProgress = .2;
+function installFigureSwipe($figure, $img, canSwitchImage, switchImage, closeImage) {
+    let swipe;
+    const getSwipeProgressX = (swipeX) => swipeX / ($figure.offsetWidth * swipeCompletionFraction);
+    const getSwipeProgressY = (swipeY) => swipeY / ($figure.offsetHeight * swipeCompletionFraction);
+    $figure.onpointerdown = ev => {
+        if (ev.pointerType != 'touch')
+            return;
+        if ($figure.classList.contains('zoomed'))
+            return;
+        $figure.setPointerCapture(ev.pointerId);
+        swipe = {
+            startX: ev.clientX,
+            startY: ev.clientY,
+        };
+    };
+    $figure.onpointerup = $figure.onpointercancel = ev => {
+        if (!swipe)
+            return;
+        if (swipe.direction == 'hor') {
+            const swipeX = ev.clientX - swipe.startX;
+            const swipeProgressX = getSwipeProgressX(swipeX);
+            if (swipeProgressX >= +1) {
+                switchImage(+1);
+            }
+            else if (swipeProgressX <= -1) {
+                switchImage(-1);
+            }
+        }
+        else if (swipe.direction == 'ver') {
+            const swipeY = ev.clientY - swipe.startY;
+            const swipeProgressY = getSwipeProgressY(swipeY);
+            if (Math.abs(swipeProgressY) >= 1) {
+                closeImage();
+            }
+        }
+        swipe = undefined;
+        $img.style.removeProperty('translate');
+        $img.style.removeProperty('opacity');
+    };
+    $figure.onpointermove = ev => {
+        if (!swipe)
+            return;
+        const swipeX = ev.clientX - swipe.startX;
+        const swipeProgressX = getSwipeProgressX(swipeX);
+        const swipeY = ev.clientY - swipe.startY;
+        const swipeProgressY = getSwipeProgressY(swipeY);
+        if (!swipe.direction) {
+            if (!canSwitchImage()) {
+                swipe.direction = 'ver';
+            }
+            else if (Math.abs(swipeX) > Math.abs(swipeY) &&
+                Math.abs(swipeProgressX) > swipeDecideDirectionProgress) {
+                swipe.direction = 'hor';
+            }
+            else if (Math.abs(swipeY) > Math.abs(swipeX) &&
+                Math.abs(swipeProgressY) > swipeDecideDirectionProgress) {
+                swipe.direction = 'ver';
+            }
+        }
+        const direction = swipe.direction ?? (Math.abs(swipeX) > Math.abs(swipeY) ? 'hor' : 'ver');
+        if (direction == 'hor') {
+            $img.style.translate = `${swipeX}px`;
+            $img.style.opacity = String(Math.max(0, 1 - Math.abs(swipeProgressX)));
+        }
+        else {
+            $img.style.translate = `0px ${swipeY}px`;
+            $img.style.opacity = String(Math.max(0, 1 - Math.abs(swipeProgressY)));
+        }
+    };
+}
+
 function makeHelpDialog(closeButtonLabel, content) {
     const $helpDialog = makeElement('dialog')('help')();
     const $closeButton = makeElement('button')('close')();
@@ -3546,10 +3619,10 @@ class OverlayDialog {
         this.$prevImageButton = makeElement('button')('global', 'prev')();
         this.$nextImageButton = makeElement('button')('global', 'next')();
         this.$figureHelpDialog = makeHelpDialog(`Close image viewer help`, [
-            makeElement('h2')()(`Image viewer keyboard controls`),
+            makeElement('h2')()(`Image viewer controls`),
             ul(li(kbd(`Enter`), ` , `, kbd(`Space`), ` , `, kbd(`+`), ` / `, kbd(`-`), ` — toggle image zoom`), li(kbd(`Esc`), ` — close image viewer`)),
             p(`When zoomed out:`),
-            ul(li(kbd(`Arrow keys`), ` — go to previous/next image in sequence`), li(kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last image in sequence`))
+            ul(li(kbd(`Arrow keys`), `, swipe left/right — go to previous/next image in sequence`), li(kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last image in sequence`), li(`swipe up/down — close image viewer`))
         ]);
         this.menuHidden = !!net.cx;
         this.$menuButton.disabled = !net.cx;
@@ -3698,10 +3771,14 @@ class OverlayDialog {
             $closeButton.classList.toggle('right-position', ev.clientX - rect.left >= rect.width / 2);
             $closeButton.classList.toggle('bottom-position', ev.clientY - rect.top >= rect.height / 2);
             for (const [$button] of buttons) {
-                startAnimation($button, 'figure-control-fade', '3s');
+                startFadeAnimation($button);
             }
-            startAnimation(this.$figureCaption, 'figure-control-fade', '3s');
+            startFadeAnimation(this.$figureCaption);
         };
+        installFigureSwipe(this.$figure, this.$img, () => !!(this.imageSequence && this.imageSequence.urls.length > 1), d => {
+            this.switchToImageDelta(d);
+            this.updateImageState();
+        }, () => this.close());
         $closeButton.onclick = () => {
             this.close();
         };
@@ -3763,10 +3840,15 @@ class OverlayDialog {
         if (this.imageSequence) {
             const url = this.imageSequence.urls[this.imageSequence.index];
             this.$backdrop.style.backgroundImage = `url(${url})`;
+            this.$img.removeAttribute('src'); // make the old image disappear, otherwise it will stay until the next one is fully loaded
             this.$img.src = url;
             this.$figureCaption.textContent = url;
-            this.$prevImageButton.hidden = this.$nextImageButton.hidden = this.imageSequence.urls.length <= 1;
-            startAnimation(this.$figureCaption, 'figure-control-fade', '3s');
+            const arePrevNextButtonsHidden = this.$prevImageButton.hidden = this.$nextImageButton.hidden = this.imageSequence.urls.length <= 1;
+            if (!arePrevNextButtonsHidden) {
+                startFadeAnimation(this.$prevImageButton);
+                startFadeAnimation(this.$nextImageButton);
+            }
+            startFadeAnimation(this.$figureCaption);
         }
         else {
             this.$backdrop.style.removeProperty('backgroundImage');
@@ -3796,6 +3878,9 @@ function equalUrlSequences(seq1, seq2) {
     if (seq1.urls.length != seq2.urls.length)
         return false;
     return seq1.urls.every((_, i) => seq1.urls[i] == seq2.urls[i]);
+}
+function startFadeAnimation($e) {
+    startAnimation($e, 'figure-control-fade', '3s');
 }
 
 const minHorSideSize = 80;
@@ -5048,7 +5133,7 @@ class NoteFetchDialog extends NavDialog {
                     this.$form.append($e);
             }
         };
-        appendIfExists(this.makePrependedFieldset(), this.makeScopeAndOrderFieldset(), this.makeDownloadModeFieldset(), this.makeFetchControlDiv(), this.makeRequestDiv());
+        appendIfExists(...this.makePrependedFieldsets(), this.makeScopeAndOrderFieldset(), this.makeDownloadModeFieldset(), this.makeFetchControlDiv(), this.makeRequestDiv());
         this.addEventListeners();
         this.addCommonEventListeners();
         this.$section.append(this.$form);
@@ -5119,14 +5204,16 @@ class NoteFetchDialog extends NavDialog {
             appendLinkIfKnown(type);
         }
     }
-    makePrependedFieldset() {
-        const $fieldset = document.createElement('fieldset');
-        const $legend = document.createElement('legend');
-        this.writePrependedFieldset($fieldset, $legend);
-        if ($fieldset.childElementCount == 0)
-            return;
-        $fieldset.prepend($legend);
-        return $fieldset;
+    makePrependedFieldsets() {
+        const $fieldsets = [];
+        for (const writeFieldset of this.listPrependedFieldsets()) {
+            const $fieldset = document.createElement('fieldset');
+            const $legend = document.createElement('legend');
+            writeFieldset($fieldset, $legend);
+            $fieldset.prepend($legend);
+            $fieldsets.push($fieldset);
+        }
+        return $fieldsets;
     }
     makeScopeAndOrderFieldset() {
         const $fieldset = document.createElement('fieldset');
@@ -5214,7 +5301,7 @@ class NoteFetchDialog extends NavDialog {
                 this.limitChangeListener();
         }
     }
-    writePrependedFieldset($fieldset, $legend) { }
+    listPrependedFieldsets() { return []; }
     writeExtraForms() { }
     makeInputLink($input, text) {
         const $a = makeElement('a')('input-link')(text);
@@ -5967,6 +6054,10 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
         this.$neisCustomCountryInput = document.createElement('input');
         this.$neisCustomStatusInput = document.createElement('input');
         this.$neisButton = document.createElement('button');
+        this.$issuesForm = document.createElement('form');
+        this.$issuesStatusSelect = document.createElement('select');
+        this.$issuesTypeInput = document.createElement('input');
+        this.$issuesButton = document.createElement('button');
         this.$selectorInput = document.createElement('input');
         this.$attributeInput = document.createElement('input');
         this.$fileInput = document.createElement('input');
@@ -5979,8 +6070,13 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
         this.$neisCustomForm.target = '_blank';
         this.$neisCustomForm.append(hideInput(this.$neisCustomCountryInput, 'c'), hideInput(this.$neisCustomStatusInput, 'query'));
         this.$neisForm.id = 'neis-form';
-        this.$section.append(this.$neisForm, this.$neisFeedForm, this.$neisCustomForm // fully hidden forms, need to be inserted into document anyway otherwise submit doesn't work
-        );
+        this.$issuesForm.id = 'issues-form';
+        this.$issuesForm.action = this.cx.server.web.getUrl(`issues`);
+        this.$issuesForm.target = '_blank';
+        this.$issuesForm.append(hideInput(this.$issuesTypeInput, 'issue_type'));
+        this.$issuesTypeInput.value = 'Note';
+        this.$section.append(this.$neisForm, this.$neisFeedForm, this.$neisCustomForm, // fully hidden forms, need to be inserted into document anyway otherwise submit doesn't work
+        this.$issuesForm);
         function hideInput($input, name) {
             $input.name = name;
             $input.type = 'hidden';
@@ -5995,12 +6091,20 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
     disableFetchControl(disabled) {
         this.$fileInput.disabled = disabled;
     }
-    writePrependedFieldset($fieldset, $legend) {
-        if (this.cx.server.host != 'www.openstreetmap.org')
-            return;
+    listPrependedFieldsets() {
+        const fieldsetList = [];
+        if (this.cx.server.host == 'www.openstreetmap.org') {
+            fieldsetList.push(($fieldset, $legend) => this.writeNeisPrependedFieldset($fieldset, $legend));
+        }
+        fieldsetList.push(($fieldset, $legend) => this.writeIssuesPrependedFieldset($fieldset, $legend));
+        return fieldsetList;
+    }
+    writeNeisPrependedFieldset($fieldset, $legend) {
         $legend.append(`Get notes in a country from `, em(`resultmaps.neis-one.org`));
         {
             $fieldset.append(makeDiv()(makeElement('details')()(makeElement('summary')()(`How to get notes from `, em(`resultmaps.neis-one.org`)), ol(li(`Select a country and a note status, then click `, em(`Download feed file`), `. `, `After this one of the following things will happen, depending on your browser: `, ul(li(`The feed file is downloaded, which is what you want.`), li(`Browser opens a new tab with the feed file. In this case manually save the page.`)), `Also the `, em(`selector`), ` and `, em(`attribute`), ` fields below are updated to extract note ids from this feed.`), li(`Open the file with one of these two methods: `, ul(li(`Click the `, em(`Read XML file`), ` area and use a file picker dialog.`), li(`Drag and drop the file from browser downloads panel/window into the `, em(`Read XML file`), ` area. This is likely a faster method.`)))), p(`Unfortunately these steps of downloading/opening a file cannot be avoided because `, makeLink(`neis-one.org`, `https://resultmaps.neis-one.org/osm-notes`), ` server is not configured to let its data to be accessed by browser scripts.`))));
+        }
+        {
             this.$neisCountryInput.type = 'text';
             this.$neisCountryInput.required = true;
             this.$neisCountryInput.classList.add('no-invalid-indication'); // because it's inside another form that doesn't require it, don't indicate that it's invalid
@@ -6024,6 +6128,30 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
             $fieldset.append(makeDiv('major-input-group')(this.$neisButton));
         }
     }
+    writeIssuesPrependedFieldset($fieldset, $legend) {
+        $legend.append(`Get reported notes from issues`);
+        {
+            $fieldset.append(makeDiv()(makeElement('details')()(makeElement('summary')()(`How to get reported notes from issues`), ol(p(`Issues pages are available to moderators. `, `This form is shown only if you're logged in with a moderator account. `, `The process of getting notes is similar to the one for `, em(`resultmaps.neis-one.org`), `, which is shown above if the default OSM server is selected. `), li(`Select the issue status and press the button. A corresponding issues page will be opened in a new tab.`), li(`Save the page (use `, kbd(`Ctrl+S`), ` or `, em(`File`), ` menu in the browser).`), li(`Drag and drop the file from browser downloads panel/window into the `, em(`Read XML file`), ` area (or click the area and use a file picker).`)))));
+        }
+        {
+            this.$issuesStatusSelect.name = 'status';
+            this.$issuesStatusSelect.setAttribute('form', 'issues-form');
+            this.$issuesStatusSelect.append(new Option('open'), new Option('ignored'), new Option('resolved'));
+            $fieldset.append(makeDiv('regular-input-group')(makeLabel()(`Get issues with status `, this.$issuesStatusSelect), ` about notes`));
+        }
+        {
+            this.$issuesButton.textContent = 'Go to issues page and populate XML fields below';
+            this.$issuesButton.setAttribute('form', 'issues-form');
+            $fieldset.append(makeDiv('major-input-group')(this.$issuesButton));
+        }
+        const updateFieldsetVisibility = () => {
+            $fieldset.hidden = !this.cx.isModerator;
+        };
+        updateFieldsetVisibility();
+        this.$root.addEventListener('osmNoteViewer:loginChange', () => {
+            updateFieldsetVisibility();
+        });
+    }
     writeScopeAndOrderFieldset($fieldset, $legend) {
         $legend.textContent = `Read custom XML file`;
         {
@@ -6045,7 +6173,7 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
         return; // TODO clear inputs
     }
     addEventListeners() {
-        this.$neisForm.addEventListener('submit', ev => {
+        this.$neisForm.onsubmit = ev => {
             ev.preventDefault();
             if (this.$neisStatusSelect.value == 'custom' || this.$neisStatusSelect.value == 'custom-open') {
                 this.$selectorInput.value = 'td:nth-child(2)'; // td:nth-child(2):not(:empty) - but empty values are skipped anyway
@@ -6061,7 +6189,11 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
                 this.$neisFeedStatusInput.value = this.$neisStatusSelect.value;
                 this.$neisFeedForm.submit();
             }
-        });
+        };
+        this.$issuesForm.onsubmit = ev => {
+            this.$selectorInput.value = `a[href^="${this.cx.server.web.getUrl('note/')}"]`;
+            this.$attributeInput.value = '';
+        };
         this.$selectorInput.addEventListener('input', () => {
             const selector = this.$selectorInput.value;
             try {

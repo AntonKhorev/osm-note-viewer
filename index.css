@@ -1311,6 +1311,7 @@ dialog.figure figure {
 	padding: 0;
 	cursor: zoom-in;
 	scrollbar-width: thin;
+	touch-action: none;
 }
 dialog.figure figure::-webkit-scrollbar {
 	width: 8px;
