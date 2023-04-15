@@ -1,7 +1,7 @@
 import {NoteIdsFetchDialog} from './base'
 import type {NoteQuery, NoteIdsQuery} from '../query'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../util/html'
-import {em,p,ul,ol,li} from '../util/html-shortcuts'
+import {em,p,ul,ol,li,kbd} from '../util/html-shortcuts'
 
 export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 	shortTitle=`XML`
@@ -146,9 +146,29 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 	}
 	private writeIssuesPrependedFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void {
 		$legend.append(
-			`Get notes from reported issues`
+			`Get reported notes from issues`
 		)
 		{
+			$fieldset.append(makeDiv()(makeElement('details')()(
+				makeElement('summary')()(`How to get reported notes from issues`),
+				ol(
+					p(
+						`Issues pages are available to moderators. `,
+						`This form is shown only if you're logged in with a moderator account. `,
+						`The process of getting notes is similar to the one for `,em(`resultmaps.neis-one.org`),`, which is shown above if the default OSM server is selected. `
+					),
+					li(
+						`Select the issue status and press the button. A corresponding issues page will be opened in a new tab.`
+					),
+					li(
+						`Save the page (use `,kbd(`Ctrl+S`),` or `,em(`File`),` menu in the browser).`
+					),
+					li(
+						`Drag and drop the file from browser downloads panel/window into the `,em(`Read XML file`),` area (or click the area and use a file picker).`
+					)
+				)
+			)))
+		}{
 			this.$issuesStatusSelect.name='status'
 			this.$issuesStatusSelect.setAttribute('form','issues-form')
 			this.$issuesStatusSelect.append(
