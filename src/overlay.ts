@@ -183,9 +183,9 @@ export default class OverlayDialog {
 			$closeButton.classList.toggle('right-position',ev.clientX-rect.left>=rect.width/2)
 			$closeButton.classList.toggle('bottom-position',ev.clientY-rect.top>=rect.height/2)
 			for (const [$button] of buttons) {
-				startAnimation($button,'figure-control-fade','3s')
+				startFadeAnimation($button)
 			}
-			startAnimation(this.$figureCaption,'figure-control-fade','3s')
+			startFadeAnimation(this.$figureCaption)
 		}
 		installFigureSwipe(
 			this.$figure,this.$img,
@@ -266,8 +266,12 @@ export default class OverlayDialog {
 			this.$img.removeAttribute('src') // make the old image disappear, otherwise it will stay until the next one is fully loaded
 			this.$img.src=url
 			this.$figureCaption.textContent=url
-			this.$prevImageButton.hidden=this.$nextImageButton.hidden=this.imageSequence.urls.length<=1
-			startAnimation(this.$figureCaption,'figure-control-fade','3s')
+			const arePrevNextButtonsHidden=this.$prevImageButton.hidden=this.$nextImageButton.hidden=this.imageSequence.urls.length<=1
+			if (!arePrevNextButtonsHidden) {
+				startFadeAnimation(this.$prevImageButton)
+				startFadeAnimation(this.$nextImageButton)
+			}
+			startFadeAnimation(this.$figureCaption)
 		} else {
 			this.$backdrop.style.removeProperty('backgroundImage')
 			this.$img.removeAttribute('src')
@@ -321,4 +325,8 @@ function equalUrlSequences(seq1: UrlSequence, seq2: UrlSequence): boolean {
 	if (seq1.index!=seq2.index) return false
 	if (seq1.urls.length!=seq2.urls.length) return false
 	return seq1.urls.every((_,i)=>seq1.urls[i]==seq2.urls[i])
+}
+
+function startFadeAnimation($e: HTMLElement): void {
+	startAnimation($e,'figure-control-fade','3s')
 }
