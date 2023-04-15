@@ -192,7 +192,8 @@ export default class OverlayDialog {
 			d=>{
 				this.switchToImageDelta(d)
 				this.updateImageState()
-			}
+			},
+			()=>this.close()
 		)
 		$closeButton.onclick=()=>{
 			this.close()
