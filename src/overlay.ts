@@ -31,15 +31,16 @@ export default class OverlayDialog {
 	private $prevImageButton=makeElement('button')('global','prev')()
 	private $nextImageButton=makeElement('button')('global','next')()
 	private $figureHelpDialog=makeHelpDialog(`Close image viewer help`,[
-		makeElement('h2')()(`Image viewer keyboard controls`),
+		makeElement('h2')()(`Image viewer controls`),
 		ul(
 			li(kbd(`Enter`),` , `,kbd(`Space`),` , `,kbd(`+`),` / `,kbd(`-`),` — toggle image zoom`),
 			li(kbd(`Esc`),` — close image viewer`),
 		),
 		p(`When zoomed out:`),
 		ul(
-			li(kbd(`Arrow keys`),` — go to previous/next image in sequence`),
+			li(kbd(`Arrow keys`),`, swipe left/right — go to previous/next image in sequence`),
 			li(kbd(`Home`),` / `,kbd(`End`),` — go to first/last image in sequence`),
+			li(`swipe up/down — close image viewer`)
 		)
 	])
 	private imageSequence?: UrlSequence
