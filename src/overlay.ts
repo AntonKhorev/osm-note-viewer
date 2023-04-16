@@ -142,10 +142,11 @@ export default class OverlayDialog {
 			this.updateImageState()
 		}
 		const scrollFigure=(xScrollFraction:number,yScrollFraction:number)=>{
+			const clamp=(num:number)=>Math.min(Math.max(num,0),1)
 			const xMaxScrollDistance=this.$figure.scrollWidth -this.$figure.clientWidth
 			const yMaxScrollDistance=this.$figure.scrollHeight-this.$figure.clientHeight
-			if (xMaxScrollDistance>0) this.$figure.scrollLeft=Math.round(xScrollFraction*xMaxScrollDistance)
-			if (yMaxScrollDistance>0) this.$figure.scrollTop =Math.round(yScrollFraction*yMaxScrollDistance)
+			if (xMaxScrollDistance>0) this.$figure.scrollLeft=Math.round(clamp(xScrollFraction)*xMaxScrollDistance)
+			if (yMaxScrollDistance>0) this.$figure.scrollTop =Math.round(clamp(yScrollFraction)*yMaxScrollDistance)
 		}
 		this.$figure.onkeydown=ev=>{
 			if (ev.key=='Enter' || ev.key==' ') {
@@ -167,12 +168,11 @@ export default class OverlayDialog {
 			if (this.$figure.classList.contains('zoomed')) {
 				this.$figure.classList.remove('zoomed')
 			} else {
-				const clamp=(num:number)=>Math.min(Math.max(num,0),1)
 				let xScrollFraction=(ev.offsetX>=this.$figure.offsetWidth /2 ? 1 : 0)
 				let yScrollFraction=(ev.offsetY>=this.$figure.offsetHeight/2 ? 1 : 0)
 				if (ev.target==this.$img) {
-					xScrollFraction=clamp(ev.offsetX/this.$img.offsetWidth)
-					yScrollFraction=clamp(ev.offsetY/this.$img.offsetHeight)
+					xScrollFraction=ev.offsetX/this.$img.offsetWidth
+					yScrollFraction=ev.offsetY/this.$img.offsetHeight
 				}
 				this.$figure.classList.add('zoomed')
 				scrollFigure(xScrollFraction,yScrollFraction)
@@ -195,9 +195,9 @@ export default class OverlayDialog {
 				this.updateImageState()
 			},
 			()=>this.close(),
-			()=>{
+			(xScrollFraction,yScrollFraction)=>{
 				this.$figure.classList.add('zoomed')
-				scrollFigure(.5,.5)
+				scrollFigure(xScrollFraction,yScrollFraction)
 			}
 		)
 		$closeButton.onclick=()=>{

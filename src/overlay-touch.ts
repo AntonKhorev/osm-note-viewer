@@ -39,17 +39,22 @@ export default function installFigureTouchListeners(
 	canSwitchImage: ()=>boolean,
 	switchImage: (d:1|-1)=>void,
 	closeImage: ()=>void,
-	zoomImage: ()=>void
+	zoomImage: (xScrollFraction:number,yScrollFraction:number)=>void
 ) {
 	let gesture: Gesture|undefined
 	const getSwipeProgressX=(swipeX:number)=>swipeX/($figure.offsetWidth*swipeCompletionFraction)
 	const getSwipeProgressY=(swipeY:number)=>swipeY/($figure.offsetHeight*swipeCompletionFraction)
-	const getScale=(ptr1:Pointer,ptr2:Pointer)=>{
+	const getPinchScale=(ptr1:Pointer,ptr2:Pointer)=>{
 		const startSpanX=ptr2.startX-ptr1.startX
 		const startSpanY=ptr2.startY-ptr1.startY
 		const spanX=ptr2.X-ptr1.X
 		const spanY=ptr2.Y-ptr1.Y
 		return Math.sqrt((spanX**2+spanY**2)/(startSpanX**2+startSpanY**2))
+	}
+	const getPinchOrigin=(ptr1:Pointer,ptr2:Pointer,imgRect:DOMRect):[originX:number,originY:number]=>{
+		const pinchStartCenterX=(ptr1.startX+ptr2.startX)/2
+		const pinchStartCenterY=(ptr1.startY+ptr2.startY)/2
+		return [pinchStartCenterX-imgRect.x,pinchStartCenterY-imgRect.y]
 	}
 	$figure.onpointerdown=ev=>{
 		if (ev.pointerType!='touch') return
@@ -71,6 +76,10 @@ export default function installFigureTouchListeners(
 	}
 	$figure.onpointerup=$figure.onpointercancel=ev=>{
 		if (!gesture) return
+		$img.style.removeProperty('opacity')
+		$img.style.removeProperty('translate')
+		$img.style.removeProperty('scale')
+		$img.style.removeProperty('transform-origin')
 		if (gesture.type=='swipe') {
 			if (gesture.pointer.id!=ev.pointerId) return
 			if (gesture.direction=='hor') {
@@ -89,15 +98,14 @@ export default function installFigureTouchListeners(
 				}
 			}
 		} else if (gesture.type=='pinch') {
-			const scale=getScale(gesture.pointer,gesture.pointer2)
+			const scale=getPinchScale(gesture.pointer,gesture.pointer2)
 			if (scale>pinchCompletionScale) {
-				zoomImage()
+				const imgRect=$img.getBoundingClientRect()
+				const [originX,originY]=getPinchOrigin(gesture.pointer,gesture.pointer2,imgRect)
+				zoomImage(originX/imgRect.width,originY/imgRect.height)
 			}
 		}
 		gesture=undefined
-		$img.style.removeProperty('translate')
-		$img.style.removeProperty('opacity')
-		$img.style.removeProperty('scale')
 	}
 	$figure.onpointermove=ev=>{
 		if (!gesture) return
@@ -138,9 +146,13 @@ export default function installFigureTouchListeners(
 				!gesture.pointer.update(ev) &&
 				!gesture.pointer2.update(ev)
 			) return
-			const scale=getScale(gesture.pointer,gesture.pointer2)
-			$img.style.removeProperty('translate')
+			const scale=getPinchScale(gesture.pointer,gesture.pointer2)
 			$img.style.removeProperty('opacity')
+			$img.style.removeProperty('translate')
+			$img.style.removeProperty('scale')
+			const imgRect=$img.getBoundingClientRect()
+			const [originX,originY]=getPinchOrigin(gesture.pointer,gesture.pointer2,imgRect)
+			$img.style.transformOrigin=`${originX}px ${originY}px`
 			$img.style.scale=String(Math.max(1,scale))
 		}
 	}
