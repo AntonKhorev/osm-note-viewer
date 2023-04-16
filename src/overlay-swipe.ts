@@ -9,6 +9,7 @@ export default function installFigureSwipe(
 	closeImage: ()=>void
 ) {
 	let swipe: {
+		id: number
 		startX: number,
 		startY: number,
 		direction?: 'hor'|'ver'
@@ -16,16 +17,18 @@ export default function installFigureSwipe(
 	const getSwipeProgressX=(swipeX:number)=>swipeX/($figure.offsetWidth*swipeCompletionFraction)
 	const getSwipeProgressY=(swipeY:number)=>swipeY/($figure.offsetHeight*swipeCompletionFraction)
 	$figure.onpointerdown=ev=>{
+		if (swipe) return
 		if (ev.pointerType!='touch') return
 		if ($figure.classList.contains('zoomed')) return
 		$figure.setPointerCapture(ev.pointerId)
 		swipe={
+			id: ev.pointerId,
 			startX: ev.clientX,
 			startY: ev.clientY,
 		}
 	}
 	$figure.onpointerup=$figure.onpointercancel=ev=>{
-		if (!swipe) return
+		if (!swipe || swipe.id!=ev.pointerId) return
 		if (swipe.direction=='hor') {
 			const swipeX=ev.clientX-swipe.startX
 			const swipeProgressX=getSwipeProgressX(swipeX)
@@ -46,7 +49,7 @@ export default function installFigureSwipe(
 		$img.style.removeProperty('opacity')
 	}
 	$figure.onpointermove=ev=>{
-		if (!swipe) return
+		if (!swipe || swipe.id!=ev.pointerId) return
 		const swipeX=ev.clientX-swipe.startX
 		const swipeProgressX=getSwipeProgressX(swipeX)
 		const swipeY=ev.clientY-swipe.startY
