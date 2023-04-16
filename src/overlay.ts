@@ -4,7 +4,7 @@ import type NoteViewerDB from './db'
 import type Net from './net'
 import type {HashServerSelector} from './net'
 import type NoteMap from './map'
-import installFigureSwipe from './overlay-swipe'
+import installFigureTouchListeners from './overlay-touch'
 import makeHelpDialog from './help-dialog'
 import {makeElement, makeDiv, makeLink, startAnimation, cleanupAnimationOnEnd} from './util/html'
 import {bubbleEvent} from './util/events'
@@ -187,7 +187,7 @@ export default class OverlayDialog {
 			}
 			startFadeAnimation(this.$figureCaption)
 		}
-		installFigureSwipe(
+		installFigureTouchListeners(
 			this.$figure,this.$img,
 			()=>!!(this.imageSequence && this.imageSequence.urls.length>1),
 			d=>{

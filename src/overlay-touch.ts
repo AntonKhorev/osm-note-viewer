@@ -32,7 +32,7 @@ type Gesture = {
 	pointer2: Pointer
 }
 
-export default function installFigureSwipe(
+export default function installFigureTouchListeners(
 	$figure: HTMLElement,
 	$img: HTMLImageElement,
 	canSwitchImage: ()=>boolean,
