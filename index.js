@@ -3515,73 +3515,146 @@ class StorageSection {
 
 const swipeCompletionFraction = 1 / 4;
 const swipeDecideDirectionProgress = .2;
-function installFigureSwipe($figure, $img, canSwitchImage, switchImage, closeImage) {
-    let swipe;
+const pinchCompletionScale = 1.5;
+class Pointer {
+    constructor(ev) {
+        this.id = ev.pointerId;
+        this.startX = ev.clientX;
+        this.X = ev.clientX;
+        this.startY = ev.clientY;
+        this.Y = ev.clientY;
+    }
+    update(ev) {
+        if (this.id != ev.pointerId)
+            return false;
+        this.X = ev.clientX;
+        this.Y = ev.clientY;
+        return true;
+    }
+    get dX() { return this.X - this.startX; }
+    get dY() { return this.Y - this.startY; }
+}
+function installFigureTouchListeners($figure, $img, canSwitchImage, switchImage, closeImage, zoomImage) {
+    let gesture;
     const getSwipeProgressX = (swipeX) => swipeX / ($figure.offsetWidth * swipeCompletionFraction);
     const getSwipeProgressY = (swipeY) => swipeY / ($figure.offsetHeight * swipeCompletionFraction);
+    const getPinchScale = (ptr1, ptr2) => {
+        const startSpanX = ptr2.startX - ptr1.startX;
+        const startSpanY = ptr2.startY - ptr1.startY;
+        const spanX = ptr2.X - ptr1.X;
+        const spanY = ptr2.Y - ptr1.Y;
+        return Math.sqrt((spanX ** 2 + spanY ** 2) / (startSpanX ** 2 + startSpanY ** 2));
+    };
+    const getPinchOrigin = (ptr1, ptr2, imgRect) => {
+        const pinchStartCenterX = (ptr1.startX + ptr2.startX) / 2;
+        const pinchStartCenterY = (ptr1.startY + ptr2.startY) / 2;
+        return [pinchStartCenterX - imgRect.x, pinchStartCenterY - imgRect.y];
+    };
     $figure.onpointerdown = ev => {
         if (ev.pointerType != 'touch')
             return;
         if ($figure.classList.contains('zoomed'))
             return;
-        $figure.setPointerCapture(ev.pointerId);
-        swipe = {
-            startX: ev.clientX,
-            startY: ev.clientY,
-        };
+        if (!gesture) {
+            $figure.setPointerCapture(ev.pointerId);
+            gesture = {
+                type: 'swipe',
+                pointer: new Pointer(ev)
+            };
+        }
+        else if (gesture && gesture.type == 'swipe') {
+            $figure.setPointerCapture(ev.pointerId);
+            gesture = {
+                type: 'pinch',
+                pointer: gesture.pointer,
+                pointer2: new Pointer(ev) // TODO correct start coords for already shifted image
+            };
+        }
     };
     $figure.onpointerup = $figure.onpointercancel = ev => {
-        if (!swipe)
+        if (!gesture)
             return;
-        if (swipe.direction == 'hor') {
-            const swipeX = ev.clientX - swipe.startX;
-            const swipeProgressX = getSwipeProgressX(swipeX);
-            if (swipeProgressX >= +1) {
-                switchImage(+1);
-            }
-            else if (swipeProgressX <= -1) {
-                switchImage(-1);
-            }
-        }
-        else if (swipe.direction == 'ver') {
-            const swipeY = ev.clientY - swipe.startY;
-            const swipeProgressY = getSwipeProgressY(swipeY);
-            if (Math.abs(swipeProgressY) >= 1) {
-                closeImage();
-            }
-        }
-        swipe = undefined;
-        $img.style.removeProperty('translate');
         $img.style.removeProperty('opacity');
+        $img.style.removeProperty('translate');
+        $img.style.removeProperty('scale');
+        $img.style.removeProperty('transform-origin');
+        if (gesture.type == 'swipe') {
+            if (gesture.pointer.id != ev.pointerId)
+                return;
+            if (gesture.direction == 'hor') {
+                const swipeX = ev.clientX - gesture.pointer.startX;
+                const swipeProgressX = getSwipeProgressX(swipeX);
+                if (swipeProgressX >= +1) {
+                    switchImage(+1);
+                }
+                else if (swipeProgressX <= -1) {
+                    switchImage(-1);
+                }
+            }
+            else if (gesture.direction == 'ver') {
+                const swipeY = ev.clientY - gesture.pointer.startY;
+                const swipeProgressY = getSwipeProgressY(swipeY);
+                if (Math.abs(swipeProgressY) >= 1) {
+                    closeImage();
+                }
+            }
+        }
+        else if (gesture.type == 'pinch') {
+            const scale = getPinchScale(gesture.pointer, gesture.pointer2);
+            if (scale > pinchCompletionScale) {
+                const imgRect = $img.getBoundingClientRect();
+                const [originX, originY] = getPinchOrigin(gesture.pointer, gesture.pointer2, imgRect);
+                zoomImage(originX / imgRect.width, originY / imgRect.height);
+            }
+        }
+        gesture = undefined;
     };
     $figure.onpointermove = ev => {
-        if (!swipe)
+        if (!gesture)
             return;
-        const swipeX = ev.clientX - swipe.startX;
-        const swipeProgressX = getSwipeProgressX(swipeX);
-        const swipeY = ev.clientY - swipe.startY;
-        const swipeProgressY = getSwipeProgressY(swipeY);
-        if (!swipe.direction) {
-            if (!canSwitchImage()) {
-                swipe.direction = 'ver';
+        if (gesture.type == 'swipe') {
+            if (!gesture.pointer.update(ev))
+                return;
+            const swipeX = gesture.pointer.dX;
+            const swipeProgressX = getSwipeProgressX(swipeX);
+            const swipeY = gesture.pointer.dY;
+            const swipeProgressY = getSwipeProgressY(swipeY);
+            if (!gesture.direction) {
+                if (!canSwitchImage()) {
+                    gesture.direction = 'ver';
+                }
+                else if (Math.abs(swipeX) > Math.abs(swipeY) &&
+                    Math.abs(swipeProgressX) > swipeDecideDirectionProgress) {
+                    gesture.direction = 'hor';
+                }
+                else if (Math.abs(swipeY) > Math.abs(swipeX) &&
+                    Math.abs(swipeProgressY) > swipeDecideDirectionProgress) {
+                    gesture.direction = 'ver';
+                }
             }
-            else if (Math.abs(swipeX) > Math.abs(swipeY) &&
-                Math.abs(swipeProgressX) > swipeDecideDirectionProgress) {
-                swipe.direction = 'hor';
+            const direction = gesture.direction ?? (Math.abs(swipeX) > Math.abs(swipeY) ? 'hor' : 'ver');
+            if (direction == 'hor') {
+                $img.style.translate = `${swipeX}px`;
+                $img.style.opacity = String(Math.max(0, 1 - Math.abs(swipeProgressX)));
             }
-            else if (Math.abs(swipeY) > Math.abs(swipeX) &&
-                Math.abs(swipeProgressY) > swipeDecideDirectionProgress) {
-                swipe.direction = 'ver';
+            else {
+                $img.style.translate = `0px ${swipeY}px`;
+                $img.style.opacity = String(Math.max(0, 1 - Math.abs(swipeProgressY)));
             }
+            $img.style.removeProperty('scale');
         }
-        const direction = swipe.direction ?? (Math.abs(swipeX) > Math.abs(swipeY) ? 'hor' : 'ver');
-        if (direction == 'hor') {
-            $img.style.translate = `${swipeX}px`;
-            $img.style.opacity = String(Math.max(0, 1 - Math.abs(swipeProgressX)));
-        }
-        else {
-            $img.style.translate = `0px ${swipeY}px`;
-            $img.style.opacity = String(Math.max(0, 1 - Math.abs(swipeProgressY)));
+        else if (gesture.type == 'pinch') {
+            if (!gesture.pointer.update(ev) &&
+                !gesture.pointer2.update(ev))
+                return;
+            const scale = getPinchScale(gesture.pointer, gesture.pointer2);
+            $img.style.removeProperty('opacity');
+            $img.style.removeProperty('translate');
+            $img.style.removeProperty('scale');
+            const imgRect = $img.getBoundingClientRect();
+            const [originX, originY] = getPinchOrigin(gesture.pointer, gesture.pointer2, imgRect);
+            $img.style.transformOrigin = `${originX}px ${originY}px`;
+            $img.style.scale = String(Math.max(1, scale));
         }
     };
 }
@@ -3724,12 +3797,13 @@ class OverlayDialog {
             this.updateImageState();
         };
         const scrollFigure = (xScrollFraction, yScrollFraction) => {
+            const clamp = (num) => Math.min(Math.max(num, 0), 1);
             const xMaxScrollDistance = this.$figure.scrollWidth - this.$figure.clientWidth;
             const yMaxScrollDistance = this.$figure.scrollHeight - this.$figure.clientHeight;
             if (xMaxScrollDistance > 0)
-                this.$figure.scrollLeft = Math.round(xScrollFraction * xMaxScrollDistance);
+                this.$figure.scrollLeft = Math.round(clamp(xScrollFraction) * xMaxScrollDistance);
             if (yMaxScrollDistance > 0)
-                this.$figure.scrollTop = Math.round(yScrollFraction * yMaxScrollDistance);
+                this.$figure.scrollTop = Math.round(clamp(yScrollFraction) * yMaxScrollDistance);
         };
         this.$figure.onkeydown = ev => {
             if (ev.key == 'Enter' || ev.key == ' ') {
@@ -3755,12 +3829,11 @@ class OverlayDialog {
                 this.$figure.classList.remove('zoomed');
             }
             else {
-                const clamp = (num) => Math.min(Math.max(num, 0), 1);
                 let xScrollFraction = (ev.offsetX >= this.$figure.offsetWidth / 2 ? 1 : 0);
                 let yScrollFraction = (ev.offsetY >= this.$figure.offsetHeight / 2 ? 1 : 0);
                 if (ev.target == this.$img) {
-                    xScrollFraction = clamp(ev.offsetX / this.$img.offsetWidth);
-                    yScrollFraction = clamp(ev.offsetY / this.$img.offsetHeight);
+                    xScrollFraction = ev.offsetX / this.$img.offsetWidth;
+                    yScrollFraction = ev.offsetY / this.$img.offsetHeight;
                 }
                 this.$figure.classList.add('zoomed');
                 scrollFigure(xScrollFraction, yScrollFraction);
@@ -3775,10 +3848,13 @@ class OverlayDialog {
             }
             startFadeAnimation(this.$figureCaption);
         };
-        installFigureSwipe(this.$figure, this.$img, () => !!(this.imageSequence && this.imageSequence.urls.length > 1), d => {
+        installFigureTouchListeners(this.$figure, this.$img, () => !!(this.imageSequence && this.imageSequence.urls.length > 1), d => {
             this.switchToImageDelta(d);
             this.updateImageState();
-        }, () => this.close());
+        }, () => this.close(), (xScrollFraction, yScrollFraction) => {
+            this.$figure.classList.add('zoomed');
+            scrollFigure(xScrollFraction, yScrollFraction);
+        });
         $closeButton.onclick = () => {
             this.close();
         };
@@ -9412,6 +9488,20 @@ class TimestampTool extends Tool {
         return [$form];
     }
 }
+class GeoUriTool extends Tool {
+    constructor() {
+        super(...arguments);
+        this.id = 'geouri';
+        this.name = `Geo URI`;
+    }
+    getTool($root) {
+        const $output = code('none');
+        $root.addEventListener('osmNoteViewer:mapMoveEnd', ({ detail: { zoom, lat, lon } }) => {
+            $output.replaceChildren(makeLink('link', `geo:${lat},${lon}?z=${zoom}`));
+        });
+        return [$output];
+    }
+}
 class CountTool extends Tool {
     constructor() {
         super(...arguments);
@@ -10530,8 +10620,7 @@ class ParseTool extends Tool {
         const $clearButton = document.createElement('button');
         $clearButton.type = 'reset';
         $clearButton.textContent = 'Clear';
-        const $output = document.createElement('code');
-        $output.append(getFirstActiveElement([]));
+        const $output = code(getFirstActiveElement([]));
         const $form = makeElement('form')()($input, ` `, $parseButton, ` `, $clearButton);
         $form.onsubmit = (ev) => {
             ev.preventDefault();
@@ -11351,7 +11440,7 @@ const toolMakerSequence = [
     InteractTool, ReportTool, RefreshTool,
     AutozoomTool, TimestampTool, ParseTool,
     ChangesetTool, OverpassTurboTool, OverpassTool,
-    RcTool, IdTool,
+    RcTool, IdTool, GeoUriTool,
     GpxTool, GeoJsonTool,
     YandexPanoramasTool, MapillaryTool,
     CountTool, LegendTool
