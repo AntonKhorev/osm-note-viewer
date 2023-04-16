@@ -1,6 +1,37 @@
 const swipeCompletionFraction=1/4
 const swipeDecideDirectionProgress=.2
 
+class Pointer {
+	id: number
+	startX: number
+	startY: number
+	X: number
+	Y: number
+	constructor(ev: PointerEvent) {
+		this.id=ev.pointerId
+		this.startX=ev.clientX; this.X=ev.clientX
+		this.startY=ev.clientY; this.Y=ev.clientY
+	}
+	update(ev: PointerEvent): boolean {
+		if (this.id!=ev.pointerId) return false
+		this.X=ev.clientX
+		this.Y=ev.clientY
+		return true
+	}
+	get dX(): number { return this.X-this.startX }
+	get dY(): number { return this.Y-this.startY }
+}
+
+type Gesture = {
+	type: 'swipe'
+	pointer: Pointer
+	direction?: 'hor'|'ver'
+} | {
+	type: 'pinch'
+	pointer: Pointer
+	pointer2: Pointer
+}
+
 export default function installFigureSwipe(
 	$figure: HTMLElement,
 	$img: HTMLImageElement,
@@ -8,74 +39,99 @@ export default function installFigureSwipe(
 	switchImage: (d:1|-1)=>void,
 	closeImage: ()=>void
 ) {
-	let swipe: {
-		id: number
-		startX: number,
-		startY: number,
-		direction?: 'hor'|'ver'
-	}|undefined
+	let gesture: Gesture|undefined
 	const getSwipeProgressX=(swipeX:number)=>swipeX/($figure.offsetWidth*swipeCompletionFraction)
 	const getSwipeProgressY=(swipeY:number)=>swipeY/($figure.offsetHeight*swipeCompletionFraction)
 	$figure.onpointerdown=ev=>{
-		if (swipe) return
 		if (ev.pointerType!='touch') return
 		if ($figure.classList.contains('zoomed')) return
-		$figure.setPointerCapture(ev.pointerId)
-		swipe={
-			id: ev.pointerId,
-			startX: ev.clientX,
-			startY: ev.clientY,
+		if (!gesture) {
+			$figure.setPointerCapture(ev.pointerId)
+			gesture={
+				type: 'swipe',
+				pointer: new Pointer(ev)
+			}
+		} else if (gesture && gesture.type=='swipe') {
+			$figure.setPointerCapture(ev.pointerId)
+			gesture={
+				type: 'pinch',
+				pointer: gesture.pointer,
+				pointer2: new Pointer(ev) // TODO correct start coords for already shifted image
+			}
 		}
 	}
 	$figure.onpointerup=$figure.onpointercancel=ev=>{
-		if (!swipe || swipe.id!=ev.pointerId) return
-		if (swipe.direction=='hor') {
-			const swipeX=ev.clientX-swipe.startX
-			const swipeProgressX=getSwipeProgressX(swipeX)
-			if (swipeProgressX>=+1) {
-				switchImage(+1)
-			} else if (swipeProgressX<=-1) {
-				switchImage(-1)
-			}
-		} else if (swipe.direction=='ver') {
-			const swipeY=ev.clientY-swipe.startY
-			const swipeProgressY=getSwipeProgressY(swipeY)
-			if (Math.abs(swipeProgressY)>=1) {
-				closeImage()
+		if (!gesture) return
+		if (gesture.type=='swipe') {
+			if (gesture.pointer.id!=ev.pointerId) return
+			if (gesture.direction=='hor') {
+				const swipeX=ev.clientX-gesture.pointer.startX
+				const swipeProgressX=getSwipeProgressX(swipeX)
+				if (swipeProgressX>=+1) {
+					switchImage(+1)
+				} else if (swipeProgressX<=-1) {
+					switchImage(-1)
+				}
+			} else if (gesture.direction=='ver') {
+				const swipeY=ev.clientY-gesture.pointer.startY
+				const swipeProgressY=getSwipeProgressY(swipeY)
+				if (Math.abs(swipeProgressY)>=1) {
+					closeImage()
+				}
 			}
 		}
-		swipe=undefined
+		gesture=undefined
 		$img.style.removeProperty('translate')
 		$img.style.removeProperty('opacity')
+		$img.style.removeProperty('scale')
 	}
 	$figure.onpointermove=ev=>{
-		if (!swipe || swipe.id!=ev.pointerId) return
-		const swipeX=ev.clientX-swipe.startX
-		const swipeProgressX=getSwipeProgressX(swipeX)
-		const swipeY=ev.clientY-swipe.startY
-		const swipeProgressY=getSwipeProgressY(swipeY)
-		if (!swipe.direction) {
-			if (!canSwitchImage()) {
-				swipe.direction='ver'
-			} else if (
-				Math.abs(swipeX)>Math.abs(swipeY) &&
-				Math.abs(swipeProgressX)>swipeDecideDirectionProgress
-			) {
-				swipe.direction='hor'
-			} else if (
-				Math.abs(swipeY)>Math.abs(swipeX) &&
-				Math.abs(swipeProgressY)>swipeDecideDirectionProgress
-			) {
-				swipe.direction='ver'
+		if (!gesture) return
+		if (gesture.type=='swipe') {
+			if (
+				!gesture.pointer.update(ev)
+			) return
+			const swipeX=gesture.pointer.dX
+			const swipeProgressX=getSwipeProgressX(swipeX)
+			const swipeY=gesture.pointer.dY
+			const swipeProgressY=getSwipeProgressY(swipeY)
+			if (!gesture.direction) {
+				if (!canSwitchImage()) {
+					gesture.direction='ver'
+				} else if (
+					Math.abs(swipeX)>Math.abs(swipeY) &&
+					Math.abs(swipeProgressX)>swipeDecideDirectionProgress
+				) {
+					gesture.direction='hor'
+				} else if (
+					Math.abs(swipeY)>Math.abs(swipeX) &&
+					Math.abs(swipeProgressY)>swipeDecideDirectionProgress
+				) {
+					gesture.direction='ver'
+				}
 			}
-		}
-		const direction=swipe.direction??(Math.abs(swipeX)>Math.abs(swipeY)?'hor':'ver')
-		if (direction=='hor') {
-			$img.style.translate=`${swipeX}px`
-			$img.style.opacity=String(Math.max(0,1-Math.abs(swipeProgressX)))
-		} else {
-			$img.style.translate=`0px ${swipeY}px`
-			$img.style.opacity=String(Math.max(0,1-Math.abs(swipeProgressY)))
+			const direction=gesture.direction??(Math.abs(swipeX)>Math.abs(swipeY)?'hor':'ver')
+			if (direction=='hor') {
+				$img.style.translate=`${swipeX}px`
+				$img.style.opacity=String(Math.max(0,1-Math.abs(swipeProgressX)))
+			} else {
+				$img.style.translate=`0px ${swipeY}px`
+				$img.style.opacity=String(Math.max(0,1-Math.abs(swipeProgressY)))
+			}
+			$img.style.removeProperty('scale')
+		} else if (gesture.type=='pinch') {
+			if (
+				!gesture.pointer.update(ev) &&
+				!gesture.pointer2.update(ev)
+			) return
+			const startSpanX=gesture.pointer2.startX-gesture.pointer.startX
+			const startSpanY=gesture.pointer2.startY-gesture.pointer.startY
+			const spanX=gesture.pointer2.X-gesture.pointer.X
+			const spanY=gesture.pointer2.Y-gesture.pointer.Y
+			const scale=Math.sqrt((spanX**2+spanY**2)/(startSpanX**2+startSpanY**2))
+			$img.style.removeProperty('translate')
+			$img.style.removeProperty('opacity')
+			$img.style.scale=String(Math.max(1,scale))
 		}
 	}
 }
