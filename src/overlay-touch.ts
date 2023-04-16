@@ -1,5 +1,6 @@
 const swipeCompletionFraction=1/4
 const swipeDecideDirectionProgress=.2
+const pinchCompletionScale=1.5
 
 class Pointer {
 	id: number
@@ -37,11 +38,19 @@ export default function installFigureTouchListeners(
 	$img: HTMLImageElement,
 	canSwitchImage: ()=>boolean,
 	switchImage: (d:1|-1)=>void,
-	closeImage: ()=>void
+	closeImage: ()=>void,
+	zoomImage: ()=>void
 ) {
 	let gesture: Gesture|undefined
 	const getSwipeProgressX=(swipeX:number)=>swipeX/($figure.offsetWidth*swipeCompletionFraction)
 	const getSwipeProgressY=(swipeY:number)=>swipeY/($figure.offsetHeight*swipeCompletionFraction)
+	const getScale=(ptr1:Pointer,ptr2:Pointer)=>{
+		const startSpanX=ptr2.startX-ptr1.startX
+		const startSpanY=ptr2.startY-ptr1.startY
+		const spanX=ptr2.X-ptr1.X
+		const spanY=ptr2.Y-ptr1.Y
+		return Math.sqrt((spanX**2+spanY**2)/(startSpanX**2+startSpanY**2))
+	}
 	$figure.onpointerdown=ev=>{
 		if (ev.pointerType!='touch') return
 		if ($figure.classList.contains('zoomed')) return
@@ -78,6 +87,11 @@ export default function installFigureTouchListeners(
 				if (Math.abs(swipeProgressY)>=1) {
 					closeImage()
 				}
+			}
+		} else if (gesture.type=='pinch') {
+			const scale=getScale(gesture.pointer,gesture.pointer2)
+			if (scale>pinchCompletionScale) {
+				zoomImage()
 			}
 		}
 		gesture=undefined
@@ -124,11 +138,7 @@ export default function installFigureTouchListeners(
 				!gesture.pointer.update(ev) &&
 				!gesture.pointer2.update(ev)
 			) return
-			const startSpanX=gesture.pointer2.startX-gesture.pointer.startX
-			const startSpanY=gesture.pointer2.startY-gesture.pointer.startY
-			const spanX=gesture.pointer2.X-gesture.pointer.X
-			const spanY=gesture.pointer2.Y-gesture.pointer.Y
-			const scale=Math.sqrt((spanX**2+spanY**2)/(startSpanX**2+startSpanY**2))
+			const scale=getScale(gesture.pointer,gesture.pointer2)
 			$img.style.removeProperty('translate')
 			$img.style.removeProperty('opacity')
 			$img.style.scale=String(Math.max(1,scale))

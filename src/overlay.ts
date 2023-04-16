@@ -194,7 +194,11 @@ export default class OverlayDialog {
 				this.switchToImageDelta(d)
 				this.updateImageState()
 			},
-			()=>this.close()
+			()=>this.close(),
+			()=>{
+				this.$figure.classList.add('zoomed')
+				scrollFigure(.5,.5)
+			}
 		)
 		$closeButton.onclick=()=>{
 			this.close()
