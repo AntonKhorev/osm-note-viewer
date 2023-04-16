@@ -1,7 +1,7 @@
 import {Tool, ToolElements, makeNotesIcon,  makeMapIcon, makeNoteStatusIcon} from './base'
 import {bubbleCustomEvent} from '../util/events'
 import {makeElement, makeLink} from '../util/html'
-import {em,dfn,p} from '../util/html-shortcuts'
+import {em,dfn,p,code} from '../util/html-shortcuts'
 
 export class AutozoomTool extends Tool {
 	id='autozoom'
@@ -62,6 +62,20 @@ export class TimestampTool extends Tool {
 			bubbleCustomEvent($tool,'osmNoteViewer:timestampChange','')
 		}
 		return [$form]
+	}
+}
+
+export class GeoUriTool extends Tool {
+	id='geouri'
+	name=`Geo URI`
+	protected getTool($root: HTMLElement): ToolElements {
+		const $output=code('none')
+		$root.addEventListener('osmNoteViewer:mapMoveEnd',({detail:{zoom,lat,lon}})=>{
+			$output.replaceChildren(
+				makeLink('link',`geo:${lat},${lon}?z=${zoom}`)
+			)
+		})
+		return [$output]
 	}
 }
 

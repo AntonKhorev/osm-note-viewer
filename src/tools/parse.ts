@@ -1,7 +1,7 @@
 import {Tool, ToolElements} from './base'
 import CommentWriter from '../comment-writer'
 import {makeElement, makeLink} from '../util/html'
-import {p,ul,li} from '../util/html-shortcuts'
+import {p,ul,li,code} from '../util/html-shortcuts'
 
 export class ParseTool extends Tool {
 	id='parse'
@@ -31,8 +31,7 @@ export class ParseTool extends Tool {
 		const $clearButton=document.createElement('button')
 		$clearButton.type='reset'
 		$clearButton.textContent='Clear'
-		const $output=document.createElement('code')
-		$output.append(getFirstActiveElement([]))
+		const $output=code(getFirstActiveElement([]))
 		const $form=makeElement('form')()($input,` `,$parseButton,` `,$clearButton)
 		$form.onsubmit=(ev)=>{
 			ev.preventDefault()

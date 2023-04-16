@@ -17,7 +17,7 @@ export const toolMakerSequence: Array<(cx:Connection)=>Tool> = [
 	InteractTool, ReportTool, RefreshTool,
 	UtilTools.AutozoomTool, UtilTools.TimestampTool, ParseTool,
 	ChangesetTool, OverpassTurboTool, OverpassTool,
-	EditorTools.RcTool, EditorTools.IdTool,
+	EditorTools.RcTool, EditorTools.IdTool, UtilTools.GeoUriTool,
 	ExportTools.GpxTool, ExportTools.GeoJsonTool,
 	YandexPanoramasTool, MapillaryTool,
 	UtilTools.CountTool, UtilTools.LegendTool
