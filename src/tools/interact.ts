@@ -6,7 +6,7 @@ import {readNoteResponse, NoteDataError} from '../fetch-note'
 import TextControl from '../text-control'
 import {listDecoratedNoteIds, convertDecoratedNoteIdsToPlainText, convertDecoratedNoteIdsToHtmlText} from '../id-lister'
 import {bubbleEvent, bubbleCustomEvent} from '../util/events'
-import {makeElement, makeDiv, makeLabel, makeLink, makeSemiLink} from '../util/html'
+import {makeElement, makeDiv, makeLabel, makeLink, makeSemiLink, startAnimation, cleanupAnimationOnEnd} from '../util/html'
 import {p,ul,li,code,em} from '../util/html-shortcuts'
 import {makeEscapeTag} from '../util/escape'
 import {isArray} from '../util/types'
@@ -256,6 +256,7 @@ export class InteractTool extends Tool {
 				scheduleRunNextNote()
 			}
 		}
+		cleanupAnimationOnEnd(this.$runButton)
 		$root.addEventListener('osmNoteViewer:loginChange',()=>{
 			appendLastChangeset.update()
 			this.updateLoginDependents()
@@ -365,6 +366,9 @@ export class InteractTool extends Tool {
 			: makeActionIcon('play',`Resume`)
 		)
 		this.$runButton.disabled=!this.run || this.run.status!=this.run.requestedStatus
+		if (!this.$runButton.disabled && !canPause) {
+			startAnimation(this.$runButton,'tool-ping-fade','1s')
+		}
 	}
 	private updateRunOutput(): void {
 		let firstFragment=true
