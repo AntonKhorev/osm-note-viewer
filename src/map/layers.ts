@@ -61,11 +61,13 @@ export class OsmDataLayers {
 		this.modifiedDataLayer.addTo(leafletMap)
 		this.deletedDataLayer.addTo(leafletMap)
 	}
-	addToLayersControl(layersControl: L.Control.Layers) {
-		layersControl.addOverlay(this.baseDataLayer,`Base OSM data`)
-		layersControl.addOverlay(this.createdDataLayer,`Created OSM data`)
-		layersControl.addOverlay(this.modifiedDataLayer,`Modidied OSM data`)
-		layersControl.addOverlay(this.deletedDataLayer,`Deleted OSM data`)
+	listLayersWithNames(): [layer:L.Layer,name:string][] {
+		return [
+			[this.baseDataLayer,`Base OSM data`],
+			[this.createdDataLayer,`Created OSM data`],
+			[this.modifiedDataLayer,`Modidied OSM data`],
+			[this.deletedDataLayer,`Deleted OSM data`],
+		]
 	}
 	clearLayers() {
 		this.baseDataLayer.clearLayers()

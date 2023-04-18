@@ -1,7 +1,7 @@
 import type {Note, Users} from './data'
 import NoteViewerStorage from './storage'
 import NoteViewerDB from './db'
-import Net, {checkAuthRedirect, Server, Connection, HashServerSelector} from './net'
+import Net, {checkAuthRedirect, Connection, HashServerSelector} from './net'
 import GlobalEventsListener from './events'
 import GlobalHistory from './history'
 import NoteMap from './map'
@@ -58,7 +58,10 @@ async function main() {
 		$graphicSide.before($textSide)
 		const sidebarResizer=new SidebarResizer($root,$textSide,storage)
 		$graphicSide.append(sidebarResizer.$button,$mapContainer)
-		map=writeMap($root,$mapContainer,net.cx.server,globalHistory)
+		map=new NoteMap(
+			$root,$mapContainer,net.cx.server,storage
+		)
+		globalHistory.triggerInitialMapHashChange()
 		sidebarResizer.startListening(map)
 		const noteTable=writeBelowFetchPanel(
 			$root,
@@ -118,19 +121,6 @@ async function main() {
 	}
 
 	new TimeTitleUpdater($root)
-}
-
-function writeMap(
-	$root: HTMLElement,
-	$mapContainer: HTMLElement,
-	server: Server,
-	globalHistory: GlobalHistory
-) {
-	const map=new NoteMap(
-		$root,$mapContainer,server
-	)
-	globalHistory.triggerInitialMapHashChange()
-	return map
 }
 
 function writeBelowFetchPanel(

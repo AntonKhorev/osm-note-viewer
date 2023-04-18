@@ -1,4 +1,6 @@
 import type {Server} from '../net'
+import type NoteViewerStorage from '../storage'
+import {getStorageDefaultBoolean, setStorageDefaultBoolean} from '../util/storage'
 import NoteMarker from './marker'
 import NoteMapBounds from './bounds'
 import {OsmDataLayers, NoteLayer, CrosshairLayer, AttributionLayer} from './layers'
@@ -15,17 +17,18 @@ export type NoteMapFreezeMode = 'no' | 'initial' | 'full'
 export default class NoteMap {
 	private leafletMap: L.Map
 	private dataLayers= new OsmDataLayers()
-	unselectedNoteLayer: NoteLayer
-	selectedNoteLayer: NoteLayer
-	filteredNoteLayer: NoteLayer
-	trackLayer: L.FeatureGroup
-	needToFitNotes: boolean = false
+	unselectedNoteLayer=new NoteLayer()
+	selectedNoteLayer=new NoteLayer()
+	filteredNoteLayer=new NoteLayer()
+	trackLayer=L.featureGroup()
+	needToFitNotes=false
 	freezeMode: NoteMapFreezeMode = 'no'
 	private queuedPopup: [baseLayerId: number, writer: (layer:L.Layer)=>HTMLElement] | undefined
 	constructor(
 		$root: HTMLElement,
 		private $container: HTMLElement,
-		server: Server
+		server: Server,
+		storage: NoteViewerStorage
 	) {
 		const e=makeEscapeTag(escapeXml)
 		const zoomControl=L.control.zoom({
@@ -44,21 +47,30 @@ export default class NoteMap {
 			}
 		)).fitWorld()
 		this.dataLayers.addToMap(this.leafletMap)
-		this.unselectedNoteLayer=new NoteLayer().addTo(this.leafletMap)
-		this.selectedNoteLayer=new NoteLayer().addTo(this.leafletMap)
-		this.filteredNoteLayer=new NoteLayer()
-		this.trackLayer=L.featureGroup().addTo(this.leafletMap)
-		const crosshairLayer=new CrosshairLayer().addTo(this.leafletMap)
-		const attributionLayer=new AttributionLayer(zoomControl).addTo(this.leafletMap)
 		const layersControl=L.control.layers()
-		layersControl.addOverlay(this.unselectedNoteLayer,`Unselected notes`)
-		layersControl.addOverlay(this.selectedNoteLayer,`Selected notes`)
-		layersControl.addOverlay(this.filteredNoteLayer,`Filtered notes`)
-		layersControl.addOverlay(this.trackLayer,`Track between notes`)
-		this.dataLayers.addToLayersControl(layersControl)
-		layersControl.addOverlay(crosshairLayer,`Crosshair`)
-		layersControl.addOverlay(attributionLayer,`Attribution`)
 		layersControl.addTo(this.leafletMap)
+		const addOverlayConditionally=(layer:L.Layer,name:string,defaultVisibility:boolean)=>{
+			layersControl.addOverlay(layer,name)
+			const haveToAdd=getStorageDefaultBoolean(storage,`layer[${name}]`,defaultVisibility)
+			if (haveToAdd) {
+				layer.addTo(this.leafletMap)
+			}
+		}
+		addOverlayConditionally(this.unselectedNoteLayer,`Unselected notes`,true)
+		addOverlayConditionally(this.selectedNoteLayer,`Selected notes`,true)
+		addOverlayConditionally(this.filteredNoteLayer,`Filtered notes`,false)
+		addOverlayConditionally(this.trackLayer,`Track between notes`,true)
+		for (const [layer,name] of this.dataLayers.listLayersWithNames()) {
+			addOverlayConditionally(layer,name,true)
+		}
+		addOverlayConditionally(new CrosshairLayer(),`Crosshair`,true)
+		addOverlayConditionally(new AttributionLayer(zoomControl),`Attribution`,true)
+		this.leafletMap.on('overlayadd',(ev:L.LayersControlEvent)=>{
+			setStorageDefaultBoolean(storage,`layer[${ev.name}]`,true)
+		})
+		this.leafletMap.on('overlayremove',(ev:L.LayersControlEvent)=>{
+			setStorageDefaultBoolean(storage,`layer[${ev.name}]`,false)
+		})
 		this.leafletMap.on('moveend',()=>{
 			const precision=this.precision
 			bubbleCustomEvent($container,'osmNoteViewer:mapMoveEnd',{

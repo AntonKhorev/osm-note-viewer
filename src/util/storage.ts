@@ -28,6 +28,19 @@ export function setStorageBoolean(storage: SimpleStorage, k: string, v: boolean)
 	}
 }
 
+export function getStorageDefaultBoolean(storage: SimpleStorage, k: string, defaultValue: boolean): boolean {
+	const vs=storage.getItem(k)
+	if (vs==null) {
+		return defaultValue
+	} else {
+		return !!Number(vs)
+	}
+}
+
+export function setStorageDefaultBoolean(storage: SimpleStorage, k: string, v: boolean): void {
+	storage.setItem(k,v?'1':'0')
+}
+
 export class PrefixedLocalStorage implements SimpleStorage {
 	constructor(private readonly prefix: string) {}
 	getItem(k: string): string | null {
