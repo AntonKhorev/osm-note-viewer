@@ -113,11 +113,16 @@ body > .symbols {
 	display: flex;
 	flex-direction: column;
 	z-index: 1; /* be above photo with blurry backdrop */
-	overflow-y: auto; /* scrollbar should appear only for oversized tools panel */
 }
-.ui .text-side .scrolling {
+.ui .text-side > .scrolling {
 	overflow-y: scroll;
+	flex-basis: 2.5rem;
 	flex-grow: 1;
+	flex-shrink: 0;
+}
+.ui .text-side > .sticky {
+	flex-shrink: 1;
+	overflow-y: auto;
 }
 
 .ui .flip-margin {
