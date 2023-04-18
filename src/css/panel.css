@@ -265,6 +265,13 @@ dialog.help button.close-all-tools::before {
 .panel.toolbar .interaction-run > button {
 	flex-shrink: 0;
 }
+.panel.toolbar .interaction-run > button.run {
+	position: relative;
+}
+.panel.toolbar .interaction-run > button.run > .outline {
+	position: absolute;
+	inset: 0;
+}
 .panel.toolbar .interaction-run > button.info {
 	align-self: end;
 }

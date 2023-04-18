@@ -6,7 +6,7 @@ import {readNoteResponse, NoteDataError} from '../fetch-note'
 import TextControl from '../text-control'
 import {listDecoratedNoteIds, convertDecoratedNoteIdsToPlainText, convertDecoratedNoteIdsToHtmlText} from '../id-lister'
 import {bubbleEvent, bubbleCustomEvent} from '../util/events'
-import {makeElement, makeDiv, makeLabel, makeLink, makeSemiLink, startAnimation, cleanupAnimationOnEnd} from '../util/html'
+import {makeElement, makeDiv, makeLabel, makeLink, makeSemiLink} from '../util/html'
 import {p,ul,li,code,em} from '../util/html-shortcuts'
 import {makeEscapeTag} from '../util/escape'
 import {isArray} from '../util/types'
@@ -57,7 +57,9 @@ export class InteractTool extends Tool {
 	private $hideOpenButton=document.createElement('button')
 	private $hideClosedButton=document.createElement('button')
 	private $reactivateButton=document.createElement('button')
-	private $runButton=makeElement('button')('only-with-icon')()
+	private readonly $runButtonOutline=makeElement('span')('outline')()
+	private $runButtonIcon=makeElement('span')()()
+	private readonly $runButton=makeElement('button')('run','only-with-icon')(this.$runButtonIcon,this.$runButtonOutline)
 	private $runOutput=document.createElement('output')
 	private $run=makeDiv('interaction-run')(this.$runButton,this.$runOutput)
 	private $loginLink=makeSemiLink('input-link')('login')
@@ -238,7 +240,11 @@ export class InteractTool extends Tool {
 						inputNoteIds,
 						outputNoteIds: []
 					}
-					if (runImmediately) scheduleRunNextNote()
+					if (runImmediately) {
+						scheduleRunNextNote()
+					} else {
+						this.pointToRunButton(interactionDescription.$button)
+					}
 					this.updateButtons()
 					this.updateRunButton()
 					this.updateRunOutput()
@@ -256,7 +262,6 @@ export class InteractTool extends Tool {
 				scheduleRunNextNote()
 			}
 		}
-		cleanupAnimationOnEnd(this.$runButton)
 		$root.addEventListener('osmNoteViewer:loginChange',()=>{
 			appendLastChangeset.update()
 			this.updateLoginDependents()
@@ -361,14 +366,13 @@ export class InteractTool extends Tool {
 	}
 	private updateRunButton(): void {
 		const canPause=this.run && this.run.status=='running'
-		this.$runButton.replaceChildren(canPause
+		const $newIcon=(canPause
 			? makeActionIcon('pause',`Halt`)
 			: makeActionIcon('play',`Resume`)
 		)
+		this.$runButtonIcon.replaceWith($newIcon)
+		this.$runButtonIcon=$newIcon
 		this.$runButton.disabled=!this.run || this.run.status!=this.run.requestedStatus
-		if (!this.$runButton.disabled && !canPause) {
-			startAnimation(this.$runButton,'tool-ping-fade','1s')
-		}
 	}
 	private updateRunOutput(): void {
 		let firstFragment=true
@@ -413,6 +417,29 @@ export class InteractTool extends Tool {
 				this.run.outputNoteIds.length,this.run.interactionDescription.outputNoteStatus
 			))
 		}
+	}
+	private pointToRunButton($fromButton: HTMLElement): void {
+		this.$runButtonOutline.style.outlineColor='var(--click-color)'
+		this.$runButtonOutline.style.outlineStyle='solid'
+		this.$runButtonOutline.style.transformOrigin='0% 0%'
+		const $e1=$fromButton
+		const $e2=this.$runButton
+		const rect1=$e1.getBoundingClientRect()
+		const rect2=$e2.getBoundingClientRect()
+		const xSize1=$e1.clientWidth, ySize1=$e1.clientHeight
+		const xSize2=$e2.clientWidth, ySize2=$e2.clientHeight
+		this.$runButtonOutline.style.removeProperty('transition')
+		requestAnimationFrame(()=>{
+			this.$runButtonOutline.style.translate=`${rect1.x-rect2.x}px ${rect1.y-rect2.y}px`
+			this.$runButtonOutline.style.scale=`${xSize1/xSize2} ${ySize1/ySize2}`
+			this.$runButtonOutline.style.opacity=`1`
+			requestAnimationFrame(()=>{
+				this.$runButtonOutline.style.transition=`translate 300ms, scale 300ms, opacity 300ms 300ms`
+				this.$runButtonOutline.style.translate=`0px 0px`
+				this.$runButtonOutline.style.scale=`1`
+				this.$runButtonOutline.style.opacity=`0`
+			})
+		})
 	}
 	private makeRunScheduler($tool: HTMLElement): ()=>void {
 		let runTimeoutId: number|undefined
