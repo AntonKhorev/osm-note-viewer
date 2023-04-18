@@ -20,6 +20,18 @@ function setStorageBoolean(storage, k, v) {
         storage.removeItem(k);
     }
 }
+function getStorageDefaultBoolean(storage, k, defaultValue) {
+    const vs = storage.getItem(k);
+    if (vs == null) {
+        return defaultValue;
+    }
+    else {
+        return !!Number(vs);
+    }
+}
+function setStorageDefaultBoolean(storage, k, v) {
+    storage.setItem(k, v ? '1' : '0');
+}
 class PrefixedLocalStorage {
     constructor(prefix) {
         this.prefix = prefix;
@@ -2256,6 +2268,23 @@ class CrosshairLayer extends L.Layer {
         return this;
     }
 }
+class AttributionLayer extends L.Layer {
+    constructor(zoomControl) {
+        super();
+        this.zoomControl = zoomControl;
+    }
+    onAdd(map) {
+        map.addControl(L.control.attribution({
+            position: 'bottomright'
+        }));
+        this.zoomControl.setPosition('bottomright');
+        return this;
+    }
+    onRemove(map) {
+        map.attributionControl.remove();
+        return this;
+    }
+}
 class OsmDataLayers {
     constructor() {
         this.baseDataLayer = L.featureGroup();
@@ -2269,11 +2298,13 @@ class OsmDataLayers {
         this.modifiedDataLayer.addTo(leafletMap);
         this.deletedDataLayer.addTo(leafletMap);
     }
-    addToLayersControl(layersControl) {
-        layersControl.addOverlay(this.baseDataLayer, `Base OSM data`);
-        layersControl.addOverlay(this.createdDataLayer, `Created OSM data`);
-        layersControl.addOverlay(this.modifiedDataLayer, `Modidied OSM data`);
-        layersControl.addOverlay(this.deletedDataLayer, `Deleted OSM data`);
+    listLayersWithNames() {
+        return [
+            [this.baseDataLayer, `Base OSM data`],
+            [this.createdDataLayer, `Created OSM data`],
+            [this.modifiedDataLayer, `Modidied OSM data`],
+            [this.deletedDataLayer, `Deleted OSM data`],
+        ];
     }
     clearLayers() {
         this.baseDataLayer.clearLayers();
@@ -3018,37 +3049,54 @@ function capitalize(s) {
 }
 
 class NoteMap {
-    constructor($root, $container, server) {
+    constructor($root, $container, server, storage) {
         this.$container = $container;
         this.dataLayers = new OsmDataLayers();
+        this.unselectedNoteLayer = new NoteLayer();
+        this.selectedNoteLayer = new NoteLayer();
+        this.filteredNoteLayer = new NoteLayer();
+        this.trackLayer = L.featureGroup();
         this.needToFitNotes = false;
         this.freezeMode = 'no';
         const e = makeEscapeTag(escapeXml);
+        const zoomControl = L.control.zoom({
+            position: 'bottomright'
+        });
         this.leafletMap = L.map($container, {
             worldCopyJump: true,
-            zoomControl: false
-        }).addControl(L.control.zoom({
-            position: 'bottomright'
-        })).addControl(L.control.scale({
+            zoomControl: false,
+            attributionControl: false
+        }).addControl(zoomControl).addControl(L.control.scale({
             position: 'bottomleft'
         })).addLayer(L.tileLayer(server.tile.urlTemplate, {
             attribution: e `© <a href="${server.tile.attributionUrl}">${server.tile.attributionText}</a>`,
             maxZoom: server.tile.maxZoom
         })).fitWorld();
         this.dataLayers.addToMap(this.leafletMap);
-        this.unselectedNoteLayer = new NoteLayer().addTo(this.leafletMap);
-        this.selectedNoteLayer = new NoteLayer().addTo(this.leafletMap);
-        this.filteredNoteLayer = new NoteLayer();
-        this.trackLayer = L.featureGroup().addTo(this.leafletMap);
-        const crosshairLayer = new CrosshairLayer().addTo(this.leafletMap);
         const layersControl = L.control.layers();
-        layersControl.addOverlay(this.unselectedNoteLayer, `Unselected notes`);
-        layersControl.addOverlay(this.selectedNoteLayer, `Selected notes`);
-        layersControl.addOverlay(this.filteredNoteLayer, `Filtered notes`);
-        layersControl.addOverlay(this.trackLayer, `Track between notes`);
-        this.dataLayers.addToLayersControl(layersControl);
-        layersControl.addOverlay(crosshairLayer, `Crosshair`);
         layersControl.addTo(this.leafletMap);
+        const addOverlayConditionally = (layer, name, defaultVisibility) => {
+            layersControl.addOverlay(layer, name);
+            const haveToAdd = getStorageDefaultBoolean(storage, `layer[${name}]`, defaultVisibility);
+            if (haveToAdd) {
+                layer.addTo(this.leafletMap);
+            }
+        };
+        addOverlayConditionally(this.unselectedNoteLayer, `Unselected notes`, true);
+        addOverlayConditionally(this.selectedNoteLayer, `Selected notes`, true);
+        addOverlayConditionally(this.filteredNoteLayer, `Filtered notes`, false);
+        addOverlayConditionally(this.trackLayer, `Track between notes`, true);
+        for (const [layer, name] of this.dataLayers.listLayersWithNames()) {
+            addOverlayConditionally(layer, name, true);
+        }
+        addOverlayConditionally(new CrosshairLayer(), `Crosshair`, true);
+        addOverlayConditionally(new AttributionLayer(zoomControl), `Attribution`, true);
+        this.leafletMap.on('overlayadd', (ev) => {
+            setStorageDefaultBoolean(storage, `layer[${ev.name}]`, true);
+        });
+        this.leafletMap.on('overlayremove', (ev) => {
+            setStorageDefaultBoolean(storage, `layer[${ev.name}]`, false);
+        });
         this.leafletMap.on('moveend', () => {
             const precision = this.precision;
             bubbleCustomEvent($container, 'osmNoteViewer:mapMoveEnd', {
@@ -9722,10 +9770,10 @@ function getButtonNoteIcon(ids, inputStatus, outputStatus) {
         return [makeNoteStatusIcon(inputStatus, ids.length), ...outputIcon];
     }
     else if (ids.length == 1) {
-        return [makeNoteStatusIcon(inputStatus), ` ${ids[0]}`, ...outputIcon];
+        return [makeNoteStatusIcon(inputStatus), ...outputIcon];
     }
     else {
-        return [...getNoteCountIndicator(ids.length, inputStatus), ...outputIcon, `...`];
+        return [...getNoteCountIndicator(ids.length, inputStatus), ...outputIcon];
     }
 }
 
@@ -9914,6 +9962,7 @@ class InteractTool extends Tool {
                 scheduleRunNextNote();
             }
         };
+        cleanupAnimationOnEnd(this.$runButton);
         $root.addEventListener('osmNoteViewer:loginChange', () => {
             appendLastChangeset.update();
             this.updateLoginDependents();
@@ -10013,6 +10062,9 @@ class InteractTool extends Tool {
             ? makeActionIcon('pause', `Halt`)
             : makeActionIcon('play', `Resume`));
         this.$runButton.disabled = !this.run || this.run.status != this.run.requestedStatus;
+        if (!this.$runButton.disabled && !canPause) {
+            startAnimation(this.$runButton, 'tool-ping-fade', '1s');
+        }
     }
     updateRunOutput() {
         let firstFragment = true;
@@ -12011,7 +12063,8 @@ async function main() {
         $graphicSide.before($textSide);
         const sidebarResizer = new SidebarResizer($root, $textSide, storage);
         $graphicSide.append(sidebarResizer.$button, $mapContainer);
-        map = writeMap($root, $mapContainer, net.cx.server, globalHistory);
+        map = new NoteMap($root, $mapContainer, net.cx.server, storage);
+        globalHistory.triggerInitialMapHashChange();
         sidebarResizer.startListening(map);
         const noteTable = writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer, storage, net.cx, globalHistory, map);
         const navbar = new Navbar($root, $navbarContainer, noteTable, map);
@@ -12052,11 +12105,6 @@ async function main() {
         globalHistory.restoreScrollPosition();
     }
     new TimeTitleUpdater($root);
-}
-function writeMap($root, $mapContainer, server, globalHistory) {
-    const map = new NoteMap($root, $mapContainer, server);
-    globalHistory.triggerInitialMapHashChange();
-    return map;
 }
 function writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer, storage, cx, globalHistory, map) {
     const $filterContainer = makeDiv('panel', 'fetch')();
