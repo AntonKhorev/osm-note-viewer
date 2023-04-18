@@ -65,8 +65,8 @@ export function getButtonNoteIcon(ids: readonly number[], inputStatus: Note['sta
 	if (ids.length==0) {
 		return [makeNoteStatusIcon(inputStatus,ids.length),...outputIcon]
 	} else if (ids.length==1) {
-		return [makeNoteStatusIcon(inputStatus),` ${ids[0]}`,...outputIcon]
+		return [makeNoteStatusIcon(inputStatus),...outputIcon]
 	} else {
-		return [...getNoteCountIndicator(ids.length,inputStatus),...outputIcon,`...`]
+		return [...getNoteCountIndicator(ids.length,inputStatus),...outputIcon]
 	}
 }

@@ -361,11 +361,12 @@ dialog.help button.close-all-tools::before {
 }
 .panel .gridded-input-group {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(20ch, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(16ch, 1fr));
 	gap: .2em;
 }
 .panel .gridded-input-group > button {
 	padding: var(--major-button-padding);
+	white-space: nowrap;
 }
 .panel .date-range-input-group {
 	display: flex;
