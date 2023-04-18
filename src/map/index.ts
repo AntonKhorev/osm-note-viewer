@@ -1,7 +1,7 @@
 import type {Server} from '../net'
 import NoteMarker from './marker'
 import NoteMapBounds from './bounds'
-import {OsmDataLayers, NoteLayer, CrosshairLayer} from './layers'
+import {OsmDataLayers, NoteLayer, CrosshairLayer, AttributionLayer} from './layers'
 import type {GeometryData, LayerBoundOsmData} from './osm'
 import {renderOsmElement, renderOsmChangeset, renderOsmChangesetAdiff} from './osm'
 import {makePopupWriter} from './popup'
@@ -28,12 +28,14 @@ export default class NoteMap {
 		server: Server
 	) {
 		const e=makeEscapeTag(escapeXml)
+		const zoomControl=L.control.zoom({
+			position: 'bottomright'
+		})
 		this.leafletMap=L.map($container,{
 			worldCopyJump: true,
-			zoomControl: false
-		}).addControl(L.control.zoom({
-			position: 'bottomright'
-		})).addControl(L.control.scale({
+			zoomControl: false,
+			attributionControl: false
+		}).addControl(zoomControl).addControl(L.control.scale({
 			position: 'bottomleft'
 		})).addLayer(L.tileLayer(
 			server.tile.urlTemplate,{
@@ -47,6 +49,7 @@ export default class NoteMap {
 		this.filteredNoteLayer=new NoteLayer()
 		this.trackLayer=L.featureGroup().addTo(this.leafletMap)
 		const crosshairLayer=new CrosshairLayer().addTo(this.leafletMap)
+		const attributionLayer=new AttributionLayer(zoomControl).addTo(this.leafletMap)
 		const layersControl=L.control.layers()
 		layersControl.addOverlay(this.unselectedNoteLayer,`Unselected notes`)
 		layersControl.addOverlay(this.selectedNoteLayer,`Selected notes`)
@@ -54,6 +57,7 @@ export default class NoteMap {
 		layersControl.addOverlay(this.trackLayer,`Track between notes`)
 		this.dataLayers.addToLayersControl(layersControl)
 		layersControl.addOverlay(crosshairLayer,`Crosshair`)
+		layersControl.addOverlay(attributionLayer,`Attribution`)
 		layersControl.addTo(this.leafletMap)
 		this.leafletMap.on('moveend',()=>{
 			const precision=this.precision

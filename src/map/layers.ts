@@ -29,6 +29,27 @@ export class CrosshairLayer extends L.Layer {
 	}
 }
 
+export class AttributionLayer extends L.Layer {
+	constructor(
+		private zoomControl: L.Control.Zoom
+	) {
+		super()
+	}
+	onAdd(map: L.Map): this {
+		map.addControl(
+			L.control.attribution({
+				position: 'bottomright'
+			})
+		)
+		this.zoomControl.setPosition('bottomright')
+		return this
+	}
+	onRemove(map: L.Map): this {
+		map.attributionControl.remove()
+		return this
+	}
+}
+
 export class OsmDataLayers {
 	baseDataLayer=L.featureGroup()
 	createdDataLayer=L.featureGroup()
