@@ -82,7 +82,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		{
 			this.$trackMapSelect.append(
 				new Option(`Do nothing`,'nothing'),
-				new Option(`Update bounding box input`,'bbox',true,true),
+				new Option(`Update bounding box`,'bbox',true,true),
 				new Option(`Fetch notes`,'fetch'),
 			)
 			$fieldset.append(makeDiv('regular-input-group')(
