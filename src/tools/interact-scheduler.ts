@@ -19,13 +19,19 @@ export type InteractionRun = {
 }
 
 export default class InteractionScheduler {
-	run?: InteractionRun
+	#run?: InteractionRun
 	constructor(
 		private readonly cx: Connection,
 		private readonly $commentText: HTMLTextAreaElement,
 		private readonly $runOutput: HTMLOutputElement,
 		private readonly updateRunControls: ()=>void
 	) {}
+	get run() {
+		return this.#run
+	}
+	private set run(v: InteractionRun|undefined) {
+		this.#run=v
+	}
 	prepareToStartRun(
 		dispatchToolEvent: <T extends keyof HTMLElementEventMap>(
 			type: T,
@@ -129,6 +135,26 @@ export default class InteractionScheduler {
 			runTimeoutId=setTimeout(wrappedRunNextNote)
 		}
 		return scheduleRunNextNote
+	}
+	scheduleRun(
+		interactionDescription: InteractionDescription,
+		inputNoteIds: number[],
+		runImmediately: boolean
+	): void {
+		this.run={
+			interactionDescription,
+			status: 'paused',
+			requestedStatus: runImmediately?'running':'paused',
+			inputNoteIds,
+			outputNoteIds: []
+		}
+		this.updateRunControls()
+		this.updateRunOutput()
+	}
+	cancelRun(): void {
+		this.run=undefined
+		this.updateRunControls()
+		this.updateRunOutput()
 	}
 	updateRunOutput(): void {
 		let firstFragment=true

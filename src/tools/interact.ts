@@ -152,29 +152,17 @@ export class InteractTool extends Tool {
 		for (const interactionDescription of this.interactionDescriptions) {
 			interactionDescription.$button.onclick=()=>{
 				if (this.scheduler.run?.status=='paused') {
-					this.scheduler.run=undefined
-					this.updateButtons()
-					this.updateRunButton()
-					this.scheduler.updateRunOutput()
+					this.scheduler.cancelRun()
 				} else {
 					const inputNoteIds=this.getStagedNoteIdsByStatus().get(interactionDescription.inputNoteStatus)
 					if (!inputNoteIds) return
 					const runImmediately=inputNoteIds.length<=1
-					this.scheduler.run={
-						interactionDescription,
-						status: 'paused',
-						requestedStatus: runImmediately?'running':'paused',
-						inputNoteIds,
-						outputNoteIds: []
-					}
+					this.scheduler.scheduleRun(interactionDescription,inputNoteIds,runImmediately)
 					if (runImmediately) {
 						startRun()
 					} else {
 						this.pointToRunButton(interactionDescription.$button)
 					}
-					this.updateButtons()
-					this.updateRunButton()
-					this.scheduler.updateRunOutput()
 				}
 			}
 		}
