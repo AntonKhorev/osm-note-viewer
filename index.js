@@ -2122,7 +2122,7 @@ class GlobalHistory {
     }
 }
 
-const e$9 = makeEscapeTag(escapeXml);
+const e$a = makeEscapeTag(escapeXml);
 class NoteMarker extends L.Marker {
     constructor(web, note) {
         const $a = document.createElement('a');
@@ -2149,15 +2149,15 @@ function getNoteMarkerIcon($a, web, note, isSelected) {
     const rWithAura = widthWithAura / 2;
     const nInnerCircles = 4;
     let html = ``;
-    html += e$9 `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`;
-    html += e$9 `<path d="${computeMarkerOutlinePath(heightWithAura - .5, rWithAura - .5)}" class="aura" fill="none" />`;
-    html += e$9 `<path d="${computeMarkerOutlinePath(height, r)}" fill="${getStatusColor(note.status)}" />`;
+    html += e$a `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`;
+    html += e$a `<path d="${computeMarkerOutlinePath(heightWithAura - .5, rWithAura - .5)}" class="aura" fill="none" />`;
+    html += e$a `<path d="${computeMarkerOutlinePath(height, r)}" fill="${getStatusColor(note.status)}" />`;
     const statuses = [...noteCommentsToStatuses(note.comments)];
     html += drawStateCircles(r, nInnerCircles, statuses.slice(-nInnerCircles, -1));
     if (isSelected) {
         html += drawCheckMark();
     }
-    html += e$9 `</svg>`;
+    html += e$a `</svg>`;
     $a.innerHTML = html;
     $a.title = `${note.status} note #${note.id}`;
     $a.style.width = widthWithAura + 'px';
@@ -2183,7 +2183,7 @@ function getNoteMarkerIcon($a, web, note, isSelected) {
             if (i >= statusesToDraw.length)
                 continue;
             const cr = dcr * (i + 1);
-            html += e$9 `<circle r="${cr}" fill="${color()}" stroke="white" />`;
+            html += e$a `<circle r="${cr}" fill="${color()}" stroke="white" />`;
             function color() {
                 if (i == 0 && statuses.length <= nInnerCircles)
                     return 'white';
@@ -2195,8 +2195,8 @@ function getNoteMarkerIcon($a, web, note, isSelected) {
     function drawCheckMark() {
         const path = `M-${r / 4},0 L0,${r / 4} L${r / 2},-${r / 4}`;
         let html = ``;
-        html += e$9 `<path d="${path}" fill="none" stroke-width="6" stroke-linecap="round" stroke="blue" />`;
-        html += e$9 `<path d="${path}" fill="none" stroke-width="2" stroke-linecap="round" stroke="white" />`;
+        html += e$a `<path d="${path}" fill="none" stroke-width="6" stroke-linecap="round" stroke="blue" />`;
+        html += e$a `<path d="${path}" fill="none" stroke-width="2" stroke-linecap="round" stroke="white" />`;
         return html;
     }
     function getStatusColor(status) {
@@ -2798,7 +2798,7 @@ function strcmp(k1, k2) {
     return +(k1 > k2) - +(k1 < k2);
 }
 
-const e$8 = makeEscapeTag(encodeURIComponent);
+const e$9 = makeEscapeTag(encodeURIComponent);
 const h = (...s) => p(strong(...s));
 const c = (...s) => p(em(...s));
 function makePopupWriter(server, layerData, clear) {
@@ -2806,7 +2806,7 @@ function makePopupWriter(server, layerData, clear) {
         const $popup = makeDiv('osm-element-popup-contents')();
         if (layerData.type == 'changeset') {
             const changeset = layerData.item;
-            const changesetHref = server.web.getUrl(e$8 `changeset/${changeset.id}`);
+            const changesetHref = server.web.getUrl(e$9 `changeset/${changeset.id}`);
             const headerContents = [
                 `Changeset: `, makeLink(String(changeset.id), changesetHref)
             ];
@@ -2873,12 +2873,12 @@ function makePopupWriter(server, layerData, clear) {
     };
 }
 function makeElementHeaderContents(server, element, elementType) {
-    const elementPath = e$8 `${elementType}/${element.id}`;
+    const elementPath = e$9 `${elementType}/${element.id}`;
     const headerContents = [
         capitalize(elementType) + `: `,
         makeLink(getElementName(element), server.web.getUrl(elementPath)),
         ` · `, makeLink(`View History`, server.web.getUrl(elementPath + '/history')),
-        ` · `, makeLink(`Edit`, server.web.getUrl(e$8 `edit?${elementType}=${element.id}`))
+        ` · `, makeLink(`Edit`, server.web.getUrl(e$9 `edit?${elementType}=${element.id}`))
     ];
     return headerContents;
 }
@@ -2991,14 +2991,14 @@ function makeChangesetAdiffLink(server, changesetId, text) {
 }
 function makeChangesetLink(server, changesetId, text) {
     const cid = String(changesetId);
-    const $a = makeLink(text ?? cid, server.web.getUrl(e$8 `changeset/${cid}`));
+    const $a = makeLink(text ?? cid, server.web.getUrl(e$9 `changeset/${cid}`));
     $a.classList.add('listened');
     $a.dataset.changesetId = cid;
     return $a;
 }
 function makeRelationLink(server, relationId) {
     const rid = String(relationId);
-    const relationPath = e$8 `relation/${rid}`;
+    const relationPath = e$9 `relation/${rid}`;
     const $a = makeLink(rid, server.web.getUrl(relationPath));
     $a.classList.add('listened');
     $a.dataset.elementType = 'relation';
@@ -3029,11 +3029,11 @@ function makeUserLink(server, data) {
     return $a;
 }
 function makeUserNameLink(server, username) {
-    const fromName = (name) => server.web.getUrl(e$8 `user/${name}`);
+    const fromName = (name) => server.web.getUrl(e$9 `user/${name}`);
     return makeLink(username, fromName(username));
 }
 function makeUserIdLink(server, uid) {
-    const fromId = (id) => server.api.getUrl(e$8 `user/${id}`);
+    const fromId = (id) => server.api.getUrl(e$9 `user/${id}`);
     return makeLink('#' + uid, fromId(uid));
 }
 function getElementName(element) {
@@ -4241,7 +4241,7 @@ function setFrontSizeProperties($root, side, frontFraction) {
     return frontFraction;
 }
 
-const e$7 = makeEscapeTag(escapeXml);
+const e$8 = makeEscapeTag(escapeXml);
 class NavDialog {
     constructor() {
         this.$section = document.createElement('section');
@@ -4373,7 +4373,7 @@ function makeButton(id, title, listener) {
     $button.tabIndex = -1;
     $button.title = title;
     $button.classList.add('global', id);
-    $button.innerHTML = e$7 `<svg><use href="#${id}" /></svg>`;
+    $button.innerHTML = e$8 `<svg><use href="#${id}" /></svg>`;
     $button.onclick = listener;
     return $button;
 }
@@ -4796,7 +4796,7 @@ function getNoteUpdateDate(note) {
     return note.comments[note.comments.length - 1]?.date ?? 0;
 }
 
-const e$6 = makeEscapeTag(encodeURIComponent);
+const e$7 = makeEscapeTag(encodeURIComponent);
 const maxSingleAutoLoadLimit = 200;
 const maxTotalAutoLoadLimit = 1000;
 const maxFullyFilteredFetches = 10;
@@ -4835,10 +4835,10 @@ class NoteBboxFetcherRequest extends NoteFetcherRequest {
     getRequestUrlPathAndParameters(query, limit) {
         if (query.mode != 'bbox')
             return;
-        return ['', this.getRequestUrlParametersWithoutLimit(query) + e$6 `&limit=${limit}`];
+        return ['', this.getRequestUrlParametersWithoutLimit(query) + e$7 `&limit=${limit}`];
     }
     getRequestUrlParametersWithoutLimit(query) {
-        return e$6 `bbox=${query.bbox}&closed=${query.closed}`;
+        return e$7 `bbox=${query.bbox}&closed=${query.closed}`;
     }
 }
 class NoteIdsFetcherRequest extends NoteFetcherRequest {
@@ -5123,7 +5123,7 @@ class NoteBboxFetcherRun extends NoteFeatureCollectionFetcherRun {
     }
     getCycleFetchDetails(limit) {
         const parametersWithoutLimit = this.request.getRequestUrlParametersWithoutLimit(this.query);
-        const pathAndParameters = ['', parametersWithoutLimit + e$6 `&limit=${limit}`];
+        const pathAndParameters = ['', parametersWithoutLimit + e$7 `&limit=${limit}`];
         return {
             pathAndParametersList: [pathAndParameters],
             limit
@@ -6020,7 +6020,7 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
     }
     writeScopeAndOrderFieldsetBeforeClosedLine($fieldset) {
         {
-            this.$trackMapSelect.append(new Option(`Do nothing`, 'nothing'), new Option(`Update bounding box input`, 'bbox', true, true), new Option(`Fetch notes`, 'fetch'));
+            this.$trackMapSelect.append(new Option(`Do nothing`, 'nothing'), new Option(`Update bounding box`, 'bbox', true, true), new Option(`Fetch notes`, 'fetch'));
             $fieldset.append(makeDiv('regular-input-group')(makeLabel('inline')(this.$trackMapSelect, ` on map view changes`), ` `, this.$trackMapZoomNotice));
         }
         {
@@ -7999,7 +7999,7 @@ class LooseParserListener {
     }
 }
 
-const e$5 = makeEscapeTag(encodeURIComponent);
+const e$6 = makeEscapeTag(encodeURIComponent);
 const makeItem = makeElement('li')();
 const makeITEM = makeElement('li')('main');
 class LooseParserPopup {
@@ -8031,7 +8031,7 @@ class LooseParserPopup {
         if (type == null)
             return makeElement('a')()('?');
         const $a = makeElement('a')()(type);
-        $a.href = this.webUrlLister.getUrl(e$5 `${type}/${id}`);
+        $a.href = this.webUrlLister.getUrl(e$6 `${type}/${id}`);
         if (type == 'note') {
             $a.classList.add('other-note');
             $a.dataset.noteId = String(id);
@@ -9593,48 +9593,6 @@ class LegendTool extends Tool {
     }
 }
 
-const e$4 = makeEscapeTag(encodeURIComponent);
-/**
- * Errors expected with working connection to the API
- */
-class NoteDataError extends TypeError {
-}
-function getFetchTableNoteErrorMessage(ex) {
-    if (ex instanceof TypeError) {
-        return ex.message;
-    }
-    else {
-        return `unknown error ${ex}`;
-    }
-}
-/**
- * Reload a single note updating its link
- */
-async function fetchTableNote(api, noteId, token) {
-    const response = await api.fetch.withToken(token)(e$4 `notes/${noteId}.json`);
-    if (!response.ok)
-        throw new NoteDataError(`note reload failed`);
-    const noteAndUsers = await readNoteResponse(noteId, response);
-    return noteAndUsers;
-}
-async function readNoteResponse(noteId, response) {
-    const data = await response.json();
-    let noteFeature;
-    try {
-        noteFeature = getNoteFromOsmApiResponse(data);
-    }
-    catch {
-        throw new NoteDataError(`note reload received invalid data`);
-    }
-    const [newNotes, newUsers] = transformFeatureToNotesAndUsers(noteFeature);
-    if (newNotes.length != 1)
-        throw new NoteDataError(`note reload received unexpected number of notes`);
-    const [newNote] = newNotes;
-    if (newNote.id != noteId)
-        throw new NoteDataError(`note reload received unexpected note`);
-    return [newNote, newUsers];
-}
-
 function listDecoratedNoteIds(inputIds) {
     const ids = [...inputIds].sort((a, b) => a - b);
     if (ids.length == 0)
@@ -9721,6 +9679,62 @@ function convertDecoratedNoteIdsToHtmlText(decoratedIds, web) {
     }).join('');
 }
 
+function makeInteractionDescriptions($commentButton) {
+    return [{
+            verb: 'POST',
+            endpoint: 'comment',
+            label: `Comment`,
+            runningLabel: `Commenting`,
+            $button: $commentButton,
+            inputNoteStatus: 'open',
+            outputNoteStatus: 'open',
+            forModerator: false
+        }, {
+            verb: 'POST',
+            endpoint: 'close',
+            label: `Close`,
+            runningLabel: `Closing`,
+            $button: document.createElement('button'),
+            inputNoteStatus: 'open',
+            outputNoteStatus: 'closed',
+            forModerator: false
+        }, {
+            verb: 'POST',
+            endpoint: 'reopen',
+            label: `Reopen`,
+            runningLabel: `Reopening`,
+            $button: document.createElement('button'),
+            inputNoteStatus: 'closed',
+            outputNoteStatus: 'open',
+            forModerator: false
+        }, {
+            verb: 'DELETE',
+            label: `Hide`,
+            runningLabel: `Hiding`,
+            $button: document.createElement('button'),
+            inputNoteStatus: 'open',
+            outputNoteStatus: 'hidden',
+            forModerator: true
+        }, {
+            verb: 'DELETE',
+            label: `Hide`,
+            runningLabel: `Hiding`,
+            $button: document.createElement('button'),
+            inputNoteStatus: 'closed',
+            outputNoteStatus: 'hidden',
+            forModerator: true
+        }, {
+            verb: 'POST',
+            endpoint: 'reopen',
+            label: `Reactivate`,
+            runningLabel: `Reactivating`,
+            $button: document.createElement('button'),
+            inputNoteStatus: 'hidden',
+            outputNoteStatus: 'open',
+            forModerator: true
+        }];
+}
+
 function getMultipleNoteIndicators(web, idsAndStatusesIterable, maxIndividualNotes) {
     const output = [];
     const idsAndStatuses = [...idsAndStatusesIterable];
@@ -9777,9 +9791,323 @@ function getButtonNoteIcon(ids, inputStatus, outputStatus) {
     }
 }
 
-const e$3 = makeEscapeTag(encodeURIComponent);
+/******************************************************************************
+Copyright (c) Microsoft Corporation.
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+***************************************************************************** */
+
+function __classPrivateFieldGet(receiver, state, kind, f) {
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a getter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
+    return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
+}
+
+function __classPrivateFieldSet(receiver, state, value, kind, f) {
+    if (kind === "m") throw new TypeError("Private method is not writable");
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
+    return (kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value)), value;
+}
+
+const e$5 = makeEscapeTag(encodeURIComponent);
+/**
+ * Errors expected with working connection to the API
+ */
+class NoteDataError extends TypeError {
+}
+function getFetchTableNoteErrorMessage(ex) {
+    if (ex instanceof TypeError) {
+        return ex.message;
+    }
+    else {
+        return `unknown error ${ex}`;
+    }
+}
+/**
+ * Reload a single note updating its link
+ */
+async function fetchTableNote(api, noteId, token) {
+    const response = await api.fetch.withToken(token)(e$5 `notes/${noteId}.json`);
+    if (!response.ok)
+        throw new NoteDataError(`note reload failed`);
+    const noteAndUsers = await readNoteResponse(noteId, response);
+    return noteAndUsers;
+}
+async function readNoteResponse(noteId, response) {
+    const data = await response.json();
+    let noteFeature;
+    try {
+        noteFeature = getNoteFromOsmApiResponse(data);
+    }
+    catch {
+        throw new NoteDataError(`note reload received invalid data`);
+    }
+    const [newNotes, newUsers] = transformFeatureToNotesAndUsers(noteFeature);
+    if (newNotes.length != 1)
+        throw new NoteDataError(`note reload received unexpected number of notes`);
+    const [newNote] = newNotes;
+    if (newNote.id != noteId)
+        throw new NoteDataError(`note reload received unexpected note`);
+    return [newNote, newUsers];
+}
+
+var _InteractionRunHolder_run;
+const e$4 = makeEscapeTag(encodeURIComponent);
 class InteractionError extends TypeError {
 }
+class InteractionRunHolder {
+    constructor(cx, $commentText, updateRunControls) {
+        this.cx = cx;
+        this.$commentText = $commentText;
+        this.updateRunControls = updateRunControls;
+        _InteractionRunHolder_run.set(this, void 0);
+        this.$runButtonOutline = makeElement('span')('outline')();
+        this.$runButtonIcon = makeElement('span')()();
+        this.$runButton = makeElement('button')('run', 'only-with-icon')(this.$runButtonIcon, this.$runButtonOutline);
+        this.$runOutput = document.createElement('output');
+        this.$run = makeDiv('interaction-run')(this.$runButton, this.$runOutput);
+    }
+    get run() {
+        return __classPrivateFieldGet(this, _InteractionRunHolder_run, "f");
+    }
+    set run(v) {
+        __classPrivateFieldSet(this, _InteractionRunHolder_run, v, "f");
+    }
+    installScheduler(dispatchToolEvent) {
+        let runTimeoutId;
+        const runNextNote = async () => {
+            const transitionToRunning = () => {
+                this.$commentText.disabled = true;
+                this.updateRunControls();
+                this.updateRunButton();
+            };
+            const transitionToPaused = () => {
+                this.$commentText.disabled = false;
+                this.updateRunControls();
+                this.updateRunButton();
+            };
+            const transitionToFinished = () => {
+                this.$commentText.disabled = false;
+                this.$commentText.value = '';
+                this.$commentText.dispatchEvent(new Event('input')); // update text controls
+                this.updateRunControls();
+                this.updateRunButton();
+                this.updateRunOutput();
+            };
+            if (!this.run)
+                return false;
+            if (this.run.status == 'finished') {
+                return false;
+            }
+            else if (this.run.status == 'paused') {
+                if (this.run.requestedStatus == 'paused') {
+                    return false;
+                }
+                else if (this.run.requestedStatus == 'running') {
+                    this.run.status = 'running';
+                    transitionToRunning();
+                }
+            }
+            else if (this.run.status == 'running') {
+                if (this.run.requestedStatus == 'paused') {
+                    this.run.status = 'paused';
+                    transitionToPaused();
+                    return false;
+                }
+            }
+            const id = this.run.currentNoteId ?? this.run.inputNoteIds.shift();
+            if (id == null) {
+                this.run.status = 'finished';
+                transitionToFinished();
+                return false;
+            }
+            this.run.currentNoteId = id;
+            this.run.currentNoteError = undefined;
+            this.updateRunOutput();
+            dispatchToolEvent('osmNoteViewer:beforeNoteFetch', id);
+            try {
+                let response;
+                const fetchBuilder = this.cx.server.api.fetch.withToken(this.cx.token).withUrlencodedBody([
+                    ['text', this.$commentText.value]
+                ]);
+                if (this.run.interactionDescription.verb == 'DELETE') {
+                    const path = e$4 `notes/${id}.json`;
+                    response = await fetchBuilder.delete(path);
+                }
+                else { // POST
+                    const path = e$4 `notes/${id}/${this.run.interactionDescription.endpoint}.json`;
+                    response = await fetchBuilder.post(path);
+                }
+                if (!response.ok) {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType?.includes('text/plain')) {
+                        throw new InteractionError(await response.text());
+                    }
+                    else {
+                        throw new InteractionError(`${response.status} ${response.statusText}`);
+                    }
+                }
+                const noteAndUsers = await readNoteResponse(id, response);
+                dispatchToolEvent('osmNoteViewer:noteFetch', noteAndUsers);
+                dispatchToolEvent('osmNoteViewer:noteUpdatePush', noteAndUsers);
+                this.run.currentNoteId = undefined;
+                this.run.outputNoteIds.push(id);
+            }
+            catch (ex) {
+                if (ex instanceof InteractionError) {
+                    this.run.currentNoteError = ex.message;
+                }
+                else if (ex instanceof NoteDataError) {
+                    this.run.currentNoteError = `Error after successful interaction: ${ex.message}`;
+                }
+                else {
+                    this.run.currentNoteError = `Unknown error ${ex}`;
+                }
+                dispatchToolEvent('osmNoteViewer:failedNoteFetch', [id, this.run.currentNoteError]);
+                this.run.status = this.run.requestedStatus = 'paused';
+                transitionToPaused();
+                this.updateRunOutput();
+            }
+            return true;
+        };
+        const wrappedRunNextNote = async () => {
+            let reschedule = false;
+            try {
+                reschedule = await runNextNote();
+            }
+            catch { }
+            runTimeoutId = undefined;
+            if (reschedule)
+                scheduleRunNextNote();
+        };
+        const scheduleRunNextNote = () => {
+            if (runTimeoutId)
+                return;
+            runTimeoutId = setTimeout(wrappedRunNextNote);
+        };
+        this.$runButton.onclick = () => {
+            if (!this.run)
+                return;
+            if (this.run.status == 'running') {
+                this.run.requestedStatus = 'paused';
+                this.updateRunButton();
+            }
+            else if (this.run.status == 'paused') {
+                this.run.requestedStatus = 'running';
+                this.updateRunButton();
+                scheduleRunNextNote();
+            }
+        };
+        const scheduleRun = (interactionDescription, inputNoteIds, runImmediately) => {
+            this.run = {
+                interactionDescription,
+                status: 'paused',
+                requestedStatus: runImmediately ? 'running' : 'paused',
+                inputNoteIds,
+                outputNoteIds: []
+            };
+            this.updateUI();
+            if (runImmediately) {
+                scheduleRunNextNote();
+            }
+            else {
+                this.pointToRunButton(interactionDescription.$button);
+            }
+        };
+        const cancelRun = () => {
+            this.run = undefined;
+            this.updateUI();
+        };
+        return { scheduleRun, cancelRun };
+    }
+    updateUI() {
+        this.updateRunControls();
+        this.updateRunButton();
+        this.updateRunOutput();
+    }
+    updateRunButton() {
+        const canPause = this.run && this.run.status == 'running';
+        const $newIcon = (canPause
+            ? makeActionIcon('pause', `Halt`)
+            : makeActionIcon('play', `Resume`));
+        this.$runButtonIcon.replaceWith($newIcon);
+        this.$runButtonIcon = $newIcon;
+        this.$runButton.disabled = !this.run || this.run.status != this.run.requestedStatus;
+    }
+    pointToRunButton($fromButton) {
+        this.$runButtonOutline.style.outlineColor = 'var(--click-color)';
+        this.$runButtonOutline.style.outlineStyle = 'solid';
+        this.$runButtonOutline.style.transformOrigin = '0% 0%';
+        const $e1 = $fromButton;
+        const $e2 = this.$runButton;
+        const rect1 = $e1.getBoundingClientRect();
+        const rect2 = $e2.getBoundingClientRect();
+        const xSize1 = $e1.clientWidth, ySize1 = $e1.clientHeight;
+        const xSize2 = $e2.clientWidth, ySize2 = $e2.clientHeight;
+        this.$runButtonOutline.style.removeProperty('transition');
+        requestAnimationFrame(() => {
+            this.$runButtonOutline.style.translate = `${rect1.x - rect2.x}px ${rect1.y - rect2.y}px`;
+            this.$runButtonOutline.style.scale = `${xSize1 / xSize2} ${ySize1 / ySize2}`;
+            this.$runButtonOutline.style.opacity = `1`;
+            requestAnimationFrame(() => {
+                this.$runButtonOutline.style.transition = `translate 300ms, scale 300ms, opacity 300ms 300ms`;
+                this.$runButtonOutline.style.translate = `0px 0px`;
+                this.$runButtonOutline.style.scale = `1`;
+                this.$runButtonOutline.style.opacity = `0`;
+            });
+        });
+    }
+    updateRunOutput() {
+        let firstFragment = true;
+        const outputFragment = (...content) => {
+            if (firstFragment) {
+                firstFragment = false;
+            }
+            else {
+                this.$runOutput.append(` → `);
+            }
+            this.$runOutput.append(...content);
+        };
+        if (!this.run) {
+            this.$runOutput.replaceChildren(`Select notes for interaction using checkboxes`);
+            return;
+        }
+        this.$runOutput.replaceChildren(this.run.interactionDescription.runningLabel, ` `);
+        if (this.run.inputNoteIds.length > 0) {
+            outputFragment(`queued `, ...getNoteCountIndicator(this.run.inputNoteIds.length, this.run.interactionDescription.inputNoteStatus));
+        }
+        else if (this.run.currentNoteId != null) {
+            outputFragment(`queue emptied`);
+        }
+        if (this.run.currentNoteId != null) {
+            const $a = getNoteIndicator(this.cx.server.web, this.run.currentNoteId, this.run.interactionDescription.inputNoteStatus);
+            if (this.run.currentNoteError) {
+                $a.classList.add('error');
+                $a.title = this.run.currentNoteError;
+                outputFragment(`error on `, $a);
+            }
+            else {
+                outputFragment(`current `, $a);
+            }
+        }
+        if (this.run.outputNoteIds.length > 0) {
+            outputFragment(`completed `, ...getNoteCountIndicator(this.run.outputNoteIds.length, this.run.interactionDescription.outputNoteStatus));
+        }
+    }
+}
+_InteractionRunHolder_run = new WeakMap();
+
+const e$3 = makeEscapeTag(encodeURIComponent);
 class InteractTool extends Tool {
     constructor(cx) {
         super(cx);
@@ -9794,80 +10122,21 @@ class InteractTool extends Tool {
         this.$copyIdsButton = makeElement('button')()('Copy ids');
         this.$commentText = document.createElement('textarea');
         this.$commentButton = document.createElement('button');
-        this.$closeButton = document.createElement('button');
-        this.$reopenButton = document.createElement('button');
-        this.$hideOpenButton = document.createElement('button');
-        this.$hideClosedButton = document.createElement('button');
-        this.$reactivateButton = document.createElement('button');
-        this.$runButton = makeElement('button')('only-with-icon')();
-        this.$runOutput = document.createElement('output');
-        this.$run = makeDiv('interaction-run')(this.$runButton, this.$runOutput);
         this.$loginLink = makeSemiLink('input-link')('login');
         this.stagedNoteIds = new Map();
-        this.interactionDescriptions = [{
-                verb: 'POST',
-                endpoint: 'comment',
-                label: `Comment`,
-                runningLabel: `Commenting`,
-                $button: this.$commentButton,
-                inputNoteStatus: 'open',
-                outputNoteStatus: 'open',
-                forModerator: false
-            }, {
-                verb: 'POST',
-                endpoint: 'close',
-                label: `Close`,
-                runningLabel: `Closing`,
-                $button: this.$closeButton,
-                inputNoteStatus: 'open',
-                outputNoteStatus: 'closed',
-                forModerator: false
-            }, {
-                verb: 'POST',
-                endpoint: 'reopen',
-                label: `Reopen`,
-                runningLabel: `Reopening`,
-                $button: this.$reopenButton,
-                inputNoteStatus: 'closed',
-                outputNoteStatus: 'open',
-                forModerator: false
-            }, {
-                verb: 'DELETE',
-                label: `Hide`,
-                runningLabel: `Hiding`,
-                $button: this.$hideOpenButton,
-                inputNoteStatus: 'open',
-                outputNoteStatus: 'hidden',
-                forModerator: true
-            }, {
-                verb: 'DELETE',
-                label: `Hide`,
-                runningLabel: `Hiding`,
-                $button: this.$hideClosedButton,
-                inputNoteStatus: 'closed',
-                outputNoteStatus: 'hidden',
-                forModerator: true
-            }, {
-                verb: 'POST',
-                endpoint: 'reopen',
-                label: `Reactivate`,
-                runningLabel: `Reactivating`,
-                $button: this.$reactivateButton,
-                inputNoteStatus: 'hidden',
-                outputNoteStatus: 'open',
-                forModerator: true
-            }];
+        this.holder = new InteractionRunHolder(this.cx, this.$commentText, () => {
+            this.updateWithOutput();
+            this.updateButtons();
+        });
+        this.interactionDescriptions = makeInteractionDescriptions(this.$commentButton);
         this.updateLoginDependents();
-        this.updateWithOutput();
-        this.updateButtons();
-        this.updateRunButton();
-        this.updateRunOutput();
+        this.holder.updateUI();
     }
     getInfo() {
         return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again ("reactivates" it). `, `This means that a hidden note can only be restored to an open state, even if it had been closed before being hidden. `, `If you want the note to be closed again, you have to close it yourself after reactivating. `, `Also, unlike the OSM website, you can reactivate a note and add a comment in one action. `, `The OSM website currently doesn't provide a comment input for note reactivation.`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, em(`Plaintext`), ` mode will show hidden notes to moderators, but it requires knowing the note ids. `, `If you've hidden a note and want to see it but don't know its id, look for the note at `, this.$yourNotesWeb, ` on the OSM website.`), p(`The `, em(`Copy ids`), ` button on top is useful for making changeset comments. `, `It copies to the clipboard the same note list that you'd get by using the `, em(`Load map area`), ` remote control command. `, em(`Load map area`), ` sets the changeset comment tag to selected notes as a side effect. `, `If you're not using remote control but want to get the note list for a comment, you can press `, em(`Copy ids`), ` instead.`), p(em(`Copy ids`), ` has the ability to copy note ids as html links if your browser `, makeLink(`supports it`, `https://developer.mozilla.org/en-US/docs/Web/API/Clipboard#clipboard_availability`), `. `, `It should work out of the box on Chrome. `, `On Firefox as of v111 it requires enabling the `, code(`dom.events.asyncClipboard.clipboardItem`), ` setting in `, makeLink(`about:config`, `about:config`), ` and reloading the `, em(`note-viewer`), `.`)];
     }
     getInfoButtonContainer() {
-        return this.$run;
+        return this.holder.$run;
     }
     getTool($root, $tool) {
         const appendLastChangeset = new TextControl(this.$commentText, () => this.cx.uid != null, () => true, (append) => !this.$commentText.value.endsWith(append), (append) => {
@@ -9920,49 +10189,21 @@ class InteractTool extends Tool {
         this.$commentText.oninput = () => {
             this.updateButtons();
         };
-        const scheduleRunNextNote = this.makeRunScheduler($tool);
+        const scheduler = this.holder.installScheduler((type, detail) => bubbleCustomEvent($tool, type, detail));
         for (const interactionDescription of this.interactionDescriptions) {
             interactionDescription.$button.onclick = () => {
-                if (this.run?.status == 'paused') {
-                    this.run = undefined;
-                    this.updateButtons();
-                    this.updateRunButton();
-                    this.updateRunOutput();
+                if (this.holder.run?.status == 'paused') {
+                    scheduler.cancelRun();
                 }
                 else {
                     const inputNoteIds = this.getStagedNoteIdsByStatus().get(interactionDescription.inputNoteStatus);
                     if (!inputNoteIds)
                         return;
                     const runImmediately = inputNoteIds.length <= 1;
-                    this.run = {
-                        interactionDescription,
-                        status: 'paused',
-                        requestedStatus: runImmediately ? 'running' : 'paused',
-                        inputNoteIds,
-                        outputNoteIds: []
-                    };
-                    if (runImmediately)
-                        scheduleRunNextNote();
-                    this.updateButtons();
-                    this.updateRunButton();
-                    this.updateRunOutput();
+                    scheduler.scheduleRun(interactionDescription, inputNoteIds, runImmediately);
                 }
             };
         }
-        this.$runButton.onclick = () => {
-            if (!this.run)
-                return;
-            if (this.run.status == 'running') {
-                this.run.requestedStatus = 'paused';
-                this.updateRunButton();
-            }
-            else if (this.run.status == 'paused') {
-                this.run.requestedStatus = 'running';
-                this.updateRunButton();
-                scheduleRunNextNote();
-            }
-        };
-        cleanupAnimationOnEnd(this.$runButton);
         $root.addEventListener('osmNoteViewer:loginChange', () => {
             appendLastChangeset.update();
             this.updateLoginDependents();
@@ -9971,7 +10212,7 @@ class InteractTool extends Tool {
         });
         $root.addEventListener('osmNoteViewer:notesInput', ({ detail: [inputNotes] }) => {
             this.stagedNoteIds = new Map(inputNotes.map(note => [note.id, note.status]));
-            if (this.run?.status == 'running')
+            if (this.holder.run?.status == 'running')
                 return;
             this.updateWithOutput();
             this.updateButtons();
@@ -9981,7 +10222,7 @@ class InteractTool extends Tool {
             this.$asOutput, ` `, this.$withOutput, ` `, this.$copyIdsButton,
             makeDiv('major-input-group')(appendLastChangeset.$controls, makeLabel()(`Comment `, this.$commentText)),
             makeDiv('gridded-input-group')(...this.interactionDescriptions.map(({ $button }) => $button)),
-            this.$run
+            this.holder.$run
         ];
     }
     updateLoginDependents() {
@@ -10037,10 +10278,10 @@ class InteractTool extends Tool {
             const inputNoteIds = stagedNoteIdsByStatus.get(interactionDescription.inputNoteStatus) ?? [];
             const { $button } = interactionDescription;
             let cancelCondition = false;
-            if (this.run && this.run.status != 'finished') {
-                cancelCondition = this.run.status == 'paused' && this.run.interactionDescription == interactionDescription;
-                $button.disabled = (this.run.status == 'running' ||
-                    this.run.status == 'paused' && this.run.interactionDescription != interactionDescription);
+            if (this.holder.run && this.holder.run.status != 'finished') {
+                cancelCondition = this.holder.run.status == 'paused' && this.holder.run.interactionDescription == interactionDescription;
+                $button.disabled = (this.holder.run.status == 'running' ||
+                    this.holder.run.status == 'paused' && this.holder.run.interactionDescription != interactionDescription);
             }
             else {
                 $button.disabled = !this.cx.token || inputNoteIds.length == 0;
@@ -10055,169 +10296,6 @@ class InteractTool extends Tool {
         }
         if (this.$commentText.value == '')
             this.$commentButton.disabled = true;
-    }
-    updateRunButton() {
-        const canPause = this.run && this.run.status == 'running';
-        this.$runButton.replaceChildren(canPause
-            ? makeActionIcon('pause', `Halt`)
-            : makeActionIcon('play', `Resume`));
-        this.$runButton.disabled = !this.run || this.run.status != this.run.requestedStatus;
-        if (!this.$runButton.disabled && !canPause) {
-            startAnimation(this.$runButton, 'tool-ping-fade', '1s');
-        }
-    }
-    updateRunOutput() {
-        let firstFragment = true;
-        const outputFragment = (...content) => {
-            if (firstFragment) {
-                firstFragment = false;
-            }
-            else {
-                this.$runOutput.append(` → `);
-            }
-            this.$runOutput.append(...content);
-        };
-        if (!this.run) {
-            this.$runOutput.replaceChildren(`Select notes for interaction using checkboxes`);
-            return;
-        }
-        this.$runOutput.replaceChildren(this.run.interactionDescription.runningLabel, ` `);
-        if (this.run.inputNoteIds.length > 0) {
-            outputFragment(`queued `, ...getNoteCountIndicator(this.run.inputNoteIds.length, this.run.interactionDescription.inputNoteStatus));
-        }
-        else if (this.run.currentNoteId != null) {
-            outputFragment(`queue emptied`);
-        }
-        if (this.run.currentNoteId != null) {
-            const $a = getNoteIndicator(this.cx.server.web, this.run.currentNoteId, this.run.interactionDescription.inputNoteStatus);
-            if (this.run.currentNoteError) {
-                $a.classList.add('error');
-                $a.title = this.run.currentNoteError;
-                outputFragment(`error on `, $a);
-            }
-            else {
-                outputFragment(`current `, $a);
-            }
-        }
-        if (this.run.outputNoteIds.length > 0) {
-            outputFragment(`completed `, ...getNoteCountIndicator(this.run.outputNoteIds.length, this.run.interactionDescription.outputNoteStatus));
-        }
-    }
-    makeRunScheduler($tool) {
-        let runTimeoutId;
-        const runNextNote = async () => {
-            const transitionToRunning = () => {
-                this.$commentText.disabled = true;
-                this.updateButtons();
-                this.updateRunButton();
-            };
-            const transitionToPaused = () => {
-                this.$commentText.disabled = false;
-                this.updateWithOutput(); // may have received input notes change
-                this.updateButtons();
-                this.updateRunButton();
-            };
-            const transitionToFinished = () => {
-                this.$commentText.disabled = false;
-                this.$commentText.value = '';
-                this.$commentText.dispatchEvent(new Event('input')); // update text controls
-                this.updateWithOutput(); // may have received input notes change
-                this.updateButtons();
-                this.updateRunButton();
-                this.updateRunOutput();
-            };
-            if (!this.run)
-                return false;
-            if (this.run.status == 'finished') {
-                return false;
-            }
-            else if (this.run.status == 'paused') {
-                if (this.run.requestedStatus == 'paused') {
-                    return false;
-                }
-                else if (this.run.requestedStatus == 'running') {
-                    this.run.status = 'running';
-                    transitionToRunning();
-                }
-            }
-            else if (this.run.status == 'running') {
-                if (this.run.requestedStatus == 'paused') {
-                    this.run.status = 'paused';
-                    transitionToPaused();
-                    return false;
-                }
-            }
-            const id = this.run.currentNoteId ?? this.run.inputNoteIds.shift();
-            if (id == null) {
-                this.run.status = 'finished';
-                transitionToFinished();
-                return false;
-            }
-            this.run.currentNoteId = id;
-            this.run.currentNoteError = undefined;
-            this.updateRunOutput();
-            bubbleCustomEvent($tool, 'osmNoteViewer:beforeNoteFetch', id);
-            try {
-                let response;
-                const fetchBuilder = this.cx.server.api.fetch.withToken(this.cx.token).withUrlencodedBody([
-                    ['text', this.$commentText.value]
-                ]);
-                if (this.run.interactionDescription.verb == 'DELETE') {
-                    const path = e$3 `notes/${id}.json`;
-                    response = await fetchBuilder.delete(path);
-                }
-                else { // POST
-                    const path = e$3 `notes/${id}/${this.run.interactionDescription.endpoint}.json`;
-                    response = await fetchBuilder.post(path);
-                }
-                if (!response.ok) {
-                    const contentType = response.headers.get('content-type');
-                    if (contentType?.includes('text/plain')) {
-                        throw new InteractionError(await response.text());
-                    }
-                    else {
-                        throw new InteractionError(`${response.status} ${response.statusText}`);
-                    }
-                }
-                const noteAndUsers = await readNoteResponse(id, response);
-                bubbleCustomEvent($tool, 'osmNoteViewer:noteFetch', noteAndUsers);
-                bubbleCustomEvent($tool, 'osmNoteViewer:noteUpdatePush', noteAndUsers);
-                this.run.currentNoteId = undefined;
-                this.run.outputNoteIds.push(id);
-            }
-            catch (ex) {
-                if (ex instanceof InteractionError) {
-                    this.run.currentNoteError = ex.message;
-                }
-                else if (ex instanceof NoteDataError) {
-                    this.run.currentNoteError = `Error after successful interaction: ${ex.message}`;
-                }
-                else {
-                    this.run.currentNoteError = `Unknown error ${ex}`;
-                }
-                bubbleCustomEvent($tool, 'osmNoteViewer:failedNoteFetch', [id, this.run.currentNoteError]);
-                this.run.status = this.run.requestedStatus = 'paused';
-                transitionToPaused();
-                this.updateRunOutput();
-            }
-            return true;
-        };
-        const wrappedRunNextNote = async () => {
-            let reschedule = false;
-            try {
-                reschedule = await runNextNote();
-            }
-            catch { }
-            runTimeoutId = undefined;
-            if (reschedule)
-                scheduleRunNextNote();
-        };
-        const scheduleRunNextNote = () => {
-            if (runTimeoutId)
-                return;
-            runTimeoutId = setTimeout(wrappedRunNextNote);
-        };
-        return scheduleRunNextNote;
     }
     getStagedNoteIdsByStatus() {
         const stagedNoteIdsByStatus = new Map();

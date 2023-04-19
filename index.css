@@ -114,11 +114,16 @@ body > .symbols {
 	display: flex;
 	flex-direction: column;
 	z-index: 1; /* be above photo with blurry backdrop */
-	overflow-y: auto; /* scrollbar should appear only for oversized tools panel */
 }
-.ui .text-side .scrolling {
+.ui .text-side > .scrolling {
 	overflow-y: scroll;
+	flex-basis: 2.5rem;
 	flex-grow: 1;
+	flex-shrink: 0;
+}
+.ui .text-side > .sticky {
+	flex-shrink: 1;
+	overflow-y: auto;
 }
 
 .ui .flip-margin {
@@ -596,6 +601,13 @@ dialog.help button.close-all-tools::before {
 }
 .panel.toolbar .interaction-run > button {
 	flex-shrink: 0;
+}
+.panel.toolbar .interaction-run > button.run {
+	position: relative;
+}
+.panel.toolbar .interaction-run > button.run > .outline {
+	position: absolute;
+	inset: 0;
 }
 .panel.toolbar .interaction-run > button.info {
 	align-self: end;
