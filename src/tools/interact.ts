@@ -2,7 +2,6 @@ import {Tool, ToolElements, makeActionIcon} from './base'
 import type {Connection} from '../net'
 import {getHashFromLocation, detachValueFromHash, attachValueToFrontOfHash} from '../util/hash'
 import type {Note} from '../data'
-import {readNoteResponse, NoteDataError} from '../fetch-note'
 import TextControl from '../text-control'
 import {listDecoratedNoteIds, convertDecoratedNoteIdsToPlainText, convertDecoratedNoteIdsToHtmlText} from '../id-lister'
 import {bubbleEvent, bubbleCustomEvent} from '../util/events'
@@ -10,35 +9,11 @@ import {makeElement, makeDiv, makeLabel, makeLink, makeSemiLink} from '../util/h
 import {p,ul,li,code,em} from '../util/html-shortcuts'
 import {makeEscapeTag} from '../util/escape'
 import {isArray} from '../util/types'
-import {getMultipleNoteIndicators, getNoteIndicator, getNoteCountIndicator, getButtonNoteIcon} from './interact-indicator'
+import makeInteractionDescriptions from './interact-descriptions'
+import {getMultipleNoteIndicators, getButtonNoteIcon} from './interact-indicator'
+import InteractionScheduler from './interact-scheduler'
 
 const e=makeEscapeTag(encodeURIComponent)
-
-class InteractionError extends TypeError {}
-
-type InteractionDescription = ({
-	verb: 'POST'
-	endpoint: string
-} | {
-	verb: 'DELETE'
-}) & {
-	label: string
-	runningLabel: string
-	$button: HTMLButtonElement
-	inputNoteStatus: Note['status']
-	outputNoteStatus: Note['status']
-	forModerator: boolean
-}
-
-type InteractionRun = {
-	interactionDescription: InteractionDescription
-	status: 'running' | 'paused' | 'finished'
-	requestedStatus: 'running' | 'paused'
-	inputNoteIds: number[]
-	outputNoteIds: number[]
-	currentNoteId?: number,
-	currentNoteError?: string
-}
 
 export class InteractTool extends Tool {
 	id='interact'
@@ -52,11 +27,6 @@ export class InteractTool extends Tool {
 	private $copyIdsButton=makeElement('button')()('Copy ids')
 	private $commentText=document.createElement('textarea')
 	private $commentButton=document.createElement('button')
-	private $closeButton=document.createElement('button')
-	private $reopenButton=document.createElement('button')
-	private $hideOpenButton=document.createElement('button')
-	private $hideClosedButton=document.createElement('button')
-	private $reactivateButton=document.createElement('button')
 	private readonly $runButtonOutline=makeElement('span')('outline')()
 	private $runButtonIcon=makeElement('span')()()
 	private readonly $runButton=makeElement('button')('run','only-with-icon')(this.$runButtonIcon,this.$runButtonOutline)
@@ -64,67 +34,22 @@ export class InteractTool extends Tool {
 	private $run=makeDiv('interaction-run')(this.$runButton,this.$runOutput)
 	private $loginLink=makeSemiLink('input-link')('login')
 	private stagedNoteIds= new Map<number,Note['status']>()
-	private run?: InteractionRun
-	private interactionDescriptions: InteractionDescription[]=[{
-		verb: 'POST',
-		endpoint: 'comment',
-		label: `Comment`,
-		runningLabel: `Commenting`,
-		$button: this.$commentButton,
-		inputNoteStatus: 'open',
-		outputNoteStatus: 'open',
-		forModerator: false
-	},{
-		verb: 'POST',
-		endpoint: 'close',
-		label: `Close`,
-		runningLabel: `Closing`,
-		$button: this.$closeButton,
-		inputNoteStatus: 'open',
-		outputNoteStatus: 'closed',
-		forModerator: false
-	},{
-		verb: 'POST',
-		endpoint: 'reopen',
-		label: `Reopen`,
-		runningLabel: `Reopening`,
-		$button: this.$reopenButton,
-		inputNoteStatus: 'closed',
-		outputNoteStatus: 'open',
-		forModerator: false
-	},{
-		verb: 'DELETE',
-		label: `Hide`,
-		runningLabel: `Hiding`,
-		$button: this.$hideOpenButton,
-		inputNoteStatus: 'open',
-		outputNoteStatus: 'hidden',
-		forModerator: true
-	},{
-		verb: 'DELETE',
-		label: `Hide`,
-		runningLabel: `Hiding`,
-		$button: this.$hideClosedButton,
-		inputNoteStatus: 'closed',
-		outputNoteStatus: 'hidden',
-		forModerator: true
-	},{
-		verb: 'POST',
-		endpoint: 'reopen',
-		label: `Reactivate`,
-		runningLabel: `Reactivating`,
-		$button: this.$reactivateButton,
-		inputNoteStatus: 'hidden',
-		outputNoteStatus: 'open',
-		forModerator: true
-	}]
+	private scheduler=new InteractionScheduler(
+		this.cx,this.$commentText,this.$runOutput,
+		()=>{
+			this.updateWithOutput()
+			this.updateButtons()
+			this.updateRunButton()
+		}
+	)
+	private interactionDescriptions=makeInteractionDescriptions(this.$commentButton)
 	constructor(cx: Connection) {
 		super(cx)
 		this.updateLoginDependents()
 		this.updateWithOutput()
 		this.updateButtons()
 		this.updateRunButton()
-		this.updateRunOutput()
+		this.scheduler.updateRunOutput()
 	}
 	protected getInfo() {return[p(
 		`Do the following operations with notes:`
@@ -221,19 +146,21 @@ export class InteractTool extends Tool {
 		this.$commentText.oninput=()=>{
 			this.updateButtons()
 		}
-		const scheduleRunNextNote=this.makeRunScheduler($tool)
+		const startRun=this.scheduler.prepareToStartRun(
+			(type,detail)=>bubbleCustomEvent($tool,type,detail)
+		)
 		for (const interactionDescription of this.interactionDescriptions) {
 			interactionDescription.$button.onclick=()=>{
-				if (this.run?.status=='paused') {
-					this.run=undefined
+				if (this.scheduler.run?.status=='paused') {
+					this.scheduler.run=undefined
 					this.updateButtons()
 					this.updateRunButton()
-					this.updateRunOutput()
+					this.scheduler.updateRunOutput()
 				} else {
 					const inputNoteIds=this.getStagedNoteIdsByStatus().get(interactionDescription.inputNoteStatus)
 					if (!inputNoteIds) return
 					const runImmediately=inputNoteIds.length<=1
-					this.run={
+					this.scheduler.run={
 						interactionDescription,
 						status: 'paused',
 						requestedStatus: runImmediately?'running':'paused',
@@ -241,25 +168,25 @@ export class InteractTool extends Tool {
 						outputNoteIds: []
 					}
 					if (runImmediately) {
-						scheduleRunNextNote()
+						startRun()
 					} else {
 						this.pointToRunButton(interactionDescription.$button)
 					}
 					this.updateButtons()
 					this.updateRunButton()
-					this.updateRunOutput()
+					this.scheduler.updateRunOutput()
 				}
 			}
 		}
 		this.$runButton.onclick=()=>{
-			if (!this.run) return
-			if (this.run.status=='running') {
-				this.run.requestedStatus='paused'
+			if (!this.scheduler.run) return
+			if (this.scheduler.run.status=='running') {
+				this.scheduler.run.requestedStatus='paused'
 				this.updateRunButton()
-			} else if (this.run.status=='paused') {
-				this.run.requestedStatus='running'
+			} else if (this.scheduler.run.status=='paused') {
+				this.scheduler.run.requestedStatus='running'
 				this.updateRunButton()
-				scheduleRunNextNote()
+				startRun()
 			}
 		}
 		$root.addEventListener('osmNoteViewer:loginChange',()=>{
@@ -270,7 +197,7 @@ export class InteractTool extends Tool {
 		})
 		$root.addEventListener('osmNoteViewer:notesInput',({detail:[inputNotes]})=>{
 			this.stagedNoteIds=new Map(inputNotes.map(note=>[note.id,note.status]))
-			if (this.run?.status=='running') return
+			if (this.scheduler.run?.status=='running') return
 			this.updateWithOutput()
 			this.updateButtons()
 			this.ping($tool)
@@ -342,11 +269,11 @@ export class InteractTool extends Tool {
 			const inputNoteIds=stagedNoteIdsByStatus.get(interactionDescription.inputNoteStatus)??[]
 			const {$button}=interactionDescription
 			let cancelCondition=false
-			if (this.run && this.run.status!='finished') {
-				cancelCondition=this.run.status=='paused' && this.run.interactionDescription==interactionDescription
+			if (this.scheduler.run && this.scheduler.run.status!='finished') {
+				cancelCondition=this.scheduler.run.status=='paused' && this.scheduler.run.interactionDescription==interactionDescription
 				$button.disabled=(
-					this.run.status=='running' ||
-					this.run.status=='paused' && this.run.interactionDescription!=interactionDescription
+					this.scheduler.run.status=='running' ||
+					this.scheduler.run.status=='paused' && this.scheduler.run.interactionDescription!=interactionDescription
 				)
 			} else {
 				$button.disabled=!this.cx.token || inputNoteIds.length==0
@@ -365,58 +292,14 @@ export class InteractTool extends Tool {
 		if (this.$commentText.value=='') this.$commentButton.disabled=true
 	}
 	private updateRunButton(): void {
-		const canPause=this.run && this.run.status=='running'
+		const canPause=this.scheduler.run && this.scheduler.run.status=='running'
 		const $newIcon=(canPause
 			? makeActionIcon('pause',`Halt`)
 			: makeActionIcon('play',`Resume`)
 		)
 		this.$runButtonIcon.replaceWith($newIcon)
 		this.$runButtonIcon=$newIcon
-		this.$runButton.disabled=!this.run || this.run.status!=this.run.requestedStatus
-	}
-	private updateRunOutput(): void {
-		let firstFragment=true
-		const outputFragment=(...content:(string|HTMLElement)[])=>{
-			if (firstFragment) {
-				firstFragment=false
-			} else {
-				this.$runOutput.append(` → `)
-			}
-			this.$runOutput.append(...content)
-		}
-		if (!this.run) {
-			this.$runOutput.replaceChildren(
-				`Select notes for interaction using checkboxes`
-			)
-			return
-		}
-		this.$runOutput.replaceChildren(
-			this.run.interactionDescription.runningLabel,` `
-		)
-		if (this.run.inputNoteIds.length>0) {
-			outputFragment(`queued `,...getNoteCountIndicator(
-				this.run.inputNoteIds.length,this.run.interactionDescription.inputNoteStatus
-			))
-		} else if (this.run.currentNoteId!=null) {
-			outputFragment(`queue emptied`)
-		}
-		if (this.run.currentNoteId!=null) {
-			const $a=getNoteIndicator(this.cx.server.web,
-				this.run.currentNoteId,this.run.interactionDescription.inputNoteStatus
-			)
-			if (this.run.currentNoteError) {
-				$a.classList.add('error')
-				$a.title=this.run.currentNoteError
-				outputFragment(`error on `,$a)
-			} else {
-				outputFragment(`current `,$a)
-			}
-		}
-		if (this.run.outputNoteIds.length>0) {
-			outputFragment(`completed `,...getNoteCountIndicator(
-				this.run.outputNoteIds.length,this.run.interactionDescription.outputNoteStatus
-			))
-		}
+		this.$runButton.disabled=!this.scheduler.run || this.scheduler.run.status!=this.scheduler.run.requestedStatus
 	}
 	private pointToRunButton($fromButton: HTMLElement): void {
 		this.$runButtonOutline.style.outlineColor='var(--click-color)'
@@ -440,110 +323,6 @@ export class InteractTool extends Tool {
 				this.$runButtonOutline.style.opacity=`0`
 			})
 		})
-	}
-	private makeRunScheduler($tool: HTMLElement): ()=>void {
-		let runTimeoutId: number|undefined
-		const runNextNote=async():Promise<boolean>=>{
-			const transitionToRunning=()=>{
-				this.$commentText.disabled=true
-				this.updateButtons()
-				this.updateRunButton()
-			}
-			const transitionToPaused=()=>{
-				this.$commentText.disabled=false
-				this.updateWithOutput() // may have received input notes change
-				this.updateButtons()
-				this.updateRunButton()
-			}
-			const transitionToFinished=()=>{
-				this.$commentText.disabled=false
-				this.$commentText.value=''
-				this.$commentText.dispatchEvent(new Event('input')) // update text controls
-				this.updateWithOutput() // may have received input notes change
-				this.updateButtons()
-				this.updateRunButton()
-				this.updateRunOutput()
-			}
-			if (!this.run) return false
-			if (this.run.status=='finished') {
-				return false
-			} else if (this.run.status=='paused') {
-				if (this.run.requestedStatus=='paused') {
-					return false
-				} else if (this.run.requestedStatus=='running') {
-					this.run.status='running'
-					transitionToRunning()
-				}
-			} else if (this.run.status=='running') {
-				if (this.run.requestedStatus=='paused') {
-					this.run.status='paused'
-					transitionToPaused()
-					return false
-				}
-			}
-			const id=this.run.currentNoteId??this.run.inputNoteIds.shift()
-			if (id==null) {
-				this.run.status='finished'
-				transitionToFinished()
-				return false
-			}
-			this.run.currentNoteId=id
-			this.run.currentNoteError=undefined
-			this.updateRunOutput()
-			bubbleCustomEvent($tool,'osmNoteViewer:beforeNoteFetch',id)
-			try {
-				let response: Response
-				const fetchBuilder=this.cx.server.api.fetch.withToken(this.cx.token).withUrlencodedBody([
-					['text',this.$commentText.value]
-				])
-				if (this.run.interactionDescription.verb=='DELETE') {
-					const path=e`notes/${id}.json`
-					response=await fetchBuilder.delete(path)
-				} else { // POST
-					const path=e`notes/${id}/${this.run.interactionDescription.endpoint}.json`
-					response=await fetchBuilder.post(path)
-				}
-				if (!response.ok) {
-					const contentType=response.headers.get('content-type')
-					if (contentType?.includes('text/plain')) {
-						throw new InteractionError(await response.text())
-					} else {
-						throw new InteractionError(`${response.status} ${response.statusText}`)
-					}
-				}
-				const noteAndUsers=await readNoteResponse(id,response)
-				bubbleCustomEvent($tool,'osmNoteViewer:noteFetch',noteAndUsers)
-				bubbleCustomEvent($tool,'osmNoteViewer:noteUpdatePush',noteAndUsers)
-				this.run.currentNoteId=undefined
-				this.run.outputNoteIds.push(id)
-			} catch (ex) {
-				if (ex instanceof InteractionError) {
-					this.run.currentNoteError=ex.message
-				} else if (ex instanceof NoteDataError) {
-					this.run.currentNoteError=`Error after successful interaction: ${ex.message}`
-				} else {
-					this.run.currentNoteError=`Unknown error ${ex}`
-				}
-				bubbleCustomEvent($tool,'osmNoteViewer:failedNoteFetch',[id,this.run.currentNoteError])
-				this.run.status=this.run.requestedStatus='paused'
-				transitionToPaused()
-				this.updateRunOutput()
-			}
-			return true
-		}
-		const wrappedRunNextNote=async()=>{
-			let reschedule=false
-			try {
-				reschedule=await runNextNote()
-			} catch {}
-			runTimeoutId=undefined
-			if (reschedule) scheduleRunNextNote()
-		}
-		const scheduleRunNextNote=()=>{
-			if (runTimeoutId) return
-			runTimeoutId=setTimeout(wrappedRunNextNote)
-		}
-		return scheduleRunNextNote
 	}
 	private getStagedNoteIdsByStatus(): Map<Note['status'],number[]> {
 		const stagedNoteIdsByStatus=new Map<Note['status'],number[]>()
