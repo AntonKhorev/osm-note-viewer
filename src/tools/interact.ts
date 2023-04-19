@@ -1,4 +1,4 @@
-import {Tool, ToolElements, makeActionIcon} from './base'
+import {Tool, ToolElements} from './base'
 import type {Connection} from '../net'
 import {getHashFromLocation, detachValueFromHash, attachValueToFrontOfHash} from '../util/hash'
 import type {Note} from '../data'
@@ -27,29 +27,20 @@ export class InteractTool extends Tool {
 	private $copyIdsButton=makeElement('button')()('Copy ids')
 	private $commentText=document.createElement('textarea')
 	private $commentButton=document.createElement('button')
-	private readonly $runButtonOutline=makeElement('span')('outline')()
-	private $runButtonIcon=makeElement('span')()()
-	private readonly $runButton=makeElement('button')('run','only-with-icon')(this.$runButtonIcon,this.$runButtonOutline)
-	private $runOutput=document.createElement('output')
-	private $run=makeDiv('interaction-run')(this.$runButton,this.$runOutput)
 	private $loginLink=makeSemiLink('input-link')('login')
 	private stagedNoteIds= new Map<number,Note['status']>()
 	private scheduler=new InteractionScheduler(
-		this.cx,this.$commentText,this.$runOutput,
+		this.cx,this.$commentText,
 		()=>{
 			this.updateWithOutput()
 			this.updateButtons()
-			this.updateRunButton()
 		}
 	)
 	private interactionDescriptions=makeInteractionDescriptions(this.$commentButton)
 	constructor(cx: Connection) {
 		super(cx)
 		this.updateLoginDependents()
-		this.updateWithOutput()
-		this.updateButtons()
-		this.updateRunButton()
-		this.scheduler.updateRunOutput()
+		this.scheduler.updateUI()
 	}
 	protected getInfo() {return[p(
 		`Do the following operations with notes:`
@@ -84,7 +75,7 @@ export class InteractTool extends Tool {
 		`On Firefox as of v111 it requires enabling the `,code(`dom.events.asyncClipboard.clipboardItem`),` setting in `,makeLink(`about:config`,`about:config`),` and reloading the `,em(`note-viewer`),`.`
 	)]}
 	protected getInfoButtonContainer() {
-		return this.$run
+		return this.scheduler.$run
 	}
 	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
 		const appendLastChangeset=new TextControl(
@@ -146,35 +137,19 @@ export class InteractTool extends Tool {
 		this.$commentText.oninput=()=>{
 			this.updateButtons()
 		}
-		const startRun=this.scheduler.prepareToStartRun(
+		const runner=this.scheduler.installScheduler(
 			(type,detail)=>bubbleCustomEvent($tool,type,detail)
 		)
 		for (const interactionDescription of this.interactionDescriptions) {
 			interactionDescription.$button.onclick=()=>{
 				if (this.scheduler.run?.status=='paused') {
-					this.scheduler.cancelRun()
+					runner.cancelRun()
 				} else {
 					const inputNoteIds=this.getStagedNoteIdsByStatus().get(interactionDescription.inputNoteStatus)
 					if (!inputNoteIds) return
 					const runImmediately=inputNoteIds.length<=1
-					this.scheduler.scheduleRun(interactionDescription,inputNoteIds,runImmediately)
-					if (runImmediately) {
-						startRun()
-					} else {
-						this.pointToRunButton(interactionDescription.$button)
-					}
+					runner.scheduleRun(interactionDescription,inputNoteIds,runImmediately)
 				}
-			}
-		}
-		this.$runButton.onclick=()=>{
-			if (!this.scheduler.run) return
-			if (this.scheduler.run.status=='running') {
-				this.scheduler.run.requestedStatus='paused'
-				this.updateRunButton()
-			} else if (this.scheduler.run.status=='paused') {
-				this.scheduler.run.requestedStatus='running'
-				this.updateRunButton()
-				startRun()
 			}
 		}
 		$root.addEventListener('osmNoteViewer:loginChange',()=>{
@@ -200,7 +175,7 @@ export class InteractTool extends Tool {
 				)
 			),
 			makeDiv('gridded-input-group')(...this.interactionDescriptions.map(({$button})=>$button)),
-			this.$run
+			this.scheduler.$run
 		]
 	}
 	private updateLoginDependents(): void {
@@ -278,39 +253,6 @@ export class InteractTool extends Tool {
 			$button.hidden=interactionDescription.forModerator && !this.cx.isModerator
 		}
 		if (this.$commentText.value=='') this.$commentButton.disabled=true
-	}
-	private updateRunButton(): void {
-		const canPause=this.scheduler.run && this.scheduler.run.status=='running'
-		const $newIcon=(canPause
-			? makeActionIcon('pause',`Halt`)
-			: makeActionIcon('play',`Resume`)
-		)
-		this.$runButtonIcon.replaceWith($newIcon)
-		this.$runButtonIcon=$newIcon
-		this.$runButton.disabled=!this.scheduler.run || this.scheduler.run.status!=this.scheduler.run.requestedStatus
-	}
-	private pointToRunButton($fromButton: HTMLElement): void {
-		this.$runButtonOutline.style.outlineColor='var(--click-color)'
-		this.$runButtonOutline.style.outlineStyle='solid'
-		this.$runButtonOutline.style.transformOrigin='0% 0%'
-		const $e1=$fromButton
-		const $e2=this.$runButton
-		const rect1=$e1.getBoundingClientRect()
-		const rect2=$e2.getBoundingClientRect()
-		const xSize1=$e1.clientWidth, ySize1=$e1.clientHeight
-		const xSize2=$e2.clientWidth, ySize2=$e2.clientHeight
-		this.$runButtonOutline.style.removeProperty('transition')
-		requestAnimationFrame(()=>{
-			this.$runButtonOutline.style.translate=`${rect1.x-rect2.x}px ${rect1.y-rect2.y}px`
-			this.$runButtonOutline.style.scale=`${xSize1/xSize2} ${ySize1/ySize2}`
-			this.$runButtonOutline.style.opacity=`1`
-			requestAnimationFrame(()=>{
-				this.$runButtonOutline.style.transition=`translate 300ms, scale 300ms, opacity 300ms 300ms`
-				this.$runButtonOutline.style.translate=`0px 0px`
-				this.$runButtonOutline.style.scale=`1`
-				this.$runButtonOutline.style.opacity=`0`
-			})
-		})
 	}
 	private getStagedNoteIdsByStatus(): Map<Note['status'],number[]> {
 		const stagedNoteIdsByStatus=new Map<Note['status'],number[]>()
