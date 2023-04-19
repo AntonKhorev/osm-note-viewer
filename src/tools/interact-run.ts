@@ -20,7 +20,7 @@ export type InteractionRun = {
 	currentNoteError?: string
 }
 
-export interface InteractionRunStarter {
+export interface InteractionRunScheduler {
 	scheduleRun(
 		interactionDescription: InteractionDescription,
 		inputNoteIds: number[],
@@ -29,7 +29,7 @@ export interface InteractionRunStarter {
 	cancelRun(): void
 }
 
-export default class InteractionScheduler {
+export default class InteractionRunHolder {
 	#run?: InteractionRun
 	private readonly $runButtonOutline=makeElement('span')('outline')()
 	private $runButtonIcon=makeElement('span')()()
@@ -52,7 +52,7 @@ export default class InteractionScheduler {
 			type: T,
 			detail: (HTMLElementEventMap[T] extends CustomEvent<infer D> ? D : never)
 		)=>void
-	): InteractionRunStarter {
+	): InteractionRunScheduler {
 		let runTimeoutId: number|undefined
 		const runNextNote=async():Promise<boolean>=>{
 			const transitionToRunning=()=>{

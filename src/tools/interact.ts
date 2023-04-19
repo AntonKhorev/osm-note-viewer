@@ -11,7 +11,7 @@ import {makeEscapeTag} from '../util/escape'
 import {isArray} from '../util/types'
 import makeInteractionDescriptions from './interact-descriptions'
 import {getMultipleNoteIndicators, getButtonNoteIcon} from './interact-indicator'
-import InteractionScheduler from './interact-scheduler'
+import InteractionRunHolder from './interact-run'
 
 const e=makeEscapeTag(encodeURIComponent)
 
@@ -29,7 +29,7 @@ export class InteractTool extends Tool {
 	private $commentButton=document.createElement('button')
 	private $loginLink=makeSemiLink('input-link')('login')
 	private stagedNoteIds= new Map<number,Note['status']>()
-	private scheduler=new InteractionScheduler(
+	private holder=new InteractionRunHolder(
 		this.cx,this.$commentText,
 		()=>{
 			this.updateWithOutput()
@@ -40,7 +40,7 @@ export class InteractTool extends Tool {
 	constructor(cx: Connection) {
 		super(cx)
 		this.updateLoginDependents()
-		this.scheduler.updateUI()
+		this.holder.updateUI()
 	}
 	protected getInfo() {return[p(
 		`Do the following operations with notes:`
@@ -75,7 +75,7 @@ export class InteractTool extends Tool {
 		`On Firefox as of v111 it requires enabling the `,code(`dom.events.asyncClipboard.clipboardItem`),` setting in `,makeLink(`about:config`,`about:config`),` and reloading the `,em(`note-viewer`),`.`
 	)]}
 	protected getInfoButtonContainer() {
-		return this.scheduler.$run
+		return this.holder.$run
 	}
 	protected getTool($root: HTMLElement, $tool: HTMLElement): ToolElements {
 		const appendLastChangeset=new TextControl(
@@ -137,18 +137,18 @@ export class InteractTool extends Tool {
 		this.$commentText.oninput=()=>{
 			this.updateButtons()
 		}
-		const runner=this.scheduler.installScheduler(
+		const scheduler=this.holder.installScheduler(
 			(type,detail)=>bubbleCustomEvent($tool,type,detail)
 		)
 		for (const interactionDescription of this.interactionDescriptions) {
 			interactionDescription.$button.onclick=()=>{
-				if (this.scheduler.run?.status=='paused') {
-					runner.cancelRun()
+				if (this.holder.run?.status=='paused') {
+					scheduler.cancelRun()
 				} else {
 					const inputNoteIds=this.getStagedNoteIdsByStatus().get(interactionDescription.inputNoteStatus)
 					if (!inputNoteIds) return
 					const runImmediately=inputNoteIds.length<=1
-					runner.scheduleRun(interactionDescription,inputNoteIds,runImmediately)
+					scheduler.scheduleRun(interactionDescription,inputNoteIds,runImmediately)
 				}
 			}
 		}
@@ -160,7 +160,7 @@ export class InteractTool extends Tool {
 		})
 		$root.addEventListener('osmNoteViewer:notesInput',({detail:[inputNotes]})=>{
 			this.stagedNoteIds=new Map(inputNotes.map(note=>[note.id,note.status]))
-			if (this.scheduler.run?.status=='running') return
+			if (this.holder.run?.status=='running') return
 			this.updateWithOutput()
 			this.updateButtons()
 			this.ping($tool)
@@ -175,7 +175,7 @@ export class InteractTool extends Tool {
 				)
 			),
 			makeDiv('gridded-input-group')(...this.interactionDescriptions.map(({$button})=>$button)),
-			this.scheduler.$run
+			this.holder.$run
 		]
 	}
 	private updateLoginDependents(): void {
@@ -232,11 +232,11 @@ export class InteractTool extends Tool {
 			const inputNoteIds=stagedNoteIdsByStatus.get(interactionDescription.inputNoteStatus)??[]
 			const {$button}=interactionDescription
 			let cancelCondition=false
-			if (this.scheduler.run && this.scheduler.run.status!='finished') {
-				cancelCondition=this.scheduler.run.status=='paused' && this.scheduler.run.interactionDescription==interactionDescription
+			if (this.holder.run && this.holder.run.status!='finished') {
+				cancelCondition=this.holder.run.status=='paused' && this.holder.run.interactionDescription==interactionDescription
 				$button.disabled=(
-					this.scheduler.run.status=='running' ||
-					this.scheduler.run.status=='paused' && this.scheduler.run.interactionDescription!=interactionDescription
+					this.holder.run.status=='running' ||
+					this.holder.run.status=='paused' && this.holder.run.interactionDescription!=interactionDescription
 				)
 			} else {
 				$button.disabled=!this.cx.token || inputNoteIds.length==0
