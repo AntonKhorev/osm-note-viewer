@@ -41,17 +41,22 @@ interface OsmNoteCommentItem extends OsmCommentItem {
 type CommentItem = TextCommentItem | DateCommentItem | ImageCommentItem | OsmRootCommentItem | OsmElementCommentItem | OsmChangesetCommentItem | OsmNoteCommentItem
 
 export default function getCommentItems(webUrlLister: WebUrlLister, imageSourceUrls: readonly string[], commentText: string): CommentItem[] {
+	const regExpLinkParts:string[]=[]
+	if (imageSourceUrls.length>0) {
+		regExpLinkParts.push(
+			`(?<image>`+makeUrlsRegex(imageSourceUrls)+`\\S+\\.jpg)`
+		)
+	}
+	regExpLinkParts.push(
+		`(?<osm>`+makeUrlsRegex(webUrlLister.urls)+
+			`(?<path>(?<osmType>node|way|relation|changeset|note)/(?<id>[0-9]+))?`+
+			`(?<hash>#[-0-9a-zA-Z/.=&]+)?`+ // only need hash at root or at recognized path
+		`)`
+	)
 	const matchRegExp=new RegExp(`(?<before>.*?)(?<text>`+
 		`(?<date>\\d\\d\\d\\d-\\d\\d-\\d\\d[T ]\\d\\d:\\d\\d:\\d\\dZ)`+
 	`|`+
-		`(?<link>https?://(?:`+
-			`(?<image>`+makeUrlsRegex(imageSourceUrls)+`\\S+\\.jpg)`+
-		'|'+
-			`(?<osm>`+makeUrlsRegex(webUrlLister.urls)+
-				`(?<path>(?<osmType>node|way|relation|changeset|note)/(?<id>[0-9]+))?`+
-				`(?<hash>#[-0-9a-zA-Z/.=&]+)?`+ // only need hash at root or at recognized path
-			`)`+
-		`))`+
+		`(?<link>https?://(?:`+regExpLinkParts.join('|')+`))`+
 	`)`,'sy')
 	const items: CommentItem[] = []
 	let idx=0

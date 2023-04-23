@@ -222,4 +222,17 @@ describe("getCommentItems",()=>{
 			}
 		])
 	})
+	it("skips image links when custom images are disabled",()=>{
+		const result=runCustom(
+			null,
+			[],
+			`https://westnordost.de/p/123.jpg`
+		)
+		assert.deepEqual(result,[
+			{
+				type:'text',
+				text:`https://westnordost.de/p/123.jpg`,
+			}
+		])
+	})
 })
