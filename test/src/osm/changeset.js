@@ -31,4 +31,30 @@ describe("osm / changeset module / toUserQuery()",()=>{
 		const output=getChangesetFromOsmApiResponse(input)
 		assert.equal(output.id,102030405)
 	})
+	it("reads unwrapped changeset",()=>{
+		const input={
+			"version":"0.6",
+			"generator":"OpenHistoricalMap server",
+			"copyright":"OpenHistoricalMap and contributors",
+			"attribution":"http://www.openhistoricalmap.org/copyright",
+			"license":"http://opendatacommons.org/licenses/odbl/1-0/",
+			"changeset":{
+				"id":54321,
+				"created_at":"2023-03-23T13:19:03Z",
+				"open":false,
+				"comments_count":0,
+				"changes_count":444,
+				"closed_at":"2023-03-23T13:21:33Z",
+				"min_lat":50.1111111,
+				"min_lon":5.1111111,
+				"max_lat":50.2222222,
+				"max_lon":5.2222222,
+				"uid":1234,
+				"user":"Another User",
+				"tags":{"created_by":"JOSM/1.5 (18570 en)"}
+			}
+		}
+		const output=getChangesetFromOsmApiResponse(input)
+		assert.equal(output.id,54321)
+	})
 })

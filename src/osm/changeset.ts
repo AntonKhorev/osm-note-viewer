@@ -34,10 +34,17 @@ export function hasBbox(c: OsmChangesetApiData): c is OsmChangesetWithBboxApiDat
 
 export function getChangesetFromOsmApiResponse(data: unknown): OsmChangesetApiData {
 	if (!data || typeof data != 'object') throw new TypeError(`OSM API error: invalid response data`)
-	if (!('elements' in data) || !isArray(data.elements)) throw new TypeError(`OSM API error: no 'elements' array with changesets in response data`)
-	const changesetArray=data.elements
-	if (changesetArray.length!=1) throw new TypeError(`OSM API error: invalid number of changesets in response data`)
-	const changeset=changesetArray[0]
+	let changeset:unknown
+	if ('changeset' in data) {
+		changeset=data.changeset
+	} else if ('elements' in data) {
+		if (!isArray(data.elements)) throw new TypeError(`OSM API error: 'elements' is not an array in response data`)
+		const changesetArray=data.elements
+		if (changesetArray.length!=1) throw new TypeError(`OSM API error: invalid number of changesets in response data`)
+		changeset=changesetArray[0]
+	} else {
+		throw new TypeError(`OSM API error: no 'changeset' or 'elements' in response data`)
+	}
 	if (!isOsmChangesetApiData(changeset)) throw new TypeError(`OSM API error: invalid changeset in response data`)
 	return changeset
 }
