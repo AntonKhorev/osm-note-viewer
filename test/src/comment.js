@@ -15,14 +15,19 @@ const defaultWebUrlLister=new WebUrlLister([
 	`https://osm.org/`,
 ])
 
-function runCustom(lister,...lines) {
+const defaultImageUrls=[
+	`https://westnordost.de/p/`
+]
+
+function runCustom(webLister,imageUrls,...lines) {
 	return getCommentItems(
-		lister,
+		webLister??defaultWebUrlLister,
+		imageUrls??defaultImageUrls,
 		lines.join('\n')
 	)
 }
 function run(...lines) {
-	return runCustom(defaultWebUrlLister,...lines)
+	return runCustom(defaultWebUrlLister,defaultImageUrls,...lines)
 }
 
 describe("getCommentItems",()=>{
@@ -171,6 +176,7 @@ describe("getCommentItems",()=>{
 				`https://www.openhistoricalmap.org/`,
 				`https://openhistoricalmap.org/`
 			]),
+			null,
 			`https://openhistoricalmap.org/node/2094245998`
 		)
 		assert.deepEqual(result,[
@@ -187,6 +193,7 @@ describe("getCommentItems",()=>{
 			new WebUrlLister([
 				`http://127.0.0.1:3000/`
 			]),
+			null,
 			`http://127.0.0.1:3000/node/49`
 		)
 		assert.deepEqual(result,[
@@ -195,6 +202,23 @@ describe("getCommentItems",()=>{
 				text:`http://127.0.0.1:3000/node/49`,
 				href:`http://127.0.0.1:3000/node/49`,
 				element:'node',id:49,map:undefined
+			}
+		])
+	})
+	it("parses custom image links",()=>{
+		const result=runCustom(
+			null,
+			[
+				`https://i.imgur.com/`,
+				`https://cdn.masto.host/enosmtown/`,
+			],
+			`https://cdn.masto.host/enosmtown/media_attachments/files/111/222/333/444/555/666/original/abcdefghijklmnop.jpg`
+		)
+		assert.deepEqual(result,[
+			{
+				type:'link',link:'image',
+				text:`https://cdn.masto.host/enosmtown/media_attachments/files/111/222/333/444/555/666/original/abcdefghijklmnop.jpg`,
+				href:`https://cdn.masto.host/enosmtown/media_attachments/files/111/222/333/444/555/666/original/abcdefghijklmnop.jpg`
 			}
 		])
 	})

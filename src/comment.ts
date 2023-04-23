@@ -40,14 +40,14 @@ interface OsmNoteCommentItem extends OsmCommentItem {
 
 type CommentItem = TextCommentItem | DateCommentItem | ImageCommentItem | OsmRootCommentItem | OsmElementCommentItem | OsmChangesetCommentItem | OsmNoteCommentItem
 
-export default function getCommentItems(webUrlLister: WebUrlLister, commentText: string): CommentItem[] {
+export default function getCommentItems(webUrlLister: WebUrlLister, imageUrls: readonly string[], commentText: string): CommentItem[] {
 	const matchRegExp=new RegExp(`(?<before>.*?)(?<text>`+
 		`(?<date>\\d\\d\\d\\d-\\d\\d-\\d\\d[T ]\\d\\d:\\d\\d:\\d\\dZ)`+
 	`|`+
 		`(?<link>https?://(?:`+
-			`(?<image>westnordost\.de/p/[0-9]+\.jpg)`+
+			`(?<image>`+makeUrlsRegex(imageUrls)+`\\S+\\.jpg)`+
 		'|'+
-			`(?<osm>`+makeWebUrlRegex(webUrlLister)+
+			`(?<osm>`+makeUrlsRegex(webUrlLister.urls)+
 				`(?<path>(?<osmType>node|way|relation|changeset|note)/(?<id>[0-9]+))?`+
 				`(?<hash>#[-0-9a-zA-Z/.=&]+)?`+ // only need hash at root or at recognized path
 			`)`+
@@ -91,8 +91,8 @@ export default function getCommentItems(webUrlLister: WebUrlLister, commentText:
 	}
 }
 
-function makeWebUrlRegex(webUrlLister: WebUrlLister): string {
-	return '(?:'+webUrlLister.urls.map(webUrl=>escapeRegex(stripProtocol(webUrl))).join('|')+')'
+function makeUrlsRegex(urls: readonly string[]): string {
+	return '(?:'+urls.map(url=>escapeRegex(stripProtocol(url))).join('|')+')'
 }
 
 function stripProtocol(webUrl: string): string {
