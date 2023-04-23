@@ -3,8 +3,14 @@ import {getStorageString, setStorageString} from './util/storage'
 import makeCodeForm from './util/code-form'
 import {makeElement} from './util/html'
 
-const syntaxDescription=`<summary>Filter syntax</summary>
-<p>URL prefixes each on a new line
+const syntaxDescription=`<summary>What this is</summary>
+<ul>
+<li>Used to look for links to images in note comments
+<li>Used in the <em>Load and show images</em> feature
+<li>The input is URL prefixes each on a new line
+<li>Set to completely empty input to use defaults (currently StreetComplete)
+<li>Set to (at least one) empty line to disable
+</ul>
 `
 
 const syntaxExamples: [string,string[]][] = [
@@ -30,11 +36,8 @@ export default class ImageSection {
 			},
 			input=>{
 				setStorageString(storage,'image-sources',input.trim())
-				// TODO send to comment parser ?
 			},
-			()=>{
-				// TODO send to comment parser ?
-			},
+			()=>{},
 			syntaxDescription,syntaxExamples
 		))
 	}
