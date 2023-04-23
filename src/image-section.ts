@@ -48,6 +48,10 @@ export default class ImageSection {
 		const $details=this.$section.querySelector('details')
 		if ($details) {
 			$details.open=true
+			const $textarea=$details.querySelector('textarea')
+			if ($textarea) {
+				$textarea.focus()
+			}
 		}
 	}
 }

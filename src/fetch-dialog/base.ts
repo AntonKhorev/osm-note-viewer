@@ -171,8 +171,10 @@ export abstract class NoteFetchDialog extends NavDialog {
 		$showImagesCheckbox.type='checkbox'
 		this.$sharedCheckboxes.showImages.push($showImagesCheckbox)
 		const $trustedSourcesLink=makeSemiLink('input-link')(`trusted sources`)
-		$trustedSourcesLink.onclick=()=>{
+		$trustedSourcesLink.onclick=ev=>{
 			bubbleCustomEvent(this.$root,'osmNoteViewer:menuToggle','image-sources')
+			ev.stopPropagation()
+			ev.preventDefault()
 		}
 		$fieldset.append(makeDiv('regular-input-group')(makeLabel()(
 			$showImagesCheckbox,` Load and show images from `,$trustedSourcesLink

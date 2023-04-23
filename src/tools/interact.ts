@@ -106,8 +106,10 @@ export class InteractTool extends Tool {
 			()=>[makeElement('span')()(`undo append`)],
 			()=>[makeElement('span')()(`append last changeset`)]
 		)
-		this.$loginLink.onclick=()=>{
+		this.$loginLink.onclick=ev=>{
 			bubbleCustomEvent($root,'osmNoteViewer:menuToggle','login')
+			ev.stopPropagation()
+			ev.preventDefault()
 		}
 		this.$copyIdsButton.onclick=async()=>{
 			this.$copyIdsButton.title=''
