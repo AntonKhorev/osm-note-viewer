@@ -3466,6 +3466,45 @@ function calculateOffsetsToFit(map, $popupContainer) {
     return [-dx, -dy];
 }
 
+const syntaxDescription$1 = `<summary>What this is</summary>
+<ul>
+<li>Used to look for links to images in note comments
+<li>Used in the <em>Load and show images</em> feature
+<li>The input is URL prefixes each on a new line
+<li>Set to completely empty input to use defaults (currently StreetComplete)
+<li>Set to (at least one) empty line to disable
+</ul>
+`;
+const syntaxExamples$1 = [
+    [`StreetComplete`, [`https://westnordost.de/p/`]],
+    [`MapComplete`, [`https://i.imgur.com/`]],
+    [`en.osm.town Mastodon instance`, [`https://cdn.masto.host/enosmtown/`]]
+];
+class ImageSection {
+    constructor($section, storage) {
+        this.$section = $section;
+        $section.append(makeElement('h2')()(`Trusted image sources`));
+        $section.append(makeCodeForm(getStorageString(storage, 'image-sources'), '', `Trusted image sources`, `URL prefixes`, `Apply changes`, input => input == getStorageString(storage, 'image-sources'), input => {
+            // TODO check syntax - should be https urls
+        }, input => {
+            setStorageString(storage, 'image-sources', input);
+        }, () => {
+            location.reload();
+        }, syntaxDescription$1, syntaxExamples$1));
+    }
+    focus() {
+        this.$section.scrollIntoView();
+        const $details = this.$section.querySelector('details');
+        if ($details) {
+            $details.open = true;
+            const $textarea = $details.querySelector('textarea');
+            if ($textarea) {
+                $textarea.focus();
+            }
+        }
+    }
+}
+
 class ConfirmedButtonListener {
     constructor($initButton, $cancelButton, $confirmButton, runAction, isConfirmationRequired = () => true) {
         this.$initButton = $initButton;
@@ -3801,6 +3840,10 @@ class OverlayDialog {
                 this.menuHidden = false;
                 net.focusOnLogin();
             }
+            else if (detail == 'image-sources') {
+                this.menuHidden = false;
+                this.imageSection?.focus();
+            }
             else {
                 this.menuHidden = !this.menuHidden;
             }
@@ -3955,6 +3998,11 @@ class OverlayDialog {
         }
         const $scrolling = makeDiv('panel', 'scrolling')();
         $scrolling.append(...net.$sections);
+        {
+            const $subsection = makeElement('section')()();
+            this.imageSection = new ImageSection($subsection, storage);
+            $scrolling.append($subsection);
+        }
         {
             const $subsection = makeElement('section')()();
             new StorageSection($subsection, storage, db, net.serverSelector);
@@ -5405,7 +5453,13 @@ class NoteFetchDialog extends NavDialog {
         const $showImagesCheckbox = document.createElement('input');
         $showImagesCheckbox.type = 'checkbox';
         this.$sharedCheckboxes.showImages.push($showImagesCheckbox);
-        $fieldset.append(makeDiv('regular-input-group')(makeLabel()($showImagesCheckbox, ` Load and show images from StreetComplete`)));
+        const $trustedSourcesLink = makeSemiLink('input-link')(`trusted sources`);
+        $trustedSourcesLink.onclick = ev => {
+            bubbleCustomEvent(this.$root, 'osmNoteViewer:menuToggle', 'image-sources');
+            ev.stopPropagation();
+            ev.preventDefault();
+        };
+        $fieldset.append(makeDiv('regular-input-group')(makeLabel()($showImagesCheckbox, ` Load and show images from `, $trustedSourcesLink)));
         this.$advancedModeCheckbox.type = 'checkbox';
         this.$sharedCheckboxes.advancedMode.push(this.$advancedModeCheckbox);
         $fieldset.append(makeDiv('regular-input-group')(makeLabel()(this.$advancedModeCheckbox, ` Advanced mode`)));
@@ -7225,18 +7279,19 @@ class NoteFilterPanel {
     }
 }
 
-function getCommentItems(webUrlLister, commentText) {
+function getCommentItems(webUrlLister, imageSourceUrls, commentText) {
+    const regExpLinkParts = [];
+    if (imageSourceUrls.length > 0) {
+        regExpLinkParts.push(`(?<image>` + makeUrlsRegex(imageSourceUrls) + `\\S+\\.jpg)`);
+    }
+    regExpLinkParts.push(`(?<osm>` + makeUrlsRegex(webUrlLister.urls) +
+        `(?<path>(?<osmType>node|way|relation|changeset|note)/(?<id>[0-9]+))?` +
+        `(?<hash>#[-0-9a-zA-Z/.=&]+)?` + // only need hash at root or at recognized path
+        `)`);
     const matchRegExp = new RegExp(`(?<before>.*?)(?<text>` +
         `(?<date>\\d\\d\\d\\d-\\d\\d-\\d\\d[T ]\\d\\d:\\d\\d:\\d\\dZ)` +
         `|` +
-        `(?<link>https?://(?:` +
-        `(?<image>westnordost\.de/p/[0-9]+\.jpg)` +
-        '|' +
-        `(?<osm>` + makeWebUrlRegex(webUrlLister) +
-        `(?<path>(?<osmType>node|way|relation|changeset|note)/(?<id>[0-9]+))?` +
-        `(?<hash>#[-0-9a-zA-Z/.=&]+)?` + // only need hash at root or at recognized path
-        `)` +
-        `))` +
+        `(?<link>https?://(?:` + regExpLinkParts.join('|') + `))` +
         `)`, 'sy');
     const items = [];
     let idx = 0;
@@ -7279,8 +7334,8 @@ function getCommentItems(webUrlLister, commentText) {
         return outputItems;
     }
 }
-function makeWebUrlRegex(webUrlLister) {
-    return '(?:' + webUrlLister.urls.map(webUrl => escapeRegex(stripProtocol(webUrl))).join('|') + ')';
+function makeUrlsRegex(urls) {
+    return '(?:' + urls.map(url => escapeRegex(stripProtocol(url))).join('|') + ')';
 }
 function stripProtocol(webUrl) {
     return webUrl.replace(new RegExp('^[^:]*://'), '');
@@ -7364,14 +7419,23 @@ function getMap(hash) {
     return [zoom, lat, lon];
 }
 
+const defaultImageUrls = [
+    `https://westnordost.de/p/`
+];
 class CommentWriter {
-    constructor(webUrlLister) {
+    constructor(webUrlLister, imageSourceUrlsInput) {
         this.webUrlLister = webUrlLister;
+        if (imageSourceUrlsInput == null) {
+            this.imageSourceUrls = defaultImageUrls;
+        }
+        else {
+            this.imageSourceUrls = imageSourceUrlsInput.split('\n').map(s => s.trim()).filter(s => s);
+        }
     }
     makeCommentElements(commentText, showImages = false, markText) {
         const inlineElements = [];
         const imageElements = [];
-        for (const item of getCommentItems(this.webUrlLister, commentText)) {
+        for (const item of getCommentItems(this.webUrlLister, this.imageSourceUrls, commentText)) {
             const markedText = makeMarkedText(item.text, markText);
             if (item.type == 'link' && item.link == 'image') {
                 const $inlineLink = a(...markedText);
@@ -8883,7 +8947,7 @@ class NoteTable {
                 map.fitNoteTrack();
             bubbleCustomEvent(this.$table, 'osmNoteViewer:notesInViewportChange', visibleNoteIds.map(id => this.notesById.get(id)).filter(isDefined));
         });
-        this.commentWriter = new CommentWriter(web);
+        this.commentWriter = new CommentWriter(web, storage.getItem('image-sources'));
         $container.append(this.$table);
         this.reset(makeElement('caption')()(`Use the forms above to fetch notes`));
         const looseParserPopup = new LooseParserPopup(web, $container);
@@ -9391,7 +9455,8 @@ function setUpdateLinkTitle($noteSection, $a) {
 }
 
 class Tool {
-    constructor(cx) {
+    constructor(storage, cx) {
+        this.storage = storage;
         this.cx = cx;
         this.isFullWidth = false;
         this.$buttonsRequiringSelectedNotes = [];
@@ -10141,8 +10206,8 @@ _InteractionRunHolder_run = new WeakMap();
 
 const e$3 = makeEscapeTag(encodeURIComponent);
 class InteractTool extends Tool {
-    constructor(cx) {
-        super(cx);
+    constructor(storage, cx) {
+        super(storage, cx);
         this.id = 'interact';
         this.name = `Interact`;
         this.title = `Interact with notes on OSM server`;
@@ -10187,8 +10252,10 @@ class InteractTool extends Tool {
             bubbleEvent($a, 'osmNoteViewer:changesetLinkClick');
             return append;
         }, () => [makeElement('span')()(`undo append`)], () => [makeElement('span')()(`append last changeset`)]);
-        this.$loginLink.onclick = () => {
+        this.$loginLink.onclick = ev => {
             bubbleCustomEvent($root, 'osmNoteViewer:menuToggle', 'login');
+            ev.stopPropagation();
+            ev.preventDefault();
         };
         this.$copyIdsButton.onclick = async () => {
             this.$copyIdsButton.title = '';
@@ -10771,7 +10838,7 @@ class ParseTool extends Tool {
         return [p(`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →. `, `Currently detected active elements are: `), ul(li(`links to images made in `, makeLink(`StreetComplete`, `https://wiki.openstreetmap.org/wiki/StreetComplete`)), li(`links to OSM notes (clicking the output link is not yet implemented)`), li(`links to OSM changesets`), li(`links to OSM elements`), li(`ISO-formatted timestamps`)), p(`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`)];
     }
     getTool() {
-        const commentWriter = new CommentWriter(this.cx.server.web);
+        const commentWriter = new CommentWriter(this.cx.server.web, this.storage.getItem('image-sources'));
         const $input = document.createElement('input');
         $input.type = 'text';
         $input.size = 50;
@@ -11606,13 +11673,13 @@ const toolMakerSequence = [
     GpxTool, GeoJsonTool,
     YandexPanoramasTool, MapillaryTool,
     CountTool, LegendTool
-].map(ToolClass => (cx) => new ToolClass(cx));
+].map(ToolClass => (storage, cx) => new ToolClass(storage, cx));
 
 class ToolPanel {
     constructor($root, $toolbar, storage, cx, map) {
         const tools = [];
         for (const makeTool of toolMakerSequence) {
-            const tool = makeTool(cx);
+            const tool = makeTool(storage, cx);
             const storageKey = `tools[${tool.id}]`;
             const [$tool, $info] = tool.write($root, map);
             if ($tool) {
