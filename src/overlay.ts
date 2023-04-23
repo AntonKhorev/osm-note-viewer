@@ -1,3 +1,4 @@
+import ImageSection from './image-section'
 import StorageSection from './storage-section'
 import type NoteViewerStorage from './storage'
 import type NoteViewerDB from './db'
@@ -227,6 +228,10 @@ export default class OverlayDialog {
 		const $scrolling=makeDiv('panel','scrolling')()
 		$scrolling.append(...net.$sections)
 		{
+			const $subsection=makeElement('section')()()
+			new ImageSection($subsection,storage)
+			$scrolling.append($subsection)
+		}{
 			const $subsection=makeElement('section')()()
 			new StorageSection($subsection,storage,db,net.serverSelector)
 			$scrolling.append($subsection)
