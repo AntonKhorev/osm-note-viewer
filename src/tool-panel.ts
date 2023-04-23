@@ -19,7 +19,7 @@ export default class ToolPanel {
 	) {
 		const tools: ToolWithDetails[] = []
 		for (const makeTool of toolMakerSequence) {
-			const tool=makeTool(cx)
+			const tool=makeTool(storage,cx)
 			const storageKey=`tools[${tool.id}]`
 			const [$tool,$info]=tool.write($root,map)
 			if ($tool) {

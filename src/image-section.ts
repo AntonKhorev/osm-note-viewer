@@ -35,9 +35,11 @@ export default class ImageSection {
 				// TODO check syntax - should be https urls
 			},
 			input=>{
-				setStorageString(storage,'image-sources',input.trim())
+				setStorageString(storage,'image-sources',input)
 			},
-			()=>{},
+			()=>{
+				location.reload()
+			},
 			syntaxDescription,syntaxExamples
 		))
 	}

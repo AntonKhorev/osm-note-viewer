@@ -1,4 +1,5 @@
 import {Tool, ToolElements} from './base'
+import type {SimpleStorage} from '../util/storage'
 import type {Connection} from '../net'
 import {getHashFromLocation, detachValueFromHash, attachValueToFrontOfHash} from '../util/hash'
 import type {Note} from '../data'
@@ -37,8 +38,8 @@ export class InteractTool extends Tool {
 		}
 	)
 	private interactionDescriptions=makeInteractionDescriptions(this.$commentButton)
-	constructor(cx: Connection) {
-		super(cx)
+	constructor(storage: SimpleStorage, cx: Connection) {
+		super(storage,cx)
 		this.updateLoginDependents()
 		this.holder.updateUI()
 	}

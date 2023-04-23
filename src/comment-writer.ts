@@ -3,12 +3,22 @@ import getCommentItems from './comment'
 import {makeElement} from './util/html'
 import {a,mark} from './util/html-shortcuts'
 
-const imageUrls=[
+const defaultImageUrls=[
 	`https://westnordost.de/p/`
 ]
 
 export default class CommentWriter {
-	constructor(private webUrlLister: WebUrlLister) {}
+	private readonly imageSourceUrls: string[]
+	constructor(
+		private webUrlLister: WebUrlLister,
+		imageSourceUrlsInput: string|null
+	) {
+		if (imageSourceUrlsInput==null) {
+			this.imageSourceUrls=defaultImageUrls
+		} else {
+			this.imageSourceUrls=imageSourceUrlsInput.split('\n').map(s=>s.trim()).filter(s=>s)
+		}
+	}
 	makeCommentElements(
 		commentText: string, showImages=false, markText?: string|undefined
 	): [
@@ -17,7 +27,7 @@ export default class CommentWriter {
 	] {
 		const inlineElements: Array<string|HTMLElement> = []
 		const imageElements: Array<HTMLAnchorElement> = []
-		for (const item of getCommentItems(this.webUrlLister,imageUrls,commentText)) {
+		for (const item of getCommentItems(this.webUrlLister,this.imageSourceUrls,commentText)) {
 			const markedText=makeMarkedText(item.text,markText)
 			if (item.type=='link' && item.link=='image') {
 				const $inlineLink=a(...markedText)

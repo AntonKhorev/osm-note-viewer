@@ -144,7 +144,7 @@ export default class NoteTable implements NoteTableUpdater {
 				visibleNoteIds.map(id=>this.notesById.get(id)).filter(isDefined)
 			)
 		})
-		this.commentWriter=new CommentWriter(web)
+		this.commentWriter=new CommentWriter(web,storage.getItem('image-sources'))
 		$container.append(this.$table)
 		this.reset(makeElement('caption')()(`Use the forms above to fetch notes`))
 		const looseParserPopup=new LooseParserPopup(web,$container)

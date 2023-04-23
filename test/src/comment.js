@@ -15,19 +15,19 @@ const defaultWebUrlLister=new WebUrlLister([
 	`https://osm.org/`,
 ])
 
-const defaultImageUrls=[
+const defaultImageSourceUrls=[
 	`https://westnordost.de/p/`
 ]
 
-function runCustom(webLister,imageUrls,...lines) {
+function runCustom(webLister,imageSourceUrls,...lines) {
 	return getCommentItems(
 		webLister??defaultWebUrlLister,
-		imageUrls??defaultImageUrls,
+		imageSourceUrls??defaultImageSourceUrls,
 		lines.join('\n')
 	)
 }
 function run(...lines) {
-	return runCustom(defaultWebUrlLister,defaultImageUrls,...lines)
+	return runCustom(defaultWebUrlLister,defaultImageSourceUrls,...lines)
 }
 
 describe("getCommentItems",()=>{

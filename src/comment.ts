@@ -40,12 +40,12 @@ interface OsmNoteCommentItem extends OsmCommentItem {
 
 type CommentItem = TextCommentItem | DateCommentItem | ImageCommentItem | OsmRootCommentItem | OsmElementCommentItem | OsmChangesetCommentItem | OsmNoteCommentItem
 
-export default function getCommentItems(webUrlLister: WebUrlLister, imageUrls: readonly string[], commentText: string): CommentItem[] {
+export default function getCommentItems(webUrlLister: WebUrlLister, imageSourceUrls: readonly string[], commentText: string): CommentItem[] {
 	const matchRegExp=new RegExp(`(?<before>.*?)(?<text>`+
 		`(?<date>\\d\\d\\d\\d-\\d\\d-\\d\\d[T ]\\d\\d:\\d\\d:\\d\\dZ)`+
 	`|`+
 		`(?<link>https?://(?:`+
-			`(?<image>`+makeUrlsRegex(imageUrls)+`\\S+\\.jpg)`+
+			`(?<image>`+makeUrlsRegex(imageSourceUrls)+`\\S+\\.jpg)`+
 		'|'+
 			`(?<osm>`+makeUrlsRegex(webUrlLister.urls)+
 				`(?<path>(?<osmType>node|way|relation|changeset|note)/(?<id>[0-9]+))?`+

@@ -20,7 +20,7 @@ export class ParseTool extends Tool {
 		`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`
 	)]}
 	protected getTool(): ToolElements {
-		const commentWriter=new CommentWriter(this.cx.server.web)
+		const commentWriter=new CommentWriter(this.cx.server.web,this.storage.getItem('image-sources'))
 		const $input=document.createElement('input')
 		$input.type='text'
 		$input.size=50
