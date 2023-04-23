@@ -2456,12 +2456,22 @@ function hasBbox(c) {
 function getChangesetFromOsmApiResponse(data) {
     if (!data || typeof data != 'object')
         throw new TypeError(`OSM API error: invalid response data`);
-    if (!('elements' in data) || !isArray(data.elements))
-        throw new TypeError(`OSM API error: no 'elements' array with changesets in response data`);
-    const changesetArray = data.elements;
-    if (changesetArray.length != 1)
-        throw new TypeError(`OSM API error: invalid number of changesets in response data`);
-    const changeset = changesetArray[0];
+    let changeset;
+    if ('changeset' in data) {
+        changeset = data.changeset;
+    }
+    else if ('elements' in data) {
+        if (!isArray(data.elements))
+            throw new TypeError(`OSM API error: 'elements' is not an array in response data`);
+        const changesetArray = data.elements;
+        if (changesetArray.length != 1)
+            throw new TypeError(`OSM API error: invalid number of changesets in response data`);
+        changeset = changesetArray[0];
+    }
+    else {
+        throw new TypeError(`OSM API error: no 'changeset' or 'elements' in response data`);
+    }
+    changeset = fixBboxFormatDifferences(changeset);
     if (!isOsmChangesetApiData(changeset))
         throw new TypeError(`OSM API error: invalid changeset in response data`);
     return changeset;
@@ -2471,10 +2481,32 @@ function getChangesetsFromOsmApiResponse(data) {
         throw new TypeError(`OSM API error: invalid response data`);
     if (!('changesets' in data) || !isArray(data.changesets))
         throw new TypeError(`OSM API error: no changesets array in response data`);
-    const changesetArray = data.changesets;
+    const changesetArray = data.changesets.map(fixBboxFormatDifferences);
     if (!changesetArray.every(isOsmChangesetApiData))
         throw new TypeError(`OSM API error: invalid changeset in response data`);
     return changesetArray;
+}
+function fixBboxFormatDifferences(inputChangeset) {
+    if (!isObject(inputChangeset))
+        return inputChangeset;
+    let changeset = inputChangeset;
+    if (('min_lat' in changeset) && !('minlat' in changeset)) {
+        const { min_lat, ...rest } = changeset;
+        changeset = { minlat: min_lat, ...rest };
+    }
+    if (('min_lon' in changeset) && !('minlon' in changeset)) {
+        const { min_lon, ...rest } = changeset;
+        changeset = { minlon: min_lon, ...rest };
+    }
+    if (('max_lat' in changeset) && !('maxlat' in changeset)) {
+        const { max_lat, ...rest } = changeset;
+        changeset = { maxlat: max_lat, ...rest };
+    }
+    if (('max_lon' in changeset) && !('maxlon' in changeset)) {
+        const { max_lon, ...rest } = changeset;
+        changeset = { maxlon: max_lon, ...rest };
+    }
+    return changeset;
 }
 
 function isOsmNoteApiData(n) {
