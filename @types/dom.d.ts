@@ -4,7 +4,7 @@ import type {OsmAdiff} from '../src/osm-adiff'
 
 declare global {
 	interface HTMLElementEventMap {
-		'osmNoteViewer:menuToggle': CustomEvent<undefined|'login'>
+		'osmNoteViewer:menuToggle': CustomEvent<undefined|'login'|'image-sources'>
 		'osmNoteViewer:timestampChange': CustomEvent<string>
 		'osmNoteViewer:noteFocus': CustomEvent<[noteId: number, isNegativeZoom: boolean]>
 		'osmNoteViewer:mapFitModeChange': CustomEvent<string>

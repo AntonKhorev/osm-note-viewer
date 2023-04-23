@@ -74,6 +74,8 @@ export default class OverlayDialog {
 			if (detail=='login') {
 				this.menuHidden=false
 				net.focusOnLogin()
+			} else if (detail=='image-sources') {
+				this.menuHidden=false
 			} else {
 				this.menuHidden=!this.menuHidden
 			}

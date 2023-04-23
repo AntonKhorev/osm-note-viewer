@@ -1,7 +1,8 @@
 import type {Connection} from '../net'
 import {NavDialog} from '../navbar'
 import type {NoteQuery} from '../query'
-import {makeElement, makeLink, makeDiv, makeLabel} from '../util/html'
+import {bubbleCustomEvent} from '../util/events'
+import {makeElement, makeLink, makeSemiLink, makeDiv, makeLabel} from '../util/html'
 import {em,sup,code} from '../util/html-shortcuts'
 
 export interface NoteFetchDialogSharedCheckboxes {
@@ -169,8 +170,12 @@ export abstract class NoteFetchDialog extends NavDialog {
 		const $showImagesCheckbox=document.createElement('input')
 		$showImagesCheckbox.type='checkbox'
 		this.$sharedCheckboxes.showImages.push($showImagesCheckbox)
+		const $trustedSourcesLink=makeSemiLink('input-link')(`trusted sources`)
+		$trustedSourcesLink.onclick=()=>{
+			bubbleCustomEvent(this.$root,'osmNoteViewer:menuToggle','image-sources')
+		}
 		$fieldset.append(makeDiv('regular-input-group')(makeLabel()(
-			$showImagesCheckbox,` Load and show images from StreetComplete`
+			$showImagesCheckbox,` Load and show images from `,$trustedSourcesLink
 		)))
 		this.$advancedModeCheckbox.type='checkbox'
 		this.$sharedCheckboxes.advancedMode.push(this.$advancedModeCheckbox)
