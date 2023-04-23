@@ -21,7 +21,7 @@ const syntaxExamples: [string,string[]][] = [
 
 export default class ImageSection {
 	constructor(
-		$section: HTMLElement,
+		private $section: HTMLElement,
 		storage: SimpleStorage
 	) {
 		$section.append(
@@ -42,5 +42,12 @@ export default class ImageSection {
 			},
 			syntaxDescription,syntaxExamples
 		))
+	}
+	focus() {
+		this.$section.scrollIntoView()
+		const $details=this.$section.querySelector('details')
+		if ($details) {
+			$details.open=true
+		}
 	}
 }

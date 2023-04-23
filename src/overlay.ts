@@ -45,6 +45,7 @@ export default class OverlayDialog {
 		)
 	])
 	private imageSequence?: UrlSequence
+	private imageSection?: ImageSection
 	constructor(
 		$root: HTMLElement,
 		storage: NoteViewerStorage, db: NoteViewerDB,
@@ -76,6 +77,7 @@ export default class OverlayDialog {
 				net.focusOnLogin()
 			} else if (detail=='image-sources') {
 				this.menuHidden=false
+				this.imageSection?.focus()
 			} else {
 				this.menuHidden=!this.menuHidden
 			}
@@ -231,7 +233,7 @@ export default class OverlayDialog {
 		$scrolling.append(...net.$sections)
 		{
 			const $subsection=makeElement('section')()()
-			new ImageSection($subsection,storage)
+			this.imageSection=new ImageSection($subsection,storage)
 			$scrolling.append($subsection)
 		}{
 			const $subsection=makeElement('section')()()
