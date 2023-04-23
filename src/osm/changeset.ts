@@ -1,5 +1,5 @@
 import {OsmBaseApiData, isOsmBaseApiData} from './base'
-import {isArray} from '../util/types'
+import {isObject, isArray} from '../util/types'
 
 export type OsmChangesetApiData = OsmBaseApiData & {
 	created_at: string
@@ -45,6 +45,7 @@ export function getChangesetFromOsmApiResponse(data: unknown): OsmChangesetApiDa
 	} else {
 		throw new TypeError(`OSM API error: no 'changeset' or 'elements' in response data`)
 	}
+	changeset=fixBboxFormatDifferences(changeset)
 	if (!isOsmChangesetApiData(changeset)) throw new TypeError(`OSM API error: invalid changeset in response data`)
 	return changeset
 }
@@ -52,7 +53,17 @@ export function getChangesetFromOsmApiResponse(data: unknown): OsmChangesetApiDa
 export function getChangesetsFromOsmApiResponse(data: unknown): OsmChangesetApiData[] {
 	if (!data || typeof data != 'object') throw new TypeError(`OSM API error: invalid response data`)
 	if (!('changesets' in data) || !isArray(data.changesets)) throw new TypeError(`OSM API error: no changesets array in response data`)
-	const changesetArray=data.changesets
+	const changesetArray=data.changesets.map(fixBboxFormatDifferences)
 	if (!changesetArray.every(isOsmChangesetApiData)) throw new TypeError(`OSM API error: invalid changeset in response data`)
 	return changesetArray
+}
+
+function fixBboxFormatDifferences(inputChangeset: unknown): unknown {
+	if (!isObject(inputChangeset)) return inputChangeset
+	let changeset=inputChangeset
+	if (('min_lat' in changeset) && !('minlat' in changeset)) { const {min_lat,...rest}=changeset; changeset={minlat:min_lat,...rest} }
+	if (('min_lon' in changeset) && !('minlon' in changeset)) { const {min_lon,...rest}=changeset; changeset={minlon:min_lon,...rest} }
+	if (('max_lat' in changeset) && !('maxlat' in changeset)) { const {max_lat,...rest}=changeset; changeset={maxlat:max_lat,...rest} }
+	if (('max_lon' in changeset) && !('maxlon' in changeset)) { const {max_lon,...rest}=changeset; changeset={maxlon:max_lon,...rest} }
+	return changeset
 }

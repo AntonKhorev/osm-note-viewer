@@ -2,7 +2,7 @@ import {strict as assert} from 'assert'
 import {getChangesetFromOsmApiResponse} from '../../../test-build/osm/changeset.js'
 
 describe("osm / changeset module / toUserQuery()",()=>{
-	it("reads changeset wrapped in elements array",()=>{
+	it("reads changeset in CGImap format",()=>{
 		const input={
 			"version":"0.6",
 			"generator":"CGImap 0.8.8 (1059099 spike-08.openstreetmap.org)",
@@ -18,10 +18,10 @@ describe("osm / changeset module / toUserQuery()",()=>{
 					"open":false,
 					"user":"The User",
 					"uid":12345,
-					"minlat":50,
-					"minlon":10,
-					"maxlat":51,
-					"maxlon":11,
+					"minlat":50.4444444,
+					"minlon":10.4444444,
+					"maxlat":51.2222222,
+					"maxlon":11.2222222,
 					"comments_count":0,
 					"changes_count":1000,
 					"tags":{"comment":"some changes","created_by":"JOSM/1.5 (17428 en)"}
@@ -30,8 +30,12 @@ describe("osm / changeset module / toUserQuery()",()=>{
 		}
 		const output=getChangesetFromOsmApiResponse(input)
 		assert.equal(output.id,102030405)
+		assert.equal(output.minlat,50.4444444)
+		assert.equal(output.minlon,10.4444444)
+		assert.equal(output.maxlat,51.2222222)
+		assert.equal(output.maxlon,11.2222222)
 	})
-	it("reads unwrapped changeset",()=>{
+	it("reads changeset in openstreetmap-website format",()=>{
 		const input={
 			"version":"0.6",
 			"generator":"OpenHistoricalMap server",
@@ -56,5 +60,9 @@ describe("osm / changeset module / toUserQuery()",()=>{
 		}
 		const output=getChangesetFromOsmApiResponse(input)
 		assert.equal(output.id,54321)
+		assert.equal(output.minlat,50.1111111)
+		assert.equal(output.minlon,5.1111111)
+		assert.equal(output.maxlat,50.2222222)
+		assert.equal(output.maxlon,5.2222222)
 	})
 })
