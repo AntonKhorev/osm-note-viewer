@@ -24,7 +24,7 @@ const defaultListers=[
 	])
 ]
 
-describe("user query module / toUserQuery()",()=>{
+describe("osm / user query module / toUserQuery()",()=>{
 	it("gives empty output on empty input",()=>{
 		const uq=toUserQuery(...defaultListers,``)
 		assert.equal(uq.type,'empty')
