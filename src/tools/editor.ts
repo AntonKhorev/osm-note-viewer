@@ -29,9 +29,9 @@ abstract class EditorTool extends Tool {
 			this.$actOnElementButton.disabled=false
 			this.$actOnElementButton.textContent=`${this.elementAction} ${this.inputElement}`
 		})
-		return [...this.getSpecificControls($root,$tool,map),` `,this.$actOnElementButton]
+		return this.getControls($root,$tool,map)
 	}
-	protected abstract getSpecificControls($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements
+	protected abstract getControls($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements
 	protected abstract doElementAction(map: NoteMap): void
 }
 
@@ -51,7 +51,7 @@ export class RcTool extends EditorTool {
 		`Area loading is also used as an opportunity to set the default changeset source and comment containing note ids using the `,code(`changeset_tags`),` parameter.`),
 		li(`OSM elements are loaded by `,makeRcCommandLink(`load_object`),` RC command. The button is enabled after the element link is clicked in some note comment.`)
 	)]}
-	protected getSpecificControls($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements {
+	protected getControls($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements {
 		let inputNotes: ReadonlyArray<Note> = []
 		const $sourceInput=makeElement('input')()()
 		$sourceInput.type='text'
@@ -98,7 +98,7 @@ export class RcTool extends EditorTool {
 			[inputNotes]=ev.detail
 			this.ping($tool)
 		})
-		return [$loadNotesButton,` `,$loadMapButton,` `,$sourceLabel]
+		return [$loadNotesButton,` `,$loadMapButton,` `,this.$actOnElementButton,` `,$sourceLabel]
 	}
 	doElementAction() {
 		const rcPath=e`load_object?objects=${this.inputElement}`
@@ -137,7 +137,7 @@ export class IdTool extends EditorTool {
 		`Selecting won't work if the element is not already loaded. `,
 		`Therefore when you press the `,em(`Select element`),` button on a new location, it likely won't select the element because the element is not yet loaded.`
 	)]}
-	protected getSpecificControls($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements {
+	protected getControls($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements {
 		// limited to what hashchange() lets you do here https://github.com/openstreetmap/iD/blob/develop/modules/behavior/hash.js
 		// which is zooming / panning / selecting osm elements
 		// selecting requires map parameter set
@@ -147,7 +147,7 @@ export class IdTool extends EditorTool {
 			const url=this.cx.server.web.getUrl(e`id#map=${map.zoom}/${map.lat}/${map.lon}`)
 			open(url,'id')
 		}
-		return [$zoomButton]
+		return [$zoomButton,` `,this.$actOnElementButton]
 	}
 	doElementAction(map: NoteMap) {
 		const url=this.cx.server.web.getUrl(e`id#id=${this.inputElement}&map=${map.zoom}/${map.lat}/${map.lon}`)
