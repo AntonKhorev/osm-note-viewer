@@ -2,7 +2,7 @@ import {Tool, ToolElements, makeNotesIcon, makeMapIcon} from './base'
 import type {Note} from '../data'
 import type NoteMap from '../map'
 import {listDecoratedNoteIds, convertDecoratedNoteIdsToPlainText} from '../id-lister'
-import {makeLink} from '../util/html'
+import {makeElement, makeLink, makeLabel} from '../util/html'
 import {p,em,ul,li,code} from '../util/html-shortcuts'
 import {makeEscapeTag} from '../util/escape'
 
@@ -53,6 +53,10 @@ export class RcTool extends EditorTool {
 	)]}
 	protected getSpecificControls($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements {
 		let inputNotes: ReadonlyArray<Note> = []
+		const $sourceInput=makeElement('input')()()
+		$sourceInput.type='text'
+		$sourceInput.size=10
+		$sourceInput.value='notes'
 		const $loadNotesButton=this.makeRequiringSelectedNotesButton()
 		$loadNotesButton.append(`Load `,makeNotesIcon('selected'))
 		$loadNotesButton.onclick=async()=>{
@@ -63,7 +67,7 @@ export class RcTool extends EditorTool {
 				if (!success) break
 			}
 		}
-		const $loadMapButton=document.createElement('button')
+		const $loadMapButton=makeElement('button')()()
 		$loadMapButton.append(`Load `,makeMapIcon('area'))
 		$loadMapButton.onclick=()=>{
 			const bounds=map.bounds
@@ -82,16 +86,17 @@ export class RcTool extends EditorTool {
 				if (combinedNoteComment) changesetCommentParts.push(combinedNoteComment)
 				if (listedNoteIdsComment) changesetCommentParts.push(listedNoteIdsComment)
 				const changesetComment=changesetCommentParts.join(changesetCommentJoiner)
-				const changesetTags=`source=notes|comment=${changesetComment}`
+				const changesetTags=`source=${$sourceInput.value}|comment=${changesetComment}`
 				rcPath+=e`&changeset_tags=${changesetTags}`
 			}
 			openRcPath($loadMapButton,rcPath)
 		}
+		const $sourceLabel=makeLabel('inline')(`with source `,$sourceInput)
 		$root.addEventListener('osmNoteViewer:notesInput',ev=>{
 			[inputNotes]=ev.detail
 			this.ping($tool)
 		})
-		return [$loadNotesButton,` `,$loadMapButton]
+		return [$loadNotesButton,` `,$loadMapButton,` `,$sourceLabel]
 	}
 	doElementAction() {
 		const rcPath=e`load_object?objects=${this.inputElement}`
