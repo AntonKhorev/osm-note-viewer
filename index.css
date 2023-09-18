@@ -114,6 +114,7 @@ body > .symbols {
 	display: flex;
 	flex-direction: column;
 	z-index: 1; /* be above photo with blurry backdrop */
+	overflow: hidden;
 }
 .ui .text-side > .scrolling {
 	overflow-y: scroll;

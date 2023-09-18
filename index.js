@@ -5782,9 +5782,9 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         return [
             ['q', this.$textInput, [
                     `Comment text search query. `,
-                    `This is an optional parameter, despite the OSM wiki saying that it's required, which is also suggested by the `, em(`search`), ` API call name. `,
-                    `Skipping this parameter disables text searching, all notes that fit other search criteria will go through. `,
-                    `Searching is done with English stemming rules and may not work correctly for other languages.`
+                    `Supplying it limits notes to the ones with comments containing the text. `,
+                    `This is not a substring search but rather a full-text search with English stemming rules. `,
+                    `It may not work correctly for other languages.`
                 ]],
             ['limit', this.$limitInput, [
                     `Max number of notes to fetch. `,
@@ -10242,7 +10242,7 @@ class InteractTool extends Tool {
         }, async ($a) => {
             if (this.cx.uid == null)
                 throw new TypeError(`Undefined user id when getting last changeset`);
-            const response = await this.cx.server.api.fetch(e$3 `changesets.json?user=${this.cx.uid}`);
+            const response = await this.cx.server.api.fetch(e$3 `changesets.json?user=${this.cx.uid}&limit=1`);
             const data = await response.json();
             const changesetId = getLatestChangesetId(data);
             const append = getParagraphAppend(this.$commentText.value, this.cx.server.web.getUrl(e$3 `changeset/${changesetId}`));
@@ -11152,7 +11152,7 @@ class EditorTool extends Tool {
             this.$actOnElementButton.disabled = false;
             this.$actOnElementButton.textContent = `${this.elementAction} ${this.inputElement}`;
         });
-        return [...this.getSpecificControls($root, $tool, map), ` `, this.$actOnElementButton];
+        return this.getControls($root, $tool, map);
     }
 }
 class RcTool extends EditorTool {
@@ -11166,8 +11166,15 @@ class RcTool extends EditorTool {
     getInfo() {
         return [p(`Load note/map data to an editor with `, makeLink(`remote control`, 'https://wiki.openstreetmap.org/wiki/JOSM/RemoteControl'), `.`), ul(li(`Notes are loaded by `, makeRcCommandLink(`import`), ` RC command `, `with note webpage the OSM website as the `, code(`url`), ` parameter.`), li(`Map area is loaded by `, makeRcCommandLink(`load_and_zoom`), ` RC command. `, `Area loading is also used as an opportunity to set the default changeset source and comment containing note ids using the `, code(`changeset_tags`), ` parameter.`), li(`OSM elements are loaded by `, makeRcCommandLink(`load_object`), ` RC command. The button is enabled after the element link is clicked in some note comment.`))];
     }
-    getSpecificControls($root, $tool, map) {
+    getControls($root, $tool, map) {
         let inputNotes = [];
+        const $commentPrefixInput = makeElement('input')()();
+        $commentPrefixInput.type = 'text';
+        $commentPrefixInput.size = 10;
+        const $sourceInput = makeElement('input')()();
+        $sourceInput.type = 'text';
+        $sourceInput.size = 10;
+        $sourceInput.value = 'notes';
         const $loadNotesButton = this.makeRequiringSelectedNotesButton();
         $loadNotesButton.append(`Load `, makeNotesIcon('selected'));
         $loadNotesButton.onclick = async () => {
@@ -11179,34 +11186,50 @@ class RcTool extends EditorTool {
                     break;
             }
         };
-        const $loadMapButton = document.createElement('button');
+        const $loadMapButton = makeElement('button')()();
         $loadMapButton.append(`Load `, makeMapIcon('area'));
         $loadMapButton.onclick = () => {
             const bounds = map.bounds;
             let rcPath = e$1 `load_and_zoom` +
                 `?left=${bounds.getWest()}&right=${bounds.getEast()}` +
                 `&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`;
+            if ($sourceInput.value) {
+                rcPath += e$1 `&changeset_source=${$sourceInput.value}`;
+            }
             if (inputNotes.length >= 1) {
                 const maxTagLength = 255;
                 const changesetCommentJoiner = ` - `;
-                const combinedNoteComment = combineNoteComments(inputNotes);
-                const listedNoteIdsComment = convertDecoratedNoteIdsToPlainText(listDecoratedNoteIds(inputNotes.map(note => note.id)), maxTagLength - (combinedNoteComment.length + changesetCommentJoiner.length));
+                let noteIdsLimit = maxTagLength;
                 const changesetCommentParts = [];
-                if (combinedNoteComment)
+                if ($commentPrefixInput.value) {
+                    changesetCommentParts.push($commentPrefixInput.value);
+                    noteIdsLimit -= ($commentPrefixInput.value.length + changesetCommentJoiner.length);
+                }
+                const combinedNoteComment = combineNoteComments(inputNotes);
+                if (combinedNoteComment) {
                     changesetCommentParts.push(combinedNoteComment);
-                if (listedNoteIdsComment)
+                    noteIdsLimit -= (combinedNoteComment.length + changesetCommentJoiner.length);
+                }
+                const listedNoteIdsComment = convertDecoratedNoteIdsToPlainText(listDecoratedNoteIds(inputNotes.map(note => note.id)), noteIdsLimit);
+                if (listedNoteIdsComment) {
                     changesetCommentParts.push(listedNoteIdsComment);
+                }
                 const changesetComment = changesetCommentParts.join(changesetCommentJoiner);
-                const changesetTags = `source=notes|comment=${changesetComment}`;
-                rcPath += e$1 `&changeset_tags=${changesetTags}`;
+                rcPath += e$1 `&changeset_comment=${changesetComment}`;
             }
             openRcPath($loadMapButton, rcPath);
         };
+        const $commentPrefixLabel = makeLabel('inline')(`comment prefix `, $commentPrefixInput);
+        const $sourceLabel = makeLabel('inline')(`source `, $sourceInput);
+        $commentPrefixLabel.title = $sourceLabel.title = `works only with Load map area`;
         $root.addEventListener('osmNoteViewer:notesInput', ev => {
             [inputNotes] = ev.detail;
             this.ping($tool);
         });
-        return [$loadNotesButton, ` `, $loadMapButton];
+        return [
+            $loadNotesButton, ` `, $loadMapButton, ` `, this.$actOnElementButton, ` `,
+            `+ `, $commentPrefixLabel, ` `, $sourceLabel
+        ];
     }
     doElementAction() {
         const rcPath = e$1 `load_object?objects=${this.inputElement}`;
@@ -11224,7 +11247,7 @@ class IdTool extends EditorTool {
     getInfo() {
         return [p(`Follow your notes by zooming from one place to another in one `, makeLink(`iD editor`, 'https://wiki.openstreetmap.org/wiki/ID'), ` window. `, `It could be faster to do first here in note-viewer than in iD directly because note-viewer won't try to download more data during panning. `, `After zooming in note-viewer, click the `, em(`Open`), ` button to open this location in iD. `, `When you go back to note-viewer, zoom to another place and click the `, em(`Open`), ` button for the second time, the already opened iD instance zooms to that place. `, `Your edits are not lost between such zooms.`), p(`Technical details: this is an attempt to make something like `, em(`remote control`), ` in iD editor. `, `Convincing iD to load notes has proven to be tricky. `, `Your best chance of seeing the selected notes is importing them as a `, em(`gpx`), ` file. `, `See `, makeLink(`this diary post`, `https://www.openstreetmap.org/user/Anton%20Khorev/diary/398991`), ` for further explanations.`), p(`Zooming/panning is easier to do, and that's what is currently implemented. `, `It's not without quirks however. You'll notice that the iD window opened from here doesn't have the OSM website header. `, `This is because the editor is opened at `, code(makeLink(`/id`, `https://www.openstreetmap.org/id`)), ` url instead of `, code(makeLink(`/edit`, `https://www.openstreetmap.org/edit`)), `. `, `It has to be done because otherwise iD won't listen to `, code(`#map`), ` changes in the webpage location.`), p(`There's also the `, em(`Select element`), ` button, but it's not guaranteed to work every time. `, `There is a way to open a new iD window and have a selected element in it for sure by using `, code(`edit?type=id`), `. `, `When working with existing window however, things work differently. `, `Selecting an element by using the `, code(`id`), ` hash parameter also requires the `, code(`map`), ` parameter, otherwise it's ignored. `, `There's no way for note-viewer to know iD's current map view location because of cross-origin restrictions, so note-viewer's own map location is passed as `, code(`map`), `. `, `Selecting won't work if the element is not already loaded. `, `Therefore when you press the `, em(`Select element`), ` button on a new location, it likely won't select the element because the element is not yet loaded.`)];
     }
-    getSpecificControls($root, $tool, map) {
+    getControls($root, $tool, map) {
         // limited to what hashchange() lets you do here https://github.com/openstreetmap/iD/blob/develop/modules/behavior/hash.js
         // which is zooming / panning / selecting osm elements
         // selecting requires map parameter set
@@ -11234,7 +11257,7 @@ class IdTool extends EditorTool {
             const url = this.cx.server.web.getUrl(e$1 `id#map=${map.zoom}/${map.lat}/${map.lon}`);
             open(url, 'id');
         };
-        return [$zoomButton];
+        return [$zoomButton, ` `, this.$actOnElementButton];
     }
     doElementAction(map) {
         const url = this.cx.server.web.getUrl(e$1 `id#id=${this.inputElement}&map=${map.zoom}/${map.lat}/${map.lon}`);
