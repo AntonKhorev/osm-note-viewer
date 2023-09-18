@@ -53,6 +53,9 @@ export class RcTool extends EditorTool {
 	)]}
 	protected getControls($root: HTMLElement, $tool: HTMLElement, map: NoteMap): ToolElements {
 		let inputNotes: ReadonlyArray<Note> = []
+		const $commentPrefixInput=makeElement('input')()()
+		$commentPrefixInput.type='text'
+		$commentPrefixInput.size=10
 		const $sourceInput=makeElement('input')()()
 		$sourceInput.type='text'
 		$sourceInput.size=10
@@ -80,26 +83,40 @@ export class RcTool extends EditorTool {
 			if (inputNotes.length>=1) {
 				const maxTagLength=255
 				const changesetCommentJoiner=` - `
+				let noteIdsLimit=maxTagLength
+				const changesetCommentParts=[] as string[]
+				if ($commentPrefixInput.value) {
+					changesetCommentParts.push($commentPrefixInput.value)
+					noteIdsLimit-=($commentPrefixInput.value.length+changesetCommentJoiner.length)
+				}
 				const combinedNoteComment=combineNoteComments(inputNotes)
+				if (combinedNoteComment) {
+					changesetCommentParts.push(combinedNoteComment)
+					noteIdsLimit-=(combinedNoteComment.length+changesetCommentJoiner.length)
+				}
 				const listedNoteIdsComment=convertDecoratedNoteIdsToPlainText(
 					listDecoratedNoteIds(inputNotes.map(note=>note.id)),
-					maxTagLength-(combinedNoteComment.length+changesetCommentJoiner.length)
+					noteIdsLimit
 				)
-				const changesetCommentParts=[] as string[]
-				if (combinedNoteComment) changesetCommentParts.push(combinedNoteComment)
-				if (listedNoteIdsComment) changesetCommentParts.push(listedNoteIdsComment)
+				if (listedNoteIdsComment) {
+					changesetCommentParts.push(listedNoteIdsComment)
+				}
 				const changesetComment=changesetCommentParts.join(changesetCommentJoiner)
 				rcPath+=e`&changeset_comment=${changesetComment}`
 			}
 			openRcPath($loadMapButton,rcPath)
 		}
-		const $sourceLabel=makeLabel('inline')(`with source `,$sourceInput)
-		$sourceLabel.title=`works only with Load map area`
+		const $commentPrefixLabel=makeLabel('inline')(`comment prefix `,$commentPrefixInput)
+		const $sourceLabel=makeLabel('inline')(`source `,$sourceInput)
+		$commentPrefixLabel.title=$sourceLabel.title=`works only with Load map area`
 		$root.addEventListener('osmNoteViewer:notesInput',ev=>{
 			[inputNotes]=ev.detail
 			this.ping($tool)
 		})
-		return [$loadNotesButton,` `,$loadMapButton,` `,this.$actOnElementButton,` `,$sourceLabel]
+		return [
+			$loadNotesButton,` `,$loadMapButton,` `,this.$actOnElementButton,` `,
+			`+ `,$commentPrefixLabel,` `,$sourceLabel
+		]
 	}
 	doElementAction() {
 		const rcPath=e`load_object?objects=${this.inputElement}`
