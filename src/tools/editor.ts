@@ -94,6 +94,7 @@ export class RcTool extends EditorTool {
 			openRcPath($loadMapButton,rcPath)
 		}
 		const $sourceLabel=makeLabel('inline')(`with source `,$sourceInput)
+		$sourceLabel.title=`works only with Load map area`
 		$root.addEventListener('osmNoteViewer:notesInput',ev=>{
 			[inputNotes]=ev.detail
 			this.ping($tool)
