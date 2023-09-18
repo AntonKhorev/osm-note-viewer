@@ -28,9 +28,9 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 		return [
 			['q',this.$textInput,[
 				`Comment text search query. `,
-				`This is an optional parameter, despite the OSM wiki saying that it's required, which is also suggested by the `,em(`search`),` API call name. `,
-				`Skipping this parameter disables text searching, all notes that fit other search criteria will go through. `,
-				`Searching is done with English stemming rules and may not work correctly for other languages.`
+				`Supplying it limits notes to the ones with comments containing the text. `,
+				`This is not a substring search but rather a full-text search with English stemming rules. `,
+				`It may not work correctly for other languages.`
 			]],
 			['limit',this.$limitInput,[
 				`Max number of notes to fetch. `,
