@@ -90,7 +90,7 @@ export class InteractTool extends Tool {
 			},
 			async($a)=>{
 				if (this.cx.uid==null) throw new TypeError(`Undefined user id when getting last changeset`)
-				const response=await this.cx.server.api.fetch(e`changesets.json?user=${this.cx.uid}`)
+				const response=await this.cx.server.api.fetch(e`changesets.json?user=${this.cx.uid}&limit=1`)
 				const data=await response.json()
 				const changesetId=getLatestChangesetId(data)
 				const append=getParagraphAppend(
