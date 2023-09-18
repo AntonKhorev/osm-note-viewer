@@ -74,9 +74,8 @@ export class RcTool extends EditorTool {
 			let rcPath=e`load_and_zoom`+
 				`?left=${bounds.getWest()}&right=${bounds.getEast()}`+
 				`&top=${bounds.getNorth()}&bottom=${bounds.getSouth()}`
-			const changesetTags=[]
 			if ($sourceInput.value) {
-				changesetTags.push(`source=${$sourceInput.value}`)
+				rcPath+=e`&changeset_source=${$sourceInput.value}`
 			}
 			if (inputNotes.length>=1) {
 				const maxTagLength=255
@@ -90,10 +89,7 @@ export class RcTool extends EditorTool {
 				if (combinedNoteComment) changesetCommentParts.push(combinedNoteComment)
 				if (listedNoteIdsComment) changesetCommentParts.push(listedNoteIdsComment)
 				const changesetComment=changesetCommentParts.join(changesetCommentJoiner)
-				changesetTags.push(`comment=${changesetComment}`)
-			}
-			if (changesetTags.length>0) {
-				rcPath+=e`&changeset_tags=${changesetTags.join('|')}`
+				rcPath+=e`&changeset_comment=${changesetComment}`
 			}
 			openRcPath($loadMapButton,rcPath)
 		}
