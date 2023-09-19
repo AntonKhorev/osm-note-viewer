@@ -209,6 +209,11 @@ a.other-note.absent:active {
 button[role=progressbar] {
 	cursor: progress;
 }
+input[type=date][tabindex] {
+	width: 18px;
+	border: none;
+	background: transparent;
+}
 
 kbd.copy {
 	text-decoration: underline dotted 1px;
