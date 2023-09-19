@@ -1,12 +1,41 @@
 // use isNaN(+date) to test for invalid dates
 
-export function getDateFromInputDateTime(inputDateTime: string): Date {
-	const [date]=parseDateFromInputDateTime(inputDateTime)
+export function getDateFromInputString(inputString: string): Date {
+	const [date]=parseDateFromInputString(inputString)
 	return date
 }
 
-export function parseDateFromInputDateTime(readableDate: string): [date: Date, match: string] {
-	let s=readableDate.trim()
+export function convertDateToUrlString(date: Date): string {
+	return convertDateToIsoString(date,'','')
+}
+
+export function convertDateToIsoString(date: Date, dateSeparator='-', timeSeparator=':', dateTimeSeparator='T', utcSuffix='Z'): string {
+	return (
+		convertDateToIsoDateString(date,dateSeparator)+
+		dateTimeSeparator+
+		convertDateToIsoTimeString(date,timeSeparator)+
+		utcSuffix
+	)
+}
+
+export function convertDateToIsoDateString(date: Date, separator='-'): string {
+	return (
+		date.getUTCFullYear()+separator+
+		pad00(date.getUTCMonth()+1)+separator+
+		pad00(date.getUTCDate())
+	)
+}
+
+export function convertDateToIsoTimeString(date: Date, separator=':'): string {
+	return (
+		pad00(date.getUTCHours())+separator+
+		pad00(date.getUTCMinutes())+separator+
+		pad00(date.getUTCSeconds())
+	)
+}
+
+export function parseDateFromInputString(inputString: string): [date: Date, match: string] {
+	let s=inputString.trim()
 	let m=''
 	let r=''
 	{
@@ -58,4 +87,8 @@ export function parseDateFromInputDateTime(readableDate: string): [date: Date, m
 		const completedReadableDate=r+completionTemplate.slice(r.length)
 		return [new Date(completedReadableDate), m]
 	}
+}
+
+function pad00(n: number): string {
+	return ('0'+n).slice(-2)
 }

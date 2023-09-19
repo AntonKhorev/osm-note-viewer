@@ -1,4 +1,4 @@
-import {parseDateFromInputDateTime} from './util/date'
+import {convertDateToIsoString, parseDateFromInputString} from './util/date'
 
 export interface ValidDateQuery {
 	dateType: 'valid'
@@ -43,18 +43,8 @@ function toShortOrFullReadableDate(date: number|undefined, full: boolean): strin
 }
 
 export function toUrlDate(date: number, dateSeparator='', timeSeparator=''): string {
-	const pad=(n: number): string => ('0'+n).slice(-2)
 	const dateObject=new Date(date*1000)
-	const dateString=
-		dateObject.getUTCFullYear()+dateSeparator+
-		pad(dateObject.getUTCMonth()+1)+dateSeparator+
-		pad(dateObject.getUTCDate())+
-		'T'+
-		pad(dateObject.getUTCHours())+timeSeparator+
-		pad(dateObject.getUTCMinutes())+timeSeparator+
-		pad(dateObject.getUTCSeconds())+
-		'Z'
-	return dateString
+	return convertDateToIsoString(dateObject,dateSeparator,timeSeparator)
 }
 
 export function toDateQuery(readableDate: string): DateQuery {
@@ -64,7 +54,7 @@ export function toDateQuery(readableDate: string): DateQuery {
 			dateType: 'empty'
 		}
 	}
-	const [date,match]=parseDateFromInputDateTime(s)
+	const [date,match]=parseDateFromInputString(s)
 	if (isNaN(+date)) {
 		let message=`invalid date string`
 		if (match!='') message+=` after ${match}`
