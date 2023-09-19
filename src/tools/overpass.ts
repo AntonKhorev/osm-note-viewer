@@ -1,6 +1,7 @@
 import {Tool, ToolElements, makeMapIcon} from './base'
 import {QueryError} from '../net'
 import type NoteMap from '../map'
+import {getDateFromInputString, convertDateToIsoString} from '../util/date'
 import {makeElement, makeLabel, makeLink, wrapFetchForButton} from '../util/html'
 import {p} from '../util/html-shortcuts'
 
@@ -14,7 +15,13 @@ abstract class OverpassBaseTool extends Tool {
 	}
 	protected getOverpassQueryPreamble(map: NoteMap): string {
 		let query=''
-		if (this.timestamp) query+=`[date:"${this.timestamp}"]\n`
+		const timestampString=this.timestamp.trim()
+		if (timestampString) {
+			const date=getDateFromInputString(timestampString)
+			if (!isNaN(+date)) {
+				query+=`[date:"${convertDateToIsoString(date)}"]\n`
+			}
+		}
 		query+=`[bbox:${map.precisionBounds.swne}]\n`
 		query+=`;\n`
 		return query
