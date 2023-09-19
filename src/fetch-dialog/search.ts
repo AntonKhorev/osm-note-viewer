@@ -1,7 +1,8 @@
 import {NoteQueryFetchDialog, mixinWithAutoLoadCheckbox} from './base'
 import type {NoteQuery} from '../query'
 import {makeNoteSearchQueryFromValues, toUserQuery} from '../query'
-import {toDateQuery, toShortReadableDate} from '../query-date'
+import {toShortReadableDate} from '../query-date'
+import DateInput from '../date-input'
 import TextControl from '../text-control'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../util/html'
 import {p,em,code} from '../util/html-shortcuts'
@@ -14,8 +15,8 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 	title=`Search notes for user / text / date range`
 	protected $userInput=document.createElement('input')
 	protected $textInput=document.createElement('input')
-	protected $fromInput=document.createElement('input')
-	protected $toInput=document.createElement('input')
+	protected fromDateInput=new DateInput()
+	protected toDateInput=new DateInput()
 	protected $sortSelect=document.createElement('select')
 	protected $orderSelect=document.createElement('select')
 	protected makeLeadAdvancedHint(): Array<string|HTMLElement> {
@@ -57,13 +58,13 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 				`In this case the remaining part of the value is treated as a user id number. `,
 				`Ids and URLs can be unambiguously detected in the input because usernames can't contain any of the following characters: `,code(`/;.,?%#`),`.`
 			]],
-			['from',this.$fromInput,[
+			['from',this.fromDateInput.$input,[
 				`Beginning of a date range. `,
 				`This parameter is optional but if not provided the API will also ignore the `,code('to'),` parameter. `,
 				em(`Note-viewer`),` makes `,code('from'),` actually optional by providing a value far enough in the past if `,code('to'),` value is entered while `,code('from'),` value is not. `,
 				`Also both `,code('from'),` and `,code('to'),` parameters are altered in `,em(`Load more`),` fetches in order to limit the note selection to notes that are not yet downloaded.`
 			]],
-			['to',this.$toInput,[
+			['to',this.toDateInput.$input,[
 				`End of a date range.`
 			]],
 			['sort',this.$sortSelect,[
@@ -109,15 +110,17 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 				`Comment text search query`,rq('q'),` `,this.$textInput
 			)))
 		}{
-			this.$fromInput.type='text'
-			this.$fromInput.size=20
-			this.$fromInput.name='from'
-			this.$toInput.type='text'
-			this.$toInput.size=20
-			this.$toInput.name='to'
+			this.fromDateInput.$input.name='from'
+			this.toDateInput.$input.name='to'
 			$fieldset.append(makeDiv('date-range-input-group')(
-				makeLabel('inline')(`From date`,rq('from'),` `,this.$fromInput),` `,
-				makeLabel('inline')(`To date`,rq('to'),` `,this.$toInput)
+				makeElement('span')()(
+					makeLabel('inline')(`From date`,rq('from'),` `,this.fromDateInput.$input),
+					this.fromDateInput.$dateInput
+				),
+				makeElement('span')()(
+					makeLabel('inline')(`To date`,rq('to'),` `,this.toDateInput.$input),
+					this.toDateInput.$dateInput
+				)
 			))
 		}
 	}
@@ -153,8 +156,8 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 		}
 		this.$userInput.dispatchEvent(new Event('input')) // update text controls
 		this.$textInput.value=query?.q ?? ''
-		this.$fromInput.value=toShortReadableDate(query?.from)
-		this.$toInput.value=toShortReadableDate(query?.to)
+		this.fromDateInput.value=toShortReadableDate(query?.from)
+		this.toDateInput.value=toShortReadableDate(query?.to)
 		this.$sortSelect.value=query?.sort ?? 'created_at'
 		this.$orderSelect.value=query?.order ?? 'newest'
 	}
@@ -167,25 +170,18 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 				this.$userInput.setCustomValidity('')
 			}
 		})
-		for (const $input of [this.$fromInput,this.$toInput]) $input.addEventListener('input',()=>{
-			const query=toDateQuery($input.value)
-			if (query.dateType=='invalid') {
-				$input.setCustomValidity(query.message)
-			} else {
-				$input.setCustomValidity('')
-			}
-		})
 	}
 	protected constructQuery(): NoteQuery | undefined {
 		return makeNoteSearchQueryFromValues(
 			this.cx.server.api,this.cx.server.web,
-			this.$userInput.value,this.$textInput.value,this.$fromInput.value,this.$toInput.value,
+			this.$userInput.value,this.$textInput.value,this.fromDateInput.value,this.toDateInput.value,
 			this.closedValue,this.$sortSelect.value,this.$orderSelect.value
 		)
 	}
 	protected listQueryChangingInputs(): Array<HTMLInputElement|HTMLSelectElement> {
 		return [
-			this.$userInput,this.$textInput,this.$fromInput,this.$toInput,
+			this.$userInput,this.$textInput,
+			this.fromDateInput.$input,this.toDateInput.$input, // TODO provide event listener hook to base class
 			this.$closedInput,this.$closedSelect,this.$sortSelect,this.$orderSelect
 		]
 	}

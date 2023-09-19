@@ -3,31 +3,31 @@ import {toDateQuery} from './query-date'
 import {convertDateToIsoDateString} from './util/date'
 
 export default class DateInput {
-	private $timestampInput=document.createElement('input')
-	private $dateInput=document.createElement('input')
-	constructor(callback: (value:string)=>void) {
-		this.$timestampInput.type='text'
-		this.$timestampInput.size=20
+	public $input=document.createElement('input')
+	public $dateInput=document.createElement('input')
+	constructor(public onInput: (value:string)=>void = ()=>{}) {
+		this.$input.type='text'
+		this.$input.size=20
 		this.$dateInput.type='date'
 		this.$dateInput.tabIndex=-1
-		this.$timestampInput.oninput=()=>{
+		this.$input.oninput=()=>{
 			this.updateValidityAndDateInput()
-			callback(this.$timestampInput.value)
+			this.onInput(this.$input.value)
 		}
 		this.$dateInput.onchange=()=>{
-			this.$timestampInput.value=this.$dateInput.value
+			this.$input.value=this.$dateInput.value
 			this.updateValidity()
-			callback(this.$timestampInput.value)
+			this.onInput(this.$input.value)
 		}
 	}
 	get $elements(): HTMLElement[] {
-		return [this.$timestampInput,this.$dateInput]
+		return [this.$input,this.$dateInput]
 	}
 	get value(): string {
-		return this.$timestampInput.value
+		return this.$input.value
 	}
 	set value(value: string) {
-		this.$timestampInput.value=value
+		this.$input.value=value
 		this.updateValidityAndDateInput()
 	}
 	private updateValidityAndDateInput(): void {
@@ -40,11 +40,11 @@ export default class DateInput {
 		}
 	}
 	private updateValidity(): DateQuery {
-		const query=toDateQuery(this.$timestampInput.value)
+		const query=toDateQuery(this.$input.value)
 		if (query.dateType=='invalid') {
-			this.$timestampInput.setCustomValidity(query.message)
+			this.$input.setCustomValidity(query.message)
 		} else {
-			this.$timestampInput.setCustomValidity('')
+			this.$input.setCustomValidity('')
 		}
 		return query
 	}

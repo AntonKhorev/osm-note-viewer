@@ -380,13 +380,20 @@ dialog.help button.close-all-tools::before {
 	flex-wrap: wrap;
 	gap: .5em;
 }
-.panel .date-range-input-group > label {
+.panel .date-range-input-group > span {
+	flex-grow: 1;
+	display: flex;
+}
+.panel .date-range-input-group > span > label {
 	flex-grow: 1;
 }
-.panel .date-range-input-group > label > input {
+.panel .date-range-input-group > span > label > input {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
+}
+.panel .date-range-input-group > span > input {
+	align-self: end;
 }
 
 .more div {
