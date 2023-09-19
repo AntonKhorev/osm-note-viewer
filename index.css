@@ -210,6 +210,11 @@ a.other-note.absent:active {
 button[role=progressbar] {
 	cursor: progress;
 }
+input[type=date][tabindex] {
+	width: 18px;
+	border: none;
+	background: transparent;
+}
 
 kbd.copy {
 	text-decoration: underline dotted 1px;
@@ -718,13 +723,14 @@ dialog.help button.close-all-tools::before {
 	flex-wrap: wrap;
 	gap: .5em;
 }
-.panel .date-range-input-group > label {
+.panel .date-range-input-group > span {
 	flex-grow: 1;
 }
-.panel .date-range-input-group > label > input {
-	display: block;
-	box-sizing: border-box;
-	width: 100%;
+.panel .date-range-input-group > span > span {
+	display: flex;
+}
+.panel .date-range-input-group > span > span > input:first-child {
+	flex-grow: 1;
 }
 
 .more div {

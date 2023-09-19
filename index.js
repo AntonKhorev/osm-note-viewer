@@ -4458,50 +4458,32 @@ function makeButton(id, title, listener) {
     return $button;
 }
 
-function toReadableDate(date) {
-    return toShortOrFullReadableDate(date, true);
+// use isNaN(+date) to test for invalid dates
+function getDateFromInputString(inputString) {
+    const [date] = parseDateFromInputString(inputString);
+    return date;
 }
-function toShortReadableDate(date) {
-    return toShortOrFullReadableDate(date, false);
+function convertDateToIsoString(date, dateSeparator = '-', timeSeparator = ':', dateTimeSeparator = 'T', utcSuffix = 'Z') {
+    return (convertDateToIsoDateString(date, dateSeparator) +
+        dateTimeSeparator +
+        convertDateToIsoTimeString(date, timeSeparator) +
+        utcSuffix);
 }
-function toShortOrFullReadableDate(date, full) {
-    if (date == null)
-        return '';
-    const pad = (n) => ('0' + n).slice(-2);
-    const dateObject = new Date(date * 1000);
-    let dateString = '';
-    switch (true) {
-        case full || dateObject.getUTCSeconds() != 0:
-            dateString = ':' + pad(dateObject.getUTCSeconds());
-        case dateObject.getUTCMinutes() != 0 || dateObject.getUTCHours() != 0:
-            dateString = ' ' + pad(dateObject.getUTCHours()) + ':' + pad(dateObject.getUTCMinutes()) + dateString;
-        case dateObject.getUTCDate() != 1 || dateObject.getUTCMonth() != 0:
-            dateString = '-' + pad(dateObject.getUTCMonth() + 1) + '-' + pad(dateObject.getUTCDate()) + dateString;
-        default:
-            dateString = dateObject.getUTCFullYear() + dateString;
-    }
-    return dateString;
+function convertDateToIsoDateString(date, separator = '-') {
+    return (date.getUTCFullYear() + separator +
+        pad00(date.getUTCMonth() + 1) + separator +
+        pad00(date.getUTCDate()));
 }
-function toUrlDate(date, dateSeparator = '', timeSeparator = '') {
-    const pad = (n) => ('0' + n).slice(-2);
-    const dateObject = new Date(date * 1000);
-    const dateString = dateObject.getUTCFullYear() + dateSeparator +
-        pad(dateObject.getUTCMonth() + 1) + dateSeparator +
-        pad(dateObject.getUTCDate()) +
-        'T' +
-        pad(dateObject.getUTCHours()) + timeSeparator +
-        pad(dateObject.getUTCMinutes()) + timeSeparator +
-        pad(dateObject.getUTCSeconds()) +
-        'Z';
-    return dateString;
+function convertDateToIsoTimeString(date, separator = ':') {
+    return (pad00(date.getUTCHours()) + separator +
+        pad00(date.getUTCMinutes()) + separator +
+        pad00(date.getUTCSeconds()));
 }
-function toDateQuery(readableDate) {
-    let s = readableDate.trim();
+function parseDateFromInputString(inputString) {
+    let s = inputString.trim();
     let m = '';
     let r = '';
     {
-        if (s == '')
-            return empty();
         const match = s.match(/^((\d\d\d\d)-?)(.*)/);
         if (!match)
             return invalid();
@@ -4558,28 +4540,68 @@ function toDateQuery(readableDate) {
         r += match[2];
         s = match[3];
     }
-    function empty() {
+    function invalid() {
+        return [new Date(NaN), m];
+    }
+    function complete() {
+        const completionTemplate = '2000-01-01 00:00:00Z';
+        const completedReadableDate = r + completionTemplate.slice(r.length);
+        return [new Date(completedReadableDate), m];
+    }
+}
+function pad00(n) {
+    return ('0' + n).slice(-2);
+}
+
+function toReadableDate(date) {
+    return toShortOrFullReadableDate(date, true);
+}
+function toShortReadableDate(date) {
+    return toShortOrFullReadableDate(date, false);
+}
+function toShortOrFullReadableDate(date, full) {
+    if (date == null)
+        return '';
+    const pad = (n) => ('0' + n).slice(-2);
+    const dateObject = new Date(date * 1000);
+    let dateString = '';
+    switch (true) {
+        case full || dateObject.getUTCSeconds() != 0:
+            dateString = ':' + pad(dateObject.getUTCSeconds());
+        case dateObject.getUTCMinutes() != 0 || dateObject.getUTCHours() != 0:
+            dateString = ' ' + pad(dateObject.getUTCHours()) + ':' + pad(dateObject.getUTCMinutes()) + dateString;
+        case dateObject.getUTCDate() != 1 || dateObject.getUTCMonth() != 0:
+            dateString = '-' + pad(dateObject.getUTCMonth() + 1) + '-' + pad(dateObject.getUTCDate()) + dateString;
+        default:
+            dateString = dateObject.getUTCFullYear() + dateString;
+    }
+    return dateString;
+}
+function toUrlDate(date, dateSeparator = '', timeSeparator = '') {
+    const dateObject = new Date(date * 1000);
+    return convertDateToIsoString(dateObject, dateSeparator, timeSeparator);
+}
+function toDateQuery(readableDate) {
+    const s = readableDate.trim();
+    if (s == '') {
         return {
             dateType: 'empty'
         };
     }
-    function invalid() {
+    const [date, match] = parseDateFromInputString(s);
+    if (isNaN(+date)) {
         let message = `invalid date string`;
-        if (m != '')
-            message += ` after ${m}`;
+        if (match != '')
+            message += ` after ${match}`;
         return {
             dateType: 'invalid',
             message
         };
     }
-    function complete() {
-        const completionTemplate = '2000-01-01 00:00:00Z';
-        const completedReadableDate = r + completionTemplate.slice(r.length);
-        return {
-            dateType: 'valid',
-            date: Date.parse(completedReadableDate) / 1000
-        };
-    }
+    return {
+        dateType: 'valid',
+        date: date.valueOf() / 1000
+    };
 }
 
 const defaultLowerDate = Date.parse('2001-01-01 00:00:00Z') / 1000;
@@ -5685,6 +5707,57 @@ function restrictClosedSelectValue(v) {
     }
 }
 
+class DateInput {
+    constructor(onInput = () => { }) {
+        this.onInput = onInput;
+        this.$input = document.createElement('input');
+        this.$dateInput = document.createElement('input');
+        this.$input.type = 'text';
+        this.$input.size = 20;
+        this.$dateInput.type = 'date';
+        this.$dateInput.tabIndex = -1;
+        this.$input.oninput = () => {
+            this.updateValidityAndDateInput();
+            this.onInput(this.$input.value);
+        };
+        this.$dateInput.onchange = () => {
+            this.$input.value = this.$dateInput.value;
+            this.updateValidity();
+            this.onInput(this.$input.value);
+        };
+    }
+    get $elements() {
+        return [this.$input, this.$dateInput];
+    }
+    get value() {
+        return this.$input.value;
+    }
+    set value(value) {
+        this.$input.value = value;
+        this.updateValidityAndDateInput();
+    }
+    updateValidityAndDateInput() {
+        const query = this.updateValidity();
+        if (query.dateType == 'valid') {
+            const date = new Date(query.date * 1000);
+            this.$dateInput.value = convertDateToIsoDateString(date);
+        }
+        else {
+            this.$dateInput.value = '';
+        }
+    }
+    updateValidity() {
+        const query = toDateQuery(this.$input.value);
+        if (query.dateType == 'invalid') {
+            this.$input.setCustomValidity(query.message);
+        }
+        else {
+            this.$input.setCustomValidity('');
+        }
+        return query;
+    }
+}
+
 class TextControl {
     constructor($input, isVisible, canDoWithoutTextState, canDoWithTextState, undoInput, doInput, getUndoLabel, getDoLabel) {
         this.$input = $input;
@@ -5764,8 +5837,8 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         this.title = `Search notes for user / text / date range`;
         this.$userInput = document.createElement('input');
         this.$textInput = document.createElement('input');
-        this.$fromInput = document.createElement('input');
-        this.$toInput = document.createElement('input');
+        this.fromDateInput = new DateInput();
+        this.toDateInput = new DateInput();
         this.$sortSelect = document.createElement('select');
         this.$orderSelect = document.createElement('select');
         this.limitValues = [20, 100, 500, 2500];
@@ -5811,13 +5884,13 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
                     `In this case the remaining part of the value is treated as a user id number. `,
                     `Ids and URLs can be unambiguously detected in the input because usernames can't contain any of the following characters: `, code(`/;.,?%#`), `.`
                 ]],
-            ['from', this.$fromInput, [
+            ['from', this.fromDateInput.$input, [
                     `Beginning of a date range. `,
                     `This parameter is optional but if not provided the API will also ignore the `, code('to'), ` parameter. `,
                     em(`Note-viewer`), ` makes `, code('from'), ` actually optional by providing a value far enough in the past if `, code('to'), ` value is entered while `, code('from'), ` value is not. `,
                     `Also both `, code('from'), ` and `, code('to'), ` parameters are altered in `, em(`Load more`), ` fetches in order to limit the note selection to notes that are not yet downloaded.`
                 ]],
-            ['to', this.$toInput, [
+            ['to', this.toDateInput.$input, [
                     `End of a date range.`
                 ]],
             ['sort', this.$sortSelect, [
@@ -5853,13 +5926,15 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
             $fieldset.append(makeDiv('major-input-group')(makeLabel()(`Comment text search query`, rq$1('q'), ` `, this.$textInput)));
         }
         {
-            this.$fromInput.type = 'text';
-            this.$fromInput.size = 20;
-            this.$fromInput.name = 'from';
-            this.$toInput.type = 'text';
-            this.$toInput.size = 20;
-            this.$toInput.name = 'to';
-            $fieldset.append(makeDiv('date-range-input-group')(makeLabel('inline')(`From date`, rq$1('from'), ` `, this.$fromInput), ` `, makeLabel('inline')(`To date`, rq$1('to'), ` `, this.$toInput)));
+            this.fromDateInput.$input.id = 'search-from-date';
+            this.fromDateInput.$input.name = 'from';
+            this.toDateInput.$input.id = 'search-to-date';
+            this.toDateInput.$input.name = 'to';
+            const $fromDateLabel = makeLabel('inline')(`From date`, rq$1('from'));
+            $fromDateLabel.htmlFor = 'search-from-date';
+            const $toDateLabel = makeLabel('inline')(`To date`, rq$1('to'));
+            $toDateLabel.htmlFor = 'search-to-date';
+            $fieldset.append(makeDiv('date-range-input-group')(makeElement('span')()($fromDateLabel, ` `, makeElement('span')()(...this.fromDateInput.$elements)), makeElement('span')()($toDateLabel, ` `, makeElement('span')()(...this.toDateInput.$elements))));
         }
     }
     appendToClosedLine($div) {
@@ -5881,12 +5956,13 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         }
         this.$userInput.dispatchEvent(new Event('input')); // update text controls
         this.$textInput.value = query?.q ?? '';
-        this.$fromInput.value = toShortReadableDate(query?.from);
-        this.$toInput.value = toShortReadableDate(query?.to);
+        this.fromDateInput.value = toShortReadableDate(query?.from);
+        this.toDateInput.value = toShortReadableDate(query?.to);
         this.$sortSelect.value = query?.sort ?? 'created_at';
         this.$orderSelect.value = query?.order ?? 'newest';
     }
     addEventListenersBeforeClosedLine() {
+        this.fromDateInput.onInput = this.toDateInput.onInput = () => this.updateRequest();
         this.$userInput.addEventListener('input', () => {
             const userQuery = toUserQuery(this.cx.server.api, this.cx.server.web, this.$userInput.value);
             if (userQuery.type == 'invalid') {
@@ -5896,23 +5972,14 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
                 this.$userInput.setCustomValidity('');
             }
         });
-        for (const $input of [this.$fromInput, this.$toInput])
-            $input.addEventListener('input', () => {
-                const query = toDateQuery($input.value);
-                if (query.dateType == 'invalid') {
-                    $input.setCustomValidity(query.message);
-                }
-                else {
-                    $input.setCustomValidity('');
-                }
-            });
     }
     constructQuery() {
-        return makeNoteSearchQueryFromValues(this.cx.server.api, this.cx.server.web, this.$userInput.value, this.$textInput.value, this.$fromInput.value, this.$toInput.value, this.closedValue, this.$sortSelect.value, this.$orderSelect.value);
+        return makeNoteSearchQueryFromValues(this.cx.server.api, this.cx.server.web, this.$userInput.value, this.$textInput.value, this.fromDateInput.value, this.toDateInput.value, this.closedValue, this.$sortSelect.value, this.$orderSelect.value);
     }
     listQueryChangingInputs() {
         return [
-            this.$userInput, this.$textInput, this.$fromInput, this.$toInput,
+            this.$userInput, this.$textInput,
+            // this.fromDateInput.$input,this.toDateInput.$input, // request updated in this class
             this.$closedInput, this.$closedSelect, this.$sortSelect, this.$orderSelect
         ];
     }
@@ -9609,28 +9676,22 @@ class TimestampTool extends Tool {
         return [p(`Allows to select a timestamp for use with `, em(`Overpass`), ` and `, em(`Overpass turbo`), ` commands. `, `You can either enter the timestamp in ISO format (or anything else that Overpass understands) manually here click on a date of/in a note comment. `, `If present, a `, makeLink(`date setting`, `https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL#date`), ` is added to Overpass queries. `, `The idea is to allow for examining the OSM data at the moment some note was opened/commented/closed to evaluate if this action was correct.`), p(`Timestamps inside note comments are usually generated by apps like `, makeLink(`MAPS.ME`, `https://wiki.openstreetmap.org/wiki/MAPS.ME`), ` to indicate their OSM data version.`)];
     }
     getTool($root, $tool) {
-        const $timestampInput = document.createElement('input');
-        // $timestampInput.type='datetime-local' // no standard datetime input for now because they're being difficult with UTC and 24-hour format.
-        // $timestampInput.step='1'
-        $timestampInput.type = 'text';
-        $timestampInput.size = 20;
-        $timestampInput.oninput = () => {
-            bubbleCustomEvent($tool, 'osmNoteViewer:timestampChange', $timestampInput.value);
-        };
+        const dateInput = new DateInput(value => {
+            bubbleCustomEvent($tool, 'osmNoteViewer:timestampChange', value);
+        });
         $root.addEventListener('osmNoteViewer:timestampChange', ev => {
             if (ev.target == $tool)
                 return;
-            $timestampInput.value = ev.detail;
+            dateInput.value = ev.detail;
             this.ping($tool);
         });
         const $clearButton = document.createElement('button');
-        $clearButton.type = 'reset';
         $clearButton.textContent = 'Clear';
-        const $form = makeElement('form')()($timestampInput, ` `, $clearButton);
-        $form.onreset = () => {
+        $clearButton.onclick = () => {
+            dateInput.value = '';
             bubbleCustomEvent($tool, 'osmNoteViewer:timestampChange', '');
         };
-        return [$form];
+        return [...dateInput.$elements, ` `, $clearButton];
     }
 }
 class GeoUriTool extends Tool {
@@ -10998,8 +11059,13 @@ class OverpassBaseTool extends Tool {
     }
     getOverpassQueryPreamble(map) {
         let query = '';
-        if (this.timestamp)
-            query += `[date:"${this.timestamp}"]\n`;
+        const timestampString = this.timestamp.trim();
+        if (timestampString) {
+            const date = getDateFromInputString(timestampString);
+            if (!isNaN(+date)) {
+                query += `[date:"${convertDateToIsoString(date)}"]\n`;
+            }
+        }
         query += `[bbox:${map.precisionBounds.swne}]\n`;
         query += `;\n`;
         return query;
