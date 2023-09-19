@@ -1,4 +1,5 @@
 import {Tool, ToolElements, makeNotesIcon,  makeMapIcon, makeNoteStatusIcon} from './base'
+import {toDateQuery} from '../query-date'
 import {bubbleCustomEvent} from '../util/events'
 import {makeElement, makeLink} from '../util/html'
 import {em,dfn,p,code} from '../util/html-shortcuts'
@@ -47,6 +48,12 @@ export class TimestampTool extends Tool {
 		$timestampInput.type='text'
 		$timestampInput.size=20
 		$timestampInput.oninput=()=>{
+			const query=toDateQuery($timestampInput.value)
+			if (query.dateType=='invalid') {
+				$timestampInput.setCustomValidity(query.message)
+			} else {
+				$timestampInput.setCustomValidity('')
+			}
 			bubbleCustomEvent($tool,'osmNoteViewer:timestampChange',$timestampInput.value)
 		}
 		$root.addEventListener('osmNoteViewer:timestampChange',ev=>{
@@ -59,6 +66,7 @@ export class TimestampTool extends Tool {
 		$clearButton.textContent='Clear'
 		const $form=makeElement('form')()($timestampInput,` `,$clearButton)
 		$form.onreset=()=>{
+			$timestampInput.setCustomValidity('')
 			bubbleCustomEvent($tool,'osmNoteViewer:timestampChange','')
 		}
 		return [$form]
