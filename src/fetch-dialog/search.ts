@@ -110,16 +110,22 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 				`Comment text search query`,rq('q'),` `,this.$textInput
 			)))
 		}{
+			this.fromDateInput.$input.id='search-from-date'
 			this.fromDateInput.$input.name='from'
+			this.toDateInput.$input.id='search-to-date'
 			this.toDateInput.$input.name='to'
+			const $fromDateLabel=makeLabel('inline')(`From date`,rq('from'))
+			$fromDateLabel.htmlFor='search-from-date'
+			const $toDateLabel=makeLabel('inline')(`To date`,rq('to'))
+			$toDateLabel.htmlFor='search-to-date'
 			$fieldset.append(makeDiv('date-range-input-group')(
 				makeElement('span')()(
-					makeLabel('inline')(`From date`,rq('from'),` `,this.fromDateInput.$input),
-					this.fromDateInput.$dateInput
+					$fromDateLabel,` `,
+					makeElement('span')()(...this.fromDateInput.$elements)
 				),
 				makeElement('span')()(
-					makeLabel('inline')(`To date`,rq('to'),` `,this.toDateInput.$input),
-					this.toDateInput.$dateInput
+					$toDateLabel,` `,
+					makeElement('span')()(...this.toDateInput.$elements)
 				)
 			))
 		}
