@@ -168,6 +168,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 		this.$orderSelect.value=query?.order ?? 'newest'
 	}
 	protected addEventListenersBeforeClosedLine(): void {
+		this.fromDateInput.onInput=this.toDateInput.onInput=()=>this.updateRequest()
 		this.$userInput.addEventListener('input',()=>{
 			const userQuery=toUserQuery(this.cx.server.api,this.cx.server.web,this.$userInput.value)
 			if (userQuery.type=='invalid') {
@@ -187,7 +188,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 	protected listQueryChangingInputs(): Array<HTMLInputElement|HTMLSelectElement> {
 		return [
 			this.$userInput,this.$textInput,
-			this.fromDateInput.$input,this.toDateInput.$input, // TODO provide event listener hook to base class
+			// this.fromDateInput.$input,this.toDateInput.$input, // request updated in this class
 			this.$closedInput,this.$closedSelect,this.$sortSelect,this.$orderSelect
 		]
 	}
