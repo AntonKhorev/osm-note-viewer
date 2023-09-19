@@ -1,3 +1,5 @@
+import {parseDateFromInputDateTime} from './util/date'
+
 export interface ValidDateQuery {
 	dateType: 'valid'
 	date: number
@@ -56,70 +58,23 @@ export function toUrlDate(date: number, dateSeparator='', timeSeparator=''): str
 }
 
 export function toDateQuery(readableDate: string): DateQuery {
-	let s=readableDate.trim()
-	let m=''
-	let r=''
-	{
-		if (s=='') return empty()
-		const match=s.match(/^((\d\d\d\d)-?)(.*)/)
-		if (!match) return invalid()
-		next(match)
-	}{
-		if (s=='') return complete()
-		const match=s.match(/^((\d\d)-?)(.*)/)
-		if (!match) return invalid()
-		r+='-'
-		next(match)
-	}{
-		if (s=='') return complete()
-		const match=s.match(/^((\d\d)[T ]?)(.*)/)
-		if (!match) return invalid()
-		r+='-'
-		next(match)
-	}{
-		if (s=='') return complete()
-		const match=s.match(/^((\d\d):?)(.*)/)
-		if (!match) return invalid()
-		r+=' '
-		next(match)
-	}{
-		if (s=='') return complete()
-		const match=s.match(/^((\d\d):?)(.*)/)
-		if (!match) return invalid()
-		r+=':'
-		next(match)
-	}{
-		if (s=='') return complete()
-		const match=s.match(/^((\d\d)Z?)$/)
-		if (!match) return invalid()
-		r+=':'
-		next(match)
-	}
-	return complete()
-	function next(match: RegExpMatchArray): void {
-		m+=match[1]
-		r+=match[2]
-		s=match[3]
-	}
-	function empty(): EmptyDateQuery {
+	const s=readableDate.trim()
+	if (s=='') {
 		return {
 			dateType: 'empty'
 		}
 	}
-	function invalid(): InvalidDateQuery {
+	const [date,match]=parseDateFromInputDateTime(s)
+	if (isNaN(+date)) {
 		let message=`invalid date string`
-		if (m!='') message+=` after ${m}`
+		if (match!='') message+=` after ${match}`
 		return {
 			dateType: 'invalid',
 			message
 		}
 	}
-	function complete(): ValidDateQuery {
-		const completionTemplate='2000-01-01 00:00:00Z'
-		const completedReadableDate=r+completionTemplate.slice(r.length)
-		return {
-			dateType: 'valid',
-			date: Date.parse(completedReadableDate)/1000
-		}
+	return {
+		dateType: 'valid',
+		date: date.valueOf()/1000
 	}
 }
