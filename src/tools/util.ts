@@ -1,4 +1,4 @@
-import {Tool, ToolElements, makeNotesIcon,  makeMapIcon, makeNoteStatusIcon} from './base'
+import {Tool, ToolElements, makeNotesIcon,  makeMapIcon, makeNoteStatusIcon, makeActionIcon} from './base'
 import DateInput from '../date-input'
 import {bubbleCustomEvent} from '../util/events'
 import {makeElement, makeLink} from '../util/html'
@@ -90,9 +90,9 @@ export class CountTool extends Tool {
 			this.ping($tool)
 		})
 		return [
-			$fetchedNoteCount,` fetched, `,
-			$visibleNoteCount,` visible, `,
-			$selectedNoteCount,` selected`
+			$fetchedNoteCount,` × `,makeActionIcon('download',`fetched`),`, `,
+			$visibleNoteCount,` × `,makeActionIcon('filter',`visible`),`, `,
+			$selectedNoteCount,` × `,makeActionIcon('select',`selected`)
 		]
 	}
 }
