@@ -293,7 +293,7 @@ dialog.help button.close-all-tools::before {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
-	margin: .2em 0;
+	margin: .2em 0 0 0;
 }
 .panel .major-input-group textarea {
 	resize: vertical;
@@ -384,18 +384,21 @@ dialog.help button.close-all-tools::before {
 	padding: var(--major-button-padding);
 	white-space: nowrap;
 }
-.panel .date-range-input-group {
+.panel .input-super-group {
 	display: flex;
 	flex-wrap: wrap;
-	gap: .5em;
+	column-gap: 1rem;
+	row-gap: .5rem;
+	margin: .5rem 0;
 }
-.panel .date-range-input-group > span {
+.panel .input-super-group > * {
 	flex-grow: 1;
+	margin: 0;
 }
-.panel .date-range-input-group > span > span {
+.panel .input-super-group > .date-range-input-group > span {
 	display: flex;
 }
-.panel .date-range-input-group > span > span > input:first-child {
+.panel .input-super-group > .date-range-input-group > span > input:first-child {
 	flex-grow: 1;
 }
 

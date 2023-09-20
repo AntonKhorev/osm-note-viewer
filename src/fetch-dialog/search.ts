@@ -82,6 +82,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 		{
 			this.$userInput.type='text'
 			this.$userInput.name='user'
+			this.$userInput.size=50
 			const userInputControl=new TextControl(
 				this.$userInput,
 				()=>this.cx.username!=null,
@@ -97,18 +98,20 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 				()=>[makeElement('span')()(`undo set to`)],
 				()=>[makeElement('span')()(`set to`),` `,em(String(this.cx.username))]
 			)
-			$fieldset.append(makeDiv('major-input-group')(userInputControl.$controls,makeLabel()(
-				`Username, URL or #id`,rq2('display_name','user'),` `,this.$userInput
-			)))
+			this.$textInput.type='text'
+			this.$textInput.name='text'
+			this.$textInput.size=50
+			$fieldset.append(makeDiv('input-super-group')(
+				makeDiv('major-input-group')(userInputControl.$controls,makeLabel()(
+					`Username, URL or #id`,rq2('display_name','user'),` `,this.$userInput
+				)),
+				makeDiv('major-input-group')(makeLabel()(
+					`Comment text search query`,rq('q'),` `,this.$textInput
+				))
+			))
 			this.$root.addEventListener('osmNoteViewer:loginChange',()=>{
 				userInputControl.update()
 			})
-		}{
-			this.$textInput.type='text'
-			this.$textInput.name='text'
-			$fieldset.append(makeDiv('major-input-group')(makeLabel()(
-				`Comment text search query`,rq('q'),` `,this.$textInput
-			)))
 		}{
 			this.fromDateInput.$input.id='search-from-date'
 			this.fromDateInput.$input.name='from'
@@ -118,12 +121,12 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 			$fromDateLabel.htmlFor='search-from-date'
 			const $toDateLabel=makeLabel('inline')(`To date`,rq('to'))
 			$toDateLabel.htmlFor='search-to-date'
-			$fieldset.append(makeDiv('date-range-input-group')(
-				makeElement('span')()(
+			$fieldset.append(makeDiv('input-super-group')(
+				makeElement('span')('date-range-input-group')(
 					$fromDateLabel,` `,
 					makeElement('span')()(...this.fromDateInput.$elements)
 				),
-				makeElement('span')()(
+				makeElement('span')('date-range-input-group')(
 					$toDateLabel,` `,
 					makeElement('span')()(...this.toDateInput.$elements)
 				)
