@@ -96,7 +96,7 @@ async function buildHtml(srcDir,dstDir,downloads) {
 		.replace(`<body>`,`<body data-build="${new Date().toISOString()}">`)
 	const embeddedSvgsResult=await getAllEmbeddedSvgs(srcDir)
 	if (embeddedSvgsResult) {
-		const [embeddedStyles,embeddedSymbols]=await getAllEmbeddedSvgs(srcDir)
+		const [embeddedStyles,embeddedSymbols]=embeddedSvgsResult
 		const embeddedSvgs=
 			`<svg class="symbols">\n`+
 			`<style>\n`+
@@ -144,6 +144,19 @@ async function buildJs(srcDir,dstDir,serverListConfig) {
 		file: `${dstDir}/index.js`,
 	})
 	bundle.close()
+	try {
+		await fs.access(`${srcDir}/worker`)
+	} catch {
+		return
+	}
+	const workerBundle=await rollup({
+		input: `${srcDir}/worker/index.ts`,
+		plugins
+	})
+	workerBundle.write({
+		file: `${dstDir}/worker.js`,
+	})
+	workerBundle.close()
 }
 
 async function getAllCssFiles(srcDir) {
@@ -178,17 +191,24 @@ async function getAllEmbeddedSvgs(srcDir) {
 	}
 	let styles=''
 	let symbols=''
-	for (const dirEntry of await fs.readdir(`${srcDir}/svg`,{withFileTypes:true})) {
-		if (dirEntry.isDirectory()) continue
-		const filename=dirEntry.name
-		if (filename=='favicon.svg') continue
-		const [style,symbol]=getEmbeddedSvg(
-			filename.split('.')[0],
-			await fs.readFile(`${srcDir}/svg/${filename}`,'utf-8')
-		)
-		styles+=style
-		symbols+=symbol
+	const scanTestDirectory=async(subpath='')=>{
+		for (const testDirEntry of await fs.readdir(`${srcDir}/svg${subpath}`,{withFileTypes:true})) {
+			if (testDirEntry.isDirectory()) {
+				await scanTestDirectory('/'+testDirEntry.name)
+			} else {
+				const filename=testDirEntry.name
+				if (filename=='favicon.svg') continue
+				const idPath=(subpath+'/'+filename.split('.')[0]).substring(1)
+				const id=idPath.replace(/\//g,'-')
+				const [style,symbol]=getEmbeddedSvg(id,
+					await fs.readFile(`${srcDir}/svg${subpath}/${filename}`,'utf-8')
+				)
+				styles+=style
+				symbols+=symbol
+			}
+		}
 	}
+	await scanTestDirectory()
 	return [styles,symbols]
 }
 
