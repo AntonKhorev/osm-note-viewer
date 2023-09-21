@@ -372,12 +372,15 @@ export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetc
 		this.addEventListenersBeforeClosedLine()
 		this.$closedSelect.addEventListener('input',()=>{
 			this.$closedInput.value=this.$closedSelect.value
+			this.onClosedValueChange()
 		})
 		this.$closedInput.addEventListener('input',()=>{
 			this.$closedSelect.value=String(restrictClosedSelectValue(Number(this.$closedInput.value)))
+			this.onClosedValueChange()
 		})
 	}
 	protected abstract addEventListenersBeforeClosedLine(): void
+	protected onClosedValueChange(): void {}
 	protected populateInputsWithoutUpdatingRequest(query: NoteQuery|undefined): void {
 		this.populateInputsWithoutUpdatingRequestExceptForClosedInput(query)
 		if (query && (query.mode=='search' || query.mode=='bbox')) {

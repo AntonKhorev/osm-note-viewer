@@ -83,6 +83,9 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 			this.updateNotesIfNeeded()
 		})
 	}
+	protected onClosedValueChange(): void {
+		this.updateNotesIfNeeded()
+	}
 	protected constructQuery(): NoteQuery | undefined {
 		return makeNoteBrowseQueryFromValues(
 			this.$bboxInput.value,this.closedValue
