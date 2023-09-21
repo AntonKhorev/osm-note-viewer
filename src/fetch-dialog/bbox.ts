@@ -106,7 +106,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 			this.nominatimSubForm.write($fieldset)
 		}
 	}
-	protected appendToClosedLine($div: HTMLElement): void {
+	protected modifyClosedLine($div: HTMLElement): void {
 		$div.append(
 			` `,
 			`sorted by last update date `,

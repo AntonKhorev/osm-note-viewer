@@ -353,7 +353,7 @@ export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetc
 					` days ago`
 				)
 			)
-			this.appendToClosedLine($closedLine)
+			this.modifyClosedLine($closedLine)
 			$fieldset.append($closedLine)
 		}
 	}
@@ -363,7 +363,7 @@ export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetc
 	protected getClosedLineNotesText(): string {
 		return `notes`
 	}
-	protected appendToClosedLine($div: HTMLElement): void {}
+	protected modifyClosedLine($div: HTMLElement): void {}
 	protected addEventListeners(): void {
 		this.addEventListenersBeforeClosedLine()
 		this.$closedSelect.addEventListener('input',()=>{

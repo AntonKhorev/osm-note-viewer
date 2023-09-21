@@ -28,9 +28,7 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	get getAutoLoad(): ()=>boolean {
 		return ()=>false
 	}
-	populateInputs(query: NoteQuery|undefined): void {
-		super.populateInputs(query)
-	}
+	populateInputs(query: NoteQuery|undefined): void {} // this mode has no persistent queries
 	protected makeLeadAdvancedHint(): Array<string|HTMLElement> {
 		return [p(
 			`Get `,makeLink(`notes by bounding box`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`),
@@ -79,6 +77,9 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	}
 	protected getClosedLineNotesText(): string {
 		return `most recently updated notes`
+	}
+	protected modifyClosedLine($div: HTMLElement): void {
+		this.$closedInput.value=this.$closedSelect.value='7'
 	}
 	protected limitValues=[20,100,500,2500,10000]
 	protected limitDefaultValue=100 // higher default limit because no progressive loads possible

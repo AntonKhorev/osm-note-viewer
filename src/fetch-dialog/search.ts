@@ -133,7 +133,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 			))
 		}
 	}
-	protected appendToClosedLine($div: HTMLElement): void {
+	protected modifyClosedLine($div: HTMLElement): void {
 		this.$sortSelect.append(
 			new Option(`creation`,'created_at'),
 			new Option(`last update`,'updated_at')
