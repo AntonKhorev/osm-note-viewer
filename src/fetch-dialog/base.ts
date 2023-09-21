@@ -345,7 +345,7 @@ export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetc
 				makeElement('span')('non-advanced-input-group')(
 					this.$closedSelect
 				),
-				` matching notes `,
+				` notes `,
 				makeLabel('advanced-input-group')(
 					`closed no more than `,
 					this.$closedInput,
