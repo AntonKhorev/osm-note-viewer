@@ -83,7 +83,6 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 			this.$trackMapSelect.append(
 				new Option(`Do nothing`,'nothing'),
 				new Option(`Update bounding box`,'bbox',true,true),
-				new Option(`Fetch notes`,'fetch'),
 			)
 			$fieldset.append(makeDiv('regular-input-group')(
 				makeLabel('inline')(this.$trackMapSelect,` on map view changes`),` `,
@@ -134,44 +133,26 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 	}
 	protected addEventListenersBeforeClosedLine(): void {
 		const updateTrackMapZoomNotice=()=>{
-			if (this.$trackMapSelect.value!='fetch') {
-				this.$trackMapZoomNotice.classList.remove('error')
-				this.$trackMapZoomNotice.innerText=''
-			} else {
-				if (this.map.zoom>=8) {
-					this.$trackMapZoomNotice.classList.remove('error')
-					this.$trackMapZoomNotice.innerText=`(fetching will stop on zooms lower than 8)`
-				} else {
-					this.$trackMapZoomNotice.classList.add('error')
-					this.$trackMapZoomNotice.innerText=`(fetching will start on zooms 8 or higher)`
-				}
-			}
+			this.$trackMapZoomNotice.classList.remove('error')
+			this.$trackMapZoomNotice.innerText=''
 		}
 		const trackMap=()=>{
 			updateTrackMapZoomNotice()
-			if (this.$trackMapSelect.value=='bbox' || this.$trackMapSelect.value=='fetch') {
+			if (this.$trackMapSelect.value=='bbox') {
 				this.setBbox(...this.map.precisionBounds.wsen)
 			}
 			this.nominatimSubForm?.updateRequest()
-		}
-		const updateNotesIfNeeded=()=>{
-			if (this.isOpen() && this.$trackMapSelect.value=='fetch' && this.map.zoom>=8) {
-				this.$form.requestSubmit()
-			}
 		}
 		updateTrackMapZoomNotice()
 		this.$root.addEventListener('osmNoteViewer:mapMoveEnd',()=>{
 			trackMap()
 			if (this.isOpen() && this.mapBoundsForFreezeRestore) {
 				this.mapBoundsForFreezeRestore=undefined
-			} else {
-				updateNotesIfNeeded()
 			}
 		})
 		this.$trackMapSelect.addEventListener('input',()=>{
 			this.map.freezeMode=this.getMapFreezeMode() // don't update freeze mode on map moves
 			trackMap()
-			updateNotesIfNeeded()
 		})
 		this.$bboxInput.addEventListener('input',()=>{
 			if (!this.validateBbox()) return
@@ -207,7 +188,6 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		this.map.freezeMode='no'
 	}
 	private getMapFreezeMode(): NoteMapFreezeMode {
-		if (this.$trackMapSelect.value=='fetch') return 'full'
 		if (this.$trackMapSelect.value=='bbox') return 'initial'
 		return 'no'
 	}
