@@ -62,8 +62,6 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
 	}
 	protected populateInputsWithoutUpdatingRequestExceptForClosedInput(query: NoteQuery | undefined): void {
-		if (query && query.mode!='bbox') return
-		this.$bboxInput.value=query?.bbox ?? ''
 	}
 	protected addEventListenersBeforeClosedLine(): void {
 		const updateTrackMapZoomNotice=()=>{
