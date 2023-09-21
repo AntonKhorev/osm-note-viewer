@@ -1,6 +1,5 @@
 import type {NoteFetchDialogSharedCheckboxes} from './base'
 import {NoteQueryFetchDialog} from './base'
-import NominatimSubForm from './bbox-nominatim'
 import type {Connection} from '../net'
 import type NoteMap from '../map'
 import type {NoteMapFreezeMode} from '../map'
@@ -16,7 +15,6 @@ const spanRequest=(...ss: Array<string|HTMLElement>)=>makeElement('span')('advan
 export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	shortTitle=`Browse`
 	title=`Get notes inside map view`
-	private nominatimSubForm: NominatimSubForm|undefined
 	private $trackMapZoomNotice=makeDiv('notice')()
 	protected $bboxInput=document.createElement('input')
 	private mapBoundsForFreezeRestore: L.LatLngBounds|undefined
@@ -29,17 +27,6 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		private map: NoteMap
 	) {
 		super($root,$sharedCheckboxes,cx,getRequestApiPaths,submitQuery)
-		if (cx.server.nominatim) {
-			this.nominatimSubForm=new NominatimSubForm(
-				cx.server.nominatim,
-				()=>map.bounds,
-				(bbox:NominatimBbox)=>{
-					const [minLat,maxLat,minLon,maxLon]=bbox
-					this.setBbox(minLon,minLat,maxLon,maxLat)
-					this.map.fitBounds([[Number(minLat),Number(minLon)],[Number(maxLat),Number(maxLon)]])
-				}
-			)
-		}
 	}
 	resetFetch() {
 		this.mapBoundsForFreezeRestore=undefined
@@ -49,12 +36,6 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	}
 	populateInputs(query: NoteQuery|undefined): void {
 		super.populateInputs(query)
-		this.nominatimSubForm?.updateRequest()
-	}
-	protected writeExtraForms() {
-		if (this.nominatimSubForm) {
-			this.$section.append(this.nominatimSubForm.$form)
-		}
 	}
 	protected makeLeadAdvancedHint(): Array<string|HTMLElement> {
 		return [p(
@@ -101,9 +82,6 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 				return $span
 			}
 		}
-		if (this.nominatimSubForm) {
-			this.nominatimSubForm.write($fieldset)
-		}
 	}
 	appendToClosedLine($div: HTMLElement): void {
 		$div.append(
@@ -137,7 +115,6 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		const trackMap=()=>{
 			updateTrackMapZoomNotice()
 			this.setBbox(...this.map.precisionBounds.wsen)
-			this.nominatimSubForm?.updateRequest()
 		}
 		const updateNotesIfNeeded=()=>{
 			if (this.isOpen() && this.map.zoom>=8) {
@@ -158,9 +135,6 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		// 	if (!this.validateBbox()) return
 		// 	this.$trackMapSelect.value='nothing'
 		// })
-		if (this.nominatimSubForm) {
-			this.nominatimSubForm.addEventListeners()
-		}
 	}
 	protected constructQuery(): NoteQuery | undefined {
 		return makeNoteBboxQueryFromValues(
