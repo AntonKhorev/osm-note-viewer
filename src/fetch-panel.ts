@@ -83,7 +83,7 @@ export default class NoteFetchPanel {
 		function startFetcher(
 			query: NoteQuery, isNewStart: boolean, suppressFitNotes: boolean, dialog: NoteFetchDialog
 		): void {
-			if (query.mode!='search' && query.mode!='bbox' && query.mode!='ids') return
+			if (query.mode!='search' && query.mode!='bbox' && query.mode!='browse' && query.mode!='ids') return
 			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
 			if (map) {
 				map.clearNotes()
@@ -127,7 +127,7 @@ export default class NoteFetchPanel {
 			self.fetcherInvoker=dialog
 			if (query.mode=='search') {
 				self.fetcherRun=new NoteSearchFetcherRun(environment,query,isNewStart)
-			} else if (query.mode=='bbox') {
+			} else if (query.mode=='bbox' || query.mode=='browse') {
 				self.fetcherRun=new NoteBboxFetcherRun(environment,query,isNewStart)
 			} else if (query.mode=='ids') {
 				self.fetcherRun=new NoteIdsFetcherRun(environment,query,isNewStart)

@@ -2,10 +2,8 @@ import type {NoteFetchDialogSharedCheckboxes} from './base'
 import {NoteQueryFetchDialog} from './base'
 import type {Connection} from '../net'
 import type NoteMap from '../map'
-import type {NoteMapFreezeMode} from '../map'
 import type {NoteQuery} from '../query'
-import {makeNoteBboxQueryFromValues} from '../query'
-import type {NominatimBbox} from '../nominatim'
+import {makeNoteBrowseQueryFromValues} from '../query'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../util/html'
 import {p,em,code} from '../util/html-shortcuts'
 
@@ -132,7 +130,7 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		})
 	}
 	protected constructQuery(): NoteQuery | undefined {
-		return makeNoteBboxQueryFromValues(
+		return makeNoteBrowseQueryFromValues(
 			this.$bboxInput.value,this.closedValue
 		)
 	}
@@ -142,6 +140,7 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		]
 	}
 	onOpen(): void {
+		// TODO fetch right away
 		if (this.mapBoundsForFreezeRestore) {
 			this.map.fitBounds(this.mapBoundsForFreezeRestore) // assumes map is not yet frozen
 			// this.restoreMapBoundsForFreeze=undefined to be done in map move end listener
@@ -176,9 +175,9 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		return true
 	}
 	protected getQueryCaptionItems(query: NoteQuery) {
-		if (query.mode!='bbox') return []
+		if (query.mode!='browse') return []
 		return [
-			[`inside bounding box `,this.makeInputLink(this.$bboxInput,query.bbox)]
+			[`inside bounding box `,query.bbox]
 		]
 	}
 }

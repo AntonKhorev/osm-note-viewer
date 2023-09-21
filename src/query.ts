@@ -27,12 +27,18 @@ export interface NoteBboxQuery {
 	closed: number // defaults to -1 because that's how user's note page would have worked
 }
 
+export interface NoteBrowseQuery { // like bbox mode but never saved to db
+	mode: 'browse'
+	bbox: string
+	closed: number
+}
+
 export interface NoteIdsQuery {
 	mode: 'ids'
 	ids: number[]
 }
 
-export type NoteQuery = NoteSearchQuery | NoteBboxQuery | NoteIdsQuery
+export type NoteQuery = NoteSearchQuery | NoteBboxQuery | NoteIdsQuery | NoteBrowseQuery
 
 export function makeUserQueryFromNoteSearchQuery(query: NoteSearchQuery): UserQuery {
 	return makeUserQueryFromUserNameAndId(query.display_name,query.user)
@@ -113,8 +119,22 @@ export function makeNoteSearchQueryFromValues(
 export function makeNoteBboxQueryFromValues(
 	bboxValue: string, closedValue: string
 ): NoteBboxQuery | undefined {
-	const noteBboxQuery: NoteBboxQuery = {
-		mode: 'bbox',
+	const query=makeNoteBboxOrBrowseQueryFromValues(bboxValue,closedValue,'bbox')
+	if (query?.mode=='bbox') return query
+}
+
+export function makeNoteBrowseQueryFromValues(
+	bboxValue: string, closedValue: string
+): NoteBrowseQuery | undefined {
+	const query=makeNoteBboxOrBrowseQueryFromValues(bboxValue,closedValue,'browse')
+	if (query?.mode=='browse') return query
+}
+
+function makeNoteBboxOrBrowseQueryFromValues(
+	bboxValue: string, closedValue: string, mode: 'bbox'|'browse'
+): NoteBboxQuery | NoteBrowseQuery | undefined {
+	const noteBboxQuery: NoteBboxQuery | NoteBrowseQuery = {
+		mode,
 		bbox: bboxValue.trim(), // TODO validate
 		closed: toClosed(closedValue),
 	}

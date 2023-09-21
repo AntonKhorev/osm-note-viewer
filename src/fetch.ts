@@ -5,7 +5,7 @@ import type {OsmNoteApiData} from './osm'
 import {getNoteFromOsmApiResponse, getNotesFromOsmApiResponse} from './osm'
 import type {Note, Users} from './data'
 import {transformFeatureToNotesAndUsers, transformFeaturesToNotesAndUsers} from './data'
-import type {NoteQuery, NoteSearchQuery, NoteBboxQuery, NoteIdsQuery, NoteFetchDetails} from './query'
+import type {NoteQuery, NoteSearchQuery, NoteBboxQuery, NoteBrowseQuery, NoteIdsQuery, NoteFetchDetails} from './query'
 import {makeNoteQueryStringWithHostHash, getNextFetchDetails} from './query'
 import type {NoteTableUpdater} from './table'
 import {makeElement, makeDiv, makeLink} from './util/html'
@@ -50,10 +50,10 @@ export class NoteBboxFetcherRequest extends NoteFetcherRequest {
 		return `notes`
 	}
 	protected getRequestUrlPathAndParameters(query: NoteQuery, limit: number): [path:string,parameters:string]|undefined {
-		if (query.mode!='bbox') return
+		if (query.mode!='bbox' && query.mode!='browse') return
 		return ['',this.getRequestUrlParametersWithoutLimit(query)+e`&limit=${limit}`]
 	}
-	getRequestUrlParametersWithoutLimit(query: NoteBboxQuery): string {
+	getRequestUrlParametersWithoutLimit(query: NoteBboxQuery|NoteBrowseQuery): string {
 		return e`bbox=${query.bbox}&closed=${query.closed}`
 	}
 }
@@ -340,7 +340,7 @@ export class NoteSearchFetcherRun extends NoteFeatureCollectionFetcherRun {
 }
 
 export class NoteBboxFetcherRun extends NoteFeatureCollectionFetcherRun {
-	constructor(environment: NoteFetcherEnvironment, protected query: NoteBboxQuery, clearStore: boolean) {
+	constructor(environment: NoteFetcherEnvironment, protected query: NoteBboxQuery|NoteBrowseQuery, clearStore: boolean) {
 		super(environment,query,clearStore)
 	}
 	protected get request() {
