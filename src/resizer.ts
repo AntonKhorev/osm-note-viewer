@@ -30,13 +30,15 @@ class Move {
 		const pointerPosition=getPointerPosition(ev,isHor(this.side))
 		this.startOffset=pointerPosition-frontSize
 		const targetFrontFraction=getTargetFraction($root,isHor(this.side),frontSize)
-		this.startFrontFraction=this.frontFraction=setFrontSizeProperties($root,this.side,targetFrontFraction)
+		this.startFrontFraction=this.frontFraction=clampFrontFraction(targetFrontFraction)
+		setFrontSizeProperties($root,this.side,this.frontFraction)
 	}
 	move($root: HTMLElement, ev: PointerEvent): void {
 		const pointerPosition=getPointerPosition(ev,isHor(this.side))
 		const targetFrontSize=pointerPosition-this.startOffset
 		const targetFrontFraction=getTargetFraction($root,isHor(this.side),targetFrontSize)
-		this.frontFraction=setFrontSizeProperties($root,this.side,targetFrontFraction)
+		this.frontFraction=clampFrontFraction(targetFrontFraction)
+		setFrontSizeProperties($root,this.side,this.frontFraction)
 	}
 	get sidebarFraction(): number {
 		return adjustFraction(this.side,this.frontFraction)
@@ -166,7 +168,8 @@ export default class SidebarResizer {
 				const frontSize=getFrontSize(this.$root,this.$side,side)
 				const targetFrontSize=frontSize+step
 				const targetFrontFraction=getTargetFraction(this.$root,isHor(side),targetFrontSize)
-				const frontFraction=setFrontSizeProperties(this.$root,side,targetFrontFraction)
+				const frontFraction=clampFrontFraction(targetFrontFraction)
+				setFrontSizeProperties(this.$root,side,frontFraction)
 				this.storeFrontSize(side,frontFraction)
 			}
 			map.invalidateSize()
@@ -221,16 +224,20 @@ function getTargetFraction($root: HTMLElement, isHor: boolean, targetSize: numbe
 
 function setSidebarSizeProperties($root: HTMLElement, side: Side, sidebarFraction: number): number {
 	const frontFraction=adjustFraction(side,sidebarFraction)
-	const outputFrontFraction=setFrontSizeProperties($root,side,frontFraction)
+	const outputFrontFraction=clampFrontFraction(frontFraction)
+	setFrontSizeProperties($root,side,outputFrontFraction)
 	return adjustFraction(side,outputFrontFraction)
 }
 
-function setFrontSizeProperties($root: HTMLElement, side: Side, frontFraction: number): number {
+function clampFrontFraction(frontFraction: number): number {
 	if (frontFraction<0) frontFraction=0
 	if (frontFraction>1) frontFraction=1
 	if (Number.isNaN(frontFraction)) frontFraction=0.5
+	return frontFraction
+}
+
+function setFrontSizeProperties($root: HTMLElement, side: Side, frontFraction: number): void {
 	const fr=Math.round(frontFraction*frMultiplier)
 	$root.style.setProperty(isHor(side) ? '--left-side-size' : '--top-side-size',`${fr}fr`)
 	$root.style.setProperty(isHor(side) ? '--right-side-size' : '--bottom-side-size',`${frMultiplier-fr}fr`)
-	return frontFraction
 }
