@@ -18,7 +18,6 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 	title=`Get notes inside rectangular area`
 	private nominatimSubForm: NominatimSubForm|undefined
 	private $trackMapSelect=document.createElement('select')
-	private $trackMapZoomNotice=makeElement('span')('notice')()
 	protected $bboxInput=document.createElement('input')
 	private mapBoundsForFreezeRestore: L.LatLngBounds|undefined
 	constructor(
@@ -85,8 +84,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 				new Option(`Update bounding box`,'bbox',true,true),
 			)
 			$fieldset.append(makeDiv('regular-input-group')(
-				makeLabel('inline')(this.$trackMapSelect,` on map view changes`),` `,
-				this.$trackMapZoomNotice
+				makeLabel('inline')(this.$trackMapSelect,` on map view changes`)
 			))
 		}{
 			this.$bboxInput.type='text'
@@ -132,18 +130,12 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		this.$bboxInput.value=query?.bbox ?? ''
 	}
 	protected addEventListenersBeforeClosedLine(): void {
-		const updateTrackMapZoomNotice=()=>{
-			this.$trackMapZoomNotice.classList.remove('error')
-			this.$trackMapZoomNotice.innerText=''
-		}
 		const trackMap=()=>{
-			updateTrackMapZoomNotice()
 			if (this.$trackMapSelect.value=='bbox') {
 				this.setBbox(...this.map.precisionBounds.wsen)
 			}
 			this.nominatimSubForm?.updateRequest()
 		}
-		updateTrackMapZoomNotice()
 		this.$root.addEventListener('osmNoteViewer:mapMoveEnd',()=>{
 			trackMap()
 			if (this.isOpen() && this.mapBoundsForFreezeRestore) {
