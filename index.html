@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" crossorigin="" />
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
 </head>
-<body data-build="2023-09-19T16:35:05.678Z">
+<body data-build="2023-09-21T01:27:09.050Z">
 <svg class="symbols">
 <style>
 #menu .cross { visibility: var(--menu-cross-part-visibility,hidden); }
@@ -135,6 +135,12 @@
 <use href="#table-button-row" y="32" />
 <use href="#table-button-row" y="48" />
 </symbol>
+<symbol id="tools-download" viewBox="-6.5 -6.5 13 13">
+<path d="M-2,-6 V0 H-6 L0,6 L6,0 H2 V-6 Z" fill="#0F02" stroke="currentColor" stroke-linejoin="round" />
+</symbol>
+<symbol id="tools-filter" viewBox="-6.5 -6.5 13 13">
+<path d="M-6,-6 L-1,-1 V6 L1,4 V-1 L6,-6 Z" fill="#FF02" stroke="currentColor" stroke-linejoin="round" />
+</symbol>
 <symbol id="tools-info" viewBox="-10 -10 20 29">
 <g stroke="white" stroke-width="2" stroke-linecap="square">
 <circle r="8" fill="var(--info-color,#28F)" stroke="none" />
@@ -195,6 +201,10 @@
 </defs>
 <use href="#arrow" />
 <use href="#arrow" transform="scale(-1)" />
+</symbol>
+<symbol id="tools-select" viewBox="-6.5 -6.5 13 13">
+<rect x="-6" y="-6" width="12" height="12" rx="2" fill="#00F4" stroke="currentColor" />
+<path d="M-4,0 l3,3 l5,-5" fill="none" stroke="#FFF" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
 </symbol>
 </svg>
 <script src=index.js></script>

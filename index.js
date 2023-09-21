@@ -1170,7 +1170,7 @@ function makeCodeForm(initialValue, stashedValue, summary, textareaLabel, applyB
         $formDetails.classList.add('with-code-form');
         $formDetails.open = !isEmpty();
         const $formSummary = document.createElement('summary');
-        $formSummary.append(summary, $output);
+        $formSummary.append(...summary, $output);
         $formDetails.append($formSummary, $form);
     }
     {
@@ -1395,7 +1395,7 @@ class ServerListSection {
             }
             $section.append(serverTable.$table);
         }
-        $section.append(makeCodeForm(getStorageString(storage, 'servers'), '', `Custom servers configuration`, `Configuration`, `Apply changes`, input => input == getStorageString(storage, 'servers'), input => {
+        $section.append(makeCodeForm(getStorageString(storage, 'servers'), '', [`Custom servers configuration`], `Configuration`, `Apply changes`, input => input == getStorageString(storage, 'servers'), input => {
             if (input.trim() == '')
                 return;
             const configSource = JSON.parse(input);
@@ -3484,7 +3484,7 @@ class ImageSection {
     constructor($section, storage) {
         this.$section = $section;
         $section.append(makeElement('h2')()(`Trusted image sources`));
-        $section.append(makeCodeForm(getStorageString(storage, 'image-sources'), '', `Trusted image sources`, `URL prefixes`, `Apply changes`, input => input == getStorageString(storage, 'image-sources'), input => {
+        $section.append(makeCodeForm(getStorageString(storage, 'image-sources'), '', [`Trusted image sources`], `URL prefixes`, `Apply changes`, input => input == getStorageString(storage, 'image-sources'), input => {
             // TODO check syntax - should be https urls
         }, input => {
             setStorageString(storage, 'image-sources', input);
@@ -5566,7 +5566,7 @@ function mixinWithFetchButton(c) {
             this.$fetchButton = document.createElement('button');
         }
         makeFetchControlDiv() {
-            this.$fetchButton.textContent = `Fetch notes`;
+            this.$fetchButton.append(makeInlineIcon$2('download'), ` Fetch notes`);
             this.$fetchButton.type = 'submit';
             return makeDiv('major-input-group')(this.$fetchButton);
         }
@@ -5705,6 +5705,11 @@ function restrictClosedSelectValue(v) {
     else {
         return 7;
     }
+}
+function makeInlineIcon$2(type) {
+    const $span = makeElement('span')(`icon`)();
+    $span.innerHTML = `<svg width="13" height="13"><use href="#tools-${type}" /></svg>`;
+    return $span;
 }
 
 class DateInput {
@@ -5908,6 +5913,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         {
             this.$userInput.type = 'text';
             this.$userInput.name = 'user';
+            this.$userInput.size = 50;
             const userInputControl = new TextControl(this.$userInput, () => this.cx.username != null, () => this.$userInput.value != this.cx.username, () => this.$userInput.value != this.cx.username, (username) => this.$userInput.value = username, async ($a) => {
                 if (this.cx.username == null)
                     throw new TypeError(`Undefined user when setting user search value`);
@@ -5915,15 +5921,13 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
                 this.$userInput.value = this.cx.username;
                 return oldUsername;
             }, () => [makeElement('span')()(`undo set to`)], () => [makeElement('span')()(`set to`), ` `, em(String(this.cx.username))]);
-            $fieldset.append(makeDiv('major-input-group')(userInputControl.$controls, makeLabel()(`Username, URL or #id`, rq2('display_name', 'user'), ` `, this.$userInput)));
+            this.$textInput.type = 'text';
+            this.$textInput.name = 'text';
+            this.$textInput.size = 50;
+            $fieldset.append(makeDiv('input-super-group')(makeDiv('major-input-group')(userInputControl.$controls, makeLabel()(`Username, URL or #id`, rq2('display_name', 'user'), ` `, this.$userInput)), makeDiv('major-input-group')(makeLabel()(`Comment text search query`, rq$1('q'), ` `, this.$textInput))));
             this.$root.addEventListener('osmNoteViewer:loginChange', () => {
                 userInputControl.update();
             });
-        }
-        {
-            this.$textInput.type = 'text';
-            this.$textInput.name = 'text';
-            $fieldset.append(makeDiv('major-input-group')(makeLabel()(`Comment text search query`, rq$1('q'), ` `, this.$textInput)));
         }
         {
             this.fromDateInput.$input.id = 'search-from-date';
@@ -5934,7 +5938,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
             $fromDateLabel.htmlFor = 'search-from-date';
             const $toDateLabel = makeLabel('inline')(`To date`, rq$1('to'));
             $toDateLabel.htmlFor = 'search-to-date';
-            $fieldset.append(makeDiv('date-range-input-group')(makeElement('span')()($fromDateLabel, ` `, makeElement('span')()(...this.fromDateInput.$elements)), makeElement('span')()($toDateLabel, ` `, makeElement('span')()(...this.toDateInput.$elements))));
+            $fieldset.append(makeDiv('input-super-group')(makeElement('span')('date-range-input-group')($fromDateLabel, ` `, makeElement('span')()(...this.fromDateInput.$elements)), makeElement('span')('date-range-input-group')($toDateLabel, ` `, makeElement('span')()(...this.toDateInput.$elements))));
         }
     }
     appendToClosedLine($div) {
@@ -7336,7 +7340,7 @@ function term(t) {
 class NoteFilterPanel {
     constructor(storage, apiUrlLister, webUrlLister, $container) {
         this.noteFilter = new NoteFilter(apiUrlLister, webUrlLister, ``);
-        const $form = makeCodeForm('', getStorageString(storage, 'filter'), `Note filter`, `Filter`, `Apply filter`, input => this.noteFilter.isSameQuery(input), input => new NoteFilter(apiUrlLister, webUrlLister, input), input => {
+        const $form = makeCodeForm('', getStorageString(storage, 'filter'), [makeInlineIcon$1('filter'), ` Note filter`], `Filter`, `Apply filter`, input => this.noteFilter.isSameQuery(input), input => new NoteFilter(apiUrlLister, webUrlLister, input), input => {
             this.noteFilter = new NoteFilter(apiUrlLister, webUrlLister, input);
             setStorageString(storage, 'filter', input);
         }, () => {
@@ -7344,6 +7348,11 @@ class NoteFilterPanel {
         }, syntaxDescription, syntaxExamples);
         $container.append($form);
     }
+}
+function makeInlineIcon$1(type) {
+    const $span = makeElement('span')(`icon`)();
+    $span.innerHTML = `<svg width="13" height="16" viewBox="0 1.5 13 16"><use href="#tools-${type}" /></svg>`;
+    return $span;
 }
 
 function getCommentItems(webUrlLister, imageSourceUrls, commentText) {
@@ -9727,9 +9736,9 @@ class CountTool extends Tool {
             this.ping($tool);
         });
         return [
-            $fetchedNoteCount, ` fetched, `,
-            $visibleNoteCount, ` visible, `,
-            $selectedNoteCount, ` selected`
+            $fetchedNoteCount, ` × `, makeInlineIcon('download', `fetched`), `, `,
+            $visibleNoteCount, ` × `, makeInlineIcon('filter', `visible`), `, `,
+            $selectedNoteCount, ` × `, makeInlineIcon('select', `selected`)
         ];
     }
 }
@@ -9749,6 +9758,12 @@ class LegendTool extends Tool {
             makeNoteStatusIcon('closed'), ` = closed (selected) note`
         ];
     }
+}
+function makeInlineIcon(type, text) {
+    const $span = makeElement('span')(`icon`)();
+    $span.title = text;
+    $span.innerHTML = `<svg width="13" height="16" viewBox="0 1.5 13 16"><use href="#tools-${type}" /></svg>`;
+    return $span;
 }
 
 function listDecoratedNoteIds(inputIds) {
