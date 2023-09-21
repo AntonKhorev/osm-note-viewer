@@ -15,7 +15,6 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	title=`Get notes inside map view`
 	private $trackMapZoomNotice=makeDiv('notice')()
 	protected $bboxInput=document.createElement('input')
-	private mapBoundsForFreezeRestore: L.LatLngBounds|undefined
 	constructor(
 		$root: HTMLElement,
 		$sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
@@ -25,9 +24,6 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		private map: NoteMap
 	) {
 		super($root,$sharedCheckboxes,cx,getRequestApiPaths,submitQuery)
-	}
-	resetFetch() {
-		this.mapBoundsForFreezeRestore=undefined
 	}
 	get getAutoLoad(): ()=>boolean {
 		return ()=>false
@@ -114,19 +110,10 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 			updateTrackMapZoomNotice()
 			this.setBbox(...this.map.precisionBounds.wsen)
 		}
-		const updateNotesIfNeeded=()=>{
-			if (this.isOpen() && this.map.zoom>=8) {
-				this.$form.requestSubmit()
-			}
-		}
 		updateTrackMapZoomNotice()
 		this.$root.addEventListener('osmNoteViewer:mapMoveEnd',()=>{
 			trackMap()
-			if (this.isOpen() && this.mapBoundsForFreezeRestore) {
-				this.mapBoundsForFreezeRestore=undefined
-			} else {
-				updateNotesIfNeeded()
-			}
+			this.updateNotesIfNeeded()
 		})
 	}
 	protected constructQuery(): NoteQuery | undefined {
@@ -140,18 +127,16 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		]
 	}
 	onOpen(): void {
-		// TODO fetch right away
-		if (this.mapBoundsForFreezeRestore) {
-			this.map.fitBounds(this.mapBoundsForFreezeRestore) // assumes map is not yet frozen
-			// this.restoreMapBoundsForFreeze=undefined to be done in map move end listener
-		} else {
-			this.mapBoundsForFreezeRestore=undefined
-		}
 		this.map.freezeMode='full'
+		this.updateNotesIfNeeded()
 	}
 	onClose(): void {
-		this.mapBoundsForFreezeRestore=this.map.bounds
 		this.map.freezeMode='no'
+	}
+	private updateNotesIfNeeded(): void {
+		if (this.isOpen() && this.map.zoom>=8) {
+			this.$form.requestSubmit()
+		}
 	}
 	private setBbox(west:string,south:string,east:string,north:string): void {
 		// (left,bottom,right,top)
