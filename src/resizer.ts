@@ -85,7 +85,6 @@ export default class SidebarResizer {
 			setSidebarSizeProperties($root,side,Number(sidebarFractionItem))
 		}
 		this.$button=makeElement('button')('global','resize')()
-		this.$button.innerHTML=`<svg><use href="#resize" /></svg>`
 		this.$button.title=`Resize sidebar`
 	}
 	startListening(map: NoteMap) {

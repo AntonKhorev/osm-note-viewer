@@ -59,18 +59,21 @@
 	border-bottom-left-radius: 5px;
 	cursor: col-resize;
 }
-.graphic-side button.resize > svg {
-	position: absolute;
-	translate: -50% -50%;
-}
-.ui .text-side:is([data-side='top'],[data-side='bottom']) + .graphic-side button.resize > svg {
-	height: auto;
-}
-.ui .text-side:is([data-side='left'],[data-side='right']) + .graphic-side button.resize > svg {
-	width: auto;
-}
-.graphic-side button.resize:not(:hover) > svg {
+.graphic-side button.resize {
 	background: canvas;
+	background-image: radial-gradient(currentColor 25%, #0000 0%);
+	background-size: 6px 6px;
+	background-position: center;
+	background-clip: content-box;
+}
+.ui .text-side:is([data-side='top'],[data-side='bottom']) + .graphic-side button.resize {
+	background-position: 2px 7px;
+}
+.ui .text-side:is([data-side='left'],[data-side='right']) + .graphic-side button.resize {
+	background-position: 7px 2px;
+}
+.graphic-side button.resize:hover {
+	background-color: var(--hover-color);
 }
 
 .graphic-side div.menu:not([hidden]) {
