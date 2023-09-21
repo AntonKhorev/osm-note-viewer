@@ -77,12 +77,8 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 			}
 		}
 	}
-	appendToClosedLine($div: HTMLElement): void {
-		$div.append(
-			` `,
-			`sorted by last update date `,
-			`newest first`
-		)
+	protected getClosedLineNotesText(): string {
+		return `most recently updated notes`
 	}
 	protected limitValues=[20,100,500,2500,10000]
 	protected limitDefaultValue=100 // higher default limit because no progressive loads possible

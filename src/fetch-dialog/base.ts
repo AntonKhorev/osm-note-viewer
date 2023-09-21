@@ -345,7 +345,7 @@ export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetc
 				makeElement('span')('non-advanced-input-group')(
 					this.$closedSelect
 				),
-				` notes `,
+				` `,this.getClosedLineNotesText(),` `,
 				makeLabel('advanced-input-group')(
 					`closed no more than `,
 					this.$closedInput,
@@ -360,7 +360,10 @@ export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetc
 	protected abstract makeLeadAdvancedHint(): Array<string|HTMLElement>
 	protected abstract listParameters(closedDescriptionItems: Array<string|HTMLElement>): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][]
 	protected abstract writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void
-	protected abstract appendToClosedLine($div: HTMLElement): void
+	protected getClosedLineNotesText(): string {
+		return `notes`
+	}
+	protected appendToClosedLine($div: HTMLElement): void {}
 	protected addEventListeners(): void {
 		this.addEventListenersBeforeClosedLine()
 		this.$closedSelect.addEventListener('input',()=>{
