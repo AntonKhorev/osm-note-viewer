@@ -19,7 +19,6 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 	private nominatimSubForm: NominatimSubForm|undefined
 	private $trackMapSelect=document.createElement('select')
 	protected $bboxInput=document.createElement('input')
-	private mapBoundsForFreezeRestore: L.LatLngBounds|undefined
 	constructor(
 		$root: HTMLElement,
 		$sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
@@ -41,9 +40,6 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 				}
 			)
 		}
-	}
-	resetFetch() {
-		this.mapBoundsForFreezeRestore=undefined
 	}
 	get getAutoLoad(): ()=>boolean {
 		return ()=>false
@@ -138,9 +134,6 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		}
 		this.$root.addEventListener('osmNoteViewer:mapMoveEnd',()=>{
 			trackMap()
-			if (this.isOpen() && this.mapBoundsForFreezeRestore) {
-				this.mapBoundsForFreezeRestore=undefined
-			}
 		})
 		this.$trackMapSelect.addEventListener('input',()=>{
 			this.map.freezeMode=this.getMapFreezeMode() // don't update freeze mode on map moves
@@ -165,18 +158,9 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		]
 	}
 	onOpen(): void {
-		if (this.getMapFreezeMode()=='full' && this.mapBoundsForFreezeRestore) {
-			this.map.fitBounds(this.mapBoundsForFreezeRestore) // assumes map is not yet frozen
-			// this.restoreMapBoundsForFreeze=undefined to be done in map move end listener
-		} else {
-			this.mapBoundsForFreezeRestore=undefined
-		}
 		this.map.freezeMode=this.getMapFreezeMode()
 	}
 	onClose(): void {
-		if (this.getMapFreezeMode()=='full') {
-			this.mapBoundsForFreezeRestore=this.map.bounds
-		}
 		this.map.freezeMode='no'
 	}
 	private getMapFreezeMode(): NoteMapFreezeMode {

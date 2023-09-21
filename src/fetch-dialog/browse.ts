@@ -130,11 +130,6 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 				updateNotesIfNeeded()
 			}
 		})
-		// this.map.freezeMode=this.getMapFreezeMode() // TODO check if initialized
-		// this.$bboxInput.addEventListener('input',()=>{
-		// 	if (!this.validateBbox()) return
-		// 	this.$trackMapSelect.value='nothing'
-		// })
 	}
 	protected constructQuery(): NoteQuery | undefined {
 		return makeNoteBboxQueryFromValues(
@@ -147,22 +142,17 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		]
 	}
 	onOpen(): void {
-		if (this.getMapFreezeMode()=='full' && this.mapBoundsForFreezeRestore) {
+		if (this.mapBoundsForFreezeRestore) {
 			this.map.fitBounds(this.mapBoundsForFreezeRestore) // assumes map is not yet frozen
 			// this.restoreMapBoundsForFreeze=undefined to be done in map move end listener
 		} else {
 			this.mapBoundsForFreezeRestore=undefined
 		}
-		this.map.freezeMode=this.getMapFreezeMode()
+		this.map.freezeMode='full'
 	}
 	onClose(): void {
-		if (this.getMapFreezeMode()=='full') {
-			this.mapBoundsForFreezeRestore=this.map.bounds
-		}
+		this.mapBoundsForFreezeRestore=this.map.bounds
 		this.map.freezeMode='no'
-	}
-	private getMapFreezeMode(): NoteMapFreezeMode {
-		return 'full'
 	}
 	private setBbox(west:string,south:string,east:string,north:string): void {
 		// (left,bottom,right,top)
