@@ -269,7 +269,7 @@ export function mixinWithFetchButton<T extends abstract new (...args: any[]) => 
 	abstract class WithFetchButton extends c {
 		protected $fetchButton=document.createElement('button')
 		protected makeFetchControlDiv(): HTMLDivElement {
-			this.$fetchButton.textContent=`Fetch notes`
+			this.$fetchButton.append(makeInlineIcon('download'),` Fetch notes`)
 			this.$fetchButton.type='submit'
 			return makeDiv('major-input-group')(this.$fetchButton)
 		}
@@ -435,4 +435,10 @@ function restrictClosedSelectValue(v: number): number {
 	} else {
 		return 7
 	}
+}
+
+function makeInlineIcon(type: string): HTMLElement {
+	const $span=makeElement('span')(`icon`)()
+	$span.innerHTML=`<svg width="13" height="13"><use href="#tools-${type}" /></svg>`
+	return $span
 }
