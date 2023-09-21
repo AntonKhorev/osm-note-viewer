@@ -3,7 +3,7 @@ import {makeDiv, makeLabel} from './html'
 export default function makeCodeForm(
 	initialValue: string,
 	stashedValue: string,
-	summary: string, textareaLabel: string, applyButtonLabel: string,
+	summary: (string|HTMLElement)[], textareaLabel: string, applyButtonLabel: string,
 	isSameInput: (input:string)=>boolean,
 	checkInput: (input:string)=>void,
 	applyInput: (input:string)=>void,
@@ -45,7 +45,7 @@ export default function makeCodeForm(
 		$formDetails.classList.add('with-code-form')
 		$formDetails.open=!isEmpty()
 		const $formSummary=document.createElement('summary')
-		$formSummary.append(summary,$output)
+		$formSummary.append(...summary,$output)
 		$formDetails.append($formSummary,$form)
 	}{
 		const $syntaxDetails=document.createElement('details')

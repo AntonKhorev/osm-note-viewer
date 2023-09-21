@@ -3,6 +3,7 @@ import type {SimpleStorage} from './util/storage'
 import {getStorageString, setStorageString} from './util/storage'
 import type {ApiUrlLister, WebUrlLister} from './net'
 import makeCodeForm from './util/code-form'
+import {makeElement} from './util/html'
 
 const syntaxDescription=`<summary>Filter syntax</summary>
 <ul>
@@ -74,7 +75,7 @@ export default class NoteFilterPanel {
 		this.noteFilter=new NoteFilter(apiUrlLister,webUrlLister,``)
 		const $form=makeCodeForm(
 			'',getStorageString(storage,'filter'),
-			`Note filter`,`Filter`,`Apply filter`,
+			[makeInlineIcon('filter'),` Note filter`],`Filter`,`Apply filter`,
 			input=>this.noteFilter.isSameQuery(input),
 			input=>new NoteFilter(apiUrlLister,webUrlLister,input),
 			input=>{
@@ -88,4 +89,10 @@ export default class NoteFilterPanel {
 		)
 		$container.append($form)
 	}
+}
+
+function makeInlineIcon(type: string): HTMLElement {
+	const $span=makeElement('span')(`icon`)()
+	$span.innerHTML=`<svg width="13" height="16" viewBox="0 1.5 13 16"><use href="#tools-${type}" /></svg>`
+	return $span
 }

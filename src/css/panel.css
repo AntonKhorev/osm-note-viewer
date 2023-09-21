@@ -38,6 +38,10 @@
 	color: var(--error-color);
 	background: var(--error-background-color);
 }
+.panel [class|=icon] > svg {
+	vertical-align: middle;
+}
+
 .panel:not(.toolbar) details > summary:hover {
 	background: var(--hover-color);
 }
@@ -221,9 +225,6 @@ dialog.help button.close-all-tools::before {
 }
 .panel.toolbar > button.settings {
 	margin-left: auto;
-}
-.panel.toolbar [class|=icon] > svg {
-	vertical-align: middle;
 }
 .panel.toolbar [class|=icon-map] > svg {
 	width: 19px;

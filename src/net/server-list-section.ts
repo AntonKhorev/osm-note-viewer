@@ -149,7 +149,7 @@ export default class ServerListSection {
 		}
 		$section.append(makeCodeForm(
 			getStorageString(storage,'servers'),'',
-			`Custom servers configuration`,`Configuration`,`Apply changes`,
+			[`Custom servers configuration`],`Configuration`,`Apply changes`,
 			input=>input==getStorageString(storage,'servers'),
 			input=>{
 				if (input.trim()=='') return

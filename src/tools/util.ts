@@ -113,7 +113,7 @@ export class LegendTool extends Tool {
 	}
 }
 
-export function makeInlineIcon(type: string, text: string): HTMLElement {
+function makeInlineIcon(type: string, text: string): HTMLElement {
 	const $span=makeElement('span')(`icon`)()
 	$span.title=text
 	$span.innerHTML=`<svg width="13" height="16" viewBox="0 1.5 13 16"><use href="#tools-${type}" /></svg>`

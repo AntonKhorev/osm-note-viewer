@@ -29,7 +29,7 @@ export default class ImageSection {
 		)
 		$section.append(makeCodeForm(
 			getStorageString(storage,'image-sources'),'',
-			`Trusted image sources`,`URL prefixes`,`Apply changes`,
+			[`Trusted image sources`],`URL prefixes`,`Apply changes`,
 			input=>input==getStorageString(storage,'image-sources'),
 			input=>{
 				// TODO check syntax - should be https urls
