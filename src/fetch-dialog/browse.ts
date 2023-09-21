@@ -17,7 +17,7 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	shortTitle=`Browse`
 	title=`Get notes inside map view`
 	private nominatimSubForm: NominatimSubForm|undefined
-	private $trackMapZoomNotice=makeElement('span')('notice')()
+	private $trackMapZoomNotice=makeDiv('notice')()
 	protected $bboxInput=document.createElement('input')
 	private mapBoundsForFreezeRestore: L.LatLngBounds|undefined
 	constructor(
@@ -78,9 +78,9 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	}
 	protected writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void {
 		{
-			$fieldset.append(makeDiv('regular-input-group')(
+			$fieldset.append(
 				this.$trackMapZoomNotice
-			))
+			)
 		}{
 			this.$bboxInput.type='text'
 			this.$bboxInput.name='bbox'
@@ -128,10 +128,10 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		const updateTrackMapZoomNotice=()=>{
 			if (this.map.zoom>=8) {
 				this.$trackMapZoomNotice.classList.remove('error')
-				this.$trackMapZoomNotice.innerText=`(fetching will stop on zooms lower than 8)`
+				this.$trackMapZoomNotice.innerText=`Fetching will stop on zooms lower than 8`
 			} else {
 				this.$trackMapZoomNotice.classList.add('error')
-				this.$trackMapZoomNotice.innerText=`(fetching will start on zooms 8 or higher)`
+				this.$trackMapZoomNotice.innerText=`Fetching will start on zooms 8 or higher`
 			}
 		}
 		const trackMap=()=>{
