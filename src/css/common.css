@@ -124,6 +124,7 @@ body > .symbols {
 .ui .text-side > .sticky {
 	flex-shrink: 1;
 	overflow-y: auto;
+	box-shadow: 0 0px 6px #AAA;
 }
 
 .ui .flip-margin {
