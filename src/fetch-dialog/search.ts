@@ -21,7 +21,7 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 	protected $orderSelect=document.createElement('select')
 	protected makeLeadAdvancedHint(): Array<string|HTMLElement> {
 		return [p(
-			`Make a `,makeLink(`search for notes`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`),
+			`Make a `,makeLink(`notes search`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`),
 			` request at `,code(this.cx.server.api.getUrl(`notes/search?`),em(`parameters`)),`; see `,em(`parameters`),` below.`
 		)]
 	}

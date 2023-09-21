@@ -31,23 +31,9 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	populateInputs(query: NoteQuery|undefined): void {} // this mode has no persistent queries
 	protected makeLeadAdvancedHint(): Array<string|HTMLElement> {
 		return [p(
-			`Get `,makeLink(`notes by bounding box`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`),
-			` request at `,code(this.cx.server.api.getUrl(`notes?`),em(`parameters`)),`; see `,em(`parameters`),` below.`
+			`Make a `,makeLink(`notes in bounding box`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`),
+			` request at `,code(this.cx.server.api.getUrl(`notes?`),em(`parameters`)),` like the `,makeLink(`note layer`,`https://wiki.openstreetmap.org/wiki/Notes#Viewing_notes`),`; see `,em(`BBox`),` tab for `,em(`parameters`),` descriptions.`
 		)]
-	}
-	protected listParameters(closedDescriptionItems: Array<string|HTMLElement>): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][] {
-		return [
-			['bbox',this.$bboxInput,[
-				`Bounding box. `,
-				`Expect `,em(`The maximum bbox size is ..., and your request was too large`),` error if the bounding box is too large.`
-			]],
-			['limit',this.$limitInput,[
-				`Max number of notes to fetch. `,
-				`For `,em(`bbox`),` mode is corresponds to a total number of notes, not just a batch size. `,
-				`It's impossible to download additional batches of notes because the API call used by this mode lacks date range parameters.`
-			]],
-			['closed',this.$closedInput,closedDescriptionItems],
-		]
 	}
 	protected writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void {
 		{
