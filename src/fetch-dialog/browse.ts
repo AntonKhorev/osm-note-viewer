@@ -41,24 +41,10 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 				this.$trackMapZoomNotice
 			)
 		}{
-			this.$bboxInput.type='text'
+			this.$bboxInput.type='hidden'
 			this.$bboxInput.name='bbox'
 			this.$bboxInput.required=true // otherwise could submit empty bbox without entering anything
-			$fieldset.append(makeDiv('major-input-group')(makeLabel()(
-				`Bounding box (`,
-				tip(`left`,`western-most (min) longitude`),`, `,
-				tip(`bottom`,`southern-most (min) latitude`),`, `,
-				tip(`right`,`eastern-most (max) longitude`),`, `,
-				tip(`top`,`northern-most (max) latitude`),
-				`)`,rq('bbox'),spanRequest(` (also `,code('west'),`, `,code('south'),`, `,code('east'),`, `,code('north'),` Nominatim parameters)`),` `,
-				this.$bboxInput
-			)))
-			function tip(text: string, title: string) {
-				const $span=document.createElement('span')
-				$span.textContent=text
-				$span.title=title
-				return $span
-			}
+			$fieldset.append(this.$bboxInput)
 		}
 	}
 	protected getClosedLineNotesText(): string {
