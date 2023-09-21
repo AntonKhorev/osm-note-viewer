@@ -49,7 +49,7 @@ nav [role=tablist] [role=tab][aria-selected=true] {
 	background: canvas;
 }
 nav [role=tablist] [role=tab]:not([aria-selected=true]) {
-	box-shadow: 0 -4px 4px -4px #AAA inset;
+	box-shadow: 0 -4px 4px -4px var(--shadow-color) inset;
 }
 nav [role=tablist] [role=tab]:hover {
 	background: var(--hover-color);

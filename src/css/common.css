@@ -16,6 +16,7 @@
 	--tag-key-background-color: #F8F8FF;
 	--popup-item-background: #F8F8F8;
 	--popup-main-item-background: #FFF;
+	--shadow-color: #AAA;
 
 	--frame-line: solid 1px var(--frame-color);
 }
@@ -35,6 +36,7 @@
 		--tag-key-background-color: #223;
 		--popup-item-background: #333;
 		--popup-main-item-background: #222;
+		--shadow-color: #000;
 	}
 }
 
@@ -124,7 +126,7 @@ body > .symbols {
 .ui .text-side > .sticky {
 	flex-shrink: 1;
 	overflow-y: auto;
-	box-shadow: 0 0px 6px #AAA;
+	box-shadow: 0 0px 6px var(--shadow-color);
 }
 
 .ui .flip-margin {
