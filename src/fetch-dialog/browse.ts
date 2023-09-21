@@ -17,7 +17,6 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	shortTitle=`Browse`
 	title=`Get notes inside map view`
 	private nominatimSubForm: NominatimSubForm|undefined
-	private $trackMapSelect=document.createElement('select')
 	private $trackMapZoomNotice=makeElement('span')('notice')()
 	protected $bboxInput=document.createElement('input')
 	private mapBoundsForFreezeRestore: L.LatLngBounds|undefined
@@ -37,7 +36,6 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 				(bbox:NominatimBbox)=>{
 					const [minLat,maxLat,minLon,maxLon]=bbox
 					this.setBbox(minLon,minLat,maxLon,maxLat)
-					this.$trackMapSelect.value='nothing'
 					this.map.fitBounds([[Number(minLat),Number(minLon)],[Number(maxLat),Number(maxLon)]])
 				}
 			)
@@ -80,13 +78,7 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	}
 	protected writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void {
 		{
-			this.$trackMapSelect.append(
-				new Option(`Do nothing`,'nothing'),
-				new Option(`Update bounding box`,'bbox',true,true),
-				new Option(`Fetch notes`,'fetch'),
-			)
 			$fieldset.append(makeDiv('regular-input-group')(
-				makeLabel('inline')(this.$trackMapSelect,` on map view changes`),` `,
 				this.$trackMapZoomNotice
 			))
 		}{
@@ -134,28 +126,21 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	}
 	protected addEventListenersBeforeClosedLine(): void {
 		const updateTrackMapZoomNotice=()=>{
-			if (this.$trackMapSelect.value!='fetch') {
+			if (this.map.zoom>=8) {
 				this.$trackMapZoomNotice.classList.remove('error')
-				this.$trackMapZoomNotice.innerText=''
+				this.$trackMapZoomNotice.innerText=`(fetching will stop on zooms lower than 8)`
 			} else {
-				if (this.map.zoom>=8) {
-					this.$trackMapZoomNotice.classList.remove('error')
-					this.$trackMapZoomNotice.innerText=`(fetching will stop on zooms lower than 8)`
-				} else {
-					this.$trackMapZoomNotice.classList.add('error')
-					this.$trackMapZoomNotice.innerText=`(fetching will start on zooms 8 or higher)`
-				}
+				this.$trackMapZoomNotice.classList.add('error')
+				this.$trackMapZoomNotice.innerText=`(fetching will start on zooms 8 or higher)`
 			}
 		}
 		const trackMap=()=>{
 			updateTrackMapZoomNotice()
-			if (this.$trackMapSelect.value=='bbox' || this.$trackMapSelect.value=='fetch') {
-				this.setBbox(...this.map.precisionBounds.wsen)
-			}
+			this.setBbox(...this.map.precisionBounds.wsen)
 			this.nominatimSubForm?.updateRequest()
 		}
 		const updateNotesIfNeeded=()=>{
-			if (this.isOpen() && this.$trackMapSelect.value=='fetch' && this.map.zoom>=8) {
+			if (this.isOpen() && this.map.zoom>=8) {
 				this.$form.requestSubmit()
 			}
 		}
@@ -168,15 +153,11 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 				updateNotesIfNeeded()
 			}
 		})
-		this.$trackMapSelect.addEventListener('input',()=>{
-			this.map.freezeMode=this.getMapFreezeMode() // don't update freeze mode on map moves
-			trackMap()
-			updateNotesIfNeeded()
-		})
-		this.$bboxInput.addEventListener('input',()=>{
-			if (!this.validateBbox()) return
-			this.$trackMapSelect.value='nothing'
-		})
+		// this.map.freezeMode=this.getMapFreezeMode() // TODO check if initialized
+		// this.$bboxInput.addEventListener('input',()=>{
+		// 	if (!this.validateBbox()) return
+		// 	this.$trackMapSelect.value='nothing'
+		// })
 		if (this.nominatimSubForm) {
 			this.nominatimSubForm.addEventListeners()
 		}
@@ -207,9 +188,7 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		this.map.freezeMode='no'
 	}
 	private getMapFreezeMode(): NoteMapFreezeMode {
-		if (this.$trackMapSelect.value=='fetch') return 'full'
-		if (this.$trackMapSelect.value=='bbox') return 'initial'
-		return 'no'
+		return 'full'
 	}
 	private setBbox(west:string,south:string,east:string,north:string): void {
 		// (left,bottom,right,top)
