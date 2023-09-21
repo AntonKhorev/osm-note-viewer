@@ -1,4 +1,4 @@
-import {Tool, ToolElements, makeNotesIcon,  makeMapIcon, makeNoteStatusIcon, makeActionIcon} from './base'
+import {Tool, ToolElements, makeNotesIcon,  makeMapIcon, makeNoteStatusIcon} from './base'
 import DateInput from '../date-input'
 import {bubbleCustomEvent} from '../util/events'
 import {makeElement, makeLink} from '../util/html'
@@ -89,10 +89,11 @@ export class CountTool extends Tool {
 			$selectedNoteCount.textContent=String(nSelected)
 			this.ping($tool)
 		})
+		
 		return [
-			$fetchedNoteCount,` × `,makeActionIcon('download',`fetched`),`, `,
-			$visibleNoteCount,` × `,makeActionIcon('filter',`visible`),`, `,
-			$selectedNoteCount,` × `,makeActionIcon('select',`selected`)
+			$fetchedNoteCount,` × `,makeInlineIcon('download',`fetched`),`, `,
+			$visibleNoteCount,` × `,makeInlineIcon('filter',`visible`),`, `,
+			$selectedNoteCount,` × `,makeInlineIcon('select',`selected`)
 		]
 	}
 }
@@ -110,4 +111,11 @@ export class LegendTool extends Tool {
 			makeNoteStatusIcon('closed'),` = closed (selected) note`
 		]
 	}
+}
+
+export function makeInlineIcon(type: string, text: string): HTMLElement {
+	const $span=makeElement('span')(`icon`)()
+	$span.title=text
+	$span.innerHTML=`<svg width="13" height="16"><use href="#tools-${type}" /></svg>`
+	return $span
 }
