@@ -63,6 +63,9 @@
 .graphic-side .resize:hover {
 	background-color: var(--hover-color);
 }
+.ui.overlay .graphic-side .resize {
+	opacity: .2;
+}
 
 .graphic-side div.menu:not([hidden]) {
 	position: absolute;

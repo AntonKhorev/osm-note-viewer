@@ -95,16 +95,30 @@ export default class SidebarResizer {
 	}
 	startListening(map: NoteMap) {
 		let move:Move|undefined
+		let deferredPropertiesUpdate: (()=>void) | undefined
 		this.$button.onpointerdown=ev=>{
 			move=new Move(this.$root,this.$side,ev)
-			this.$side.dataset.side=move.side
-			this.$uiOverlaySide.dataset.side=move.side
-			setFrontSizeProperties(this.$root,move.side,move.frontFraction)
-			setFrontSizeProperties(this.$uiOverlay,move.side,move.frontFraction)
+			const side=move.side
+			const frontFraction=move.frontFraction
+			deferredPropertiesUpdate=()=>{
+				this.$side.dataset.side=side
+				setFrontSizeProperties(this.$root,side,frontFraction)
+			}
+			{
+				this.$uiOverlaySide.dataset.side=side
+				setFrontSizeProperties(this.$uiOverlay,side,frontFraction)
+			}
 			this.showOverlay(move.side)
 			this.$button.setPointerCapture(ev.pointerId)
+			this.$button.style.opacity='0'
 		}
 		this.$button.onpointerup=this.$button.onpointercancel=ev=>{
+			if (deferredPropertiesUpdate) {
+				deferredPropertiesUpdate()
+				deferredPropertiesUpdate=undefined
+				map.invalidateSize()
+			}
+			this.$button.style.removeProperty('opacity')
 			this.hideOverlay()
 			if (!move) return
 			const newSide=forceValidSide(this.$root,this.$side.dataset.side)
@@ -131,10 +145,15 @@ export default class SidebarResizer {
 			this.$flipMargins.bottom.classList.toggle('active',onBottomMargin && move.side!='bottom')
 			const flipAction=(move:Move,side:Side):boolean=>{
 				if (move.side==side) return false
-				this.$side.dataset.side=side
-				this.$uiOverlaySide.dataset.side=side
-				setSidebarSizeProperties(this.$root,side,move.startSidebarFraction)
-				setSidebarSizeProperties(this.$uiOverlay,side,move.startSidebarFraction)
+				const startSidebarFraction=move.startSidebarFraction
+				deferredPropertiesUpdate=()=>{
+					this.$side.dataset.side=side
+					setSidebarSizeProperties(this.$root,side,startSidebarFraction)
+				}
+				{
+					this.$uiOverlaySide.dataset.side=side
+					setSidebarSizeProperties(this.$uiOverlay,side,startSidebarFraction)
+				}
 				return true
 			}
 			if (onLeftMargin && flipAction(move,'left')) {
@@ -142,13 +161,18 @@ export default class SidebarResizer {
 			} else if (onTopMargin && flipAction(move,'top')) {
 			} else if (onBottomMargin && flipAction(move,'bottom')) {
 			} else {
-				this.$side.dataset.side=move.side
-				this.$uiOverlaySide.dataset.side=move.side
 				move.move(this.$root,ev)
-				setFrontSizeProperties(this.$root,move.side,move.frontFraction)
-				setFrontSizeProperties(this.$uiOverlay,move.side,move.frontFraction)
+				const side=move.side
+				const frontFraction=move.frontFraction
+				deferredPropertiesUpdate=()=>{
+					this.$side.dataset.side=side
+					setFrontSizeProperties(this.$root,side,frontFraction)
+				}
+				{
+					this.$uiOverlaySide.dataset.side=side
+					setFrontSizeProperties(this.$uiOverlay,side,frontFraction)
+				}
 			}
-			map.invalidateSize()
 		}
 		this.$button.onkeydown=ev=>{
 			if (move) return
