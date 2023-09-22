@@ -4101,18 +4101,18 @@ function adjustFraction(side, fraction) {
 }
 class Move {
     constructor($root, $side, ev) {
-        this.side = $side.dataset.side = forceValidSide($root, $side.dataset.side);
+        this.side = forceValidSide($root, $side.dataset.side);
         const frontSize = getFrontSize($root, $side, this.side);
         const pointerPosition = getPointerPosition(ev, isHor(this.side));
         this.startOffset = pointerPosition - frontSize;
         const targetFrontFraction = getTargetFraction($root, isHor(this.side), frontSize);
-        this.startFrontFraction = this.frontFraction = setFrontSizeProperties($root, this.side, targetFrontFraction);
+        this.startFrontFraction = this.frontFraction = clampFrontFraction(targetFrontFraction);
     }
     move($root, ev) {
         const pointerPosition = getPointerPosition(ev, isHor(this.side));
         const targetFrontSize = pointerPosition - this.startOffset;
         const targetFrontFraction = getTargetFraction($root, isHor(this.side), targetFrontSize);
-        this.frontFraction = setFrontSizeProperties($root, this.side, targetFrontFraction);
+        this.frontFraction = clampFrontFraction(targetFrontFraction);
     }
     get sidebarFraction() {
         return adjustFraction(this.side, this.frontFraction);
@@ -4146,27 +4146,44 @@ class SidebarResizer {
             left: makeFlipMargin('left'),
             right: makeFlipMargin('right'),
         };
-        $root.append(...Object.values(this.$flipMargins));
-        $root.style.setProperty('--min-hor-side-size', `${minHorSideSize}px`);
-        $root.style.setProperty('--min-ver-side-size', `${minVerSideSize}px`);
-        const side = $side.dataset.side = forceValidSide($root, storage.getItem('sidebar-side'));
-        const sidebarFractionItem = storage.getItem(`sidebar-fraction`);
-        if (sidebarFractionItem != null) {
-            setSidebarSizeProperties($root, side, Number(sidebarFractionItem));
-        }
+        this.$uiOverlayGhostButton = makeElement('span')('global', 'resize')();
+        this.$uiOverlaySide = makeDiv('text-side')();
+        this.$uiOverlay = makeDiv('ui', 'overlay')(this.$uiOverlaySide, makeDiv('graphic-side')(this.$uiOverlayGhostButton));
+        this.$uiOverlay.hidden = true;
+        $root.after(this.$uiOverlay);
+        this.$uiOverlay.append(...Object.values(this.$flipMargins));
+        setDefaultProperties($root, $side, storage);
+        setDefaultProperties(this.$uiOverlay, this.$uiOverlaySide, storage);
         this.$button = makeElement('button')('global', 'resize')();
-        this.$button.innerHTML = `<svg><use href="#resize" /></svg>`;
         this.$button.title = `Resize sidebar`;
     }
     startListening(map) {
         let move;
+        let deferredPropertiesUpdate;
         this.$button.onpointerdown = ev => {
             move = new Move(this.$root, this.$side, ev);
-            this.showFlipMargins(move.side);
+            const side = move.side;
+            const frontFraction = move.frontFraction;
+            deferredPropertiesUpdate = () => {
+                this.$side.dataset.side = side;
+                setFrontSizeProperties(this.$root, side, frontFraction);
+            };
+            {
+                this.$uiOverlaySide.dataset.side = side;
+                setFrontSizeProperties(this.$uiOverlay, side, frontFraction);
+            }
+            this.showOverlay(move.side);
             this.$button.setPointerCapture(ev.pointerId);
+            this.$button.style.opacity = '0';
         };
         this.$button.onpointerup = this.$button.onpointercancel = ev => {
-            this.hideFlipMargins();
+            if (deferredPropertiesUpdate) {
+                deferredPropertiesUpdate();
+                deferredPropertiesUpdate = undefined;
+                map.invalidateSize();
+            }
+            this.$button.style.removeProperty('opacity');
+            this.hideOverlay();
             if (!move)
                 return;
             const newSide = forceValidSide(this.$root, this.$side.dataset.side);
@@ -4196,8 +4213,15 @@ class SidebarResizer {
             const flipAction = (move, side) => {
                 if (move.side == side)
                     return false;
-                this.$side.dataset.side = side;
-                setSidebarSizeProperties(this.$root, side, move.startSidebarFraction);
+                const startSidebarFraction = move.startSidebarFraction;
+                deferredPropertiesUpdate = () => {
+                    this.$side.dataset.side = side;
+                    setSidebarSizeProperties(this.$root, side, startSidebarFraction);
+                };
+                {
+                    this.$uiOverlaySide.dataset.side = side;
+                    setSidebarSizeProperties(this.$uiOverlay, side, startSidebarFraction);
+                }
                 return true;
             };
             if (onLeftMargin && flipAction(move, 'left')) ;
@@ -4205,23 +4229,34 @@ class SidebarResizer {
             else if (onTopMargin && flipAction(move, 'top')) ;
             else if (onBottomMargin && flipAction(move, 'bottom')) ;
             else {
-                this.$side.dataset.side = move.side;
                 move.move(this.$root, ev);
+                const side = move.side;
+                const frontFraction = move.frontFraction;
+                deferredPropertiesUpdate = () => {
+                    this.$side.dataset.side = side;
+                    setFrontSizeProperties(this.$root, side, frontFraction);
+                };
+                {
+                    this.$uiOverlaySide.dataset.side = side;
+                    setFrontSizeProperties(this.$uiOverlay, side, frontFraction);
+                }
             }
-            map.invalidateSize();
         };
         this.$button.onkeydown = ev => {
             if (move)
                 return;
             const stepBase = ev.shiftKey ? 24 : 8;
             let step;
-            const side = this.$side.dataset.side = forceValidSide(this.$root, this.$side.dataset.side);
+            const side = forceValidSide(this.$root, this.$side.dataset.side);
+            this.$side.dataset.side = side;
+            this.$uiOverlaySide.dataset.side = side;
             const flip = (newSide) => {
                 const frontSize = getFrontSize(this.$root, this.$side, side);
                 const targetFrontFraction = getTargetFraction(this.$root, isHor(side), frontSize);
                 const targetSidebarFraction = adjustFraction(side, targetFrontFraction);
                 this.storage.setItem('sidebar-side', this.$side.dataset.side = newSide);
                 const sidebarFraction = setSidebarSizeProperties(this.$root, newSide, targetSidebarFraction);
+                setSidebarSizeProperties(this.$uiOverlay, newSide, targetSidebarFraction);
                 this.storeSidebarSize(newSide, sidebarFraction);
             };
             if (isHor(side) && ev.key == 'ArrowUp') {
@@ -4249,7 +4284,9 @@ class SidebarResizer {
                 const frontSize = getFrontSize(this.$root, this.$side, side);
                 const targetFrontSize = frontSize + step;
                 const targetFrontFraction = getTargetFraction(this.$root, isHor(side), targetFrontSize);
-                const frontFraction = setFrontSizeProperties(this.$root, side, targetFrontFraction);
+                const frontFraction = clampFrontFraction(targetFrontFraction);
+                setFrontSizeProperties(this.$root, side, frontFraction);
+                setFrontSizeProperties(this.$uiOverlay, side, frontFraction);
                 this.storeFrontSize(side, frontFraction);
             }
             map.invalidateSize();
@@ -4259,16 +4296,18 @@ class SidebarResizer {
             ev.preventDefault();
         };
     }
-    showFlipMargins(againstSide) {
+    showOverlay(againstSide) {
+        this.$uiOverlay.hidden = false;
         for (const [side, $flipMargin] of Object.entries(this.$flipMargins)) {
             $flipMargin.hidden = side == againstSide;
         }
     }
-    hideFlipMargins() {
+    hideOverlay() {
         for (const $flipMargin of Object.values(this.$flipMargins)) {
             $flipMargin.hidden = true;
             $flipMargin.classList.remove('active');
         }
+        this.$uiOverlay.hidden = true;
     }
     storeSidebarSize(side, sidebarFraction) {
         this.storage.setItem(`sidebar-fraction`, String(sidebarFraction));
@@ -4303,22 +4342,34 @@ function getTargetFraction($root, isHor, targetSize) {
     const targetExtraSize = targetSize - minSideSize;
     return targetExtraSize / rootExtraSize;
 }
-function setSidebarSizeProperties($root, side, sidebarFraction) {
-    const frontFraction = adjustFraction(side, sidebarFraction);
-    const outputFrontFraction = setFrontSizeProperties($root, side, frontFraction);
-    return adjustFraction(side, outputFrontFraction);
-}
-function setFrontSizeProperties($root, side, frontFraction) {
+function clampFrontFraction(frontFraction) {
     if (frontFraction < 0)
         frontFraction = 0;
     if (frontFraction > 1)
         frontFraction = 1;
     if (Number.isNaN(frontFraction))
         frontFraction = 0.5;
+    return frontFraction;
+}
+function setDefaultProperties($ui, $side, storage) {
+    $ui.style.setProperty('--min-hor-side-size', `${minHorSideSize}px`);
+    $ui.style.setProperty('--min-ver-side-size', `${minVerSideSize}px`);
+    const side = $side.dataset.side = forceValidSide($ui, storage.getItem('sidebar-side'));
+    const sidebarFractionItem = storage.getItem(`sidebar-fraction`);
+    if (sidebarFractionItem != null) {
+        setSidebarSizeProperties($ui, side, Number(sidebarFractionItem));
+    }
+}
+function setSidebarSizeProperties($root, side, sidebarFraction) {
+    const frontFraction = adjustFraction(side, sidebarFraction);
+    const outputFrontFraction = clampFrontFraction(frontFraction);
+    setFrontSizeProperties($root, side, outputFrontFraction);
+    return adjustFraction(side, outputFrontFraction);
+}
+function setFrontSizeProperties($root, side, frontFraction) {
     const fr = Math.round(frontFraction * frMultiplier);
     $root.style.setProperty(isHor(side) ? '--left-side-size' : '--top-side-size', `${fr}fr`);
     $root.style.setProperty(isHor(side) ? '--right-side-size' : '--bottom-side-size', `${frMultiplier - fr}fr`);
-    return frontFraction;
 }
 
 const e$8 = makeEscapeTag(escapeXml);
@@ -4682,8 +4733,18 @@ function makeNoteSearchQueryFromValues(apiUrlLister, webUrlLister, userValue, te
     return makeNoteSearchQueryFromUserQueryAndValues(toUserQuery(apiUrlLister, webUrlLister, userValue), textValue, fromValue, toValue, closedValue, sortValue, orderValue);
 }
 function makeNoteBboxQueryFromValues(bboxValue, closedValue) {
+    const query = makeNoteBboxOrBrowseQueryFromValues(bboxValue, closedValue, 'bbox');
+    if (query?.mode == 'bbox')
+        return query;
+}
+function makeNoteBrowseQueryFromValues(bboxValue, closedValue) {
+    const query = makeNoteBboxOrBrowseQueryFromValues(bboxValue, closedValue, 'browse');
+    if (query?.mode == 'browse')
+        return query;
+}
+function makeNoteBboxOrBrowseQueryFromValues(bboxValue, closedValue, mode) {
     const noteBboxQuery = {
-        mode: 'bbox',
+        mode,
         bbox: bboxValue.trim(),
         closed: toClosed(closedValue),
     };
@@ -4935,7 +4996,7 @@ class NoteBboxFetcherRequest extends NoteFetcherRequest {
         return `notes`;
     }
     getRequestUrlPathAndParameters(query, limit) {
-        if (query.mode != 'bbox')
+        if (query.mode != 'bbox' && query.mode != 'browse')
             return;
         return ['', this.getRequestUrlParametersWithoutLimit(query) + e$7 `&limit=${limit}`];
     }
@@ -5586,55 +5647,67 @@ class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
         {
             $fieldset.append(makeDiv('advanced-hint')(...this.makeLeadAdvancedHint()));
         }
-        {
-            const $table = document.createElement('table');
-            {
-                const $row = $table.insertRow();
-                $row.append(makeElement('th')()(`parameter`), makeElement('th')()(`description`));
-            }
-            const makeTr = (cellType) => (...sss) => makeElement('tr')()(...sss.map(ss => makeElement(cellType)()(...ss)));
-            const closedDescriptionItems = [
-                `Max number of days for closed note to be visible. `,
-                `In `, em(`advanced mode`), ` can be entered as a numeric value. `,
-                `When `, em(`advanced mode`), ` is disabled this parameter is available as a dropdown menu with the following values: `,
-                makeElement('table')()(makeTr('th')([`label`], [`value`], [`description`]), makeTr('td')([em(`both open and closed`)], [code(`-1`)], [
-                    `Special value to ignore how long ago notes were closed. `,
-                    `This is the default value for `, em(`note-viewer`), ` because it's the most useful one in conjunction with searching for a given user's notes.`
-                ]), makeTr('td')([em(`open and recently closed`)], [code(`7`)], [
-                    `The most common value used in other apps like the OSM website.`
-                ]), makeTr('td')([em(`only open`)], [code(`0`)], [
-                    `Ignore closed notes.`
-                ]))
-            ];
-            for (const [parameter, $input, descriptionItems] of this.listParameters(closedDescriptionItems)) {
-                const $row = $table.insertRow();
-                const $parameter = makeElement('code')('linked-parameter')(parameter); // TODO <a> or other focusable element
-                $parameter.onclick = () => $input.focus();
-                $row.insertCell().append($parameter);
-                $row.insertCell().append(...descriptionItems);
-            }
-            $fieldset.append(makeDiv('advanced-hint')(makeElement('details')()(makeElement('summary')()(`Supported parameters`), $table)));
-        }
+        this.writeScopeAndOrderFieldsetQueryParameterHints($fieldset);
         this.writeScopeAndOrderFieldsetBeforeClosedLine($fieldset);
         {
             this.$closedInput.type = 'number';
             this.$closedInput.min = '-1';
             this.$closedInput.value = '-1';
             this.$closedSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
-            const $closedLine = makeDiv('regular-input-group')(`Fetch `, makeElement('span')('non-advanced-input-group')(this.$closedSelect), ` matching notes `, makeLabel('advanced-input-group')(`closed no more than `, this.$closedInput, makeElement('span')('advanced-hint')(` (`, code('closed'), ` parameter)`), ` days ago`));
-            this.appendToClosedLine($closedLine);
+            const $closedLine = makeDiv('regular-input-group')(`Fetch `, makeElement('span')('non-advanced-input-group')(this.$closedSelect), ` `, this.getClosedLineNotesText(), ` `, makeLabel('advanced-input-group')(`closed no more than `, this.$closedInput, makeElement('span')('advanced-hint')(` (`, code('closed'), ` parameter)`), ` days ago`));
+            this.modifyClosedLine($closedLine);
             $fieldset.append($closedLine);
         }
     }
+    writeScopeAndOrderFieldsetQueryParameterHints($fieldset) {
+        const makeTr = (cellType) => (...sss) => makeElement('tr')()(...sss.map(ss => makeElement(cellType)()(...ss)));
+        const closedDescriptionItems = [
+            `Max number of days for closed note to be visible. `,
+            `In `, em(`advanced mode`), ` can be entered as a numeric value. `,
+            `When `, em(`advanced mode`), ` is disabled this parameter is available as a dropdown menu with the following values: `,
+            makeElement('table')()(makeTr('th')([`label`], [`value`], [`description`]), makeTr('td')([em(`both open and closed`)], [code(`-1`)], [
+                `Special value to ignore how long ago notes were closed. `,
+                `This is the default value for `, em(`note-viewer`), ` because it's the most useful one in conjunction with searching for a given user's notes.`
+            ]), makeTr('td')([em(`open and recently closed`)], [code(`7`)], [
+                `The most common value used in other apps like the OSM website.`
+            ]), makeTr('td')([em(`only open`)], [code(`0`)], [
+                `Ignore closed notes.`
+            ]))
+        ];
+        const parameters = this.listParameters(closedDescriptionItems);
+        if (parameters.length == 0)
+            return;
+        const $table = document.createElement('table');
+        {
+            const $row = $table.insertRow();
+            $row.append(makeElement('th')()(`parameter`), makeElement('th')()(`description`));
+        }
+        for (const [parameter, $input, descriptionItems] of parameters) {
+            const $row = $table.insertRow();
+            const $parameter = makeElement('code')('linked-parameter')(parameter); // TODO <a> or other focusable element
+            $parameter.onclick = () => $input.focus();
+            $row.insertCell().append($parameter);
+            $row.insertCell().append(...descriptionItems);
+        }
+        $fieldset.append(makeDiv('advanced-hint')(makeElement('details')()(makeElement('summary')()(`Supported parameters`), $table)));
+    }
+    listParameters(closedDescriptionItems) { return []; }
+    getClosedLineNotesText() {
+        return `notes`;
+    }
+    modifyClosedLine($div) { }
     addEventListeners() {
         this.addEventListenersBeforeClosedLine();
         this.$closedSelect.addEventListener('input', () => {
             this.$closedInput.value = this.$closedSelect.value;
+            this.onClosedValueChange();
         });
         this.$closedInput.addEventListener('input', () => {
             this.$closedSelect.value = String(restrictClosedSelectValue(Number(this.$closedInput.value)));
+            this.onClosedValueChange();
         });
     }
+    onClosedValueChange() { }
     populateInputsWithoutUpdatingRequest(query) {
         this.populateInputsWithoutUpdatingRequestExceptForClosedInput(query);
         if (query && (query.mode == 'search' || query.mode == 'bbox')) {
@@ -5854,7 +5927,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         this.limitIsParameter = true;
     }
     makeLeadAdvancedHint() {
-        return [p(`Make a `, makeLink(`search for notes`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`), ` request at `, code(this.cx.server.api.getUrl(`notes/search?`), em(`parameters`)), `; see `, em(`parameters`), ` below.`)];
+        return [p(`Make a `, makeLink(`notes search`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`), ` request at `, code(this.cx.server.api.getUrl(`notes/search?`), em(`parameters`)), `; see `, em(`parameters`), ` below.`)];
     }
     listParameters(closedDescriptionItems) {
         return [
@@ -5941,7 +6014,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
             $fieldset.append(makeDiv('input-super-group')(makeElement('span')('date-range-input-group')($fromDateLabel, ` `, makeElement('span')()(...this.fromDateInput.$elements)), makeElement('span')('date-range-input-group')($toDateLabel, ` `, makeElement('span')()(...this.toDateInput.$elements))));
         }
     }
-    appendToClosedLine($div) {
+    modifyClosedLine($div) {
         this.$sortSelect.append(new Option(`creation`, 'created_at'), new Option(`last update`, 'updated_at'));
         this.$orderSelect.append(new Option('newest'), new Option('oldest'));
         $div.append(` `, makeLabel('inline')(`sorted by `, this.$sortSelect, rq$1('sort'), ` date`), `, `, makeLabel('inline')(this.$orderSelect, rq$1('order'), ` first`));
@@ -6126,7 +6199,6 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         this.shortTitle = `BBox`;
         this.title = `Get notes inside rectangular area`;
         this.$trackMapSelect = document.createElement('select');
-        this.$trackMapZoomNotice = makeElement('span')('notice')();
         this.$bboxInput = document.createElement('input');
         this.limitValues = [20, 100, 500, 2500, 10000];
         this.limitDefaultValue = 100; // higher default limit because no progressive loads possible
@@ -6143,9 +6215,6 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
             });
         }
     }
-    resetFetch() {
-        this.mapBoundsForFreezeRestore = undefined;
-    }
     get getAutoLoad() {
         return () => false;
     }
@@ -6159,7 +6228,7 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         }
     }
     makeLeadAdvancedHint() {
-        return [p(`Get `, makeLink(`notes by bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code(this.cx.server.api.getUrl(`notes?`), em(`parameters`)), `; see `, em(`parameters`), ` below.`)];
+        return [p(`Make a `, makeLink(`notes in bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code(this.cx.server.api.getUrl(`notes?`), em(`parameters`)), `; see `, em(`parameters`), ` below.`)];
     }
     listParameters(closedDescriptionItems) {
         return [
@@ -6177,8 +6246,8 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
     }
     writeScopeAndOrderFieldsetBeforeClosedLine($fieldset) {
         {
-            this.$trackMapSelect.append(new Option(`Do nothing`, 'nothing'), new Option(`Update bounding box`, 'bbox', true, true), new Option(`Fetch notes`, 'fetch'));
-            $fieldset.append(makeDiv('regular-input-group')(makeLabel('inline')(this.$trackMapSelect, ` on map view changes`), ` `, this.$trackMapZoomNotice));
+            this.$trackMapSelect.append(new Option(`Do nothing`, 'nothing'), new Option(`Update bounding box`, 'bbox', true, true));
+            $fieldset.append(makeDiv('regular-input-group')(makeLabel('inline')(this.$trackMapSelect, ` on map view changes`)));
         }
         {
             this.$bboxInput.type = 'text';
@@ -6196,7 +6265,7 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
             this.nominatimSubForm.write($fieldset);
         }
     }
-    appendToClosedLine($div) {
+    modifyClosedLine($div) {
         $div.append(` `, `sorted by last update date `, `newest first`);
     }
     writeDownloadModeFieldset($fieldset) {
@@ -6207,48 +6276,18 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         this.$bboxInput.value = query?.bbox ?? '';
     }
     addEventListenersBeforeClosedLine() {
-        const updateTrackMapZoomNotice = () => {
-            if (this.$trackMapSelect.value != 'fetch') {
-                this.$trackMapZoomNotice.classList.remove('error');
-                this.$trackMapZoomNotice.innerText = '';
-            }
-            else {
-                if (this.map.zoom >= 8) {
-                    this.$trackMapZoomNotice.classList.remove('error');
-                    this.$trackMapZoomNotice.innerText = `(fetching will stop on zooms lower than 8)`;
-                }
-                else {
-                    this.$trackMapZoomNotice.classList.add('error');
-                    this.$trackMapZoomNotice.innerText = `(fetching will start on zooms 8 or higher)`;
-                }
-            }
-        };
         const trackMap = () => {
-            updateTrackMapZoomNotice();
-            if (this.$trackMapSelect.value == 'bbox' || this.$trackMapSelect.value == 'fetch') {
+            if (this.$trackMapSelect.value == 'bbox') {
                 this.setBbox(...this.map.precisionBounds.wsen);
             }
             this.nominatimSubForm?.updateRequest();
         };
-        const updateNotesIfNeeded = () => {
-            if (this.isOpen() && this.$trackMapSelect.value == 'fetch' && this.map.zoom >= 8) {
-                this.$form.requestSubmit();
-            }
-        };
-        updateTrackMapZoomNotice();
         this.$root.addEventListener('osmNoteViewer:mapMoveEnd', () => {
             trackMap();
-            if (this.isOpen() && this.mapBoundsForFreezeRestore) {
-                this.mapBoundsForFreezeRestore = undefined;
-            }
-            else {
-                updateNotesIfNeeded();
-            }
         });
         this.$trackMapSelect.addEventListener('input', () => {
             this.map.freezeMode = this.getMapFreezeMode(); // don't update freeze mode on map moves
             trackMap();
-            updateNotesIfNeeded();
         });
         this.$bboxInput.addEventListener('input', () => {
             if (!this.validateBbox())
@@ -6268,24 +6307,12 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         ];
     }
     onOpen() {
-        if (this.getMapFreezeMode() == 'full' && this.mapBoundsForFreezeRestore) {
-            this.map.fitBounds(this.mapBoundsForFreezeRestore); // assumes map is not yet frozen
-            // this.restoreMapBoundsForFreeze=undefined to be done in map move end listener
-        }
-        else {
-            this.mapBoundsForFreezeRestore = undefined;
-        }
         this.map.freezeMode = this.getMapFreezeMode();
     }
     onClose() {
-        if (this.getMapFreezeMode() == 'full') {
-            this.mapBoundsForFreezeRestore = this.map.bounds;
-        }
         this.map.freezeMode = 'no';
     }
     getMapFreezeMode() {
-        if (this.$trackMapSelect.value == 'fetch')
-            return 'full';
         if (this.$trackMapSelect.value == 'bbox')
             return 'initial';
         return 'no';
@@ -6885,6 +6912,123 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
     }
 }
 
+class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
+    constructor($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, map) {
+        super($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery);
+        this.map = map;
+        this.shortTitle = `Browse`;
+        this.title = `Get notes inside map view`;
+        this.$trackMapZoomNotice = makeDiv('notice')();
+        this.$bboxInput = document.createElement('input');
+        this.limitValues = [20, 100, 500, 2500, 10000];
+        this.limitDefaultValue = 100; // higher default limit because no progressive loads possible
+        this.limitLeadText = `Download `;
+        this.limitLabelBeforeText = `at most `;
+        this.limitLabelAfterText = ` notes`;
+        this.limitIsParameter = true;
+    }
+    get getAutoLoad() {
+        return () => false;
+    }
+    populateInputs(query) { } // this mode has no persistent queries
+    makeLeadAdvancedHint() {
+        return [p(`Make a `, makeLink(`notes in bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code(this.cx.server.api.getUrl(`notes?`), em(`parameters`)), ` like the `, makeLink(`note layer`, `https://wiki.openstreetmap.org/wiki/Notes#Viewing_notes`), `; see `, em(`BBox`), ` tab for `, em(`parameters`), ` descriptions.`)];
+    }
+    writeScopeAndOrderFieldsetBeforeClosedLine($fieldset) {
+        {
+            $fieldset.append(this.$trackMapZoomNotice);
+        }
+        {
+            this.$bboxInput.type = 'hidden';
+            this.$bboxInput.name = 'bbox';
+            this.$bboxInput.required = true; // otherwise could submit empty bbox without entering anything
+            $fieldset.append(this.$bboxInput);
+        }
+    }
+    getClosedLineNotesText() {
+        return `most recently updated notes`;
+    }
+    modifyClosedLine($div) {
+        this.$closedInput.value = this.$closedSelect.value = '7';
+    }
+    writeDownloadModeFieldset($fieldset) {
+    }
+    populateInputsWithoutUpdatingRequestExceptForClosedInput(query) {
+    }
+    addEventListenersBeforeClosedLine() {
+        const updateTrackMapZoomNotice = () => {
+            if (this.map.zoom >= 8) {
+                this.$trackMapZoomNotice.classList.remove('error');
+                this.$trackMapZoomNotice.innerText = `Fetching will stop on zooms lower than 8`;
+            }
+            else {
+                this.$trackMapZoomNotice.classList.add('error');
+                this.$trackMapZoomNotice.innerText = `Fetching will start on zooms 8 or higher`;
+            }
+        };
+        const trackMap = () => {
+            updateTrackMapZoomNotice();
+            this.setBbox(...this.map.precisionBounds.wsen);
+        };
+        updateTrackMapZoomNotice();
+        this.$root.addEventListener('osmNoteViewer:mapMoveEnd', () => {
+            trackMap();
+            this.updateNotesIfNeeded();
+        });
+    }
+    onClosedValueChange() {
+        this.updateNotesIfNeeded();
+    }
+    constructQuery() {
+        return makeNoteBrowseQueryFromValues(this.$bboxInput.value, this.closedValue);
+    }
+    listQueryChangingInputs() {
+        return [
+            this.$bboxInput, this.$closedInput, this.$closedSelect
+        ];
+    }
+    onOpen() {
+        this.map.freezeMode = 'full';
+        this.updateNotesIfNeeded();
+    }
+    onClose() {
+        this.map.freezeMode = 'no';
+    }
+    updateNotesIfNeeded() {
+        if (this.isOpen() && this.map.zoom >= 8) {
+            this.$form.requestSubmit();
+        }
+    }
+    setBbox(west, south, east, north) {
+        // (left,bottom,right,top)
+        this.$bboxInput.value = west + ',' + south + ',' + east + ',' + north;
+        this.validateBbox();
+        this.updateRequest();
+    }
+    validateBbox() {
+        const splitValue = this.$bboxInput.value.split(',');
+        if (splitValue.length != 4) {
+            this.$bboxInput.setCustomValidity(`must contain four comma-separated values`);
+            return false;
+        }
+        for (const number of splitValue) {
+            if (!isFinite(Number(number))) {
+                this.$bboxInput.setCustomValidity(`values must be numbers, "${number}" is not a number`);
+                return false;
+            }
+        }
+        this.$bboxInput.setCustomValidity('');
+        return true;
+    }
+    getQueryCaptionItems(query) {
+        if (query.mode != 'browse')
+            return [];
+        return [
+            [`inside bounding box `, query.bbox]
+        ];
+    }
+}
+
 class NoteFetchDialogs {
     constructor($root, cx, $container, $moreContainer, noteTable, map, hashQuery, submitQueryToDialog, limitChangeListener) {
         const $sharedCheckboxes = {
@@ -6902,6 +7046,7 @@ class NoteFetchDialogs {
         this.bboxDialog = makeFetchDialog(new NoteBboxFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteBboxFetchDialog($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, map));
         this.xmlDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteXmlFetchDialog($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery));
         this.plaintextDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NotePlaintextFetchDialog($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, noteTable));
+        this.browseDialog = makeFetchDialog(new NoteBboxFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteBrowseFetchDialog($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, map));
         const handleSharedCheckboxes = ($checkboxes, stateChangeListener) => {
             for (const $checkbox of $checkboxes) {
                 $checkbox.addEventListener('input', inputListener);
@@ -6929,7 +7074,7 @@ class NoteFetchDialogs {
         });
     }
     get allDialogs() {
-        return [this.searchDialog, this.bboxDialog, this.xmlDialog, this.plaintextDialog];
+        return [this.searchDialog, this.bboxDialog, this.xmlDialog, this.plaintextDialog, this.browseDialog];
     }
     populateInputs(query) {
         for (const dialog of this.allDialogs) {
@@ -7004,7 +7149,7 @@ class NoteFetchPanel {
             startFetcher(query, isNewStart, suppressFitNotes, dialog);
         }
         function startFetcher(query, isNewStart, suppressFitNotes, dialog) {
-            if (query.mode != 'search' && query.mode != 'bbox' && query.mode != 'ids')
+            if (query.mode != 'search' && query.mode != 'bbox' && query.mode != 'browse' && query.mode != 'ids')
                 return;
             while (moreButtonIntersectionObservers.length > 0)
                 moreButtonIntersectionObservers.pop()?.disconnect();
@@ -7055,7 +7200,7 @@ class NoteFetchPanel {
             if (query.mode == 'search') {
                 self.fetcherRun = new NoteSearchFetcherRun(environment, query, isNewStart);
             }
-            else if (query.mode == 'bbox') {
+            else if (query.mode == 'bbox' || query.mode == 'browse') {
                 self.fetcherRun = new NoteBboxFetcherRun(environment, query, isNewStart);
             }
             else if (query.mode == 'ids') {

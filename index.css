@@ -49,7 +49,7 @@ body > .symbols {
 	display: none;
 }
 
-.ui {
+.ui:not([hidden]) {
 	position: fixed;
 	height: 100%;
 	width: 100%;
@@ -156,7 +156,11 @@ body > .symbols {
 .ui .flip-margin .side-indicator::before {
 	content: '';
 	position: absolute;
-	background: var(--frame-color);
+	background: var(--click-color);
+	opacity: .5;
+}
+.ui .flip-margin.active .side-indicator::before {
+	opacity: 1;
 }
 .ui .flip-margin[data-side='left'] .side-indicator::before {
 	width: 25%;
@@ -187,6 +191,14 @@ body > .symbols {
 	border-bottom-left-radius: 3px;
 	border-bottom-right-radius: 3px;
 	bottom: 0;
+}
+
+.ui.overlay {
+	pointer-events: none;
+}
+.ui.overlay .text-side {
+	opacity: .5;
+	background: var(--click-color);
 }
 
 a.input-link[tabindex],
@@ -288,9 +300,6 @@ button.global:not([disabled]):hover > svg { /* > svg background only required fo
 /*** css/navbar.css ***/
 nav {
 	position: relative;
-	box-sizing: border-box;
-	padding: .5rem 3rem 0 .5rem;
-	z-index: 1;
 }
 nav button.global {
 	right: .25rem;
@@ -310,8 +319,10 @@ nav button.global:not(.reset):focus ~ button.reset {
 }
 nav [role=tablist] {
 	display: flex;
-	margin: 0;
-	padding: 0;
+	padding: .5rem 2.5rem 0 .5rem;
+	overflow-x: auto;
+	overflow-y: hidden;
+	scrollbar-width: thin;
 }
 nav [role=tablist] [role=tab] {
 	line-height: 2rem;
@@ -1251,64 +1262,58 @@ dialog.help button.close-all-tools::before {
 	--menu-cross-part-visibility: visible;
 }
 
-.graphic-side button.resize {
-	z-index: 1;
-	border: 2px solid rgba(0,0,0,0.2);
-	margin: auto;
-	touch-action: none;
-}
-.ui .text-side[data-side='top'] + .graphic-side button.resize {
-	left: 0;
-	right: 0;
-	top: 0;
-	height: 1rem;
-	border-top: none;
-	border-bottom-left-radius: 5px;
-	border-bottom-right-radius: 5px;
-	cursor: row-resize;
-}
-.ui .text-side[data-side='bottom'] + .graphic-side button.resize {
-	left: 0;
-	right: 0;
-	bottom: 0;
-	height: 1rem;
-	border-bottom: none;
-	border-top-left-radius: 5px;
-	border-top-right-radius: 5px;
-	cursor: row-resize;
-}
-.ui .text-side[data-side='left'] + .graphic-side button.resize {
-	left: 0;
-	top: 0;
-	bottom: 0;
-	width: 1rem;
-	border-left: none;
-	border-top-right-radius: 5px;
-	border-bottom-right-radius: 5px;
-	cursor: col-resize;
-}
-.ui .text-side[data-side='right'] + .graphic-side button.resize {
-	right: 0;
-	top: 0;
-	bottom: 0;
-	width: 1rem;
-	border-right: none;
-	border-top-left-radius: 5px;
-	border-bottom-left-radius: 5px;
-	cursor: col-resize;
-}
-.graphic-side button.resize > svg {
+.graphic-side .resize {
 	position: absolute;
-	translate: -50% -50%;
+	z-index: 1;
+	touch-action: none;
+	opacity: 0;
+	background-image: radial-gradient(currentColor 25%, #0000 0%);
+	background-size: 8px 8px;
+	background-position: center;
+	background-color: canvas;
 }
-.ui .text-side:is([data-side='top'],[data-side='bottom']) + .graphic-side button.resize > svg {
-	height: auto;
+@media (any-hover: none) {
+	.graphic-side .resize {
+		opacity: .2;
+	}
 }
-.ui .text-side:is([data-side='left'],[data-side='right']) + .graphic-side button.resize > svg {
-	width: auto;
+.ui .text-side:is([data-side='top'],[data-side='bottom']) + .graphic-side .resize {
+	height: 10px;
+	width: 100%;
+	left: 0;
+	right: 0;
+	cursor: row-resize;
 }
-.graphic-side button.resize:not(:hover) > svg {
-	background: canvas;
+.ui .text-side:is([data-side='left'],[data-side='right']) + .graphic-side .resize {
+	width: 10px;
+	height: 100%;
+	top: 0;
+	bottom: 0;
+	cursor: col-resize;
+}
+.ui .text-side[data-side='top'] + .graphic-side .resize {
+	top: 0;
+}
+.ui .text-side[data-side='bottom'] + .graphic-side .resize {
+	bottom: 0;
+}
+.ui .text-side[data-side='left'] + .graphic-side .resize {
+	left: 0;
+}
+.ui .text-side[data-side='right'] + .graphic-side .resize {
+	right: 0;
+}
+.graphic-side .resize:hover {
+	opacity: .2;
+}
+.graphic-side .resize:focus-visible {
+	opacity: 1;
+}
+.graphic-side .resize:hover {
+	background-color: var(--hover-color);
+}
+.ui.overlay .graphic-side .resize {
+	opacity: .2;
 }
 
 .graphic-side div.menu:not([hidden]) {
