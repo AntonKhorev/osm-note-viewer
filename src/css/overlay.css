@@ -15,62 +15,41 @@
 
 .graphic-side button.resize {
 	z-index: 1;
-	border: 2px solid rgba(0,0,0,0.2);
-	margin: auto;
 	touch-action: none;
+	opacity: .2;
+}
+.ui .text-side:is([data-side='top'],[data-side='bottom']) + .graphic-side button.resize {
+	height: 10px;
+	width: 100%;
+	left: 0;
+	right: 0;
+	cursor: row-resize;
+}
+.ui .text-side:is([data-side='left'],[data-side='right']) + .graphic-side button.resize {
+	width: 10px;
+	height: 100%;
+	top: 0;
+	bottom: 0;
+	cursor: col-resize;
 }
 .ui .text-side[data-side='top'] + .graphic-side button.resize {
-	left: 0;
-	right: 0;
 	top: 0;
-	height: 1rem;
-	border-top: none;
-	border-bottom-left-radius: 5px;
-	border-bottom-right-radius: 5px;
-	cursor: row-resize;
 }
 .ui .text-side[data-side='bottom'] + .graphic-side button.resize {
-	left: 0;
-	right: 0;
 	bottom: 0;
-	height: 1rem;
-	border-bottom: none;
-	border-top-left-radius: 5px;
-	border-top-right-radius: 5px;
-	cursor: row-resize;
 }
 .ui .text-side[data-side='left'] + .graphic-side button.resize {
 	left: 0;
-	top: 0;
-	bottom: 0;
-	width: 1rem;
-	border-left: none;
-	border-top-right-radius: 5px;
-	border-bottom-right-radius: 5px;
-	cursor: col-resize;
 }
 .ui .text-side[data-side='right'] + .graphic-side button.resize {
 	right: 0;
-	top: 0;
-	bottom: 0;
-	width: 1rem;
-	border-right: none;
-	border-top-left-radius: 5px;
-	border-bottom-left-radius: 5px;
-	cursor: col-resize;
 }
-.graphic-side button.resize {
-	background: canvas;
+.graphic-side button.resize:focus-visible {
+	opacity: 1;
 	background-image: radial-gradient(currentColor 25%, #0000 0%);
-	background-size: 6px 6px;
+	background-size: 8px 8px;
 	background-position: center;
-	background-clip: content-box;
-}
-.ui .text-side:is([data-side='top'],[data-side='bottom']) + .graphic-side button.resize {
-	background-position: 2px 7px;
-}
-.ui .text-side:is([data-side='left'],[data-side='right']) + .graphic-side button.resize {
-	background-position: 7px 2px;
+	background-color: canvas;
 }
 .graphic-side button.resize:hover {
 	background-color: var(--hover-color);
