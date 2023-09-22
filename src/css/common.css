@@ -188,6 +188,14 @@ body > .symbols {
 	bottom: 0;
 }
 
+.ui.overlay {
+	pointer-events: none;
+}
+.ui.overlay .text-side {
+	opacity: .5;
+	background: var(--click-color);
+}
+
 a.input-link[tabindex],
 a.listened,
 time.listened {

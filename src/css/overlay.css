@@ -13,7 +13,8 @@
 	--menu-cross-part-visibility: visible;
 }
 
-.graphic-side button.resize {
+.graphic-side .resize {
+	position: absolute;
 	z-index: 1;
 	touch-action: none;
 	opacity: 0;
@@ -23,43 +24,43 @@
 	background-color: canvas;
 }
 @media (any-hover: none) {
-	.graphic-side button.resize {
+	.graphic-side .resize {
 		opacity: .2;
 	}
 }
-.ui .text-side:is([data-side='top'],[data-side='bottom']) + .graphic-side button.resize {
+.ui .text-side:is([data-side='top'],[data-side='bottom']) + .graphic-side .resize {
 	height: 10px;
 	width: 100%;
 	left: 0;
 	right: 0;
 	cursor: row-resize;
 }
-.ui .text-side:is([data-side='left'],[data-side='right']) + .graphic-side button.resize {
+.ui .text-side:is([data-side='left'],[data-side='right']) + .graphic-side .resize {
 	width: 10px;
 	height: 100%;
 	top: 0;
 	bottom: 0;
 	cursor: col-resize;
 }
-.ui .text-side[data-side='top'] + .graphic-side button.resize {
+.ui .text-side[data-side='top'] + .graphic-side .resize {
 	top: 0;
 }
-.ui .text-side[data-side='bottom'] + .graphic-side button.resize {
+.ui .text-side[data-side='bottom'] + .graphic-side .resize {
 	bottom: 0;
 }
-.ui .text-side[data-side='left'] + .graphic-side button.resize {
+.ui .text-side[data-side='left'] + .graphic-side .resize {
 	left: 0;
 }
-.ui .text-side[data-side='right'] + .graphic-side button.resize {
+.ui .text-side[data-side='right'] + .graphic-side .resize {
 	right: 0;
 }
-.graphic-side button.resize:hover {
+.graphic-side .resize:hover {
 	opacity: .2;
 }
-.graphic-side button.resize:focus-visible {
+.graphic-side .resize:focus-visible {
 	opacity: 1;
 }
-.graphic-side button.resize:hover {
+.graphic-side .resize:hover {
 	background-color: var(--hover-color);
 }
 

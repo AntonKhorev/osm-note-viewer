@@ -25,7 +25,7 @@ class Move {
 	frontFraction: number
 	readonly startFrontFraction: number
 	constructor($root: HTMLElement, $side: HTMLElement, ev: PointerEvent) {
-		this.side=$side.dataset.side=forceValidSide($root,$side.dataset.side)
+		this.side=forceValidSide($root,$side.dataset.side)
 		const frontSize=getFrontSize($root,$side,this.side)
 		const pointerPosition=getPointerPosition(ev,isHor(this.side))
 		this.startOffset=pointerPosition-frontSize
@@ -46,15 +46,6 @@ class Move {
 	}
 }
 
-function makeUiOverlay(): HTMLElement {
-	const $uiOverlay=makeDiv('ui','overlay')(
-		makeDiv('text-side')(),
-		makeDiv('graphic-side')()
-	)
-	$uiOverlay.hidden=true
-	return $uiOverlay
-}
-
 function makeFlipMargin(side: Side): HTMLElement {
 	const $flipMargin=makeDiv('flip-margin')(makeElement('span')('side-indicator')())
 	$flipMargin.dataset.side=side
@@ -72,27 +63,33 @@ function forceValidSide($root: HTMLElement, side: string|null|undefined): Side {
 
 export default class SidebarResizer {
 	readonly $button: HTMLButtonElement
+	private readonly $uiOverlayGhostButton: HTMLElement
 	private $flipMargins={
 		top: makeFlipMargin('top'),
 		bottom: makeFlipMargin('bottom'),
 		left: makeFlipMargin('left'),
 		right: makeFlipMargin('right'),
 	}
-	private readonly $uiOverlay=makeUiOverlay()
+	private readonly $uiOverlaySide: HTMLElement
+	private readonly $uiOverlay: HTMLElement
 	constructor(
 		private readonly $root: HTMLElement,
 		private readonly $side: HTMLElement,
 		private readonly storage: NoteViewerStorage
 	) {
+		this.$uiOverlayGhostButton=makeElement('span')('global','resize')()
+		this.$uiOverlaySide=makeDiv('text-side')()
+		this.$uiOverlay=makeDiv('ui','overlay')(
+			this.$uiOverlaySide,
+			makeDiv('graphic-side')(
+				this.$uiOverlayGhostButton
+			)
+		)
+		this.$uiOverlay.hidden=true
 		$root.after(this.$uiOverlay)
 		this.$uiOverlay.append(...Object.values(this.$flipMargins))
-		$root.style.setProperty('--min-hor-side-size',`${minHorSideSize}px`)
-		$root.style.setProperty('--min-ver-side-size',`${minVerSideSize}px`)
-		const side=$side.dataset.side=forceValidSide($root,storage.getItem('sidebar-side'))
-		const sidebarFractionItem=storage.getItem(`sidebar-fraction`)
-		if (sidebarFractionItem!=null) {
-			setSidebarSizeProperties($root,side,Number(sidebarFractionItem))
-		}
+		setDefaultProperties($root,$side,storage)
+		setDefaultProperties(this.$uiOverlay,this.$uiOverlaySide,storage)
 		this.$button=makeElement('button')('global','resize')()
 		this.$button.title=`Resize sidebar`
 	}
@@ -100,12 +97,15 @@ export default class SidebarResizer {
 		let move:Move|undefined
 		this.$button.onpointerdown=ev=>{
 			move=new Move(this.$root,this.$side,ev)
+			this.$side.dataset.side=move.side
+			this.$uiOverlaySide.dataset.side=move.side
 			setFrontSizeProperties(this.$root,move.side,move.frontFraction)
-			this.showFlipMargins(move.side)
+			setFrontSizeProperties(this.$uiOverlay,move.side,move.frontFraction)
+			this.showOverlay(move.side)
 			this.$button.setPointerCapture(ev.pointerId)
 		}
 		this.$button.onpointerup=this.$button.onpointercancel=ev=>{
-			this.hideFlipMargins()
+			this.hideOverlay()
 			if (!move) return
 			const newSide=forceValidSide(this.$root,this.$side.dataset.side)
 			if (move.side==newSide) {
@@ -132,7 +132,9 @@ export default class SidebarResizer {
 			const flipAction=(move:Move,side:Side):boolean=>{
 				if (move.side==side) return false
 				this.$side.dataset.side=side
+				this.$uiOverlaySide.dataset.side=side
 				setSidebarSizeProperties(this.$root,side,move.startSidebarFraction)
+				setSidebarSizeProperties(this.$uiOverlay,side,move.startSidebarFraction)
 				return true
 			}
 			if (onLeftMargin && flipAction(move,'left')) {
@@ -141,8 +143,10 @@ export default class SidebarResizer {
 			} else if (onBottomMargin && flipAction(move,'bottom')) {
 			} else {
 				this.$side.dataset.side=move.side
+				this.$uiOverlaySide.dataset.side=move.side
 				move.move(this.$root,ev)
 				setFrontSizeProperties(this.$root,move.side,move.frontFraction)
+				setFrontSizeProperties(this.$uiOverlay,move.side,move.frontFraction)
 			}
 			map.invalidateSize()
 		}
@@ -150,13 +154,16 @@ export default class SidebarResizer {
 			if (move) return
 			const stepBase=ev.shiftKey?24:8
 			let step:number|undefined
-			const side=this.$side.dataset.side=forceValidSide(this.$root,this.$side.dataset.side)
+			const side=forceValidSide(this.$root,this.$side.dataset.side)
+			this.$side.dataset.side=side
+			this.$uiOverlaySide.dataset.side=side
 			const flip=(newSide:Side)=>{
 				const frontSize=getFrontSize(this.$root,this.$side,side)
 				const targetFrontFraction=getTargetFraction(this.$root,isHor(side),frontSize)
 				const targetSidebarFraction=adjustFraction(side,targetFrontFraction)
 				this.storage.setItem('sidebar-side',this.$side.dataset.side=newSide)
 				const sidebarFraction=setSidebarSizeProperties(this.$root,newSide,targetSidebarFraction)
+				setSidebarSizeProperties(this.$uiOverlay,newSide,targetSidebarFraction)
 				this.storeSidebarSize(newSide,sidebarFraction)
 			}
 			if (isHor(side) && ev.key=='ArrowUp') {
@@ -180,6 +187,7 @@ export default class SidebarResizer {
 				const targetFrontFraction=getTargetFraction(this.$root,isHor(side),targetFrontSize)
 				const frontFraction=clampFrontFraction(targetFrontFraction)
 				setFrontSizeProperties(this.$root,side,frontFraction)
+				setFrontSizeProperties(this.$uiOverlay,side,frontFraction)
 				this.storeFrontSize(side,frontFraction)
 			}
 			map.invalidateSize()
@@ -188,16 +196,18 @@ export default class SidebarResizer {
 			ev.preventDefault()
 		}
 	}
-	showFlipMargins(againstSide: 'top'|'bottom'|'left'|'right'): void {
+	showOverlay(againstSide: 'top'|'bottom'|'left'|'right'): void {
+		this.$uiOverlay.hidden=false
 		for (const [side,$flipMargin] of Object.entries(this.$flipMargins)) {
 			$flipMargin.hidden=side==againstSide
 		}
 	}
-	hideFlipMargins(): void {
+	hideOverlay(): void {
 		for (const $flipMargin of Object.values(this.$flipMargins)) {
 			$flipMargin.hidden=true
 			$flipMargin.classList.remove('active')
 		}
+		this.$uiOverlay.hidden=true
 	}
 	private storeSidebarSize(side: Side, sidebarFraction: number): void {
 		this.storage.setItem(`sidebar-fraction`,String(sidebarFraction))
@@ -232,18 +242,28 @@ function getTargetFraction($root: HTMLElement, isHor: boolean, targetSize: numbe
 	return targetExtraSize/rootExtraSize
 }
 
-function setSidebarSizeProperties($root: HTMLElement, side: Side, sidebarFraction: number): number {
-	const frontFraction=adjustFraction(side,sidebarFraction)
-	const outputFrontFraction=clampFrontFraction(frontFraction)
-	setFrontSizeProperties($root,side,outputFrontFraction)
-	return adjustFraction(side,outputFrontFraction)
-}
-
 function clampFrontFraction(frontFraction: number): number {
 	if (frontFraction<0) frontFraction=0
 	if (frontFraction>1) frontFraction=1
 	if (Number.isNaN(frontFraction)) frontFraction=0.5
 	return frontFraction
+}
+
+function setDefaultProperties($ui: HTMLElement, $side: HTMLElement, storage: NoteViewerStorage): void {
+	$ui.style.setProperty('--min-hor-side-size',`${minHorSideSize}px`)
+	$ui.style.setProperty('--min-ver-side-size',`${minVerSideSize}px`)
+	const side=$side.dataset.side=forceValidSide($ui,storage.getItem('sidebar-side'))
+	const sidebarFractionItem=storage.getItem(`sidebar-fraction`)
+	if (sidebarFractionItem!=null) {
+		setSidebarSizeProperties($ui,side,Number(sidebarFractionItem))
+	}
+}
+
+function setSidebarSizeProperties($root: HTMLElement, side: Side, sidebarFraction: number): number { // TODO return void
+	const frontFraction=adjustFraction(side,sidebarFraction)
+	const outputFrontFraction=clampFrontFraction(frontFraction)
+	setFrontSizeProperties($root,side,outputFrontFraction)
+	return adjustFraction(side,outputFrontFraction)
 }
 
 function setFrontSizeProperties($root: HTMLElement, side: Side, frontFraction: number): void {
