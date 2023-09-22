@@ -16,7 +16,16 @@
 .graphic-side button.resize {
 	z-index: 1;
 	touch-action: none;
-	opacity: .2;
+	opacity: 0;
+	background-image: radial-gradient(currentColor 25%, #0000 0%);
+	background-size: 8px 8px;
+	background-position: center;
+	background-color: canvas;
+}
+@media (any-hover: none) {
+	.graphic-side button.resize {
+		opacity: .2;
+	}
 }
 .ui .text-side:is([data-side='top'],[data-side='bottom']) + .graphic-side button.resize {
 	height: 10px;
@@ -44,12 +53,11 @@
 .ui .text-side[data-side='right'] + .graphic-side button.resize {
 	right: 0;
 }
+.graphic-side button.resize:hover {
+	opacity: .2;
+}
 .graphic-side button.resize:focus-visible {
 	opacity: 1;
-	background-image: radial-gradient(currentColor 25%, #0000 0%);
-	background-size: 8px 8px;
-	background-position: center;
-	background-color: canvas;
 }
 .graphic-side button.resize:hover {
 	background-color: var(--hover-color);
