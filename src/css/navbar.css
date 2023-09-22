@@ -1,8 +1,5 @@
 nav {
 	position: relative;
-	box-sizing: border-box;
-	padding: .5rem 3rem 0 .5rem;
-	z-index: 1;
 }
 nav button.global {
 	right: .25rem;
@@ -22,8 +19,10 @@ nav button.global:not(.reset):focus ~ button.reset {
 }
 nav [role=tablist] {
 	display: flex;
-	margin: 0;
-	padding: 0;
+	padding: .5rem 2.5rem 0 .5rem;
+	overflow-x: auto;
+	overflow-y: hidden;
+	scrollbar-width: thin;
 }
 nav [role=tablist] [role=tab] {
 	line-height: 2rem;
