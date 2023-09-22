@@ -31,14 +31,12 @@ class Move {
 		this.startOffset=pointerPosition-frontSize
 		const targetFrontFraction=getTargetFraction($root,isHor(this.side),frontSize)
 		this.startFrontFraction=this.frontFraction=clampFrontFraction(targetFrontFraction)
-		setFrontSizeProperties($root,this.side,this.frontFraction)
 	}
 	move($root: HTMLElement, ev: PointerEvent): void {
 		const pointerPosition=getPointerPosition(ev,isHor(this.side))
 		const targetFrontSize=pointerPosition-this.startOffset
 		const targetFrontFraction=getTargetFraction($root,isHor(this.side),targetFrontSize)
 		this.frontFraction=clampFrontFraction(targetFrontFraction)
-		setFrontSizeProperties($root,this.side,this.frontFraction)
 	}
 	get sidebarFraction(): number {
 		return adjustFraction(this.side,this.frontFraction)
@@ -46,6 +44,15 @@ class Move {
 	get startSidebarFraction(): number {
 		return adjustFraction(this.side,this.startFrontFraction)
 	}
+}
+
+function makeUiOverlay(): HTMLElement {
+	const $uiOverlay=makeDiv('ui','overlay')(
+		makeDiv('text-side')(),
+		makeDiv('graphic-side')()
+	)
+	$uiOverlay.hidden=true
+	return $uiOverlay
 }
 
 function makeFlipMargin(side: Side): HTMLElement {
@@ -71,12 +78,14 @@ export default class SidebarResizer {
 		left: makeFlipMargin('left'),
 		right: makeFlipMargin('right'),
 	}
+	private readonly $uiOverlay=makeUiOverlay()
 	constructor(
 		private readonly $root: HTMLElement,
 		private readonly $side: HTMLElement,
 		private readonly storage: NoteViewerStorage
 	) {
-		$root.append(...Object.values(this.$flipMargins))
+		$root.after(this.$uiOverlay)
+		this.$uiOverlay.append(...Object.values(this.$flipMargins))
 		$root.style.setProperty('--min-hor-side-size',`${minHorSideSize}px`)
 		$root.style.setProperty('--min-ver-side-size',`${minVerSideSize}px`)
 		const side=$side.dataset.side=forceValidSide($root,storage.getItem('sidebar-side'))
@@ -91,6 +100,7 @@ export default class SidebarResizer {
 		let move:Move|undefined
 		this.$button.onpointerdown=ev=>{
 			move=new Move(this.$root,this.$side,ev)
+			setFrontSizeProperties(this.$root,move.side,move.frontFraction)
 			this.showFlipMargins(move.side)
 			this.$button.setPointerCapture(ev.pointerId)
 		}
@@ -132,6 +142,7 @@ export default class SidebarResizer {
 			} else {
 				this.$side.dataset.side=move.side
 				move.move(this.$root,ev)
+				setFrontSizeProperties(this.$root,move.side,move.frontFraction)
 			}
 			map.invalidateSize()
 		}
