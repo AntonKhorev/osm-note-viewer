@@ -155,7 +155,11 @@ body > .symbols {
 .ui .flip-margin .side-indicator::before {
 	content: '';
 	position: absolute;
-	background: var(--frame-color);
+	background: var(--click-color);
+	opacity: .5;
+}
+.ui .flip-margin.active .side-indicator::before {
+	opacity: 1;
 }
 .ui .flip-margin[data-side='left'] .side-indicator::before {
 	width: 25%;
