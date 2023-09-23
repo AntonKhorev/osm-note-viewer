@@ -75,8 +75,8 @@ async function main() {
 			db,net.cx,
 			$fetchContainer,$moreContainer,
 			navbar,noteTable,map,
-			globalHistory.getQueryHash(),globalHistory.hasMapHash(),
-			net.serverSelector.getHostHashValueForServer(net.cx.server)
+			net.serverSelector.getHostHashValueForServer(net.cx.server),
+			globalHistory.getQueryHash(),()=>globalHistory.hasMapHash()
 		)
 		$mapContainer.addEventListener('keydown',ev=>{
 			if (ev.key!='Escape') return

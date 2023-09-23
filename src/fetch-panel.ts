@@ -20,7 +20,8 @@ export default class NoteFetchPanel {
 		db: NoteViewerDB, cx: Connection,
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		navbar: Navbar, noteTable: NoteTable, map: NoteMap,
-		queryHash: string, hasMapHash: boolean, hostHashValue: string|null
+		hostHashValue: string|null, queryHash: string,
+		hasMapHash: ()=>boolean // to see in no-fetch-click queries need to fit the notes
 	) {
 		const self=this
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
@@ -29,7 +30,7 @@ export default class NoteFetchPanel {
 		const fetchDialogs=new NoteFetchDialogs(
 			$root,cx,$container,$moreContainer,noteTable,map,hashQuery,
 			(dialog:NoteFetchDialog,query:NoteQuery)=>{
-				startFetcher(query,true,false,dialog)
+				startFetcher(query,true,dialog)
 			},
 			(dialog:NoteFetchDialog)=>{
 				if (this.fetcherRun && this.fetcherInvoker==dialog) {
@@ -45,13 +46,10 @@ export default class NoteFetchPanel {
 			const query=makeNoteQueryFromHash(queryHash)
 			openQueryDialog(navbar,fetchDialogs,query,false)
 			fetchDialogs.populateInputs(query)
-			startFetcherFromQuery(query,false,false)
+			startFetcherFromQuery(query,false)
 		})
 		openQueryDialog(navbar,fetchDialogs,hashQuery,true)
-		startFetcherFromQuery(
-			hashQuery,false,
-			hasMapHash // when just opened a note-viewer page with map hash set - if query is set too, don't fit its result, keep the map hash
-		)
+		startFetcherFromQuery(hashQuery,false)
 
 		$root.addEventListener('osmNoteViewer:userLinkClick',ev=>{
 			if (!(ev.target instanceof HTMLElement)) return
@@ -74,26 +72,24 @@ export default class NoteFetchPanel {
 			this.fetcherRun?.updateNote(note,users)
 		})
 		
-		function startFetcherFromQuery(query: NoteQuery|undefined, isNewHistoryEntry: boolean, suppressFitNotes: boolean): void {
+		function startFetcherFromQuery(query: NoteQuery|undefined, isNewHistoryEntry: boolean): void {
 			if (!query) return
 			const dialog=fetchDialogs.getDialogFromQuery(query)
 			if (!dialog) return
 			if (query.mode=='bbox' || query.mode=='browse') {
 				if (!query.bbox) return // query is going to fail, so don't run it
 			}
-			startFetcher(query,isNewHistoryEntry,suppressFitNotes,dialog)
+			startFetcher(query,isNewHistoryEntry,dialog)
 		}
 		function startFetcher(
-			query: NoteQuery, isNewHistoryEntry: boolean, suppressFitNotes: boolean, dialog: NoteFetchDialog
+			query: NoteQuery, isNewHistoryEntry: boolean, dialog: NoteFetchDialog
 		): void {
 			if (query.mode!='search' && query.mode!='bbox' && query.mode!='browse' && query.mode!='ids') return
 			if (query.mode=='browse') isNewHistoryEntry=false // keep the map hash because there's no bbox parameter and no query hash at all
 			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
 			if (map) {
 				map.clearNotes()
-				if (suppressFitNotes) {
-					map.needToFitNotes=false
-				}
+				if (!isNewHistoryEntry && hasMapHash()) map.needToFitNotes=false
 			}
 			const $caption=dialog.getQueryCaption(query)
 			document.title=($caption.textContent??'')+` | note-viewer`
