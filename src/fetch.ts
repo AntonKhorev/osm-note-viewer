@@ -6,7 +6,7 @@ import {getNoteFromOsmApiResponse, getNotesFromOsmApiResponse} from './osm'
 import type {Note, Users} from './data'
 import {transformFeatureToNotesAndUsers, transformFeaturesToNotesAndUsers} from './data'
 import type {NoteQuery, NoteSearchQuery, NoteBboxQuery, NoteBrowseQuery, NoteIdsQuery, NoteFetchDetails} from './query'
-import {makeNoteQueryStringWithHostHash, getNextFetchDetails} from './query'
+import {makeNoteQueryStringForDb, getNextFetchDetails} from './query'
 import type {NoteTableUpdater} from './table'
 import {makeElement, makeDiv, makeLink} from './util/html'
 import {makeEscapeTag} from './util/escape'
@@ -99,7 +99,7 @@ export abstract class NoteFetcherRun {
 	) {
 		this.db=db
 	;(async()=>{
-		const queryString=makeNoteQueryStringWithHostHash(query,hostHashValue) // empty string == don't know how to encode the query, thus won't save it to db
+		const queryString=makeNoteQueryStringForDb(query,hostHashValue) // empty string == don't know how to encode the query, thus won't save it to db
 		this.fetchEntry = await(async()=>{ // null fetch entry == don't save to db
 			if (!queryString) return null
 			if (clearStore) {

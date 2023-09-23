@@ -4,11 +4,8 @@ import type {Connection} from '../net'
 import type NoteMap from '../map'
 import type {NoteQuery} from '../query'
 import {makeNoteBrowseQueryFromValues} from '../query'
-import {makeElement, makeLink, makeDiv, makeLabel} from '../util/html'
+import {makeLink, makeDiv} from '../util/html'
 import {p,em,code} from '../util/html-shortcuts'
-
-const rq=(param: string)=>makeElement('span')('advanced-hint')(` (`,code(param),` parameter)`)
-const spanRequest=(...ss: Array<string|HTMLElement>)=>makeElement('span')('advanced-hint')(...ss)
 
 export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	shortTitle=`Browse`
@@ -28,7 +25,6 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	get getAutoLoad(): ()=>boolean {
 		return ()=>false
 	}
-	populateInputs(query: NoteQuery|undefined): void {} // this mode has no persistent queries
 	protected makeLeadAdvancedHint(): Array<string|HTMLElement> {
 		return [p(
 			`Make a `,makeLink(`notes in bounding box`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`),
@@ -50,9 +46,6 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	protected getClosedLineNotesText(): string {
 		return `most recently updated notes`
 	}
-	protected modifyClosedLine($div: HTMLElement): void {
-		this.$closedInput.value=this.$closedSelect.value='7'
-	}
 	protected limitValues=[20,100,500,2500,10000]
 	protected limitDefaultValue=100 // higher default limit because no progressive loads possible
 	protected limitLeadText=`Download `
@@ -62,6 +55,11 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
 	}
 	protected populateInputsWithoutUpdatingRequestExceptForClosedInput(query: NoteQuery | undefined): void {
+		if (query && query.mode!='browse') return
+		this.$bboxInput.value=query?.bbox ?? ''
+	}
+	protected get defaultClosedValue(): string {
+		return '7'
 	}
 	protected addEventListenersBeforeClosedLine(): void {
 		const updateTrackMapZoomNotice=()=>{

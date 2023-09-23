@@ -294,12 +294,12 @@ export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetc
 		{
 			this.$closedInput.type='number'
 			this.$closedInput.min='-1'
-			this.$closedInput.value='-1'
 			this.$closedSelect.append(
 				new Option(`both open and closed`,'-1'),
 				new Option(`open and recently closed`,'7'),
 				new Option(`only open`,'0'),
 			)
+			this.$closedInput.value=this.$closedSelect.value=this.defaultClosedValue
 			const $closedLine=makeDiv('regular-input-group')(
 				`Fetch `,
 				makeElement('span')('non-advanced-input-group')(
@@ -383,13 +383,15 @@ export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetc
 	protected onClosedValueChange(): void {}
 	protected populateInputsWithoutUpdatingRequest(query: NoteQuery|undefined): void {
 		this.populateInputsWithoutUpdatingRequestExceptForClosedInput(query)
-		if (query && (query.mode=='search' || query.mode=='bbox')) {
+		if (query && (query.mode=='search' || query.mode=='bbox' || query.mode=='browse')) {
 			this.$closedInput.value=String(query.closed)
 			this.$closedSelect.value=String(restrictClosedSelectValue(query.closed))
 		} else {
-			this.$closedInput.value='-1'
-			this.$closedSelect.value='-1'
+			this.$closedInput.value=this.$closedSelect.value=this.defaultClosedValue
 		}
+	}
+	protected get defaultClosedValue(): string {
+		return '-1'
 	}
 	protected abstract populateInputsWithoutUpdatingRequestExceptForClosedInput(query: NoteQuery|undefined): void
 	protected get closedValue(): string {

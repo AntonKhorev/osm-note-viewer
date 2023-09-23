@@ -142,6 +142,7 @@ function makeNoteBboxOrBrowseQueryFromValues(
 	function toClosed(value: string): NoteSearchQuery['closed'] {
 		const n=Number(value||undefined)
 		if (Number.isInteger(n)) return n
+		if (mode=='browse') return 7
 		return -1
 	}
 }
@@ -167,9 +168,9 @@ export function makeNoteQueryFromHash(paramString: string): NoteQuery | undefine
 			searchParams.get('q')||'',searchParams.get('from')||'',searchParams.get('to')||'',
 			searchParams.get('closed')||'',searchParams.get('sort')||'',searchParams.get('order')||''
 		)
-	} else if (mode=='bbox') {
-		return makeNoteBboxQueryFromValues(
-			searchParams.get('bbox')||'',searchParams.get('closed')||''
+	} else if (mode=='bbox' || mode=='browse') {
+		return makeNoteBboxOrBrowseQueryFromValues(
+			searchParams.get('bbox')||'',searchParams.get('closed')||'',mode
 		)
 	} else if (mode=='ids') {
 		return makeNoteIdsQueryFromValue(searchParams.get('ids')||'')
@@ -178,9 +179,6 @@ export function makeNoteQueryFromHash(paramString: string): NoteQuery | undefine
 	}
 }
 
-/**
- * @returns query string that can be stored in url/db or empty string if the query is not supposed to be stored
- */
 export function makeNoteQueryString(query: NoteQuery, withMode: boolean = true): string {
 	const parameters:Array<[string,string|number]>=[]
 	if (withMode) parameters.push(['mode',query.mode])
@@ -205,17 +203,24 @@ export function makeNoteQueryString(query: NoteQuery, withMode: boolean = true):
 			['bbox',query.bbox],
 			['closed',query.closed]
 		)
+	} else if (query.mode=='browse') {
+		parameters.push(
+			// ['bbox',query.bbox], // always read it off the map hash
+			['closed',query.closed]
+		)
 	} else if (query.mode=='ids') {
 		parameters.push(
 			['ids',query.ids.join('.')] // ',' gets urlencoded as '%2C', ';' as '%3B' etc; separator candidates are '.', '-', '_'; let's pick '.' because its horizontally shorter
 		)
-	} else {
-		return ''
 	}
 	return parameters.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')
 }
 
-export function makeNoteQueryStringWithHostHash(query: NoteQuery, hostHashValue: string|null): string {
+/**
+ * @returns query string for db storage (includes host) or empty string if the query is not supposed to be stored
+ */
+export function makeNoteQueryStringForDb(query: NoteQuery, hostHashValue: string|null): string {
+	if (query.mode=='browse') return ''
 	const queryStringWithoutHostHash=makeNoteQueryString(query)
 	if (!queryStringWithoutHostHash) return queryStringWithoutHostHash
 	if (hostHashValue) return `host=${escapeHash(hostHashValue)}&${queryStringWithoutHostHash}`

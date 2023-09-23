@@ -110,6 +110,8 @@ export default class NoteFetchDialogs {
 			return this.bboxDialog
 		} else if (query.mode=='ids') {
 			return this.plaintextDialog
+		} else if (query.mode=='browse') {
+			return this.browseDialog
 		}
 	}
 }
