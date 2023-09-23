@@ -84,6 +84,7 @@ export default class NoteFetchPanel {
 			query: NoteQuery, isNewStart: boolean, suppressFitNotes: boolean, dialog: NoteFetchDialog
 		): void {
 			if (query.mode!='search' && query.mode!='bbox' && query.mode!='browse' && query.mode!='ids') return
+			if (query.mode=='browse') isNewStart=false // keep the map hash because there's no bbox parameter and no query hash at all
 			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
 			if (map) {
 				map.clearNotes()
