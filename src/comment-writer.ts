@@ -1,5 +1,7 @@
 import type {WebUrlLister} from './net'
 import getCommentItems from './comment'
+import makeProgressiveDate from './progressive-date'
+import {convertDateToIsoString} from './util/date'
 import {makeElement} from './util/html'
 import {a,mark} from './util/html-shortcuts'
 
@@ -92,21 +94,20 @@ export function handleShowImagesUpdate($table: HTMLTableElement, showImages: boo
 	}
 }
 
-export function makeDateOutput(readableDate: string): HTMLElement {
-	const [readableDateWithoutTime,readableDateTime]=readableDate.split(' ',2)
-	const readableYear=readableDateWithoutTime.slice(0,5)
-	const readableMonthDay=readableDateWithoutTime.slice(5)
-	if (readableYear && readableMonthDay && readableDateWithoutTime) {
-		return makeActiveTimeElement([
-			makeElement('span')('year-part')(readableYear),
-			readableMonthDay,
-			makeElement('span')('time-part')(` ${readableDateTime}`)
-		],`${readableDate.replace(' ','T')}Z`,`${readableDate} UTC`)
-	} else {
-		const $unknownDateTime=document.createElement('span')
-		$unknownDateTime.textContent=`?`
-		return $unknownDateTime
-	}
+export function makeDateOutput(date: Date, now: Date): HTMLElement {
+	const progressiveDate=makeProgressiveDate(date,now)
+	const dateParts=progressiveDate.map(item=>{
+		if (typeof item == 'string') return item
+		return makeElement('span')('date-level-1')(...item.map(item=>{
+			if (typeof item == 'string') return item
+			return makeElement('span')('date-level-2')(...item)
+		}))
+	})
+	return makeActiveTimeElement(
+		dateParts,
+		convertDateToIsoString(date),
+		convertDateToIsoString(date,'-',':',' ',' UTC')
+	)
 }
 
 function makeActiveTimeElement(textParts: Array<string|HTMLElement>, dateTime: string, title?: string): HTMLTimeElement {

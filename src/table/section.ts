@@ -55,6 +55,7 @@ export function writeNoteSectionRows(
 	mapLinkClickListener: ()=>void,
 	rowVisibilityChangeCallback: ()=>void
 ): HTMLTableCellElement[] {
+	const now=new Date()
 	const $commentCells: HTMLTableCellElement[]=[]
 	let $row=$noteSection.insertRow()
 	const nComments=note.comments.length
@@ -115,7 +116,8 @@ export function writeNoteSectionRows(
 		}{
 			const $cell=$row.insertCell()
 			$cell.classList.add('note-date')
-			$cell.append(makeDateOutput(toReadableDate(comment.date)))
+			const date=new Date(comment.date*1000)
+			$cell.append(makeDateOutput(date,now))
 		}{
 			const $cell=$row.insertCell()
 			$cell.classList.add('note-user')
