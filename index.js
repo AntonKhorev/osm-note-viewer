@@ -7640,6 +7640,36 @@ function getMap(hash) {
     return [zoom, lat, lon];
 }
 
+function makeProgressiveDate(date, now) {
+    const pad = (n) => ('0' + n).slice(-2);
+    const YYYY = String(date.getUTCFullYear());
+    const MM_DD = pad(date.getUTCMonth() + 1) + '-' + pad(date.getUTCDate());
+    const hh_mm = pad(date.getUTCHours()) + ':' + pad(date.getUTCMinutes());
+    const ss = pad(date.getUTCSeconds());
+    const diff = Math.abs(now.valueOf() - date.valueOf());
+    if (diff < 1000 * 60 * 60 * 24) {
+        return [
+            [YYYY + '-' + MM_DD + ' ', 2],
+            [hh_mm, 0],
+            [':' + ss, 1],
+        ];
+    }
+    else if (diff < 1000 * 60 * 60 * 24 * 365) {
+        return [
+            [YYYY + '-', 1],
+            [MM_DD, 0],
+            [' ' + hh_mm + ':' + ss, 2],
+        ];
+    }
+    else {
+        return [
+            [YYYY, 0],
+            ['-' + MM_DD, 1],
+            [' ' + hh_mm + ':' + ss, 2],
+        ];
+    }
+}
+
 const defaultImageUrls = [
     `https://westnordost.de/p/`
 ];
@@ -7724,22 +7754,14 @@ function handleShowImagesUpdate($table, showImages) {
             $img.src = $a.href; // don't remove src when showImages is disabled, otherwise will reload all images when src is set back
     }
 }
-function makeDateOutput(readableDate) {
-    const [readableDateWithoutTime, readableDateTime] = readableDate.split(' ', 2);
-    const readableYear = readableDateWithoutTime.slice(0, 5);
-    const readableMonthDay = readableDateWithoutTime.slice(5);
-    if (readableYear && readableMonthDay && readableDateWithoutTime) {
-        return makeActiveTimeElement([
-            makeElement('span')('year-part')(readableYear),
-            readableMonthDay,
-            makeElement('span')('time-part')(` ${readableDateTime}`)
-        ], `${readableDate.replace(' ', 'T')}Z`, `${readableDate} UTC`);
-    }
-    else {
-        const $unknownDateTime = document.createElement('span');
-        $unknownDateTime.textContent = `?`;
-        return $unknownDateTime;
-    }
+function makeDateOutput(date, now) {
+    const progressiveDate = makeProgressiveDate(date, now);
+    const dateParts = progressiveDate.map(([text, level]) => {
+        if (level == 0)
+            return text;
+        return makeElement('span')('date-level-' + level)(text);
+    });
+    return makeActiveTimeElement(dateParts, convertDateToIsoString(date), convertDateToIsoString(date, '-', ':', ' ', ' UTC'));
 }
 function makeActiveTimeElement(textParts, dateTime, title) {
     const $time = makeElement('time')('listened')(...textParts);
@@ -7821,6 +7843,7 @@ function writeHeadSectionRow($section, $checkbox, makeExpanderButton, getNoteSec
  * @returns comment cells
  */
 function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note, users, hideRows, showImages, markUser, markText, mapLinkClickListener, rowVisibilityChangeCallback) {
+    const now = new Date();
     const $commentCells = [];
     let $row = $noteSection.insertRow();
     const nComments = note.comments.length;
@@ -7888,7 +7911,8 @@ function writeNoteSectionRows(web, commentWriter, $noteSection, $checkbox, note,
         {
             const $cell = $row.insertCell();
             $cell.classList.add('note-date');
-            $cell.append(makeDateOutput(toReadableDate(comment.date)));
+            const date = new Date(comment.date * 1000);
+            $cell.append(makeDateOutput(date, now));
         }
         {
             const $cell = $row.insertCell();
