@@ -96,12 +96,9 @@ export function handleShowImagesUpdate($table: HTMLTableElement, showImages: boo
 
 export function makeDateOutput(date: Date, now: Date): HTMLElement {
 	const progressiveDate=makeProgressiveDate(date,now)
-	const dateParts=progressiveDate.map(item=>{
-		if (typeof item == 'string') return item
-		return makeElement('span')('date-level-1')(...item.map(item=>{
-			if (typeof item == 'string') return item
-			return makeElement('span')('date-level-2')(...item)
-		}))
+	const dateParts=progressiveDate.map(([text,level])=>{
+		if (level==0) return text
+		return makeElement('span')('date-level-'+level)(text)
 	})
 	return makeActiveTimeElement(
 		dateParts,

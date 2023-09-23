@@ -174,8 +174,8 @@
 .notes td.note-date {
 	white-space: nowrap;
 }
-.notes table:not(.expanded-date) td.note-date time .date-level-1,
-.notes table.contracted-date td.note-date time .date-level-2,
+.notes table:not(.expanded-date) td.note-date time .date-level-2,
+.notes table.contracted-date td.note-date time .date-level-1,
 .notes table.contracted-date th.note-date .title {
 	display: none;
 }
