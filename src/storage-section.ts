@@ -3,6 +3,7 @@ import type NoteViewerDB from './db'
 import type {FetchEntry} from './db'
 import type {HashServerSelector} from './net'
 import ConfirmedButtonListener from './confirmed-button-listener'
+import {convertDateToReadableString} from './util/date'
 import {makeElement, makeDiv, makeLink} from './util/html'
 import {p} from './util/html-shortcuts'
 
@@ -37,9 +38,10 @@ export default class StorageSection {
 				insertCell().append('fetch')
 				insertCell().append('mode')
 				insertCell().append('content')
-				insertCell().append('last access')
-				function insertCell() {
+				insertCell(`all timestamps in UTC`).append('last access')
+				function insertCell(title?: string) {
 					const $th=document.createElement('th')
+					if (title) $th.title=title
 					$row.append($th)
 					return $th
 				}
@@ -74,7 +76,11 @@ export default class StorageSection {
 						}
 					}
 				}
-				$row.insertCell().append(new Date(fetchEntry.accessTimestamp).toISOString())
+				$row.insertCell().append(
+					convertDateToReadableString(
+						new Date(fetchEntry.accessTimestamp)
+					)
+				)
 				const $deleteButton=document.createElement('button')
 				$deleteButton.textContent=`Delete`
 				$deleteButton.addEventListener('click',async()=>{

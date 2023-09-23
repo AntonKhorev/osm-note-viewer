@@ -9,6 +9,10 @@ export function convertDateToUrlString(date: Date): string {
 	return convertDateToIsoString(date,'','')
 }
 
+export function convertDateToReadableString(date: Date): string {
+	return convertDateToIsoString(date,'-',':',' ','')
+}
+
 export function convertDateToIsoString(date: Date, dateSeparator='-', timeSeparator=':', dateTimeSeparator='T', utcSuffix='Z'): string {
 	return (
 		convertDateToIsoDateString(date,dateSeparator)+
