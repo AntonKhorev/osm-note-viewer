@@ -74,17 +74,17 @@ export default class NoteFetchPanel {
 			this.fetcherRun?.updateNote(note,users)
 		})
 		
-		function startFetcherFromQuery(query: NoteQuery|undefined, isNewStart: boolean, suppressFitNotes: boolean): void {
+		function startFetcherFromQuery(query: NoteQuery|undefined, isNewHistoryEntry: boolean, suppressFitNotes: boolean): void {
 			if (!query) return
 			const dialog=fetchDialogs.getDialogFromQuery(query)
 			if (!dialog) return
-			startFetcher(query,isNewStart,suppressFitNotes,dialog)
+			startFetcher(query,isNewHistoryEntry,suppressFitNotes,dialog)
 		}
 		function startFetcher(
-			query: NoteQuery, isNewStart: boolean, suppressFitNotes: boolean, dialog: NoteFetchDialog
+			query: NoteQuery, isNewHistoryEntry: boolean, suppressFitNotes: boolean, dialog: NoteFetchDialog
 		): void {
 			if (query.mode!='search' && query.mode!='bbox' && query.mode!='browse' && query.mode!='ids') return
-			if (query.mode=='browse') isNewStart=false // keep the map hash because there's no bbox parameter and no query hash at all
+			if (query.mode=='browse') isNewHistoryEntry=false // keep the map hash because there's no bbox parameter and no query hash at all
 			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
 			if (map) {
 				map.clearNotes()
@@ -113,7 +113,7 @@ export default class NoteFetchPanel {
 				ev.stopPropagation()
 			}
 			noteTable.reset($caption,getMarkUser(query),getMarkText(query))
-			bubbleCustomEvent($container,'osmNoteViewer:newNoteStream',[makeNoteQueryString(query),isNewStart])
+			bubbleCustomEvent($container,'osmNoteViewer:newNoteStream',[makeNoteQueryString(query),isNewHistoryEntry])
 			const environment: NoteFetcherEnvironment = {
 				db,
 				api: cx.server.api,
@@ -127,11 +127,11 @@ export default class NoteFetchPanel {
 			}
 			self.fetcherInvoker=dialog
 			if (query.mode=='search') {
-				self.fetcherRun=new NoteSearchFetcherRun(environment,query,isNewStart)
+				self.fetcherRun=new NoteSearchFetcherRun(environment,query,isNewHistoryEntry)
 			} else if (query.mode=='bbox' || query.mode=='browse') {
-				self.fetcherRun=new NoteBboxFetcherRun(environment,query,isNewStart)
+				self.fetcherRun=new NoteBboxFetcherRun(environment,query,isNewHistoryEntry)
 			} else if (query.mode=='ids') {
-				self.fetcherRun=new NoteIdsFetcherRun(environment,query,isNewStart)
+				self.fetcherRun=new NoteIdsFetcherRun(environment,query,isNewHistoryEntry)
 			}
 		}
 	}

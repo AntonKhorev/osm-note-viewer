@@ -43,15 +43,15 @@ export default class GlobalHistory {
 			const updatedHostlessHash=attachValueToBackOfHash('map',mapHashValue,queryHash)
 			net.serverSelector.replaceHostlessHashInHistory(updatedHostlessHash)
 		})
-		$root.addEventListener('osmNoteViewer:newNoteStream',({detail:[queryHash,isNewStart]})=>{
+		$root.addEventListener('osmNoteViewer:newNoteStream',({detail:[queryHash,isNewHistoryEntry]})=>{
 			if (!net.cx) return
 			let mapHashValue: string|null = null
-			if (!isNewStart) {
+			if (!isNewHistoryEntry) {
 				const hostlessHash=net.serverSelector.getHostlessHash()
 				;[mapHashValue]=detachValueFromHash('map',hostlessHash)
 			}
 			const updatedHostlessHash=attachValueToBackOfHash('map',mapHashValue,queryHash)
-			if (isNewStart) {
+			if (isNewHistoryEntry) {
 				net.serverSelector.pushHostlessHashInHistory(updatedHostlessHash)
 			} else {
 				net.serverSelector.replaceHostlessHashInHistory(updatedHostlessHash)
