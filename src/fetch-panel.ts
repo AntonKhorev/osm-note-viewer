@@ -78,6 +78,9 @@ export default class NoteFetchPanel {
 			if (!query) return
 			const dialog=fetchDialogs.getDialogFromQuery(query)
 			if (!dialog) return
+			if (query.mode=='bbox' || query.mode=='browse') {
+				if (!query.bbox) return // query is going to fail, so don't run it
+			}
 			startFetcher(query,isNewHistoryEntry,suppressFitNotes,dialog)
 		}
 		function startFetcher(
