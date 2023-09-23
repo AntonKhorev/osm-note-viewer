@@ -17,7 +17,7 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		$sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
 		cx: Connection,
 		getRequestApiPaths: (query: NoteQuery, limit: number) => [type: string, apiPath: string][],
-		submitQuery: (query: NoteQuery) => void,
+		submitQuery: (query: NoteQuery, isTriggeredBySubmitButton: boolean) => void,
 		private map: NoteMap
 	) {
 		super($root,$sharedCheckboxes,cx,getRequestApiPaths,submitQuery)

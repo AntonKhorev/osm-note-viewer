@@ -24,8 +24,8 @@ export default class NoteFetchDialogs {
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		noteTable: NoteTable, map: NoteMap,
 		hashQuery: NoteQuery|undefined,
-		submitQueryToDialog: (dialog:NoteFetchDialog,query:NoteQuery)=>void,
-		limitChangeListener: (dialog:NoteFetchDialog)=>void,
+		submitQueryFromDialog: (dialog: NoteFetchDialog, query: NoteQuery, isTriggeredBySubmitButton: boolean) => void,
+		limitChangeListener: (dialog: NoteFetchDialog) => void,
 	) {
 		const $sharedCheckboxes: NoteFetchDialogSharedCheckboxes = {
 			showImages: [],
@@ -35,12 +35,12 @@ export default class NoteFetchDialogs {
 			fetcherRequest: NoteFetcherRequest,
 			fetchDialogCtor: (
 				getRequestApiPaths: (query: NoteQuery, limit: number) => [type: string, apiPath: string][],
-				submitQuery: (query: NoteQuery) => void
+				submitQuery: (query: NoteQuery, isTriggeredBySubmitButton: boolean) => void
 			) => NoteFetchDialog
 		): NoteFetchDialog => {
 			const dialog=fetchDialogCtor(
 				(query,limit)=>fetcherRequest.getRequestApiPaths(query,limit),
-				(query)=>submitQueryToDialog(dialog,query)
+				(query,isTriggeredBySubmitButton)=>submitQueryFromDialog(dialog,query,isTriggeredBySubmitButton)
 			)
 			dialog.limitChangeListener=()=>limitChangeListener(dialog)
 			dialog.write($container)

@@ -17,7 +17,7 @@ export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchD
 		$sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
 		cx: Connection,
 		getRequestApiPaths: (query: NoteQuery, limit: number) => [type: string, apiPath: string][],
-		submitQuery: (query: NoteQuery) => void,
+		submitQuery: (query: NoteQuery, isTriggeredBySubmitButton: boolean) => void,
 		private noteTable: NoteTable
 	) {
 		super($root,$sharedCheckboxes,cx,getRequestApiPaths,submitQuery)

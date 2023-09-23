@@ -288,7 +288,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 					mode: 'ids',
 					ids
 				}
-				this.submitQuery(query)
+				this.submitQuery(query,true)
 			}
 		})
 		function getValue($element: Element, attribute: string) {

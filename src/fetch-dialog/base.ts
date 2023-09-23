@@ -28,7 +28,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 		private $sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
 		protected cx: Connection,
 		private getRequestApiPaths: (query: NoteQuery, limit: number) => [type: string, apiPath: string][],
-		protected submitQuery: (query: NoteQuery) => void,
+		protected submitQuery: (query: NoteQuery, isTriggeredBySubmitButton: boolean) => void,
 	) {
 		super()
 	}
@@ -54,6 +54,12 @@ export abstract class NoteFetchDialog extends NavDialog {
 	populateInputs(query: NoteQuery|undefined): void {
 		this.populateInputsWithoutUpdatingRequest(query)
 		this.updateRequest()
+	}
+	fetchIfValid(): void {
+		if (!this.$form.reportValidity()) return
+		const query=this.constructQuery()
+		if (!query) return
+		this.submitQuery(query,false)
 	}
 	abstract disableFetchControl(disabled: boolean): void
 	get getLimit(): ()=>number {
@@ -219,7 +225,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 			ev.preventDefault()
 			const query=this.constructQuery()
 			if (!query) return
-			this.submitQuery(query)
+			this.submitQuery(query,true)
 		})
 	}
 	reactToAdvancedModeChange() {
