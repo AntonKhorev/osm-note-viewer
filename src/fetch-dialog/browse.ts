@@ -102,7 +102,7 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		this.map.freezeMode='no'
 	}
 	private updateNotesIfNeeded(): void {
-		if (this.isOpen() && this.map.zoom>=8) {
+		if (this.open && this.map.zoom>=8) {
 			this.$form.requestSubmit()
 		}
 	}

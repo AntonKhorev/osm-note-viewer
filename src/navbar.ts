@@ -16,7 +16,7 @@ export abstract class NavDialog {
 		this.writeSectionContent()
 		$container.append(this.$section)
 	}
-	isOpen(): boolean {
+	get open(): boolean {
 		return !this.$section.hidden
 	}
 	onOpen(): void {}
@@ -103,13 +103,13 @@ export default class Navbar {
 	openTab(targetDialog: NavDialog) {
 		for (const [dialog] of this.tabs) {
 			const willBeActive=dialog==targetDialog
-			if (!willBeActive && dialog.isOpen()) {
+			if (!willBeActive && dialog.open) {
 				dialog.onClose()
 			}
 		}
 		for (const [dialog,$tab] of this.tabs) {
 			const willBeActive=dialog==targetDialog
-			const willCallOnOpen=(willBeActive && !dialog.isOpen())
+			const willCallOnOpen=(willBeActive && !dialog.open)
 			$tab.setAttribute('aria-selected',String(willBeActive))
 			$tab.tabIndex=willBeActive?0:-1
 			dialog.$section.hidden=!willBeActive
@@ -119,7 +119,7 @@ export default class Navbar {
 		}
 	}
 	openTabIfAllTabsAreClosed(targetDialog: NavDialog) {
-		if ([...this.tabs.keys()].every(dialog=>!dialog.isOpen())) {
+		if ([...this.tabs.keys()].every(dialog=>!dialog.open)) {
 			this.openTab(targetDialog)
 		}
 	}
