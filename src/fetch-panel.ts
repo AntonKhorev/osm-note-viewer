@@ -21,11 +21,12 @@ export default class NoteFetchPanel {
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		navbar: Navbar, noteTable: NoteTable, map: NoteMap,
 		hostHashValue: string|null, queryHash: string,
-		hasMapHash: ()=>boolean // to see in no-fetch-click queries need to fit the notes
+		getMapHashValue: ()=>string|null // to see in no-fetch-click queries need to fit the notes
 	) {
 		const self=this
 		const moreButtonIntersectionObservers: IntersectionObserver[] = []
 		const hashQuery=makeNoteQueryFromHash(queryHash)
+		// let previousMapHashValue: string|null = null
 
 		const fetchDialogs=new NoteFetchDialogs(
 			$root,cx,$container,$moreContainer,noteTable,map,startFetcher,
@@ -82,7 +83,12 @@ export default class NoteFetchPanel {
 			while (moreButtonIntersectionObservers.length>0) moreButtonIntersectionObservers.pop()?.disconnect()
 			if (map) {
 				map.clearNotes()
-				if (!isNewHistoryEntry && hasMapHash()) map.needToFitNotes=false
+				const mapHashValue=getMapHashValue()
+				// if (!isNewHistoryEntry && mapHashValue && mapHashValue==previousMapHashValue) {
+				if (!isNewHistoryEntry && mapHashValue) {
+					map.needToFitNotes=false
+				}
+				// previousMapHashValue=mapHashValue
 			}
 			const $caption=dialog.getQueryCaption(query)
 			document.title=($caption.textContent??'')+` | note-viewer`

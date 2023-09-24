@@ -12,8 +12,6 @@ import {escapeXml, makeEscapeTag} from '../util/escape'
 
 export {NoteMarker, NoteMapBounds}
 
-export type NoteMapFreezeMode = 'no' | 'initial' | 'full'
-
 export default class NoteMap {
 	private leafletMap: L.Map
 	private dataLayers= new OsmDataLayers()
@@ -22,7 +20,7 @@ export default class NoteMap {
 	filteredNoteLayer=new NoteLayer()
 	trackLayer=L.featureGroup()
 	needToFitNotes=false
-	freezeMode: NoteMapFreezeMode = 'no'
+	freezeMode=false
 	private queuedPopup: [baseLayerId: number, writer: (layer:L.Layer)=>HTMLElement] | undefined
 	constructor(
 		$root: HTMLElement,
@@ -179,7 +177,7 @@ export default class NoteMap {
 		this.selectedNoteLayer.clearLayers()
 		this.filteredNoteLayer.clearLayers()
 		this.trackLayer.clearLayers()
-		this.needToFitNotes=this.freezeMode=='no'
+		this.needToFitNotes=!this.freezeMode
 	}
 	fitSelectedNotes(): void {
 		const bounds=this.selectedNoteLayer.getBounds()
@@ -254,7 +252,7 @@ export default class NoteMap {
 		addLayersWithData(this.dataLayers.deletedDataLayer ,geometryData.deletedGeometry)
 		const popupWriter=makePopupWriter(server,baseData,clear)
 		// geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
-		if (this.freezeMode=='full') {
+		if (this.freezeMode) {
 			const popup=L.popup({autoPan:false}).setContent(popupWriter)
 			let restorePopupTipTimeoutId: number|undefined
 			const onOpenPopup=()=>{
@@ -336,15 +334,15 @@ export default class NoteMap {
 		return new NoteMapBounds(this.bounds,this.precision)
 	}
 	private fitBoundsIfNotFrozen(bounds: L.LatLngBoundsExpression): void {
-		if (this.freezeMode=='full') return
+		if (this.freezeMode) return
 		this.leafletMap.fitBounds(bounds)
 	}
 	private panToIfNotFrozen(latlng: L.LatLngExpression): void {
-		if (this.freezeMode=='full') return
+		if (this.freezeMode) return
 		this.leafletMap.panTo(latlng)
 	}
 	private flyToIfNotFrozen(latlng: L.LatLngExpression, zoom?: number|undefined, options?: L.ZoomPanOptions|undefined): void {
-		if (this.freezeMode=='full') return
+		if (this.freezeMode) return
 		this.leafletMap.flyTo(latlng,zoom,options)
 	}
 	private get precision(): number {

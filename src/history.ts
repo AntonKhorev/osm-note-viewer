@@ -27,13 +27,16 @@ export default class GlobalHistory {
 			// TODO save more panel open/closed state... actually all panels open/closed states - Firefox does that, Chrome doesn't
 			// ... or save some other kind of position relative to notes table instead of scroll
 		})
+		let [,previousQueryHash]=detachValueFromHash('map',net.serverSelector.getHostlessHash())
 		net.serverSelector.installHashChangeListener(net.cx,hostlessHash=>{
 			const [mapHashValue,queryHash]=detachValueFromHash('map',hostlessHash)
 			if (mapHashValue) {
 				this.onMapHashChange(mapHashValue)
 			}
-			// TODO don't run stuff below if only map hash changed? or don't zoom to notes if map hash present?
-			bubbleCustomEvent($root,'osmNoteViewer:queryHashChange',queryHash)
+			if (previousQueryHash!=queryHash) {
+				bubbleCustomEvent($root,'osmNoteViewer:queryHashChange',queryHash)
+			}
+			previousQueryHash=queryHash
 			this.restoreScrollPosition()
 		})
 		$root.addEventListener('osmNoteViewer:mapMoveEnd',({detail:{zoom,lat,lon}})=>{
@@ -42,6 +45,7 @@ export default class GlobalHistory {
 			const [,queryHash]=detachValueFromHash('map',hostlessHash)
 			const updatedHostlessHash=attachValueToBackOfHash('map',mapHashValue,queryHash)
 			net.serverSelector.replaceHostlessHashInHistory(updatedHostlessHash)
+			previousQueryHash=queryHash
 		})
 		$root.addEventListener('osmNoteViewer:newNoteStream',({detail:[queryHash,isNewHistoryEntry]})=>{
 			if (!net.cx) return
@@ -56,6 +60,7 @@ export default class GlobalHistory {
 			} else {
 				net.serverSelector.replaceHostlessHashInHistory(updatedHostlessHash)
 			}
+			previousQueryHash=queryHash
 		})
 	}
 	triggerInitialMapHashChange(): void {
@@ -98,10 +103,10 @@ export default class GlobalHistory {
 		const [,queryHash]=detachValueFromHash('map',hostlessHash)
 		return queryHash
 	}
-	hasMapHash(): boolean {
+	getMapHashValue(): string | null {
 		const hostlessHash=this.net.serverSelector.getHostlessHash()
 		const [mapHashValue]=detachValueFromHash('map',hostlessHash)
-		return !!mapHashValue
+		return mapHashValue
 	}
 	private onMapHashChange(mapHashValue: string) {
 		const [zoom,lat,lon]=mapHashValue.split('/')

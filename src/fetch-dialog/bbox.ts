@@ -3,7 +3,6 @@ import {NoteQueryFetchDialog} from './base'
 import NominatimSubForm from './bbox-nominatim'
 import type {Connection} from '../net'
 import type NoteMap from '../map'
-import type {NoteMapFreezeMode} from '../map'
 import type {NoteQuery} from '../query'
 import {makeNoteBboxQueryFromValues} from '../query'
 import type {NominatimBbox} from '../nominatim'
@@ -136,7 +135,6 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 			trackMap()
 		})
 		this.$trackMapSelect.addEventListener('input',()=>{
-			this.map.freezeMode=this.getMapFreezeMode() // don't update freeze mode on map moves
 			trackMap()
 		})
 		this.$bboxInput.addEventListener('input',()=>{
@@ -156,16 +154,6 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		return [
 			this.$bboxInput,this.$closedInput,this.$closedSelect
 		]
-	}
-	onOpen(): void {
-		this.map.freezeMode=this.getMapFreezeMode()
-	}
-	onClose(): void {
-		this.map.freezeMode='no'
-	}
-	private getMapFreezeMode(): NoteMapFreezeMode {
-		if (this.$trackMapSelect.value=='bbox') return 'initial'
-		return 'no'
 	}
 	private setBbox(west:string,south:string,east:string,north:string): void {
 		// (left,bottom,right,top)

@@ -95,11 +95,11 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		]
 	}
 	onOpen(): void {
-		this.map.freezeMode='full'
+		this.map.freezeMode=true
 		this.updateNotesIfNeeded()
 	}
 	onClose(): void {
-		this.map.freezeMode='no'
+		this.map.freezeMode=false
 	}
 	private updateNotesIfNeeded(): void {
 		if (this.open && this.map.zoom>=8) {
