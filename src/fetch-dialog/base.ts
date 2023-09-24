@@ -56,7 +56,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 		this.updateRequest()
 	}
 	fetchIfValid(): void {
-		if (!this.$form.reportValidity()) return
+		if (!this.$form.checkValidity()) return
 		const query=this.constructQuery()
 		if (!query) return
 		this.submitQuery(query,false)

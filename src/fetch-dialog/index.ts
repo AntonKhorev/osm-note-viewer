@@ -23,7 +23,6 @@ export default class NoteFetchDialogs {
 		cx: Connection,
 		$container: HTMLElement, $moreContainer: HTMLElement,
 		noteTable: NoteTable, map: NoteMap,
-		hashQuery: NoteQuery|undefined,
 		submitQueryFromDialog: (dialog: NoteFetchDialog, query: NoteQuery, isTriggeredBySubmitButton: boolean) => void,
 		limitChangeListener: (dialog: NoteFetchDialog) => void,
 	) {
@@ -44,7 +43,6 @@ export default class NoteFetchDialogs {
 			)
 			dialog.limitChangeListener=()=>limitChangeListener(dialog)
 			dialog.write($container)
-			dialog.populateInputs(hashQuery)
 			return dialog
 		}
 		this.searchDialog=makeFetchDialog(

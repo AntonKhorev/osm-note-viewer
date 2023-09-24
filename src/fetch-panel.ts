@@ -28,7 +28,7 @@ export default class NoteFetchPanel {
 		const hashQuery=makeNoteQueryFromHash(queryHash)
 
 		const fetchDialogs=new NoteFetchDialogs(
-			$root,cx,$container,$moreContainer,noteTable,map,hashQuery,startFetcher,
+			$root,cx,$container,$moreContainer,noteTable,map,startFetcher,
 			(dialog:NoteFetchDialog)=>{
 				if (this.fetcherRun && this.fetcherInvoker==dialog) {
 					this.fetcherRun.reactToLimitUpdateForAdvancedMode()
@@ -41,12 +41,9 @@ export default class NoteFetchPanel {
 
 		$root.addEventListener('osmNoteViewer:queryHashChange',({detail:queryHash})=>{
 			const query=makeNoteQueryFromHash(queryHash)
-			openQueryDialog(navbar,fetchDialogs,query,false)
-			fetchDialogs.populateInputs(query)
-			startFetcherFromQuery(query)
+			startFetcherFromQuery(query,false)
 		})
-		openQueryDialog(navbar,fetchDialogs,hashQuery,true)
-		startFetcherFromQuery(hashQuery)
+		startFetcherFromQuery(hashQuery,true)
 
 		$root.addEventListener('osmNoteViewer:userLinkClick',ev=>{
 			if (!(ev.target instanceof HTMLElement)) return
@@ -69,7 +66,9 @@ export default class NoteFetchPanel {
 			this.fetcherRun?.updateNote(note,users)
 		})
 		
-		function startFetcherFromQuery(query: NoteQuery|undefined): void {
+		function startFetcherFromQuery(query: NoteQuery|undefined, initial: boolean): void {
+			openQueryDialog(navbar,fetchDialogs,query,initial)
+			fetchDialogs.populateInputs(query)
 			if (!query) return
 			const dialog=fetchDialogs.getDialogFromQuery(query)
 			if (!dialog) return
