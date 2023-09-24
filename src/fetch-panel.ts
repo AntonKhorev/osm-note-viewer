@@ -41,9 +41,9 @@ export default class NoteFetchPanel {
 
 		$root.addEventListener('osmNoteViewer:queryHashChange',({detail:queryHash})=>{
 			const query=makeNoteQueryFromHash(queryHash)
-			startFetcherFromQuery(query,false)
+			startFetcherFromQuery(query)
 		})
-		startFetcherFromQuery(hashQuery,true)
+		startFetcherFromQuery(hashQuery)
 
 		$root.addEventListener('osmNoteViewer:userLinkClick',ev=>{
 			if (!(ev.target instanceof HTMLElement)) return
@@ -58,7 +58,7 @@ export default class NoteFetchPanel {
 			} else {
 				query.user=Number(ev.target.dataset.userId)
 			}
-			openQueryDialog(navbar,fetchDialogs,query,false)
+			openQueryDialog(navbar,fetchDialogs,query)
 			fetchDialogs.populateInputs(query)
 			fetchDialogs.searchDialog.$section.scrollIntoView()
 		})
@@ -66,8 +66,8 @@ export default class NoteFetchPanel {
 			this.fetcherRun?.updateNote(note,users)
 		})
 		
-		function startFetcherFromQuery(query: NoteQuery|undefined, initial: boolean): void {
-			openQueryDialog(navbar,fetchDialogs,query,initial)
+		function startFetcherFromQuery(query: NoteQuery|undefined): void {
+			openQueryDialog(navbar,fetchDialogs,query)
 			fetchDialogs.populateInputs(query)
 			if (!query) return
 			const dialog=fetchDialogs.getDialogFromQuery(query)
@@ -131,15 +131,13 @@ export default class NoteFetchPanel {
 
 function openQueryDialog(
 	navbar: Navbar, fetchDialogs: NoteFetchDialogs,
-	query: NoteQuery | undefined, initial: boolean
+	query: NoteQuery | undefined
 ): void {
-	if (!query) {
-		if (initial) navbar.openTab(fetchDialogs.searchDialog)
-	} else {
+	if (query) {
 		const dialog=fetchDialogs.getDialogFromQuery(query)
-		if (!dialog) return
-		navbar.openTab(dialog)
+		if (dialog) navbar.openTab(dialog)
 	}
+	navbar.openTabIfAllTabsAreClosed(fetchDialogs.searchDialog)
 }
 
 function getMarkUser(query: NoteQuery): string|number|undefined {

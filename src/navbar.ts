@@ -118,6 +118,11 @@ export default class Navbar {
 			}
 		}
 	}
+	openTabIfAllTabsAreClosed(targetDialog: NavDialog) {
+		if ([...this.tabs.keys()].every(dialog=>!dialog.isOpen())) {
+			this.openTab(targetDialog)
+		}
+	}
 }
 
 function makeResetButton(): HTMLButtonElement {
