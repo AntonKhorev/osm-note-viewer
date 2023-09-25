@@ -20,7 +20,7 @@ export default class DateInput {
 			this.onInput(this.$input.value)
 		}
 	}
-	get $elements(): HTMLElement[] {
+	get $elements(): [$input: HTMLInputElement, $dateInput: HTMLInputElement] {
 		return [this.$input,this.$dateInput]
 	}
 	get value(): string {

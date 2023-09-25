@@ -4,6 +4,7 @@ import {makeNoteSearchQueryFromValues, toUserQuery} from '../query'
 import {toShortReadableDate} from '../query-date'
 import DateInput from '../date-input'
 import TextControl from '../text-control'
+import makeTextButtonInputGroup from '../text-button-input-group'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../util/html'
 import {p,em,code} from '../util/html-shortcuts'
 
@@ -113,23 +114,15 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 				userInputControl.update()
 			})
 		}{
-			this.fromDateInput.$input.id='search-from-date'
 			this.fromDateInput.$input.name='from'
-			this.toDateInput.$input.id='search-to-date'
 			this.toDateInput.$input.name='to'
-			const $fromDateLabel=makeLabel('inline')(`From date`,rq('from'))
-			$fromDateLabel.htmlFor='search-from-date'
-			const $toDateLabel=makeLabel('inline')(`To date`,rq('to'))
-			$toDateLabel.htmlFor='search-to-date'
 			$fieldset.append(makeDiv('input-super-group')(
-				makeElement('span')('text-button-input-group')(
-					$fromDateLabel,` `,
-					makeElement('span')()(...this.fromDateInput.$elements)
-				),
-				makeElement('span')('text-button-input-group')(
-					$toDateLabel,` `,
-					makeElement('span')()(...this.toDateInput.$elements)
-				)
+				makeTextButtonInputGroup()([
+					`From date`,rq('from')
+				],...this.fromDateInput.$elements),
+				makeTextButtonInputGroup()([
+					`To date`,rq('to')
+				],...this.toDateInput.$elements)
 			))
 		}
 	}
