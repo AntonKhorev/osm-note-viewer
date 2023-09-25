@@ -13,7 +13,6 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	shortTitle=`Browse`
 	title=`Get notes inside map view`
 	private $trackMapZoomNotice=makeDiv('notice')()
-	protected $bboxInput=document.createElement('input')
 	constructor(
 		$root: HTMLElement,
 		$sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
@@ -41,16 +40,9 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		)]
 	}
 	protected writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void {
-		{
-			$fieldset.append(
-				this.$trackMapZoomNotice
-			)
-		}{
-			this.$bboxInput.type='hidden'
-			this.$bboxInput.name='bbox'
-			this.$bboxInput.required=true // otherwise could submit empty bbox without entering anything
-			$fieldset.append(this.$bboxInput)
-		}
+		$fieldset.append(
+			this.$trackMapZoomNotice
+		)
 	}
 	protected getClosedLineNotesText(): string {
 		return `most recently updated notes`
@@ -64,8 +56,6 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
 	}
 	protected populateInputsWithoutUpdatingRequestExceptForClosedInput(query: NoteQuery | undefined): void {
-		if (query && query.mode!='browse') return
-		this.$bboxInput.value=query?.bbox ?? ''
 	}
 	protected get defaultClosedValue(): string {
 		return '7'
@@ -80,13 +70,10 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 				this.$trackMapZoomNotice.innerText=`Fetching will start on zooms ${minSafeZoom} or higher`
 			}
 		}
-		const trackMap=()=>{
-			updateTrackMapZoomNotice()
-			this.setBbox(...this.map.precisionBounds.wsen)
-		}
 		updateTrackMapZoomNotice()
 		this.$root.addEventListener('osmNoteViewer:mapMoveEnd',()=>{
-			trackMap()
+			updateTrackMapZoomNotice()
+			this.updateRequest()
 			this.updateNotesIfNeeded()
 		})
 	}
@@ -94,13 +81,14 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		this.updateNotesIfNeeded()
 	}
 	protected constructQuery(): NoteQuery | undefined {
+		const bboxValue=this.map.precisionBounds.wsen.join(',')
 		return makeNoteBrowseQueryFromValues(
-			this.$bboxInput.value,this.closedValue
+			bboxValue,this.closedValue
 		)
 	}
 	protected listQueryChangingInputs(): Array<HTMLInputElement|HTMLSelectElement> {
 		return [
-			this.$bboxInput,this.$closedInput,this.$closedSelect
+			this.$closedInput,this.$closedSelect
 		]
 	}
 	onOpen(): void {
@@ -114,27 +102,6 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		if (this.open && this.withSafeZoom) {
 			this.$form.requestSubmit()
 		}
-	}
-	private setBbox(west:string,south:string,east:string,north:string): void {
-		// (left,bottom,right,top)
-		this.$bboxInput.value=west+','+south+','+east+','+north
-		this.validateBbox()
-		this.updateRequest()
-	}
-	private validateBbox(): boolean {
-		const splitValue=this.$bboxInput.value.split(',')
-		if (splitValue.length!=4) {
-			this.$bboxInput.setCustomValidity(`must contain four comma-separated values`)
-			return false
-		}
-		for (const number of splitValue) {
-			if (!isFinite(Number(number))) {
-				this.$bboxInput.setCustomValidity(`values must be numbers, "${number}" is not a number`)
-				return false
-			}
-		}
-		this.$bboxInput.setCustomValidity('')
-		return true
 	}
 	protected getQueryCaptionItems(query: NoteQuery) {
 		if (query.mode!='browse') return []
