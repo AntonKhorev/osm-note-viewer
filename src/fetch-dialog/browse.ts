@@ -7,6 +7,8 @@ import {makeNoteBrowseQueryFromValues} from '../query'
 import {makeLink, makeDiv} from '../util/html'
 import {p,em,code} from '../util/html-shortcuts'
 
+const minSafeZoom=8
+
 export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	shortTitle=`Browse`
 	title=`Get notes inside map view`
@@ -22,8 +24,15 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	) {
 		super($root,$sharedCheckboxes,cx,getRequestApiPaths,submitQuery)
 	}
+	fetchIfValid(): void {
+		if (!this.withSafeZoom) return
+		super.fetchIfValid()
+	}
 	get getAutoLoad(): ()=>boolean {
 		return ()=>false
+	}
+	private get withSafeZoom(): boolean {
+		return this.map.zoom>=minSafeZoom
 	}
 	protected makeLeadAdvancedHint(): Array<string|HTMLElement> {
 		return [p(
@@ -63,12 +72,12 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	}
 	protected addEventListenersBeforeClosedLine(): void {
 		const updateTrackMapZoomNotice=()=>{
-			if (this.map.zoom>=8) {
+			if (this.withSafeZoom) {
 				this.$trackMapZoomNotice.classList.remove('error')
-				this.$trackMapZoomNotice.innerText=`Fetching will stop on zooms lower than 8`
+				this.$trackMapZoomNotice.innerText=`Fetching will stop on zooms lower than ${minSafeZoom}`
 			} else {
 				this.$trackMapZoomNotice.classList.add('error')
-				this.$trackMapZoomNotice.innerText=`Fetching will start on zooms 8 or higher`
+				this.$trackMapZoomNotice.innerText=`Fetching will start on zooms ${minSafeZoom} or higher`
 			}
 		}
 		const trackMap=()=>{
@@ -102,7 +111,7 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		this.map.freezeMode=false
 	}
 	private updateNotesIfNeeded(): void {
-		if (this.open && this.map.zoom>=8) {
+		if (this.open && this.withSafeZoom) {
 			this.$form.requestSubmit()
 		}
 	}
