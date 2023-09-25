@@ -407,7 +407,7 @@ export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetc
 		)
 	}
 	getQueryCaption(query: NoteQuery): HTMLTableCaptionElement {
-		if (query.mode!='search' && query.mode!='bbox') return super.getQueryCaption(query)
+		if (query.mode!='search' && query.mode!='bbox' && query.mode!='browse') return super.getQueryCaption(query)
 		const items=this.getQueryCaptionItems(query)
 		const $caption=makeElement('caption')()()
 		if (query.closed==0) {

@@ -179,7 +179,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 	protected getQueryCaptionItems(query: NoteQuery) {
 		if (query.mode!='bbox') return []
 		return [
-			[`inside bounding box `,this.makeInputLink(this.$bboxInput,query.bbox)]
+			[`bounding box `,this.makeInputLink(this.$bboxInput,query.bbox)]
 		]
 	}
 }

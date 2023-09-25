@@ -106,7 +106,7 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	protected getQueryCaptionItems(query: NoteQuery) {
 		if (query.mode!='browse') return []
 		return [
-			[`inside bounding box `,query.bbox]
+			[`bounding box `,query.bbox]
 		]
 	}
 }
