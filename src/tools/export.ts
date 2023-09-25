@@ -3,10 +3,11 @@ import type {
 	FeatureCollection
 } from 'geojson'
 
-import {Tool, ToolElements, makeNotesIcon} from './base'
+import {Tool, ToolElements} from './base'
 import type {Note, NoteComment} from '../data'
 import type {Server} from '../net'
 import {toReadableDate, toUrlDate} from '../query-date'
+import {makeNotesIcon} from '../svg'
 import {makeLink, makeLabel} from '../util/html'
 import {em,dfn,code,p,ul,li} from '../util/html-shortcuts'
 import {escapeXml, makeEscapeTag} from '../util/escape'

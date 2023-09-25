@@ -1,5 +1,5 @@
 import type {Connection} from '../net'
-import {makeActionIcon} from './base'
+import {makeActionIcon} from '../svg'
 import type {InteractionDescription} from './interact-descriptions'
 import {getNoteIndicator, getNoteCountIndicator} from './interact-indicator'
 import {readNoteResponse, NoteDataError} from '../fetch-note'

@@ -1,5 +1,6 @@
-import {Tool, ToolElements, makeNotesIcon} from './base'
+import {Tool, ToolElements} from './base'
 import ConfirmedButtonListener from '../confirmed-button-listener'
+import {makeNotesIcon} from '../svg'
 import {makeLink} from '../util/html'
 import {em,p,ul,li} from '../util/html-shortcuts'
 import {makeEscapeTag} from '../util/escape'

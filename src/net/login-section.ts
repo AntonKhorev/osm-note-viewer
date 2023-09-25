@@ -3,6 +3,7 @@ import type AuthStorage from './auth-storage'
 import type {Login} from './auth-storage'
 import LoginForms, {AuthError} from './login-forms'
 
+import {makeActionIcon} from '../svg'
 import RadioTable from '../util/radio-table'
 import {makeElement, makeDiv, wrapFetchForButton, makeGetKnownErrorMessage} from '../util/html'
 import {em} from '../util/html-shortcuts'
@@ -143,7 +144,7 @@ export default class LoginSection {
 			})
 			for (const [token,login] of logins) {
 				const userHref=server.web.getUrl(`user/`+encodeURIComponent(login.username))
-				const $updateButton=makeElement('button')()(`Update user info`)
+				const $updateButton=makeElement('button')('only-with-icon')(makeActionIcon('refresh',`Update user info`))
 				const $logoutButton=makeElement('button')()(`Logout`)
 				$updateButton.onclick=()=>wrapFetchForButton($updateButton,async()=>{
 					const userData=await fetchUserData(token)

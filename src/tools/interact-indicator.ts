@@ -1,5 +1,5 @@
 import type {Note} from '../data'
-import {makeNoteStatusIcon} from './base'
+import {makeNoteStatusIcon} from '../svg'
 import type {WebProvider} from '../net'
 
 export function getMultipleNoteIndicators(

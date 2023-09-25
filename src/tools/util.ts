@@ -1,5 +1,6 @@
-import {Tool, ToolElements, makeNotesIcon,  makeMapIcon, makeNoteStatusIcon} from './base'
+import {Tool, ToolElements} from './base'
 import DateInput from '../date-input'
+import {makeNotesIcon, makeMapIcon, makeNoteStatusIcon} from '../svg'
 import {bubbleCustomEvent} from '../util/events'
 import {makeElement, makeLink} from '../util/html'
 import {em,dfn,p,code} from '../util/html-shortcuts'

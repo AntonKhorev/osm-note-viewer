@@ -1,5 +1,6 @@
-import {Tool, ToolElements, makeMapIcon} from './base'
+import {Tool, ToolElements} from './base'
 import type NoteMap from '../map'
+import {makeMapIcon} from '../svg'
 import {makeLink} from '../util/html'
 import {p} from '../util/html-shortcuts'
 import {makeEscapeTag} from '../util/escape'

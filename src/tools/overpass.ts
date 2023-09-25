@@ -1,7 +1,8 @@
-import {Tool, ToolElements, makeMapIcon} from './base'
+import {Tool, ToolElements} from './base'
 import {QueryError} from '../net'
 import type NoteMap from '../map'
 import {getDateFromInputString, convertDateToIsoString} from '../util/date'
+import {makeMapIcon} from '../svg'
 import {makeElement, makeLabel, makeLink, wrapFetchForButton} from '../util/html'
 import {p} from '../util/html-shortcuts'
 

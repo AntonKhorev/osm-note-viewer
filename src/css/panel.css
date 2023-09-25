@@ -45,6 +45,16 @@
 	cursor: help;
 	text-decoration: underline dotted 1px;
 }
+.panel button.only-with-icon {
+	box-sizing: content-box;
+	height: 13px;
+	width: 13px;
+	padding: 2px;
+	vertical-align: bottom;
+}
+.panel button.only-with-icon [class|=icon] > svg {
+	vertical-align: inherit;
+}
 
 .panel:not(.toolbar) details > summary:hover {
 	background: var(--hover-color);
@@ -230,21 +240,7 @@ dialog.help button.close-all-tools::before {
 .panel.toolbar > button.settings {
 	margin-left: auto;
 }
-.panel.toolbar [class|=icon-map] > svg {
-	width: 19px;
-	height: 13px;
-}
-.panel.toolbar [class|=icon-notes] > svg {
-	width: 9px;
-	height: 13px;
-}
-.panel.toolbar [class|=icon-action] > svg {
-	width: 13px;
-	height: 13px;
-}
 .panel.toolbar [class|=icon-note-status] > svg {
-	width: 8px;
-	height: 16px;
 	vertical-align: text-bottom;
 }
 .panel.toolbar .icon-map-area {
@@ -255,16 +251,6 @@ dialog.help button.close-all-tools::before {
 }
 .panel.toolbar button[disabled] [class|=icon] {
 	opacity: .5;
-}
-.panel.toolbar button.only-with-icon {
-	box-sizing: content-box;
-	height: 13px;
-	width: 13px;
-	padding: 2px;
-	vertical-align: bottom;
-}
-.panel.toolbar button.only-with-icon [class|=icon] > svg {
-	vertical-align: inherit;
 }
 .panel.toolbar input[type=number] {
 	width: 7ch;
