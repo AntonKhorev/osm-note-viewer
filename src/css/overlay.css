@@ -1,5 +1,5 @@
 .graphic-side button.menu {
-	z-index: 1;
+	z-index: 2;
 	/* copied from leaflet: */
 	top: 10px;
 	left: 10px;
@@ -69,10 +69,12 @@
 
 .graphic-side div.menu:not([hidden]) {
 	position: absolute;
+	z-index: 1;
 	inset: 0;
 	background: canvas;
 	display: flex;
 	flex-direction: column;
+	box-shadow: 0 0px 6px var(--shadow-color);
 }
 .graphic-side div.menu .lead {
 	margin-left: calc(20px + 2rem);
