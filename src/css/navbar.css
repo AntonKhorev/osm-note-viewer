@@ -20,6 +20,7 @@ nav button.global:not(.reset):focus ~ button.reset {
 nav [role=tablist] {
 	display: flex;
 	padding: .5rem 2.5rem 0 .5rem;
+	scroll-padding: 0 2.5rem 0 .5rem;
 	overflow-x: auto;
 	overflow-y: hidden;
 	scrollbar-width: thin;
