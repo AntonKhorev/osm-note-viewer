@@ -122,11 +122,11 @@ export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFe
 			const $toDateLabel=makeLabel('inline')(`To date`,rq('to'))
 			$toDateLabel.htmlFor='search-to-date'
 			$fieldset.append(makeDiv('input-super-group')(
-				makeElement('span')('date-range-input-group')(
+				makeElement('span')('text-button-input-group')(
 					$fromDateLabel,` `,
 					makeElement('span')()(...this.fromDateInput.$elements)
 				),
-				makeElement('span')('date-range-input-group')(
+				makeElement('span')('text-button-input-group')(
 					$toDateLabel,` `,
 					makeElement('span')()(...this.toDateInput.$elements)
 				)

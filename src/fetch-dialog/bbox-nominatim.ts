@@ -29,6 +29,7 @@ export default class NominatimSubForm {
 			`Make `,makeLink(`Nominatim search query`,`https://nominatim.org/release-docs/develop/api/Search/`),
 			` at `,code(this.nominatim.getSearchUrl(''),em(`parameters`)),`; see `,em(`parameters`),` above and below.`
 		))
+		this.$input.id='nominatim-place'
 		this.$input.type='text'
 		this.$input.required=true
 		this.$input.classList.add('no-invalid-indication') // because it's inside another form that doesn't require it, don't indicate that it's invalid
@@ -36,10 +37,14 @@ export default class NominatimSubForm {
 		this.$input.setAttribute('form','nominatim-form')
 		this.$button.textContent='Get'
 		this.$button.setAttribute('form','nominatim-form')
-		$fieldset.append(makeDiv('text-button-input-group')(makeLabel()(
-			`Or get bounding box by place name from Nominatim`,spanRequest(` (`,code('q'),` Nominatim parameter)`),` `,
-			this.$input
-		),this.$button))
+		const $label=makeLabel()(
+			`Or get bounding box by place name from Nominatim`,spanRequest(` (`,code('q'),` Nominatim parameter)`),` `
+		)
+		$label.htmlFor='nominatim-place'
+		$fieldset.append(makeDiv('text-button-input-group','spaced')(
+			$label,` `,
+			makeElement('span')()(this.$input,` `,this.$button)
+		))
 		$fieldset.append(makeDiv('advanced-hint')(`Resulting Nominatim request: `,this.$requestOutput))
 	}
 	updateRequest(): void {
