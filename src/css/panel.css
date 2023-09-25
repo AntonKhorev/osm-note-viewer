@@ -298,7 +298,7 @@ dialog.help button.close-all-tools::before {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
-	margin: .2em 0 0 0;
+	margin-top: 1px;
 }
 .panel .major-input-group textarea {
 	resize: vertical;
@@ -317,6 +317,7 @@ dialog.help button.close-all-tools::before {
 }
 .panel .text-button-input-group > span {
 	display: flex;
+	margin-top: 1px;
 }
 .panel .text-button-input-group.spaced > span {
 	gap: .5rem;
