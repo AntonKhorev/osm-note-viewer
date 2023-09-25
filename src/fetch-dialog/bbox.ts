@@ -85,14 +85,21 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 			this.$bboxInput.type='text'
 			this.$bboxInput.name='bbox'
 			this.$bboxInput.required=true // otherwise could submit empty bbox without entering anything
-			$fieldset.append(makeDiv('major-input-group')(makeLabel()(
+			const labelItems: (string|HTMLElement)[] = [
 				`Bounding box (`,
 				tip(`left`,`western-most (min) longitude`),`, `,
 				tip(`bottom`,`southern-most (min) latitude`),`, `,
 				tip(`right`,`eastern-most (max) longitude`),`, `,
 				tip(`top`,`northern-most (max) latitude`),
-				`)`,rq('bbox'),spanRequest(` (also `,code('west'),`, `,code('south'),`, `,code('east'),`, `,code('north'),` Nominatim parameters)`),` `,
-				this.$bboxInput
+				`)`,rq('bbox')
+			]
+			if (this.nominatimSubForm) {
+				labelItems.push(
+					spanRequest(` (also `,code('west'),`, `,code('south'),`, `,code('east'),`, `,code('north'),` Nominatim parameters)`)
+				)
+			}
+			$fieldset.append(makeDiv('major-input-group')(makeLabel()(
+				...labelItems,` `,this.$bboxInput
 			)))
 			function tip(text: string, title: string) {
 				const $span=document.createElement('span')
