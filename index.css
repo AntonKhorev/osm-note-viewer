@@ -401,6 +401,10 @@ nav [role=tablist] [role=tab]:focus {
 .panel [class|=icon] > svg {
 	vertical-align: middle;
 }
+.panel th[title] {
+	cursor: help;
+	text-decoration: underline dotted 1px;
+}
 
 .panel:not(.toolbar) details > summary:hover {
 	background: var(--hover-color);

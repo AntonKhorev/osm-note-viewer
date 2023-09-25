@@ -2031,13 +2031,16 @@ class GlobalHistory {
             // TODO save more panel open/closed state... actually all panels open/closed states - Firefox does that, Chrome doesn't
             // ... or save some other kind of position relative to notes table instead of scroll
         });
+        let [, previousQueryHash] = detachValueFromHash('map', net.serverSelector.getHostlessHash());
         net.serverSelector.installHashChangeListener(net.cx, hostlessHash => {
             const [mapHashValue, queryHash] = detachValueFromHash('map', hostlessHash);
             if (mapHashValue) {
                 this.onMapHashChange(mapHashValue);
             }
-            // TODO don't run stuff below if only map hash changed? or don't zoom to notes if map hash present?
-            bubbleCustomEvent($root, 'osmNoteViewer:queryHashChange', queryHash);
+            if (previousQueryHash != queryHash) {
+                bubbleCustomEvent($root, 'osmNoteViewer:queryHashChange', queryHash);
+            }
+            previousQueryHash = queryHash;
             this.restoreScrollPosition();
         });
         $root.addEventListener('osmNoteViewer:mapMoveEnd', ({ detail: { zoom, lat, lon } }) => {
@@ -2046,22 +2049,24 @@ class GlobalHistory {
             const [, queryHash] = detachValueFromHash('map', hostlessHash);
             const updatedHostlessHash = attachValueToBackOfHash('map', mapHashValue, queryHash);
             net.serverSelector.replaceHostlessHashInHistory(updatedHostlessHash);
+            previousQueryHash = queryHash;
         });
-        $root.addEventListener('osmNoteViewer:newNoteStream', ({ detail: [queryHash, isNewStart] }) => {
+        $root.addEventListener('osmNoteViewer:newNoteStream', ({ detail: [queryHash, isNewHistoryEntry] }) => {
             if (!net.cx)
                 return;
             let mapHashValue = null;
-            if (!isNewStart) {
+            if (!isNewHistoryEntry) {
                 const hostlessHash = net.serverSelector.getHostlessHash();
                 [mapHashValue] = detachValueFromHash('map', hostlessHash);
             }
             const updatedHostlessHash = attachValueToBackOfHash('map', mapHashValue, queryHash);
-            if (isNewStart) {
+            if (isNewHistoryEntry) {
                 net.serverSelector.pushHostlessHashInHistory(updatedHostlessHash);
             }
             else {
                 net.serverSelector.replaceHostlessHashInHistory(updatedHostlessHash);
             }
+            previousQueryHash = queryHash;
         });
     }
     triggerInitialMapHashChange() {
@@ -2109,10 +2114,10 @@ class GlobalHistory {
         const [, queryHash] = detachValueFromHash('map', hostlessHash);
         return queryHash;
     }
-    hasMapHash() {
+    getMapHashValue() {
         const hostlessHash = this.net.serverSelector.getHostlessHash();
         const [mapHashValue] = detachValueFromHash('map', hostlessHash);
-        return !!mapHashValue;
+        return mapHashValue;
     }
     onMapHashChange(mapHashValue) {
         const [zoom, lat, lon] = mapHashValue.split('/');
@@ -3089,7 +3094,7 @@ class NoteMap {
         this.filteredNoteLayer = new NoteLayer();
         this.trackLayer = L.featureGroup();
         this.needToFitNotes = false;
-        this.freezeMode = 'no';
+        this.freezeMode = false;
         const e = makeEscapeTag(escapeXml);
         const zoomControl = L.control.zoom({
             position: 'bottomright'
@@ -3235,7 +3240,7 @@ class NoteMap {
         this.selectedNoteLayer.clearLayers();
         this.filteredNoteLayer.clearLayers();
         this.trackLayer.clearLayers();
-        this.needToFitNotes = this.freezeMode == 'no';
+        this.needToFitNotes = !this.freezeMode;
     }
     fitSelectedNotes() {
         const bounds = this.selectedNoteLayer.getBounds();
@@ -3316,7 +3321,7 @@ class NoteMap {
         addLayersWithData(this.dataLayers.deletedDataLayer, geometryData.deletedGeometry);
         const popupWriter = makePopupWriter(server, baseData, clear);
         // geometry.openPopup() // can't do it here because popup will open on a wrong spot if animation is not finished
-        if (this.freezeMode == 'full') {
+        if (this.freezeMode) {
             const popup = L.popup({ autoPan: false }).setContent(popupWriter);
             let restorePopupTipTimeoutId;
             const onOpenPopup = () => {
@@ -3404,17 +3409,17 @@ class NoteMap {
         return new NoteMapBounds(this.bounds, this.precision);
     }
     fitBoundsIfNotFrozen(bounds) {
-        if (this.freezeMode == 'full')
+        if (this.freezeMode)
             return;
         this.leafletMap.fitBounds(bounds);
     }
     panToIfNotFrozen(latlng) {
-        if (this.freezeMode == 'full')
+        if (this.freezeMode)
             return;
         this.leafletMap.panTo(latlng);
     }
     flyToIfNotFrozen(latlng, zoom, options) {
-        if (this.freezeMode == 'full')
+        if (this.freezeMode)
             return;
         this.leafletMap.flyTo(latlng, zoom, options);
     }
@@ -3547,6 +3552,104 @@ class ConfirmedButtonListener {
     }
 }
 
+// use isNaN(+date) to test for invalid dates
+function getDateFromInputString(inputString) {
+    const [date] = parseDateFromInputString(inputString);
+    return date;
+}
+function convertDateToReadableString(date) {
+    return convertDateToIsoString(date, '-', ':', ' ', '');
+}
+function convertDateToIsoString(date, dateSeparator = '-', timeSeparator = ':', dateTimeSeparator = 'T', utcSuffix = 'Z') {
+    return (convertDateToIsoDateString(date, dateSeparator) +
+        dateTimeSeparator +
+        convertDateToIsoTimeString(date, timeSeparator) +
+        utcSuffix);
+}
+function convertDateToIsoDateString(date, separator = '-') {
+    return (date.getUTCFullYear() + separator +
+        pad00(date.getUTCMonth() + 1) + separator +
+        pad00(date.getUTCDate()));
+}
+function convertDateToIsoTimeString(date, separator = ':') {
+    return (pad00(date.getUTCHours()) + separator +
+        pad00(date.getUTCMinutes()) + separator +
+        pad00(date.getUTCSeconds()));
+}
+function parseDateFromInputString(inputString) {
+    let s = inputString.trim();
+    let m = '';
+    let r = '';
+    {
+        const match = s.match(/^((\d\d\d\d)-?)(.*)/);
+        if (!match)
+            return invalid();
+        next(match);
+    }
+    {
+        if (s == '')
+            return complete();
+        const match = s.match(/^((\d\d)-?)(.*)/);
+        if (!match)
+            return invalid();
+        r += '-';
+        next(match);
+    }
+    {
+        if (s == '')
+            return complete();
+        const match = s.match(/^((\d\d)[T ]?)(.*)/);
+        if (!match)
+            return invalid();
+        r += '-';
+        next(match);
+    }
+    {
+        if (s == '')
+            return complete();
+        const match = s.match(/^((\d\d):?)(.*)/);
+        if (!match)
+            return invalid();
+        r += ' ';
+        next(match);
+    }
+    {
+        if (s == '')
+            return complete();
+        const match = s.match(/^((\d\d):?)(.*)/);
+        if (!match)
+            return invalid();
+        r += ':';
+        next(match);
+    }
+    {
+        if (s == '')
+            return complete();
+        const match = s.match(/^((\d\d)Z?)$/);
+        if (!match)
+            return invalid();
+        r += ':';
+        next(match);
+    }
+    return complete();
+    function next(match) {
+        m += match[1];
+        r += match[2];
+        s = match[3];
+    }
+    function invalid() {
+        return [new Date(NaN), m];
+    }
+    function complete() {
+        const completionTemplate = '2000-01-01 00:00:00Z';
+        const completedReadableDate = r + completionTemplate.slice(r.length);
+        return [new Date(completedReadableDate), m];
+    }
+}
+function pad00(n) {
+    return ('0' + n).slice(-2);
+}
+
 class StorageSection {
     constructor($section, storage, db, serverSelector) {
         $section.append(makeElement('h2')()(`Storage`));
@@ -3570,9 +3673,11 @@ class StorageSection {
                 insertCell().append('fetch');
                 insertCell().append('mode');
                 insertCell().append('content');
-                insertCell().append('last access');
-                function insertCell() {
+                insertCell(`all timestamps in UTC`).append('last access');
+                function insertCell(title) {
                     const $th = document.createElement('th');
+                    if (title)
+                        $th.title = title;
                     $row.append($th);
                     return $th;
                 }
@@ -3610,7 +3715,7 @@ class StorageSection {
                         }
                     }
                 }
-                $row.insertCell().append(new Date(fetchEntry.accessTimestamp).toISOString());
+                $row.insertCell().append(convertDateToReadableString(new Date(fetchEntry.accessTimestamp)));
                 const $deleteButton = document.createElement('button');
                 $deleteButton.textContent = `Delete`;
                 $deleteButton.addEventListener('click', async () => {
@@ -4385,7 +4490,7 @@ class NavDialog {
         this.writeSectionContent();
         $container.append(this.$section);
     }
-    isOpen() {
+    get open() {
         return !this.$section.hidden;
     }
     onOpen() { }
@@ -4474,19 +4579,24 @@ class Navbar {
     openTab(targetDialog) {
         for (const [dialog] of this.tabs) {
             const willBeActive = dialog == targetDialog;
-            if (!willBeActive && dialog.isOpen()) {
+            if (!willBeActive && dialog.open) {
                 dialog.onClose();
             }
         }
         for (const [dialog, $tab] of this.tabs) {
             const willBeActive = dialog == targetDialog;
-            const willCallOnOpen = (willBeActive && !dialog.isOpen());
+            const willCallOnOpen = (willBeActive && !dialog.open);
             $tab.setAttribute('aria-selected', String(willBeActive));
             $tab.tabIndex = willBeActive ? 0 : -1;
             dialog.$section.hidden = !willBeActive;
             if (willCallOnOpen) {
                 dialog.onOpen();
             }
+        }
+    }
+    openTabIfAllTabsAreClosed(targetDialog) {
+        if ([...this.tabs.keys()].every(dialog => !dialog.open)) {
+            this.openTab(targetDialog);
         }
     }
 }
@@ -4507,101 +4617,6 @@ function makeButton(id, title, listener) {
     $button.innerHTML = e$8 `<svg><use href="#${id}" /></svg>`;
     $button.onclick = listener;
     return $button;
-}
-
-// use isNaN(+date) to test for invalid dates
-function getDateFromInputString(inputString) {
-    const [date] = parseDateFromInputString(inputString);
-    return date;
-}
-function convertDateToIsoString(date, dateSeparator = '-', timeSeparator = ':', dateTimeSeparator = 'T', utcSuffix = 'Z') {
-    return (convertDateToIsoDateString(date, dateSeparator) +
-        dateTimeSeparator +
-        convertDateToIsoTimeString(date, timeSeparator) +
-        utcSuffix);
-}
-function convertDateToIsoDateString(date, separator = '-') {
-    return (date.getUTCFullYear() + separator +
-        pad00(date.getUTCMonth() + 1) + separator +
-        pad00(date.getUTCDate()));
-}
-function convertDateToIsoTimeString(date, separator = ':') {
-    return (pad00(date.getUTCHours()) + separator +
-        pad00(date.getUTCMinutes()) + separator +
-        pad00(date.getUTCSeconds()));
-}
-function parseDateFromInputString(inputString) {
-    let s = inputString.trim();
-    let m = '';
-    let r = '';
-    {
-        const match = s.match(/^((\d\d\d\d)-?)(.*)/);
-        if (!match)
-            return invalid();
-        next(match);
-    }
-    {
-        if (s == '')
-            return complete();
-        const match = s.match(/^((\d\d)-?)(.*)/);
-        if (!match)
-            return invalid();
-        r += '-';
-        next(match);
-    }
-    {
-        if (s == '')
-            return complete();
-        const match = s.match(/^((\d\d)[T ]?)(.*)/);
-        if (!match)
-            return invalid();
-        r += '-';
-        next(match);
-    }
-    {
-        if (s == '')
-            return complete();
-        const match = s.match(/^((\d\d):?)(.*)/);
-        if (!match)
-            return invalid();
-        r += ' ';
-        next(match);
-    }
-    {
-        if (s == '')
-            return complete();
-        const match = s.match(/^((\d\d):?)(.*)/);
-        if (!match)
-            return invalid();
-        r += ':';
-        next(match);
-    }
-    {
-        if (s == '')
-            return complete();
-        const match = s.match(/^((\d\d)Z?)$/);
-        if (!match)
-            return invalid();
-        r += ':';
-        next(match);
-    }
-    return complete();
-    function next(match) {
-        m += match[1];
-        r += match[2];
-        s = match[3];
-    }
-    function invalid() {
-        return [new Date(NaN), m];
-    }
-    function complete() {
-        const completionTemplate = '2000-01-01 00:00:00Z';
-        const completedReadableDate = r + completionTemplate.slice(r.length);
-        return [new Date(completedReadableDate), m];
-    }
-}
-function pad00(n) {
-    return ('0' + n).slice(-2);
 }
 
 function toReadableDate(date) {
@@ -4753,6 +4768,8 @@ function makeNoteBboxOrBrowseQueryFromValues(bboxValue, closedValue, mode) {
         const n = Number(value || undefined);
         if (Number.isInteger(n))
             return n;
+        if (mode == 'browse')
+            return 7;
         return -1;
     }
 }
@@ -4773,8 +4790,8 @@ function makeNoteQueryFromHash(paramString) {
         const userQuery = makeUserQueryFromUserNameAndId(searchParams.get('display_name'), Number(searchParams.get('user') || undefined));
         return makeNoteSearchQueryFromUserQueryAndValues(userQuery, searchParams.get('q') || '', searchParams.get('from') || '', searchParams.get('to') || '', searchParams.get('closed') || '', searchParams.get('sort') || '', searchParams.get('order') || '');
     }
-    else if (mode == 'bbox') {
-        return makeNoteBboxQueryFromValues(searchParams.get('bbox') || '', searchParams.get('closed') || '');
+    else if (mode == 'bbox' || mode == 'browse') {
+        return makeNoteBboxOrBrowseQueryFromValues(searchParams.get('bbox') || '', searchParams.get('closed') || '', mode);
     }
     else if (mode == 'ids') {
         return makeNoteIdsQueryFromValue(searchParams.get('ids') || '');
@@ -4783,9 +4800,6 @@ function makeNoteQueryFromHash(paramString) {
         return undefined;
     }
 }
-/**
- * @returns query string that can be stored in url/db or empty string if the query is not supposed to be stored
- */
 function makeNoteQueryString(query, withMode = true) {
     const parameters = [];
     if (withMode)
@@ -4809,16 +4823,23 @@ function makeNoteQueryString(query, withMode = true) {
     else if (query.mode == 'bbox') {
         parameters.push(['bbox', query.bbox], ['closed', query.closed]);
     }
+    else if (query.mode == 'browse') {
+        parameters.push(
+        // ['bbox',query.bbox], // always read it off the map hash
+        ['closed', query.closed]);
+    }
     else if (query.mode == 'ids') {
         parameters.push(['ids', query.ids.join('.')] // ',' gets urlencoded as '%2C', ';' as '%3B' etc; separator candidates are '.', '-', '_'; let's pick '.' because its horizontally shorter
         );
     }
-    else {
-        return '';
-    }
     return parameters.map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
 }
-function makeNoteQueryStringWithHostHash(query, hostHashValue) {
+/**
+ * @returns query string for db storage (includes host) or empty string if the query is not supposed to be stored
+ */
+function makeNoteQueryStringForDb(query, hostHashValue) {
+    if (query.mode == 'browse')
+        return '';
     const queryStringWithoutHostHash = makeNoteQueryString(query);
     if (!queryStringWithoutHostHash)
         return queryStringWithoutHostHash;
@@ -5024,7 +5045,7 @@ class NoteFetcherRun {
         this.updateRequestHintInAdvancedMode = () => { };
         this.db = db;
         (async () => {
-            const queryString = makeNoteQueryStringWithHostHash(query, hostHashValue); // empty string == don't know how to encode the query, thus won't save it to db
+            const queryString = makeNoteQueryStringForDb(query, hostHashValue); // empty string == don't know how to encode the query, thus won't save it to db
             this.fetchEntry = await (async () => {
                 if (!queryString)
                     return null;
@@ -5430,6 +5451,14 @@ class NoteFetchDialog extends NavDialog {
         this.populateInputsWithoutUpdatingRequest(query);
         this.updateRequest();
     }
+    fetchIfValid() {
+        if (!this.$form.checkValidity())
+            return;
+        const query = this.constructQuery();
+        if (!query)
+            return;
+        this.submitQuery(query, false);
+    }
     get getLimit() {
         return () => {
             let limit;
@@ -5584,7 +5613,7 @@ class NoteFetchDialog extends NavDialog {
             const query = this.constructQuery();
             if (!query)
                 return;
-            this.submitQuery(query);
+            this.submitQuery(query, true);
         });
     }
     reactToAdvancedModeChange() {
@@ -5652,8 +5681,8 @@ class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
         {
             this.$closedInput.type = 'number';
             this.$closedInput.min = '-1';
-            this.$closedInput.value = '-1';
             this.$closedSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
+            this.$closedInput.value = this.$closedSelect.value = this.defaultClosedValue;
             const $closedLine = makeDiv('regular-input-group')(`Fetch `, makeElement('span')('non-advanced-input-group')(this.$closedSelect), ` `, this.getClosedLineNotesText(), ` `, makeLabel('advanced-input-group')(`closed no more than `, this.$closedInput, makeElement('span')('advanced-hint')(` (`, code('closed'), ` parameter)`), ` days ago`));
             this.modifyClosedLine($closedLine);
             $fieldset.append($closedLine);
@@ -5710,14 +5739,16 @@ class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
     onClosedValueChange() { }
     populateInputsWithoutUpdatingRequest(query) {
         this.populateInputsWithoutUpdatingRequestExceptForClosedInput(query);
-        if (query && (query.mode == 'search' || query.mode == 'bbox')) {
+        if (query && (query.mode == 'search' || query.mode == 'bbox' || query.mode == 'browse')) {
             this.$closedInput.value = String(query.closed);
             this.$closedSelect.value = String(restrictClosedSelectValue(query.closed));
         }
         else {
-            this.$closedInput.value = '-1';
-            this.$closedSelect.value = '-1';
+            this.$closedInput.value = this.$closedSelect.value = this.defaultClosedValue;
         }
+    }
+    get defaultClosedValue() {
+        return '-1';
     }
     get closedValue() {
         return (this.$advancedModeCheckbox.checked
@@ -5725,7 +5756,7 @@ class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
             : this.$closedSelect.value);
     }
     getQueryCaption(query) {
-        if (query.mode != 'search' && query.mode != 'bbox')
+        if (query.mode != 'search' && query.mode != 'bbox' && query.mode != 'browse')
             return super.getQueryCaption(query);
         const items = this.getQueryCaptionItems(query);
         const $caption = makeElement('caption')()();
@@ -6286,7 +6317,6 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
             trackMap();
         });
         this.$trackMapSelect.addEventListener('input', () => {
-            this.map.freezeMode = this.getMapFreezeMode(); // don't update freeze mode on map moves
             trackMap();
         });
         this.$bboxInput.addEventListener('input', () => {
@@ -6305,17 +6335,6 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         return [
             this.$bboxInput, this.$closedInput, this.$closedSelect
         ];
-    }
-    onOpen() {
-        this.map.freezeMode = this.getMapFreezeMode();
-    }
-    onClose() {
-        this.map.freezeMode = 'no';
-    }
-    getMapFreezeMode() {
-        if (this.$trackMapSelect.value == 'bbox')
-            return 'initial';
-        return 'no';
     }
     setBbox(west, south, east, north) {
         // (left,bottom,right,top)
@@ -6342,7 +6361,7 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         if (query.mode != 'bbox')
             return [];
         return [
-            [`inside bounding box `, this.makeInputLink(this.$bboxInput, query.bbox)]
+            [`bounding box `, this.makeInputLink(this.$bboxInput, query.bbox)]
         ];
     }
 }
@@ -6552,7 +6571,7 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
                     mode: 'ids',
                     ids
                 };
-                this.submitQuery(query);
+                this.submitQuery(query, true);
             };
         });
         function getValue($element, attribute) {
@@ -6912,6 +6931,7 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
     }
 }
 
+const minSafeZoom = 8;
 class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
     constructor($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, map) {
         super($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery);
@@ -6919,7 +6939,6 @@ class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
         this.shortTitle = `Browse`;
         this.title = `Get notes inside map view`;
         this.$trackMapZoomNotice = makeDiv('notice')();
-        this.$bboxInput = document.createElement('input');
         this.limitValues = [20, 100, 500, 2500, 10000];
         this.limitDefaultValue = 100; // higher default limit because no progressive loads possible
         this.limitLeadText = `Download `;
@@ -6927,52 +6946,48 @@ class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
         this.limitLabelAfterText = ` notes`;
         this.limitIsParameter = true;
     }
+    fetchIfValid() {
+        if (!this.withSafeZoom)
+            return;
+        super.fetchIfValid();
+    }
     get getAutoLoad() {
         return () => false;
     }
-    populateInputs(query) { } // this mode has no persistent queries
+    get withSafeZoom() {
+        return this.map.zoom >= minSafeZoom;
+    }
     makeLeadAdvancedHint() {
         return [p(`Make a `, makeLink(`notes in bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code(this.cx.server.api.getUrl(`notes?`), em(`parameters`)), ` like the `, makeLink(`note layer`, `https://wiki.openstreetmap.org/wiki/Notes#Viewing_notes`), `; see `, em(`BBox`), ` tab for `, em(`parameters`), ` descriptions.`)];
     }
     writeScopeAndOrderFieldsetBeforeClosedLine($fieldset) {
-        {
-            $fieldset.append(this.$trackMapZoomNotice);
-        }
-        {
-            this.$bboxInput.type = 'hidden';
-            this.$bboxInput.name = 'bbox';
-            this.$bboxInput.required = true; // otherwise could submit empty bbox without entering anything
-            $fieldset.append(this.$bboxInput);
-        }
+        $fieldset.append(this.$trackMapZoomNotice);
     }
     getClosedLineNotesText() {
         return `most recently updated notes`;
-    }
-    modifyClosedLine($div) {
-        this.$closedInput.value = this.$closedSelect.value = '7';
     }
     writeDownloadModeFieldset($fieldset) {
     }
     populateInputsWithoutUpdatingRequestExceptForClosedInput(query) {
     }
+    get defaultClosedValue() {
+        return '7';
+    }
     addEventListenersBeforeClosedLine() {
         const updateTrackMapZoomNotice = () => {
-            if (this.map.zoom >= 8) {
+            if (this.withSafeZoom) {
                 this.$trackMapZoomNotice.classList.remove('error');
-                this.$trackMapZoomNotice.innerText = `Fetching will stop on zooms lower than 8`;
+                this.$trackMapZoomNotice.innerText = `Fetching will stop on zooms lower than ${minSafeZoom}`;
             }
             else {
                 this.$trackMapZoomNotice.classList.add('error');
-                this.$trackMapZoomNotice.innerText = `Fetching will start on zooms 8 or higher`;
+                this.$trackMapZoomNotice.innerText = `Fetching will start on zooms ${minSafeZoom} or higher`;
             }
-        };
-        const trackMap = () => {
-            updateTrackMapZoomNotice();
-            this.setBbox(...this.map.precisionBounds.wsen);
         };
         updateTrackMapZoomNotice();
         this.$root.addEventListener('osmNoteViewer:mapMoveEnd', () => {
-            trackMap();
+            updateTrackMapZoomNotice();
+            this.updateRequest();
             this.updateNotesIfNeeded();
         });
     }
@@ -6980,66 +6995,45 @@ class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
         this.updateNotesIfNeeded();
     }
     constructQuery() {
-        return makeNoteBrowseQueryFromValues(this.$bboxInput.value, this.closedValue);
+        const bboxValue = this.map.precisionBounds.wsen.join(',');
+        return makeNoteBrowseQueryFromValues(bboxValue, this.closedValue);
     }
     listQueryChangingInputs() {
         return [
-            this.$bboxInput, this.$closedInput, this.$closedSelect
+            this.$closedInput, this.$closedSelect
         ];
     }
     onOpen() {
-        this.map.freezeMode = 'full';
+        this.map.freezeMode = true;
         this.updateNotesIfNeeded();
     }
     onClose() {
-        this.map.freezeMode = 'no';
+        this.map.freezeMode = false;
     }
     updateNotesIfNeeded() {
-        if (this.isOpen() && this.map.zoom >= 8) {
+        if (this.open && this.withSafeZoom) {
             this.$form.requestSubmit();
         }
-    }
-    setBbox(west, south, east, north) {
-        // (left,bottom,right,top)
-        this.$bboxInput.value = west + ',' + south + ',' + east + ',' + north;
-        this.validateBbox();
-        this.updateRequest();
-    }
-    validateBbox() {
-        const splitValue = this.$bboxInput.value.split(',');
-        if (splitValue.length != 4) {
-            this.$bboxInput.setCustomValidity(`must contain four comma-separated values`);
-            return false;
-        }
-        for (const number of splitValue) {
-            if (!isFinite(Number(number))) {
-                this.$bboxInput.setCustomValidity(`values must be numbers, "${number}" is not a number`);
-                return false;
-            }
-        }
-        this.$bboxInput.setCustomValidity('');
-        return true;
     }
     getQueryCaptionItems(query) {
         if (query.mode != 'browse')
             return [];
         return [
-            [`inside bounding box `, query.bbox]
+            [`bounding box `, query.bbox]
         ];
     }
 }
 
 class NoteFetchDialogs {
-    constructor($root, cx, $container, $moreContainer, noteTable, map, hashQuery, submitQueryToDialog, limitChangeListener) {
+    constructor($root, cx, $container, $moreContainer, noteTable, map, submitQueryFromDialog, limitChangeListener) {
         const $sharedCheckboxes = {
             showImages: [],
             advancedMode: []
         };
         const makeFetchDialog = (fetcherRequest, fetchDialogCtor) => {
-            const dialog = fetchDialogCtor((query, limit) => fetcherRequest.getRequestApiPaths(query, limit), (query) => submitQueryToDialog(dialog, query));
+            const dialog = fetchDialogCtor((query, limit) => fetcherRequest.getRequestApiPaths(query, limit), (query, isTriggeredBySubmitButton) => submitQueryFromDialog(dialog, query, isTriggeredBySubmitButton));
             dialog.limitChangeListener = () => limitChangeListener(dialog);
             dialog.write($container);
-            dialog.populateInputs(hashQuery);
             return dialog;
         };
         this.searchDialog = makeFetchDialog(new NoteSearchFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteSearchFetchDialog($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery));
@@ -7091,17 +7085,20 @@ class NoteFetchDialogs {
         else if (query.mode == 'ids') {
             return this.plaintextDialog;
         }
+        else if (query.mode == 'browse') {
+            return this.browseDialog;
+        }
     }
 }
 
 class NoteFetchPanel {
-    constructor($root, db, cx, $container, $moreContainer, navbar, noteTable, map, queryHash, hasMapHash, hostHashValue) {
+    constructor($root, db, cx, $container, $moreContainer, navbar, noteTable, map, hostHashValue, queryHash, getMapHashValue // to see in no-fetch-click queries need to fit the notes
+    ) {
         const self = this;
         const moreButtonIntersectionObservers = [];
         const hashQuery = makeNoteQueryFromHash(queryHash);
-        const fetchDialogs = new NoteFetchDialogs($root, cx, $container, $moreContainer, noteTable, map, hashQuery, (dialog, query) => {
-            startFetcher(query, true, false, dialog);
-        }, (dialog) => {
+        // let previousMapHashValue: string|null = null
+        const fetchDialogs = new NoteFetchDialogs($root, cx, $container, $moreContainer, noteTable, map, startFetcher, (dialog) => {
             if (this.fetcherRun && this.fetcherInvoker == dialog) {
                 this.fetcherRun.reactToLimitUpdateForAdvancedMode();
             }
@@ -7111,13 +7108,9 @@ class NoteFetchPanel {
         }
         $root.addEventListener('osmNoteViewer:queryHashChange', ({ detail: queryHash }) => {
             const query = makeNoteQueryFromHash(queryHash);
-            openQueryDialog(navbar, fetchDialogs, query, false);
-            fetchDialogs.populateInputs(query);
-            startFetcherFromQuery(query, false, false);
+            startFetcherFromQuery(query);
         });
-        openQueryDialog(navbar, fetchDialogs, hashQuery, true);
-        startFetcherFromQuery(hashQuery, false, hasMapHash // when just opened a note-viewer page with map hash set - if query is set too, don't fit its result, keep the map hash
-        );
+        startFetcherFromQuery(hashQuery);
         $root.addEventListener('osmNoteViewer:userLinkClick', ev => {
             if (!(ev.target instanceof HTMLElement))
                 return;
@@ -7133,31 +7126,38 @@ class NoteFetchPanel {
             else {
                 query.user = Number(ev.target.dataset.userId);
             }
-            openQueryDialog(navbar, fetchDialogs, query, false);
+            openQueryDialog(navbar, fetchDialogs, query);
             fetchDialogs.populateInputs(query);
             fetchDialogs.searchDialog.$section.scrollIntoView();
         });
         $root.addEventListener('osmNoteViewer:noteFetch', ({ detail: [note, users] }) => {
             this.fetcherRun?.updateNote(note, users);
         });
-        function startFetcherFromQuery(query, isNewStart, suppressFitNotes) {
+        function startFetcherFromQuery(query) {
+            openQueryDialog(navbar, fetchDialogs, query);
+            fetchDialogs.populateInputs(query);
             if (!query)
                 return;
             const dialog = fetchDialogs.getDialogFromQuery(query);
             if (!dialog)
                 return;
-            startFetcher(query, isNewStart, suppressFitNotes, dialog);
+            dialog.fetchIfValid();
         }
-        function startFetcher(query, isNewStart, suppressFitNotes, dialog) {
+        function startFetcher(dialog, query, isNewHistoryEntry) {
             if (query.mode != 'search' && query.mode != 'bbox' && query.mode != 'browse' && query.mode != 'ids')
                 return;
+            if (query.mode == 'browse')
+                isNewHistoryEntry = false; // keep the map hash because there's no bbox parameter and no query hash at all
             while (moreButtonIntersectionObservers.length > 0)
                 moreButtonIntersectionObservers.pop()?.disconnect();
             if (map) {
                 map.clearNotes();
-                if (suppressFitNotes) {
+                const mapHashValue = getMapHashValue();
+                // if (!isNewHistoryEntry && mapHashValue && mapHashValue==previousMapHashValue) {
+                if (!isNewHistoryEntry && mapHashValue) {
                     map.needToFitNotes = false;
                 }
+                // previousMapHashValue=mapHashValue
             }
             const $caption = dialog.getQueryCaption(query);
             document.title = ($caption.textContent ?? '') + ` | note-viewer`;
@@ -7184,7 +7184,7 @@ class NoteFetchPanel {
                 ev.stopPropagation();
             };
             noteTable.reset($caption, getMarkUser(query), getMarkText(query));
-            bubbleCustomEvent($container, 'osmNoteViewer:newNoteStream', [makeNoteQueryString(query), isNewStart]);
+            bubbleCustomEvent($container, 'osmNoteViewer:newNoteStream', [makeNoteQueryString(query), isNewHistoryEntry]);
             const environment = {
                 db,
                 api: cx.server.api,
@@ -7198,28 +7198,24 @@ class NoteFetchPanel {
             };
             self.fetcherInvoker = dialog;
             if (query.mode == 'search') {
-                self.fetcherRun = new NoteSearchFetcherRun(environment, query, isNewStart);
+                self.fetcherRun = new NoteSearchFetcherRun(environment, query, isNewHistoryEntry);
             }
             else if (query.mode == 'bbox' || query.mode == 'browse') {
-                self.fetcherRun = new NoteBboxFetcherRun(environment, query, isNewStart);
+                self.fetcherRun = new NoteBboxFetcherRun(environment, query, isNewHistoryEntry);
             }
             else if (query.mode == 'ids') {
-                self.fetcherRun = new NoteIdsFetcherRun(environment, query, isNewStart);
+                self.fetcherRun = new NoteIdsFetcherRun(environment, query, isNewHistoryEntry);
             }
         }
     }
 }
-function openQueryDialog(navbar, fetchDialogs, query, initial) {
-    if (!query) {
-        if (initial)
-            navbar.openTab(fetchDialogs.searchDialog);
-    }
-    else {
+function openQueryDialog(navbar, fetchDialogs, query) {
+    if (query) {
         const dialog = fetchDialogs.getDialogFromQuery(query);
-        if (!dialog)
-            return;
-        navbar.openTab(dialog);
+        if (dialog)
+            navbar.openTab(dialog);
     }
+    navbar.openTabIfAllTabsAreClosed(fetchDialogs.searchDialog);
 }
 function getMarkUser(query) {
     if (query.mode != 'search')
@@ -12518,7 +12514,7 @@ async function main() {
         sidebarResizer.startListening(map);
         const noteTable = writeBelowFetchPanel($root, $scrollingPart, $stickyPart, $moreContainer, storage, net.cx, globalHistory, map);
         const navbar = new Navbar($root, $navbarContainer, noteTable, map);
-        new NoteFetchPanel($root, db, net.cx, $fetchContainer, $moreContainer, navbar, noteTable, map, globalHistory.getQueryHash(), globalHistory.hasMapHash(), net.serverSelector.getHostHashValueForServer(net.cx.server));
+        new NoteFetchPanel($root, db, net.cx, $fetchContainer, $moreContainer, navbar, noteTable, map, net.serverSelector.getHostHashValueForServer(net.cx.server), globalHistory.getQueryHash(), () => globalHistory.getMapHashValue());
         $mapContainer.addEventListener('keydown', ev => {
             if (ev.key != 'Escape')
                 return;
