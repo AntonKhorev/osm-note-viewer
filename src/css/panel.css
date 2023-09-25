@@ -41,7 +41,7 @@
 .panel [class|=icon] > svg {
 	vertical-align: middle;
 }
-.panel th[title] {
+.panel .tipped {
 	cursor: help;
 	text-decoration: underline dotted 1px;
 }

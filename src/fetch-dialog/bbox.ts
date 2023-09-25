@@ -105,6 +105,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 				const $span=document.createElement('span')
 				$span.textContent=text
 				$span.title=title
+				$span.classList.add('tipped')
 				return $span
 			}
 		}

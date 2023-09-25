@@ -41,7 +41,10 @@ export default class StorageSection {
 				insertCell(`all timestamps in UTC`).append('last access')
 				function insertCell(title?: string) {
 					const $th=document.createElement('th')
-					if (title) $th.title=title
+					if (title) {
+						$th.title=title
+						$th.classList.add('tipped')
+					}
 					$row.append($th)
 					return $th
 				}
