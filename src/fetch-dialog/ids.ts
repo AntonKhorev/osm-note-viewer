@@ -6,8 +6,8 @@ import type {NoteQuery} from '../query'
 import {makeNoteIdsQueryFromValue} from '../query'
 import {makeElement, makeDiv, makeLabel} from '../util/html'
 
-export default class NotePlaintextFetchDialog extends StaticNoteFetchDialog {
-	shortTitle=`Plaintext`
+export default class NoteIdsFetchDialog extends StaticNoteFetchDialog {
+	shortTitle=`Ids`
 	title=`Fetch notes by ids from unstructured text`
 	protected $idsTextarea=document.createElement('textarea')
 	private $copySelectedCheckbox=document.createElement('input')

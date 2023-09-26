@@ -63,7 +63,7 @@ export class InteractTool extends Tool {
 	),p(
 		`If you want to find the notes you interacted with, try searching for `,this.$yourNotesApi,`. `,
 		`Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `,
-		em(`Plaintext`),` mode will show hidden notes to moderators, but it requires knowing the note ids. `,
+		em(`Ids`),` mode will show hidden notes to moderators, but it requires knowing the note ids. `,
 		`If you've hidden a note and want to see it but don't know its id, look for the note at `,this.$yourNotesWeb,` on the OSM website.`
 	),p(
 		`The `,em(`Copy ids`),` button on top is useful for making changeset comments. `,

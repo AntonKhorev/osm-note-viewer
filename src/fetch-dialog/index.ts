@@ -3,7 +3,7 @@ import type {NoteFetchDialogSharedCheckboxes} from './base'
 import NoteSearchFetchDialog from './search'
 import NoteBboxFetchDialog from './bbox'
 import NoteXmlFetchDialog from './xml'
-import NotePlaintextFetchDialog from './plaintext'
+import NoteIdsFetchDialog from './ids'
 import NoteBrowseFetchDialog from './browse'
 import type {Connection} from '../net'
 import type NoteMap from '../map'
@@ -17,7 +17,7 @@ export default class NoteFetchDialogs {
 	searchDialog: NoteFetchDialog
 	bboxDialog: NoteFetchDialog
 	xmlDialog: NoteFetchDialog
-	plaintextDialog: NoteFetchDialog
+	idsDialog: NoteFetchDialog
 	browseDialog: NoteFetchDialog
 	constructor(
 		$root: HTMLElement,
@@ -58,9 +58,9 @@ export default class NoteFetchDialogs {
 			new NoteIdsFetcherRequest,
 			(getRequestApiPaths,submitQuery)=>new NoteXmlFetchDialog($root,$sharedCheckboxes,cx,getRequestApiPaths,submitQuery)
 		)
-		this.plaintextDialog=makeFetchDialog(
+		this.idsDialog=makeFetchDialog(
 			new NoteIdsFetcherRequest,
-			(getRequestApiPaths,submitQuery)=>new NotePlaintextFetchDialog($root,$sharedCheckboxes,cx,getRequestApiPaths,submitQuery,noteTable)
+			(getRequestApiPaths,submitQuery)=>new NoteIdsFetchDialog($root,$sharedCheckboxes,cx,getRequestApiPaths,submitQuery,noteTable)
 		)
 		this.browseDialog=makeFetchDialog(
 			new NoteBboxFetcherRequest,
@@ -95,7 +95,7 @@ export default class NoteFetchDialogs {
 		})
 	}
 	get allDialogs() {
-		return [this.searchDialog,this.bboxDialog,this.xmlDialog,this.plaintextDialog,this.browseDialog]
+		return [this.searchDialog,this.bboxDialog,this.xmlDialog,this.idsDialog,this.browseDialog]
 	}
 	populateInputs(query: NoteQuery | undefined): void {
 		for (const dialog of this.allDialogs) {
@@ -108,7 +108,7 @@ export default class NoteFetchDialogs {
 		} else if (query.mode=='bbox') {
 			return this.bboxDialog
 		} else if (query.mode=='ids') {
-			return this.plaintextDialog
+			return this.idsDialog
 		} else if (query.mode=='browse') {
 			return this.browseDialog
 		}
