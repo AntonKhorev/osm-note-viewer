@@ -63,9 +63,10 @@ function makeUserQueryFromUserNameAndId(username: string|undefined|null, uid: nu
 	}
 }
 
-// TODO bbox
 function makeNoteSearchQueryFromUserQueryAndValues(
-	userQuery: UserQuery, textValue: string, fromValue: string, toValue: string, closedValue: string, sortValue: string, orderValue: string
+	userQuery: UserQuery, textValue: string, bboxValue: string,
+	fromValue: string, toValue: string,
+	closedValue: string, sortValue: string, orderValue: string
 ): NoteSearchQuery | undefined {
 	const noteSearchQuery: NoteSearchQuery = {
 		mode: 'search',
@@ -83,6 +84,9 @@ function makeNoteSearchQueryFromUserQueryAndValues(
 	}{
 		const s=textValue.trim()
 		if (s) noteSearchQuery.q=s
+	}{
+		const s=bboxValue.trim()
+		if (s) noteSearchQuery.bbox=s
 	}{
 		const dateTimeQuery=toDateQuery(fromValue)
 		if (dateTimeQuery.dateType=='invalid') return undefined
@@ -108,14 +112,17 @@ function makeNoteSearchQueryFromUserQueryAndValues(
 	}
 }
 
-// TODO bbox
 export function makeNoteSearchQueryFromValues(
 	apiUrlLister: ApiUrlLister, webUrlLister: WebUrlLister,
-	userValue: string, textValue: string, fromValue: string, toValue: string, closedValue: string, sortValue: string, orderValue: string
+	userValue: string, textValue: string, bboxValue: string,
+	fromValue: string, toValue: string,
+	closedValue: string, sortValue: string, orderValue: string
 ): NoteSearchQuery | undefined {
 	return makeNoteSearchQueryFromUserQueryAndValues(
 		toUserQuery(apiUrlLister,webUrlLister,userValue),
-		textValue,fromValue,toValue,closedValue,sortValue,orderValue
+		textValue,bboxValue,
+		fromValue,toValue,
+		closedValue,sortValue,orderValue
 	)
 }
 
@@ -168,7 +175,8 @@ export function makeNoteQueryFromHash(paramString: string): NoteQuery | undefine
 		const userQuery=makeUserQueryFromUserNameAndId(searchParams.get('display_name'),Number(searchParams.get('user')||undefined))
 		return makeNoteSearchQueryFromUserQueryAndValues(
 			userQuery,
-			searchParams.get('q')||'',searchParams.get('from')||'',searchParams.get('to')||'',
+			searchParams.get('q')||'',searchParams.get('bbox')||'',
+			searchParams.get('from')||'',searchParams.get('to')||'',
 			searchParams.get('closed')||'',searchParams.get('sort')||'',searchParams.get('order')||''
 		)
 	} else if (mode=='bbox' || mode=='browse') {
@@ -193,6 +201,9 @@ export function makeNoteQueryString(query: NoteQuery, withMode: boolean = true):
 		}
 		if (query.q!=null) {
 			parameters.push(['q',query.q])
+		}
+		if (query.bbox!=null) {
+			parameters.push(['bbox',query.bbox])
 		}
 		parameters.push(
 			['sort',query.sort],

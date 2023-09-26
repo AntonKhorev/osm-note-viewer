@@ -180,7 +180,9 @@ export default class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
 	protected constructQuery(): NoteQuery | undefined {
 		return makeNoteSearchQueryFromValues(
 			this.cx.server.api,this.cx.server.web,
-			this.$userInput.value,this.$textInput.value,this.fromDateInput.value,this.toDateInput.value,
+			this.$userInput.value,this.$textInput.value,
+			this.$bboxInput?.value??'',
+			this.fromDateInput.value,this.toDateInput.value,
 			this.closedValue,this.$sortSelect.value,this.$orderSelect.value
 		)
 	}
