@@ -11,7 +11,7 @@ export interface NoteFetchDialogSharedCheckboxes {
 	advancedMode: HTMLInputElement[]
 }
 
-export abstract class NoteFetchDialog extends NavDialog {
+export default abstract class NoteFetchDialog extends NavDialog {
 	limitChangeListener?: ()=>void
 	$form=document.createElement('form')
 	protected withAutoload=false

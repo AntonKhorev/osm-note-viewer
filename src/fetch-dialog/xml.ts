@@ -1,9 +1,9 @@
-import {NoteIdsFetchDialog} from './ids'
+import NoteIdsFetchDialog from './ids'
 import type {NoteQuery, NoteIdsQuery} from '../query'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../util/html'
 import {em,p,ul,ol,li,kbd} from '../util/html-shortcuts'
 
-export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
+export default class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 	shortTitle=`XML`
 	title=`Load an XML file containing note ids, then fetch them`
 	private readonly $neisForm=document.createElement('form')
