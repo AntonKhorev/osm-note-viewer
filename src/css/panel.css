@@ -22,7 +22,7 @@
 .panel section[role=tabpanel] h2 {
 	margin-top: .3rem;
 }
-.panel [class$="-input-group"] {
+.panel [class*="-input-group"] {
 	margin: .5rem 0;
 }
 .panel div.notice:not(:empty) {
