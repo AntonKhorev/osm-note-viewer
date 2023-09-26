@@ -1,4 +1,4 @@
-import type {ParameterListItem} from './dynamic'
+import type {ParameterListItem, QueryCaptionItem} from './dynamic'
 import DynamicNoteFetchDialog from './dynamic'
 import type {NoteQuery} from '../query'
 import {makeNoteSearchQueryFromValues, toUserQuery} from '../query'
@@ -28,7 +28,7 @@ export default class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
 			` request at `,code(this.cx.server.api.getUrl(`notes/search?`),em(`parameters`)),`; see `,em(`parameters`),` below.`
 		)]
 	}
-	protected listParameters(closedParameter: ParameterListItem): ParameterListItem[] {
+	protected listParameters(extraQueryParameters: ParameterListItem[], closedParameter: ParameterListItem): ParameterListItem[] {
 		return [
 			['q',this.$textInput,[
 				`Comment text search query. `,
@@ -55,6 +55,7 @@ export default class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
 				`In this case the remaining part of the value is treated as a user id number. `,
 				`Ids and URLs can be unambiguously detected in the input because usernames can't contain any of the following characters: `,code(`/;.,?%#`),`.`
 			]],
+			...extraQueryParameters,
 			['from',this.fromDateInput.$input,[
 				`Beginning of a date range. `,
 				`This parameter is optional but if not provided the API will also ignore the `,code('to'),` parameter. `,
@@ -81,52 +82,51 @@ export default class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
 			]],
 		]
 	}
-	protected writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void {
-		{
-			this.$userInput.type='text'
-			this.$userInput.name='user'
-			this.$userInput.size=50
-			const userInputControl=new TextControl(
-				this.$userInput,
-				()=>this.cx.username!=null,
-				()=>this.$userInput.value!=this.cx.username,
-				()=>this.$userInput.value!=this.cx.username,
-				(username)=>this.$userInput.value=username,
-				async($a)=>{
-					if (this.cx.username==null) throw new TypeError(`Undefined user when setting user search value`)
-					const oldUsername=this.$userInput.value
-					this.$userInput.value=this.cx.username
-					return oldUsername
-				},
-				()=>[makeElement('span')()(`undo set to`)],
-				()=>[makeElement('span')()(`set to`),` `,em(String(this.cx.username))]
-			)
-			this.$textInput.type='text'
-			this.$textInput.name='text'
-			this.$textInput.size=50
-			$fieldset.append(makeDiv('input-super-group')(
-				makeDiv('major-input-group')(userInputControl.$controls,makeLabel()(
-					`Username, URL or #id`,rq2('display_name','user'),` `,this.$userInput
-				)),
-				makeDiv('major-input-group')(makeLabel()(
-					`Comment text search query`,rq('q'),` `,this.$textInput
-				))
+	protected writeScopeAndOrderFieldsetBetweenParametersAndBbox($fieldset: HTMLFieldSetElement): void {
+		this.$userInput.type='text'
+		this.$userInput.name='user'
+		this.$userInput.size=50
+		const userInputControl=new TextControl(
+			this.$userInput,
+			()=>this.cx.username!=null,
+			()=>this.$userInput.value!=this.cx.username,
+			()=>this.$userInput.value!=this.cx.username,
+			(username)=>this.$userInput.value=username,
+			async($a)=>{
+				if (this.cx.username==null) throw new TypeError(`Undefined user when setting user search value`)
+				const oldUsername=this.$userInput.value
+				this.$userInput.value=this.cx.username
+				return oldUsername
+			},
+			()=>[makeElement('span')()(`undo set to`)],
+			()=>[makeElement('span')()(`set to`),` `,em(String(this.cx.username))]
+		)
+		this.$textInput.type='text'
+		this.$textInput.name='text'
+		this.$textInput.size=50
+		$fieldset.append(makeDiv('input-super-group')(
+			makeDiv('major-input-group')(userInputControl.$controls,makeLabel()(
+				`Username, URL or #id`,rq2('display_name','user'),` `,this.$userInput
+			)),
+			makeDiv('major-input-group')(makeLabel()(
+				`Comment text search query`,rq('q'),` `,this.$textInput
 			))
-			this.$root.addEventListener('osmNoteViewer:loginChange',()=>{
-				userInputControl.update()
-			})
-		}{
-			this.fromDateInput.$input.name='from'
-			this.toDateInput.$input.name='to'
-			$fieldset.append(makeDiv('input-super-group')(
-				makeTextButtonInputGroup()([
-					`From date`,rq('from')
-				],...this.fromDateInput.$elements),
-				makeTextButtonInputGroup()([
-					`To date`,rq('to')
-				],...this.toDateInput.$elements)
-			))
-		}
+		))
+		this.$root.addEventListener('osmNoteViewer:loginChange',()=>{
+			userInputControl.update()
+		})
+	}
+	protected writeScopeAndOrderFieldsetBetweenBboxAndClosed($fieldset: HTMLFieldSetElement): void {
+		this.fromDateInput.$input.name='from'
+		this.toDateInput.$input.name='to'
+		$fieldset.append(makeDiv('input-super-group')(
+			makeTextButtonInputGroup()([
+				`From date`,rq('from')
+			],...this.fromDateInput.$elements),
+			makeTextButtonInputGroup()([
+				`To date`,rq('to')
+			],...this.toDateInput.$elements)
+		))
 	}
 	protected modifyClosedLine($div: HTMLElement): void {
 		this.$sortSelect.append(
@@ -183,14 +183,14 @@ export default class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
 			this.closedValue,this.$sortSelect.value,this.$orderSelect.value
 		)
 	}
-	protected listQueryChangingInputs(): Array<HTMLInputElement|HTMLSelectElement> {
+	protected listQueryChangingInputsWithoutBbox(): Array<HTMLInputElement|HTMLSelectElement> {
 		return [
 			this.$userInput,this.$textInput,
 			// this.fromDateInput.$input,this.toDateInput.$input, // request updated in this class
 			this.$closedInput,this.$closedSelect,this.$sortSelect,this.$orderSelect
 		]
 	}
-	protected getQueryCaptionItems(query: NoteQuery) {
+	protected getQueryCaptionItems(query: NoteQuery, extraQueryCaptionItems: QueryCaptionItem[]): QueryCaptionItem[] {
 		if (query.mode!='search') return []
 		const items: (string|HTMLElement)[][] = []
 		if (query.display_name!=null) {
@@ -201,6 +201,7 @@ export default class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
 		if (query.q!=null) {
 			items.push([`text `,this.makeInputLink(this.$textInput,query.q)])
 		}
+		items.push(...extraQueryCaptionItems)
 		if (query.from!=null && query.to!=null) {
 			items.push([`dates `,
 				this.makeInputLink(this.$textInput,toShortReadableDate(query.from)),`..`,

@@ -48,7 +48,7 @@ export default class NoteFetchDialogs {
 		}
 		this.searchDialog=makeFetchDialog(
 			new NoteSearchFetcherRequest,
-			(getRequestApiPaths,submitQuery)=>new NoteSearchFetchDialog($root,$sharedCheckboxes,cx,getRequestApiPaths,submitQuery)
+			(getRequestApiPaths,submitQuery)=>new NoteSearchFetchDialog($root,$sharedCheckboxes,cx,getRequestApiPaths,submitQuery,map)
 		)
 		this.bboxDialog=makeFetchDialog(
 			new NoteBboxFetcherRequest,

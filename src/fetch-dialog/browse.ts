@@ -1,7 +1,5 @@
-import type {NoteFetchDialogSharedCheckboxes} from './base'
+import type {QueryCaptionItem} from './dynamic'
 import DynamicNoteFetchDialog from './dynamic'
-import type {Connection} from '../net'
-import type NoteMap from '../map'
 import type {NoteQuery} from '../query'
 import {makeNoteBrowseQueryFromValues} from '../query'
 import {makeLink, makeDiv} from '../util/html'
@@ -13,16 +11,6 @@ export default class NoteBrowseFetchDialog extends DynamicNoteFetchDialog {
 	shortTitle=`Browse`
 	title=`Get notes inside map view`
 	private $trackMapZoomNotice=makeDiv('notice')()
-	constructor(
-		$root: HTMLElement,
-		$sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
-		cx: Connection,
-		getRequestApiPaths: (query: NoteQuery, limit: number) => [type: string, apiPath: string][],
-		submitQuery: (query: NoteQuery, isTriggeredBySubmitButton: boolean) => void,
-		private map: NoteMap
-	) {
-		super($root,$sharedCheckboxes,cx,getRequestApiPaths,submitQuery)
-	}
 	fetchIfValid(): void {
 		if (!this.withSafeZoom) return
 		super.fetchIfValid()
@@ -50,8 +38,6 @@ export default class NoteBrowseFetchDialog extends DynamicNoteFetchDialog {
 	protected limitLabelBeforeText=`at most `
 	protected limitLabelAfterText=` notes`
 	protected limitIsParameter=true
-	protected populateInputsWithoutUpdatingRequestExceptForClosedInput(query: NoteQuery | undefined): void {
-	}
 	protected get defaultClosedValue(): string {
 		return '7'
 	}
@@ -81,7 +67,7 @@ export default class NoteBrowseFetchDialog extends DynamicNoteFetchDialog {
 			bboxValue,this.closedValue
 		)
 	}
-	protected listQueryChangingInputs(): Array<HTMLInputElement|HTMLSelectElement> {
+	protected listQueryChangingInputsWithoutBbox(): Array<HTMLInputElement|HTMLSelectElement> {
 		return [
 			this.$closedInput,this.$closedSelect
 		]
@@ -98,10 +84,11 @@ export default class NoteBrowseFetchDialog extends DynamicNoteFetchDialog {
 			this.$form.requestSubmit()
 		}
 	}
-	protected getQueryCaptionItems(query: NoteQuery) {
+	protected getQueryCaptionItems(query: NoteQuery, extraQueryCaptionItems: QueryCaptionItem[]): QueryCaptionItem[] {
 		if (query.mode!='browse') return []
 		return [
-			[`bounding box `,query.bbox]
+			...extraQueryCaptionItems,
+			[`bounding box `,query.bbox] // has to be here because there's no input
 		]
 	}
 }

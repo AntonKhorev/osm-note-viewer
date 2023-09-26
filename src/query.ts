@@ -14,6 +14,7 @@ export interface NoteSearchQuery { // fields named like in the API
 	display_name?: string // username
 	user?: number // user id
 	q?: string
+	bbox?: string
 	from?: number
 	to?: number
 	closed: number // defaults to -1 because that's how user's note page would have worked
@@ -62,6 +63,7 @@ function makeUserQueryFromUserNameAndId(username: string|undefined|null, uid: nu
 	}
 }
 
+// TODO bbox
 function makeNoteSearchQueryFromUserQueryAndValues(
 	userQuery: UserQuery, textValue: string, fromValue: string, toValue: string, closedValue: string, sortValue: string, orderValue: string
 ): NoteSearchQuery | undefined {
@@ -106,6 +108,7 @@ function makeNoteSearchQueryFromUserQueryAndValues(
 	}
 }
 
+// TODO bbox
 export function makeNoteSearchQueryFromValues(
 	apiUrlLister: ApiUrlLister, webUrlLister: WebUrlLister,
 	userValue: string, textValue: string, fromValue: string, toValue: string, closedValue: string, sortValue: string, orderValue: string
