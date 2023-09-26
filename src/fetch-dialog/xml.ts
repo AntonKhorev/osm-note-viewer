@@ -1,4 +1,4 @@
-import {NoteIdsFetchDialog} from './base'
+import {NoteIdsFetchDialog} from './ids'
 import type {NoteQuery, NoteIdsQuery} from '../query'
 import {makeElement, makeLink, makeDiv, makeLabel} from '../util/html'
 import {em,p,ul,ol,li,kbd} from '../util/html-shortcuts'

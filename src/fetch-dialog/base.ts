@@ -286,15 +286,6 @@ export function mixinWithFetchButton<T extends abstract new (...args: any[]) => 
 	return WithFetchButton
 }
 
-export abstract class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
-	protected limitValues=[5,20]
-	protected limitDefaultValue=5
-	protected limitLeadText=`Download these `
-	protected limitLabelBeforeText=`in batches of `
-	protected limitLabelAfterText=` notes`
-	protected limitIsParameter=false
-}
-
 function makeInlineIcon(type: string): HTMLElement {
 	const $span=makeElement('span')(`icon`)()
 	$span.innerHTML=`<svg width="13" height="13"><use href="#tools-${type}" /></svg>`

@@ -1,5 +1,6 @@
 import type {NoteFetchDialogSharedCheckboxes} from './base'
-import {NoteIdsFetchDialog, mixinWithFetchButton} from './base'
+import {mixinWithFetchButton} from './base'
+import {NoteIdsFetchDialog} from './ids'
 import type {Connection} from '../net'
 import type NoteTable from '../table'
 import type {NoteQuery} from '../query'
