@@ -61,7 +61,8 @@ export default class NoteBboxFetchDialog extends DynamicNoteFetchDialog {
 		return [
 			['bbox',this.$bboxInput,[
 				`Bounding box. `,
-				`Expect `,em(`The maximum bbox size is ..., and your request was too large`),` error if the bounding box is too large.`
+				`Expect `,em(`The maximum bbox size is ..., and your request was too large`),` error if the bounding box is too large. `,
+				`Maximum allowed bbox area in square degrees can be found in the `,em(`note_area`),` value of `,makeLink(`API capabilities`,this.cx.server.api.getUrl(`capabilities`)),`.`
 			]],
 			['limit',this.$limitInput,[
 				`Max number of notes to fetch. `,
