@@ -301,7 +301,9 @@ export default abstract class DynamicNoteFetchDialog extends NoteFetchDialog {
 	}
 	private validateBbox(): boolean {
 		if (!this.$bboxInput) return true
-		const splitValue=this.$bboxInput.value.split(',')
+		const value=this.$bboxInput.value.trim()
+		if (!this.withBboxRequiredWhenPresent && value=='') return true
+		const splitValue=value.split(',')
 		if (splitValue.length!=4) {
 			this.$bboxInput.setCustomValidity(`must contain four comma-separated values`)
 			return false
