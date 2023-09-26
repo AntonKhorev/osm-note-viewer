@@ -1,4 +1,4 @@
-import NoteQueryFetchDialog from './query'
+import DynamicNoteFetchDialog from './dynamic'
 import type {NoteQuery} from '../query'
 import {makeNoteSearchQueryFromValues, toUserQuery} from '../query'
 import {toShortReadableDate} from '../query-date'
@@ -11,7 +11,7 @@ import {p,em,code} from '../util/html-shortcuts'
 const rq=(param: string)=>makeElement('span')('advanced-hint')(` (`,code(param),` parameter)`)
 const rq2=(param1: string, param2: string)=>makeElement('span')('advanced-hint')(` (`,code(param1),` or `,code(param2),` parameter)`)
 
-export default class NoteSearchFetchDialog extends NoteQueryFetchDialog {
+export default class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
 	shortTitle=`Search`
 	title=`Search notes for user / text / date range`
 	protected withAutoload=true

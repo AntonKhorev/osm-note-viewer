@@ -3,7 +3,7 @@ import NoteFetchDialog from './base'
 import {makeElement, makeDiv, makeLabel} from '../util/html'
 import {em,code} from '../util/html-shortcuts'
 
-export default abstract class NoteQueryFetchDialog extends NoteFetchDialog {
+export default abstract class DynamicNoteFetchDialog extends NoteFetchDialog {
 	protected $closedInput=document.createElement('input')
 	protected $closedSelect=document.createElement('select')
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {

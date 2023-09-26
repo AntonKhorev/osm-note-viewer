@@ -1,6 +1,6 @@
 import NoteFetchDialog from './base'
 
-export default abstract class NoteIdsFetchDialog extends NoteFetchDialog {
+export default abstract class StaticNoteFetchDialog extends NoteFetchDialog {
 	protected withAutoload=true
 	protected limitValues=[5,20]
 	protected limitDefaultValue=5

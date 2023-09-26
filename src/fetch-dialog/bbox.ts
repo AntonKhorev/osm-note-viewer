@@ -1,5 +1,5 @@
 import type {NoteFetchDialogSharedCheckboxes} from './base'
-import NoteQueryFetchDialog from './query'
+import DynamicNoteFetchDialog from './dynamic'
 import NominatimSubForm from './bbox-nominatim'
 import type {Connection} from '../net'
 import type NoteMap from '../map'
@@ -14,7 +14,7 @@ import {p,em,code} from '../util/html-shortcuts'
 const rq=(param: string)=>makeElement('span')('advanced-hint')(` (`,code(param),` parameter)`)
 const spanRequest=(...ss: Array<string|HTMLElement>)=>makeElement('span')('advanced-hint')(...ss)
 
-export default class NoteBboxFetchDialog extends NoteQueryFetchDialog {
+export default class NoteBboxFetchDialog extends DynamicNoteFetchDialog {
 	shortTitle=`BBox`
 	title=`Get notes inside rectangular area`
 	private nominatimSubForm: NominatimSubForm|undefined

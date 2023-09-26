@@ -1,5 +1,5 @@
 import type {NoteFetchDialogSharedCheckboxes} from './base'
-import NoteQueryFetchDialog from './query'
+import DynamicNoteFetchDialog from './dynamic'
 import type {Connection} from '../net'
 import type NoteMap from '../map'
 import type {NoteQuery} from '../query'
@@ -9,7 +9,7 @@ import {p,em,code} from '../util/html-shortcuts'
 
 const minSafeZoom=8
 
-export default class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
+export default class NoteBrowseFetchDialog extends DynamicNoteFetchDialog {
 	shortTitle=`Browse`
 	title=`Get notes inside map view`
 	private $trackMapZoomNotice=makeDiv('notice')()
