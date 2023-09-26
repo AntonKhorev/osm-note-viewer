@@ -251,7 +251,7 @@ dialog.help button.close-all-tools::before {
 	display: none;
 }
 .panel.toolbar details.tool :is(.major-input-group, .gridded-input-group) {
-	margin: .2em 0;
+	margin: .25rem 0;
 }
 .panel.toolbar > button.settings {
 	margin-left: auto;
@@ -273,7 +273,7 @@ dialog.help button.close-all-tools::before {
 }
 .panel.toolbar .interaction-run {
 	display: flex;
-	gap: .2em;
+	gap: .25rem;
 }
 .panel.toolbar .interaction-run > output {
 	flex-grow: 1;
@@ -300,6 +300,9 @@ dialog.help button.close-all-tools::before {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
+	margin-top: .25rem;
+}
+.panel .major-input-group label :is(input[type=text], textarea, button):not([hidden]) {
 	margin-top: 1px;
 }
 .panel .major-input-group textarea {
@@ -382,7 +385,7 @@ dialog.help button.close-all-tools::before {
 .panel .gridded-input-group {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(16ch, 1fr));
-	gap: .2em;
+	gap: .25rem;
 }
 .panel .gridded-input-group > button {
 	padding: var(--major-button-padding);
