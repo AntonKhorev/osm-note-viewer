@@ -1,4 +1,3 @@
-import {mixinWithAutoLoadCheckbox} from './base'
 import {NoteQueryFetchDialog} from './query'
 import type {NoteQuery} from '../query'
 import {makeNoteSearchQueryFromValues, toUserQuery} from '../query'
@@ -12,9 +11,10 @@ import {p,em,code} from '../util/html-shortcuts'
 const rq=(param: string)=>makeElement('span')('advanced-hint')(` (`,code(param),` parameter)`)
 const rq2=(param1: string, param2: string)=>makeElement('span')('advanced-hint')(` (`,code(param1),` or `,code(param2),` parameter)`)
 
-export class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDialog) {
+export class NoteSearchFetchDialog extends NoteQueryFetchDialog {
 	shortTitle=`Search`
 	title=`Search notes for user / text / date range`
+	protected withAutoload=true
 	protected $userInput=document.createElement('input')
 	protected $textInput=document.createElement('input')
 	protected fromDateInput=new DateInput()

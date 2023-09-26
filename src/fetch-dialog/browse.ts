@@ -27,9 +27,6 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 		if (!this.withSafeZoom) return
 		super.fetchIfValid()
 	}
-	get getAutoLoad(): ()=>boolean {
-		return ()=>false
-	}
 	private get withSafeZoom(): boolean {
 		return this.map.zoom>=minSafeZoom
 	}
@@ -53,8 +50,6 @@ export class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
 	protected limitLabelBeforeText=`at most `
 	protected limitLabelAfterText=` notes`
 	protected limitIsParameter=true
-	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
-	}
 	protected populateInputsWithoutUpdatingRequestExceptForClosedInput(query: NoteQuery | undefined): void {
 	}
 	protected get defaultClosedValue(): string {

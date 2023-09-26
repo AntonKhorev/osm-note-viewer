@@ -42,9 +42,6 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 			)
 		}
 	}
-	get getAutoLoad(): ()=>boolean {
-		return ()=>false
-	}
 	populateInputs(query: NoteQuery|undefined): void {
 		super.populateInputs(query)
 		this.nominatimSubForm?.updateRequest()
@@ -129,8 +126,6 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 	protected limitLabelBeforeText=`at most `
 	protected limitLabelAfterText=` notes`
 	protected limitIsParameter=true
-	protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
-	}
 	protected populateInputsWithoutUpdatingRequestExceptForClosedInput(query: NoteQuery | undefined): void {
 		if (query && query.mode!='bbox') return
 		this.$bboxInput.value=query?.bbox ?? ''

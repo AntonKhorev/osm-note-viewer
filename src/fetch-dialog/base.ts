@@ -14,6 +14,8 @@ export interface NoteFetchDialogSharedCheckboxes {
 export abstract class NoteFetchDialog extends NavDialog {
 	limitChangeListener?: ()=>void
 	$form=document.createElement('form')
+	protected withAutoload=false
+	protected $autoLoadCheckbox: HTMLInputElement|undefined
 	protected $advancedModeCheckbox=document.createElement('input')
 	protected $limitSelect=document.createElement('select')
 	protected $limitInput=document.createElement('input')
@@ -80,7 +82,12 @@ export abstract class NoteFetchDialog extends NavDialog {
 			return this.limitDefaultValue
 		}
 	}
-	abstract get getAutoLoad(): ()=>boolean
+	get getAutoLoad(): ()=>boolean {
+		return ()=>{
+			if (!this.$autoLoadCheckbox) return false
+			return this.$autoLoadCheckbox.checked
+		}
+	}
 	getQueryCaption(query: NoteQuery): HTMLTableCaptionElement {
 		return makeElement('caption')()(`notes`)
 	}
@@ -178,7 +185,14 @@ export abstract class NoteFetchDialog extends NavDialog {
 				)
 			))
 		}
-		this.writeDownloadModeFieldset($fieldset,$legend)
+		if (this.withAutoload) {
+			this.$autoLoadCheckbox=document.createElement('input')
+			this.$autoLoadCheckbox.type='checkbox'
+			this.$autoLoadCheckbox.checked=true
+			$fieldset.append(makeDiv('regular-input-group')(makeLabel()(
+				this.$autoLoadCheckbox,` Automatically load more notes when scrolled to the end of the table`
+			)))
+		}
 		const $showImagesCheckbox=document.createElement('input')
 		$showImagesCheckbox.type='checkbox'
 		this.$sharedCheckboxes.showImages.push($showImagesCheckbox)
@@ -253,7 +267,6 @@ export abstract class NoteFetchDialog extends NavDialog {
 	}
 	protected listPrependedFieldsets(): (($fieldset:HTMLFieldSetElement,$legend:HTMLLegendElement)=>void)[] { return [] }
 	protected abstract writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void
-	protected abstract writeDownloadModeFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void
 	protected writeExtraForms(): void {}
 	/**
 	 * Populates inputs on matching query; clears inputs on undefined
@@ -268,21 +281,4 @@ export abstract class NoteFetchDialog extends NavDialog {
 		$a.dataset.inputName=$input.name
 		return $a
 	}
-}
-
-export function mixinWithAutoLoadCheckbox<T extends abstract new (...args: any[]) => any>(c: T) {
-	abstract class WithAutoLoadCheckbox extends c {
-		protected $autoLoadCheckbox=document.createElement('input')
-		get getAutoLoad(): ()=>boolean {
-			return ()=>this.$autoLoadCheckbox.checked
-		}
-		protected writeDownloadModeFieldset($fieldset: HTMLFieldSetElement): void {
-			this.$autoLoadCheckbox.type='checkbox'
-			this.$autoLoadCheckbox.checked=true
-			$fieldset.append(makeDiv('regular-input-group')(makeLabel()(
-				this.$autoLoadCheckbox,` Automatically load more notes when scrolled to the end of the table`
-			)))
-		}
-	}
-	return WithAutoLoadCheckbox
 }
