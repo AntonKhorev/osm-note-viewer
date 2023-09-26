@@ -1,9 +1,9 @@
 import type {NoteQuery} from '../query'
-import {NoteFetchDialog, mixinWithFetchButton} from './base'
+import {NoteFetchDialog} from './base'
 import {makeElement, makeDiv, makeLabel} from '../util/html'
 import {em,code} from '../util/html-shortcuts'
 
-export abstract class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
+export abstract class NoteQueryFetchDialog extends NoteFetchDialog {
 	protected $closedInput=document.createElement('input')
 	protected $closedSelect=document.createElement('select')
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {

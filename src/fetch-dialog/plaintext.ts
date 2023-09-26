@@ -1,5 +1,4 @@
 import type {NoteFetchDialogSharedCheckboxes} from './base'
-import {mixinWithFetchButton} from './base'
 import {NoteIdsFetchDialog} from './ids'
 import type {Connection} from '../net'
 import type NoteTable from '../table'
@@ -7,7 +6,7 @@ import type {NoteQuery} from '../query'
 import {makeNoteIdsQueryFromValue} from '../query'
 import {makeElement, makeDiv, makeLabel} from '../util/html'
 
-export class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) {
+export class NotePlaintextFetchDialog extends NoteIdsFetchDialog {
 	shortTitle=`Plaintext`
 	title=`Fetch notes by ids from unstructured text`
 	protected $idsTextarea=document.createElement('textarea')

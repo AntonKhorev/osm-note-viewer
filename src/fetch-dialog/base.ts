@@ -24,6 +24,7 @@ export abstract class NoteFetchDialog extends NavDialog {
 	protected abstract limitLabelAfterText: string
 	protected abstract limitIsParameter: boolean
 	private $requestOutput=document.createElement('output')
+	protected $fetchControl: HTMLButtonElement|HTMLInputElement|undefined
 	constructor(
 		protected $root: HTMLElement,
 		private $sharedCheckboxes: NoteFetchDialogSharedCheckboxes,
@@ -62,7 +63,11 @@ export abstract class NoteFetchDialog extends NavDialog {
 		if (!query) return
 		this.submitQuery(query,false)
 	}
-	abstract disableFetchControl(disabled: boolean): void
+	disableFetchControl(disabled: boolean): void {
+		if (this.$fetchControl) {
+			this.$fetchControl.disabled=disabled
+		}
+	}
 	get getLimit(): ()=>number {
 		return ()=>{
 			let limit: number
@@ -235,7 +240,17 @@ export abstract class NoteFetchDialog extends NavDialog {
 			if (this.limitChangeListener) this.limitChangeListener()
 		}
 	}
-	protected abstract makeFetchControlDiv(): HTMLDivElement
+	/**
+	 * Adds fetch control, usually a 'fetch notes' button
+	 *
+	 * Override to make different control and set this.$fetchControl inside
+	 */
+	protected makeFetchControlDiv(): HTMLDivElement {
+		this.$fetchControl=document.createElement('button')
+		this.$fetchControl.append(makeActionIcon('download'),` Fetch notes`)
+		this.$fetchControl.type='submit'
+		return makeDiv('major-input-group')(this.$fetchControl)
+	}
 	protected listPrependedFieldsets(): (($fieldset:HTMLFieldSetElement,$legend:HTMLLegendElement)=>void)[] { return [] }
 	protected abstract writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void
 	protected abstract writeDownloadModeFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void
@@ -270,19 +285,4 @@ export function mixinWithAutoLoadCheckbox<T extends abstract new (...args: any[]
 		}
 	}
 	return WithAutoLoadCheckbox
-}
-
-export function mixinWithFetchButton<T extends abstract new (...args: any[]) => any>(c: T) {
-	abstract class WithFetchButton extends c {
-		protected $fetchButton=document.createElement('button')
-		protected makeFetchControlDiv(): HTMLDivElement {
-			this.$fetchButton.append(makeActionIcon('download'),` Fetch notes`)
-			this.$fetchButton.type='submit'
-			return makeDiv('major-input-group')(this.$fetchButton)
-		}
-		disableFetchControl(disabled: boolean): void {
-			this.$fetchButton.disabled=disabled
-		}
-	}
-	return WithFetchButton
 }

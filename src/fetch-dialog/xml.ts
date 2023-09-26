@@ -22,7 +22,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 	private readonly $issuesButton=document.createElement('button')
 	protected $selectorInput=document.createElement('input')
 	protected $attributeInput=document.createElement('input')
-	protected $fileInput=document.createElement('input')
+	protected $fileInputFetchControl=document.createElement('input')
 	protected writeExtraForms() {
 		this.$neisFeedForm.action=`https://resultmaps.neis-one.org/osm-notes-country-feed`
 		this.$neisFeedForm.target='_blank' // if browser chooses to navigate instead of download, open a new window; file download can't be forced without cooperation from server
@@ -56,15 +56,13 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 		}
 	}
 	protected makeFetchControlDiv(): HTMLDivElement {
-		this.$fileInput.name='xml'
-		this.$fileInput.type='file'
+		this.$fetchControl=this.$fileInputFetchControl
+		this.$fileInputFetchControl.name='xml'
+		this.$fileInputFetchControl.type='file'
 		return makeDiv('major-input-group')(makeLabel('file-reader')(
 			makeElement('span')('over')(`Read XML file`),` `,
-			this.$fileInput
+			this.$fileInputFetchControl
 		))
-	}
-	disableFetchControl(disabled: boolean): void {
-		this.$fileInput.disabled=disabled
 	}
 	protected listPrependedFieldsets() {
 		const fieldsetList: (($fieldset:HTMLFieldSetElement,$legend:HTMLLegendElement)=>void)[] = []
@@ -253,16 +251,16 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 				this.$selectorInput.setCustomValidity(`has to be a valid css selector`)
 			}
 		})
-		this.$fileInput.ondragenter=()=>{
-			this.$fileInput.classList.add('active')
+		this.$fileInputFetchControl.ondragenter=()=>{
+			this.$fileInputFetchControl.classList.add('active')
 		}
-		this.$fileInput.ondragleave=()=>{
-			this.$fileInput.classList.remove('active')
+		this.$fileInputFetchControl.ondragleave=()=>{
+			this.$fileInputFetchControl.classList.remove('active')
 		}
-		this.$fileInput.addEventListener('change',()=>{
-			this.$fileInput.classList.remove('active')
+		this.$fileInputFetchControl.addEventListener('change',()=>{
+			this.$fileInputFetchControl.classList.remove('active')
 			if (!this.$form.reportValidity()) return // doesn't display validity message on drag&drop in Firefox, works ok in Chrome
-			const files=this.$fileInput.files
+			const files=this.$fileInputFetchControl.files
 			if (!files) return
 			const [file]=files
 			const fileType=(file.type=='text/html'?'text/html':'text/xml')
@@ -306,7 +304,7 @@ export class NoteXmlFetchDialog extends NoteIdsFetchDialog {
 		return []
 	}
 	getQueryCaption(query: NoteQuery): HTMLTableCaptionElement {
-		return makeElement('caption')()(`notes from xml file `,this.makeInputLink(this.$fileInput,this.$fileInput.value))
+		return makeElement('caption')()(`notes from xml file `,this.makeInputLink(this.$fileInputFetchControl,this.$fileInputFetchControl.value))
 	}
 }
 
