@@ -9,7 +9,9 @@ import type {NominatimBbox} from '../nominatim'
 import makeTextButtonInputGroup from '../text-button-input-group'
 import {makeSvgElement} from '../svg'
 import {makeElement, makeLink, makeLabel} from '../util/html'
-import {p,em,code} from '../util/html-shortcuts'
+import {p,em,strong,code} from '../util/html-shortcuts'
+
+const maxBboxArea=25
 
 const rq=(param: string)=>makeElement('span')('advanced-hint')(` (`,code(param),` parameter)`)
 const spanRequest=(...ss: Array<string|HTMLElement>)=>makeElement('span')('advanced-hint')(...ss)
@@ -62,7 +64,8 @@ export default class NoteBboxFetchDialog extends DynamicNoteFetchDialog {
 			['bbox',this.$bboxInput,[
 				`Bounding box. `,
 				`Expect `,em(`The maximum bbox size is ..., and your request was too large`),` error if the bounding box is too large. `,
-				`Maximum allowed bbox area in square degrees can be found in the `,em(`note_area`),` value of `,makeLink(`API capabilities`,this.cx.server.api.getUrl(`capabilities`)),`.`
+				`Maximum allowed bbox area in square degrees can be found in the `,em(`note_area`),` value of `,makeLink(`API capabilities`,this.cx.server.api.getUrl(`capabilities`)),`. `,
+				`Currently all major `,em(`openstreetmap-website`),` deployments have it set to `,strong(`25`),`, this is what `,em(`note-viewer`),` assumes.`
 			]],
 			['limit',this.$limitInput,[
 				`Max number of notes to fetch. `,
@@ -174,11 +177,18 @@ export default class NoteBboxFetchDialog extends DynamicNoteFetchDialog {
 			this.$bboxInput.setCustomValidity(`must contain four comma-separated values`)
 			return false
 		}
-		for (const number of splitValue) {
+		const numbers=splitValue.map(Number)
+		for (const number of numbers) {
 			if (!isFinite(Number(number))) {
 				this.$bboxInput.setCustomValidity(`values must be numbers, "${number}" is not a number`)
 				return false
 			}
+		}
+		const [west,south,east,north]=numbers
+		const area=(east-west)*(north-south)
+		if (area>maxBboxArea) {
+			this.$bboxInput.setCustomValidity(`area must not be greater than ${maxBboxArea} square degrees, currently it's ${Math.round(area)}`)
+			return false
 		}
 		this.$bboxInput.setCustomValidity('')
 		return true
