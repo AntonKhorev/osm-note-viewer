@@ -36,12 +36,6 @@ export default class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
 				`This is not a substring search but rather a full-text search with English stemming rules. `,
 				`It may not work correctly for other languages.`
 			]],
-			['limit',this.$limitInput,[
-				`Max number of notes to fetch. `,
-				`For `,em(`search`),` mode it corresponds to the size of one batch of notes since it's possible to load additional batches by pressing the `,em(`Load more`),` button below the note table. `,
-				`This additional downloading is implemented by manipulating the requested date range.`
-			]],
-			closedParameter,
 			['display_name',this.$userInput,[
 				`Name of a user interacting with a note. `,
 				`Both this parameter and the next one are optional. `,
@@ -70,6 +64,7 @@ export default class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
 			['to',this.toDateInput.$input,[
 				`End of a date range.`
 			]],
+			closedParameter,
 			['sort',this.$sortSelect,[
 				`Date to sort the notes. `,
 				`This can be either a create date or an update date. `,
@@ -78,6 +73,11 @@ export default class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
 			['order',this.$orderSelect,[
 				`Sort order. `,
 				`Ascending or descending.`
+			]],
+			['limit',this.$limitInput,[
+				`Max number of notes to fetch. `,
+				`For `,em(`search`),` mode it corresponds to the size of one batch of notes since it's possible to load additional batches by pressing the `,em(`Load more`),` button below the note table. `,
+				`This additional downloading is implemented by manipulating the requested date range.`
 			]],
 		]
 	}

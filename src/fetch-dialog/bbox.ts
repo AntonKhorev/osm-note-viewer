@@ -68,12 +68,12 @@ export default class NoteBboxFetchDialog extends DynamicNoteFetchDialog {
 				`Maximum allowed bbox area in square degrees can be found in the `,em(`note_area`),` value of `,makeLink(`API capabilities`,this.cx.server.api.getUrl(`capabilities`)),`. `,
 				`Currently all major `,em(`openstreetmap-website`),` deployments have it set to `,strong(`25`),`, this is what `,em(`note-viewer`),` assumes.`
 			]],
+			closedParameter,
 			['limit',this.$limitInput,[
 				`Max number of notes to fetch. `,
 				`For `,em(`bbox`),` mode is corresponds to a total number of notes, not just a batch size. `,
 				`It's impossible to download additional batches of notes because the API call used by this mode lacks date range parameters.`
 			]],
-			closedParameter,
 		]
 	}
 	protected writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void {
