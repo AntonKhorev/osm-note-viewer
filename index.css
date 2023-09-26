@@ -320,6 +320,7 @@ nav button.global:not(.reset):focus ~ button.reset {
 nav [role=tablist] {
 	display: flex;
 	padding: .5rem 2.5rem 0 .5rem;
+	scroll-padding: 0 2.5rem 0 .5rem;
 	overflow-x: auto;
 	overflow-y: hidden;
 	scrollbar-width: thin;
@@ -382,7 +383,7 @@ nav [role=tablist] [role=tab]:focus {
 .panel section[role=tabpanel] h2 {
 	margin-top: .3rem;
 }
-.panel [class$="-input-group"] {
+.panel [class*="-input-group"] {
 	margin: .5rem 0;
 }
 .panel div.notice:not(:empty) {
@@ -401,9 +402,35 @@ nav [role=tablist] [role=tab]:focus {
 .panel [class|=icon] > svg {
 	vertical-align: middle;
 }
-.panel th[title] {
+.panel .tipped {
 	cursor: help;
 	text-decoration: underline dotted 1px;
+}
+.panel button.only-with-icon {
+	box-sizing: content-box;
+	height: 13px;
+	width: 13px;
+	padding: 2px;
+	vertical-align: bottom;
+}
+.panel button.only-with-icon [class|=icon] > svg {
+	vertical-align: inherit;
+}
+.panel .link-checkbox-holder {
+	display: flex;
+	align-items: center;
+}
+.panel .link-checkbox-holder input {
+	margin: 0;
+}
+.panel .link-checkbox-holder .link-right {
+	scale: -1;
+}
+.ui .text-side[data-side='left'] .panel .link-checkbox-holder {
+	margin-right: calc(-1 * var(--panel-padding));
+}
+.ui .text-side[data-side='left'] .panel .link-checkbox-holder .link-map {
+	display: none;
 }
 
 .panel:not(.toolbar) details > summary:hover {
@@ -585,26 +612,12 @@ dialog.help button.close-all-tools::before {
 	display: none;
 }
 .panel.toolbar details.tool :is(.major-input-group, .gridded-input-group) {
-	margin: .2em 0;
+	margin: .25rem 0;
 }
 .panel.toolbar > button.settings {
 	margin-left: auto;
 }
-.panel.toolbar [class|=icon-map] > svg {
-	width: 19px;
-	height: 13px;
-}
-.panel.toolbar [class|=icon-notes] > svg {
-	width: 9px;
-	height: 13px;
-}
-.panel.toolbar [class|=icon-action] > svg {
-	width: 13px;
-	height: 13px;
-}
 .panel.toolbar [class|=icon-note-status] > svg {
-	width: 8px;
-	height: 16px;
 	vertical-align: text-bottom;
 }
 .panel.toolbar .icon-map-area {
@@ -616,22 +629,12 @@ dialog.help button.close-all-tools::before {
 .panel.toolbar button[disabled] [class|=icon] {
 	opacity: .5;
 }
-.panel.toolbar button.only-with-icon {
-	box-sizing: content-box;
-	height: 13px;
-	width: 13px;
-	padding: 2px;
-	vertical-align: bottom;
-}
-.panel.toolbar button.only-with-icon [class|=icon] > svg {
-	vertical-align: inherit;
-}
 .panel.toolbar input[type=number] {
 	width: 7ch;
 }
 .panel.toolbar .interaction-run {
 	display: flex;
-	gap: .2em;
+	gap: .25rem;
 }
 .panel.toolbar .interaction-run > output {
 	flex-grow: 1;
@@ -658,7 +661,10 @@ dialog.help button.close-all-tools::before {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
-	margin: .2em 0 0 0;
+	margin-top: .25rem;
+}
+.panel .major-input-group label :is(input[type=text], textarea, button):not([hidden]) {
+	margin-top: 1px;
 }
 .panel .major-input-group textarea {
 	resize: vertical;
@@ -675,21 +681,18 @@ dialog.help button.close-all-tools::before {
 .panel .major-input-group .text-controls a em {
 	font-style: inherit;
 }
-.panel .text-button-input-group {
+.panel .text-button-input-group > span {
 	display: flex;
-	gap: .5em;
-	align-items: end;
+	margin-top: 1px;
 }
-.panel .text-button-input-group > label {
+.panel .text-button-input-group.spaced > span {
+	gap: .5rem;
+}
+.panel .text-button-input-group > span > input[type=text] {
 	flex-grow: 1;
 }
-.panel .text-button-input-group > label input[type=text] {
-	display: block;
-	box-sizing: border-box;
-	width: 100%;
-}
-.panel .text-button-input-group button {
-	width: 4.5rem;
+.panel .text-button-input-group > span > button {
+	padding-inline: 1.5em;
 }
 .panel .checkbox-button-input-group {
 	display: flex;
@@ -743,7 +746,7 @@ dialog.help button.close-all-tools::before {
 .panel .gridded-input-group {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(16ch, 1fr));
-	gap: .2em;
+	gap: .25rem;
 }
 .panel .gridded-input-group > button {
 	padding: var(--major-button-padding);
@@ -759,12 +762,6 @@ dialog.help button.close-all-tools::before {
 .panel .input-super-group > * {
 	flex-grow: 1;
 	margin: 0;
-}
-.panel .input-super-group > .date-range-input-group > span {
-	display: flex;
-}
-.panel .input-super-group > .date-range-input-group > span > input:first-child {
-	flex-grow: 1;
 }
 
 .more div {
@@ -1252,7 +1249,7 @@ dialog.help button.close-all-tools::before {
 
 /*** css/overlay.css ***/
 .graphic-side button.menu {
-	z-index: 1;
+	z-index: 2;
 	/* copied from leaflet: */
 	top: 10px;
 	left: 10px;
@@ -1322,10 +1319,12 @@ dialog.help button.close-all-tools::before {
 
 .graphic-side div.menu:not([hidden]) {
 	position: absolute;
+	z-index: 1;
 	inset: 0;
 	background: canvas;
 	display: flex;
 	flex-direction: column;
+	box-shadow: 0 0px 6px var(--shadow-color);
 }
 .graphic-side div.menu .lead {
 	margin-left: calc(20px + 2rem);

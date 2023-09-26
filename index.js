@@ -1655,6 +1655,65 @@ function encodeBase64url(bytes) {
     return btoa(string).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+function makeSvgElement(tag, attrs = {}) {
+    const $e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    setSvgAttributes($e, attrs);
+    return $e;
+}
+function setSvgAttributes($e, attrs) {
+    for (const name in attrs) {
+        $e.setAttributeNS(null, name, attrs[name]);
+    }
+}
+function makeMapIcon(type) {
+    const $span = makeElement('span')(`icon-map-${type}`)();
+    $span.title = `map ${type}`;
+    $span.innerHTML = `<svg width="19" height="13"><use href="#tools-map" /></svg>`;
+    return $span;
+}
+function makeNotesIcon(type) {
+    const $span = makeElement('span')(`icon-notes-${type}`)();
+    $span.title = `${type} notes`;
+    $span.innerHTML = `<svg width="9" height="13"><use href="#tools-notes" /></svg>`;
+    return $span;
+}
+function makeActionIcon(type, text) {
+    const $span = makeElement('span')(`icon-action-${type}`)();
+    $span.title = text;
+    $span.innerHTML = `<svg width="13" height="13"><use href="#tools-${type}" /></svg>`;
+    return $span;
+}
+function makeNoteStatusIcon(status, number = 1) {
+    const height = 16;
+    const width = 8;
+    const r = width / 2;
+    const $span = makeElement('span')(`icon-note-status`)();
+    $span.title = `${status} note${number != 1 ? `s` : ``}`;
+    const path = `<path d="${computeMarkerOutlinePath(height, width / 2 - .5)}" stroke="gray" ${pathAttrs()} />`;
+    $span.innerHTML = `<svg width="${width}" height="${height}" viewBox="${-r} ${-r} ${width} ${height}">${path}</svg>`;
+    return $span;
+    function pathAttrs() {
+        if (status == 'open') {
+            return `fill="red"`;
+        }
+        else if (status == 'closed') {
+            return `fill="green"`;
+        }
+        else {
+            return `fill="#444"`;
+        }
+    }
+    // copypaste from marker.ts
+    function computeMarkerOutlinePath(height, r) {
+        const rp = height - r;
+        const y = r ** 2 / rp;
+        const x = Math.sqrt(r ** 2 - y ** 2);
+        const xf = x.toFixed(2);
+        const yf = y.toFixed(2);
+        return `M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z`;
+    }
+}
+
 function isAuthErrorData(data) {
     return (data &&
         typeof data == 'object' &&
@@ -1759,7 +1818,7 @@ class LoginSection {
             });
             for (const [token, login] of logins) {
                 const userHref = server.web.getUrl(`user/` + encodeURIComponent(login.username));
-                const $updateButton = makeElement('button')()(`Update user info`);
+                const $updateButton = makeElement('button')('only-with-icon')(makeActionIcon('refresh', `Update user info`));
                 const $logoutButton = makeElement('button')()(`Logout`);
                 $updateButton.onclick = () => wrapFetchForButton($updateButton, async () => {
                     const userData = await fetchUserData(token);
@@ -3676,8 +3735,10 @@ class StorageSection {
                 insertCell(`all timestamps in UTC`).append('last access');
                 function insertCell(title) {
                     const $th = document.createElement('th');
-                    if (title)
+                    if (title) {
                         $th.title = title;
+                        $th.classList.add('tipped');
+                    }
                     $row.append($th);
                     return $th;
                 }
@@ -5937,6 +5998,16 @@ class TextControl {
     }
 }
 
+let idCount = 0;
+function makeTextButtonInputGroup(...classes) {
+    return (labelItems, $input, $button) => {
+        const id = 'text-button-input-group-input-' + idCount++;
+        const $label = makeLabel()(...labelItems);
+        $label.htmlFor = $input.id = id;
+        return makeDiv('text-button-input-group', ...classes)($label, ` `, makeElement('span')()($input, ` `, $button));
+    };
+}
+
 const rq$1 = (param) => makeElement('span')('advanced-hint')(` (`, code(param), ` parameter)`);
 const rq2 = (param1, param2) => makeElement('span')('advanced-hint')(` (`, code(param1), ` or `, code(param2), ` parameter)`);
 class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDialog) {
@@ -6034,15 +6105,13 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
             });
         }
         {
-            this.fromDateInput.$input.id = 'search-from-date';
             this.fromDateInput.$input.name = 'from';
-            this.toDateInput.$input.id = 'search-to-date';
             this.toDateInput.$input.name = 'to';
-            const $fromDateLabel = makeLabel('inline')(`From date`, rq$1('from'));
-            $fromDateLabel.htmlFor = 'search-from-date';
-            const $toDateLabel = makeLabel('inline')(`To date`, rq$1('to'));
-            $toDateLabel.htmlFor = 'search-to-date';
-            $fieldset.append(makeDiv('input-super-group')(makeElement('span')('date-range-input-group')($fromDateLabel, ` `, makeElement('span')()(...this.fromDateInput.$elements)), makeElement('span')('date-range-input-group')($toDateLabel, ` `, makeElement('span')()(...this.toDateInput.$elements))));
+            $fieldset.append(makeDiv('input-super-group')(makeTextButtonInputGroup()([
+                `From date`, rq$1('from')
+            ], ...this.fromDateInput.$elements), makeTextButtonInputGroup()([
+                `To date`, rq$1('to')
+            ], ...this.toDateInput.$elements)));
         }
     }
     modifyClosedLine($div) {
@@ -6192,7 +6261,9 @@ class NominatimSubForm {
         this.$input.setAttribute('form', 'nominatim-form');
         this.$button.textContent = 'Get';
         this.$button.setAttribute('form', 'nominatim-form');
-        $fieldset.append(makeDiv('text-button-input-group')(makeLabel()(`Or get bounding box by place name from Nominatim`, spanRequest$1(` (`, code('q'), ` Nominatim parameter)`), ` `, this.$input), this.$button));
+        $fieldset.append(makeTextButtonInputGroup('spaced')([
+            `Or get bounding box by place name from Nominatim`, spanRequest$1(` (`, code('q'), ` Nominatim parameter)`)
+        ], this.$input, this.$button));
         $fieldset.append(makeDiv('advanced-hint')(`Resulting Nominatim request: `, this.$requestOutput));
     }
     updateRequest() {
@@ -6229,7 +6300,7 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         this.map = map;
         this.shortTitle = `BBox`;
         this.title = `Get notes inside rectangular area`;
-        this.$trackMapSelect = document.createElement('select');
+        this.$linkCheckbox = makeElement('input')()();
         this.$bboxInput = document.createElement('input');
         this.limitValues = [20, 100, 500, 2500, 10000];
         this.limitDefaultValue = 100; // higher default limit because no progressive loads possible
@@ -6241,7 +6312,7 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
             this.nominatimSubForm = new NominatimSubForm(cx.server.nominatim, () => map.bounds, (bbox) => {
                 const [minLat, maxLat, minLon, maxLon] = bbox;
                 this.setBbox(minLon, minLat, maxLon, maxLat);
-                this.$trackMapSelect.value = 'nothing';
+                this.$linkCheckbox.checked = false;
                 this.map.fitBounds([[Number(minLat), Number(minLon)], [Number(maxLat), Number(maxLon)]]);
             });
         }
@@ -6276,21 +6347,40 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         ];
     }
     writeScopeAndOrderFieldsetBeforeClosedLine($fieldset) {
-        {
-            this.$trackMapSelect.append(new Option(`Do nothing`, 'nothing'), new Option(`Update bounding box`, 'bbox', true, true));
-            $fieldset.append(makeDiv('regular-input-group')(makeLabel('inline')(this.$trackMapSelect, ` on map view changes`)));
+        this.$linkCheckbox.type = 'checkbox';
+        this.$linkCheckbox.checked = true;
+        this.$bboxInput.type = 'text';
+        this.$bboxInput.name = 'bbox';
+        this.$bboxInput.required = true; // otherwise could submit empty bbox without entering anything
+        const labelItems = [
+            `Bounding box (`,
+            tip(`left`, `western-most (min) longitude`), `, `,
+            tip(`bottom`, `southern-most (min) latitude`), `, `,
+            tip(`right`, `eastern-most (max) longitude`), `, `,
+            tip(`top`, `northern-most (max) latitude`),
+            `)`, rq('bbox')
+        ];
+        if (this.nominatimSubForm) {
+            labelItems.push(spanRequest(` (also `, code('west'), `, `, code('south'), `, `, code('east'), `, `, code('north'), ` Nominatim parameters)`));
         }
-        {
-            this.$bboxInput.type = 'text';
-            this.$bboxInput.name = 'bbox';
-            this.$bboxInput.required = true; // otherwise could submit empty bbox without entering anything
-            $fieldset.append(makeDiv('major-input-group')(makeLabel()(`Bounding box (`, tip(`left`, `western-most (min) longitude`), `, `, tip(`bottom`, `southern-most (min) latitude`), `, `, tip(`right`, `eastern-most (max) longitude`), `, `, tip(`top`, `northern-most (max) latitude`), `)`, rq('bbox'), spanRequest(` (also `, code('west'), `, `, code('south'), `, `, code('east'), `, `, code('north'), ` Nominatim parameters)`), ` `, this.$bboxInput)));
-            function tip(text, title) {
-                const $span = document.createElement('span');
-                $span.textContent = text;
-                $span.title = title;
-                return $span;
-            }
+        const $linkLabel = makeLabel('link-checkbox-holder')(this.$linkCheckbox);
+        $linkLabel.title = `Update bounding box on map view changes`;
+        const $leftLink = makeSvgElement('svg', { class: 'link-left', width: '12', height: '12' });
+        $leftLink.innerHTML = `<use href="#chain-link-left" />`;
+        $linkLabel.prepend($leftLink);
+        const $rightLink = makeSvgElement('svg', { class: 'link-right', width: '12', height: '12' });
+        $rightLink.innerHTML = `<use href="#chain-link-left" />`;
+        $linkLabel.append($rightLink);
+        const $mapLink = makeSvgElement('svg', { class: 'link-map', width: '19', height: '13' });
+        $mapLink.innerHTML = `<use href="#tools-map" />`;
+        $linkLabel.append($mapLink);
+        $fieldset.append(makeTextButtonInputGroup()(labelItems, this.$bboxInput, $linkLabel));
+        function tip(text, title) {
+            const $span = document.createElement('span');
+            $span.textContent = text;
+            $span.title = title;
+            $span.classList.add('tipped');
+            return $span;
         }
         if (this.nominatimSubForm) {
             this.nominatimSubForm.write($fieldset);
@@ -6308,7 +6398,7 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
     }
     addEventListenersBeforeClosedLine() {
         const trackMap = () => {
-            if (this.$trackMapSelect.value == 'bbox') {
+            if (this.$linkCheckbox.checked) {
                 this.setBbox(...this.map.precisionBounds.wsen);
             }
             this.nominatimSubForm?.updateRequest();
@@ -6316,13 +6406,13 @@ class NoteBboxFetchDialog extends NoteQueryFetchDialog {
         this.$root.addEventListener('osmNoteViewer:mapMoveEnd', () => {
             trackMap();
         });
-        this.$trackMapSelect.addEventListener('input', () => {
+        this.$linkCheckbox.addEventListener('input', () => {
             trackMap();
         });
         this.$bboxInput.addEventListener('input', () => {
             if (!this.validateBbox())
                 return;
-            this.$trackMapSelect.value = 'nothing';
+            this.$linkCheckbox.checked = false;
         });
         if (this.nominatimSubForm) {
             this.nominatimSubForm.addEventListeners();
@@ -9770,54 +9860,6 @@ class Tool {
     }
     ping($tool) {
         startAnimation($tool, 'tool-ping-fade', '1s');
-    }
-}
-function makeMapIcon(type) {
-    const $span = makeElement('span')(`icon-map-${type}`)();
-    $span.title = `map ${type}`;
-    $span.innerHTML = `<svg><use href="#tools-map" /></svg>`;
-    return $span;
-}
-function makeNotesIcon(type) {
-    const $span = makeElement('span')(`icon-notes-${type}`)();
-    $span.title = `${type} notes`;
-    $span.innerHTML = `<svg><use href="#tools-notes" /></svg>`;
-    return $span;
-}
-function makeActionIcon(type, text) {
-    const $span = makeElement('span')(`icon-action-${type}`)();
-    $span.title = text;
-    $span.innerHTML = `<svg><use href="#tools-${type}" /></svg>`;
-    return $span;
-}
-function makeNoteStatusIcon(status, number = 1) {
-    const height = 16;
-    const width = 8;
-    const r = width / 2;
-    const $span = makeElement('span')(`icon-note-status`)();
-    $span.title = `${status} note${number != 1 ? `s` : ``}`;
-    const path = `<path d="${computeMarkerOutlinePath(height, width / 2 - .5)}" stroke="gray" ${pathAttrs()} />`;
-    $span.innerHTML = `<svg viewBox="${-r} ${-r} ${width} ${height}">${path}</svg>`;
-    return $span;
-    function pathAttrs() {
-        if (status == 'open') {
-            return `fill="red"`;
-        }
-        else if (status == 'closed') {
-            return `fill="green"`;
-        }
-        else {
-            return `fill="#444"`;
-        }
-    }
-    // copypaste from marker.ts
-    function computeMarkerOutlinePath(height, r) {
-        const rp = height - r;
-        const y = r ** 2 / rp;
-        const x = Math.sqrt(r ** 2 - y ** 2);
-        const xf = x.toFixed(2);
-        const yf = y.toFixed(2);
-        return `M0,${rp} L-${xf},${yf} A${r},${r} 0 1 1 ${xf},${yf} Z`;
     }
 }
 
