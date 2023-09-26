@@ -1,5 +1,5 @@
 import type {NoteFetchDialogSharedCheckboxes} from './base'
-import {NoteQueryFetchDialog} from './base'
+import {NoteQueryFetchDialog} from './query'
 import type {Connection} from '../net'
 import type NoteMap from '../map'
 import type {NoteQuery} from '../query'

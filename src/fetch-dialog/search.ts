@@ -1,4 +1,5 @@
-import {NoteQueryFetchDialog, mixinWithAutoLoadCheckbox} from './base'
+import {mixinWithAutoLoadCheckbox} from './base'
+import {NoteQueryFetchDialog} from './query'
 import type {NoteQuery} from '../query'
 import {makeNoteSearchQueryFromValues, toUserQuery} from '../query'
 import {toShortReadableDate} from '../query-date'
