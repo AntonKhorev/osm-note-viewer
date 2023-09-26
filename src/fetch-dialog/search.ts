@@ -1,3 +1,4 @@
+import type {ParameterListItem} from './dynamic'
 import DynamicNoteFetchDialog from './dynamic'
 import type {NoteQuery} from '../query'
 import {makeNoteSearchQueryFromValues, toUserQuery} from '../query'
@@ -27,7 +28,7 @@ export default class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
 			` request at `,code(this.cx.server.api.getUrl(`notes/search?`),em(`parameters`)),`; see `,em(`parameters`),` below.`
 		)]
 	}
-	protected listParameters(closedDescriptionItems: Array<string|HTMLElement>): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][] {
+	protected listParameters(closedParameter: ParameterListItem): ParameterListItem[] {
 		return [
 			['q',this.$textInput,[
 				`Comment text search query. `,
@@ -40,7 +41,7 @@ export default class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
 				`For `,em(`search`),` mode it corresponds to the size of one batch of notes since it's possible to load additional batches by pressing the `,em(`Load more`),` button below the note table. `,
 				`This additional downloading is implemented by manipulating the requested date range.`
 			]],
-			['closed',this.$closedInput,closedDescriptionItems],
+			closedParameter,
 			['display_name',this.$userInput,[
 				`Name of a user interacting with a note. `,
 				`Both this parameter and the next one are optional. `,

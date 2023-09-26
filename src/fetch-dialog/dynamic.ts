@@ -3,6 +3,8 @@ import NoteFetchDialog from './base'
 import {makeElement, makeDiv, makeLabel} from '../util/html'
 import {em,code} from '../util/html-shortcuts'
 
+export type ParameterListItem = [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>]
+
 export default abstract class DynamicNoteFetchDialog extends NoteFetchDialog {
 	protected $closedInput=document.createElement('input')
 	protected $closedSelect=document.createElement('select')
@@ -60,7 +62,7 @@ export default abstract class DynamicNoteFetchDialog extends NoteFetchDialog {
 				])
 			)
 		]
-		const parameters=this.listParameters(closedDescriptionItems)
+		const parameters=this.listParameters(['closed',this.$closedInput,closedDescriptionItems])
 		if (parameters.length==0) return
 		const $table=document.createElement('table')
 		{
@@ -85,7 +87,7 @@ export default abstract class DynamicNoteFetchDialog extends NoteFetchDialog {
 		))
 	}
 	protected abstract makeLeadAdvancedHint(): Array<string|HTMLElement>
-	protected listParameters(closedDescriptionItems: Array<string|HTMLElement>): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][] { return [] }
+	protected listParameters(closedParameter: ParameterListItem): ParameterListItem[] { return [] }
 	protected abstract writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void
 	protected getClosedLineNotesText(): string {
 		return `notes`

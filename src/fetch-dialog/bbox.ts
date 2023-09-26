@@ -1,4 +1,5 @@
 import type {NoteFetchDialogSharedCheckboxes} from './base'
+import type {ParameterListItem} from './dynamic'
 import DynamicNoteFetchDialog from './dynamic'
 import NominatimSubForm from './bbox-nominatim'
 import type {Connection} from '../net'
@@ -59,7 +60,7 @@ export default class NoteBboxFetchDialog extends DynamicNoteFetchDialog {
 			` request at `,code(this.cx.server.api.getUrl(`notes?`),em(`parameters`)),`; see `,em(`parameters`),` below.`
 		)]
 	}
-	protected listParameters(closedDescriptionItems: Array<string|HTMLElement>): [parameter: string, $input: HTMLElement, descriptionItems: Array<string|HTMLElement>][] {
+	protected listParameters(closedParameter: ParameterListItem): ParameterListItem[] {
 		return [
 			['bbox',this.$bboxInput,[
 				`Bounding box. `,
@@ -72,7 +73,7 @@ export default class NoteBboxFetchDialog extends DynamicNoteFetchDialog {
 				`For `,em(`bbox`),` mode is corresponds to a total number of notes, not just a batch size. `,
 				`It's impossible to download additional batches of notes because the API call used by this mode lacks date range parameters.`
 			]],
-			['closed',this.$closedInput,closedDescriptionItems],
+			closedParameter,
 		]
 	}
 	protected writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void {
