@@ -9,6 +9,7 @@ export default class NoteBboxFetchDialog extends DynamicNoteFetchDialog {
 	shortTitle=`BBox`
 	title=`Get notes inside rectangular area`
 	protected withBbox=true
+	protected withBboxRequiredWhenPresent=true
 	protected makeLeadAdvancedHint(): Array<string|HTMLElement> {
 		return [p(
 			`Make a `,makeLink(`notes in bounding box`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`),

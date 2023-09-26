@@ -16,6 +16,7 @@ export default class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
 	shortTitle=`Search`
 	title=`Search notes for user / text / date range`
 	protected withAutoload=true
+	protected withBbox=true
 	protected $userInput=document.createElement('input')
 	protected $textInput=document.createElement('input')
 	protected fromDateInput=new DateInput()

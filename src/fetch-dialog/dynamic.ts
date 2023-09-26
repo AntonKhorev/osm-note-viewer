@@ -20,6 +20,7 @@ export type QueryCaptionItem = (string|HTMLElement)[]
 
 export default abstract class DynamicNoteFetchDialog extends NoteFetchDialog {
 	protected withBbox=false
+	protected withBboxRequiredWhenPresent=false
 	private nominatimSubForm: NominatimSubForm|undefined
 	protected $bboxInput: HTMLInputElement|undefined
 	private $linkCheckbox: HTMLInputElement|undefined
@@ -50,10 +51,10 @@ export default abstract class DynamicNoteFetchDialog extends NoteFetchDialog {
 			this.$bboxInput=document.createElement('input')
 			this.$bboxInput.type='text'
 			this.$bboxInput.name='bbox'
-			this.$bboxInput.required=true // otherwise could submit empty bbox without entering anything
+			this.$bboxInput.required=this.withBboxRequiredWhenPresent
 			this.$linkCheckbox=document.createElement('input')
 			this.$linkCheckbox.type='checkbox'
-			this.$linkCheckbox.checked=true
+			this.$linkCheckbox.checked=this.withBboxRequiredWhenPresent
 		}
 		if (this.withBbox && this.cx.server.nominatim) {
 			this.nominatimSubForm=new NominatimSubForm(
