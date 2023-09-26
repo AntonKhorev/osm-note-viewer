@@ -6,7 +6,8 @@ import type NoteMap from '../map'
 import type {NoteQuery} from '../query'
 import {makeNoteBboxQueryFromValues} from '../query'
 import type {NominatimBbox} from '../nominatim'
-import {makeElement, makeLink, makeDiv, makeLabel} from '../util/html'
+import makeTextButtonInputGroup from '../text-button-input-group'
+import {makeElement, makeLink} from '../util/html'
 import {p,em,code} from '../util/html-shortcuts'
 
 const rq=(param: string)=>makeElement('span')('advanced-hint')(` (`,code(param),` parameter)`)
@@ -16,7 +17,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 	shortTitle=`BBox`
 	title=`Get notes inside rectangular area`
 	private nominatimSubForm: NominatimSubForm|undefined
-	private $trackMapSelect=document.createElement('select')
+	private $linkCheckbox=makeElement('input')()()
 	protected $bboxInput=document.createElement('input')
 	constructor(
 		$root: HTMLElement,
@@ -34,7 +35,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 				(bbox:NominatimBbox)=>{
 					const [minLat,maxLat,minLon,maxLon]=bbox
 					this.setBbox(minLon,minLat,maxLon,maxLat)
-					this.$trackMapSelect.value='nothing'
+					this.$linkCheckbox.checked=false
 					this.map.fitBounds([[Number(minLat),Number(minLon)],[Number(maxLat),Number(maxLon)]])
 				}
 			)
@@ -73,41 +74,32 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		]
 	}
 	protected writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void {
-		{
-			this.$trackMapSelect.append(
-				new Option(`Do nothing`,'nothing'),
-				new Option(`Update bounding box`,'bbox',true,true),
+		this.$linkCheckbox.type='checkbox'
+		this.$linkCheckbox.checked=true
+		this.$linkCheckbox.title=`Update bounding box on map view changes`
+		this.$bboxInput.type='text'
+		this.$bboxInput.name='bbox'
+		this.$bboxInput.required=true // otherwise could submit empty bbox without entering anything
+		const labelItems: (string|HTMLElement)[] = [
+			`Bounding box (`,
+			tip(`left`,`western-most (min) longitude`),`, `,
+			tip(`bottom`,`southern-most (min) latitude`),`, `,
+			tip(`right`,`eastern-most (max) longitude`),`, `,
+			tip(`top`,`northern-most (max) latitude`),
+			`)`,rq('bbox')
+		]
+		if (this.nominatimSubForm) {
+			labelItems.push(
+				spanRequest(` (also `,code('west'),`, `,code('south'),`, `,code('east'),`, `,code('north'),` Nominatim parameters)`)
 			)
-			$fieldset.append(makeDiv('regular-input-group')(
-				makeLabel('inline')(this.$trackMapSelect,` on map view changes`)
-			))
-		}{
-			this.$bboxInput.type='text'
-			this.$bboxInput.name='bbox'
-			this.$bboxInput.required=true // otherwise could submit empty bbox without entering anything
-			const labelItems: (string|HTMLElement)[] = [
-				`Bounding box (`,
-				tip(`left`,`western-most (min) longitude`),`, `,
-				tip(`bottom`,`southern-most (min) latitude`),`, `,
-				tip(`right`,`eastern-most (max) longitude`),`, `,
-				tip(`top`,`northern-most (max) latitude`),
-				`)`,rq('bbox')
-			]
-			if (this.nominatimSubForm) {
-				labelItems.push(
-					spanRequest(` (also `,code('west'),`, `,code('south'),`, `,code('east'),`, `,code('north'),` Nominatim parameters)`)
-				)
-			}
-			$fieldset.append(makeDiv('major-input-group')(makeLabel()(
-				...labelItems,` `,this.$bboxInput
-			)))
-			function tip(text: string, title: string) {
-				const $span=document.createElement('span')
-				$span.textContent=text
-				$span.title=title
-				$span.classList.add('tipped')
-				return $span
-			}
+		}
+		$fieldset.append(makeTextButtonInputGroup('spaced')(labelItems,this.$bboxInput,this.$linkCheckbox))
+		function tip(text: string, title: string) {
+			const $span=document.createElement('span')
+			$span.textContent=text
+			$span.title=title
+			$span.classList.add('tipped')
+			return $span
 		}
 		if (this.nominatimSubForm) {
 			this.nominatimSubForm.write($fieldset)
@@ -134,7 +126,7 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 	}
 	protected addEventListenersBeforeClosedLine(): void {
 		const trackMap=()=>{
-			if (this.$trackMapSelect.value=='bbox') {
+			if (this.$linkCheckbox.checked) {
 				this.setBbox(...this.map.precisionBounds.wsen)
 			}
 			this.nominatimSubForm?.updateRequest()
@@ -142,12 +134,12 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		this.$root.addEventListener('osmNoteViewer:mapMoveEnd',()=>{
 			trackMap()
 		})
-		this.$trackMapSelect.addEventListener('input',()=>{
+		this.$linkCheckbox.addEventListener('input',()=>{
 			trackMap()
 		})
 		this.$bboxInput.addEventListener('input',()=>{
 			if (!this.validateBbox()) return
-			this.$trackMapSelect.value='nothing'
+			this.$linkCheckbox.checked=false
 		})
 		if (this.nominatimSubForm) {
 			this.nominatimSubForm.addEventListeners()

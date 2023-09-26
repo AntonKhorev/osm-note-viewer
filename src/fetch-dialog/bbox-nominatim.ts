@@ -2,7 +2,7 @@ import type {NominatimProvider} from '../net'
 import {NominatimBbox, NominatimBboxFetcher} from '../nominatim'
 import makeTextButtonInputGroup from '../text-button-input-group'
 import {
-	makeElement, makeLink, makeDiv, makeLabel,
+	makeElement, makeLink, makeDiv,
 	wrapFetchForButton, makeGetKnownErrorMessage
 } from '../util/html'
 import {em,code} from '../util/html-shortcuts'
