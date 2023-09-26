@@ -101,6 +101,9 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 		const $rightLink=makeSvgElement('svg',{class:'link-right',width:'12',height:'12'})
 		$rightLink.innerHTML=`<use href="#chain-link-left" />`
 		$linkLabel.append($rightLink)
+		const $mapLink=makeSvgElement('svg',{class:'link-map',width:'19',height:'13'})
+		$mapLink.innerHTML=`<use href="#tools-map" />`
+		$linkLabel.append($mapLink)
 		$fieldset.append(makeTextButtonInputGroup()(labelItems,this.$bboxInput,$linkLabel))
 		function tip(text: string, title: string) {
 			const $span=document.createElement('span')
