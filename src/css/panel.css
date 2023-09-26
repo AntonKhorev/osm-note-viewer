@@ -55,6 +55,17 @@
 .panel button.only-with-icon [class|=icon] > svg {
 	vertical-align: inherit;
 }
+.panel .link-checkbox-holder {
+	display: flex;
+	align-items: center;
+	margin-right: calc(-1 * var(--panel-padding));
+}
+.panel .link-checkbox-holder input {
+	margin: 0;
+}
+.panel .link-checkbox-holder .link-right {
+	scale: -1;
+}
 
 .panel:not(.toolbar) details > summary:hover {
 	background: var(--hover-color);

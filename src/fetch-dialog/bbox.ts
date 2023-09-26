@@ -7,7 +7,8 @@ import type {NoteQuery} from '../query'
 import {makeNoteBboxQueryFromValues} from '../query'
 import type {NominatimBbox} from '../nominatim'
 import makeTextButtonInputGroup from '../text-button-input-group'
-import {makeElement, makeLink} from '../util/html'
+import {makeSvgElement} from '../svg'
+import {makeElement, makeLink, makeLabel} from '../util/html'
 import {p,em,code} from '../util/html-shortcuts'
 
 const rq=(param: string)=>makeElement('span')('advanced-hint')(` (`,code(param),` parameter)`)
@@ -76,7 +77,6 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 	protected writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void {
 		this.$linkCheckbox.type='checkbox'
 		this.$linkCheckbox.checked=true
-		this.$linkCheckbox.title=`Update bounding box on map view changes`
 		this.$bboxInput.type='text'
 		this.$bboxInput.name='bbox'
 		this.$bboxInput.required=true // otherwise could submit empty bbox without entering anything
@@ -93,7 +93,15 @@ export class NoteBboxFetchDialog extends NoteQueryFetchDialog {
 				spanRequest(` (also `,code('west'),`, `,code('south'),`, `,code('east'),`, `,code('north'),` Nominatim parameters)`)
 			)
 		}
-		$fieldset.append(makeTextButtonInputGroup('spaced')(labelItems,this.$bboxInput,this.$linkCheckbox))
+		const $linkLabel=makeLabel('link-checkbox-holder')(this.$linkCheckbox)
+		$linkLabel.title=`Update bounding box on map view changes`
+		const $leftLink=makeSvgElement('svg',{class:'link-left',width:'12',height:'12'})
+		$leftLink.innerHTML=`<use href="#chain-link-left" />`
+		$linkLabel.prepend($leftLink)
+		const $rightLink=makeSvgElement('svg',{class:'link-right',width:'12',height:'12'})
+		$rightLink.innerHTML=`<use href="#chain-link-left" />`
+		$linkLabel.append($rightLink)
+		$fieldset.append(makeTextButtonInputGroup()(labelItems,this.$bboxInput,$linkLabel))
 		function tip(text: string, title: string) {
 			const $span=document.createElement('span')
 			$span.textContent=text

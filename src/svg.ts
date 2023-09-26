@@ -1,6 +1,17 @@
 import type {Note} from './data'
 import {makeElement} from './util/html'
 
+export function makeSvgElement<K extends keyof SVGElementTagNameMap>(tag: K, attrs: {[name:string]:string}={}): SVGElementTagNameMap[K] {
+	const $e=document.createElementNS("http://www.w3.org/2000/svg",tag)
+	setSvgAttributes($e,attrs)
+	return $e
+}
+function setSvgAttributes($e: SVGElement, attrs: {[name:string]:string}): void {
+	for (const name in attrs) {
+		$e.setAttributeNS(null,name,attrs[name])
+	}
+}
+
 export function makeMapIcon(type: string): HTMLElement {
 	const $span=makeElement('span')(`icon-map-${type}`)()
 	$span.title=`map ${type}`
