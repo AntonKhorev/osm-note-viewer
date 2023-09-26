@@ -26,9 +26,9 @@ export function makeNotesIcon(type: string): HTMLElement {
 	return $span
 }
 
-export function makeActionIcon(type: string, text: string): HTMLElement {
+export function makeActionIcon(type: string, text?: string): HTMLElement {
 	const $span=makeElement('span')(`icon-action-${type}`)()
-	$span.title=text
+	if (text) $span.title=text
 	$span.innerHTML=`<svg width="13" height="13"><use href="#tools-${type}" /></svg>`
 	return $span
 }

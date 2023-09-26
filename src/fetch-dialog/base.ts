@@ -1,6 +1,7 @@
 import type {Connection} from '../net'
 import {NavDialog} from '../navbar'
 import type {NoteQuery} from '../query'
+import {makeActionIcon} from '../svg'
 import {bubbleCustomEvent} from '../util/events'
 import {makeElement, makeLink, makeSemiLink, makeDiv, makeLabel} from '../util/html'
 import {sup,code} from '../util/html-shortcuts'
@@ -275,7 +276,7 @@ export function mixinWithFetchButton<T extends abstract new (...args: any[]) => 
 	abstract class WithFetchButton extends c {
 		protected $fetchButton=document.createElement('button')
 		protected makeFetchControlDiv(): HTMLDivElement {
-			this.$fetchButton.append(makeInlineIcon('download'),` Fetch notes`)
+			this.$fetchButton.append(makeActionIcon('download'),` Fetch notes`)
 			this.$fetchButton.type='submit'
 			return makeDiv('major-input-group')(this.$fetchButton)
 		}
@@ -284,10 +285,4 @@ export function mixinWithFetchButton<T extends abstract new (...args: any[]) => 
 		}
 	}
 	return WithFetchButton
-}
-
-function makeInlineIcon(type: string): HTMLElement {
-	const $span=makeElement('span')(`icon`)()
-	$span.innerHTML=`<svg width="13" height="13"><use href="#tools-${type}" /></svg>`
-	return $span
 }
