@@ -309,14 +309,13 @@ export default abstract class DynamicNoteFetchDialog extends NoteFetchDialog {
 			this.$bboxInput.setCustomValidity(lead+`must contain four comma-separated values`)
 			return false
 		}
-		const numbers=splitValue.map(Number)
-		for (const number of numbers) {
+		for (const number of splitValue) {
 			if (!isFinite(Number(number))) {
 				this.$bboxInput.setCustomValidity(lead+`values must be numbers, "${number}" is not a number`)
 				return false
 			}
 		}
-		const [west,south,east,north]=numbers
+		const [west,south,east,north]=splitValue.map(Number)
 		const area=(east-west)*(north-south)
 		if (area>maxBboxArea) {
 			this.$bboxInput.setCustomValidity(lead+`area must not be greater than ${maxBboxArea} square degrees, currently it's ${Math.round(area)}`)
