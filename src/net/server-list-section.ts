@@ -33,7 +33,7 @@ Possible <em>object</em> properties are:</p>
 <dt>${property('web')}
 <dd><strong>required</strong>; a <em>URL string</em> or an <em>array</em> of <em>URL strings</em>; used to generate/detect links to users/notes/elements/changesets
 <dt>${property('api')}
-<dd>a <em>URL string</em>; used for OSM API requests; defaults to ${property('web')} property value if not specified
+<dd>an ${term('api specification')}; used for OSM API requests; defaults to ${property('web')} property value if not specified
 <dt>${property('nominatim')}
 <dd>a <em>URL string</em> pointing to a <a href=https://wiki.openstreetmap.org/wiki/Nominatim>Nominatim</a> service
 <dt>${property('overpass')}
@@ -48,6 +48,15 @@ Possible <em>object</em> properties are:</p>
 <dd>an ${term('oauth specification')}
 <dt>${property('note')}
 <dd>a <em>URL string</em>, a <em>text string</em> or an <em>array</em> of both representing a note about the server visible on the server list
+</dl>
+<p>An ${term('api specification')} is a <em>string</em> or an <em>object</em> with optional properties described below.
+A <em>string</em> value is equivalent to an <em>object</em> with only the ${property('url')} property set.
+Possible <em>object</em> properties are:</p>
+<dl>
+<dt>${property('url')}
+<dd>a <em>string</em> with template parameters like "<code>https://tile.openstreetmap.org/{z}/{x}/{y}.png</code>" or "<code>https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png</code>" to generate tile URLs
+<dt>${property('noteSearchBbox')}
+<dd><em>true</em> or <em>false</em>, indicating whether a <code>bbox</code> parameter is allowed in <a href="https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search">note search queries</a>
 </dl>
 <p>A ${term('tiles specification')} is a <em>string</em> or an <em>object</em> with optional properties described below.
 A <em>string</em> value is equivalent to an <em>object</em> with only the ${property('template')} property set.
