@@ -108,7 +108,7 @@ export default abstract class DynamicNoteFetchDialog extends NoteFetchDialog {
 				return $span
 			}
 			if (this.nominatimSubForm) {
-				const $details=makeElement('details')()(
+				const $details=makeElement('details')('for-preceding-group')(
 					makeElement('summary')()(`or get bounding box by place name from Nominatim`)
 				)
 				this.nominatimSubForm.write($details)
