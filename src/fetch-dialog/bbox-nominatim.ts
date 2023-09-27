@@ -10,6 +10,7 @@ import {em,code} from '../util/html-shortcuts'
 const spanRequest=(...ss: Array<string|HTMLElement>)=>makeElement('span')('advanced-hint')(...ss)
 
 let idCount=0
+const dumbCache=makeDumbCache() // TODO real cache in db
 
 export default class NominatimSubForm {
 	public $form=document.createElement('form')
@@ -22,9 +23,7 @@ export default class NominatimSubForm {
 		private getMapBounds: ()=>L.LatLngBounds,
 		private setBbox: (bbox:NominatimBbox)=>void
 	) {
-		this.bboxFetcher=new NominatimBboxFetcher(
-			nominatim,...makeDumbCache() // TODO real cache in db
-		)
+		this.bboxFetcher=new NominatimBboxFetcher(nominatim,...dumbCache)
 		this.$form.id='nominatim-form-'+idCount++
 		this.$input.type='text'
 		this.$input.required=true
