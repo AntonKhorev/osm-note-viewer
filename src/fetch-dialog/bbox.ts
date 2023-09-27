@@ -2,7 +2,7 @@ import type {ParameterListItem, QueryCaptionItem} from './dynamic'
 import DynamicNoteFetchDialog from './dynamic'
 import type {NoteQuery} from '../query'
 import {makeNoteBboxQueryFromValues} from '../query'
-import {makeLink} from '../util/html'
+import {makeDiv, makeLink} from '../util/html'
 import {p,em,code} from '../util/html-shortcuts'
 
 export default class NoteBboxFetchDialog extends DynamicNoteFetchDialog {
@@ -28,6 +28,13 @@ export default class NoteBboxFetchDialog extends DynamicNoteFetchDialog {
 				`It's impossible to download additional batches of notes because the API call used by this mode lacks date range parameters.`
 			]],
 		]
+	}
+	protected writeScopeAndOrderFieldsetBetweenParametersAndBbox($fieldset: HTMLFieldSetElement): void {
+		if (!this.cx.server.api.noteSearchBbox) return
+		$fieldset.append(makeDiv('notice')(
+			`This server supports `,code(`bbox`),` parameter in note searches. `,
+			`In `,em(`search`),` mode it's possible to combine `,code(`bbox`),` with other parameters and use progressive loading.`
+		))
 	}
 	protected modifyClosedLine($div: HTMLElement): void {
 		$div.append(
