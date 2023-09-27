@@ -34,4 +34,9 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
     - run: npm ci
+    - name: Cache downloads
+      uses: actions/cache@v3
+      with:
+        path: cache
+        key: browser-test-cache-v1
     - run: npm test test-browser
