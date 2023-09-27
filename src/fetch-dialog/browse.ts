@@ -24,7 +24,7 @@ export default class NoteBrowseFetchDialog extends DynamicNoteFetchDialog {
 			` request at `,code(this.cx.server.api.getUrl(`notes?`),em(`parameters`)),` like the `,makeLink(`note layer`,`https://wiki.openstreetmap.org/wiki/Notes#Viewing_notes`),`; see `,em(`BBox`),` tab for `,em(`parameters`),` descriptions.`
 		)]
 	}
-	protected writeScopeAndOrderFieldsetBeforeClosedLine($fieldset: HTMLFieldSetElement): void {
+	protected writeScopeAndOrderFieldsetBetweenParametersAndBbox($fieldset: HTMLFieldSetElement): void {
 		$fieldset.append(
 			this.$trackMapZoomNotice
 		)
