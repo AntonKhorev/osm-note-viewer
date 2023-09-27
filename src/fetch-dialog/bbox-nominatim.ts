@@ -20,7 +20,7 @@ export default class NominatimSubForm {
 	private bboxFetcher: NominatimBboxFetcher
 	constructor(
 		private nominatim: NominatimProvider,
-		private getMapBounds: ()=>L.LatLngBounds,
+		private getMapBounds: ()=>[w:string,s:string,e:string,n:string],
 		private setBbox: (bbox:NominatimBbox)=>void
 	) {
 		this.bboxFetcher=new NominatimBboxFetcher(nominatim,...dumbCache)
@@ -44,10 +44,9 @@ export default class NominatimSubForm {
 		$container.append(makeDiv('advanced-hint')(`Resulting Nominatim request: `,this.$requestOutput))
 	}
 	updateRequest(): void {
-		const bounds=this.getMapBounds()
 		const parameters=this.bboxFetcher.getParameters(
 			this.$input.value,
-			bounds.getWest(),bounds.getSouth(),bounds.getEast(),bounds.getNorth()
+			this.getMapBounds()
 		)
 		const url=this.nominatim.getSearchUrl(parameters)
 		const $a=makeLink(url,url)
@@ -58,11 +57,10 @@ export default class NominatimSubForm {
 		this.$input.addEventListener('input',()=>this.updateRequest())
 		this.$form.onsubmit=(ev)=>wrapFetchForButton(this.$button,async()=>{
 			ev.preventDefault()
-			const bounds=this.getMapBounds()
 			const bbox=await this.bboxFetcher.fetch(
 				Date.now(),
 				this.$input.value,
-				bounds.getWest(),bounds.getSouth(),bounds.getEast(),bounds.getNorth()
+				this.getMapBounds()
 			)
 			this.setBbox(bbox)
 		},makeGetKnownErrorMessage(TypeError))

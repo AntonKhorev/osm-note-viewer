@@ -20,12 +20,12 @@ export class NominatimBboxFetcher {
 	) {}
 	getParameters(
 		q: string,
-		west: number, south: number, east: number, north: number
+		viewbox: [w:string,s:string,e:string,n:string]
 	): string {
 		const e=makeEscapeTag(encodeURIComponent)
 		let parameters=e`limit=1&q=${q}`
+		const [west,south,east,north]=viewbox.map(Number)
 		if (east>west && north>south && east-west<360) {
-			const viewbox=`${west},${south},${east},${north}`
 			parameters+=e`&viewbox=${viewbox}`
 		}
 		return parameters
@@ -33,9 +33,9 @@ export class NominatimBboxFetcher {
 	async fetch(
 		timestamp: number,
 		q: string,
-		west: number, south: number, east: number, north: number
+		viewbox: [w:string,s:string,e:string,n:string]
 	): Promise<NominatimBbox> {
-		const parameters=this.getParameters(q,west,south,east,north)
+		const parameters=this.getParameters(q,viewbox)
 		const cacheBbox=await this.fetchFromCache(timestamp,parameters)
 		if (isNominatimBbox(cacheBbox)) {
 			await this.storeToCache(timestamp,parameters,cacheBbox)

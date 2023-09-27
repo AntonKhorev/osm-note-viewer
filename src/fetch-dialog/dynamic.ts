@@ -60,7 +60,7 @@ export default abstract class DynamicNoteFetchDialog extends NoteFetchDialog {
 		if (this.withBbox && this.cx.server.nominatim) {
 			this.nominatimSubForm=new NominatimSubForm(
 				this.cx.server.nominatim,
-				()=>this.map.bounds,
+				()=>this.map.precisionBounds.wsen,
 				(bbox:NominatimBbox)=>{
 					const [minLat,maxLat,minLon,maxLon]=bbox
 					this.setBbox(minLon,minLat,maxLon,maxLat)

@@ -39,7 +39,7 @@ describe("NominatimBboxFetcher",()=>{
 		const fetcher=new NominatimBboxFetcher(...makeFetcherInterface(calls,bboxResponse(['1','2','3','4'])))
 		const result=await fetcher.fetch(
 			123,`Lisbon`,
-			-10.04,38.12,-7.99,39.38
+			['-10.04','38.12','-7.99','39.38']
 		)
 		const parameters=`limit=1&q=Lisbon&viewbox=-10.04%2C38.12%2C-7.99%2C39.38`
 		assert.deepEqual(calls,[
@@ -54,7 +54,7 @@ describe("NominatimBboxFetcher",()=>{
 		const fetcher=new NominatimBboxFetcher(...makeFetcherInterface(calls,bboxResponse(['1','2','3','4']),['1','2','3','4']))
 		const result=await fetcher.fetch(
 			123,`Lisbon`,
-			-10.04,38.12,-7.99,39.38
+			['-10.04','38.12','-7.99','39.38']
 		)
 		const parameters=`limit=1&q=Lisbon&viewbox=-10.04%2C38.12%2C-7.99%2C39.38`
 		assert.deepEqual(calls,[
@@ -68,7 +68,7 @@ describe("NominatimBboxFetcher",()=>{
 		const fetcher=new NominatimBboxFetcher(...makeFetcherInterface(calls,bboxResponse(['5','6','7','8'])))
 		const result=await fetcher.fetch(
 			456,`Madrid`,
-			-258.04,-86.89,258.75,86.85
+			['-258.04','-86.89','258.75','86.85']
 		)
 		const parameters=`limit=1&q=Madrid`
 		assert.deepEqual(calls,[
@@ -83,7 +83,7 @@ describe("NominatimBboxFetcher",()=>{
 		const fetcher=new NominatimBboxFetcher(...makeFetcherInterface(calls,bboxResponse(['5','6','7','8']),['5','6','7','8']))
 		const result=await fetcher.fetch(
 			456,`Madrid`,
-			-258.04,-86.89,258.75,86.85
+			['-258.04','-86.89','258.75','86.85']
 		)
 		const parameters=`limit=1&q=Madrid`
 		assert.deepEqual(calls,[
@@ -97,7 +97,7 @@ describe("NominatimBboxFetcher",()=>{
 		const fetcher=new NominatimBboxFetcher(...makeFetcherInterface(calls,bboxResponse(['5','6','7','8']),['5','6','7','8']))
 		const result=await fetcher.fetch(
 			456,`Madrid`,
-			-10.04,40.12,-7.99,39.38
+			['-10.04','40.12','-7.99','39.38']
 		)
 		const parameters=`limit=1&q=Madrid`
 		assert.deepEqual(calls,[
@@ -112,7 +112,7 @@ describe("NominatimBboxFetcher",()=>{
 		try {
 			await fetcher.fetch(
 				123,`Lisbon`,
-				-10.04,38.12,-7.99,39.38
+				['-10.04','38.12','-7.99','39.38']
 			)
 			assert.fail('no expected exception')
 		} catch (ex) {
