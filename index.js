@@ -652,9 +652,14 @@ class WebProvider extends OsmProvider {
     }
 }
 class ApiProvider extends OsmProvider {
-    constructor(url) {
+    constructor(url, 
+    /**
+      * Whether able to use bbox parameter with notes/search api call
+      */
+    noteSearchBbox) {
         super();
         this.url = url;
+        this.noteSearchBbox = noteSearchBbox;
     }
     getUrl(path) {
         return `${this.url}api/0.6/${path}`;
@@ -741,7 +746,7 @@ class OverpassTurboProvider {
     }
 }
 class Server {
-    constructor(host, apiUrl, webUrls, tileUrlTemplate, tileAttributionUrl, tileAttributionText, tileMaxZoom, tileOwner, nominatimUrl, overpassUrl, overpassTurboUrl, noteUrl, noteText, world, oauthId, 
+    constructor(host, apiUrl, apiNoteSearchBbox, webUrls, tileUrlTemplate, tileAttributionUrl, tileAttributionText, tileMaxZoom, tileOwner, nominatimUrl, overpassUrl, overpassTurboUrl, noteUrl, noteText, world, oauthId, 
     /**
       * App location registered with OSM server to receive auth redirects
       */
@@ -753,7 +758,7 @@ class Server {
         this.oauthId = oauthId;
         this.oauthUrl = oauthUrl;
         this.web = new WebProvider(webUrls);
-        this.api = new ApiProvider(apiUrl);
+        this.api = new ApiProvider(apiUrl, apiNoteSearchBbox);
         this.tile = new TileProvider(tileUrlTemplate, tileAttributionUrl, tileAttributionText, tileMaxZoom, tileOwner);
         if (nominatimUrl != null)
             this.nominatim = new NominatimProvider(nominatimUrl);
@@ -917,6 +922,7 @@ function parseServerListSource(configSource) {
 }
 function parseServerListItem(config) {
     let apiUrl;
+    let apiNoteSearchBbox = false;
     let webUrls;
     let tileUrlTemplate = `https://tile.openstreetmap.org/{z}/{x}/{y}.png`;
     let tileAttributionUrl = `https://www.openstreetmap.org/copyright`;
@@ -946,7 +952,17 @@ function parseServerListItem(config) {
             }
         }
         if ('api' in config) {
-            apiUrl = requireUrlStringProperty('api', config.api);
+            if (typeof config.api == 'object' && config.api) {
+                if ('url' in config.api) {
+                    apiUrl = requireUrlStringProperty('api.url', config.api.url);
+                }
+                if ('noteSearchBbox' in config.api) {
+                    apiNoteSearchBbox = requireBooleanProperty('api.noteSearchBbox', config.api.noteSearchBbox);
+                }
+            }
+            else {
+                apiUrl = requireUrlStringProperty('api', config.api);
+            }
         }
         if ('nominatim' in config) {
             nominatimUrl = requireUrlStringProperty('nominatim', config.nominatim);
@@ -1027,6 +1043,7 @@ function parseServerListItem(config) {
     return [
         host,
         apiUrl ?? webUrls[0],
+        apiNoteSearchBbox,
         webUrls,
         tileUrlTemplate,
         tileAttributionUrl ?? deriveAttributionUrl(webUrls),
@@ -1041,7 +1058,7 @@ function parseServerListItem(config) {
 }
 function requireUrlStringProperty(name, value) {
     if (typeof value != 'string')
-        throw new RangeError(`${name} property required to be string; got ${type(value)} instead`);
+        throw newTypeError(name, value, 'string');
     try {
         return new URL(value).href;
     }
@@ -1051,12 +1068,17 @@ function requireUrlStringProperty(name, value) {
 }
 function requireStringProperty(name, value) {
     if (typeof value != 'string')
-        throw new RangeError(`${name} property required to be string; got ${type(value)} instead`);
+        throw newTypeError(name, value, 'string');
     return value;
 }
 function requireNumberProperty(name, value) {
     if (typeof value != 'number')
-        throw new RangeError(`${name} property required to be number; got ${type(value)} instead`);
+        throw newTypeError(name, value, 'number');
+    return value;
+}
+function requireBooleanProperty(name, value) {
+    if (typeof value != 'boolean')
+        throw newTypeError(name, value, 'boolean');
     return value;
 }
 function deriveAttributionUrl(webUrls) {
@@ -1095,6 +1117,9 @@ function parseUrlTextPair(name, urlValue, textValue, newItems) {
         throw new RangeError(`${name} property required to be string or array of strings; got ${type(newItems)} instead`);
     }
     return [urlValue, textValue];
+}
+function newTypeError(name, value, requiredType) {
+    return new RangeError(`${name} property required to be ${requiredType}; got ${type(value)} instead`);
 }
 function type(value) {
     if (Array.isArray(value)) {
@@ -1293,7 +1318,7 @@ Possible <em>object</em> properties are:</p>
 <dt>${property('web')}
 <dd><strong>required</strong>; a <em>URL string</em> or an <em>array</em> of <em>URL strings</em>; used to generate/detect links to users/notes/elements/changesets
 <dt>${property('api')}
-<dd>a <em>URL string</em>; used for OSM API requests; defaults to ${property('web')} property value if not specified
+<dd>an ${term$1('api specification')}; used for OSM API requests; defaults to ${property('web')} property value if not specified
 <dt>${property('nominatim')}
 <dd>a <em>URL string</em> pointing to a <a href=https://wiki.openstreetmap.org/wiki/Nominatim>Nominatim</a> service
 <dt>${property('overpass')}
@@ -1308,6 +1333,15 @@ Possible <em>object</em> properties are:</p>
 <dd>an ${term$1('oauth specification')}
 <dt>${property('note')}
 <dd>a <em>URL string</em>, a <em>text string</em> or an <em>array</em> of both representing a note about the server visible on the server list
+</dl>
+<p>An ${term$1('api specification')} is a <em>string</em> or an <em>object</em> with optional properties described below.
+A <em>string</em> value is equivalent to an <em>object</em> with only the ${property('url')} property set.
+Possible <em>object</em> properties are:</p>
+<dl>
+<dt>${property('url')}
+<dd>a <em>string</em> with template parameters like "<code>https://tile.openstreetmap.org/{z}/{x}/{y}.png</code>" or "<code>https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png</code>" to generate tile URLs
+<dt>${property('noteSearchBbox')}
+<dd><em>true</em> or <em>false</em>, indicating whether a <code>bbox</code> parameter is allowed in <a href="https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search">note search queries</a>
 </dl>
 <p>A ${term$1('tiles specification')} is a <em>string</em> or an <em>object</em> with optional properties described below.
 A <em>string</em> value is equivalent to an <em>object</em> with only the ${property('template')} property set.
@@ -1679,7 +1713,8 @@ function makeNotesIcon(type) {
 }
 function makeActionIcon(type, text) {
     const $span = makeElement('span')(`icon-action-${type}`)();
-    $span.title = text;
+    if (text)
+        $span.title = text;
     $span.innerHTML = `<svg width="13" height="13"><use href="#tools-${type}" /></svg>`;
     return $span;
 }
@@ -4751,7 +4786,7 @@ function makeUserQueryFromUserNameAndId(username, uid) {
         };
     }
 }
-function makeNoteSearchQueryFromUserQueryAndValues(userQuery, textValue, fromValue, toValue, closedValue, sortValue, orderValue) {
+function makeNoteSearchQueryFromUserQueryAndValues(userQuery, textValue, bboxValue, fromValue, toValue, closedValue, sortValue, orderValue) {
     const noteSearchQuery = {
         mode: 'search',
         closed: toClosed(closedValue),
@@ -4772,6 +4807,11 @@ function makeNoteSearchQueryFromUserQueryAndValues(userQuery, textValue, fromVal
         const s = textValue.trim();
         if (s)
             noteSearchQuery.q = s;
+    }
+    {
+        const s = bboxValue.trim();
+        if (s)
+            noteSearchQuery.bbox = s;
     }
     {
         const dateTimeQuery = toDateQuery(fromValue);
@@ -4805,8 +4845,8 @@ function makeNoteSearchQueryFromUserQueryAndValues(userQuery, textValue, fromVal
         return 'newest';
     }
 }
-function makeNoteSearchQueryFromValues(apiUrlLister, webUrlLister, userValue, textValue, fromValue, toValue, closedValue, sortValue, orderValue) {
-    return makeNoteSearchQueryFromUserQueryAndValues(toUserQuery(apiUrlLister, webUrlLister, userValue), textValue, fromValue, toValue, closedValue, sortValue, orderValue);
+function makeNoteSearchQueryFromValues(apiUrlLister, webUrlLister, userValue, textValue, bboxValue, fromValue, toValue, closedValue, sortValue, orderValue) {
+    return makeNoteSearchQueryFromUserQueryAndValues(toUserQuery(apiUrlLister, webUrlLister, userValue), textValue, bboxValue, fromValue, toValue, closedValue, sortValue, orderValue);
 }
 function makeNoteBboxQueryFromValues(bboxValue, closedValue) {
     const query = makeNoteBboxOrBrowseQueryFromValues(bboxValue, closedValue, 'bbox');
@@ -4849,7 +4889,7 @@ function makeNoteQueryFromHash(paramString) {
     const mode = searchParams.get('mode');
     if (mode == 'search') {
         const userQuery = makeUserQueryFromUserNameAndId(searchParams.get('display_name'), Number(searchParams.get('user') || undefined));
-        return makeNoteSearchQueryFromUserQueryAndValues(userQuery, searchParams.get('q') || '', searchParams.get('from') || '', searchParams.get('to') || '', searchParams.get('closed') || '', searchParams.get('sort') || '', searchParams.get('order') || '');
+        return makeNoteSearchQueryFromUserQueryAndValues(userQuery, searchParams.get('q') || '', searchParams.get('bbox') || '', searchParams.get('from') || '', searchParams.get('to') || '', searchParams.get('closed') || '', searchParams.get('sort') || '', searchParams.get('order') || '');
     }
     else if (mode == 'bbox' || mode == 'browse') {
         return makeNoteBboxOrBrowseQueryFromValues(searchParams.get('bbox') || '', searchParams.get('closed') || '', mode);
@@ -4874,6 +4914,9 @@ function makeNoteQueryString(query, withMode = true) {
         }
         if (query.q != null) {
             parameters.push(['q', query.q]);
+        }
+        if (query.bbox != null) {
+            parameters.push(['bbox', query.bbox]);
         }
         parameters.push(['sort', query.sort], ['order', query.order], ['closed', query.closed]);
         if (query.from != null)
@@ -5489,6 +5532,7 @@ class NoteFetchDialog extends NavDialog {
         this.getRequestApiPaths = getRequestApiPaths;
         this.submitQuery = submitQuery;
         this.$form = document.createElement('form');
+        this.withAutoload = false;
         this.$advancedModeCheckbox = document.createElement('input');
         this.$limitSelect = document.createElement('select');
         this.$limitInput = document.createElement('input');
@@ -5520,6 +5564,11 @@ class NoteFetchDialog extends NavDialog {
             return;
         this.submitQuery(query, false);
     }
+    disableFetchControl(disabled) {
+        if (this.$fetchControl) {
+            this.$fetchControl.disabled = disabled;
+        }
+    }
     get getLimit() {
         return () => {
             let limit;
@@ -5532,6 +5581,13 @@ class NoteFetchDialog extends NavDialog {
             if (Number.isInteger(limit) && limit >= 1 && limit <= 10000)
                 return limit;
             return this.limitDefaultValue;
+        };
+    }
+    get getAutoLoad() {
+        return () => {
+            if (!this.$autoLoadCheckbox)
+                return false;
+            return this.$autoLoadCheckbox.checked;
         };
     }
     getQueryCaption(query) {
@@ -5622,7 +5678,12 @@ class NoteFetchDialog extends NavDialog {
                 ? makeElement('span')('advanced-hint')(` (`, code('limit'), ` parameter)`)
                 : makeElement('span')('advanced-hint')(` (will make this many API requests each time it downloads more notes)`)))));
         }
-        this.writeDownloadModeFieldset($fieldset, $legend);
+        if (this.withAutoload) {
+            this.$autoLoadCheckbox = document.createElement('input');
+            this.$autoLoadCheckbox.type = 'checkbox';
+            this.$autoLoadCheckbox.checked = true;
+            $fieldset.append(makeDiv('regular-input-group')(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
+        }
         const $showImagesCheckbox = document.createElement('input');
         $showImagesCheckbox.type = 'checkbox';
         this.$sharedCheckboxes.showImages.push($showImagesCheckbox);
@@ -5684,6 +5745,17 @@ class NoteFetchDialog extends NavDialog {
                 this.limitChangeListener();
         }
     }
+    /**
+     * Adds fetch control, usually a 'fetch notes' button
+     *
+     * Override to make different control and set this.$fetchControl inside
+     */
+    makeFetchControlDiv() {
+        this.$fetchControl = document.createElement('button');
+        this.$fetchControl.append(makeActionIcon('download'), ` Fetch notes`);
+        this.$fetchControl.type = 'submit';
+        return makeDiv('major-input-group')(this.$fetchControl);
+    }
     listPrependedFieldsets() { return []; }
     writeExtraForms() { }
     makeInputLink($input, text) {
@@ -5693,52 +5765,200 @@ class NoteFetchDialog extends NavDialog {
         return $a;
     }
 }
-function mixinWithAutoLoadCheckbox(c) {
-    class WithAutoLoadCheckbox extends c {
-        constructor() {
-            super(...arguments);
-            this.$autoLoadCheckbox = document.createElement('input');
-        }
-        get getAutoLoad() {
-            return () => this.$autoLoadCheckbox.checked;
-        }
-        writeDownloadModeFieldset($fieldset) {
-            this.$autoLoadCheckbox.type = 'checkbox';
-            this.$autoLoadCheckbox.checked = true;
-            $fieldset.append(makeDiv('regular-input-group')(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
-        }
+
+function isNominatimBbox(bbox) {
+    if (!Array.isArray(bbox))
+        return false;
+    if (bbox.length != 4)
+        return false;
+    for (const entry of bbox) {
+        if (!(typeof entry == "string"))
+            return false;
     }
-    return WithAutoLoadCheckbox;
+    return true;
 }
-function mixinWithFetchButton(c) {
-    class WithFetchButton extends c {
-        constructor() {
-            super(...arguments);
-            this.$fetchButton = document.createElement('button');
-        }
-        makeFetchControlDiv() {
-            this.$fetchButton.append(makeInlineIcon$2('download'), ` Fetch notes`);
-            this.$fetchButton.type = 'submit';
-            return makeDiv('major-input-group')(this.$fetchButton);
-        }
-        disableFetchControl(disabled) {
-            this.$fetchButton.disabled = disabled;
-        }
+class NominatimBboxFetcher {
+    constructor(nominatim, fetchFromCache, storeToCache) {
+        this.nominatim = nominatim;
+        this.fetchFromCache = fetchFromCache;
+        this.storeToCache = storeToCache;
     }
-    return WithFetchButton;
+    getParameters(q, viewbox) {
+        const e = makeEscapeTag(encodeURIComponent);
+        let parameters = e `limit=1&q=${q}`;
+        const [west, south, east, north] = viewbox.map(Number);
+        if (east > west && north > south && east - west < 360) {
+            parameters += e `&viewbox=${viewbox}`;
+        }
+        return parameters;
+    }
+    async fetch(timestamp, q, viewbox) {
+        const parameters = this.getParameters(q, viewbox);
+        const cacheBbox = await this.fetchFromCache(timestamp, parameters);
+        if (isNominatimBbox(cacheBbox)) {
+            await this.storeToCache(timestamp, parameters, cacheBbox);
+            return cacheBbox;
+        }
+        const data = await this.nominatim.search(parameters);
+        if (!Array.isArray(data))
+            throw new TypeError('Nominatim error: invalid data');
+        if (data.length <= 0)
+            throw new TypeError('Nominatim failed to find the place');
+        const placeData = data[0];
+        const bbox = placeData?.boundingbox;
+        if (!isNominatimBbox(bbox))
+            throw new TypeError('Nominatim error: invalid bbox data');
+        await this.storeToCache(timestamp, parameters, bbox);
+        return bbox;
+    }
 }
-class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
-    constructor() {
-        super(...arguments);
+
+let idCount$1 = 0;
+function makeTextButtonInputGroup(...classes) {
+    return (labelItems, $input, $button) => {
+        const id = 'text-button-input-group-input-' + idCount$1++;
+        const $label = makeLabel()(...labelItems);
+        $label.htmlFor = $input.id = id;
+        return makeDiv('text-button-input-group', ...classes)($label, ` `, makeElement('span')()($input, ` `, $button));
+    };
+}
+
+const spanRequest$1 = (...ss) => makeElement('span')('advanced-hint')(...ss);
+let idCount = 0;
+const dumbCache = makeDumbCache(); // TODO real cache in db
+class NominatimSubForm {
+    constructor(nominatim, getMapBounds, setBbox) {
+        this.nominatim = nominatim;
+        this.getMapBounds = getMapBounds;
+        this.setBbox = setBbox;
+        this.$form = document.createElement('form');
+        this.$input = document.createElement('input');
+        this.$button = document.createElement('button');
+        this.$requestOutput = document.createElement('output');
+        this.bboxFetcher = new NominatimBboxFetcher(nominatim, ...dumbCache);
+        this.$form.id = 'nominatim-form-' + idCount++;
+        this.$input.type = 'text';
+        this.$input.required = true;
+        this.$input.classList.add('no-invalid-indication'); // because it's inside another form that doesn't require it, don't indicate that it's invalid
+        this.$input.name = 'place';
+        this.$input.setAttribute('form', this.$form.id);
+        this.$button.textContent = 'Get';
+        this.$button.setAttribute('form', this.$form.id);
+    }
+    write($container) {
+        $container.append(makeDiv('advanced-hint')(`Make `, makeLink(`Nominatim search query`, `https://nominatim.org/release-docs/develop/api/Search/`), ` at `, code(this.nominatim.getSearchUrl(''), em(`parameters`)), `; see `, em(`parameters`), ` above and below.`));
+        $container.append(makeTextButtonInputGroup('spaced')([
+            `Nominatim query`, spanRequest$1(` (`, code('q'), ` Nominatim parameter, free-form query)`)
+        ], this.$input, this.$button));
+        $container.append(makeDiv('advanced-hint')(`Resulting Nominatim request: `, this.$requestOutput));
+    }
+    updateRequest() {
+        const parameters = this.bboxFetcher.getParameters(this.$input.value, this.getMapBounds());
+        const url = this.nominatim.getSearchUrl(parameters);
+        const $a = makeLink(url, url);
+        $a.classList.add('request');
+        this.$requestOutput.replaceChildren(code($a));
+    }
+    addEventListeners() {
+        this.$input.addEventListener('input', () => this.updateRequest());
+        this.$form.onsubmit = (ev) => wrapFetchForButton(this.$button, async () => {
+            ev.preventDefault();
+            const bbox = await this.bboxFetcher.fetch(Date.now(), this.$input.value, this.getMapBounds());
+            this.setBbox(bbox);
+        }, makeGetKnownErrorMessage(TypeError));
+    }
+}
+function makeDumbCache() {
+    const cache = new Map();
+    return [
+        async (timestamp, url) => cache.get(url),
+        async (timestamp, url, bbox) => cache.set(url, bbox)
+    ];
+}
+
+const maxBboxArea = 25;
+const rq$1 = (param) => makeElement('span')('advanced-hint')(` (`, code(param), ` parameter)`);
+const spanRequest = (...ss) => makeElement('span')('advanced-hint')(...ss);
+class DynamicNoteFetchDialog extends NoteFetchDialog {
+    constructor($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, map) {
+        super($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery);
+        this.map = map;
+        this.withBboxRequiredWhenPresent = false;
         this.$closedInput = document.createElement('input');
         this.$closedSelect = document.createElement('select');
     }
-    writeScopeAndOrderFieldset($fieldset) {
-        {
-            $fieldset.append(makeDiv('advanced-hint')(...this.makeLeadAdvancedHint()));
+    get withBbox() {
+        return false;
+    }
+    populateInputs(query) {
+        super.populateInputs(query);
+        this.nominatimSubForm?.updateRequest();
+    }
+    writeExtraForms() {
+        if (this.nominatimSubForm) {
+            this.$section.append(this.nominatimSubForm.$form);
         }
+    }
+    writeScopeAndOrderFieldset($fieldset) {
+        if (this.withBbox) {
+            this.$bboxInput = document.createElement('input');
+            this.$bboxInput.type = 'text';
+            this.$bboxInput.name = 'bbox';
+            this.$bboxInput.required = this.withBboxRequiredWhenPresent;
+            this.$linkCheckbox = document.createElement('input');
+            this.$linkCheckbox.type = 'checkbox';
+            this.$linkCheckbox.checked = this.withBboxRequiredWhenPresent;
+        }
+        if (this.withBbox && this.cx.server.nominatim) {
+            this.nominatimSubForm = new NominatimSubForm(this.cx.server.nominatim, () => this.map.precisionBounds.wsen, (bbox) => {
+                const [minLat, maxLat, minLon, maxLon] = bbox;
+                this.setBbox(minLon, minLat, maxLon, maxLat);
+                if (this.$linkCheckbox)
+                    this.$linkCheckbox.checked = false;
+                this.map.fitBounds([[Number(minLat), Number(minLon)], [Number(maxLat), Number(maxLon)]]);
+            });
+        }
+        $fieldset.append(makeDiv('advanced-hint')(...this.makeLeadAdvancedHint()));
         this.writeScopeAndOrderFieldsetQueryParameterHints($fieldset);
-        this.writeScopeAndOrderFieldsetBeforeClosedLine($fieldset);
+        this.writeScopeAndOrderFieldsetBetweenParametersAndBbox($fieldset);
+        if (this.$bboxInput && this.$linkCheckbox) {
+            const labelItems = [
+                `Bounding box (`,
+                tip(`left`, `western-most (min) longitude`), `, `,
+                tip(`bottom`, `southern-most (min) latitude`), `, `,
+                tip(`right`, `eastern-most (max) longitude`), `, `,
+                tip(`top`, `northern-most (max) latitude`),
+                `)`, rq$1('bbox')
+            ];
+            if (this.nominatimSubForm) {
+                labelItems.push(spanRequest(` (also `, code('west'), `, `, code('south'), `, `, code('east'), `, `, code('north'), ` Nominatim parameters)`));
+            }
+            const $linkLabel = makeLabel('link-checkbox-holder')(this.$linkCheckbox);
+            $linkLabel.title = `Update bounding box on map view changes`;
+            const $leftLink = makeSvgElement('svg', { class: 'link-left', width: '12', height: '12' });
+            $leftLink.innerHTML = `<use href="#chain-link-left" />`;
+            $linkLabel.prepend($leftLink);
+            const $rightLink = makeSvgElement('svg', { class: 'link-right', width: '12', height: '12' });
+            $rightLink.innerHTML = `<use href="#chain-link-left" />`;
+            $linkLabel.append($rightLink);
+            const $mapLink = makeSvgElement('svg', { class: 'link-map', width: '19', height: '13' });
+            $mapLink.innerHTML = `<use href="#tools-map" />`;
+            $linkLabel.append($mapLink);
+            $fieldset.append(makeTextButtonInputGroup()(labelItems, this.$bboxInput, $linkLabel));
+            function tip(text, title) {
+                const $span = document.createElement('span');
+                $span.textContent = text;
+                $span.title = title;
+                $span.classList.add('tipped');
+                return $span;
+            }
+            if (this.nominatimSubForm) {
+                const $details = makeElement('details')('for-preceding-group')(makeElement('summary')()(`or get bounding box by place name from Nominatim`));
+                this.nominatimSubForm.write($details);
+                $fieldset.append($details);
+            }
+        }
+        this.writeScopeAndOrderFieldsetBetweenBboxAndClosed($fieldset);
         {
             this.$closedInput.type = 'number';
             this.$closedInput.min = '-1';
@@ -5751,20 +5971,29 @@ class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
     }
     writeScopeAndOrderFieldsetQueryParameterHints($fieldset) {
         const makeTr = (cellType) => (...sss) => makeElement('tr')()(...sss.map(ss => makeElement(cellType)()(...ss)));
-        const closedDescriptionItems = [
-            `Max number of days for closed note to be visible. `,
-            `In `, em(`advanced mode`), ` can be entered as a numeric value. `,
-            `When `, em(`advanced mode`), ` is disabled this parameter is available as a dropdown menu with the following values: `,
-            makeElement('table')()(makeTr('th')([`label`], [`value`], [`description`]), makeTr('td')([em(`both open and closed`)], [code(`-1`)], [
-                `Special value to ignore how long ago notes were closed. `,
-                `This is the default value for `, em(`note-viewer`), ` because it's the most useful one in conjunction with searching for a given user's notes.`
-            ]), makeTr('td')([em(`open and recently closed`)], [code(`7`)], [
-                `The most common value used in other apps like the OSM website.`
-            ]), makeTr('td')([em(`only open`)], [code(`0`)], [
-                `Ignore closed notes.`
-            ]))
-        ];
-        const parameters = this.listParameters(closedDescriptionItems);
+        const extraQueryParameters = [];
+        if (this.$bboxInput) {
+            extraQueryParameters.push(['bbox', this.$bboxInput, [
+                    `Bounding box. `,
+                    `Expect `, em(`The maximum bbox size is ..., and your request was too large`), ` error if the bounding box is too large. `,
+                    `Maximum allowed bbox area in square degrees can be found in the `, em(`note_area`), ` value of `, makeLink(`API capabilities`, this.cx.server.api.getUrl(`capabilities`)), `. `,
+                    `Currently all major `, em(`openstreetmap-website`), ` deployments have it set to `, strong(String(maxBboxArea)), `, this is what `, em(`note-viewer`), ` assumes.`
+                ]]);
+        }
+        const closedParameter = ['closed', this.$closedInput, [
+                `Max number of days for closed note to be visible. `,
+                `In `, em(`advanced mode`), ` can be entered as a numeric value. `,
+                `When `, em(`advanced mode`), ` is disabled this parameter is available as a dropdown menu with the following values: `,
+                makeElement('table')()(makeTr('th')([`label`], [`value`], [`description`]), makeTr('td')([em(`both open and closed`)], [code(`-1`)], [
+                    `Special value to ignore how long ago notes were closed. `,
+                    `This is the default value for `, em(`note-viewer`), ` because it's the most useful one in conjunction with searching for a given user's notes.`
+                ]), makeTr('td')([em(`open and recently closed`)], [code(`7`)], [
+                    `The most common value used in other apps like the OSM website.`
+                ]), makeTr('td')([em(`only open`)], [code(`0`)], [
+                    `Ignore closed notes.`
+                ]))
+            ]];
+        const parameters = this.listParameters(extraQueryParameters, closedParameter);
         if (parameters.length == 0)
             return;
         const $table = document.createElement('table');
@@ -5781,13 +6010,38 @@ class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
         }
         $fieldset.append(makeDiv('advanced-hint')(makeElement('details')()(makeElement('summary')()(`Supported parameters`), $table)));
     }
-    listParameters(closedDescriptionItems) { return []; }
+    listParameters(extraQueryParameters, closedParameter) { return []; }
+    writeScopeAndOrderFieldsetBetweenParametersAndBbox($fieldset) { }
+    writeScopeAndOrderFieldsetBetweenBboxAndClosed($fieldset) { }
     getClosedLineNotesText() {
         return `notes`;
     }
     modifyClosedLine($div) { }
     addEventListeners() {
         this.addEventListenersBeforeClosedLine();
+        if (this.$bboxInput && this.$linkCheckbox) {
+            const trackMap = () => {
+                if (this.$linkCheckbox?.checked) {
+                    this.setBbox(...this.map.precisionBounds.wsen);
+                }
+                this.nominatimSubForm?.updateRequest();
+            };
+            this.$root.addEventListener('osmNoteViewer:mapMoveEnd', () => {
+                trackMap();
+            });
+            this.$linkCheckbox.addEventListener('input', () => {
+                trackMap();
+            });
+            this.$bboxInput.addEventListener('input', () => {
+                if (!this.validateBbox())
+                    return;
+                if (this.$linkCheckbox)
+                    this.$linkCheckbox.checked = false;
+            });
+            if (this.nominatimSubForm) {
+                this.nominatimSubForm.addEventListeners();
+            }
+        }
         this.$closedSelect.addEventListener('input', () => {
             this.$closedInput.value = this.$closedSelect.value;
             this.onClosedValueChange();
@@ -5797,12 +6051,15 @@ class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
             this.onClosedValueChange();
         });
     }
+    addEventListenersBeforeClosedLine() { }
     onClosedValueChange() { }
     populateInputsWithoutUpdatingRequest(query) {
         this.populateInputsWithoutUpdatingRequestExceptForClosedInput(query);
         if (query && (query.mode == 'search' || query.mode == 'bbox' || query.mode == 'browse')) {
             this.$closedInput.value = String(query.closed);
             this.$closedSelect.value = String(restrictClosedSelectValue(query.closed));
+            if (this.$bboxInput)
+                this.$bboxInput.value = query?.bbox ?? '';
         }
         else {
             this.$closedInput.value = this.$closedSelect.value = this.defaultClosedValue;
@@ -5811,6 +6068,7 @@ class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
     get defaultClosedValue() {
         return '-1';
     }
+    populateInputsWithoutUpdatingRequestExceptForClosedInput(query) { }
     get closedValue() {
         return (this.$advancedModeCheckbox.checked
             ? this.$closedInput.value
@@ -5819,7 +6077,11 @@ class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
     getQueryCaption(query) {
         if (query.mode != 'search' && query.mode != 'bbox' && query.mode != 'browse')
             return super.getQueryCaption(query);
-        const items = this.getQueryCaptionItems(query);
+        const extraQueryCaptionItems = [];
+        if (this.$bboxInput && query.bbox != null) {
+            extraQueryCaptionItems.push([`bounding box `, this.makeInputLink(this.$bboxInput, query.bbox)]);
+        }
+        const items = this.getQueryCaptionItems(query, extraQueryCaptionItems);
         const $caption = makeElement('caption')()();
         if (query.closed == 0) {
             $caption.append(`open notes`);
@@ -5848,16 +6110,46 @@ class NoteQueryFetchDialog extends mixinWithFetchButton(NoteFetchDialog) {
         }
         return $caption;
     }
-}
-class NoteIdsFetchDialog extends mixinWithAutoLoadCheckbox(NoteFetchDialog) {
-    constructor() {
-        super(...arguments);
-        this.limitValues = [5, 20];
-        this.limitDefaultValue = 5;
-        this.limitLeadText = `Download these `;
-        this.limitLabelBeforeText = `in batches of `;
-        this.limitLabelAfterText = ` notes`;
-        this.limitIsParameter = false;
+    listQueryChangingInputs() {
+        const $inputs = this.listQueryChangingInputsWithoutBbox();
+        if (this.$bboxInput)
+            $inputs.push(this.$bboxInput);
+        return $inputs;
+    }
+    setBbox(west, south, east, north) {
+        if (!this.$bboxInput)
+            return;
+        // (left,bottom,right,top)
+        this.$bboxInput.value = west + ',' + south + ',' + east + ',' + north;
+        this.validateBbox();
+        this.updateRequest();
+    }
+    validateBbox() {
+        if (!this.$bboxInput)
+            return true;
+        const value = this.$bboxInput.value.trim();
+        if (!this.withBboxRequiredWhenPresent && value == '')
+            return true;
+        const lead = this.withBboxRequiredWhenPresent ? `` : `if provided, `;
+        const splitValue = value.split(',');
+        if (splitValue.length != 4) {
+            this.$bboxInput.setCustomValidity(lead + `must contain four comma-separated values`);
+            return false;
+        }
+        for (const number of splitValue) {
+            if (!isFinite(Number(number))) {
+                this.$bboxInput.setCustomValidity(lead + `values must be numbers, "${number}" is not a number`);
+                return false;
+            }
+        }
+        const [west, south, east, north] = splitValue.map(Number);
+        const area = (east - west) * (north - south);
+        if (area > maxBboxArea) {
+            this.$bboxInput.setCustomValidity(lead + `area must not be greater than ${maxBboxArea} square degrees, currently it's ${Math.round(area)}`);
+            return false;
+        }
+        this.$bboxInput.setCustomValidity('');
+        return true;
     }
 }
 function restrictClosedSelectValue(v) {
@@ -5870,11 +6162,6 @@ function restrictClosedSelectValue(v) {
     else {
         return 7;
     }
-}
-function makeInlineIcon$2(type) {
-    const $span = makeElement('span')(`icon`)();
-    $span.innerHTML = `<svg width="13" height="13"><use href="#tools-${type}" /></svg>`;
-    return $span;
 }
 
 class DateInput {
@@ -5998,23 +6285,14 @@ class TextControl {
     }
 }
 
-let idCount = 0;
-function makeTextButtonInputGroup(...classes) {
-    return (labelItems, $input, $button) => {
-        const id = 'text-button-input-group-input-' + idCount++;
-        const $label = makeLabel()(...labelItems);
-        $label.htmlFor = $input.id = id;
-        return makeDiv('text-button-input-group', ...classes)($label, ` `, makeElement('span')()($input, ` `, $button));
-    };
-}
-
-const rq$1 = (param) => makeElement('span')('advanced-hint')(` (`, code(param), ` parameter)`);
+const rq = (param) => makeElement('span')('advanced-hint')(` (`, code(param), ` parameter)`);
 const rq2 = (param1, param2) => makeElement('span')('advanced-hint')(` (`, code(param1), ` or `, code(param2), ` parameter)`);
-class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDialog) {
+class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
     constructor() {
         super(...arguments);
         this.shortTitle = `Search`;
         this.title = `Search notes for user / text / date range`;
+        this.withAutoload = true;
         this.$userInput = document.createElement('input');
         this.$textInput = document.createElement('input');
         this.fromDateInput = new DateInput();
@@ -6028,10 +6306,13 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         this.limitLabelAfterText = ` notes`;
         this.limitIsParameter = true;
     }
+    get withBbox() {
+        return this.cx.server.api.noteSearchBbox;
+    }
     makeLeadAdvancedHint() {
         return [p(`Make a `, makeLink(`notes search`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`), ` request at `, code(this.cx.server.api.getUrl(`notes/search?`), em(`parameters`)), `; see `, em(`parameters`), ` below.`)];
     }
-    listParameters(closedDescriptionItems) {
+    listParameters(extraQueryParameters, closedParameter) {
         return [
             ['q', this.$textInput, [
                     `Comment text search query. `,
@@ -6039,12 +6320,6 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
                     `This is not a substring search but rather a full-text search with English stemming rules. `,
                     `It may not work correctly for other languages.`
                 ]],
-            ['limit', this.$limitInput, [
-                    `Max number of notes to fetch. `,
-                    `For `, em(`search`), ` mode it corresponds to the size of one batch of notes since it's possible to load additional batches by pressing the `, em(`Load more`), ` button below the note table. `,
-                    `This additional downloading is implemented by manipulating the requested date range.`
-                ]],
-            ['closed', this.$closedInput, closedDescriptionItems],
             ['display_name', this.$userInput, [
                     `Name of a user interacting with a note. `,
                     `Both this parameter and the next one are optional. `,
@@ -6064,6 +6339,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
                     `In this case the remaining part of the value is treated as a user id number. `,
                     `Ids and URLs can be unambiguously detected in the input because usernames can't contain any of the following characters: `, code(`/;.,?%#`), `.`
                 ]],
+            ...extraQueryParameters,
             ['from', this.fromDateInput.$input, [
                     `Beginning of a date range. `,
                     `This parameter is optional but if not provided the API will also ignore the `, code('to'), ` parameter. `,
@@ -6073,6 +6349,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
             ['to', this.toDateInput.$input, [
                     `End of a date range.`
                 ]],
+            closedParameter,
             ['sort', this.$sortSelect, [
                     `Date to sort the notes. `,
                     `This can be either a create date or an update date. `,
@@ -6082,42 +6359,45 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
                     `Sort order. `,
                     `Ascending or descending.`
                 ]],
+            ['limit', this.$limitInput, [
+                    `Max number of notes to fetch. `,
+                    `For `, em(`search`), ` mode it corresponds to the size of one batch of notes since it's possible to load additional batches by pressing the `, em(`Load more`), ` button below the note table. `,
+                    `This additional downloading is implemented by manipulating the requested date range.`
+                ]],
         ];
     }
-    writeScopeAndOrderFieldsetBeforeClosedLine($fieldset) {
-        {
-            this.$userInput.type = 'text';
-            this.$userInput.name = 'user';
-            this.$userInput.size = 50;
-            const userInputControl = new TextControl(this.$userInput, () => this.cx.username != null, () => this.$userInput.value != this.cx.username, () => this.$userInput.value != this.cx.username, (username) => this.$userInput.value = username, async ($a) => {
-                if (this.cx.username == null)
-                    throw new TypeError(`Undefined user when setting user search value`);
-                const oldUsername = this.$userInput.value;
-                this.$userInput.value = this.cx.username;
-                return oldUsername;
-            }, () => [makeElement('span')()(`undo set to`)], () => [makeElement('span')()(`set to`), ` `, em(String(this.cx.username))]);
-            this.$textInput.type = 'text';
-            this.$textInput.name = 'text';
-            this.$textInput.size = 50;
-            $fieldset.append(makeDiv('input-super-group')(makeDiv('major-input-group')(userInputControl.$controls, makeLabel()(`Username, URL or #id`, rq2('display_name', 'user'), ` `, this.$userInput)), makeDiv('major-input-group')(makeLabel()(`Comment text search query`, rq$1('q'), ` `, this.$textInput))));
-            this.$root.addEventListener('osmNoteViewer:loginChange', () => {
-                userInputControl.update();
-            });
-        }
-        {
-            this.fromDateInput.$input.name = 'from';
-            this.toDateInput.$input.name = 'to';
-            $fieldset.append(makeDiv('input-super-group')(makeTextButtonInputGroup()([
-                `From date`, rq$1('from')
-            ], ...this.fromDateInput.$elements), makeTextButtonInputGroup()([
-                `To date`, rq$1('to')
-            ], ...this.toDateInput.$elements)));
-        }
+    writeScopeAndOrderFieldsetBetweenParametersAndBbox($fieldset) {
+        this.$userInput.type = 'text';
+        this.$userInput.name = 'user';
+        this.$userInput.size = 50;
+        const userInputControl = new TextControl(this.$userInput, () => this.cx.username != null, () => this.$userInput.value != this.cx.username, () => this.$userInput.value != this.cx.username, (username) => this.$userInput.value = username, async ($a) => {
+            if (this.cx.username == null)
+                throw new TypeError(`Undefined user when setting user search value`);
+            const oldUsername = this.$userInput.value;
+            this.$userInput.value = this.cx.username;
+            return oldUsername;
+        }, () => [makeElement('span')()(`undo set to`)], () => [makeElement('span')()(`set to`), ` `, em(String(this.cx.username))]);
+        this.$textInput.type = 'text';
+        this.$textInput.name = 'text';
+        this.$textInput.size = 50;
+        $fieldset.append(makeDiv('input-super-group')(makeDiv('major-input-group')(userInputControl.$controls, makeLabel()(`Username, URL or #id`, rq2('display_name', 'user'), ` `, this.$userInput)), makeDiv('major-input-group')(makeLabel()(`Comment text search query`, rq('q'), ` `, this.$textInput))));
+        this.$root.addEventListener('osmNoteViewer:loginChange', () => {
+            userInputControl.update();
+        });
+    }
+    writeScopeAndOrderFieldsetBetweenBboxAndClosed($fieldset) {
+        this.fromDateInput.$input.name = 'from';
+        this.toDateInput.$input.name = 'to';
+        $fieldset.append(makeDiv('input-super-group')(makeTextButtonInputGroup()([
+            `From date`, rq('from')
+        ], ...this.fromDateInput.$elements), makeTextButtonInputGroup()([
+            `To date`, rq('to')
+        ], ...this.toDateInput.$elements)));
     }
     modifyClosedLine($div) {
         this.$sortSelect.append(new Option(`creation`, 'created_at'), new Option(`last update`, 'updated_at'));
         this.$orderSelect.append(new Option('newest'), new Option('oldest'));
-        $div.append(` `, makeLabel('inline')(`sorted by `, this.$sortSelect, rq$1('sort'), ` date`), `, `, makeLabel('inline')(this.$orderSelect, rq$1('order'), ` first`));
+        $div.append(` `, makeLabel('inline')(`sorted by `, this.$sortSelect, rq('sort'), ` date`), `, `, makeLabel('inline')(this.$orderSelect, rq('order'), ` first`));
     }
     populateInputsWithoutUpdatingRequestExceptForClosedInput(query) {
         if (query && query.mode != 'search')
@@ -6151,16 +6431,16 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         });
     }
     constructQuery() {
-        return makeNoteSearchQueryFromValues(this.cx.server.api, this.cx.server.web, this.$userInput.value, this.$textInput.value, this.fromDateInput.value, this.toDateInput.value, this.closedValue, this.$sortSelect.value, this.$orderSelect.value);
+        return makeNoteSearchQueryFromValues(this.cx.server.api, this.cx.server.web, this.$userInput.value, this.$textInput.value, this.$bboxInput?.value ?? '', this.fromDateInput.value, this.toDateInput.value, this.closedValue, this.$sortSelect.value, this.$orderSelect.value);
     }
-    listQueryChangingInputs() {
+    listQueryChangingInputsWithoutBbox() {
         return [
             this.$userInput, this.$textInput,
             // this.fromDateInput.$input,this.toDateInput.$input, // request updated in this class
             this.$closedInput, this.$closedSelect, this.$sortSelect, this.$orderSelect
         ];
     }
-    getQueryCaptionItems(query) {
+    getQueryCaptionItems(query, extraQueryCaptionItems) {
         if (query.mode != 'search')
             return [];
         const items = [];
@@ -6173,6 +6453,7 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
         if (query.q != null) {
             items.push([`text `, this.makeInputLink(this.$textInput, query.q)]);
         }
+        items.push(...extraQueryCaptionItems);
         if (query.from != null && query.to != null) {
             items.push([`dates `,
                 this.makeInputLink(this.$textInput, toShortReadableDate(query.from)), `..`,
@@ -6191,272 +6472,73 @@ class NoteSearchFetchDialog extends mixinWithAutoLoadCheckbox(NoteQueryFetchDial
     }
 }
 
-function isNominatimBbox(bbox) {
-    if (!Array.isArray(bbox))
-        return false;
-    if (bbox.length != 4)
-        return false;
-    for (const entry of bbox) {
-        if (!(typeof entry == "string"))
-            return false;
-    }
-    return true;
-}
-class NominatimBboxFetcher {
-    constructor(nominatim, fetchFromCache, storeToCache) {
-        this.nominatim = nominatim;
-        this.fetchFromCache = fetchFromCache;
-        this.storeToCache = storeToCache;
-    }
-    getParameters(q, west, south, east, north) {
-        const e = makeEscapeTag(encodeURIComponent);
-        let parameters = e `limit=1&q=${q}`;
-        if (east > west && north > south && east - west < 360) {
-            const viewbox = `${west},${south},${east},${north}`;
-            parameters += e `&viewbox=${viewbox}`;
-        }
-        return parameters;
-    }
-    async fetch(timestamp, q, west, south, east, north) {
-        const parameters = this.getParameters(q, west, south, east, north);
-        const cacheBbox = await this.fetchFromCache(timestamp, parameters);
-        if (isNominatimBbox(cacheBbox)) {
-            await this.storeToCache(timestamp, parameters, cacheBbox);
-            return cacheBbox;
-        }
-        const data = await this.nominatim.search(parameters);
-        if (!Array.isArray(data))
-            throw new TypeError('Nominatim error: invalid data');
-        if (data.length <= 0)
-            throw new TypeError('Nominatim failed to find the place');
-        const placeData = data[0];
-        const bbox = placeData?.boundingbox;
-        if (!isNominatimBbox(bbox))
-            throw new TypeError('Nominatim error: invalid bbox data');
-        await this.storeToCache(timestamp, parameters, bbox);
-        return bbox;
-    }
-}
-
-const spanRequest$1 = (...ss) => makeElement('span')('advanced-hint')(...ss);
-class NominatimSubForm {
-    constructor(nominatim, getMapBounds, setBbox) {
-        this.nominatim = nominatim;
-        this.getMapBounds = getMapBounds;
-        this.setBbox = setBbox;
-        this.$form = document.createElement('form');
-        this.$input = document.createElement('input');
-        this.$button = document.createElement('button');
-        this.$requestOutput = document.createElement('output');
-        this.bboxFetcher = new NominatimBboxFetcher(nominatim, ...makeDumbCache() // TODO real cache in db
-        );
-        this.$form.id = 'nominatim-form';
-    }
-    write($fieldset) {
-        $fieldset.append(makeDiv('advanced-hint')(`Make `, makeLink(`Nominatim search query`, `https://nominatim.org/release-docs/develop/api/Search/`), ` at `, code(this.nominatim.getSearchUrl(''), em(`parameters`)), `; see `, em(`parameters`), ` above and below.`));
-        this.$input.type = 'text';
-        this.$input.required = true;
-        this.$input.classList.add('no-invalid-indication'); // because it's inside another form that doesn't require it, don't indicate that it's invalid
-        this.$input.name = 'place';
-        this.$input.setAttribute('form', 'nominatim-form');
-        this.$button.textContent = 'Get';
-        this.$button.setAttribute('form', 'nominatim-form');
-        $fieldset.append(makeTextButtonInputGroup('spaced')([
-            `Or get bounding box by place name from Nominatim`, spanRequest$1(` (`, code('q'), ` Nominatim parameter)`)
-        ], this.$input, this.$button));
-        $fieldset.append(makeDiv('advanced-hint')(`Resulting Nominatim request: `, this.$requestOutput));
-    }
-    updateRequest() {
-        const bounds = this.getMapBounds();
-        const parameters = this.bboxFetcher.getParameters(this.$input.value, bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth());
-        const url = this.nominatim.getSearchUrl(parameters);
-        const $a = makeLink(url, url);
-        $a.classList.add('request');
-        this.$requestOutput.replaceChildren(code($a));
-    }
-    addEventListeners() {
-        this.$input.addEventListener('input', () => this.updateRequest());
-        this.$form.onsubmit = (ev) => wrapFetchForButton(this.$button, async () => {
-            ev.preventDefault();
-            const bounds = this.getMapBounds();
-            const bbox = await this.bboxFetcher.fetch(Date.now(), this.$input.value, bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth());
-            this.setBbox(bbox);
-        }, makeGetKnownErrorMessage(TypeError));
-    }
-}
-function makeDumbCache() {
-    const cache = new Map();
-    return [
-        async (timestamp, url) => cache.get(url),
-        async (timestamp, url, bbox) => cache.set(url, bbox)
-    ];
-}
-
-const rq = (param) => makeElement('span')('advanced-hint')(` (`, code(param), ` parameter)`);
-const spanRequest = (...ss) => makeElement('span')('advanced-hint')(...ss);
-class NoteBboxFetchDialog extends NoteQueryFetchDialog {
-    constructor($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, map) {
-        super($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery);
-        this.map = map;
+class NoteBboxFetchDialog extends DynamicNoteFetchDialog {
+    constructor() {
+        super(...arguments);
         this.shortTitle = `BBox`;
         this.title = `Get notes inside rectangular area`;
-        this.$linkCheckbox = makeElement('input')()();
-        this.$bboxInput = document.createElement('input');
+        this.withBboxRequiredWhenPresent = true;
         this.limitValues = [20, 100, 500, 2500, 10000];
         this.limitDefaultValue = 100; // higher default limit because no progressive loads possible
         this.limitLeadText = `Download `;
         this.limitLabelBeforeText = `at most `;
         this.limitLabelAfterText = ` notes`;
         this.limitIsParameter = true;
-        if (cx.server.nominatim) {
-            this.nominatimSubForm = new NominatimSubForm(cx.server.nominatim, () => map.bounds, (bbox) => {
-                const [minLat, maxLat, minLon, maxLon] = bbox;
-                this.setBbox(minLon, minLat, maxLon, maxLat);
-                this.$linkCheckbox.checked = false;
-                this.map.fitBounds([[Number(minLat), Number(minLon)], [Number(maxLat), Number(maxLon)]]);
-            });
-        }
     }
-    get getAutoLoad() {
-        return () => false;
-    }
-    populateInputs(query) {
-        super.populateInputs(query);
-        this.nominatimSubForm?.updateRequest();
-    }
-    writeExtraForms() {
-        if (this.nominatimSubForm) {
-            this.$section.append(this.nominatimSubForm.$form);
-        }
+    get withBbox() {
+        return true;
     }
     makeLeadAdvancedHint() {
         return [p(`Make a `, makeLink(`notes in bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code(this.cx.server.api.getUrl(`notes?`), em(`parameters`)), `; see `, em(`parameters`), ` below.`)];
     }
-    listParameters(closedDescriptionItems) {
+    listParameters(extraQueryParameters, closedParameter) {
         return [
-            ['bbox', this.$bboxInput, [
-                    `Bounding box. `,
-                    `Expect `, em(`The maximum bbox size is ..., and your request was too large`), ` error if the bounding box is too large.`
-                ]],
+            ...extraQueryParameters,
+            closedParameter,
             ['limit', this.$limitInput, [
                     `Max number of notes to fetch. `,
                     `For `, em(`bbox`), ` mode is corresponds to a total number of notes, not just a batch size. `,
                     `It's impossible to download additional batches of notes because the API call used by this mode lacks date range parameters.`
                 ]],
-            ['closed', this.$closedInput, closedDescriptionItems],
         ];
     }
-    writeScopeAndOrderFieldsetBeforeClosedLine($fieldset) {
-        this.$linkCheckbox.type = 'checkbox';
-        this.$linkCheckbox.checked = true;
-        this.$bboxInput.type = 'text';
-        this.$bboxInput.name = 'bbox';
-        this.$bboxInput.required = true; // otherwise could submit empty bbox without entering anything
-        const labelItems = [
-            `Bounding box (`,
-            tip(`left`, `western-most (min) longitude`), `, `,
-            tip(`bottom`, `southern-most (min) latitude`), `, `,
-            tip(`right`, `eastern-most (max) longitude`), `, `,
-            tip(`top`, `northern-most (max) latitude`),
-            `)`, rq('bbox')
-        ];
-        if (this.nominatimSubForm) {
-            labelItems.push(spanRequest(` (also `, code('west'), `, `, code('south'), `, `, code('east'), `, `, code('north'), ` Nominatim parameters)`));
-        }
-        const $linkLabel = makeLabel('link-checkbox-holder')(this.$linkCheckbox);
-        $linkLabel.title = `Update bounding box on map view changes`;
-        const $leftLink = makeSvgElement('svg', { class: 'link-left', width: '12', height: '12' });
-        $leftLink.innerHTML = `<use href="#chain-link-left" />`;
-        $linkLabel.prepend($leftLink);
-        const $rightLink = makeSvgElement('svg', { class: 'link-right', width: '12', height: '12' });
-        $rightLink.innerHTML = `<use href="#chain-link-left" />`;
-        $linkLabel.append($rightLink);
-        const $mapLink = makeSvgElement('svg', { class: 'link-map', width: '19', height: '13' });
-        $mapLink.innerHTML = `<use href="#tools-map" />`;
-        $linkLabel.append($mapLink);
-        $fieldset.append(makeTextButtonInputGroup()(labelItems, this.$bboxInput, $linkLabel));
-        function tip(text, title) {
-            const $span = document.createElement('span');
-            $span.textContent = text;
-            $span.title = title;
-            $span.classList.add('tipped');
-            return $span;
-        }
-        if (this.nominatimSubForm) {
-            this.nominatimSubForm.write($fieldset);
-        }
+    writeScopeAndOrderFieldsetBetweenParametersAndBbox($fieldset) {
+        if (!this.cx.server.api.noteSearchBbox)
+            return;
+        $fieldset.append(makeDiv('notice')(`This server supports `, code(`bbox`), ` parameter in note searches. `, `In `, em(`search`), ` mode it's possible to combine `, code(`bbox`), ` with other parameters and use progressive loading.`));
     }
     modifyClosedLine($div) {
         $div.append(` `, `sorted by last update date `, `newest first`);
     }
-    writeDownloadModeFieldset($fieldset) {
-    }
-    populateInputsWithoutUpdatingRequestExceptForClosedInput(query) {
-        if (query && query.mode != 'bbox')
-            return;
-        this.$bboxInput.value = query?.bbox ?? '';
-    }
-    addEventListenersBeforeClosedLine() {
-        const trackMap = () => {
-            if (this.$linkCheckbox.checked) {
-                this.setBbox(...this.map.precisionBounds.wsen);
-            }
-            this.nominatimSubForm?.updateRequest();
-        };
-        this.$root.addEventListener('osmNoteViewer:mapMoveEnd', () => {
-            trackMap();
-        });
-        this.$linkCheckbox.addEventListener('input', () => {
-            trackMap();
-        });
-        this.$bboxInput.addEventListener('input', () => {
-            if (!this.validateBbox())
-                return;
-            this.$linkCheckbox.checked = false;
-        });
-        if (this.nominatimSubForm) {
-            this.nominatimSubForm.addEventListeners();
-        }
-    }
     constructQuery() {
-        return makeNoteBboxQueryFromValues(this.$bboxInput.value, this.closedValue);
+        return makeNoteBboxQueryFromValues(this.$bboxInput ? this.$bboxInput.value : '', this.closedValue);
     }
-    listQueryChangingInputs() {
+    listQueryChangingInputsWithoutBbox() {
         return [
-            this.$bboxInput, this.$closedInput, this.$closedSelect
+            this.$closedInput, this.$closedSelect
         ];
     }
-    setBbox(west, south, east, north) {
-        // (left,bottom,right,top)
-        this.$bboxInput.value = west + ',' + south + ',' + east + ',' + north;
-        this.validateBbox();
-        this.updateRequest();
-    }
-    validateBbox() {
-        const splitValue = this.$bboxInput.value.split(',');
-        if (splitValue.length != 4) {
-            this.$bboxInput.setCustomValidity(`must contain four comma-separated values`);
-            return false;
-        }
-        for (const number of splitValue) {
-            if (!isFinite(Number(number))) {
-                this.$bboxInput.setCustomValidity(`values must be numbers, "${number}" is not a number`);
-                return false;
-            }
-        }
-        this.$bboxInput.setCustomValidity('');
-        return true;
-    }
-    getQueryCaptionItems(query) {
+    getQueryCaptionItems(query, extraQueryCaptionItems) {
         if (query.mode != 'bbox')
             return [];
-        return [
-            [`bounding box `, this.makeInputLink(this.$bboxInput, query.bbox)]
-        ];
+        return extraQueryCaptionItems;
     }
 }
 
-class NoteXmlFetchDialog extends NoteIdsFetchDialog {
+class StaticNoteFetchDialog extends NoteFetchDialog {
+    constructor() {
+        super(...arguments);
+        this.withAutoload = true;
+        this.limitValues = [5, 20];
+        this.limitDefaultValue = 5;
+        this.limitLeadText = `Download these `;
+        this.limitLabelBeforeText = `in batches of `;
+        this.limitLabelAfterText = ` notes`;
+        this.limitIsParameter = false;
+    }
+}
+
+class NoteXmlFetchDialog extends StaticNoteFetchDialog {
     constructor() {
         super(...arguments);
         this.shortTitle = `XML`;
@@ -6477,7 +6559,7 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
         this.$issuesButton = document.createElement('button');
         this.$selectorInput = document.createElement('input');
         this.$attributeInput = document.createElement('input');
-        this.$fileInput = document.createElement('input');
+        this.$fileInputFetchControl = document.createElement('input');
     }
     writeExtraForms() {
         this.$neisFeedForm.action = `https://resultmaps.neis-one.org/osm-notes-country-feed`;
@@ -6501,12 +6583,10 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
         }
     }
     makeFetchControlDiv() {
-        this.$fileInput.name = 'xml';
-        this.$fileInput.type = 'file';
-        return makeDiv('major-input-group')(makeLabel('file-reader')(makeElement('span')('over')(`Read XML file`), ` `, this.$fileInput));
-    }
-    disableFetchControl(disabled) {
-        this.$fileInput.disabled = disabled;
+        this.$fetchControl = this.$fileInputFetchControl;
+        this.$fileInputFetchControl.name = 'xml';
+        this.$fileInputFetchControl.type = 'file';
+        return makeDiv('major-input-group')(makeLabel('file-reader')(makeElement('span')('over')(`Read XML file`), ` `, this.$fileInputFetchControl));
     }
     listPrependedFieldsets() {
         const fieldsetList = [];
@@ -6621,17 +6701,17 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
                 this.$selectorInput.setCustomValidity(`has to be a valid css selector`);
             }
         });
-        this.$fileInput.ondragenter = () => {
-            this.$fileInput.classList.add('active');
+        this.$fileInputFetchControl.ondragenter = () => {
+            this.$fileInputFetchControl.classList.add('active');
         };
-        this.$fileInput.ondragleave = () => {
-            this.$fileInput.classList.remove('active');
+        this.$fileInputFetchControl.ondragleave = () => {
+            this.$fileInputFetchControl.classList.remove('active');
         };
-        this.$fileInput.addEventListener('change', () => {
-            this.$fileInput.classList.remove('active');
+        this.$fileInputFetchControl.addEventListener('change', () => {
+            this.$fileInputFetchControl.classList.remove('active');
             if (!this.$form.reportValidity())
                 return; // doesn't display validity message on drag&drop in Firefox, works ok in Chrome
-            const files = this.$fileInput.files;
+            const files = this.$fileInputFetchControl.files;
             if (!files)
                 return;
             const [file] = files;
@@ -6680,7 +6760,7 @@ class NoteXmlFetchDialog extends NoteIdsFetchDialog {
         return [];
     }
     getQueryCaption(query) {
-        return makeElement('caption')()(`notes from xml file `, this.makeInputLink(this.$fileInput, this.$fileInput.value));
+        return makeElement('caption')()(`notes from xml file `, this.makeInputLink(this.$fileInputFetchControl, this.$fileInputFetchControl.value));
     }
 }
 const neisFeedStatuses = [
@@ -6947,11 +7027,11 @@ const neisCountries = [
     'Zimbabwe',
 ];
 
-class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) {
+class NoteIdsFetchDialog extends StaticNoteFetchDialog {
     constructor($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, noteTable) {
         super($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery);
         this.noteTable = noteTable;
-        this.shortTitle = `Plaintext`;
+        this.shortTitle = `Ids`;
         this.title = `Fetch notes by ids from unstructured text`;
         this.$idsTextarea = document.createElement('textarea');
         this.$copySelectedCheckbox = document.createElement('input');
@@ -7022,10 +7102,9 @@ class NotePlaintextFetchDialog extends mixinWithFetchButton(NoteIdsFetchDialog) 
 }
 
 const minSafeZoom = 8;
-class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
-    constructor($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, map) {
-        super($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery);
-        this.map = map;
+class NoteBrowseFetchDialog extends DynamicNoteFetchDialog {
+    constructor() {
+        super(...arguments);
         this.shortTitle = `Browse`;
         this.title = `Get notes inside map view`;
         this.$trackMapZoomNotice = makeDiv('notice')();
@@ -7041,24 +7120,17 @@ class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
             return;
         super.fetchIfValid();
     }
-    get getAutoLoad() {
-        return () => false;
-    }
     get withSafeZoom() {
         return this.map.zoom >= minSafeZoom;
     }
     makeLeadAdvancedHint() {
         return [p(`Make a `, makeLink(`notes in bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code(this.cx.server.api.getUrl(`notes?`), em(`parameters`)), ` like the `, makeLink(`note layer`, `https://wiki.openstreetmap.org/wiki/Notes#Viewing_notes`), `; see `, em(`BBox`), ` tab for `, em(`parameters`), ` descriptions.`)];
     }
-    writeScopeAndOrderFieldsetBeforeClosedLine($fieldset) {
+    writeScopeAndOrderFieldsetBetweenParametersAndBbox($fieldset) {
         $fieldset.append(this.$trackMapZoomNotice);
     }
     getClosedLineNotesText() {
         return `most recently updated notes`;
-    }
-    writeDownloadModeFieldset($fieldset) {
-    }
-    populateInputsWithoutUpdatingRequestExceptForClosedInput(query) {
     }
     get defaultClosedValue() {
         return '7';
@@ -7088,7 +7160,7 @@ class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
         const bboxValue = this.map.precisionBounds.wsen.join(',');
         return makeNoteBrowseQueryFromValues(bboxValue, this.closedValue);
     }
-    listQueryChangingInputs() {
+    listQueryChangingInputsWithoutBbox() {
         return [
             this.$closedInput, this.$closedSelect
         ];
@@ -7105,11 +7177,12 @@ class NoteBrowseFetchDialog extends NoteQueryFetchDialog {
             this.$form.requestSubmit();
         }
     }
-    getQueryCaptionItems(query) {
+    getQueryCaptionItems(query, extraQueryCaptionItems) {
         if (query.mode != 'browse')
             return [];
         return [
-            [`bounding box `, query.bbox]
+            ...extraQueryCaptionItems,
+            [`bounding box `, query.bbox] // has to be here because there's no input
         ];
     }
 }
@@ -7126,10 +7199,10 @@ class NoteFetchDialogs {
             dialog.write($container);
             return dialog;
         };
-        this.searchDialog = makeFetchDialog(new NoteSearchFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteSearchFetchDialog($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery));
+        this.searchDialog = makeFetchDialog(new NoteSearchFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteSearchFetchDialog($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, map));
         this.bboxDialog = makeFetchDialog(new NoteBboxFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteBboxFetchDialog($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, map));
         this.xmlDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteXmlFetchDialog($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery));
-        this.plaintextDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NotePlaintextFetchDialog($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, noteTable));
+        this.idsDialog = makeFetchDialog(new NoteIdsFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteIdsFetchDialog($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, noteTable));
         this.browseDialog = makeFetchDialog(new NoteBboxFetcherRequest, (getRequestApiPaths, submitQuery) => new NoteBrowseFetchDialog($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, map));
         const handleSharedCheckboxes = ($checkboxes, stateChangeListener) => {
             for (const $checkbox of $checkboxes) {
@@ -7158,7 +7231,7 @@ class NoteFetchDialogs {
         });
     }
     get allDialogs() {
-        return [this.searchDialog, this.bboxDialog, this.xmlDialog, this.plaintextDialog, this.browseDialog];
+        return [this.searchDialog, this.bboxDialog, this.xmlDialog, this.idsDialog, this.browseDialog];
     }
     populateInputs(query) {
         for (const dialog of this.allDialogs) {
@@ -7173,7 +7246,7 @@ class NoteFetchDialogs {
             return this.bboxDialog;
         }
         else if (query.mode == 'ids') {
-            return this.plaintextDialog;
+            return this.idsDialog;
         }
         else if (query.mode == 'browse') {
             return this.browseDialog;
@@ -10513,7 +10586,7 @@ class InteractTool extends Tool {
         this.holder.updateUI();
     }
     getInfo() {
-        return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again ("reactivates" it). `, `This means that a hidden note can only be restored to an open state, even if it had been closed before being hidden. `, `If you want the note to be closed again, you have to close it yourself after reactivating. `, `Also, unlike the OSM website, you can reactivate a note and add a comment in one action. `, `The OSM website currently doesn't provide a comment input for note reactivation.`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, em(`Plaintext`), ` mode will show hidden notes to moderators, but it requires knowing the note ids. `, `If you've hidden a note and want to see it but don't know its id, look for the note at `, this.$yourNotesWeb, ` on the OSM website.`), p(`The `, em(`Copy ids`), ` button on top is useful for making changeset comments. `, `It copies to the clipboard the same note list that you'd get by using the `, em(`Load map area`), ` remote control command. `, em(`Load map area`), ` sets the changeset comment tag to selected notes as a side effect. `, `If you're not using remote control but want to get the note list for a comment, you can press `, em(`Copy ids`), ` instead.`), p(em(`Copy ids`), ` has the ability to copy note ids as html links if your browser `, makeLink(`supports it`, `https://developer.mozilla.org/en-US/docs/Web/API/Clipboard#clipboard_availability`), `. `, `It should work out of the box on Chrome. `, `On Firefox as of v111 it requires enabling the `, code(`dom.events.asyncClipboard.clipboardItem`), ` setting in `, makeLink(`about:config`, `about:config`), ` and reloading the `, em(`note-viewer`), `.`)];
+        return [p(`Do the following operations with notes:`), ul(li(makeLink(`comment`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Create_a_new_comment:_Create:_POST_/api/0.6/notes/#id/comment`)), li(makeLink(`close`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Close:_POST_/api/0.6/notes/#id/close`)), li(makeLink(`reopen`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Reopen:_POST_/api/0.6/notes/#id/reopen`), ` — for moderators this API call also makes hidden note visible again ("reactivates" it). `, `This means that a hidden note can only be restored to an open state, even if it had been closed before being hidden. `, `If you want the note to be closed again, you have to close it yourself after reactivating. `, `Also, unlike the OSM website, you can reactivate a note and add a comment in one action. `, `The OSM website currently doesn't provide a comment input for note reactivation.`), li(`for moderators there's also a delete method to hide a note: `, code(`DELETE /api/0.6/notes/#id`))), p(`If you want to find the notes you interacted with, try searching for `, this.$yourNotesApi, `. `, `Unfortunately searching using the API doesn't reveal hidden notes even to moderators. `, em(`Ids`), ` mode will show hidden notes to moderators, but it requires knowing the note ids. `, `If you've hidden a note and want to see it but don't know its id, look for the note at `, this.$yourNotesWeb, ` on the OSM website.`), p(`The `, em(`Copy ids`), ` button on top is useful for making changeset comments. `, `It copies to the clipboard the same note list that you'd get by using the `, em(`Load map area`), ` remote control command. `, em(`Load map area`), ` sets the changeset comment tag to selected notes as a side effect. `, `If you're not using remote control but want to get the note list for a comment, you can press `, em(`Copy ids`), ` instead.`), p(em(`Copy ids`), ` has the ability to copy note ids as html links if your browser `, makeLink(`supports it`, `https://developer.mozilla.org/en-US/docs/Web/API/Clipboard#clipboard_availability`), `. `, `It should work out of the box on Chrome. `, `On Firefox as of v111 it requires enabling the `, code(`dom.events.asyncClipboard.clipboardItem`), ` setting in `, makeLink(`about:config`, `about:config`), ` and reloading the `, em(`note-viewer`), `.`)];
     }
     getInfoButtonContainer() {
         return this.holder.$run;
@@ -12457,7 +12530,10 @@ var serverListConfig = [
             "https://www.osm.org/",
             "https://osm.org/"
         ],
-        "api": "https://api.openstreetmap.org/",
+        "api": {
+            "url": "https://api.openstreetmap.org/",
+            "noteSearchBbox": true
+        },
         "nominatim": "https://nominatim.openstreetmap.org/",
         "overpass": "https://www.overpass-api.de/",
         "overpassTurbo": "https://overpass-turbo.eu/",
@@ -12473,6 +12549,9 @@ var serverListConfig = [
     },
     {
         "web": "https://master.apis.dev.openstreetmap.org/",
+        "api": {
+            "noteSearchBbox": true
+        },
         "note": [
             "OSM sandbox/development server",
             "https://wiki.openstreetmap.org/wiki/Sandbox_for_editing#Experiment_with_the_API_(advanced)"
