@@ -19,7 +19,6 @@ export type ParameterListItem = [parameter: string, $input: HTMLElement, descrip
 export type QueryCaptionItem = (string|HTMLElement)[]
 
 export default abstract class DynamicNoteFetchDialog extends NoteFetchDialog {
-	protected withBbox=false
 	protected withBboxRequiredWhenPresent=false
 	private nominatimSubForm: NominatimSubForm|undefined
 	protected $bboxInput: HTMLInputElement|undefined
@@ -36,7 +35,9 @@ export default abstract class DynamicNoteFetchDialog extends NoteFetchDialog {
 	) {
 		super($root,$sharedCheckboxes,cx,getRequestApiPaths,submitQuery)
 	}
-	// protected abstract get withBbox(): boolean
+	protected get withBbox(): boolean {
+		return false
+	}
 	populateInputs(query: NoteQuery|undefined): void {
 		super.populateInputs(query)
 		this.nominatimSubForm?.updateRequest()

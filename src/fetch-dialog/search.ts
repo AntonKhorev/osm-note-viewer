@@ -16,13 +16,15 @@ export default class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
 	shortTitle=`Search`
 	title=`Search notes for user / text / date range`
 	protected withAutoload=true
-	protected withBbox=true
 	protected $userInput=document.createElement('input')
 	protected $textInput=document.createElement('input')
 	protected fromDateInput=new DateInput()
 	protected toDateInput=new DateInput()
 	protected $sortSelect=document.createElement('select')
 	protected $orderSelect=document.createElement('select')
+	protected get withBbox(): boolean {
+		return this.cx.server.api.noteSearchBbox
+	}
 	protected makeLeadAdvancedHint(): Array<string|HTMLElement> {
 		return [p(
 			`Make a `,makeLink(`notes search`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_/api/0.6/notes/search`),

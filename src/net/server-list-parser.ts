@@ -1,6 +1,7 @@
 export type ServerParameters = [
 	host: string,
 	apiUrl: string,
+	apiNoteSearchBbox: boolean,
 	webUrls: string[],
 	tileUrlTemplate: string,
 	tileAttributionUrl: string,
@@ -27,11 +28,12 @@ export function parseServerListSource(configSource: unknown): ServerParameters[]
 
 export function parseServerListItem(config: unknown): ServerParameters {
 	let apiUrl: string|undefined
+	let apiNoteSearchBbox = false
 	let webUrls: string[]|undefined
-	let tileUrlTemplate: string = `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
+	let tileUrlTemplate = `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
 	let tileAttributionUrl: string|undefined = `https://www.openstreetmap.org/copyright`
 	let tileAttributionText: string|undefined = `OpenStreetMap contributors`
-	let tileMaxZoom: number = 19
+	let tileMaxZoom = 19
 	let tileOwner = false
 	let nominatimUrl: string|undefined
 	let overpassUrl: string|undefined
@@ -54,7 +56,16 @@ export function parseServerListItem(config: unknown): ServerParameters {
 			}
 		}
 		if ('api' in config) {
-			apiUrl=requireUrlStringProperty('api',config.api)
+			if (typeof config.api == 'object' && config.api) {
+				if ('url' in config.api) {
+					apiUrl=requireUrlStringProperty('api.url',config.api.url)
+				}
+				if ('noteSearchBbox' in config.api) {
+					apiNoteSearchBbox=requireBooleanProperty('api.noteSearchBbox',config.api.noteSearchBbox)
+				}
+			} else {
+				apiUrl=requireUrlStringProperty('api',config.api)
+			}
 		}
 		if ('nominatim' in config) {
 			nominatimUrl=requireUrlStringProperty('nominatim',config.nominatim)
@@ -132,6 +143,7 @@ export function parseServerListItem(config: unknown): ServerParameters {
 	return [
 		host,
 		apiUrl ?? webUrls[0],
+		apiNoteSearchBbox,
 		webUrls,
 		tileUrlTemplate,
 		tileAttributionUrl ?? deriveAttributionUrl(webUrls),
@@ -145,20 +157,24 @@ export function parseServerListItem(config: unknown): ServerParameters {
 	]
 }
 
-function requireUrlStringProperty(name:string, value:unknown): string {
-	if (typeof value != 'string') throw new RangeError(`${name} property required to be string; got ${type(value)} instead`)
+function requireUrlStringProperty(name: string, value: unknown): string {
+	if (typeof value != 'string') throw newTypeError(name,value,'string')
 	try {
 		return new URL(value).href
 	} catch {
 		throw new RangeError(`${name} property required to be url; got "${value}"`)
 	}
 }
-function requireStringProperty(name:string, value:unknown): string {
-	if (typeof value != 'string') throw new RangeError(`${name} property required to be string; got ${type(value)} instead`)
+function requireStringProperty(name: string, value: unknown): string {
+	if (typeof value != 'string') throw newTypeError(name,value,'string')
 	return value
 }
-function requireNumberProperty(name:string, value:unknown): number {
-	if (typeof value != 'number') throw new RangeError(`${name} property required to be number; got ${type(value)} instead`)
+function requireNumberProperty(name: string, value: unknown): number {
+	if (typeof value != 'number') throw newTypeError(name,value,'number')
+	return value
+}
+function requireBooleanProperty(name: string, value: unknown): boolean {
+	if (typeof value != 'boolean') throw newTypeError(name,value,'boolean')
 	return value
 }
 
@@ -175,10 +191,10 @@ function deriveAttributionText(webUrls: string[]): string {
 }
 
 function parseUrlTextPairItem(
-	name:string,
-	urlValue:string|undefined,textValue:string|undefined,newValue:unknown
+	name: string,
+	urlValue: string|undefined, textValue: string|undefined, newValue: unknown
 ):[
-	newUrlValue:string|undefined,newTextValue:string|undefined
+	newUrlValue: string|undefined, newTextValue: string|undefined
 ] {
 	if (typeof newValue != 'string') throw new RangeError(`${name} array property requires all elements to be strings; got ${type(newValue)} instead`)
 	try {
@@ -189,10 +205,10 @@ function parseUrlTextPairItem(
 	}
 }
 function parseUrlTextPair(
-	name:string,
-	urlValue:string|undefined,textValue:string|undefined,newItems:unknown
+	name: string,
+	urlValue: string|undefined, textValue: string|undefined, newItems: unknown
 ):[
-	newUrlValue:string|undefined,newTextValue:string|undefined
+	newUrlValue: string|undefined, newTextValue: string|undefined
 ] {
 	if (typeof newItems == 'string') {
 		[urlValue,textValue]=parseUrlTextPairItem(name,urlValue,textValue,newItems)
@@ -206,7 +222,11 @@ function parseUrlTextPair(
 	return [urlValue,textValue]
 }
 
-function type(value:unknown): string {
+function newTypeError(name: string, value: unknown, requiredType: string): RangeError {
+	return new RangeError(`${name} property required to be ${requiredType}; got ${type(value)} instead`)
+}
+
+function type(value: unknown): string {
 	if (Array.isArray(value)) {
 		return 'array'
 	} else if (value==null) {

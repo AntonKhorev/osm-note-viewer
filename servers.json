@@ -6,7 +6,10 @@
 			"https://www.osm.org/",
 			"https://osm.org/"
 		],
-		"api": "https://api.openstreetmap.org/",
+		"api": {
+			"url": "https://api.openstreetmap.org/",
+			"noteSearchBbox": true
+		},
 		"nominatim": "https://nominatim.openstreetmap.org/",
 		"overpass": "https://www.overpass-api.de/",
 		"overpassTurbo": "https://overpass-turbo.eu/",
@@ -21,6 +24,9 @@
 		}
 	},{
 		"web": "https://master.apis.dev.openstreetmap.org/",
+		"api": {
+			"noteSearchBbox": true
+		},
 		"note": [
 			"OSM sandbox/development server",
 			"https://wiki.openstreetmap.org/wiki/Sandbox_for_editing#Experiment_with_the_API_(advanced)"

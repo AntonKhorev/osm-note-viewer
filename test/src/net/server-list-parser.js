@@ -5,7 +5,7 @@ describe("server list parser module / parseServerListItem()",()=>{
 	it("parses default config",()=>{
 		const result=parseServerListItem(null)
 		const [
-			host,apiUrl,webUrls,
+			host,apiUrl,apiNoteSearchBbox,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,tileMaxZoom,tileOwner,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world
@@ -19,7 +19,7 @@ describe("server list parser module / parseServerListItem()",()=>{
 	it("parses single string config",()=>{
 		const result=parseServerListItem(`https://master.apis.dev.openstreetmap.org/`)
 		const [
-			host,apiUrl,webUrls,
+			host,apiUrl,apiNoteSearchBbox,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,tileMaxZoom,tileOwner,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world
@@ -32,12 +32,63 @@ describe("server list parser module / parseServerListItem()",()=>{
 	it("parses single string config without final '/'",()=>{
 		const result=parseServerListItem(`https://master.apis.dev.openstreetmap.org`)
 		const [
-			host,apiUrl,webUrls,
+			host,apiUrl,apiNoteSearchBbox,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,tileMaxZoom,tileOwner,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world
 		]=result
 		assert.equal(webUrls[0],`https://master.apis.dev.openstreetmap.org/`)
+	})
+	it("parses single api string",()=>{
+		const result=parseServerListItem({
+			web: `https://www.example.org/`,
+			api: `https://api.example.org/`,
+		})
+		const [
+			host,apiUrl,apiNoteSearchBbox,webUrls,
+			tileUrlTemplate,tileAttributionUrl,tileAttributionText,tileMaxZoom,tileOwner,
+			nominatimUrl,overpassUrl,overpassTurboUrl,
+			noteUrl,noteText,world
+		]=result
+		assert.equal(webUrls[0],`https://www.example.org/`)
+		assert.equal(apiUrl,`https://api.example.org/`)
+		assert.equal(apiNoteSearchBbox,false)
+	})
+	it("parses api object with no note search",()=>{
+		const result=parseServerListItem({
+			web: `https://www.example.org/`,
+			api: {
+				url: `https://api.example.org/`,
+				noteSearchBbox: false,
+			},
+		})
+		const [
+			host,apiUrl,apiNoteSearchBbox,webUrls,
+			tileUrlTemplate,tileAttributionUrl,tileAttributionText,tileMaxZoom,tileOwner,
+			nominatimUrl,overpassUrl,overpassTurboUrl,
+			noteUrl,noteText,world
+		]=result
+		assert.equal(webUrls[0],`https://www.example.org/`)
+		assert.equal(apiUrl,`https://api.example.org/`)
+		assert.equal(apiNoteSearchBbox,false)
+	})
+	it("parses api object with note search",()=>{
+		const result=parseServerListItem({
+			web: `https://www.example.org/`,
+			api: {
+				url: `https://api.example.org/`,
+				noteSearchBbox: true,
+			},
+		})
+		const [
+			host,apiUrl,apiNoteSearchBbox,webUrls,
+			tileUrlTemplate,tileAttributionUrl,tileAttributionText,tileMaxZoom,tileOwner,
+			nominatimUrl,overpassUrl,overpassTurboUrl,
+			noteUrl,noteText,world
+		]=result
+		assert.equal(webUrls[0],`https://www.example.org/`)
+		assert.equal(apiUrl,`https://api.example.org/`)
+		assert.equal(apiNoteSearchBbox,true)
 	})
 	it("parses single string note text",()=>{
 		const result=parseServerListItem({
@@ -45,7 +96,7 @@ describe("server list parser module / parseServerListItem()",()=>{
 			note: `hello world`
 		})
 		const [
-			host,apiUrl,webUrls,
+			host,apiUrl,apiNoteSearchBbox,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,tileMaxZoom,tileOwner,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world
@@ -59,7 +110,7 @@ describe("server list parser module / parseServerListItem()",()=>{
 			note: `https://example.com/hello/`
 		})
 		const [
-			host,apiUrl,webUrls,
+			host,apiUrl,apiNoteSearchBbox,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,tileMaxZoom,tileOwner,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world
@@ -73,7 +124,7 @@ describe("server list parser module / parseServerListItem()",()=>{
 			note: [`the end`,`https://example.com/bye/`]
 		})
 		const [
-			host,apiUrl,webUrls,
+			host,apiUrl,apiNoteSearchBbox,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,tileMaxZoom,tileOwner,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world
@@ -89,7 +140,7 @@ describe("server list parser module / parseServerListItem()",()=>{
 			}
 		})
 		const [
-			host,apiUrl,webUrls,
+			host,apiUrl,apiNoteSearchBbox,webUrls,
 			tileUrlTemplate,tileAttributionUrl,tileAttributionText,tileMaxZoom,tileOwner,
 			nominatimUrl,overpassUrl,overpassTurboUrl,
 			noteUrl,noteText,world

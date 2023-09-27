@@ -102,7 +102,11 @@ export class WebProvider extends OsmProvider implements WebUrlLister {
 
 export class ApiProvider extends OsmProvider implements ApiUrlLister {
 	constructor(
-		public readonly url: string
+		public readonly url: string,
+		/** 
+		  * Whether able to use bbox parameter with notes/search api call
+		  */
+		public readonly noteSearchBbox: boolean
 	) {
 		super()
 	}
@@ -195,6 +199,7 @@ export default class Server {
 	constructor(
 		public readonly host: string,
 		apiUrl: string,
+		apiNoteSearchBbox: boolean,
 		webUrls: string[],
 		tileUrlTemplate: string,
 		tileAttributionUrl: string,
@@ -214,7 +219,7 @@ export default class Server {
 		public readonly oauthUrl: string|undefined
 	) {
 		this.web=new WebProvider(webUrls)
-		this.api=new ApiProvider(apiUrl)
+		this.api=new ApiProvider(apiUrl,apiNoteSearchBbox)
 		this.tile=new TileProvider(
 			tileUrlTemplate,
 			tileAttributionUrl,
