@@ -33,15 +33,15 @@ export default class NominatimSubForm {
 		this.$button.textContent='Get'
 		this.$button.setAttribute('form',this.$form.id)
 	}
-	write($fieldset: HTMLFieldSetElement): void {
-		$fieldset.append(makeDiv('advanced-hint')(
+	write($container: HTMLElement): void {
+		$container.append(makeDiv('advanced-hint')(
 			`Make `,makeLink(`Nominatim search query`,`https://nominatim.org/release-docs/develop/api/Search/`),
 			` at `,code(this.nominatim.getSearchUrl(''),em(`parameters`)),`; see `,em(`parameters`),` above and below.`
 		))
-		$fieldset.append(makeTextButtonInputGroup('spaced')([
-			`Or get bounding box by place name from Nominatim`,spanRequest(` (`,code('q'),` Nominatim parameter)`)
+		$container.append(makeTextButtonInputGroup('spaced')([
+			`Nominatim query`,spanRequest(` (`,code('q'),` Nominatim parameter, free-form query)`)
 		],this.$input,this.$button))
-		$fieldset.append(makeDiv('advanced-hint')(`Resulting Nominatim request: `,this.$requestOutput))
+		$container.append(makeDiv('advanced-hint')(`Resulting Nominatim request: `,this.$requestOutput))
 	}
 	updateRequest(): void {
 		const bounds=this.getMapBounds()
