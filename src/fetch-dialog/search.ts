@@ -107,7 +107,7 @@ export default class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
 		this.$textInput.type='text'
 		this.$textInput.name='text'
 		this.$textInput.size=50
-		$fieldset.append(makeDiv('input-super-group')(
+		$fieldset.append(makeDiv('input-group','super')(
 			makeDiv('input-group','major')(userInputControl.$controls,makeLabel()(
 				`Username, URL or #id`,rq2('display_name','user'),` `,this.$userInput
 			)),
@@ -122,7 +122,7 @@ export default class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
 	protected writeScopeAndOrderFieldsetBetweenBboxAndClosed($fieldset: HTMLFieldSetElement): void {
 		this.fromDateInput.$input.name='from'
 		this.toDateInput.$input.name='to'
-		$fieldset.append(makeDiv('input-super-group')(
+		$fieldset.append(makeDiv('input-group','super')(
 			makeTextButtonInputGroup()([
 				`From date`,rq('from')
 			],...this.fromDateInput.$elements),
