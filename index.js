@@ -1220,14 +1220,14 @@ function makeCodeForm(initialValue, stashedValue, summary, textareaLabel, applyB
     }
     {
         $textarea.rows = 5;
-        $form.append(makeDiv('major-input-group')(makeLabel()(textareaLabel, ` `, $textarea)));
+        $form.append(makeDiv('input-group', 'major')(makeLabel()(textareaLabel, ` `, $textarea)));
     }
     {
         $applyButton.textContent = applyButtonLabel;
         $clearButton.textContent = `Clear`;
         $undoClearButton.textContent = `Restore previous`;
         $undoClearButton.type = $clearButton.type = 'button';
-        $form.append(makeDiv('gridded-input-group')($applyButton, $clearButton, $undoClearButton));
+        $form.append(makeDiv('input-group', 'gridded')($applyButton, $clearButton, $undoClearButton));
     }
     $textarea.oninput = reactToChanges;
     $clearButton.onclick = () => {
@@ -1560,7 +1560,7 @@ class AppSection {
                     strong(`This doesn't seem to be the case with your install.`), ` `,
                     `You may still use this method but the one described before gives a simpler login workflow.`
                 ]))
-        ]), makeElement('details')()(makeElement('summary')()(`Additional instructions for building your own copy of `, app(), ` with a registration included`), ol(li(`Register an OAuth 2 app with one of the methods described above.`), li(`Open `, code(`servers.json`), ` in `, app(), `'s source code. `, `The format of this file is described here in `, em(`Custom server configuration syntax`), `.`), li(`If you're using a custom server specified on this page, copy its configuration to `, code(`servers.json`), `.`), li(`Find the `, code(`oauth`), ` property corresponding to the server you're using or add one if it doesn't exist.`), li(`Copy the `, em(`Client ID`), ` to the `, code(`id`), ` property inside `, code(`oauth`), `.`), li(`If you're not using manual authorization code entry, copy `, app(), `'s install location (`, value(authStorage.installUri), `) to the `, code(`url`), ` property inside `, code(`oauth`), `.`), li(`Rebuild `, app(), `.`))), makeDiv('major-input-group')(makeLabel()(`Client ID `, $clientIdInput)), makeDiv('major-input-group')(makeLabel()($manualCodeEntryCheckbox, ` ` + manualCodeEntryLabel), ` (for non-https/non-secure install locations)`), $registrationNotice);
+        ]), makeElement('details')()(makeElement('summary')()(`Additional instructions for building your own copy of `, app(), ` with a registration included`), ol(li(`Register an OAuth 2 app with one of the methods described above.`), li(`Open `, code(`servers.json`), ` in `, app(), `'s source code. `, `The format of this file is described here in `, em(`Custom server configuration syntax`), `.`), li(`If you're using a custom server specified on this page, copy its configuration to `, code(`servers.json`), `.`), li(`Find the `, code(`oauth`), ` property corresponding to the server you're using or add one if it doesn't exist.`), li(`Copy the `, em(`Client ID`), ` to the `, code(`id`), ` property inside `, code(`oauth`), `.`), li(`If you're not using manual authorization code entry, copy `, app(), `'s install location (`, value(authStorage.installUri), `) to the `, code(`url`), ` property inside `, code(`oauth`), `.`), li(`Rebuild `, app(), `.`))), makeDiv('input-group', 'major')(makeLabel()(`Client ID `, $clientIdInput)), makeDiv('input-group', 'major')(makeLabel()($manualCodeEntryCheckbox, ` ` + manualCodeEntryLabel), ` (for non-https/non-secure install locations)`), $registrationNotice);
         $overallDetails.open = !authStorage.clientId;
         $section.append(makeElement('h2')()(`Register app`), $overallDetails);
     }
@@ -1613,8 +1613,8 @@ class LoginForms {
         // TODO write that you may not get a confirmation page if you are already logged in - in this case logout first
         //	^ to do this, need to check if anything user-visible appears in the popup at all with auto-code registrations
         const app = () => em(appName);
-        this.$manualCodeForm.append(p(`If the manual code copying method was used to register `, app(), `, copy the code into the input below.`), makeDiv('major-input-group')(makeLabel()(`Authorization code `, this.$manualCodeInput)), makeDiv('major-input-group')(this.$manualCodeButton));
-        $container.append(makeDiv('major-input-group')(this.$loginButton, this.$cancelLoginButton), this.$manualCodeForm, this.$error);
+        this.$manualCodeForm.append(p(`If the manual code copying method was used to register `, app(), `, copy the code into the input below.`), makeDiv('input-group', 'major')(makeLabel()(`Authorization code `, this.$manualCodeInput)), makeDiv('input-group', 'major')(this.$manualCodeButton));
+        $container.append(makeDiv('input-group', 'major')(this.$loginButton, this.$cancelLoginButton), this.$manualCodeForm, this.$error);
     }
     respondToAppRegistration(isManualCodeEntry) {
         this.isManualCodeEntry = isManualCodeEntry;
@@ -3749,7 +3749,7 @@ class StorageSection {
         $section.append(makeElement('h2')()(`Storage`));
         const $updateFetchesButton = document.createElement('button');
         $updateFetchesButton.textContent = `Update stored fetch list`;
-        $section.append(makeDiv('major-input-group')($updateFetchesButton));
+        $section.append(makeDiv('input-group', 'major')($updateFetchesButton));
         const $fetchesContainer = makeDiv()(p(`Click Update button above to see stored fetches.`));
         $section.append($fetchesContainer);
         $updateFetchesButton.addEventListener('click', async () => {
@@ -3828,7 +3828,7 @@ class StorageSection {
             const $cancelButton = makeElement('button')()(`Cancel clear settings`);
             const $confirmButton = makeElement('button')()(`Confirm clear settings`);
             new ConfirmedButtonListener($clearButton, $cancelButton, $confirmButton, async () => storage.clear());
-            $section.append(makeDiv('major-input-group')($clearButton, $cancelButton, $confirmButton));
+            $section.append(makeDiv('input-group', 'major')($clearButton, $cancelButton, $confirmButton));
         }
     }
 }
@@ -5674,7 +5674,7 @@ class NoteFetchDialog extends NavDialog {
             this.$limitInput.min = '1';
             this.$limitInput.max = '10000';
             this.$limitInput.value = String(this.limitDefaultValue);
-            $fieldset.append(makeDiv('non-advanced-input-group')(this.limitLeadText, makeLabel()(this.limitLabelBeforeText, this.$limitSelect, this.limitLabelAfterText)), makeDiv('advanced-input-group')(this.limitLeadText, makeLabel()(this.limitLabelBeforeText, this.$limitInput, this.limitLabelAfterText, (this.limitIsParameter
+            $fieldset.append(makeDiv('input-group', 'non-advanced')(this.limitLeadText, makeLabel()(this.limitLabelBeforeText, this.$limitSelect, this.limitLabelAfterText)), makeDiv('input-group', 'advanced')(this.limitLeadText, makeLabel()(this.limitLabelBeforeText, this.$limitInput, this.limitLabelAfterText, (this.limitIsParameter
                 ? makeElement('span')('advanced-hint')(` (`, code('limit'), ` parameter)`)
                 : makeElement('span')('advanced-hint')(` (will make this many API requests each time it downloads more notes)`)))));
         }
@@ -5682,7 +5682,7 @@ class NoteFetchDialog extends NavDialog {
             this.$autoLoadCheckbox = document.createElement('input');
             this.$autoLoadCheckbox.type = 'checkbox';
             this.$autoLoadCheckbox.checked = true;
-            $fieldset.append(makeDiv('regular-input-group')(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
+            $fieldset.append(makeDiv('input-group')(makeLabel()(this.$autoLoadCheckbox, ` Automatically load more notes when scrolled to the end of the table`)));
         }
         const $showImagesCheckbox = document.createElement('input');
         $showImagesCheckbox.type = 'checkbox';
@@ -5693,10 +5693,10 @@ class NoteFetchDialog extends NavDialog {
             ev.stopPropagation();
             ev.preventDefault();
         };
-        $fieldset.append(makeDiv('regular-input-group')(makeLabel()($showImagesCheckbox, ` Load and show images from `, $trustedSourcesLink)));
+        $fieldset.append(makeDiv('input-group')(makeLabel()($showImagesCheckbox, ` Load and show images from `, $trustedSourcesLink)));
         this.$advancedModeCheckbox.type = 'checkbox';
         this.$sharedCheckboxes.advancedMode.push(this.$advancedModeCheckbox);
-        $fieldset.append(makeDiv('regular-input-group')(makeLabel()(this.$advancedModeCheckbox, ` Advanced mode`)));
+        $fieldset.append(makeDiv('input-group')(makeLabel()(this.$advancedModeCheckbox, ` Advanced mode`)));
         return $fieldset;
     }
     makeRequestDiv() {
@@ -5754,7 +5754,7 @@ class NoteFetchDialog extends NavDialog {
         this.$fetchControl = document.createElement('button');
         this.$fetchControl.append(makeActionIcon('download'), ` Fetch notes`);
         this.$fetchControl.type = 'submit';
-        return makeDiv('major-input-group')(this.$fetchControl);
+        return makeDiv('input-group', 'major')(this.$fetchControl);
     }
     listPrependedFieldsets() { return []; }
     writeExtraForms() { }
@@ -5819,7 +5819,7 @@ function makeTextButtonInputGroup(...classes) {
         const id = 'text-button-input-group-input-' + idCount$1++;
         const $label = makeLabel()(...labelItems);
         $label.htmlFor = $input.id = id;
-        return makeDiv('text-button-input-group', ...classes)($label, ` `, makeElement('span')()($input, ` `, $button));
+        return makeDiv('input-group', 'text-button', ...classes)($label, ` `, makeElement('span')()($input, ` `, $button));
     };
 }
 
@@ -5964,7 +5964,7 @@ class DynamicNoteFetchDialog extends NoteFetchDialog {
             this.$closedInput.min = '-1';
             this.$closedSelect.append(new Option(`both open and closed`, '-1'), new Option(`open and recently closed`, '7'), new Option(`only open`, '0'));
             this.$closedInput.value = this.$closedSelect.value = this.defaultClosedValue;
-            const $closedLine = makeDiv('regular-input-group')(`Fetch `, makeElement('span')('non-advanced-input-group')(this.$closedSelect), ` `, this.getClosedLineNotesText(), ` `, makeLabel('advanced-input-group')(`closed no more than `, this.$closedInput, makeElement('span')('advanced-hint')(` (`, code('closed'), ` parameter)`), ` days ago`));
+            const $closedLine = makeDiv('input-group')(`Fetch `, makeElement('span')('input-group', 'non-advanced')(this.$closedSelect), ` `, this.getClosedLineNotesText(), ` `, makeLabel('input-group', 'advanced')(`closed no more than `, this.$closedInput, makeElement('span')('advanced-hint')(` (`, code('closed'), ` parameter)`), ` days ago`));
             this.modifyClosedLine($closedLine);
             $fieldset.append($closedLine);
         }
@@ -6380,7 +6380,7 @@ class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
         this.$textInput.type = 'text';
         this.$textInput.name = 'text';
         this.$textInput.size = 50;
-        $fieldset.append(makeDiv('input-super-group')(makeDiv('major-input-group')(userInputControl.$controls, makeLabel()(`Username, URL or #id`, rq2('display_name', 'user'), ` `, this.$userInput)), makeDiv('major-input-group')(makeLabel()(`Comment text search query`, rq('q'), ` `, this.$textInput))));
+        $fieldset.append(makeDiv('input-group', 'super')(makeDiv('input-group', 'major')(userInputControl.$controls, makeLabel()(`Username, URL or #id`, rq2('display_name', 'user'), ` `, this.$userInput)), makeDiv('input-group', 'major')(makeLabel()(`Comment text search query`, rq('q'), ` `, this.$textInput))));
         this.$root.addEventListener('osmNoteViewer:loginChange', () => {
             userInputControl.update();
         });
@@ -6388,7 +6388,7 @@ class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
     writeScopeAndOrderFieldsetBetweenBboxAndClosed($fieldset) {
         this.fromDateInput.$input.name = 'from';
         this.toDateInput.$input.name = 'to';
-        $fieldset.append(makeDiv('input-super-group')(makeTextButtonInputGroup()([
+        $fieldset.append(makeDiv('input-group', 'super')(makeTextButtonInputGroup()([
             `From date`, rq('from')
         ], ...this.fromDateInput.$elements), makeTextButtonInputGroup()([
             `To date`, rq('to')
@@ -6586,7 +6586,7 @@ class NoteXmlFetchDialog extends StaticNoteFetchDialog {
         this.$fetchControl = this.$fileInputFetchControl;
         this.$fileInputFetchControl.name = 'xml';
         this.$fileInputFetchControl.type = 'file';
-        return makeDiv('major-input-group')(makeLabel('file-reader')(makeElement('span')('over')(`Read XML file`), ` `, this.$fileInputFetchControl));
+        return makeDiv('input-group', 'major')(makeLabel('file-reader')(makeElement('span')('over')(`Read XML file`), ` `, this.$fileInputFetchControl));
     }
     listPrependedFieldsets() {
         const fieldsetList = [];
@@ -6611,18 +6611,18 @@ class NoteXmlFetchDialog extends StaticNoteFetchDialog {
             $datalist.id = 'neis-countries-list';
             $datalist.append(...neisCountries.map(c => new Option(c)));
             this.$neisCountryInput.setAttribute('list', 'neis-countries-list');
-            $fieldset.append(makeDiv('major-input-group')(makeLabel()(`Country `, this.$neisCountryInput, $datalist)));
+            $fieldset.append(makeDiv('input-group', 'major')(makeLabel()(`Country `, this.$neisCountryInput, $datalist)));
         }
         {
             this.$neisStatusSelect.name = 'status';
             this.$neisStatusSelect.setAttribute('form', 'neis-form');
             this.$neisStatusSelect.append(...neisFeedStatuses.map(status => new Option(`${status} (up to a week old)`, status)), new Option(`last updated 500`, 'custom'), new Option(`last open 10000`, 'custom-open'));
-            $fieldset.append(makeDiv('regular-input-group')(makeLabel()(`Get `, this.$neisStatusSelect, ` notes`), ` for this country`));
+            $fieldset.append(makeDiv('input-group', 'regular')(makeLabel()(`Get `, this.$neisStatusSelect, ` notes`), ` for this country`));
         }
         {
             this.$neisButton.textContent = 'Download feed file and populate XML fields below';
             this.$neisButton.setAttribute('form', 'neis-form');
-            $fieldset.append(makeDiv('major-input-group')(this.$neisButton));
+            $fieldset.append(makeDiv('input-group', 'major')(this.$neisButton));
         }
     }
     writeIssuesPrependedFieldset($fieldset, $legend) {
@@ -6634,12 +6634,12 @@ class NoteXmlFetchDialog extends StaticNoteFetchDialog {
             this.$issuesStatusSelect.name = 'status';
             this.$issuesStatusSelect.setAttribute('form', 'issues-form');
             this.$issuesStatusSelect.append(new Option('open'), new Option('ignored'), new Option('resolved'));
-            $fieldset.append(makeDiv('regular-input-group')(makeLabel()(`Get issues with status `, this.$issuesStatusSelect), ` about notes`));
+            $fieldset.append(makeDiv('input-group', 'regular')(makeLabel()(`Get issues with status `, this.$issuesStatusSelect), ` about notes`));
         }
         {
             this.$issuesButton.textContent = 'Go to issues page and populate XML fields below';
             this.$issuesButton.setAttribute('form', 'issues-form');
-            $fieldset.append(makeDiv('major-input-group')(this.$issuesButton));
+            $fieldset.append(makeDiv('input-group', 'major')(this.$issuesButton));
         }
         const updateFieldsetVisibility = () => {
             $fieldset.hidden = !this.cx.isModerator;
@@ -6658,12 +6658,12 @@ class NoteXmlFetchDialog extends StaticNoteFetchDialog {
             this.$selectorInput.type = 'text';
             this.$selectorInput.name = 'selector';
             this.$selectorInput.required = true;
-            $fieldset.append(makeDiv('major-input-group')(makeLabel()(`CSS selector matching XML elements with note ids `, this.$selectorInput)));
+            $fieldset.append(makeDiv('input-group', 'major')(makeLabel()(`CSS selector matching XML elements with note ids `, this.$selectorInput)));
         }
         {
             this.$attributeInput.type = 'text';
             this.$attributeInput.name = 'attribute';
-            $fieldset.append(makeDiv('major-input-group')(makeLabel()(`Attribute of matched XML elements containing note id (leave blank if note id is in text content) `, this.$attributeInput)));
+            $fieldset.append(makeDiv('input-group', 'major')(makeLabel()(`Attribute of matched XML elements containing note id (leave blank if note id is in text content) `, this.$attributeInput)));
         }
     }
     populateInputsWithoutUpdatingRequest(query) {
@@ -7042,13 +7042,13 @@ class NoteIdsFetchDialog extends StaticNoteFetchDialog {
             this.$copySelectedCheckbox.type = 'checkbox';
             this.$copyButton.type = 'button';
             this.$copyButton.textContent = `Copy note ids from table below`;
-            $fieldset.append(makeDiv('checkbox-button-input-group')(this.$copySelectedCheckbox, ' ', this.$copyButton));
+            $fieldset.append(makeDiv('input-group', 'checkbox-button')(this.$copySelectedCheckbox, ' ', this.$copyButton));
         }
         {
             this.$idsTextarea.name = 'ids';
             this.$idsTextarea.required = true;
             this.$idsTextarea.rows = 10;
-            $fieldset.append(makeDiv('major-input-group')(makeLabel()(`Note ids separated by anything `, this.$idsTextarea)));
+            $fieldset.append(makeDiv('input-group', 'major')(makeLabel()(`Note ids separated by anything `, this.$idsTextarea)));
         }
     }
     addEventListeners() {
@@ -9988,6 +9988,7 @@ class GeoUriTool extends Tool {
         super(...arguments);
         this.id = 'geouri';
         this.name = `Geo URI`;
+        this.title = `Get a Geo URI link to the current map location`;
     }
     getTool($root) {
         const $output = code('none');
@@ -10027,7 +10028,7 @@ class LegendTool extends Tool {
         super(...arguments);
         this.id = 'legend';
         this.name = `Legend`;
-        this.title = `What do icons in command panel mean`;
+        this.title = `See what icons in the toolbar mean`;
     }
     getTool() {
         return [
@@ -10566,7 +10567,7 @@ class InteractTool extends Tool {
         super(storage, cx);
         this.id = 'interact';
         this.name = `Interact`;
-        this.title = `Interact with notes on OSM server`;
+        this.title = `Comment, close, reopen notes`;
         this.isFullWidth = true;
         this.$yourNotesApi = document.createElement('span');
         this.$yourNotesWeb = document.createElement('span');
@@ -10675,8 +10676,8 @@ class InteractTool extends Tool {
         });
         return [
             this.$asOutput, ` `, this.$withOutput, ` `, this.$copyIdsButton,
-            makeDiv('major-input-group')(appendLastChangeset.$controls, makeLabel()(`Comment `, this.$commentText)),
-            makeDiv('gridded-input-group')(...this.interactionDescriptions.map(({ $button }) => $button)),
+            makeDiv('input-group', 'major')(appendLastChangeset.$controls, makeLabel()(`Comment `, this.$commentText)),
+            makeDiv('input-group', 'gridded')(...this.interactionDescriptions.map(({ $button }) => $button)),
             this.holder.$run
         ];
     }
@@ -11188,7 +11189,7 @@ class ParseTool extends Tool {
         super(...arguments);
         this.id = 'parse';
         this.name = `Parse links`;
-        this.title = `Extract interactive links from plaintext`;
+        this.title = `Extract interactive links from text`;
     }
     getInfo() {
         return [p(`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →. `, `Currently detected active elements are: `), ul(li(`links to images made in `, makeLink(`StreetComplete`, `https://wiki.openstreetmap.org/wiki/StreetComplete`)), li(`links to OSM notes (clicking the output link is not yet implemented)`), li(`links to OSM changesets`), li(`links to OSM elements`), li(`ISO-formatted timestamps`)), p(`May be useful for displaying an arbitrary OSM element in the map view. Paste the element URL and click the output link.`)];
@@ -12067,9 +12068,18 @@ class ToolPanel {
             const storageKey = `tools[${tool.id}]`;
             const [$tool, $info] = tool.write($root, map);
             if ($tool) {
-                const toolState = storage.getItem(storageKey);
+                let toolState = storage.getItem(storageKey);
+                if (toolState == null) {
+                    if (tool.id == 'interact') {
+                        toolState = '0';
+                    }
+                    else {
+                        toolState = '-1';
+                    }
+                    storage.setItem(storageKey, toolState);
+                }
                 $tool.open = toolState == '1';
-                $tool.hidden = toolState == null;
+                $tool.hidden = toolState == '-1';
                 $tool.addEventListener('toggle', () => {
                     storage.setItem(storageKey, $tool.open ? '1' : '0');
                 });
@@ -12094,9 +12104,10 @@ function makeSettingsDialog(toolsWithDetails, storage) {
     const toolsWithDetailsAndCheckboxes = toolsWithDetails.map((twd) => {
         const [tool] = twd;
         const storageKey = `tools[${tool.id}]`;
+        const toolState = storage.getItem(storageKey);
         const $checkbox = makeElement('input')()();
         $checkbox.type = 'checkbox';
-        $checkbox.checked = storage.getItem(storageKey) != null;
+        $checkbox.checked = Boolean(toolState) && toolState != '-1';
         return [...twd, $checkbox];
     });
     const toggleTool = (...[tool, $tool, $info, $checkbox]) => {
@@ -12113,7 +12124,7 @@ function makeSettingsDialog(toolsWithDetails, storage) {
                 $tool.hidden = true;
             if ($info)
                 $info.open = false;
-            storage.removeItem(storageKey);
+            storage.setItem(storageKey, '-1');
         }
     };
     const $dialog = makeElement('dialog')('help')();
@@ -12150,26 +12161,28 @@ function makeSettingsDialog(toolsWithDetails, storage) {
         $allCheckbox.indeterminate = hasChecked && hasUnchecked;
         $allCheckbox.checked = hasChecked && !hasUnchecked;
     };
-    $dialog.append($closeButton, makeElement('h2')()(`Toolbar settings`), makeDiv('major-input-group', 'all-tools')(makeLabel()($allCheckbox, ` Show/hide all tools`)));
+    $dialog.append($closeButton, makeElement('h2')()(`Toolbar settings`), makeDiv('input-group', 'major', 'all-tools')(makeLabel()($allCheckbox, ` Show/hide all tools`)));
     for (const [tool, $tool, $info, $checkbox] of toolsWithDetailsAndCheckboxes) {
         const getToolName = () => {
             if ($tool) {
-                const $name = makeElement('span')()(tool.name);
-                if (tool.title != null)
-                    $name.title = tool.title;
-                return $name;
+                return [tool.name];
             }
             else {
                 const $name = makeElement('s')()(tool.name);
                 $name.title = `incompatible with current server`;
-                return $name;
+                return [$name];
             }
+        };
+        const getToolDescription = () => {
+            if (tool.title == null)
+                return [];
+            return [` `, makeElement('small')()(tool.title)];
         };
         $checkbox.oninput = () => {
             toggleTool(tool, $tool, $info, $checkbox);
             updateAllCheckbox();
         };
-        $dialog.append(makeDiv('regular-input-group')(makeLabel()($checkbox, ` `, getToolName())));
+        $dialog.append(makeDiv('input-group', 'one-tool')(makeLabel()($checkbox, ` `, ...getToolName()), ...getToolDescription()));
     }
     updateAllCheckbox();
     $allCheckbox.oninput = () => {
@@ -12181,7 +12194,7 @@ function makeSettingsDialog(toolsWithDetails, storage) {
             toggleTool(tool, $tool, $info, $checkbox);
         }
     };
-    $dialog.append(makeDiv('major-input-group')($openAllButton, $closeAllButton));
+    $dialog.append(makeDiv('input-group', 'major')($openAllButton, $closeAllButton));
     return $dialog;
 }
 

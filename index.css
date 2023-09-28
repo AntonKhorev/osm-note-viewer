@@ -383,8 +383,11 @@ nav [role=tablist] [role=tab]:focus {
 .panel section[role=tabpanel] h2 {
 	margin-top: .3rem;
 }
-.panel [class*="-input-group"] {
+.panel .input-group {
 	margin: .5rem 0;
+}
+.panel .input-group .input-group {
+	margin: 0;
 }
 .panel div.notice:not(:empty) {
 	margin: .5rem calc(-1 * var(--panel-padding)); /* negative margins only for block-level notices */
@@ -467,10 +470,10 @@ nav [role=tablist] [role=tab]:focus {
 :is(.panel.fetch, .more) .advanced-hint p {
 	margin: .5em 0;
 }
-.panel.fetch:not(.advanced-mode) .advanced-input-group {
+.panel.fetch:not(.advanced-mode) .input-group.advanced {
 	display: none;
 }
-.panel.fetch.advanced-mode .non-advanced-input-group {
+.panel.fetch.advanced-mode .input-group.non-advanced {
 	display: none;
 }
 .panel.fetch input[type=number] {
@@ -614,7 +617,7 @@ dialog.help button.close-all-tools::before {
 .panel.toolbar details.info > summary {
 	display: none;
 }
-.panel.toolbar details.tool :is(.major-input-group, .gridded-input-group) {
+.panel.toolbar details.tool :is(.input-group.major, .input-group.gridded) {
 	margin: .25rem 0;
 }
 .panel.toolbar > button.settings {
@@ -660,48 +663,48 @@ dialog.help button.close-all-tools::before {
 	border: solid 2px var(--error-color);
 	border-radius: 3px;
 }
-.panel .major-input-group :is(input[type=text], textarea, button):not([hidden]) {
+.panel .input-group.major :is(input[type=text], textarea, button):not([hidden]) {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
 	margin-top: .25rem;
 }
-.panel .major-input-group label :is(input[type=text], textarea, button):not([hidden]) {
+.panel .input-group.major label :is(input[type=text], textarea, button):not([hidden]) {
 	margin-top: 1px;
 }
-.panel .major-input-group textarea {
+.panel .input-group.major textarea {
 	resize: vertical;
 }
-.panel .major-input-group button {
+.panel .input-group.major button {
 	padding: var(--major-button-padding);
 }
-.panel .major-input-group .text-controls {
+.panel .input-group.major .text-controls {
 	float: right;
 }
-.panel .major-input-group .text-controls a span {
+.panel .input-group.major .text-controls a span {
 	opacity: .7;
 }
-.panel .major-input-group .text-controls a em {
+.panel .input-group.major .text-controls a em {
 	font-style: inherit;
 }
-.panel .text-button-input-group > span {
+.panel .input-group.text-button > span {
 	display: flex;
 	margin-top: 1px;
 }
-.panel .text-button-input-group.spaced > span {
+.panel .input-group.text-button.spaced > span {
 	gap: .5rem;
 }
-.panel .text-button-input-group > span > input[type=text] {
+.panel .input-group.text-button > span > input[type=text] {
 	flex-grow: 1;
 }
-.panel .text-button-input-group > span > button {
+.panel .input-group.text-button > span > button {
 	padding-inline: 1.5em;
 }
-.panel .checkbox-button-input-group {
+.panel .input-group.checkbox-button {
 	display: flex;
 	gap: .5em;
 }
-.panel .checkbox-button-input-group > button {
+.panel .input-group.checkbox-button > button {
 	flex-grow: 1;
 	padding: var(--major-button-padding);
 }
@@ -713,14 +716,14 @@ dialog.help button.close-all-tools::before {
 	margin-left: 0;
 	margin-right: 0;
 }
-.panel .major-input-group label.file-reader {
+.panel .input-group.major label.file-reader {
 	--file-reader-border-width: 2px;
 }
-.panel .major-input-group label.file-reader {
+.panel .input-group.major label.file-reader {
 	display: grid;
 	align-content: center;
 }
-.panel .major-input-group label.file-reader .over {
+.panel .input-group.major label.file-reader .over {
 	margin: 2px;
 	grid-row: 1;
 	grid-column: 1;
@@ -730,10 +733,10 @@ dialog.help button.close-all-tools::before {
 	display: grid;
 	place-items: center;
 }
-.panel .major-input-group label.file-reader:focus-within .over {
+.panel .input-group.major label.file-reader:focus-within .over {
 	z-index: -1;
 }
-.panel .major-input-group label.file-reader input {
+.panel .input-group.major label.file-reader input {
 	display: block;
 	padding: 3rem;
 	background: var(--file-reader-background-color);
@@ -743,28 +746,26 @@ dialog.help button.close-all-tools::before {
 	border: dashed var(--file-reader-border-width) var(--file-reader-passive-border-color);
 	border-radius: 2px;
 }
-.panel .major-input-group label.file-reader input.active {
+.panel .input-group.major label.file-reader input.active {
 	border: dashed var(--file-reader-border-width) var(--file-reader-active-border-color);
 }
-.panel .gridded-input-group {
+.panel .input-group.gridded {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(16ch, 1fr));
 	gap: .25rem;
 }
-.panel .gridded-input-group > button {
+.panel .input-group.gridded > button {
 	padding: var(--major-button-padding);
 	white-space: nowrap;
 }
-.panel .input-super-group {
+.panel .input-group.super {
 	display: flex;
 	flex-wrap: wrap;
 	column-gap: 1rem;
 	row-gap: .5rem;
-	margin: .5rem 0;
 }
-.panel .input-super-group > * {
+.panel .input-group.super > * {
 	flex-grow: 1;
-	margin: 0;
 }
 
 .more div {
@@ -1480,21 +1481,16 @@ dialog.help > h2:first-child,
 dialog.help > button.close:first-child + h2 {
 	margin-top: 0;
 }
-dialog.help .regular-input-group {
+dialog.help .input-group {
 	margin: .2rem 0;
 }
-dialog.help .major-input-group {
+dialog.help .input-group.major {
 	margin: 1rem 0;
 }
-dialog.help .major-input-group.all-tools {
-	padding-bottom: .5rem;
-	border-bottom: var(--frame-line);
-	margin-bottom: .5rem;
-}
-dialog.help .major-input-group:last-child {
+dialog.help .input-group.major:last-child {
 	margin-bottom: 0;
 }
-dialog.help .major-input-group button {
+dialog.help .input-group.major button {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
@@ -1523,5 +1519,26 @@ dialog.help kbd {
 	font-weight: bold;
 	border: solid 1px var(--frame-color);
 	box-shadow: 0 1px 1px var(--frame-color);
+}
+dialog.help small {
+	opacity: .7;
+}
+dialog.help .input-group.major.all-tools {
+	padding-bottom: .5rem;
+	border-bottom: var(--frame-line);
+	margin-bottom: .5rem;
+}
+dialog.help .input-group.one-tool {
+	display: flex;
+	gap: 1rem;
+	justify-content: space-between;
+}
+dialog.help .input-group.one-tool > label {
+	white-space: nowrap;
+}
+dialog.help .input-group.one-tool > small {
+	line-height: .75;
+	align-self: center;
+	text-align: end;
 }
 
