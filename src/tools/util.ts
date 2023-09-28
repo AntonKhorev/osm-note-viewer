@@ -64,6 +64,7 @@ export class TimestampTool extends Tool {
 export class GeoUriTool extends Tool {
 	id='geouri'
 	name=`Geo URI`
+	title=`Get a Geo URI link to the current map location`
 	protected getTool($root: HTMLElement): ToolElements {
 		const $output=code('none')
 		$root.addEventListener('osmNoteViewer:mapMoveEnd',({detail:{zoom,lat,lon}})=>{
@@ -102,7 +103,7 @@ export class CountTool extends Tool {
 export class LegendTool extends Tool {
 	id='legend'
 	name=`Legend`
-	title=`What do icons in command panel mean`
+	title=`See what icons in the toolbar mean`
 	protected getTool(): ToolElements {
 		return [
 			makeMapIcon('center'),` = map center, `,

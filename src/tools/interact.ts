@@ -19,7 +19,7 @@ const e=makeEscapeTag(encodeURIComponent)
 export class InteractTool extends Tool {
 	id='interact'
 	name=`Interact`
-	title=`Interact with notes on OSM server`
+	title=`Comment, close, reopen notes`
 	isFullWidth=true
 	private $yourNotesApi=document.createElement('span')
 	private $yourNotesWeb=document.createElement('span')

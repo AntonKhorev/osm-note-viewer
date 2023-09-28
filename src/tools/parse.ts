@@ -6,7 +6,7 @@ import {p,ul,li,code} from '../util/html-shortcuts'
 export class ParseTool extends Tool {
 	id='parse'
 	name=`Parse links`
-	title=`Extract interactive links from plaintext`
+	title=`Extract interactive links from text`
 	protected getInfo() {return[p(
 		`Parse text as if it's a note comment and get its first active element. If such element exists, it's displayed as a link after →. `,
 		`Currently detected active elements are: `,
