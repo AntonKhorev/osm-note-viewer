@@ -68,7 +68,7 @@ export default function makeCodeForm(
 		$form.append($syntaxDetails)
 	}{
 		$textarea.rows=5
-		$form.append(makeDiv('major-input-group')(makeLabel()(
+		$form.append(makeDiv('input-group','major')(makeLabel()(
 			textareaLabel,` `,$textarea
 		)))
 	}{
@@ -76,7 +76,7 @@ export default function makeCodeForm(
 		$clearButton.textContent=`Clear`
 		$undoClearButton.textContent=`Restore previous`
 		$undoClearButton.type=$clearButton.type='button'
-		$form.append(makeDiv('gridded-input-group')(
+		$form.append(makeDiv('input-group','gridded')(
 			$applyButton,$clearButton,$undoClearButton
 		))
 	}

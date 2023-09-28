@@ -220,12 +220,12 @@ export default class AppSection {
 					)
 				)
 			),
-			makeDiv('major-input-group')(
+			makeDiv('input-group','major')(
 				makeLabel()(
 					`Client ID `,$clientIdInput
 				)
 			),
-			makeDiv('major-input-group')(
+			makeDiv('input-group','major')(
 				makeLabel()(
 					$manualCodeEntryCheckbox,` `+manualCodeEntryLabel
 				),

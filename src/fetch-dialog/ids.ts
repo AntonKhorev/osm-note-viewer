@@ -27,7 +27,7 @@ export default class NoteIdsFetchDialog extends StaticNoteFetchDialog {
 			this.$copySelectedCheckbox.type='checkbox'
 			this.$copyButton.type='button'
 			this.$copyButton.textContent=`Copy note ids from table below`
-			$fieldset.append(makeDiv('checkbox-button-input-group')(
+			$fieldset.append(makeDiv('input-group','checkbox-button')(
 				this.$copySelectedCheckbox,' ',
 				this.$copyButton
 			))
@@ -35,7 +35,7 @@ export default class NoteIdsFetchDialog extends StaticNoteFetchDialog {
 			this.$idsTextarea.name='ids'
 			this.$idsTextarea.required=true
 			this.$idsTextarea.rows=10
-			$fieldset.append(makeDiv('major-input-group')(makeLabel()(
+			$fieldset.append(makeDiv('input-group','major')(makeLabel()(
 				`Note ids separated by anything `,this.$idsTextarea
 			)))
 		}

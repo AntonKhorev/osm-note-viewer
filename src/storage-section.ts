@@ -19,7 +19,7 @@ export default class StorageSection {
 		)
 		const $updateFetchesButton=document.createElement('button')
 		$updateFetchesButton.textContent=`Update stored fetch list`
-		$section.append(makeDiv('major-input-group')($updateFetchesButton))
+		$section.append(makeDiv('input-group','major')($updateFetchesButton))
 		const $fetchesContainer=makeDiv()(p(
 			`Click Update button above to see stored fetches.`
 		))
@@ -103,7 +103,7 @@ export default class StorageSection {
 				$clearButton,$cancelButton,$confirmButton,
 				async()=>storage.clear()
 			)
-			$section.append(makeDiv('major-input-group')($clearButton,$cancelButton,$confirmButton))
+			$section.append(makeDiv('input-group','major')($clearButton,$cancelButton,$confirmButton))
 		}
 	}
 }

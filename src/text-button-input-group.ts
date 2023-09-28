@@ -7,7 +7,7 @@ export default function makeTextButtonInputGroup(...classes: string[]): (labelIt
 		const id='text-button-input-group-input-'+idCount++
 		const $label=makeLabel()(...labelItems)
 		$label.htmlFor=$input.id=id
-		return makeDiv('text-button-input-group',...classes)(
+		return makeDiv('input-group','text-button',...classes)(
 			$label,` `,
 			makeElement('span')()($input,` `,$button)
 		)

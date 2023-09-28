@@ -59,7 +59,7 @@ export default class NoteXmlFetchDialog extends StaticNoteFetchDialog {
 		this.$fetchControl=this.$fileInputFetchControl
 		this.$fileInputFetchControl.name='xml'
 		this.$fileInputFetchControl.type='file'
-		return makeDiv('major-input-group')(makeLabel('file-reader')(
+		return makeDiv('input-group','major')(makeLabel('file-reader')(
 			makeElement('span')('over')(`Read XML file`),` `,
 			this.$fileInputFetchControl
 		))
@@ -118,7 +118,7 @@ export default class NoteXmlFetchDialog extends StaticNoteFetchDialog {
 				...neisCountries.map(c=>new Option(c))
 			)
 			this.$neisCountryInput.setAttribute('list','neis-countries-list')
-			$fieldset.append(makeDiv('major-input-group')(makeLabel()(
+			$fieldset.append(makeDiv('input-group','major')(makeLabel()(
 				`Country `,this.$neisCountryInput,$datalist
 			)))
 		}{
@@ -129,7 +129,7 @@ export default class NoteXmlFetchDialog extends StaticNoteFetchDialog {
 				new Option(`last updated 500`,'custom'),
 				new Option(`last open 10000`,'custom-open'),
 			)
-			$fieldset.append(makeDiv('regular-input-group')(
+			$fieldset.append(makeDiv('input-group','regular')(
 				makeLabel()(
 					`Get `,this.$neisStatusSelect,` notes`
 				),` for this country`
@@ -137,7 +137,7 @@ export default class NoteXmlFetchDialog extends StaticNoteFetchDialog {
 		}{
 			this.$neisButton.textContent='Download feed file and populate XML fields below'
 			this.$neisButton.setAttribute('form','neis-form')
-			$fieldset.append(makeDiv('major-input-group')(
+			$fieldset.append(makeDiv('input-group','major')(
 				this.$neisButton
 			))
 		}
@@ -174,7 +174,7 @@ export default class NoteXmlFetchDialog extends StaticNoteFetchDialog {
 				new Option('ignored'),
 				new Option('resolved')
 			)
-			$fieldset.append(makeDiv('regular-input-group')(
+			$fieldset.append(makeDiv('input-group','regular')(
 				makeLabel()(
 					`Get issues with status `,this.$issuesStatusSelect
 				),` about notes`
@@ -182,7 +182,7 @@ export default class NoteXmlFetchDialog extends StaticNoteFetchDialog {
 		}{
 			this.$issuesButton.textContent='Go to issues page and populate XML fields below'
 			this.$issuesButton.setAttribute('form','issues-form')
-			$fieldset.append(makeDiv('major-input-group')(
+			$fieldset.append(makeDiv('input-group','major')(
 				this.$issuesButton
 			))
 		}
@@ -207,13 +207,13 @@ export default class NoteXmlFetchDialog extends StaticNoteFetchDialog {
 			this.$selectorInput.type='text'
 			this.$selectorInput.name='selector'
 			this.$selectorInput.required=true
-			$fieldset.append(makeDiv('major-input-group')(makeLabel()(
+			$fieldset.append(makeDiv('input-group','major')(makeLabel()(
 				`CSS selector matching XML elements with note ids `,this.$selectorInput
 			)))
 		}{
 			this.$attributeInput.type='text'
 			this.$attributeInput.name='attribute'
-			$fieldset.append(makeDiv('major-input-group')(makeLabel()(
+			$fieldset.append(makeDiv('input-group','major')(makeLabel()(
 				`Attribute of matched XML elements containing note id (leave blank if note id is in text content) `,this.$attributeInput
 			)))
 		}

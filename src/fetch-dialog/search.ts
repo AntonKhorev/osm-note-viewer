@@ -108,10 +108,10 @@ export default class NoteSearchFetchDialog extends DynamicNoteFetchDialog {
 		this.$textInput.name='text'
 		this.$textInput.size=50
 		$fieldset.append(makeDiv('input-super-group')(
-			makeDiv('major-input-group')(userInputControl.$controls,makeLabel()(
+			makeDiv('input-group','major')(userInputControl.$controls,makeLabel()(
 				`Username, URL or #id`,rq2('display_name','user'),` `,this.$userInput
 			)),
-			makeDiv('major-input-group')(makeLabel()(
+			makeDiv('input-group','major')(makeLabel()(
 				`Comment text search query`,rq('q'),` `,this.$textInput
 			))
 		))

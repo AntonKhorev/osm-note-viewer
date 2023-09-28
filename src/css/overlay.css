@@ -227,21 +227,21 @@ dialog.help > h2:first-child,
 dialog.help > button.close:first-child + h2 {
 	margin-top: 0;
 }
-dialog.help .regular-input-group {
+dialog.help .input-group {
 	margin: .2rem 0;
 }
-dialog.help .major-input-group {
+dialog.help .input-group.major {
 	margin: 1rem 0;
 }
-dialog.help .major-input-group.all-tools {
+dialog.help .input-group.major.all-tools {
 	padding-bottom: .5rem;
 	border-bottom: var(--frame-line);
 	margin-bottom: .5rem;
 }
-dialog.help .major-input-group:last-child {
+dialog.help .input-group.major:last-child {
 	margin-bottom: 0;
 }
-dialog.help .major-input-group button {
+dialog.help .input-group.major button {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;

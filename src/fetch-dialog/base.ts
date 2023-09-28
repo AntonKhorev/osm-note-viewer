@@ -169,12 +169,12 @@ export default abstract class NoteFetchDialog extends NavDialog {
 			this.$limitInput.min='1'
 			this.$limitInput.max='10000'
 			this.$limitInput.value=String(this.limitDefaultValue)
-			$fieldset.append(makeDiv('non-advanced-input-group')(
+			$fieldset.append(makeDiv('input-group','non-advanced')(
 				this.limitLeadText,
 				makeLabel()(
 					this.limitLabelBeforeText,this.$limitSelect,this.limitLabelAfterText
 				)
-			),makeDiv('advanced-input-group')(
+			),makeDiv('input-group','advanced')(
 				this.limitLeadText,
 				makeLabel()(
 					this.limitLabelBeforeText,this.$limitInput,this.limitLabelAfterText,
@@ -189,7 +189,7 @@ export default abstract class NoteFetchDialog extends NavDialog {
 			this.$autoLoadCheckbox=document.createElement('input')
 			this.$autoLoadCheckbox.type='checkbox'
 			this.$autoLoadCheckbox.checked=true
-			$fieldset.append(makeDiv('regular-input-group')(makeLabel()(
+			$fieldset.append(makeDiv('input-group')(makeLabel()(
 				this.$autoLoadCheckbox,` Automatically load more notes when scrolled to the end of the table`
 			)))
 		}
@@ -202,12 +202,12 @@ export default abstract class NoteFetchDialog extends NavDialog {
 			ev.stopPropagation()
 			ev.preventDefault()
 		}
-		$fieldset.append(makeDiv('regular-input-group')(makeLabel()(
+		$fieldset.append(makeDiv('input-group')(makeLabel()(
 			$showImagesCheckbox,` Load and show images from `,$trustedSourcesLink
 		)))
 		this.$advancedModeCheckbox.type='checkbox'
 		this.$sharedCheckboxes.advancedMode.push(this.$advancedModeCheckbox)
-		$fieldset.append(makeDiv('regular-input-group')(makeLabel()(
+		$fieldset.append(makeDiv('input-group')(makeLabel()(
 			this.$advancedModeCheckbox,` Advanced mode`
 		)))
 		return $fieldset
@@ -263,7 +263,7 @@ export default abstract class NoteFetchDialog extends NavDialog {
 		this.$fetchControl=document.createElement('button')
 		this.$fetchControl.append(makeActionIcon('download'),` Fetch notes`)
 		this.$fetchControl.type='submit'
-		return makeDiv('major-input-group')(this.$fetchControl)
+		return makeDiv('input-group','major')(this.$fetchControl)
 	}
 	protected listPrependedFieldsets(): (($fieldset:HTMLFieldSetElement,$legend:HTMLLegendElement)=>void)[] { return [] }
 	protected abstract writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement, $legend: HTMLLegendElement): void

@@ -125,13 +125,13 @@ export default abstract class DynamicNoteFetchDialog extends NoteFetchDialog {
 				new Option(`only open`,'0'),
 			)
 			this.$closedInput.value=this.$closedSelect.value=this.defaultClosedValue
-			const $closedLine=makeDiv('regular-input-group')(
+			const $closedLine=makeDiv('input-group')(
 				`Fetch `,
-				makeElement('span')('non-advanced-input-group')(
+				makeElement('span')('input-group','non-advanced')(
 					this.$closedSelect
 				),
 				` `,this.getClosedLineNotesText(),` `,
-				makeLabel('advanced-input-group')(
+				makeLabel('input-group','advanced')(
 					`closed no more than `,
 					this.$closedInput,
 					makeElement('span')('advanced-hint')(` (`,code('closed'),` parameter)`),

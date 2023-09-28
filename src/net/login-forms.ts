@@ -49,14 +49,14 @@ export default class LoginForms {
 		const app=()=>em(appName)
 		this.$manualCodeForm.append(
 			p(`If the manual code copying method was used to register `,app(),`, copy the code into the input below.`),
-			makeDiv('major-input-group')(
+			makeDiv('input-group','major')(
 				makeLabel()(`Authorization code `,this.$manualCodeInput)
-			),makeDiv('major-input-group')(
+			),makeDiv('input-group','major')(
 				this.$manualCodeButton
 			)
 		)
 		$container.append(
-			makeDiv('major-input-group')(
+			makeDiv('input-group','major')(
 				this.$loginButton,
 				this.$cancelLoginButton
 			),

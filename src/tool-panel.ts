@@ -110,7 +110,7 @@ function makeSettingsDialog(toolsWithDetails: ToolWithDetails[], storage: NoteVi
 	$dialog.append(
 		$closeButton,
 		makeElement('h2')()(`Toolbar settings`),
-		makeDiv('major-input-group','all-tools')(makeLabel()(
+		makeDiv('input-group','major','all-tools')(makeLabel()(
 			$allCheckbox,` Show/hide all tools`
 		))
 	)
@@ -131,7 +131,7 @@ function makeSettingsDialog(toolsWithDetails: ToolWithDetails[], storage: NoteVi
 			updateAllCheckbox()
 		}
 		$dialog.append(
-			makeDiv('regular-input-group')(makeLabel()(
+			makeDiv('input-group','regular')(makeLabel()(
 				$checkbox,` `,getToolName()
 			))
 		)
@@ -146,7 +146,7 @@ function makeSettingsDialog(toolsWithDetails: ToolWithDetails[], storage: NoteVi
 		}
 	}
 	$dialog.append(
-		makeDiv('major-input-group')(
+		makeDiv('input-group','major')(
 			$openAllButton,$closeAllButton
 		)
 	)
