@@ -23,9 +23,17 @@ export default class ToolPanel {
 			const storageKey=`tools[${tool.id}]`
 			const [$tool,$info]=tool.write($root,map)
 			if ($tool) {
-				const toolState=storage.getItem(storageKey)
+				let toolState=storage.getItem(storageKey)
+				if (toolState==null) {
+					if (tool.id=='interact') {
+						toolState='0'
+					} else {
+						toolState='-1'
+					}
+					storage.setItem(storageKey,toolState)
+				}
 				$tool.open=toolState=='1'
-				$tool.hidden=toolState==null
+				$tool.hidden=toolState=='-1'
 				$tool.addEventListener('toggle',()=>{
 					storage.setItem(storageKey,$tool.open?'1':'0')
 				})
@@ -58,9 +66,10 @@ function makeSettingsDialog(toolsWithDetails: ToolWithDetails[], storage: NoteVi
 	const toolsWithDetailsAndCheckboxes=toolsWithDetails.map((twd):ToolWithDetailsAndCheckboxes=>{
 		const [tool]=twd
 		const storageKey=`tools[${tool.id}]`
+		const toolState=storage.getItem(storageKey)
 		const $checkbox=makeElement('input')()()
 		$checkbox.type='checkbox'
-		$checkbox.checked=storage.getItem(storageKey)!=null
+		$checkbox.checked=Boolean(toolState)&&toolState!='-1'
 		return [...twd,$checkbox]
 	})
 	const toggleTool=(...[tool,$tool,$info,$checkbox]:ToolWithDetailsAndCheckboxes)=>{
@@ -72,7 +81,7 @@ function makeSettingsDialog(toolsWithDetails: ToolWithDetails[], storage: NoteVi
 		} else {
 			if ($tool) $tool.hidden=true
 			if ($info) $info.open=false
-			storage.removeItem(storageKey)
+			storage.setItem(storageKey,'-1')
 		}
 	}
 	const $dialog=makeElement('dialog')('help')()
