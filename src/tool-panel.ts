@@ -116,37 +116,38 @@ function makeSettingsDialog(toolsWithDetails: ToolWithDetails[], storage: NoteVi
 		$allCheckbox.indeterminate=hasChecked && hasUnchecked
 		$allCheckbox.checked=hasChecked && !hasUnchecked
 	}
-	$dialog.append(
-		$closeButton,
-		makeElement('h2')()(`Toolbar settings`),
-		makeDiv('input-group','major','all-tools')(makeLabel()(
-			$allCheckbox,` Show/hide all tools`
-		))
-	)
+	const $toolSettings=makeDiv('tool-settings')()
 	for (const [tool,$tool,$info,$checkbox] of toolsWithDetailsAndCheckboxes) {
-		const getToolName=():(string|HTMLElement)[]=>{
+		const getToolName=():string|HTMLElement=>{
 			if ($tool) {
-				return [tool.name]
+				return tool.name
 			} else {
 				const $name=makeElement('s')()(tool.name)
 				$name.title=`incompatible with current server`
-				return [$name]
+				return $name
 			}
 		}
-		const getToolDescription=():(string|HTMLElement)[]=>{
-			if (tool.title==null) return []
-			return [` `,makeElement('small')()(tool.title)]
+		const getToolDescription=():HTMLElement=>{
+			if (tool.title==null) return makeElement('span')()()
+			return makeElement('small')()(tool.title)
 		}
 		$checkbox.oninput=()=>{
 			toggleTool(tool,$tool,$info,$checkbox)
 			updateAllCheckbox()
 		}
-		$dialog.append(
-			makeDiv('input-group','one-tool')(makeLabel()(
-				$checkbox,` `,...getToolName()
-			),...getToolDescription())
+		$toolSettings.append(
+			makeLabel()($checkbox,` `,getToolName()),
+			getToolDescription()
 		)
 	}
+	$dialog.append(
+		$closeButton,
+		makeElement('h2')()(`Toolbar settings`),
+		makeDiv('input-group','major','all-tools')(makeLabel()(
+			$allCheckbox,` Show/hide all tools`
+		)),
+		$toolSettings
+	)
 	updateAllCheckbox()
 	$allCheckbox.oninput=()=>{
 		$allCheckbox.indeterminate=false

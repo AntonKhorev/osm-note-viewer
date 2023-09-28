@@ -274,16 +274,20 @@ dialog.help .input-group.major.all-tools {
 	border-bottom: var(--frame-line);
 	margin-bottom: .5rem;
 }
-dialog.help .input-group.one-tool {
-	display: flex;
-	gap: 1rem;
-	justify-content: space-between;
+dialog.help .tool-settings {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	row-gap: .125rem;
+	column-gap: 1rem;
 }
-dialog.help .input-group.one-tool > label {
+dialog.help .tool-settings > label {
 	white-space: nowrap;
 }
-dialog.help .input-group.one-tool > small {
-	line-height: .75;
-	align-self: center;
-	text-align: end;
+dialog.help .tool-settings > small {
+	min-height: 2rem;
+	font-family: sans-serif;
+	font-size: .75rem;
+	margin-top: .25rem;
+	margin-bottom: -.25rem;
+	text-align: right;
 }
