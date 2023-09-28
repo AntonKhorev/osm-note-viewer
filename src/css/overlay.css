@@ -233,11 +233,6 @@ dialog.help .input-group {
 dialog.help .input-group.major {
 	margin: 1rem 0;
 }
-dialog.help .input-group.major.all-tools {
-	padding-bottom: .5rem;
-	border-bottom: var(--frame-line);
-	margin-bottom: .5rem;
-}
 dialog.help .input-group.major:last-child {
 	margin-bottom: 0;
 }
@@ -270,4 +265,25 @@ dialog.help kbd {
 	font-weight: bold;
 	border: solid 1px var(--frame-color);
 	box-shadow: 0 1px 1px var(--frame-color);
+}
+dialog.help small {
+	opacity: .7;
+}
+dialog.help .input-group.major.all-tools {
+	padding-bottom: .5rem;
+	border-bottom: var(--frame-line);
+	margin-bottom: .5rem;
+}
+dialog.help .input-group.one-tool {
+	display: flex;
+	gap: 1rem;
+	justify-content: space-between;
+}
+dialog.help .input-group.one-tool > label {
+	white-space: nowrap;
+}
+dialog.help .input-group.one-tool > small {
+	line-height: .75;
+	align-self: center;
+	text-align: end;
 }

@@ -124,25 +124,27 @@ function makeSettingsDialog(toolsWithDetails: ToolWithDetails[], storage: NoteVi
 		))
 	)
 	for (const [tool,$tool,$info,$checkbox] of toolsWithDetailsAndCheckboxes) {
-		const getToolName=():HTMLElement=>{
+		const getToolName=():(string|HTMLElement)[]=>{
 			if ($tool) {
-				const $name=makeElement('span')()(tool.name)
-				if (tool.title!=null) $name.title=tool.title
-				return $name
+				return [tool.name]
 			} else {
 				const $name=makeElement('s')()(tool.name)
 				$name.title=`incompatible with current server`
-				return $name
+				return [$name]
 			}
+		}
+		const getToolDescription=():(string|HTMLElement)[]=>{
+			if (tool.title==null) return []
+			return [` `,makeElement('small')()(tool.title)]
 		}
 		$checkbox.oninput=()=>{
 			toggleTool(tool,$tool,$info,$checkbox)
 			updateAllCheckbox()
 		}
 		$dialog.append(
-			makeDiv('input-group','regular')(makeLabel()(
-				$checkbox,` `,getToolName()
-			))
+			makeDiv('input-group','one-tool')(makeLabel()(
+				$checkbox,` `,...getToolName()
+			),...getToolDescription())
 		)
 	}
 	updateAllCheckbox()
