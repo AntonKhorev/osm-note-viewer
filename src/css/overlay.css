@@ -269,25 +269,26 @@ dialog.help kbd {
 dialog.help small {
 	opacity: .7;
 }
-dialog.help .input-group.major.all-tools {
+dialog.help table.tool-settings td {
+	padding: 0;
+	vertical-align: baseline;
+}
+dialog.help table.tool-settings td input {
+	margin-left: 0;
+}
+dialog.help table.tool-settings thead td {
 	padding-bottom: .5rem;
 	border-bottom: var(--frame-line);
-	margin-bottom: .5rem;
 }
-dialog.help .tool-settings {
-	display: grid;
-	grid-template-columns: max-content 1fr;
-	row-gap: .125rem;
-	column-gap: 1rem;
+dialog.help table.tool-settings tbody tr:first-child td {
+	padding-top: .5rem;
 }
-dialog.help .tool-settings > label {
+dialog.help table.tool-settings label {
 	white-space: nowrap;
 }
-dialog.help .tool-settings > small {
-	min-height: 2rem;
+dialog.help table.tool-settings td.description {
+	height: 1.5rem;
+	padding-left: 1rem;
 	font-family: sans-serif;
 	font-size: .75rem;
-	margin-top: .25rem;
-	margin-bottom: -.25rem;
-	text-align: right;
 }
