@@ -1,4 +1,5 @@
 import type {Note} from '../data'
+import {makeElement} from '../util/html'
 
 export type InteractionDescription = ({
 	verb: 'POST'
@@ -29,7 +30,7 @@ export default function makeInteractionDescriptions($commentButton: HTMLButtonEl
 		endpoint: 'close',
 		label: `Close`,
 		runningLabel: `Closing`,
-		$button: document.createElement('button'),
+		$button: makeElement('button')()(),
 		inputNoteStatus: 'open',
 		outputNoteStatus: 'closed',
 		forModerator: false
@@ -38,7 +39,7 @@ export default function makeInteractionDescriptions($commentButton: HTMLButtonEl
 		endpoint: 'reopen',
 		label: `Reopen`,
 		runningLabel: `Reopening`,
-		$button: document.createElement('button'),
+		$button: makeElement('button')()(),
 		inputNoteStatus: 'closed',
 		outputNoteStatus: 'open',
 		forModerator: false
@@ -46,7 +47,7 @@ export default function makeInteractionDescriptions($commentButton: HTMLButtonEl
 		verb: 'DELETE',
 		label: `Hide`,
 		runningLabel: `Hiding`,
-		$button: document.createElement('button'),
+		$button: makeElement('button')('danger')(),
 		inputNoteStatus: 'open',
 		outputNoteStatus: 'hidden',
 		forModerator: true
@@ -54,7 +55,7 @@ export default function makeInteractionDescriptions($commentButton: HTMLButtonEl
 		verb: 'DELETE',
 		label: `Hide`,
 		runningLabel: `Hiding`,
-		$button: document.createElement('button'),
+		$button: makeElement('button')('danger')(),
 		inputNoteStatus: 'closed',
 		outputNoteStatus: 'hidden',
 		forModerator: true
@@ -63,7 +64,7 @@ export default function makeInteractionDescriptions($commentButton: HTMLButtonEl
 		endpoint: 'reopen',
 		label: `Reactivate`,
 		runningLabel: `Reactivating`,
-		$button: document.createElement('button'),
+		$button: makeElement('button')()(),
 		inputNoteStatus: 'hidden',
 		outputNoteStatus: 'open',
 		forModerator: true

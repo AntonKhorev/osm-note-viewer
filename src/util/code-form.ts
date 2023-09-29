@@ -74,6 +74,7 @@ export default function makeCodeForm(
 	}{
 		$applyButton.textContent=applyButtonLabel
 		$clearButton.textContent=`Clear`
+		$clearButton.classList.add('danger')
 		$undoClearButton.textContent=`Restore previous`
 		$undoClearButton.type=$clearButton.type='button'
 		$form.append(makeDiv('input-group','gridded')(

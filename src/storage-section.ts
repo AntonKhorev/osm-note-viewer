@@ -98,7 +98,7 @@ export default class StorageSection {
 		{
 			const $clearButton=makeElement('button')()(`Clear settings`)
 			const $cancelButton=makeElement('button')()(`Cancel clear settings`)
-			const $confirmButton=makeElement('button')()(`Confirm clear settings`)
+			const $confirmButton=makeElement('button')('danger')(`Confirm clear settings`)
 			new ConfirmedButtonListener(
 				$clearButton,$cancelButton,$confirmButton,
 				async()=>storage.clear()
