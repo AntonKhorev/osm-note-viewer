@@ -1543,6 +1543,7 @@ dialog.help table.tool-settings label {
 dialog.help table.tool-settings td.description {
 	height: 1.5rem;
 	padding-left: 1rem;
+	line-height: .9;
 }
 dialog.help table.tool-settings td.description small {
 	font-family: sans-serif;
