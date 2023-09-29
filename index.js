@@ -12101,6 +12101,28 @@ class ToolPanel {
     }
 }
 function makeSettingsDialog(toolsWithDetails, storage) {
+    const $dialog = makeElement('dialog')('help')();
+    const $closeButton = makeElement('button')('close')();
+    $closeButton.title = `Close toolbar settings`;
+    $closeButton.innerHTML = `<svg><use href="#reset" /></svg>`;
+    const $openAllButton = makeElement('button')('open-all-tools')(`Open all enabled tools`);
+    const $closeAllButton = makeElement('button')('close-all-tools')(`Close all enabled tools`);
+    $dialog.append($closeButton, makeElement('h2')()(`Toolbar settings`), makeToolsTable(toolsWithDetails, storage), makeDiv('input-group', 'major')($openAllButton, $closeAllButton));
+    $closeButton.onclick = () => {
+        $dialog.close();
+    };
+    const makeAllToolsListener = (open) => () => {
+        for (const [, $tool] of toolsWithDetails) {
+            if (!$tool)
+                continue;
+            $tool.open = open;
+        }
+    };
+    $openAllButton.onclick = makeAllToolsListener(true);
+    $closeAllButton.onclick = makeAllToolsListener(false);
+    return $dialog;
+}
+function makeToolsTable(toolsWithDetails, storage) {
     const toolsWithDetailsAndCheckboxes = toolsWithDetails.map((twd) => {
         const [tool] = twd;
         const storageKey = `tools[${tool.id}]`;
@@ -12127,42 +12149,18 @@ function makeSettingsDialog(toolsWithDetails, storage) {
             storage.setItem(storageKey, '-1');
         }
     };
-    const $dialog = makeElement('dialog')('help')();
-    const $closeButton = makeElement('button')('close')();
-    $closeButton.title = `Close toolbar settings`;
-    $closeButton.innerHTML = `<svg><use href="#reset" /></svg>`;
-    $closeButton.onclick = () => {
-        $dialog.close();
-    };
-    const makeAllToolsListener = (open) => () => {
-        for (const [, $tool] of toolsWithDetailsAndCheckboxes) {
-            if (!$tool)
-                continue;
-            $tool.open = open;
-        }
-    };
-    const $openAllButton = makeElement('button')('open-all-tools')(`Open all enabled tools`);
-    $openAllButton.onclick = makeAllToolsListener(true);
-    const $closeAllButton = makeElement('button')('close-all-tools')(`Close all enabled tools`);
-    $closeAllButton.onclick = makeAllToolsListener(false);
     const $allCheckbox = makeElement('input')()();
     $allCheckbox.type = 'checkbox';
-    const updateAllCheckbox = () => {
-        let hasChecked = false;
-        let hasUnchecked = false;
-        for (const [, , , $checkbox] of toolsWithDetailsAndCheckboxes) {
-            if ($checkbox.checked) {
-                hasChecked = true;
-            }
-            else {
-                hasUnchecked = true;
-            }
-        }
-        $allCheckbox.indeterminate = hasChecked && hasUnchecked;
-        $allCheckbox.checked = hasChecked && !hasUnchecked;
-    };
-    const $toolSettings = makeDiv('tool-settings')();
+    const $head = makeElement('thead')()();
+    const $body = makeElement('tbody')()();
+    {
+        const $row = $head.insertRow();
+        const $cell = $row.insertCell();
+        $cell.colSpan = 2;
+        $cell.append(makeLabel()($allCheckbox, ` Show/hide all tools`));
+    }
     for (const [tool, $tool, $info, $checkbox] of toolsWithDetailsAndCheckboxes) {
+        const $row = $body.insertRow();
         const getToolName = () => {
             if ($tool) {
                 return tool.name;
@@ -12182,10 +12180,25 @@ function makeSettingsDialog(toolsWithDetails, storage) {
             toggleTool(tool, $tool, $info, $checkbox);
             updateAllCheckbox();
         };
-        $toolSettings.append(makeLabel()($checkbox, ` `, getToolName()), getToolDescription());
+        $row.insertCell().append(makeLabel()($checkbox, ` `, getToolName()));
+        const $description = $row.insertCell();
+        $description.classList.add('description');
+        $description.append(getToolDescription());
     }
-    $dialog.append($closeButton, makeElement('h2')()(`Toolbar settings`), makeDiv('input-group', 'major', 'all-tools')(makeLabel()($allCheckbox, ` Show/hide all tools`)), $toolSettings);
-    updateAllCheckbox();
+    const updateAllCheckbox = () => {
+        let hasChecked = false;
+        let hasUnchecked = false;
+        for (const [, , , $checkbox] of toolsWithDetailsAndCheckboxes) {
+            if ($checkbox.checked) {
+                hasChecked = true;
+            }
+            else {
+                hasUnchecked = true;
+            }
+        }
+        $allCheckbox.indeterminate = hasChecked && hasUnchecked;
+        $allCheckbox.checked = hasChecked && !hasUnchecked;
+    };
     $allCheckbox.oninput = () => {
         $allCheckbox.indeterminate = false;
         for (const [tool, $tool, $info, $checkbox] of toolsWithDetailsAndCheckboxes) {
@@ -12195,8 +12208,8 @@ function makeSettingsDialog(toolsWithDetails, storage) {
             toggleTool(tool, $tool, $info, $checkbox);
         }
     };
-    $dialog.append(makeDiv('input-group', 'major')($openAllButton, $closeAllButton));
-    return $dialog;
+    updateAllCheckbox();
+    return makeElement('table')('tool-settings')($head, $body);
 }
 
 function getAdiffFromDocument(changeset, doc) {
