@@ -70,6 +70,9 @@
 		"note": "mostly useless here because notes are not implemented on this server"
 	},{
 		"web": "http://127.0.0.1:3000/",
+		"api": {
+			"noteSearchBbox": true
+		},
 		"note": "default local rails dev server"
 	}
 ]
