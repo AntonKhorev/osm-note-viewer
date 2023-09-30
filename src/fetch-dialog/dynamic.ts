@@ -41,11 +41,14 @@ export default abstract class DynamicNoteFetchDialog extends NoteFetchDialog {
 	populateInputs(query: NoteQuery|undefined): void {
 		super.populateInputs(query)
 		this.nominatimSubForm?.updateRequest()
+		this.nominatimSubForm?.updateStructuredRequest()
 	}
 	protected writeExtraForms() {
-		if (this.nominatimSubForm) {
-			this.$section.append(this.nominatimSubForm.$form)
-		}
+		if (!this.nominatimSubForm) return
+		this.$section.append(
+			this.nominatimSubForm.$form,
+			this.nominatimSubForm.$structuredForm
+		)
 	}
 	protected writeScopeAndOrderFieldset($fieldset: HTMLFieldSetElement): void {
 		if (this.withBbox) {
@@ -206,6 +209,7 @@ export default abstract class DynamicNoteFetchDialog extends NoteFetchDialog {
 					this.setBbox(...this.map.precisionBounds.wsen)
 				}
 				this.nominatimSubForm?.updateRequest()
+				this.nominatimSubForm?.updateStructuredRequest()
 			}
 			this.$root.addEventListener('osmNoteViewer:mapMoveEnd',()=>{
 				trackMap()

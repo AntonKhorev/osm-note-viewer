@@ -109,10 +109,10 @@
 :is(.panel.fetch, .more) .advanced-hint p {
 	margin: .5em 0;
 }
-.panel.fetch:not(.advanced-mode) .input-group.advanced {
+.panel.fetch:not(.advanced-mode) :is(.input-group, .label-part).advanced {
 	display: none;
 }
-.panel.fetch.advanced-mode .input-group.non-advanced {
+.panel.fetch.advanced-mode :is(.input-group, .label-part).non-advanced {
 	display: none;
 }
 .panel.fetch input[type=number] {

@@ -1,6 +1,8 @@
 import type {NominatimProvider} from './net'
 import {makeEscapeTag} from './util/escape'
 
+const e=makeEscapeTag(encodeURIComponent)
+
 export type NominatimBbox = readonly [minLat:string,maxLat:string,minLon:string,maxLon:string]
 
 function isNominatimBbox(bbox: any): bbox is NominatimBbox {
@@ -22,8 +24,25 @@ export class NominatimBboxFetcher {
 		q: string,
 		viewbox: [w:string,s:string,e:string,n:string]
 	): string {
-		const e=makeEscapeTag(encodeURIComponent)
-		let parameters=e`limit=1&q=${q}`
+		return this.addCommonParameters(
+			e`q=${q}`,
+			viewbox
+		)
+	}
+	getStructuredParameters(
+		values: {[name: string]: string},
+		viewbox: [w:string,s:string,e:string,n:string]
+	): string {
+		return this.addCommonParameters(
+			Object.entries(values).map(([name,value])=>e`${name}=${value}`).join('&'),
+			viewbox
+		)
+	}
+	private addCommonParameters(
+		parameters: string,
+		viewbox: [w:string,s:string,e:string,n:string]
+	): string {
+		parameters=`limit=1&`+parameters
 		const [west,south,east,north]=viewbox.map(Number)
 		if (east>west && north>south && east-west<360) {
 			parameters+=e`&viewbox=${viewbox}`
@@ -32,10 +51,8 @@ export class NominatimBboxFetcher {
 	}
 	async fetch(
 		timestamp: number,
-		q: string,
-		viewbox: [w:string,s:string,e:string,n:string]
+		parameters: string
 	): Promise<NominatimBbox> {
-		const parameters=this.getParameters(q,viewbox)
 		const cacheBbox=await this.fetchFromCache(timestamp,parameters)
 		if (isNominatimBbox(cacheBbox)) {
 			await this.storeToCache(timestamp,parameters,cacheBbox)
