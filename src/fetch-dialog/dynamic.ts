@@ -83,11 +83,6 @@ export default abstract class DynamicNoteFetchDialog extends NoteFetchDialog {
 				tip(`top`,`northern-most (max) latitude`),
 				`)`,rq('bbox')
 			]
-			if (this.nominatimSubForm) {
-				labelItems.push(
-					spanRequest(` (also `,code('west'),`, `,code('south'),`, `,code('east'),`, `,code('north'),` Nominatim parameters)`)
-				)
-			}
 			const $linkLabel=makeLabel('link-checkbox-holder')(this.$linkCheckbox)
 			$linkLabel.title=`Update bounding box on map view changes`
 			const $leftLink=makeSvgElement('svg',{class:'link-left',width:'12',height:'12'})

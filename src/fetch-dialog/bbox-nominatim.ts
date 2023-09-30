@@ -36,7 +36,9 @@ export default class NominatimSubForm {
 	write($container: HTMLElement): void {
 		$container.append(makeDiv('advanced-hint')(
 			`Make `,makeLink(`Nominatim search query`,`https://nominatim.org/release-docs/develop/api/Search/`),
-			` at `,code(this.nominatim.getSearchUrl(''),em(`parameters`)),`; see `,em(`parameters`),` above and below.`
+			` at `,code(this.nominatim.getSearchUrl(''),em(`parameters`)),`; `,
+			em(`parameters`),` are `,code(`viewbox`),` taken from the current map view if the zoom is high enough, `,
+			`other `,em(`parameters`),` come from the inputs below.`
 		))
 		$container.append(makeTextButtonInputGroup('spaced')([
 			`Nominatim query`,spanRequest(` (`,code('q'),` Nominatim parameter, free-form query)`)
