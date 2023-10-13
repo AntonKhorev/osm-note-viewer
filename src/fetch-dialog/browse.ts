@@ -37,16 +37,8 @@ export default class NoteBrowseFetchDialog extends DynamicNoteFetchDialog {
 		return '7'
 	}
 	protected addEventListenersBeforeClosedLine(): void {
-		const updateTrackMapZoomMessage=()=>{
-			if (this.withSafeZoom) {
-				bubbleCustomEvent(this.$form,'osmNoteViewer:mapMessageDisplay',null)
-			} else {
-				bubbleCustomEvent(this.$form,'osmNoteViewer:mapMessageDisplay',`Zoom in to level ${minSafeZoom} to see notes`)
-			}
-		}
-		updateTrackMapZoomMessage()
 		this.$root.addEventListener('osmNoteViewer:mapMoveEnd',()=>{
-			updateTrackMapZoomMessage()
+			this.updateMapZoomMessage()
 			this.updateRequest()
 			this.updateNotesIfNeeded()
 		})
@@ -67,10 +59,23 @@ export default class NoteBrowseFetchDialog extends DynamicNoteFetchDialog {
 	}
 	onOpen(): void {
 		this.map.freezeMode=true
+		this.updateMapZoomMessage()
 		this.updateNotesIfNeeded()
 	}
 	onClose(): void {
 		this.map.freezeMode=false
+		this.clearMapZoomMessage()
+	}
+	private updateMapZoomMessage(): void {
+		if (!this.open) return
+		if (this.withSafeZoom) {
+			this.clearMapZoomMessage()
+		} else {
+			bubbleCustomEvent(this.$form,'osmNoteViewer:mapMessageDisplay',`Zoom in to level ${minSafeZoom} to see notes`)
+		}
+	}
+	private clearMapZoomMessage(): void {
+		bubbleCustomEvent(this.$form,'osmNoteViewer:mapMessageDisplay',null)
 	}
 	private updateNotesIfNeeded(): void {
 		if (this.open && this.withSafeZoom) {
