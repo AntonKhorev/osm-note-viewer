@@ -312,6 +312,8 @@ button.global:not([disabled]):hover > svg { /* > svg background only required fo
 /*** css/navbar.css ***/
 nav {
 	position: relative;
+	z-index: 1;
+	margin-bottom: -1px;
 }
 nav button.global {
 	right: .25rem;
@@ -348,7 +350,6 @@ nav [role=tablist] [role=tab] {
 	border-top-left-radius: 8px;
 	border-top-right-radius: 8px;
 	border-bottom: none;
-	margin-bottom: -1px;
 	margin-left: -1px;
 	color: var(--semi-link-color);
 	background: var(--inset-background-color);
@@ -674,6 +675,7 @@ dialog.help button.close-all-tools::before {
 .panel :is(input,textarea):invalid:not(.no-invalid-indication) {
 	border: solid 2px var(--error-color);
 	border-radius: 3px;
+	background: #F002;
 }
 .panel .input-group.major :is(input[type=text], textarea, button):not([hidden]) {
 	display: block;
