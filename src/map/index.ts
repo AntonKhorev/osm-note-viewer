@@ -330,8 +330,23 @@ export default class NoteMap {
 	get bounds(): L.LatLngBounds {
 		return this.leafletMap.getBounds()
 	}
+	get markerBounds(): L.LatLngBounds {
+		const z=this.zoom
+		const bs=this.bounds
+		const [ne,sw]=NoteMarker.shrinkPixelBoundsToContainEntireMarkers(
+			this.leafletMap.project(bs.getNorthEast(),z),
+			this.leafletMap.project(bs.getSouthWest(),z)
+		)
+		return L.latLngBounds(
+			this.leafletMap.unproject(ne,z),
+			this.leafletMap.unproject(sw,z)
+		)
+	}
 	get precisionBounds(): NoteMapBounds {
 		return new NoteMapBounds(this.bounds,this.precision)
+	}
+	get precisionMarkerBounds(): NoteMapBounds {
+		return new NoteMapBounds(this.markerBounds,this.precision)
 	}
 	private fitBoundsIfNotFrozen(bounds: L.LatLngBoundsExpression): void {
 		if (this.freezeMode) return

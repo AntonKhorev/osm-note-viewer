@@ -47,7 +47,7 @@ export default class NoteBrowseFetchDialog extends DynamicNoteFetchDialog {
 		this.updateNotesIfNeeded()
 	}
 	protected constructQuery(): NoteQuery | undefined {
-		const bboxValue=this.map.precisionBounds.wsen.join(',')
+		const bboxValue=this.map.precisionMarkerBounds.wsen.join(',')
 		return makeNoteBrowseQueryFromValues(
 			bboxValue,this.closedValue
 		)

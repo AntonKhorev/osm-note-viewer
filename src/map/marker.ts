@@ -4,6 +4,9 @@ import {escapeXml, makeEscapeTag} from '../util/escape'
 
 const e=makeEscapeTag(escapeXml)
 
+const width=25
+const height=40
+
 export default class NoteMarker extends L.Marker {
 	noteId: number
 	$a: HTMLAnchorElement
@@ -21,11 +24,15 @@ export default class NoteMarker extends L.Marker {
 		const icon=getNoteMarkerIcon(this.$a,web,note,isSelected)
 		this.setIcon(icon)
 	}
+	static shrinkPixelBoundsToContainEntireMarkers(ne: L.Point, sw: L.Point): [ne: L.Point, sw: L.Point] {
+		return [
+			L.point(ne.x-width/2,ne.y+height),
+			L.point(sw.x+width/2,sw.y),
+		]
+	}
 }
 
 function getNoteMarkerIcon($a: HTMLAnchorElement, web: WebProvider, note: Note, isSelected: boolean): L.DivIcon {
-	const width=25
-	const height=40
 	const auraThickness=4
 	const r=width/2
 	const widthWithAura=width+auraThickness*2
