@@ -1358,6 +1358,27 @@ dialog.help button.close-all-tools::before {
 	--panel-padding: 1rem;
 }
 
+.graphic-side > .message:not([hidden]) {
+	position: absolute;
+	inset: 0;
+	box-sizing: border-box;
+	width: clamp(50%, 10rem, 100% - 1rem);
+	height: clamp(50%, 5rem, 100% - 1rem);
+	background: canvas;
+	margin: auto;
+	border-radius: 1rem;
+	padding: 0 1rem;
+	opacity: .5;
+	display: grid;
+	place-items: center;
+	text-align: center;
+	font-size: clamp(1rem, .5rem + 2vmax, 2rem);
+	pointer-events: none;
+}
+.graphic-side:hover > .message {
+	opacity: .3;
+}
+
 dialog.figure {
 	position: absolute;
 	z-index: 2;

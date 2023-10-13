@@ -2223,6 +2223,8 @@ class GlobalHistory {
 }
 
 const e$b = makeEscapeTag(escapeXml);
+const width = 25;
+const height = 40;
 class NoteMarker extends L.Marker {
     constructor(web, note) {
         const $a = document.createElement('a');
@@ -2238,10 +2240,14 @@ class NoteMarker extends L.Marker {
         const icon = getNoteMarkerIcon(this.$a, web, note, isSelected);
         this.setIcon(icon);
     }
+    static shrinkPixelBoundsToContainEntireMarkers(ne, sw) {
+        return [
+            L.point(ne.x - width / 2, ne.y + height),
+            L.point(sw.x + width / 2, sw.y),
+        ];
+    }
 }
 function getNoteMarkerIcon($a, web, note, isSelected) {
-    const width = 25;
-    const height = 40;
     const auraThickness = 4;
     const r = width / 2;
     const widthWithAura = width + auraThickness * 2;
@@ -3500,8 +3506,17 @@ class NoteMap {
     get bounds() {
         return this.leafletMap.getBounds();
     }
+    get markerBounds() {
+        const z = this.zoom;
+        const bs = this.bounds;
+        const [ne, sw] = NoteMarker.shrinkPixelBoundsToContainEntireMarkers(this.leafletMap.project(bs.getNorthEast(), z), this.leafletMap.project(bs.getSouthWest(), z));
+        return L.latLngBounds(this.leafletMap.unproject(ne, z), this.leafletMap.unproject(sw, z));
+    }
     get precisionBounds() {
         return new NoteMapBounds(this.bounds, this.precision);
+    }
+    get precisionMarkerBounds() {
+        return new NoteMapBounds(this.markerBounds, this.precision);
     }
     fitBoundsIfNotFrozen(bounds) {
         if (this.freezeMode)
@@ -4004,6 +4019,7 @@ class OverlayDialog {
     constructor($root, storage, db, net, map, $menuButton) {
         this.map = map;
         this.$menuButton = $menuButton;
+        this.$message = makeElement('div')('message')();
         this.$menuPanel = makeElement('div')('menu')();
         this.$figureDialog = makeElement('dialog')('figure')();
         this.$figure = document.createElement('figure');
@@ -4018,6 +4034,7 @@ class OverlayDialog {
             p(`When zoomed out:`),
             ul(li(kbd(`Arrow keys`), `, swipe left/right — go to previous/next image in sequence`), li(kbd(`Home`), ` / `, kbd(`End`), ` — go to first/last image in sequence`), li(`swipe up/down — close image viewer`))
         ]);
+        this.$message.hidden = true;
         this.menuHidden = !!net.cx;
         this.$menuButton.disabled = !net.cx;
         this.writeMenuPanel(storage, db, net);
@@ -4050,6 +4067,16 @@ class OverlayDialog {
                 this.menuHidden = !this.menuHidden;
             }
             this.map?.hide(!this.menuHidden);
+        });
+        $root.addEventListener('osmNoteViewer:mapMessageDisplay', ({ detail }) => {
+            if (detail) {
+                this.$message.hidden = false;
+                this.$message.textContent = detail;
+            }
+            else {
+                this.$message.hidden = true;
+                this.$message.textContent = '';
+            }
         });
     }
     writeFigureDialog() {
@@ -7163,7 +7190,6 @@ class NoteBrowseFetchDialog extends DynamicNoteFetchDialog {
         super(...arguments);
         this.shortTitle = `Browse`;
         this.title = `Get notes inside map view`;
-        this.$trackMapZoomNotice = makeDiv('notice')();
         this.limitValues = [20, 100, 500, 2500, 10000];
         this.limitDefaultValue = 100; // higher default limit because no progressive loads possible
         this.limitLeadText = `Download `;
@@ -7182,9 +7208,6 @@ class NoteBrowseFetchDialog extends DynamicNoteFetchDialog {
     makeLeadAdvancedHint() {
         return [p(`Make a `, makeLink(`notes in bounding box`, `https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`), ` request at `, code(this.cx.server.api.getUrl(`notes?`), em(`parameters`)), ` like the `, makeLink(`note layer`, `https://wiki.openstreetmap.org/wiki/Notes#Viewing_notes`), `; see `, em(`BBox`), ` tab for `, em(`parameters`), ` descriptions.`)];
     }
-    writeScopeAndOrderFieldsetBetweenParametersAndBbox($fieldset) {
-        $fieldset.append(this.$trackMapZoomNotice);
-    }
     getClosedLineNotesText() {
         return `most recently updated notes`;
     }
@@ -7192,19 +7215,8 @@ class NoteBrowseFetchDialog extends DynamicNoteFetchDialog {
         return '7';
     }
     addEventListenersBeforeClosedLine() {
-        const updateTrackMapZoomNotice = () => {
-            if (this.withSafeZoom) {
-                this.$trackMapZoomNotice.classList.remove('error');
-                this.$trackMapZoomNotice.innerText = `Fetching will stop on zooms lower than ${minSafeZoom}`;
-            }
-            else {
-                this.$trackMapZoomNotice.classList.add('error');
-                this.$trackMapZoomNotice.innerText = `Fetching will start on zooms ${minSafeZoom} or higher`;
-            }
-        };
-        updateTrackMapZoomNotice();
         this.$root.addEventListener('osmNoteViewer:mapMoveEnd', () => {
-            updateTrackMapZoomNotice();
+            this.updateMapZoomMessage();
             this.updateRequest();
             this.updateNotesIfNeeded();
         });
@@ -7213,7 +7225,7 @@ class NoteBrowseFetchDialog extends DynamicNoteFetchDialog {
         this.updateNotesIfNeeded();
     }
     constructQuery() {
-        const bboxValue = this.map.precisionBounds.wsen.join(',');
+        const bboxValue = this.map.precisionMarkerBounds.wsen.join(',');
         return makeNoteBrowseQueryFromValues(bboxValue, this.closedValue);
     }
     listQueryChangingInputsWithoutBbox() {
@@ -7223,10 +7235,25 @@ class NoteBrowseFetchDialog extends DynamicNoteFetchDialog {
     }
     onOpen() {
         this.map.freezeMode = true;
+        this.updateMapZoomMessage();
         this.updateNotesIfNeeded();
     }
     onClose() {
         this.map.freezeMode = false;
+        this.clearMapZoomMessage();
+    }
+    updateMapZoomMessage() {
+        if (!this.open)
+            return;
+        if (this.withSafeZoom) {
+            this.clearMapZoomMessage();
+        }
+        else {
+            bubbleCustomEvent(this.$form, 'osmNoteViewer:mapMessageDisplay', `Zoom in to level ${minSafeZoom} to see notes`);
+        }
+    }
+    clearMapZoomMessage() {
+        bubbleCustomEvent(this.$form, 'osmNoteViewer:mapMessageDisplay', null);
     }
     updateNotesIfNeeded() {
         if (this.open && this.withSafeZoom) {
@@ -12732,7 +12759,7 @@ async function main() {
     }
     {
         const overlayDialog = new OverlayDialog($root, storage, db, net, map, $menuButton);
-        $graphicSide.append(overlayDialog.$menuPanel, overlayDialog.$figureDialog);
+        $graphicSide.append(overlayDialog.$message, overlayDialog.$menuPanel, overlayDialog.$figureDialog);
     }
     if (net.cx) {
         const server = net.cx.server;
