@@ -301,6 +301,7 @@ dialog.help button.close-all-tools::before {
 .panel :is(input,textarea):invalid:not(.no-invalid-indication) {
 	border: solid 2px var(--error-color);
 	border-radius: 3px;
+	background: #F002;
 }
 .panel .input-group.major :is(input[type=text], textarea, button):not([hidden]) {
 	display: block;
