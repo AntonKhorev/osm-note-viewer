@@ -1,5 +1,7 @@
 nav {
 	position: relative;
+	z-index: 1;
+	margin-bottom: -1px;
 }
 nav button.global {
 	right: .25rem;
@@ -36,7 +38,6 @@ nav [role=tablist] [role=tab] {
 	border-top-left-radius: 8px;
 	border-top-right-radius: 8px;
 	border-bottom: none;
-	margin-bottom: -1px;
 	margin-left: -1px;
 	color: var(--semi-link-color);
 	background: var(--inset-background-color);
