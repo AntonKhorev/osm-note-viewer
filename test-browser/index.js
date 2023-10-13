@@ -374,6 +374,17 @@ describe("browser tests",function(){
 		await this.assertText(page,"the-first-note")
 		await this.assertNoText(page,"the-second-note")
 	})
+	it("considers bbox value valid after entering and deleting text in search tab",async function(){
+		const page=await this.openPage()
+		const fetchButton=await this.waitForFetchButton()
+		const bboxInput=await page.$('#tab-panel-Search input[name=bbox]')
+		await bboxInput.type('x')
+		await page.keyboard.press('Backspace')
+		assert.notEqual(
+			await page.$('#tab-panel-Search input[name=bbox]:valid'),
+			null
+		)
+	})
 
 	// keyboard controls
 

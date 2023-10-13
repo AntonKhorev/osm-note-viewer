@@ -306,7 +306,10 @@ export default abstract class DynamicNoteFetchDialog extends NoteFetchDialog {
 	private validateBbox(): boolean {
 		if (!this.$bboxInput) return true
 		const value=this.$bboxInput.value.trim()
-		if (!this.withBboxRequiredWhenPresent && value=='') return true
+		if (!this.withBboxRequiredWhenPresent && value=='') {
+			this.$bboxInput.setCustomValidity('')
+			return true
+		}
 		const lead=this.withBboxRequiredWhenPresent?``:`if provided, `
 		const splitValue=value.split(',')
 		if (splitValue.length!=4) {

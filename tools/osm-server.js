@@ -92,6 +92,9 @@ export default async function runOsmServer(authRedirectUrl,port=0) {
 		get config() {
 			return [{
 				web: this.url,
+				api: {
+					noteSearchBbox: true
+				},
 				tiles: `${this.url}{z}/{x}/{y}.png`,
 				note: `Test server bundled on ${new Date().toISOString()}`,
 				oauth: {
