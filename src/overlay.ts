@@ -23,6 +23,7 @@ export function makeMenuButton(): HTMLButtonElement {
 type UrlSequence = {urls: string[], index: number}
 
 export default class OverlayDialog {
+	public $message=makeElement('div')('message')()
 	public $menuPanel=makeElement('div')('menu')()
 	public $figureDialog=makeElement('dialog')('figure')()
 	private $figure=document.createElement('figure')
@@ -53,6 +54,7 @@ export default class OverlayDialog {
 		private map: NoteMap|undefined,
 		private $menuButton: HTMLButtonElement,
 	) {
+		this.$message.hidden=true
 		this.menuHidden=!!net.cx
 		this.$menuButton.disabled=!net.cx
 		this.writeMenuPanel(storage,db,net)
@@ -82,6 +84,15 @@ export default class OverlayDialog {
 				this.menuHidden=!this.menuHidden
 			}
 			this.map?.hide(!this.menuHidden)
+		})
+		$root.addEventListener('osmNoteViewer:mapMessageDisplay',({detail})=>{
+			if (detail) {
+				this.$message.hidden=false
+				this.$message.textContent=detail
+			} else {
+				this.$message.hidden=true
+				this.$message.textContent=''
+			}
 		})
 	}
 	private writeFigureDialog() {

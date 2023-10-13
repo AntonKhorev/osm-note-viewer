@@ -90,6 +90,27 @@
 	--panel-padding: 1rem;
 }
 
+.graphic-side > .message:not([hidden]) {
+	position: absolute;
+	inset: 0;
+	box-sizing: border-box;
+	width: 50%;
+	height: 50%;
+	background: canvas;
+	margin: auto;
+	border-radius: 1rem;
+	padding: 1rem;
+	opacity: .5;
+	display: grid;
+	place-items: center;
+	text-align: center;
+	font-size: 2rem;
+	pointer-events: none;
+}
+.graphic-side:hover > .message {
+	opacity: .3;
+}
+
 dialog.figure {
 	position: absolute;
 	z-index: 2;

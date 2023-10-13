@@ -2,7 +2,8 @@ import type {QueryCaptionItem} from './dynamic'
 import DynamicNoteFetchDialog from './dynamic'
 import type {NoteQuery} from '../query'
 import {makeNoteBrowseQueryFromValues} from '../query'
-import {makeLink, makeDiv} from '../util/html'
+import {bubbleCustomEvent} from '../util/events'
+import {makeLink} from '../util/html'
 import {p,em,code} from '../util/html-shortcuts'
 
 const minSafeZoom=8
@@ -10,7 +11,6 @@ const minSafeZoom=8
 export default class NoteBrowseFetchDialog extends DynamicNoteFetchDialog {
 	shortTitle=`Browse`
 	title=`Get notes inside map view`
-	private $trackMapZoomNotice=makeDiv('notice')()
 	fetchIfValid(): void {
 		if (!this.withSafeZoom) return
 		super.fetchIfValid()
@@ -23,11 +23,6 @@ export default class NoteBrowseFetchDialog extends DynamicNoteFetchDialog {
 			`Make a `,makeLink(`notes in bounding box`,`https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_/api/0.6/notes`),
 			` request at `,code(this.cx.server.api.getUrl(`notes?`),em(`parameters`)),` like the `,makeLink(`note layer`,`https://wiki.openstreetmap.org/wiki/Notes#Viewing_notes`),`; see `,em(`BBox`),` tab for `,em(`parameters`),` descriptions.`
 		)]
-	}
-	protected writeScopeAndOrderFieldsetBetweenParametersAndBbox($fieldset: HTMLFieldSetElement): void {
-		$fieldset.append(
-			this.$trackMapZoomNotice
-		)
 	}
 	protected getClosedLineNotesText(): string {
 		return `most recently updated notes`
@@ -42,18 +37,16 @@ export default class NoteBrowseFetchDialog extends DynamicNoteFetchDialog {
 		return '7'
 	}
 	protected addEventListenersBeforeClosedLine(): void {
-		const updateTrackMapZoomNotice=()=>{
+		const updateTrackMapZoomMessage=()=>{
 			if (this.withSafeZoom) {
-				this.$trackMapZoomNotice.classList.remove('error')
-				this.$trackMapZoomNotice.innerText=`Fetching will stop on zooms lower than ${minSafeZoom}`
+				bubbleCustomEvent(this.$form,'osmNoteViewer:mapMessageDisplay',null)
 			} else {
-				this.$trackMapZoomNotice.classList.add('error')
-				this.$trackMapZoomNotice.innerText=`Fetching will start on zooms ${minSafeZoom} or higher`
+				bubbleCustomEvent(this.$form,'osmNoteViewer:mapMessageDisplay',`Zoom in to level ${minSafeZoom} to see notes`)
 			}
 		}
-		updateTrackMapZoomNotice()
+		updateTrackMapZoomMessage()
 		this.$root.addEventListener('osmNoteViewer:mapMoveEnd',()=>{
-			updateTrackMapZoomNotice()
+			updateTrackMapZoomMessage()
 			this.updateRequest()
 			this.updateNotesIfNeeded()
 		})

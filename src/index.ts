@@ -93,6 +93,7 @@ async function main() {
 			map,$menuButton
 		)
 		$graphicSide.append(
+			overlayDialog.$message,
 			overlayDialog.$menuPanel,
 			overlayDialog.$figureDialog
 		)

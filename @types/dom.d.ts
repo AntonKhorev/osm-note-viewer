@@ -13,6 +13,7 @@ declare global {
 		'osmNoteViewer:mapMoveTrigger': CustomEvent<{zoom: string, lat: string, lon: string}> // strings because fixed precision
 		'osmNoteViewer:mapMoveEnd': CustomEvent<{zoom: string, lat: string, lon: string}>
 		'osmNoteViewer:imageToggle': CustomEvent<{urls: string[], index: number}>
+		'osmNoteViewer:mapMessageDisplay': CustomEvent<string|null>
 		'osmNoteViewer:queryHashChange': CustomEvent<string>
 		'osmNoteViewer:newNoteStream': CustomEvent<readonly [queryHash: string, isNewHistoryEntry: boolean]>
 		'osmNoteViewer:beforeNoteFetch': CustomEvent<number>
