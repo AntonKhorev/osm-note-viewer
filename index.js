@@ -1225,6 +1225,7 @@ function makeCodeForm(initialValue, stashedValue, summary, textareaLabel, applyB
     {
         $applyButton.textContent = applyButtonLabel;
         $clearButton.textContent = `Clear`;
+        $clearButton.classList.add('danger');
         $undoClearButton.textContent = `Restore previous`;
         $undoClearButton.type = $clearButton.type = 'button';
         $form.append(makeDiv('input-group', 'gridded')($applyButton, $clearButton, $undoClearButton));
@@ -2221,7 +2222,7 @@ class GlobalHistory {
     }
 }
 
-const e$a = makeEscapeTag(escapeXml);
+const e$b = makeEscapeTag(escapeXml);
 class NoteMarker extends L.Marker {
     constructor(web, note) {
         const $a = document.createElement('a');
@@ -2248,15 +2249,15 @@ function getNoteMarkerIcon($a, web, note, isSelected) {
     const rWithAura = widthWithAura / 2;
     const nInnerCircles = 4;
     let html = ``;
-    html += e$a `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`;
-    html += e$a `<path d="${computeMarkerOutlinePath(heightWithAura - .5, rWithAura - .5)}" class="aura" fill="none" />`;
-    html += e$a `<path d="${computeMarkerOutlinePath(height, r)}" fill="${getStatusColor(note.status)}" />`;
+    html += e$b `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-rWithAura} ${-rWithAura} ${widthWithAura} ${heightWithAura}">`;
+    html += e$b `<path d="${computeMarkerOutlinePath(heightWithAura - .5, rWithAura - .5)}" class="aura" fill="none" />`;
+    html += e$b `<path d="${computeMarkerOutlinePath(height, r)}" fill="${getStatusColor(note.status)}" />`;
     const statuses = [...noteCommentsToStatuses(note.comments)];
     html += drawStateCircles(r, nInnerCircles, statuses.slice(-nInnerCircles, -1));
     if (isSelected) {
         html += drawCheckMark();
     }
-    html += e$a `</svg>`;
+    html += e$b `</svg>`;
     $a.innerHTML = html;
     $a.title = `${note.status} note #${note.id}`;
     $a.style.width = widthWithAura + 'px';
@@ -2282,7 +2283,7 @@ function getNoteMarkerIcon($a, web, note, isSelected) {
             if (i >= statusesToDraw.length)
                 continue;
             const cr = dcr * (i + 1);
-            html += e$a `<circle r="${cr}" fill="${color()}" stroke="white" />`;
+            html += e$b `<circle r="${cr}" fill="${color()}" stroke="white" />`;
             function color() {
                 if (i == 0 && statuses.length <= nInnerCircles)
                     return 'white';
@@ -2294,8 +2295,8 @@ function getNoteMarkerIcon($a, web, note, isSelected) {
     function drawCheckMark() {
         const path = `M-${r / 4},0 L0,${r / 4} L${r / 2},-${r / 4}`;
         let html = ``;
-        html += e$a `<path d="${path}" fill="none" stroke-width="6" stroke-linecap="round" stroke="blue" />`;
-        html += e$a `<path d="${path}" fill="none" stroke-width="2" stroke-linecap="round" stroke="white" />`;
+        html += e$b `<path d="${path}" fill="none" stroke-width="6" stroke-linecap="round" stroke="blue" />`;
+        html += e$b `<path d="${path}" fill="none" stroke-width="2" stroke-linecap="round" stroke="white" />`;
         return html;
     }
     function getStatusColor(status) {
@@ -2929,7 +2930,7 @@ function strcmp(k1, k2) {
     return +(k1 > k2) - +(k1 < k2);
 }
 
-const e$9 = makeEscapeTag(encodeURIComponent);
+const e$a = makeEscapeTag(encodeURIComponent);
 const h = (...s) => p(strong(...s));
 const c = (...s) => p(em(...s));
 function makePopupWriter(server, layerData, clear) {
@@ -2937,7 +2938,7 @@ function makePopupWriter(server, layerData, clear) {
         const $popup = makeDiv('osm-element-popup-contents')();
         if (layerData.type == 'changeset') {
             const changeset = layerData.item;
-            const changesetHref = server.web.getUrl(e$9 `changeset/${changeset.id}`);
+            const changesetHref = server.web.getUrl(e$a `changeset/${changeset.id}`);
             const headerContents = [
                 `Changeset: `, makeLink(String(changeset.id), changesetHref)
             ];
@@ -3004,12 +3005,12 @@ function makePopupWriter(server, layerData, clear) {
     };
 }
 function makeElementHeaderContents(server, element, elementType) {
-    const elementPath = e$9 `${elementType}/${element.id}`;
+    const elementPath = e$a `${elementType}/${element.id}`;
     const headerContents = [
         capitalize(elementType) + `: `,
         makeLink(getElementName(element), server.web.getUrl(elementPath)),
         ` · `, makeLink(`View History`, server.web.getUrl(elementPath + '/history')),
-        ` · `, makeLink(`Edit`, server.web.getUrl(e$9 `edit?${elementType}=${element.id}`))
+        ` · `, makeLink(`Edit`, server.web.getUrl(e$a `edit?${elementType}=${element.id}`))
     ];
     return headerContents;
 }
@@ -3122,14 +3123,14 @@ function makeChangesetAdiffLink(server, changesetId, text) {
 }
 function makeChangesetLink(server, changesetId, text) {
     const cid = String(changesetId);
-    const $a = makeLink(text ?? cid, server.web.getUrl(e$9 `changeset/${cid}`));
+    const $a = makeLink(text ?? cid, server.web.getUrl(e$a `changeset/${cid}`));
     $a.classList.add('listened');
     $a.dataset.changesetId = cid;
     return $a;
 }
 function makeRelationLink(server, relationId) {
     const rid = String(relationId);
-    const relationPath = e$9 `relation/${rid}`;
+    const relationPath = e$a `relation/${rid}`;
     const $a = makeLink(rid, server.web.getUrl(relationPath));
     $a.classList.add('listened');
     $a.dataset.elementType = 'relation';
@@ -3160,11 +3161,11 @@ function makeUserLink(server, data) {
     return $a;
 }
 function makeUserNameLink(server, username) {
-    const fromName = (name) => server.web.getUrl(e$9 `user/${name}`);
+    const fromName = (name) => server.web.getUrl(e$a `user/${name}`);
     return makeLink(username, fromName(username));
 }
 function makeUserIdLink(server, uid) {
-    const fromId = (id) => server.api.getUrl(e$9 `user/${id}`);
+    const fromId = (id) => server.api.getUrl(e$a `user/${id}`);
     return makeLink('#' + uid, fromId(uid));
 }
 function getElementName(element) {
@@ -3826,7 +3827,7 @@ class StorageSection {
         {
             const $clearButton = makeElement('button')()(`Clear settings`);
             const $cancelButton = makeElement('button')()(`Cancel clear settings`);
-            const $confirmButton = makeElement('button')()(`Confirm clear settings`);
+            const $confirmButton = makeElement('button')('danger')(`Confirm clear settings`);
             new ConfirmedButtonListener($clearButton, $cancelButton, $confirmButton, async () => storage.clear());
             $section.append(makeDiv('input-group', 'major')($clearButton, $cancelButton, $confirmButton));
         }
@@ -4573,7 +4574,7 @@ function setFrontSizeProperties($root, side, frontFraction) {
     $root.style.setProperty(isHor(side) ? '--right-side-size' : '--bottom-side-size', `${frMultiplier - fr}fr`);
 }
 
-const e$8 = makeEscapeTag(escapeXml);
+const e$9 = makeEscapeTag(escapeXml);
 class NavDialog {
     constructor() {
         this.$section = document.createElement('section');
@@ -4710,7 +4711,7 @@ function makeButton(id, title, listener) {
     $button.tabIndex = -1;
     $button.title = title;
     $button.classList.add('global', id);
-    $button.innerHTML = e$8 `<svg><use href="#${id}" /></svg>`;
+    $button.innerHTML = e$9 `<svg><use href="#${id}" /></svg>`;
     $button.onclick = listener;
     return $button;
 }
@@ -5084,7 +5085,7 @@ function getNoteUpdateDate(note) {
     return note.comments[note.comments.length - 1]?.date ?? 0;
 }
 
-const e$7 = makeEscapeTag(encodeURIComponent);
+const e$8 = makeEscapeTag(encodeURIComponent);
 const maxSingleAutoLoadLimit = 200;
 const maxTotalAutoLoadLimit = 1000;
 const maxFullyFilteredFetches = 10;
@@ -5123,10 +5124,10 @@ class NoteBboxFetcherRequest extends NoteFetcherRequest {
     getRequestUrlPathAndParameters(query, limit) {
         if (query.mode != 'bbox' && query.mode != 'browse')
             return;
-        return ['', this.getRequestUrlParametersWithoutLimit(query) + e$7 `&limit=${limit}`];
+        return ['', this.getRequestUrlParametersWithoutLimit(query) + e$8 `&limit=${limit}`];
     }
     getRequestUrlParametersWithoutLimit(query) {
-        return e$7 `bbox=${query.bbox}&closed=${query.closed}`;
+        return e$8 `bbox=${query.bbox}&closed=${query.closed}`;
     }
 }
 class NoteIdsFetcherRequest extends NoteFetcherRequest {
@@ -5411,7 +5412,7 @@ class NoteBboxFetcherRun extends NoteFeatureCollectionFetcherRun {
     }
     getCycleFetchDetails(limit) {
         const parametersWithoutLimit = this.request.getRequestUrlParametersWithoutLimit(this.query);
-        const pathAndParameters = ['', parametersWithoutLimit + e$7 `&limit=${limit}`];
+        const pathAndParameters = ['', parametersWithoutLimit + e$8 `&limit=${limit}`];
         return {
             pathAndParametersList: [pathAndParameters],
             limit
@@ -5766,6 +5767,7 @@ class NoteFetchDialog extends NavDialog {
     }
 }
 
+const e$7 = makeEscapeTag(encodeURIComponent);
 function isNominatimBbox(bbox) {
     if (!Array.isArray(bbox))
         return false;
@@ -5784,16 +5786,20 @@ class NominatimBboxFetcher {
         this.storeToCache = storeToCache;
     }
     getParameters(q, viewbox) {
-        const e = makeEscapeTag(encodeURIComponent);
-        let parameters = e `limit=1&q=${q}`;
+        return this.addCommonParameters(e$7 `q=${q}`, viewbox);
+    }
+    getStructuredParameters(values, viewbox) {
+        return this.addCommonParameters(Object.entries(values).map(([name, value]) => e$7 `${name}=${value}`).join('&'), viewbox);
+    }
+    addCommonParameters(parameters, viewbox) {
+        parameters = `limit=1&` + parameters;
         const [west, south, east, north] = viewbox.map(Number);
         if (east > west && north > south && east - west < 360) {
-            parameters += e `&viewbox=${viewbox}`;
+            parameters += e$7 `&viewbox=${viewbox}`;
         }
         return parameters;
     }
-    async fetch(timestamp, q, viewbox) {
-        const parameters = this.getParameters(q, viewbox);
+    async fetch(timestamp, parameters) {
         const cacheBbox = await this.fetchFromCache(timestamp, parameters);
         if (isNominatimBbox(cacheBbox)) {
             await this.storeToCache(timestamp, parameters, cacheBbox);
@@ -5823,7 +5829,7 @@ function makeTextButtonInputGroup(...classes) {
     };
 }
 
-const spanRequest$1 = (...ss) => makeElement('span')('advanced-hint')(...ss);
+const spanRequest = (...ss) => makeElement('span')('advanced-hint')(...ss);
 let idCount = 0;
 const dumbCache = makeDumbCache(); // TODO real cache in db
 class NominatimSubForm {
@@ -5832,11 +5838,20 @@ class NominatimSubForm {
         this.getMapBounds = getMapBounds;
         this.setBbox = setBbox;
         this.$form = document.createElement('form');
+        this.$structuredForm = document.createElement('form');
         this.$input = document.createElement('input');
         this.$button = document.createElement('button');
+        this.$structuredInputs = {
+            country: document.createElement('input'),
+            state: document.createElement('input'),
+            county: document.createElement('input'),
+            city: document.createElement('input'),
+        };
+        this.$structuredButton = document.createElement('button');
         this.$requestOutput = document.createElement('output');
+        this.$structuredRequestOutput = document.createElement('output');
         this.bboxFetcher = new NominatimBboxFetcher(nominatim, ...dumbCache);
-        this.$form.id = 'nominatim-form-' + idCount++;
+        this.$form.id = 'nominatim-form-' + idCount;
         this.$input.type = 'text';
         this.$input.required = true;
         this.$input.classList.add('no-invalid-indication'); // because it's inside another form that doesn't require it, don't indicate that it's invalid
@@ -5844,28 +5859,69 @@ class NominatimSubForm {
         this.$input.setAttribute('form', this.$form.id);
         this.$button.textContent = 'Get';
         this.$button.setAttribute('form', this.$form.id);
+        this.$structuredForm.id = 'nominatim-structured-form-' + idCount;
+        for (const [name, $input] of Object.entries(this.$structuredInputs)) {
+            $input.type = 'text';
+            $input.size = 20;
+            $input.name = name;
+            $input.setAttribute('form', this.$structuredForm.id);
+        }
+        this.$structuredButton.textContent = 'Get with structured query';
+        this.$structuredButton.setAttribute('form', this.$structuredForm.id);
+        idCount++;
     }
     write($container) {
-        $container.append(makeDiv('advanced-hint')(`Make `, makeLink(`Nominatim search query`, `https://nominatim.org/release-docs/develop/api/Search/`), ` at `, code(this.nominatim.getSearchUrl(''), em(`parameters`)), `; see `, em(`parameters`), ` above and below.`));
+        $container.append(makeDiv('advanced-hint')(`Make `, makeLink(`Nominatim search query`, `https://nominatim.org/release-docs/develop/api/Search/`), ` at `, code(this.nominatim.getSearchUrl(''), em(`parameters`)), `; `, em(`parameters`), ` are `, code(`viewbox`), ` taken from the current map view if the zoom is high enough, `, `other `, em(`parameters`), ` come from the inputs below.`));
         $container.append(makeTextButtonInputGroup('spaced')([
-            `Nominatim query`, spanRequest$1(` (`, code('q'), ` Nominatim parameter, free-form query)`)
-        ], this.$input, this.$button));
-        $container.append(makeDiv('advanced-hint')(`Resulting Nominatim request: `, this.$requestOutput));
+            makeElement('span')('label-part', 'non-advanced')(`Nominatim query`),
+            makeElement('span')('label-part', 'advanced')(`Free-form nominatim query`),
+            spanRequest(` (`, code('q'), ` Nominatim parameter)`)
+        ], this.$input, this.$button), makeDiv('advanced-hint')(`Resulting Nominatim request: `, this.$requestOutput));
+        $container.append(makeDiv('input-group', 'gridded', 'advanced')(...Object.entries(this.$structuredInputs).map(([name, $input]) => makeDiv('input-group', 'major')(makeLabel()(capitalize(name), ` `, $input)))), makeDiv('input-group', 'major', 'advanced')(this.$structuredButton), makeDiv('advanced-hint')(`Resulting Nominatim request: `, this.$structuredRequestOutput));
+        function capitalize(s) {
+            return s.slice(0, 1).toUpperCase() + s.slice(1);
+        }
     }
     updateRequest() {
-        const parameters = this.bboxFetcher.getParameters(this.$input.value, this.getMapBounds());
-        const url = this.nominatim.getSearchUrl(parameters);
+        const url = this.nominatim.getSearchUrl(this.parameters);
         const $a = makeLink(url, url);
         $a.classList.add('request');
         this.$requestOutput.replaceChildren(code($a));
+    }
+    updateStructuredRequest() {
+        const url = this.nominatim.getSearchUrl(this.structuredParameters);
+        const $a = makeLink(url, url);
+        $a.classList.add('request');
+        this.$structuredRequestOutput.replaceChildren(code($a));
     }
     addEventListeners() {
         this.$input.addEventListener('input', () => this.updateRequest());
         this.$form.onsubmit = (ev) => wrapFetchForButton(this.$button, async () => {
             ev.preventDefault();
-            const bbox = await this.bboxFetcher.fetch(Date.now(), this.$input.value, this.getMapBounds());
+            const bbox = await this.bboxFetcher.fetch(Date.now(), this.parameters);
             this.setBbox(bbox);
         }, makeGetKnownErrorMessage(TypeError));
+        for (const $input of Object.values(this.$structuredInputs)) {
+            $input.addEventListener('input', () => this.updateStructuredRequest());
+        }
+        this.$structuredForm.onsubmit = (ev) => wrapFetchForButton(this.$structuredButton, async () => {
+            ev.preventDefault();
+            const bbox = await this.bboxFetcher.fetch(Date.now(), this.structuredParameters);
+            this.setBbox(bbox);
+        }, makeGetKnownErrorMessage(TypeError));
+    }
+    get parameters() {
+        return this.bboxFetcher.getParameters(this.$input.value, this.getMapBounds());
+    }
+    get structuredParameters() {
+        const values = {};
+        for (const [name, $input] of Object.entries(this.$structuredInputs)) {
+            const value = $input.value.trim();
+            if (!value)
+                continue;
+            values[name] = value;
+        }
+        return this.bboxFetcher.getStructuredParameters(values, this.getMapBounds());
     }
 }
 function makeDumbCache() {
@@ -5878,7 +5934,6 @@ function makeDumbCache() {
 
 const maxBboxArea = 25;
 const rq$1 = (param) => makeElement('span')('advanced-hint')(` (`, code(param), ` parameter)`);
-const spanRequest = (...ss) => makeElement('span')('advanced-hint')(...ss);
 class DynamicNoteFetchDialog extends NoteFetchDialog {
     constructor($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery, map) {
         super($root, $sharedCheckboxes, cx, getRequestApiPaths, submitQuery);
@@ -5893,11 +5948,12 @@ class DynamicNoteFetchDialog extends NoteFetchDialog {
     populateInputs(query) {
         super.populateInputs(query);
         this.nominatimSubForm?.updateRequest();
+        this.nominatimSubForm?.updateStructuredRequest();
     }
     writeExtraForms() {
-        if (this.nominatimSubForm) {
-            this.$section.append(this.nominatimSubForm.$form);
-        }
+        if (!this.nominatimSubForm)
+            return;
+        this.$section.append(this.nominatimSubForm.$form, this.nominatimSubForm.$structuredForm);
     }
     writeScopeAndOrderFieldset($fieldset) {
         if (this.withBbox) {
@@ -5930,9 +5986,6 @@ class DynamicNoteFetchDialog extends NoteFetchDialog {
                 tip(`top`, `northern-most (max) latitude`),
                 `)`, rq$1('bbox')
             ];
-            if (this.nominatimSubForm) {
-                labelItems.push(spanRequest(` (also `, code('west'), `, `, code('south'), `, `, code('east'), `, `, code('north'), ` Nominatim parameters)`));
-            }
             const $linkLabel = makeLabel('link-checkbox-holder')(this.$linkCheckbox);
             $linkLabel.title = `Update bounding box on map view changes`;
             const $leftLink = makeSvgElement('svg', { class: 'link-left', width: '12', height: '12' });
@@ -6025,6 +6078,7 @@ class DynamicNoteFetchDialog extends NoteFetchDialog {
                     this.setBbox(...this.map.precisionBounds.wsen);
                 }
                 this.nominatimSubForm?.updateRequest();
+                this.nominatimSubForm?.updateStructuredRequest();
             };
             this.$root.addEventListener('osmNoteViewer:mapMoveEnd', () => {
                 trackMap();
@@ -6128,8 +6182,10 @@ class DynamicNoteFetchDialog extends NoteFetchDialog {
         if (!this.$bboxInput)
             return true;
         const value = this.$bboxInput.value.trim();
-        if (!this.withBboxRequiredWhenPresent && value == '')
+        if (!this.withBboxRequiredWhenPresent && value == '') {
+            this.$bboxInput.setCustomValidity('');
             return true;
+        }
         const lead = this.withBboxRequiredWhenPresent ? `` : `if provided, `;
         const splitValue = value.split(',');
         if (splitValue.length != 4) {
@@ -10148,7 +10204,7 @@ function makeInteractionDescriptions($commentButton) {
             endpoint: 'close',
             label: `Close`,
             runningLabel: `Closing`,
-            $button: document.createElement('button'),
+            $button: makeElement('button')()(),
             inputNoteStatus: 'open',
             outputNoteStatus: 'closed',
             forModerator: false
@@ -10157,7 +10213,7 @@ function makeInteractionDescriptions($commentButton) {
             endpoint: 'reopen',
             label: `Reopen`,
             runningLabel: `Reopening`,
-            $button: document.createElement('button'),
+            $button: makeElement('button')()(),
             inputNoteStatus: 'closed',
             outputNoteStatus: 'open',
             forModerator: false
@@ -10165,7 +10221,7 @@ function makeInteractionDescriptions($commentButton) {
             verb: 'DELETE',
             label: `Hide`,
             runningLabel: `Hiding`,
-            $button: document.createElement('button'),
+            $button: makeElement('button')('danger')(),
             inputNoteStatus: 'open',
             outputNoteStatus: 'hidden',
             forModerator: true
@@ -10173,7 +10229,7 @@ function makeInteractionDescriptions($commentButton) {
             verb: 'DELETE',
             label: `Hide`,
             runningLabel: `Hiding`,
-            $button: document.createElement('button'),
+            $button: makeElement('button')('danger')(),
             inputNoteStatus: 'closed',
             outputNoteStatus: 'hidden',
             forModerator: true
@@ -10182,7 +10238,7 @@ function makeInteractionDescriptions($commentButton) {
             endpoint: 'reopen',
             label: `Reactivate`,
             runningLabel: `Reactivating`,
-            $button: document.createElement('button'),
+            $button: makeElement('button')()(),
             inputNoteStatus: 'hidden',
             outputNoteStatus: 'open',
             forModerator: true
@@ -12626,6 +12682,9 @@ var serverListConfig = [
     },
     {
         "web": "http://127.0.0.1:3000/",
+        "api": {
+            "noteSearchBbox": true
+        },
         "note": "default local rails dev server"
     }
 ];
