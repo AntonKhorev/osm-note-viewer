@@ -104,7 +104,7 @@
 	display: grid;
 	place-items: center;
 	text-align: center;
-	font-size: 2rem;
+	font-size: clamp(1rem, .5rem + 2vw, 2rem);
 	pointer-events: none;
 }
 .graphic-side:hover > .message {
