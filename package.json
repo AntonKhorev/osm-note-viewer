@@ -10,18 +10,17 @@
   "author": "Anton Khorev",
   "license": "MIT",
   "devDependencies": {
-    "@rollup/plugin-typescript": "^8.3.0",
-    "@rollup/plugin-virtual": "^3.0.1",
-    "@types/leaflet": "^1.7.9",
-    "fake-indexeddb": "^4.0.0",
-    "jsdom": "^21.1.0",
-    "mocha": "^9.2.2",
-    "puppeteer": "^19.5.0",
-    "rollup": "^2.79.1",
-    "tslib": "^2.4.1",
-    "typescript": "^4.9.4"
+    "@rollup/plugin-typescript": "^11.1.6",
+    "@rollup/plugin-virtual": "^3.0.2",
+    "@types/leaflet": "^1.9.12",
+    "fake-indexeddb": "^6.0.0",
+    "jsdom": "^23.2.0",
+    "mocha": "^10.7.3",
+    "puppeteer": "^23.2.2",
+    "rollup": "^4.21.2",
+    "tslib": "^2.7.0",
+    "typescript": "^5.5.4"
   },
-  "dependencies": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/AntonKhorev/osm-note-viewer.git"

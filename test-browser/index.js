@@ -63,15 +63,15 @@ describe("browser tests",function(){
 			await page.goto(this.clientUrl+path)
 			return page
 		}
-		this.waitForFetchButton=()=>page.waitForXPath(buttonPath(`Fetch notes`),{visible:true})
+		this.waitForFetchButton=()=>page.waitForSelector(`xpath/.`+buttonPath(`Fetch notes`),{visible:true})
 		this.waitForTool=async(summaryText)=>{
 			const toolbarSettingsButton=await page.waitForSelector(`.toolbar button.settings`)
 			await toolbarSettingsButton.click()
-			const checkbox=await page.waitForXPath(`//dialog//label[contains(.,"${summaryText}")]//input`)
+			const checkbox=await page.waitForSelector(`xpath/.//dialog//label[contains(.,"${summaryText}")]//input`)
 			const checked=await (await checkbox.getProperty('checked')).jsonValue()
 			if (!checked) await checkbox.click()
 			await page.keyboard.press('Escape')
-			return page.waitForXPath(`//details[${containsClassCondition('tool')} and contains(./summary,"${summaryText}")]`)
+			return page.waitForSelector(`xpath/.//details[${containsClassCondition('tool')} and contains(./summary,"${summaryText}")]`)
 		}
 		this.getToMenu=async()=>{
 			await this.waitForFetchButton()
@@ -79,8 +79,8 @@ describe("browser tests",function(){
 			await menuButton.click()
 			return await page.$('.graphic-side .menu .panel')
 		}
-		const hasText=async(target,text)=>(await target.$x(`//*/text()[contains(.,"${text}")]`)).length
-		const hasTitleText=async(target,text)=>(await target.$x(`//*[contains(@title,"${text}")]`)).length
+		const hasText=async(target,text)=>(await target.$$(`xpath/.//*/text()[contains(.,"${text}")]`)).length
+		const hasTitleText=async(target,text)=>(await target.$$(`xpath/.//*[contains(@title,"${text}")]`)).length
 		this.assertText=async(target,text)=>assert(await hasText(target,text),`missing expected text "${text}"`)
 		this.assertNoText=async(target,text)=>assert(!await hasText(target,text),`present unexpected text "${text}"`)
 		this.assertAlternativeTitleText=async(target,condition,text0,text1)=>{
@@ -307,11 +307,11 @@ describe("browser tests",function(){
 		await tool.click()
 		await this.assertNoText(tool,"logged-in-user-name")
 		const menuPanel=await this.getToMenu()
-		const [storageSection]=await menuPanel.$x(`//section[contains(h2,"Storage")]`)
-		const clearButton=await storageSection.waitForXPath(`//button[contains(.,"Clear")]`,{visible:true})
+		const [storageSection]=await menuPanel.$$(`xpath/.//section[contains(h2,"Storage")]`)
+		const clearButton=await storageSection.waitForSelector(`xpath/.//button[contains(.,"Clear")]`,{visible:true})
 		await clearButton.click()
-		const cancelButton=await storageSection.waitForXPath(`//button[contains(.,"Cancel")]`,{visible:true})
-		const confirmButton=await storageSection.waitForXPath(`//button[contains(.,"Confirm")]`,{visible:true})
+		const cancelButton=await storageSection.waitForSelector(`xpath/.//button[contains(.,"Cancel")]`,{visible:true})
+		const confirmButton=await storageSection.waitForSelector(`xpath/.//button[contains(.,"Confirm")]`,{visible:true})
 		assertNotTouching(
 			await cancelButton.boxModel(),
 			await confirmButton.boxModel()
@@ -344,10 +344,10 @@ describe("browser tests",function(){
 		const bboxTab=await page.$('#tab-BBox')
 		await bboxTab.click()
 		const bboxPanel=await page.$('#tab-panel-BBox')
-		const [fetchButton]=await bboxPanel.$x(buttonPath("Fetch notes"))
+		const [fetchButton]=await bboxPanel.$$(`xpath/.`+buttonPath("Fetch notes"))
 		const bboxInput=await page.$('#tab-panel-BBox input[name=bbox]')
 		const waitForBbox=async(bbox)=>{
-			await page.waitForXPath(`//div[${containsClassCondition('notes')}]//caption/a[contains(.,"${bbox}")]`)
+			await page.waitForSelector(`xpath/.//div[${containsClassCondition('notes')}]//caption/a[contains(.,"${bbox}")]`)
 			await page.waitForSelector('.notes tbody')
 		}
 		const fetchBbox=async(bbox)=>{
@@ -556,8 +556,8 @@ describe("browser tests",function(){
 		const fetchButton=await this.waitForFetchButton()
 		const tool=await this.waitForTool(`Refresh`)
 		await tool.click()
-		const [haltButton]=await tool.$x(buttonTitlePath('Halt'))
-		const [refreshButton]=await tool.$x(buttonTitlePath('Refresh'))
+		const [haltButton]=await tool.$$(`xpath/.`+buttonTitlePath('Halt'))
+		const [refreshButton]=await tool.$$(`xpath/.`+buttonTitlePath('Refresh'))
 		await this.assertNoText(page,"the-first-note-comment")
 		await this.assertNoText(page,"the-second-note-comment")
 		await haltButton.click()
@@ -588,7 +588,7 @@ describe("browser tests",function(){
 			const updateLink=await page.$('.notes tbody td.note-link a[title*=reload]')
 			assert.notEqual(updateLink,null)
 		}
-		const [refreshSelect]=await tool.$x(`//select[contains(.,"replace")]`)
+		const [refreshSelect]=await tool.$$(`xpath/.//select[contains(.,"replace")]`)
 		await refreshSelect.select('replace')
 		await refreshButton.click()
 		await page.waitForSelector('.notes tbody tr + tr')
@@ -602,22 +602,22 @@ describe("browser tests",function(){
 		const page=await this.openPage()
 		{
 			const menuPanel=await this.getToMenu()
-			await menuPanel.waitForXPath(buttonPath(`Login`),{visible:true})
-			const [loginButton]=await menuPanel.$x(buttonPath(`Login`))
-			const [appSection]=await menuPanel.$x(`//section[contains(h2,"Register app")]`)
+			await menuPanel.waitForSelector(`xpath/.`+buttonPath(`Login`),{visible:true})
+			const [loginButton]=await menuPanel.$$(`xpath/.`+buttonPath(`Login`))
+			const [appSection]=await menuPanel.$$(`xpath/.//section[contains(h2,"Register app")]`)
 			await (await appSection.$('details > summary')).click()
 			const clientIdInput=await menuPanel.$('#auth-app-client-id')
 			await clientIdInput.focus()
 			await this.deleteAll()
-			await menuPanel.waitForXPath(`//div[${containsClassCondition('notice')} and contains(.,"Please register")]`,{visible:true})
+			await menuPanel.waitForSelector(`xpath/.//div[${containsClassCondition('notice')} and contains(.,"Please register")]`,{visible:true})
 			assert.equal(await loginButton.boundingBox(),null)
 			await clientIdInput.type('fake')
-			await menuPanel.waitForXPath(buttonPath(`Login`),{visible:true})
+			await menuPanel.waitForSelector(`xpath/.`+buttonPath(`Login`),{visible:true})
 		}
 		await page.reload()
 		{
 			const menuPanel=await this.getToMenu()
-			await menuPanel.waitForXPath(buttonPath(`Login`),{visible:true})
+			await menuPanel.waitForSelector(`xpath/.`+buttonPath(`Login`),{visible:true})
 		}
 	})
 	it("has error message when directly opening page with oauth redirect parameters",async function(){
@@ -631,8 +631,8 @@ describe("browser tests",function(){
 		await tool.click()
 		await this.assertNoText(tool,"logged-in-user-name")
 		const menuPanel=await this.getToMenu()
-		const [loginSection]=await menuPanel.$x(`//section[contains(h2,"Logins")]`)
-		const loginButton=await loginSection.waitForXPath(`//button[contains(.,"Login")]`)
+		const [loginSection]=await menuPanel.$$(`xpath/.//section[contains(h2,"Logins")]`)
+		const loginButton=await loginSection.waitForSelector(`xpath/.//button[contains(.,"Login")]`)
 		await this.assertNoText(loginSection,"logged-in-user-name")
 		loginButton.click()
 		await loginSection.waitForSelector('table')
@@ -658,8 +658,8 @@ describe("browser tests",function(){
 		await page.waitForSelector('.notes tbody')
 		// login
 		const menuPanel=await this.getToMenu()
-		const [loginSection]=await menuPanel.$x(`//section[contains(h2,"Logins")]`)
-		const loginButton=await loginSection.waitForXPath(`//button[contains(.,"Login")]`,{visible:true,timeout:1000})
+		const [loginSection]=await menuPanel.$$(`xpath/.//section[contains(h2,"Logins")]`)
+		const loginButton=await loginSection.waitForSelector(`xpath/.//button[contains(.,"Login")]`,{visible:true,timeout:1000})
 		loginButton.click()
 		await loginSection.waitForSelector('table')
 		// interact with note
@@ -669,7 +669,7 @@ describe("browser tests",function(){
 		await tool.click()
 		const commentTextarea=await tool.$('textarea')
 		await commentTextarea.type('h1d3-m3')
-		const [hideButton]=await tool.$x(buttonPath('Hide'))
+		const [hideButton]=await tool.$$(`xpath/.`+buttonPath('Hide'))
 		await hideButton.click()
 		await page.waitForSelector('.notes tbody tr + tr')
 		assert.deepEqual(
@@ -697,8 +697,8 @@ describe("browser tests",function(){
 		await page.waitForSelector('.notes tbody')
 		// login
 		const menuPanel=await this.getToMenu()
-		const [loginSection]=await menuPanel.$x(`//section[contains(h2,"Logins")]`)
-		const loginButton=await loginSection.waitForXPath(`//button[contains(.,"Login")]`,{visible:true,timeout:1000})
+		const [loginSection]=await menuPanel.$$(`xpath/.//section[contains(h2,"Logins")]`)
+		const loginButton=await loginSection.waitForSelector(`xpath/.//button[contains(.,"Login")]`,{visible:true,timeout:1000})
 		loginButton.click()
 		await loginSection.waitForSelector('table')
 		// interact with note
@@ -707,8 +707,8 @@ describe("browser tests",function(){
 		const tool=await this.waitForTool(`Interact`)
 		await tool.click()
 		const assertAndGetTextControl=async(undo)=>{
-			const [appendControl]=await tool.$x(`//a[${containsClassCondition("input-link")} and contains(.,"append last changeset")]`)
-			const [undoControl]=await tool.$x(`//a[${containsClassCondition("input-link")} and contains(.,"undo append")]`)
+			const [appendControl]=await tool.$$(`xpath/.//a[${containsClassCondition("input-link")} and contains(.,"append last changeset")]`)
+			const [undoControl]=await tool.$$(`xpath/.//a[${containsClassCondition("input-link")} and contains(.,"undo append")]`)
 			if (undo) {
 				assert.equal(appendControl,undefined)
 				assert.notEqual(undoControl,undefined)
@@ -721,7 +721,7 @@ describe("browser tests",function(){
 		}
 		const appendControl=await assertAndGetTextControl(false)
 		await appendControl.click()
-		const commentButton=await tool.waitForXPath(buttonPath(`Comment`))
+		const commentButton=await tool.waitForSelector(`xpath/.`+buttonPath(`Comment`))
 		await assertAndGetTextControl(true)
 		commentButton.click()
 		await page.waitForSelector('.notes tbody tr + tr')
