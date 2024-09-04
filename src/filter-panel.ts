@@ -17,31 +17,29 @@ const syntaxDescription=`<summary>Filter syntax</summary>
 <dt>${term('comment match statement')}
 <dd>One of:
 	<ul>
-	<li><dl><dt><kbd>^</kbd>
-		<dd>beginning of comment sequence: next ${term('comment match statement')} is checked against the first note comment
-	</dl>
-	<li><dl><dt><kbd>$</kbd>
-		<dd>end of comment sequence: previous ${term('comment match statement')} is checked against the last note comment
-	</dl>
-	<li><dl><dt><kbd>*</kbd>
-		<dd>any sequence of comments, including an empty one
-	</dl>
-	<li><dl><dt>${term('comment condition')} [<kbd>,</kbd> ${term('comment condition')}]*
-		<dd>one comment satisfying every condition in this comma-separated list
-	</dl>
+	${subDef(`<kbd>^</kbd>`,`beginning of comment sequence: next ${term('comment match statement')} is checked against the first note comment`)}
+	${subDef(`<kbd>$</kbd>`,`end of comment sequence: previous ${term('comment match statement')} is checked against the last note comment`)}
+	${subDef(`<kbd>*</kbd>`,`any sequence of comments, including an empty one`)}
+	${subDef(
+		`${term('comment condition')} [<kbd>,</kbd> ${term('comment condition')}]*`,
+		`one comment satisfying every condition in this comma-separated list`
+	)}
 	</ul>
 <dt>${term('comment condition')}
 <dd>One of:
 	<ul>
-	<li><dl><dt><kbd>user </kbd>${term('comparison operator')}<kbd> </kbd>${term('user descriptor')}
-		<dd>comment (not) by a specified user
-	</dl>
-	<li><dl><dt><kbd>action </kbd>${term('comparison operator')}<kbd> </kbd>${term('action descriptor')}
-		<dd>comment (not) performing a specified action
-	</dl>
-	<li><dl><dt><kbd>text </kbd>${term('comparison operator')}<kbd> "</kbd>${term('search string')}<kbd>"</kbd>
-		<dd>comment (not) equal to a specified text
-	</dl>
+	${subDef(
+		`<kbd>user </kbd>${term('comparison operator')}<kbd> </kbd>${term('user descriptor')}`,
+		`comment (not) by a specified user`
+	)}
+	${subDef(
+		`<kbd>action </kbd>${term('comparison operator')}<kbd> </kbd>${term('action descriptor')}`,
+		`comment (not) performing a specified action`
+	)}
+	${subDef(
+		`<kbd>text </kbd>${term('comparison operator')}<kbd> "</kbd>${term('search string')}<kbd>"</kbd>`,
+		`comment (not) equal to a specified text`
+	)}
 	</ul>
 <dt>${term('comparison operator')}
 <dd>One of:
