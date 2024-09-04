@@ -170,4 +170,11 @@ describe("NoteFilter",()=>{
 		accept("note with a substring matching comment",filter,makeNoteWithComments(`Main Street`))
 		reject("note with a non-matching comment",filter,makeNoteWithComments(`kek`))
 	})
+	context("negative substring match comment filter",()=>{
+		const filter=new DefaultNoteFilter('text !~= "street"')
+		accept("note with one empty comment",filter,makeNoteWithComments(``))
+		reject("note with a full matching comment",filter,makeNoteWithComments(`Street`))
+		reject("note with a substring matching comment",filter,makeNoteWithComments(`Main Street`))
+		accept("note with a non-matching comment",filter,makeNoteWithComments(`kek`))
+	})
 })

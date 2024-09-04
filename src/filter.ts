@@ -4,7 +4,7 @@ import type {ValidUserQuery} from './query'
 import {toUserQuery} from './query'
 import {escapeRegex} from './util/escape'
 
-type Operator = '=' | '!=' | '~='
+type Operator = '=' | '!=' | '~=' | '!~='
 
 type BeginningStatement = {
 	type: '^'
@@ -47,7 +47,7 @@ type ConditionsStatement = {
 type Statement = BeginningStatement | EndStatement | AnyStatement | ConditionsStatement
 
 function isValidOperator(op: string): op is Operator {
-	return (op=='=' || op=='!=' || op=='~=')
+	return (op=='=' || op=='!=' || op=='~=' || op=='!~=')
 }
 
 export default class NoteFilter {
@@ -67,7 +67,7 @@ export default class NoteFilter {
 			const conditions: Condition[] = []
 			for (const untrimmedTerm of line.split(',')) {
 				const term=untrimmedTerm.trim()
-				const makeRegExp=(symbol: string, rest: string): RegExp => new RegExp(`^${symbol}\\s*([!~]?=)\\s*${rest}$`)
+				const makeRegExp=(symbol: string, rest: string): RegExp => new RegExp(`^${symbol}\\s*(!?~?=)\\s*${rest}$`)
 				const matchTerm=(symbol: string, rest: string): RegExpMatchArray | null => term.match(makeRegExp(symbol,rest))
 				let match
 				if (match=matchTerm('user','(.+)')) {
@@ -165,6 +165,7 @@ export default class NoteFilter {
 			if (operator=='=') return actualValue==compareValue
 			if (operator=='!=') return actualValue!=compareValue
 			if (operator=='~=') return !!str(actualValue).match(new RegExp(escapeRegex(str(compareValue)),'i'))
+			if (operator=='!~=') return !str(actualValue).match(new RegExp(escapeRegex(str(compareValue)),'i'))
 			return false // shouldn't happen
 		}
 		const isConditionMatches=(condition: Condition, comment: NoteComment): boolean => {
