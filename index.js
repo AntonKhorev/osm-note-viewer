@@ -444,8 +444,6 @@ function makeLink(text, href, title) {
     const $link = document.createElement('a');
     $link.href = href;
     $link.textContent = text;
-    if (title != null)
-        $link.title = title;
     return $link;
 }
 function makeElement(tag) {
@@ -3374,7 +3372,7 @@ class NoteMap {
     showNoteTrack(noteIds) {
         const polylineOptions = {
             interactive: false,
-            color: '#004',
+            color: '#004', // TODO make it depend on time distance?
             weight: 1,
             className: 'note-track', // sets non-scaling stroke defined in css
         };
@@ -4889,7 +4887,7 @@ function makeNoteBrowseQueryFromValues(bboxValue, closedValue) {
 function makeNoteBboxOrBrowseQueryFromValues(bboxValue, closedValue, mode) {
     const noteBboxQuery = {
         mode,
-        bbox: bboxValue.trim(),
+        bbox: bboxValue.trim(), // TODO validate
         closed: toClosed(closedValue),
     };
     return noteBboxQuery;
@@ -5624,7 +5622,7 @@ class NoteFetchDialog extends NavDialog {
     updateRequest() {
         const knownTypes = {
             json: `https://wiki.openstreetmap.org/wiki/GeoJSON`,
-            gpx: `https://www.topografix.com/GPX/1/1/`,
+            gpx: `https://www.topografix.com/GPX/1/1/`, // gpx on osm wiki talks mostly about tracks
             rss: `https://www.rssboard.org/rss-specification`, // osm wiki doesn't describe rss format
         };
         const appendLinkIfKnown = (type) => {
@@ -7475,7 +7473,7 @@ function getMarkText(query) {
 }
 
 function isValidOperator(op) {
-    return (op == '=' || op == '!=' || op == '~=');
+    return (op == '=' || op == '!=' || op == '~=' || op == '!~=');
 }
 class NoteFilter {
     constructor(apiUrlLister, webUrlLister, query) {
@@ -7496,7 +7494,7 @@ class NoteFilter {
             const conditions = [];
             for (const untrimmedTerm of line.split(',')) {
                 const term = untrimmedTerm.trim();
-                const makeRegExp = (symbol, rest) => new RegExp(`^${symbol}\\s*([!~]?=)\\s*${rest}$`);
+                const makeRegExp = (symbol, rest) => new RegExp(`^${symbol}\\s*(!?~?=)\\s*${rest}$`);
                 const matchTerm = (symbol, rest) => term.match(makeRegExp(symbol, rest));
                 let match;
                 if (match = matchTerm('user', '(.+)')) {
@@ -7618,6 +7616,8 @@ class NoteFilter {
                 return actualValue != compareValue;
             if (operator == '~=')
                 return !!str(actualValue).match(new RegExp(escapeRegex(str(compareValue)), 'i'));
+            if (operator == '!~=')
+                return !str(actualValue).match(new RegExp(escapeRegex(str(compareValue)), 'i'));
             return false; // shouldn't happen
         };
         const isConditionMatches = (condition, comment) => {
@@ -7680,34 +7680,26 @@ const syntaxDescription = `<summary>Filter syntax</summary>
 <dt>${term('comment match statement')}
 <dd>One of:
 	<ul>
-	<li><dl><dt><kbd>^</kbd>
-		<dd>beginning of comment sequence: next ${term('comment match statement')} is checked against the first note comment
-	</dl>
-	<li><dl><dt><kbd>$</kbd>
-		<dd>end of comment sequence: previous ${term('comment match statement')} is checked against the last note comment
-	</dl>
-	<li><dl><dt><kbd>*</kbd>
-		<dd>any sequence of comments, including an empty one
-	</dl>
-	<li><dl><dt>${term('comment condition')} [<kbd>,</kbd> ${term('comment condition')}]*
-		<dd>one comment satisfying every condition in this comma-separated list
-	</dl>
+	${subDef(`<kbd>^</kbd>`, `beginning of comment sequence: next ${term('comment match statement')} is checked against the first note comment`)}
+	${subDef(`<kbd>$</kbd>`, `end of comment sequence: previous ${term('comment match statement')} is checked against the last note comment`)}
+	${subDef(`<kbd>*</kbd>`, `any sequence of comments, including an empty one`)}
+	${subDef(`${term('comment condition')} [<kbd>,</kbd> ${term('comment condition')}]*`, `one comment satisfying every condition in this comma-separated list`)}
 	</ul>
 <dt>${term('comment condition')}
 <dd>One of:
 	<ul>
-	<li><dl><dt><kbd>user </kbd>${term('comparison operator')}<kbd> </kbd>${term('user descriptor')}
-		<dd>comment (not) by a specified user
-	</dl>
-	<li><dl><dt><kbd>action </kbd>${term('comparison operator')}<kbd> </kbd>${term('action descriptor')}
-		<dd>comment (not) performing a specified action
-	</dl>
-	<li><dl><dt><kbd>text </kbd>${term('comparison operator')}<kbd> "</kbd>${term('search string')}<kbd>"</kbd>
-		<dd>comment (not) equal to a specified text
-	</dl>
+	${subDef(`<kbd>user </kbd>${term('comparison operator')}<kbd> </kbd>${term('user descriptor')}`, `comment (not) by a specified user`)}
+	${subDef(`<kbd>action </kbd>${term('comparison operator')}<kbd> </kbd>${term('action descriptor')}`, `comment (not) performing a specified action`)}
+	${subDef(`<kbd>text </kbd>${term('comparison operator')}<kbd> "</kbd>${term('search string')}<kbd>"</kbd>`, `comment (not) equal to a specified text`)}
 	</ul>
 <dt>${term('comparison operator')}
-<dd>One of: <kbd>=</kbd> <kbd>!=</kbd> <kbd>~=</kbd> (case-insensitive substring match)
+<dd>One of:
+	<ul>
+	${subDef(`<kbd>=</kbd>`, `full string equality`)}
+	${subDef(`<kbd>!=</kbd>`, `full string inequality`)}
+	${subDef(`<kbd>~=</kbd>`, `case-insensitive substring match`)}
+	${subDef(`<kbd>!~=</kbd>`, `no case-insensitive substring match`)}
+	</ul>
 <dt>${term('user descriptor')}
 <dd>OSM username, URL or #id, like in a fetch query input. Additionally you can specify username <kbd>0</kbd> or id <kbd>#0</kbd> to match anonymous users. No user with actual name "0" can exist because it's too short.
 <dt>${term('action descriptor')}
@@ -7721,6 +7713,11 @@ const syntaxExamples = [
     [`Notes closed by user A that were opened by somebody else`, [`^`, `user != A`, `*`, `user = A, action = closed`]],
     [`Notes closed without a comment as their last action`, [`action = closed, text = ""`, `$`]],
 ];
+function subDef(t, d) {
+    return (`	<li><dl><dt>${t}` +
+        `		<dd>${d}` +
+        `	</dl>`);
+}
 function term(t) {
     return `<em>&lt;${t}&gt;</em>`;
 }
@@ -10342,6 +10339,8 @@ LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 ***************************************************************************** */
+/* global Reflect, Promise, SuppressedError, Symbol, Iterator */
+
 
 function __classPrivateFieldGet(receiver, state, kind, f) {
     if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a getter");
@@ -10355,6 +10354,11 @@ function __classPrivateFieldSet(receiver, state, value, kind, f) {
     if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
     return (kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value)), value;
 }
+
+typeof SuppressedError === "function" ? SuppressedError : function (error, suppressed, message) {
+    var e = new Error(message);
+    return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
+};
 
 const e$5 = makeEscapeTag(encodeURIComponent);
 /**
