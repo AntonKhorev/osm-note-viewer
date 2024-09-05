@@ -1,8 +1,8 @@
-import type {Note, NoteComment} from './data'
-import type {ApiUrlLister, WebUrlLister} from './net'
-import type {ValidUserQuery} from './query'
-import {toUserQuery} from './query'
-import {escapeRegex} from './util/escape'
+import type {Note, NoteComment} from '../data'
+import type {ApiUrlLister, WebUrlLister} from '../net'
+import type {ValidUserQuery} from '../query'
+import {toUserQuery} from '../query'
+import {escapeRegex} from '../util/escape'
 
 type Operator = '=' | '!=' | '~=' | '!~='
 
