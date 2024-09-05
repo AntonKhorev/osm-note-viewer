@@ -37,8 +37,8 @@ const syntaxDescription=`<summary>Filter syntax</summary>
 		`comment (not) performing a specified action`
 	)}
 	${subDef(
-		`<kbd>text </kbd>${term('comparison operator')}<kbd> "</kbd>${term('search string')}<kbd>"</kbd>`,
-		`comment (not) equal to a specified text`
+		`<kbd>text </kbd>${term('comparison operator')}<kbd> </kbd>${term('search string')}`,
+		`comment (not) equal to a specified text, ${term('search string')} has to be quoted either with <kbd>""</kbd> or with <kbd>''</kbd>`
 	)}
 	</ul>
 <dt>${term('comparison operator')}

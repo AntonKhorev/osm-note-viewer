@@ -44,7 +44,7 @@ export type Statement = BeginningStatement | EndStatement | AnyStatement | Condi
 
 const conditionStartRegexp=/^(?<type>[a-z]+)\s*(?<op>!?~?=)\s*(?<rest>.*)$/
 const simpleValueRegexp=/^(?<value>[^,]+)(?<rest>.*)$/
-const textValueRegexp=/^"(?<value>[^"]*)"(?<rest>.*)$/
+const textValueRegexp=/^(?:"(?<doubleQuotedText>[^"]*)"|'(?<singleQuotedText>[^']*)')(?<rest>.*)$/
 const conditionSeparatorRegexp=/^\s*,\s*(?<rest>.*)$/
 
 export function parseFilterString(query: string, getUserQuery: (user: string) => UserQuery): Statement[] {
@@ -80,7 +80,8 @@ export function parseFilterString(query: string, getUserQuery: (user: string) =>
 				}
 				conditions.push({type,operator,action})
 			} else if (type=='text') {
-				const {value:text}=matchGroups(textValueRegexp)
+				const groups=matchGroups(textValueRegexp)
+				const text=groups.doubleQuotedText??groups.singleQuotedText
 				conditions.push({type,operator,text})
 			} else {
 				throwError(`Unknown condition type "${type}"`)

@@ -86,6 +86,26 @@ describe("filter / parseFilterString()",()=>{
 			])
 		}, "Alice", {type: 'name', username: 'Alice'})
 	})
+	it("parses text in single quotes",()=>{
+		assertNoUserQueryCalls(getUserQuery=>{
+			const statements=parseFilterString("text = 'yes'",getUserQuery)
+			assert.deepEqual(statements,[
+				{type: 'conditions', conditions: [
+					{type: 'text', operator: '=', text: "yes"},
+				]}
+			])
+		})
+	})
+	it("parses text in double quotes",()=>{
+		assertNoUserQueryCalls(getUserQuery=>{
+			const statements=parseFilterString('text = "yes yes"',getUserQuery)
+			assert.deepEqual(statements,[
+				{type: 'conditions', conditions: [
+					{type: 'text', operator: '=', text: "yes yes"},
+				]}
+			])
+		})
+	})
 	it("parses text with comma",()=>{
 		assertNoUserQueryCalls(getUserQuery=>{
 			const statements=parseFilterString('text = "one, two"',getUserQuery)
