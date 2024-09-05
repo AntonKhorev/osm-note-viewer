@@ -86,4 +86,14 @@ describe("filter / parseFilterString()",()=>{
 			])
 		}, "Alice", {type: 'name', username: 'Alice'})
 	})
+	it("parses text with comma",()=>{
+		assertNoUserQueryCalls(getUserQuery=>{
+			const statements=parseFilterString('text = "one, two"',getUserQuery)
+			assert.deepEqual(statements,[
+				{type: 'conditions', conditions: [
+					{type: 'text', operator: '=', text: "one, two"},
+				]}
+			])
+		})
+	})
 })

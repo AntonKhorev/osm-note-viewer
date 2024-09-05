@@ -42,9 +42,10 @@ type ConditionsStatement = {
 
 export type Statement = BeginningStatement | EndStatement | AnyStatement | ConditionsStatement
 
-function isValidOperator(op: string): op is Operator {
-	return (op=='=' || op=='!=' || op=='~=' || op=='!~=')
-}
+const conditionStartRegexp=/^(?<type>[a-z]+)\s*(?<op>!?~?=)\s*(?<rest>.*)$/
+const simpleValueRegexp=/^(?<value>[^,]+)(?<rest>.*)$/
+const textValueRegexp=/^"(?<value>[^"]*)"(?<rest>.*)$/
+const conditionSeparatorRegexp=/^\s*,\s*(?<rest>.*)$/
 
 export function parseFilterString(query: string, getUserQuery: (user: string) => UserQuery): Statement[] {
 	const statements: Statement[] = []
@@ -60,40 +61,46 @@ export function parseFilterString(query: string, getUserQuery: (user: string) =>
 			}
 		}
 		const conditions: Condition[] = []
-		for (const untrimmedTerm of line.split(',')) {
-			const term=untrimmedTerm.trim()
-			const makeRegExp=(symbol: string, rest: string): RegExp => new RegExp(`^${symbol}\\s*(!?~?=)\\s*${rest}$`)
-			const matchTerm=(symbol: string, rest: string): RegExpMatchArray | null => term.match(makeRegExp(symbol,rest))
-			let match
-			if (match=matchTerm('user','(.+)')) {
-				const [,operator,user]=match
-				if (!isValidOperator(operator)) continue // impossible
-				const userQuery=getUserQuery(user)
-				if (userQuery.type=='invalid' || userQuery.type=='empty') {
-					throwError(`Invalid user value "${user}"`)
+		let rest=line
+		while (rest.length>0) {
+			const conditionStartGroups=matchGroups(conditionStartRegexp)
+			const type=conditionStartGroups.type
+			const operator=getOperator(conditionStartGroups.op)
+			if (type=='user') {
+				const {value}=matchGroups(simpleValueRegexp)
+				const user=getUserQuery(value)
+				if (user.type=='invalid' || user.type=='empty') {
+					throwError(`Invalid user value "${value}"`)
 				}
-				conditions.push({type:'user',operator,user:userQuery})
-				continue
-			} else if (match=matchTerm('action','(.+)')) {
-				const [,operator,action]=match
-				if (!isValidOperator(operator)) continue // impossible
+				conditions.push({type,operator,user})
+			} else if (type=='action') {
+				const {value:action}=matchGroups(simpleValueRegexp)
 				if (action!='opened' && action!='closed' && action!='reopened' && action!='commented' && action!='hidden') {
 					throwError(`Invalid action value "${action}"`)
 				}
-				conditions.push({type:'action',operator,action})
-				continue
-			} else if (match=matchTerm('text','"([^"]*)"')) {
-				const [,operator,text]=match
-				if (!isValidOperator(operator)) continue // impossible
-				conditions.push({type:'text',operator,text})
-				continue
+				conditions.push({type,operator,action})
+			} else if (type=='text') {
+				const {value:text}=matchGroups(textValueRegexp)
+				conditions.push({type,operator,text})
+			} else {
+				throwError(`Unknown condition type "${type}"`)
 			}
-			throwError(`Syntax error`)
-			function throwError(message: string): never {
-				throw new RangeError(`${message} on line ${lineNumber}: ${line}`)
-			}
+			if (rest.length>0) matchGroups(conditionSeparatorRegexp)
 		}
 		if (conditions.length>0) statements.push({type:'conditions',conditions})
+		function getOperator(op: string): Operator {
+			if (op=='=' || op=='!=' || op=='~=' || op=='!~=') return op
+			throwError(`Invalid operator "${op}"`)
+		}
+		function matchGroups(regExp: RegExp): {[key: string]: string} {
+			const match=rest.match(regExp)
+			if (!match || !match.groups) throwError(`Syntax error`)
+			rest=match.groups.rest
+			return match.groups
+		}
+		function throwError(message: string): never {
+			throw new RangeError(`${message} on line ${lineNumber}: ${line}`)
+		}
 	}
 	return statements
 }
