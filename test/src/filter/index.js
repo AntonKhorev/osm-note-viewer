@@ -50,25 +50,6 @@ const makeNoteWithUsers=(...uids)=>{
 	}
 }
 
-const makeNoteWithComments=(...texts)=>{
-	const comments=[]
-	let date=1645433069
-	let action='opened'
-	for (const text of texts) {
-		const comment={date,action,text}
-		comments.push(comment)
-		date+=60*60*24
-		action='commented'
-	}
-	return {
-		id: 42,
-		lat: 60,
-		lon: 30,
-		status: 'open',
-		comments
-	}
-}
-
 const assertAccept=v=>assert.equal(v,true)
 const assertReject=v=>assert.equal(v,false)
 
@@ -140,27 +121,5 @@ describe("filter / NoteFilter",()=>{
 		const filter=new DefaultNoteFilter('user != Alice, user != Bob')
 		reject("note with one user equal",filter,makeNoteWithUsers(101))
 		accept("note with none user equal",filter,makeNoteWithUsers(103))
-	})
-	context("empty comment filter",()=>{
-		const filter=new DefaultNoteFilter('text = ""')
-		accept("note with one empty comment",filter,makeNoteWithComments(``))
-		accept("note with two empty comments",filter,makeNoteWithComments(``,``))
-		accept("note with one empty and one nonempty comment",filter,makeNoteWithComments(``,`lol`))
-		reject("note with one nonempty comment",filter,makeNoteWithComments(`lol`))
-		reject("note with two nonempty comments",filter,makeNoteWithComments(`lol`,`kek`))
-	})
-	context("nonempty comment filter",()=>{
-		const filter=new DefaultNoteFilter('text != ""')
-		reject("note with one empty comment",filter,makeNoteWithComments(``))
-		reject("note with two empty comments",filter,makeNoteWithComments(``,``))
-		accept("note with one empty and one nonempty comment",filter,makeNoteWithComments(``,`lol`))
-		accept("note with one nonempty comment",filter,makeNoteWithComments(`lol`))
-		accept("note with two nonempty comments",filter,makeNoteWithComments(`lol`,`kek`))
-	})
-	context("full match comment filter",()=>{
-		const filter=new DefaultNoteFilter('text = "lol"')
-		reject("note with one empty comment",filter,makeNoteWithComments(``))
-		accept("note with a matching comment",filter,makeNoteWithComments(`lol`))
-		reject("note with a non-matching comment",filter,makeNoteWithComments(`kek`))
 	})
 })

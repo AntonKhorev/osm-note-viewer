@@ -20,10 +20,10 @@ const makeNoteWithComments=(...texts)=>{
 	}
 }
 
-const makeSingleConditionStatements=condition=>[{
+const makeSingleConditionStatements=condition=>[{type:'*'},{
 	type: 'conditions',
 	conditions: [condition],
-}]
+},{type:'*'}]
 
 const assertAccept=v=>assert.equal(v,true)
 const assertReject=v=>assert.equal(v,false)
@@ -42,6 +42,28 @@ describe("filter / matchNote()",()=>{
 	const reject=(what,statements,note)=>it("rejects "+what,()=>assertReject(
 		matchNote(statements,note,getUsername)
 	))
+	context("empty comment filter",()=>{
+		const statements=makeSingleConditionStatements({type: 'text', operator: '=', text: ""})
+		accept("note with one empty comment",statements,makeNoteWithComments(``))
+		accept("note with two empty comments",statements,makeNoteWithComments(``,``))
+		accept("note with one empty and one nonempty comment",statements,makeNoteWithComments(``,`lol`))
+		reject("note with one nonempty comment",statements,makeNoteWithComments(`lol`))
+		reject("note with two nonempty comments",statements,makeNoteWithComments(`lol`,`kek`))
+	})
+	context("nonempty comment filter",()=>{
+		const statements=makeSingleConditionStatements({type: 'text', operator: '!=', text: ""})
+		reject("note with one empty comment",statements,makeNoteWithComments(``))
+		reject("note with two empty comments",statements,makeNoteWithComments(``,``))
+		accept("note with one empty and one nonempty comment",statements,makeNoteWithComments(``,`lol`))
+		accept("note with one nonempty comment",statements,makeNoteWithComments(`lol`))
+		accept("note with two nonempty comments",statements,makeNoteWithComments(`lol`,`kek`))
+	})
+	context("full match comment filter",()=>{
+		const statements=makeSingleConditionStatements({type: 'text', operator: '=', text: "lol"})
+		reject("note with one empty comment",statements,makeNoteWithComments(``))
+		accept("note with a matching comment",statements,makeNoteWithComments(`lol`))
+		reject("note with a non-matching comment",statements,makeNoteWithComments(`kek`))
+	})
 	context("substring match comment filter",()=>{
 		const statements=makeSingleConditionStatements({type: 'text', operator: '~=', text: "street"})
 		reject("note with one empty comment",statements,makeNoteWithComments(``))
