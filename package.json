@@ -16,7 +16,7 @@
     "fake-indexeddb": "^6.0.0",
     "jsdom": "^23.2.0",
     "mocha": "^10.7.3",
-    "puppeteer": "^23.2.2",
+    "puppeteer": "^23.3.0",
     "rollup": "^4.21.2",
     "tslib": "^2.7.0",
     "typescript": "^5.5.4"

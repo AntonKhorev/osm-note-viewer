@@ -75,8 +75,6 @@ To build from source you need [Node.js](https://nodejs.org/). v20 is enough, may
 - `npm --visible test test-browser` runs in-browser tests in a visible browser window
 - `npm test -- test-browser -g "test name"` runs a specific in-browser test
 
-One browser test is going to fail because I don't get what [`y: rect.top + rect.bottom`](https://github.com/puppeteer/puppeteer/commit/27636afacf0a57cd1a033b26075ce11f06d42460#diff-40267631159b0d46cddf3df0d47478ec264a559c529f47096980a771e72ea483R1009) is supposed to achieve. This test used to work correctly on earlier [Puppeteer](https://pptr.dev/) versions.
-
 [github-host]: https://antonkhorev.github.io/osm-note-viewer/
 [api-search]: https://wiki.openstreetmap.org/wiki/API_v0.6#Search_for_notes:_GET_.2Fapi.2F0.6.2Fnotes.2Fsearch
 [api-bbox]: https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_notes_data_by_bounding_box:_GET_.2Fapi.2F0.6.2Fnotes
