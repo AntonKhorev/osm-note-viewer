@@ -42,7 +42,7 @@ type ConditionsStatement = {
 
 export type Statement = BeginningStatement | EndStatement | AnyStatement | ConditionsStatement
 
-const conditionStartRegexp=/^(?<type>[a-z]+)\s*(?<op>!?~?=)\s*(?<rest>.*)$/
+const conditionStartRegexp=/^(?<type>[a-z]+)\s*(?<op>!?~?=?=)\s*(?<rest>.*)$/
 const simpleValueRegexp=/^(?<value>[^,]+)(?<rest>.*)$/
 const textValueRegexp=/^(?:"(?<doubleQuotedText>[^"]*)"|'(?<singleQuotedText>[^']*)')(?<rest>.*)$/
 const conditionSeparatorRegexp=/^\s*,\s*(?<rest>.*)$/
@@ -91,6 +91,7 @@ export function parseFilterString(query: string, getUserQuery: (user: string) =>
 		if (conditions.length>0) statements.push({type:'conditions',conditions})
 		function getOperator(op: string): Operator {
 			if (op=='=' || op=='!=' || op=='~=' || op=='!~=') return op
+			if (op=='==') return '='
 			throwError(`Invalid operator "${op}"`)
 		}
 		function matchGroups(regExp: RegExp): {[key: string]: string} {

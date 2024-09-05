@@ -116,4 +116,14 @@ describe("filter / parseFilterString()",()=>{
 			])
 		})
 	})
+	it("parses == operator",()=>{
+		assertNoUserQueryCalls(getUserQuery=>{
+			const statements=parseFilterString('text == "something"',getUserQuery)
+			assert.deepEqual(statements,[
+				{type: 'conditions', conditions: [
+					{type: 'text', operator: '=', text: "something"},
+				]}
+			])
+		})
+	})
 })

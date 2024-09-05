@@ -44,7 +44,7 @@ const syntaxDescription=`<summary>Filter syntax</summary>
 <dt>${term('comparison operator')}
 <dd>One of:
 	<ul>
-	${subDef(`<kbd>=</kbd>`,`full string equality`)}
+	${subDef(`<kbd>=</kbd> or <kbd>==</kbd>`,`full string equality`)}
 	${subDef(`<kbd>!=</kbd>`,`full string inequality`)}
 	${subDef(`<kbd>~=</kbd>`,`case-insensitive substring match`)}
 	${subDef(`<kbd>!~=</kbd>`,`no case-insensitive substring match`)}
