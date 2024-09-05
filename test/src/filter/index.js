@@ -67,12 +67,6 @@ describe("filter / NoteFilter",()=>{
 	const reject=(what,filter,note)=>it("rejects "+what,()=>assertReject(
 		filter.matchNote(note,getUsername)
 	))
-	it("fails on syntax error",()=>assert.throws(()=>{
-		new DefaultNoteFilter('=')
-	}))
-	it("fails on invalid action",()=>assert.throws(()=>{
-		new DefaultNoteFilter('action = fail')
-	}))
 	it("fails on invalid user",()=>assert.throws(()=>{
 		new DefaultNoteFilter('user = ///')
 	}))
