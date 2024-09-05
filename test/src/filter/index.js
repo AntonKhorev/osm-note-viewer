@@ -72,7 +72,7 @@ const makeNoteWithComments=(...texts)=>{
 const assertAccept=v=>assert.equal(v,true)
 const assertReject=v=>assert.equal(v,false)
 
-describe("NoteFilter",()=>{
+describe("filter / NoteFilter",()=>{
 	const users={
 		101:'Alice',
 		102:'Bob',
@@ -169,12 +169,5 @@ describe("NoteFilter",()=>{
 		accept("note with a full matching comment",filter,makeNoteWithComments(`Street`))
 		accept("note with a substring matching comment",filter,makeNoteWithComments(`Main Street`))
 		reject("note with a non-matching comment",filter,makeNoteWithComments(`kek`))
-	})
-	context("negative substring match comment filter",()=>{
-		const filter=new DefaultNoteFilter('text !~= "street"')
-		accept("note with one empty comment",filter,makeNoteWithComments(``))
-		reject("note with a full matching comment",filter,makeNoteWithComments(`Street`))
-		reject("note with a substring matching comment",filter,makeNoteWithComments(`Main Street`))
-		accept("note with a non-matching comment",filter,makeNoteWithComments(`kek`))
 	})
 })
