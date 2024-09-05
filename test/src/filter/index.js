@@ -102,12 +102,6 @@ describe("filter / NoteFilter",()=>{
 		reject("anonymous note",filter,makeNoteWithUsers(0))
 		accept("user note",filter,makeNoteWithUsers(103))
 	})
-	context("single user url filter",()=>{
-		const filter=new DefaultNoteFilter('user = https://www.openstreetmap.org/user/Alice')
-		reject("anonymous note",filter,makeNoteWithUsers(0))
-		accept("matching user note",filter,makeNoteWithUsers(101))
-		reject("non-matching user note",filter,makeNoteWithUsers(102))
-	})
 	context("double inequality user filter",()=>{
 		const filter=new DefaultNoteFilter('user != Alice, user != Bob')
 		reject("note with one user equal",filter,makeNoteWithUsers(101))

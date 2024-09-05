@@ -49,4 +49,24 @@ describe("filter / parseFilterString()",()=>{
 			})
 		}, "///", {type: 'invalid', message: 'whatever'})
 	})
+	it("parses username",()=>{
+		assertOneUserQueryCall(getUserQuery=>{
+			const statements=parseFilterString('user = Alice',getUserQuery)
+			assert.deepEqual(statements,[
+				{type: 'conditions', conditions: [
+					{type: 'user', operator: '=', user: {type: 'name', username: 'Alice'}}
+				]}
+			])
+		}, "Alice", {type: 'name', username: 'Alice'})
+	})
+	it("parses user url",()=>{
+		assertOneUserQueryCall(getUserQuery=>{
+			const statements=parseFilterString('user = https://www.openstreetmap.org/user/Alice',getUserQuery)
+			assert.deepEqual(statements,[
+				{type: 'conditions', conditions: [
+					{type: 'user', operator: '=', user: {type: 'name', username: 'Alice'}}
+				]}
+			])
+		}, "https://www.openstreetmap.org/user/Alice", {type: 'name', username: 'Alice'})
+	})
 })
