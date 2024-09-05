@@ -106,7 +106,7 @@ describe("filter / NoteFilter",()=>{
 		accept("anonymous note",filter,makeNoteWithUsers(0))
 		reject("user note",filter,makeNoteWithUsers(103))
 	})
-	context("anonymous user filter",()=>{
+	context("non-anonymous user filter",()=>{
 		const filter=new DefaultNoteFilter('user != 0')
 		reject("anonymous note",filter,makeNoteWithUsers(0))
 		accept("user note",filter,makeNoteWithUsers(103))

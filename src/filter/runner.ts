@@ -2,8 +2,8 @@ import type {Note, NoteComment} from '../data'
 import {escapeRegex} from '../util/escape'
 import type {Statement, Condition, UserCondition, Operator} from './parser'
 
-export function matchNote(statements: Statement[], note: Note, getUsername: (uid: number) => string|undefined): boolean {
-	// console.log('> match',this.statements,note.comments)
+export function matchNote(originalStatements: Statement[], note: Note, getUsername: (uid: number) => string|undefined): boolean {
+	// console.log('> match',originalStatements,note.comments)
 	const isCommentEqualToUserConditionValue=(condition: UserCondition, comment: NoteComment): boolean => {
 		if (condition.user.type=='id') {
 			if (condition.user.uid==0) {
@@ -66,6 +66,18 @@ export function matchNote(statements: Statement[], note: Note, getUsername: (uid
 			getConditionActualValue(condition,comment),
 			getConditionCompareValue(condition)
 		)
+	}
+
+	const statements=[...originalStatements]
+	if (statements.length>0) {
+		const st1=statements[0].type
+		if (st1!='^' && st1!='*') {
+			statements.unshift({type:'*'})
+		}
+		const st2=statements[statements.length-1].type
+		if (st2!='$' && st2!='*') {
+			statements.push({type:'*'})
+		}
 	}
 	// const rec=(iStatement: number, iComment: number): boolean => {
 	// 	console.log('>> rec',iStatement,iComment)

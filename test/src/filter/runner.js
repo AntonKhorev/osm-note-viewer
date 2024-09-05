@@ -20,10 +20,10 @@ const makeNoteWithComments=(...texts)=>{
 	}
 }
 
-const makeSingleConditionStatements=condition=>[{type:'*'},{
+const makeSingleConditionStatements=condition=>[{
 	type: 'conditions',
 	conditions: [condition],
-},{type:'*'}]
+}]
 
 const assertAccept=v=>assert.equal(v,true)
 const assertReject=v=>assert.equal(v,false)

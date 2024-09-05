@@ -95,15 +95,5 @@ export function parseFilterString(query: string, getUserQuery: (user: string) =>
 		}
 		if (conditions.length>0) statements.push({type:'conditions',conditions})
 	}
-	if (statements.length>0) {
-		const st1=statements[0].type
-		if (st1!='^' && st1!='*') {
-			statements.unshift({type:'*'})
-		}
-		const st2=statements[statements.length-1].type
-		if (st2!='$' && st2!='*') {
-			statements.push({type:'*'})
-		}
-	}
 	return statements
 }
