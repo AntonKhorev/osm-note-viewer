@@ -7472,199 +7472,221 @@ function getMarkText(query) {
     return query.q;
 }
 
-function isValidOperator(op) {
-    return (op == '=' || op == '!=' || op == '~=' || op == '!~=');
+const conditionStartRegexp = /^(?<type>[a-z]+)\s*(?<op>!?~?=?=)\s*(?<rest>.*)$/;
+const simpleValueRegexp = /^(?<value>[^,]+)(?<rest>.*)$/;
+const textValueRegexp = /^(?:"(?<doubleQuotedText>[^"]*)"|'(?<singleQuotedText>[^']*)')(?<rest>.*)$/;
+const conditionSeparatorRegexp = /^\s*,\s*(?<rest>.*)$/;
+function parseFilterString(query, getUserQuery) {
+    const statements = [];
+    let lineNumber = 0;
+    lineLoop: for (const untrimmedLine of query.split('\n')) {
+        lineNumber++;
+        const line = untrimmedLine.trim();
+        if (!line)
+            continue;
+        for (const c of ['^', '$', '*']) {
+            if (line == c) {
+                statements.push({ type: c });
+                continue lineLoop;
+            }
+        }
+        const conditions = [];
+        let rest = line;
+        while (rest.length > 0) {
+            const conditionStartGroups = matchGroups(conditionStartRegexp);
+            const type = conditionStartGroups.type;
+            const operator = getOperator(conditionStartGroups.op);
+            if (type == 'user') {
+                const { value } = matchGroups(simpleValueRegexp);
+                const user = getUserQuery(value);
+                if (user.type == 'invalid' || user.type == 'empty') {
+                    throwError(`Invalid user value "${value}"`);
+                }
+                conditions.push({ type, operator, user });
+            }
+            else if (type == 'action') {
+                const { value: action } = matchGroups(simpleValueRegexp);
+                if (action != 'opened' && action != 'closed' && action != 'reopened' && action != 'commented' && action != 'hidden') {
+                    throwError(`Invalid action value "${action}"`);
+                }
+                conditions.push({ type, operator, action });
+            }
+            else if (type == 'text') {
+                const groups = matchGroups(textValueRegexp);
+                const text = groups.doubleQuotedText ?? groups.singleQuotedText;
+                conditions.push({ type, operator, text });
+            }
+            else {
+                throwError(`Unknown condition type "${type}"`);
+            }
+            if (rest.length > 0)
+                matchGroups(conditionSeparatorRegexp);
+        }
+        if (conditions.length > 0)
+            statements.push({ type: 'conditions', conditions });
+        function getOperator(op) {
+            if (op == '=' || op == '!=' || op == '~=' || op == '!~=')
+                return op;
+            if (op == '==')
+                return '=';
+            throwError(`Invalid operator "${op}"`);
+        }
+        function matchGroups(regExp) {
+            const match = rest.match(regExp);
+            if (!match || !match.groups)
+                throwError(`Syntax error`);
+            rest = match.groups.rest;
+            return match.groups;
+        }
+        function throwError(message) {
+            throw new RangeError(`${message} on line ${lineNumber}: ${line}`);
+        }
+    }
+    return statements;
 }
+
+function matchNote(originalStatements, note, getUsername) {
+    // console.log('> match',originalStatements,note.comments)
+    const isCommentEqualToUserConditionValue = (condition, comment) => {
+        if (condition.user.type == 'id') {
+            if (condition.user.uid == 0) {
+                if (comment.uid != null)
+                    return false;
+            }
+            else {
+                if (comment.uid != condition.user.uid)
+                    return false;
+            }
+        }
+        else {
+            if (condition.user.username == '0') {
+                if (comment.uid != null)
+                    return false;
+            }
+            else {
+                if (comment.uid == null)
+                    return false;
+                if (getUsername(comment.uid) != condition.user.username)
+                    return false;
+            }
+        }
+        return true;
+    };
+    const getConditionActualValue = (condition, comment) => {
+        if (condition.type == 'user') {
+            if (condition.user.type == 'id') {
+                return comment.uid;
+            }
+            else {
+                if (comment.uid == null)
+                    return undefined;
+                return getUsername(comment.uid);
+            }
+        }
+        else if (condition.type == 'action') {
+            return comment.action;
+        }
+        else if (condition.type == 'text') {
+            return comment.text;
+        }
+    };
+    const getConditionCompareValue = (condition) => {
+        if (condition.type == 'user') {
+            if (condition.user.type == 'id') {
+                return condition.user.uid;
+            }
+            else {
+                return condition.user.username;
+            }
+        }
+        else if (condition.type == 'action') {
+            return condition.action;
+        }
+        else if (condition.type == 'text') {
+            return condition.text;
+        }
+    };
+    const isOperatorMatches = (operator, actualValue, compareValue) => {
+        const str = (v) => String(v ?? '');
+        if (operator == '=')
+            return actualValue == compareValue;
+        if (operator == '!=')
+            return actualValue != compareValue;
+        if (operator == '~=')
+            return !!str(actualValue).match(new RegExp(escapeRegex(str(compareValue)), 'i'));
+        if (operator == '!~=')
+            return !str(actualValue).match(new RegExp(escapeRegex(str(compareValue)), 'i'));
+        return false; // shouldn't happen
+    };
+    const isConditionMatches = (condition, comment) => {
+        if (condition.type == 'user' && (condition.operator == '=' || condition.operator == '!=')) {
+            const isEqual = isCommentEqualToUserConditionValue(condition, comment);
+            return condition.operator == '=' ? isEqual : !isEqual;
+        }
+        return isOperatorMatches(condition.operator, getConditionActualValue(condition, comment), getConditionCompareValue(condition));
+    };
+    const statements = [...originalStatements];
+    if (statements.length > 0) {
+        const st1 = statements[0].type;
+        if (st1 != '^' && st1 != '*') {
+            statements.unshift({ type: '*' });
+        }
+        const st2 = statements[statements.length - 1].type;
+        if (st2 != '$' && st2 != '*') {
+            statements.push({ type: '*' });
+        }
+    }
+    // const rec=(iStatement: number, iComment: number): boolean => {
+    // 	console.log('>> rec',iStatement,iComment)
+    // 	const result=rec1(iStatement,iComment)
+    // 	console.log('<< rec',iStatement,iComment,'got',result)
+    // 	return result
+    // }
+    const rec = (iStatement, iComment) => {
+        // const rec1=(iStatement: number, iComment: number): boolean => {
+        if (iStatement >= statements.length)
+            return true;
+        const statement = statements[iStatement];
+        if (statement.type == '^') {
+            if (iComment != 0)
+                return false;
+            return rec(iStatement + 1, iComment);
+        }
+        else if (statement.type == '$') {
+            return iComment == note.comments.length;
+        }
+        else if (statement.type == '*') {
+            if (iComment < note.comments.length && rec(iStatement, iComment + 1))
+                return true;
+            return rec(iStatement + 1, iComment);
+        }
+        if (iComment >= note.comments.length)
+            return false;
+        const comment = note.comments[iComment];
+        if (statement.type == 'conditions') {
+            for (const condition of statement.conditions) {
+                if (!isConditionMatches(condition, comment))
+                    return false;
+            }
+            return rec(iStatement + 1, iComment + 1);
+        }
+        return false; // shouldn't happen
+    };
+    return rec(0, 0);
+    // return rec1(0,0)
+}
+
 class NoteFilter {
     constructor(apiUrlLister, webUrlLister, query) {
         this.query = query;
         this.statements = [];
-        let lineNumber = 0;
-        lineLoop: for (const untrimmedLine of query.split('\n')) {
-            lineNumber++;
-            const line = untrimmedLine.trim();
-            if (!line)
-                continue;
-            for (const c of ['^', '$', '*']) {
-                if (line == c) {
-                    this.statements.push({ type: c });
-                    continue lineLoop;
-                }
-            }
-            const conditions = [];
-            for (const untrimmedTerm of line.split(',')) {
-                const term = untrimmedTerm.trim();
-                const makeRegExp = (symbol, rest) => new RegExp(`^${symbol}\\s*(!?~?=)\\s*${rest}$`);
-                const matchTerm = (symbol, rest) => term.match(makeRegExp(symbol, rest));
-                let match;
-                if (match = matchTerm('user', '(.+)')) {
-                    const [, operator, user] = match;
-                    if (!isValidOperator(operator))
-                        continue; // impossible
-                    const userQuery = toUserQuery(apiUrlLister, webUrlLister, user);
-                    if (userQuery.type == 'invalid' || userQuery.type == 'empty') {
-                        throwError(`Invalid user value "${user}"`);
-                    }
-                    conditions.push({ type: 'user', operator, user: userQuery });
-                    continue;
-                }
-                else if (match = matchTerm('action', '(.+)')) {
-                    const [, operator, action] = match;
-                    if (!isValidOperator(operator))
-                        continue; // impossible
-                    if (action != 'opened' && action != 'closed' && action != 'reopened' && action != 'commented' && action != 'hidden') {
-                        throwError(`Invalid action value "${action}"`);
-                    }
-                    conditions.push({ type: 'action', operator, action });
-                    continue;
-                }
-                else if (match = matchTerm('text', '"([^"]*)"')) {
-                    const [, operator, text] = match;
-                    if (!isValidOperator(operator))
-                        continue; // impossible
-                    conditions.push({ type: 'text', operator, text });
-                    continue;
-                }
-                throwError(`Syntax error`);
-                function throwError(message) {
-                    throw new RangeError(`${message} on line ${lineNumber}: ${line}`);
-                }
-            }
-            if (conditions.length > 0)
-                this.statements.push({ type: 'conditions', conditions });
-        }
-        if (this.statements.length > 0) {
-            const st1 = this.statements[0].type;
-            if (st1 != '^' && st1 != '*') {
-                this.statements.unshift({ type: '*' });
-            }
-            const st2 = this.statements[this.statements.length - 1].type;
-            if (st2 != '$' && st2 != '*') {
-                this.statements.push({ type: '*' });
-            }
-        }
+        this.statements = parseFilterString(query, user => toUserQuery(apiUrlLister, webUrlLister, user));
     }
     isSameQuery(query) {
         return this.query == query;
     }
     matchNote(note, getUsername) {
-        // console.log('> match',this.statements,note.comments)
-        const isCommentEqualToUserConditionValue = (condition, comment) => {
-            if (condition.user.type == 'id') {
-                if (condition.user.uid == 0) {
-                    if (comment.uid != null)
-                        return false;
-                }
-                else {
-                    if (comment.uid != condition.user.uid)
-                        return false;
-                }
-            }
-            else {
-                if (condition.user.username == '0') {
-                    if (comment.uid != null)
-                        return false;
-                }
-                else {
-                    if (comment.uid == null)
-                        return false;
-                    if (getUsername(comment.uid) != condition.user.username)
-                        return false;
-                }
-            }
-            return true;
-        };
-        const getConditionActualValue = (condition, comment) => {
-            if (condition.type == 'user') {
-                if (condition.user.type == 'id') {
-                    return comment.uid;
-                }
-                else {
-                    if (comment.uid == null)
-                        return undefined;
-                    return getUsername(comment.uid);
-                }
-            }
-            else if (condition.type == 'action') {
-                return comment.action;
-            }
-            else if (condition.type == 'text') {
-                return comment.text;
-            }
-        };
-        const getConditionCompareValue = (condition) => {
-            if (condition.type == 'user') {
-                if (condition.user.type == 'id') {
-                    return condition.user.uid;
-                }
-                else {
-                    return condition.user.username;
-                }
-            }
-            else if (condition.type == 'action') {
-                return condition.action;
-            }
-            else if (condition.type == 'text') {
-                return condition.text;
-            }
-        };
-        const isOperatorMatches = (operator, actualValue, compareValue) => {
-            const str = (v) => String(v ?? '');
-            if (operator == '=')
-                return actualValue == compareValue;
-            if (operator == '!=')
-                return actualValue != compareValue;
-            if (operator == '~=')
-                return !!str(actualValue).match(new RegExp(escapeRegex(str(compareValue)), 'i'));
-            if (operator == '!~=')
-                return !str(actualValue).match(new RegExp(escapeRegex(str(compareValue)), 'i'));
-            return false; // shouldn't happen
-        };
-        const isConditionMatches = (condition, comment) => {
-            if (condition.type == 'user' && (condition.operator == '=' || condition.operator == '!=')) {
-                const isEqual = isCommentEqualToUserConditionValue(condition, comment);
-                return condition.operator == '=' ? isEqual : !isEqual;
-            }
-            return isOperatorMatches(condition.operator, getConditionActualValue(condition, comment), getConditionCompareValue(condition));
-        };
-        // const rec=(iStatement: number, iComment: number): boolean => {
-        // 	console.log('>> rec',iStatement,iComment)
-        // 	const result=rec1(iStatement,iComment)
-        // 	console.log('<< rec',iStatement,iComment,'got',result)
-        // 	return result
-        // }
-        const rec = (iStatement, iComment) => {
-            // const rec1=(iStatement: number, iComment: number): boolean => {
-            if (iStatement >= this.statements.length)
-                return true;
-            const statement = this.statements[iStatement];
-            if (statement.type == '^') {
-                if (iComment != 0)
-                    return false;
-                return rec(iStatement + 1, iComment);
-            }
-            else if (statement.type == '$') {
-                return iComment == note.comments.length;
-            }
-            else if (statement.type == '*') {
-                if (iComment < note.comments.length && rec(iStatement, iComment + 1))
-                    return true;
-                return rec(iStatement + 1, iComment);
-            }
-            if (iComment >= note.comments.length)
-                return false;
-            const comment = note.comments[iComment];
-            if (statement.type == 'conditions') {
-                for (const condition of statement.conditions) {
-                    if (!isConditionMatches(condition, comment))
-                        return false;
-                }
-                return rec(iStatement + 1, iComment + 1);
-            }
-            return false; // shouldn't happen
-        };
-        return rec(0, 0);
-        // return rec1(0,0)
+        return matchNote(this.statements, note, getUsername);
     }
 }
 
@@ -7690,12 +7712,12 @@ const syntaxDescription = `<summary>Filter syntax</summary>
 	<ul>
 	${subDef(`<kbd>user </kbd>${term('comparison operator')}<kbd> </kbd>${term('user descriptor')}`, `comment (not) by a specified user`)}
 	${subDef(`<kbd>action </kbd>${term('comparison operator')}<kbd> </kbd>${term('action descriptor')}`, `comment (not) performing a specified action`)}
-	${subDef(`<kbd>text </kbd>${term('comparison operator')}<kbd> "</kbd>${term('search string')}<kbd>"</kbd>`, `comment (not) equal to a specified text`)}
+	${subDef(`<kbd>text </kbd>${term('comparison operator')}<kbd> </kbd>${term('search string')}`, `comment (not) equal to a specified text, ${term('search string')} has to be quoted either with <kbd>""</kbd> or with <kbd>''</kbd>`)}
 	</ul>
 <dt>${term('comparison operator')}
 <dd>One of:
 	<ul>
-	${subDef(`<kbd>=</kbd>`, `full string equality`)}
+	${subDef(`<kbd>=</kbd> or <kbd>==</kbd>`, `full string equality`)}
 	${subDef(`<kbd>!=</kbd>`, `full string inequality`)}
 	${subDef(`<kbd>~=</kbd>`, `case-insensitive substring match`)}
 	${subDef(`<kbd>!~=</kbd>`, `no case-insensitive substring match`)}
