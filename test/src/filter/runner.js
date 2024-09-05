@@ -20,6 +20,11 @@ const makeNoteWithComments=(...texts)=>{
 	}
 }
 
+const makeSingleConditionStatements=condition=>[{
+	type: 'conditions',
+	conditions: [condition],
+}]
+
 const assertAccept=v=>assert.equal(v,true)
 const assertReject=v=>assert.equal(v,false)
 
@@ -37,19 +42,15 @@ describe("filter / matchNote()",()=>{
 	const reject=(what,statements,note)=>it("rejects "+what,()=>assertReject(
 		matchNote(statements,note,getUsername)
 	))
+	context("substring match comment filter",()=>{
+		const statements=makeSingleConditionStatements({type: 'text', operator: '~=', text: "street"})
+		reject("note with one empty comment",statements,makeNoteWithComments(``))
+		accept("note with a full matching comment",statements,makeNoteWithComments(`Street`))
+		accept("note with a substring matching comment",statements,makeNoteWithComments(`Main Street`))
+		reject("note with a non-matching comment",statements,makeNoteWithComments(`wut`))
+	})
 	context("negative substring match comment filter",()=>{
-		const statements=[
-			{
-				type: 'conditions',
-				conditions: [
-					{
-						operator: '!~=',
-						type: 'text',
-						text: "street",
-					}
-				]
-			}
-		]
+		const statements=makeSingleConditionStatements({type: 'text', operator: '!~=', text: "street"})
 		accept("note with one empty comment",statements,makeNoteWithComments(``))
 		reject("note with a full matching comment",statements,makeNoteWithComments(`Street`))
 		reject("note with a substring matching comment",statements,makeNoteWithComments(`Main Street`))
