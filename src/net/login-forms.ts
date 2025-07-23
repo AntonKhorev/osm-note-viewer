@@ -14,6 +14,7 @@ export default class LoginForms {
 	private readonly $manualCodeInput=document.createElement('input')
 	private readonly $error=makeDiv('notice')()
 	private loginWindow?: Window
+	private broadcastChannel?: BroadcastChannel
 	constructor(
 		$container: HTMLElement,
 		appName: string,
@@ -84,23 +85,26 @@ export default class LoginForms {
 				})
 			}
 		} else {
-			(<any>window).receiveOsmAuthCode=async(code:unknown)=>{
-				await wrapAction(async()=>{
-					if (typeof code != 'string') {
-						throw new AuthError(`Unexpected code parameter type received from popup window`)
-					}
-					await submitCode(code)
-				})
-				this.stopWaitingForAuthorization()
-			}
-			(<any>window).receiveOsmAuthDenial=async(errorDescription:unknown)=>{
-				await wrapAction(async()=>{
-					throw new AuthError(typeof errorDescription == 'string'
-						? errorDescription
-						: `Unknown authorization error`
-					)
-				})
-				this.stopWaitingForAuthorization()
+			const broadcastChannel=new BroadcastChannel(`osm-note-viewer-oauth-grant`)
+			broadcastChannel.onmessage = async(ev)=>{
+				if (ev.data.type == "code") {
+					await wrapAction(async()=>{
+						const code=ev.data.code
+						if (typeof code != 'string') {
+							throw new AuthError(`Unexpected code parameter type received from popup window`)
+						}
+						await submitCode(code)
+					})
+					this.stopWaitingForAuthorization()
+				} else if (ev.data.type == "error") {
+					await wrapAction(async()=>{
+						throw new AuthError(typeof ev.data.errorDescription == 'string'
+							? ev.data.errorDescription
+							: `Unknown authorization error`
+						)
+					})
+					this.stopWaitingForAuthorization()
+				}
 			}
 		}
 		this.loginWindow=loginWindow
@@ -114,9 +118,8 @@ export default class LoginForms {
 	}
 	private stopWaitingForAuthorization() {
 		this.$manualCodeForm.onsubmit=(ev)=>ev.preventDefault()
-		delete (<any>window).receiveOsmAuthCode
-		delete (<any>window).receiveOsmAuthDenial
-		this.loginWindow?.close()
+		this.broadcastChannel?.close()
+		this.loginWindow?.close() // apparently doesn't work anymore
 		this.loginWindow=undefined
 		this.$loginButton.hidden=false
 		this.$cancelLoginButton.hidden=true
