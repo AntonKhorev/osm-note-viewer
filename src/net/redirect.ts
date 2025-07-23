@@ -1,7 +1,4 @@
-import {makeDiv, makeLink} from '../util/html'
-import {em} from '../util/html-shortcuts'
-
-export function checkAuthRedirectForInstallUri(appName: string, installUri: string): boolean {
+export function checkAuthRedirectForInstallUri(): boolean {
 	const params=new URLSearchParams(location.search)
 	const code=params.get('code')
 	const error=params.get('error')

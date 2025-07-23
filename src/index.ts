@@ -22,7 +22,7 @@ import serverListConfig from './server-list-config'
 main()
 
 async function main() {
-	if (checkAuthRedirect(`osm-note-viewer`)) {
+	if (checkAuthRedirect()) {
 		return
 	}
 

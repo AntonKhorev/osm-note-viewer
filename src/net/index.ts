@@ -18,8 +18,8 @@ export * from './server'
 
 const installUri=`${location.protocol}//${location.host}${location.pathname}`
 
-export function checkAuthRedirect(appName: string) {
-	return checkAuthRedirectForInstallUri(appName,installUri)
+export function checkAuthRedirect() {
+	return checkAuthRedirectForInstallUri()
 }
 
 export default class Net<T extends ServerSelector> {
