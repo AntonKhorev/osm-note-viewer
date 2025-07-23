@@ -129,16 +129,20 @@ export default class AppSection {
 				}
 				return $anchor
 			}
+			const targetBlank=($a:HTMLAnchorElement)=>{
+				$a.target='_blank'
+				return $a
+			}
 			const $details=makeElement('details')()(
 				makeElement('summary')()(summary),
 				...lead,
 				ol(
 					li(
-						`Go to `,makeLink(`My Settings > OAuth 2 applications > Register new application`,server.web.getUrl(`oauth2/applications/new`)),
+						`Go to `,targetBlank(makeLink(`My Settings > OAuth 2 applications > Register new application`,server.web.getUrl(`oauth2/applications/new`))),
 						` on `,em(server.host),`.`
 					),li(
 						`For `,em(`Name`),` enter anything that would help users to identify your copy of `,app(),`, for example, `,value(`${appName} @ ${authStorage.installUri}`),`. `,
-						`Users will see this name on the authorization granting page and in their `,makeLink(`active authorizations list`,server.web.getUrl(`oauth2/authorized_applications`)),` after they log in here.`
+						`Users will see this name on the authorization granting page and in their `,targetBlank(makeLink(`active authorizations list`,server.web.getUrl(`oauth2/authorized_applications`))),` after they log in here.`
 					),li(
 						`For `,em(`Redirect URIs`),` enter `,mark(value(redirectUri)),`.`
 					),li(
@@ -156,7 +160,7 @@ export default class AppSection {
 						mark(isManualCodeEntry?`Check`:`Uncheck`),` `,makeInputLink($manualCodeEntryCheckbox,em(manualCodeEntryLabel),` below`),`.`
 					)
 				),
-				p(`After these steps you should be able to see `,app(),` with its client id and permissions in `,makeLink(`your client applications`,server.web.getUrl(`oauth2/applications`)),`.`),
+				p(`After these steps you should be able to see `,app(),` with its client id and permissions in `,targetBlank(makeLink(`your client applications`,server.web.getUrl(`oauth2/applications`))),`.`),
 			)
 			if (isOpen) $details.open=true
 			return $details
