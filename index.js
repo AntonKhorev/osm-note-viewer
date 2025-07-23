@@ -1537,7 +1537,11 @@ class AppSection {
                 };
                 return $anchor;
             };
-            const $details = makeElement('details')()(makeElement('summary')()(summary), ...lead, ol(li(`Go to `, makeLink(`My Settings > OAuth 2 applications > Register new application`, server.web.getUrl(`oauth2/applications/new`)), ` on `, em(server.host), `.`), li(`For `, em(`Name`), ` enter anything that would help users to identify your copy of `, app(), `, for example, `, value(`${appName} @ ${authStorage.installUri}`), `. `, `Users will see this name on the authorization granting page and in their `, makeLink(`active authorizations list`, server.web.getUrl(`oauth2/authorized_applications`)), ` after they log in here.`), li(`For `, em(`Redirect URIs`), ` enter `, mark(value(redirectUri)), `.`), li(`Uncheck `, em(`Confidential application?`)), li(`In `, em(`Permissions`), ` check:`, makePermissionsList(oauthScope)), li(`Click `, em(`Register`), `.`), li(`Copy the `, em(`Client ID`), ` to `, makeInputLink($clientIdInput, `the input below`), `.`), li(`Don't copy the `, em(`Client Secret`), `. `, `You can write it down somewhere but it's going to be useless because `, app(), ` is not a confidential app and can't keep secrets.`), li(mark(isManualCodeEntry ? `Check` : `Uncheck`), ` `, makeInputLink($manualCodeEntryCheckbox, em(manualCodeEntryLabel), ` below`), `.`)), p(`After these steps you should be able to see `, app(), ` with its client id and permissions in `, makeLink(`your client applications`, server.web.getUrl(`oauth2/applications`)), `.`));
+            const targetBlank = ($a) => {
+                $a.target = '_blank';
+                return $a;
+            };
+            const $details = makeElement('details')()(makeElement('summary')()(summary), ...lead, ol(li(`Go to `, targetBlank(makeLink(`My Settings > OAuth 2 applications > Register new application`, server.web.getUrl(`oauth2/applications/new`))), ` on `, em(server.host), `.`), li(`For `, em(`Name`), ` enter anything that would help users to identify your copy of `, app(), `, for example, `, value(`${appName} @ ${authStorage.installUri}`), `. `, `Users will see this name on the authorization granting page and in their `, targetBlank(makeLink(`active authorizations list`, server.web.getUrl(`oauth2/authorized_applications`))), ` after they log in here.`), li(`For `, em(`Redirect URIs`), ` enter `, mark(value(redirectUri)), `.`), li(`Uncheck `, em(`Confidential application?`)), li(`In `, em(`Permissions`), ` check:`, makePermissionsList(oauthScope)), li(`Click `, em(`Register`), `.`), li(`Copy the `, em(`Client ID`), ` to `, makeInputLink($clientIdInput, `the input below`), `.`), li(`Don't copy the `, em(`Client Secret`), `. `, `You can write it down somewhere but it's going to be useless because `, app(), ` is not a confidential app and can't keep secrets.`), li(mark(isManualCodeEntry ? `Check` : `Uncheck`), ` `, makeInputLink($manualCodeEntryCheckbox, em(manualCodeEntryLabel), ` below`), `.`)), p(`After these steps you should be able to see `, app(), ` with its client id and permissions in `, targetBlank(makeLink(`your client applications`, server.web.getUrl(`oauth2/applications`))), `.`));
             if (isOpen)
                 $details.open = true;
             return $details;
@@ -1632,22 +1636,26 @@ class LoginForms {
             };
         }
         else {
-            window.receiveOsmAuthCode = async (code) => {
-                await wrapAction(async () => {
-                    if (typeof code != 'string') {
-                        throw new AuthError(`Unexpected code parameter type received from popup window`);
-                    }
-                    await submitCode(code);
-                });
-                this.stopWaitingForAuthorization();
-            };
-            window.receiveOsmAuthDenial = async (errorDescription) => {
-                await wrapAction(async () => {
-                    throw new AuthError(typeof errorDescription == 'string'
-                        ? errorDescription
-                        : `Unknown authorization error`);
-                });
-                this.stopWaitingForAuthorization();
+            const broadcastChannel = new BroadcastChannel(`osm-note-viewer-oauth-grant`);
+            broadcastChannel.onmessage = async (ev) => {
+                if (ev.data.type == "code") {
+                    await wrapAction(async () => {
+                        const code = ev.data.code;
+                        if (typeof code != 'string') {
+                            throw new AuthError(`Unexpected code parameter type received from popup window`);
+                        }
+                        await submitCode(code);
+                    });
+                    this.stopWaitingForAuthorization();
+                }
+                else if (ev.data.type == "error") {
+                    await wrapAction(async () => {
+                        throw new AuthError(typeof ev.data.errorDescription == 'string'
+                            ? ev.data.errorDescription
+                            : `Unknown authorization error`);
+                    });
+                    this.stopWaitingForAuthorization();
+                }
             };
         }
         this.loginWindow = loginWindow;
@@ -1661,9 +1669,8 @@ class LoginForms {
     }
     stopWaitingForAuthorization() {
         this.$manualCodeForm.onsubmit = (ev) => ev.preventDefault();
-        delete window.receiveOsmAuthCode;
-        delete window.receiveOsmAuthDenial;
-        this.loginWindow?.close();
+        this.broadcastChannel?.close();
+        this.loginWindow?.close(); // apparently doesn't work anymore
         this.loginWindow = undefined;
         this.$loginButton.hidden = false;
         this.$cancelLoginButton.hidden = true;
@@ -1945,13 +1952,7 @@ class LoginSection {
     }
 }
 
-function isAuthOpener(o) {
-    return (o && typeof o == 'object' &&
-        typeof o.receiveOsmAuthCode == 'function' &&
-        typeof o.receiveOsmAuthDenial == 'function');
-}
-function checkAuthRedirectForInstallUri(appName, installUri) {
-    const app = () => em(appName);
+function checkAuthRedirectForInstallUri() {
     const params = new URLSearchParams(location.search);
     const code = params.get('code');
     const error = params.get('error');
@@ -1959,21 +1960,25 @@ function checkAuthRedirectForInstallUri(appName, installUri) {
     if (code == null && error == null) {
         return false;
     }
-    if (!isAuthOpener(window.opener)) {
-        document.body.append(makeDiv('notice')(`This is the location of authentication redirect for `, app(), `. `, `It is expected to be opened in a popup window when performing a login. `, `Instead it is opened outside of a popup and cannot function properly. `, `If you want to continue using `, app(), `, please open `, makeLink(`this link`, installUri), `.`));
-    }
-    else if (code != null) {
-        window.opener.receiveOsmAuthCode(code);
+    if (code != null) {
+        new BroadcastChannel(`osm-note-viewer-oauth-grant`).postMessage({
+            type: 'code',
+            code
+        });
     }
     else if (error != null) {
-        window.opener.receiveOsmAuthDenial(errorDescription ?? error);
+        new BroadcastChannel(`osm-note-viewer-oauth-grant`).postMessage({
+            type: 'error',
+            errorDescription: errorDescription ?? error
+        });
     }
+    close();
     return true;
 }
 
 const installUri = `${location.protocol}//${location.host}${location.pathname}`;
-function checkAuthRedirect(appName) {
-    return checkAuthRedirectForInstallUri(appName, installUri);
+function checkAuthRedirect() {
+    return checkAuthRedirectForInstallUri();
 }
 class Net {
     constructor(appName, oauthScope, loginReasons, serverListConfig, storage, makeServerSelector, onLoginChange) {
@@ -12744,7 +12749,7 @@ var serverListConfig = [
 
 main();
 async function main() {
-    if (checkAuthRedirect(`osm-note-viewer`)) {
+    if (checkAuthRedirect()) {
         return;
     }
     const $root = makeDiv('ui')();

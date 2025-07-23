@@ -831,8 +831,11 @@ dialog.help button.close-all-tools::before {
 	cursor: pointer;
 }
 
-.panel details.with-code-form details.syntax {
+.panel details.with-code-form details.syntax:not([open]) {
 	float: right;
+}
+.panel details.with-code-form details.syntax[open] {
+	margin: .5rem 0;
 }
 .panel details.with-code-form details.syntax[open] > summary {
 	margin-left: calc(-1 * var(--panel-padding));
